@@ -1,0 +1,303 @@
+import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
+import { cn, Icon } from "@everyfield/ui/foundations";
+import type { MailReport } from "@everyfield/contracts/communication";
+import type { ReactNode } from "react";
+import {
+	audienceText,
+	LEFT_OUT_REASON,
+	RECIPIENT_OUTCOME,
+	reportTime,
+	sendTimeFull,
+	sendTimeOf,
+	stoppedReason,
+	type Change,
+	type Review,
+} from "./model.ts";
+
+// What an email review shows (MAIL51-009): the subject, who gets it and who is left out, the exact content, and the send
+// time in the church's zone. After approval it shows only what the email service confirmed, never "delivered".
+
+const find = (review: Review, field: string): Change | undefined =>
+	review.review.changes.find((c) => c.field === field);
+const text = (value: unknown) => (typeof value === "string" ? value : "");
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+	return (
+		<div className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+			<dt className="text-text-2">{label}</dt>
+			<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">{children}</dd>
+		</div>
+	);
+}
+const Then = () => (
+	<>
+		<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
+		<span className="sr-only"> to </span>
+	</>
+);
+const Old = ({ children }: { children: ReactNode }) => <span className="text-text-2 line-through">{children}</span>;
+const New = ({ children }: { children: ReactNode }) => (
+	<span className="font-medium break-words text-ink">{children}</span>
+);
+
+/** A long text kept in its own block so a body reads as the reader will see it. */
+function Block({ label, children, muted }: { label: string; children: string; muted?: boolean }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<dt className="text-text-2">{label}</dt>
+			<dd>
+				<p
+					className={cn(
+						"rounded-md bg-surface-raised px-3 py-2 whitespace-pre-line shadow-[inset_0_0_0_1px_var(--ef-line)]",
+						muted && "text-text-2",
+					)}
+				>
+					{children}
+				</p>
+			</dd>
+		</div>
+	);
+}
+
+function People({ label, names }: { label: string; names: { name: string; note?: string }[] }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<dt className="text-text-2">
+				{label} <span className="tabular-nums">({names.length})</span>
+			</dt>
+			<dd>
+				{names.length ? (
+					<ul className="flex flex-col gap-0.5">
+						{names.map((p, n) => (
+							<li key={`${p.name}:${n}`} className="flex flex-wrap items-baseline gap-x-2">
+								<span className="font-medium text-ink">{p.name}</span>
+								{p.note ? <span className="text-xs text-text-2">{p.note}</span> : null}
+							</li>
+						))}
+					</ul>
+				) : (
+					<span className="text-text-3 italic">Nobody</span>
+				)}
+			</dd>
+		</div>
+	);
+}
+
+/** The reviewed facts of one email change. */
+export function MailChanges({ review }: { review: Review }) {
+	const subject = text(find(review, "subject")?.after);
+	const time = sendTimeOf(review, "after");
+	const was = sendTimeOf(review, "before");
+	const body = find(review, "body");
+	const audience = find(review, "audience");
+	const count = find(review, "recipientCount")?.after;
+	const recipients = find(review, "recipients")?.after;
+	const leftOut = find(review, "leftOut")?.after;
+	const content = find(review, "content")?.after;
+	const op = review.operation;
+	return (
+		<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+			<Row label="Subject">
+				<New>{subject || "Untitled draft"}</New>
+			</Row>
+			{op === "communication.saveDraft" ? (
+				<>
+					<Row label="Audience">
+						<New>{audienceText(audience?.after) ?? "Not chosen"}</New>
+					</Row>
+					<Block label="Body">{text(body?.after)}</Block>
+				</>
+			) : null}
+			{op === "communication.scheduleReviewed" ? (
+				<>
+					<People
+						label="Will get it"
+						names={(Array.isArray(recipients) ? recipients : []).map((r: { name: string }) => ({ name: r.name }))}
+					/>
+					<People
+						label="Left out"
+						names={(Array.isArray(leftOut) ? leftOut : []).map((r: { name: string; reason: string }) => ({
+							name: r.name,
+							note: LEFT_OUT_REASON[r.reason] ?? r.reason,
+						}))}
+					/>
+					<Block label="What each person sees">{text(content)}</Block>
+				</>
+			) : null}
+			{op === "communication.rescheduleReviewed" ||
+			op === "communication.cancelScheduledReviewed" ||
+			op === "communication.replaceScheduledReviewed" ? (
+				<Row label="People">
+					<New>
+						{String(count ?? 0)} {Number(count) === 1 ? "person" : "people"}
+					</New>
+				</Row>
+			) : null}
+			{op === "communication.replaceScheduledReviewed" && audience ? (
+				<Row label="Audience">
+					<Old>{audienceText(audience.before)}</Old>
+					<Then />
+					<New>{audienceText(audience.after)}</New>
+				</Row>
+			) : null}
+			{op === "communication.replaceScheduledReviewed" && body ? (
+				<>
+					<Block label="Body now" muted>
+						{text(body.before)}
+					</Block>
+					<Block label="Body after">{text(body.after)}</Block>
+				</>
+			) : null}
+			{time ? (
+				<Row label="Sends">
+					{op === "communication.rescheduleReviewed" && was ? (
+						<>
+							<Old>{sendTimeFull(was)}</Old>
+							<Then />
+						</>
+					) : null}
+					<New>{sendTimeFull(time)}</New>
+				</Row>
+			) : null}
+			{op === "communication.cancelScheduledReviewed" && was ? (
+				<Row label="Was set for">
+					<New>{sendTimeFull(was)}</New>
+				</Row>
+			) : null}
+		</dl>
+	);
+}
+
+/** What the card tells the owner will and will not happen, in one sentence. */
+export const MAIL_CONSEQUENCE: Record<string, string> = {
+	"communication.saveDraft": "The draft is saved in Messages. Nothing is sent.",
+	"communication.scheduleReviewed":
+		"The email service holds the email until this time. It says Scheduled only after the email service accepts it.",
+	"communication.rescheduleReviewed":
+		"Recipients and content stay the same. The new time shows only after the email service confirms it.",
+	"communication.cancelScheduledReviewed": "It says Cancelled only after the email service confirms every cancel.",
+	"communication.replaceScheduledReviewed":
+		"The old send is cancelled first. The new one is scheduled at the same time only after the email service confirms every cancel. If any cancel is not confirmed or already sent, nothing new is scheduled.",
+};
+
+function Tally({ items }: { items: [string, number][] }) {
+	return (
+		<ul className="flex flex-wrap gap-x-4 gap-y-1">
+			{items.map(([label, n]) => (
+				<li key={label}>
+					<span className="text-text-2">{label} </span>
+					<span className="font-medium tabular-nums text-ink">{n}</span>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+const noun = (n: number) => (n === 1 ? "recipient" : "recipients");
+
+/** The accepted, refused and unknown counts of one request to the email service. */
+const handoffTally = (report: { accepted: number; refused: number; unknown: number }) => (
+	<Tally
+		items={[
+			["Accepted", report.accepted],
+			["Refused", report.refused],
+			["Unknown", report.unknown],
+		]}
+	/>
+);
+const cancelTally = (report: { cancelled: number; sent: number; open: number }) => (
+	<Tally
+		items={[
+			["Cancelled", report.cancelled],
+			["Already sent", report.sent],
+			["Not confirmed", report.open],
+		]}
+	/>
+);
+
+/** What the email service said about one request, in words that never go past what it said. */
+function handoffText(report: { confirmation: string; unknown: number }, at: string | null): string {
+	return report.confirmation === "confirmed"
+		? `The email service accepted these for ${at}. Accepted does not mean the email arrived. The email service reports what happens next.`
+		: `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email at ${at}. Check again asks it again.`;
+}
+
+function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>) {
+	if (report.confirmation === "not_confirmed")
+		return "Nothing new was scheduled. The email service did not confirm every cancel. Check again asks it again.";
+	if (report.confirmation === "blocked")
+		return "Nothing new was scheduled. At least one recipient could not be cancelled because the email already went out.";
+	return `The old send is cancelled, and the new one was not scheduled. ${stoppedReason(report.code)} Nobody gets this email unless you schedule it again.`;
+}
+
+/** The saved result of an email effect, in the words of what the email service said. */
+export function MailResult({ review }: { review: Review }) {
+	const report = review.receipt?.report;
+	if (!report) return null;
+	let lines: ReactNode = null;
+	switch (report.kind) {
+		case "schedule":
+			lines = (
+				<>
+					{handoffTally(report)}
+					<p className="text-text-2">
+						{report.confirmation === "refused"
+							? report.code
+								? `Messages shows this message as scheduled, but the email service was not asked, so no email is on its way. ${stoppedReason(report.code)}`
+								: "The email service refused every recipient, so no email is on its way. Messages shows what it refused."
+							: handoffText(report, reportTime(report.scheduledAt, review))}
+					</p>
+				</>
+			);
+			break;
+		case "replace":
+			lines = (
+				<>
+					{handoffTally(report)}
+					<p className="text-text-2">
+						The old send is cancelled. {handoffText(report, reportTime(report.scheduledAt, review))}
+					</p>
+				</>
+			);
+			break;
+		case "reschedule":
+			lines =
+				report.confirmation === "confirmed" ? (
+					<p>
+						The email service confirmed {reportTime(report.scheduledAt, review)}. The earlier time is gone.
+						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
+					</p>
+				) : report.confirmation === "none" ? (
+					<p>The email service holds no recipient of this message, so no time changed.</p>
+				) : (
+					<p>
+						The email service did not confirm the new time for {report.open} {noun(report.open)}. They may still hold
+						the earlier time. Check again asks it again.
+					</p>
+				);
+			break;
+		case "cancel":
+			lines = (
+				<>
+					{cancelTally(report)}
+					{report.confirmation === "not_confirmed" ? (
+						<p className="text-text-2">Not confirmed is not cancelled. Check again asks the email service again.</p>
+					) : null}
+				</>
+			);
+			break;
+		case "replace_stopped":
+			lines = (
+				<>
+					{cancelTally(report)}
+					<p>{stoppedText(report)}</p>
+					<People
+						label="Affected"
+						names={report.people.map((p) => ({ name: p.name, note: RECIPIENT_OUTCOME[p.outcome] }))}
+					/>
+				</>
+			);
+			break;
+	}
+	return <div className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">{lines}</div>;
+}

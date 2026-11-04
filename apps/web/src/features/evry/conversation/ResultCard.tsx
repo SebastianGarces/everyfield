@@ -1,6 +1,6 @@
 "use client";
 
-import { Home01Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Home01Icon, Mail01Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, IntentLink } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { Avatar, StageChip, Tag } from "@everyfield/ui/display";
@@ -45,7 +45,15 @@ export function ResultCard({
 		>
 			<header className="flex items-center gap-2.5 border-b border-line px-4 py-3 text-sm font-semibold text-ink">
 				<Icon
-					icon={icon === "household" ? Home01Icon : icon === "people" ? UserMultipleIcon : UserIcon}
+					icon={
+						icon === "message"
+							? Mail01Icon
+							: icon === "household"
+								? Home01Icon
+								: icon === "people"
+									? UserMultipleIcon
+									: UserIcon
+					}
 					size={16}
 					className="text-text-3"
 				/>

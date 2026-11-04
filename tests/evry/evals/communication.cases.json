@@ -1,0 +1,110 @@
+[
+	{
+		"text": "Draft an email to the launch team inviting them to Sunday's interest meeting.",
+		"operation": "communication.saveDraft",
+		"expect": "propose",
+		"input": {
+			"groups": ["launch_team"],
+			"subjectMentions": "interest meeting"
+		},
+		"rubric": {
+			"proposes": "Proposes a new draft and does not claim it was saved or sent",
+			"audience": "Chooses the launch_team group as the audience"
+		}
+	},
+	{
+		"text": "Write an email to the launch team about Sunday's interest meeting and save it as a draft.",
+		"operation": "communication.saveDraft",
+		"expect": "propose",
+		"input": {
+			"groups": ["launch_team"],
+			"subjectMentions": "interest meeting"
+		},
+		"rubric": {
+			"proposes": "Proposes a new draft",
+			"audience": "Chooses the launch_team group as the audience"
+		}
+	},
+	{
+		"text": "Schedule it for Friday at 9am.",
+		"operation": "communication.scheduleReviewed",
+		"expect": "propose",
+		"input": {
+			"communicationId": "draft",
+			"sendAt": "2026-11-06T09:00"
+		},
+		"rubric": {
+			"proposes": "Finds the saved draft, then proposes a schedule review for Friday at 9:00 local time",
+			"noSend": "Does not say the email was sent or scheduled yet"
+		}
+	},
+	{
+		"text": "Send the Sunday interest meeting draft on Friday morning at 9:00.",
+		"operation": "communication.scheduleReviewed",
+		"expect": "propose",
+		"input": {
+			"communicationId": "draft",
+			"sendAt": "2026-11-06T09:00"
+		},
+		"rubric": {
+			"proposes": "Proposes a schedule review for the saved draft, Friday 9:00 local time"
+		}
+	},
+	{
+		"text": "Move the Friday volunteer email to Saturday at 9am.",
+		"operation": "communication.rescheduleReviewed",
+		"expect": "propose",
+		"input": {
+			"communicationId": "friday",
+			"sendAt": "2026-11-07T09:00"
+		},
+		"rubric": {
+			"proposes": "Finds the Friday message and proposes a time change to Saturday 9:00 local time"
+		}
+	},
+	{
+		"text": "Cancel the Friday email.",
+		"operation": "communication.cancelScheduledReviewed",
+		"expect": "propose",
+		"input": {
+			"communicationId": "friday"
+		},
+		"rubric": {
+			"proposes": "Finds the Friday message and proposes cancelling that message only"
+		}
+	},
+	{
+		"text": "Replace the body of the Friday volunteer email with: Thanks for volunteering. We now start at 5pm sharp, so please arrive by 4:45.",
+		"operation": "communication.replaceScheduledReviewed",
+		"expect": "propose",
+		"input": {
+			"communicationId": "friday",
+			"bodyMentions": "5"
+		},
+		"rubric": {
+			"proposes": "Finds the Friday message and proposes replacing its body, not editing it in place"
+		}
+	},
+	{
+		"text": "Write an email to the launch team about the Sunday interest meeting and schedule it for Friday at 9am.",
+		"operation": "communication.saveDraft",
+		"expect": "draftFirst",
+		"input": {
+			"groups": ["launch_team"],
+			"subjectMentions": "interest meeting"
+		},
+		"rubric": {
+			"draftFirst": "Proposes the draft first and does not propose a schedule for a message that is not saved",
+			"honest": "Says the schedule comes after the draft is saved"
+		}
+	},
+	{
+		"text": "Send it now.",
+		"operation": "communication.list",
+		"expect": "none",
+		"rubric": {
+			"noWrite": "Proposes no change of any kind",
+			"honest": "Says it cannot send mail on its own and points to Messages"
+		}
+	}
+]

@@ -16,7 +16,12 @@ export const deleteDraftRequest = z.strictObject({
 export const scheduleRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ communicationId: recordId, scheduledAt: instant }),
+	input: z.strictObject({
+		communicationId: recordId,
+		scheduledAt: instant,
+		/** What a review showed (recipientsDigest): the schedule is refused when the audience resolves differently. */
+		recipientsDigest: z.string().min(1).optional(),
+	}),
 });
 export const createTemplateRequest = z.strictObject({ requestKey, input: templateDraft });
 export const forkTemplateRequest = z.strictObject({
@@ -56,7 +61,11 @@ export const meetingTemplateRequest = z.strictObject({
 export const dispatchRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ communicationId: recordId }),
+	input: z.strictObject({
+		communicationId: recordId,
+		/** People a review showed as left out: they stay left out even if their address or choice changed since. */
+		leftOut: z.array(recordId).max(5_000).optional(),
+	}),
 });
 export const cancelScheduledRequest = z.strictObject({
 	requestKey,

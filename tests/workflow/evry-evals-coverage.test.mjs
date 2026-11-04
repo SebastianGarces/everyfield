@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 const path = (relative) => fileURLToPath(new URL(relative, root));
 const NAME = "[a-z][A-Za-z]*\\.[a-z][A-Za-z]*";
-const EXPECTED_TODAY = 22;
+const EXPECTED_TODAY = 28;
 
 // An operation is a string in an `operation: "x.y",` property or a factory call such as `readHousehold("x.y")`
 // inside an exported declaration. A union type (`"a" | "b"`) and non-exported helpers add nothing by themselves.

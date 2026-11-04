@@ -8,6 +8,7 @@ import {
 	Clock01Icon,
 	Edit02Icon,
 	Image01Icon,
+	Mail01Icon,
 	ImageNotFound01Icon,
 	SquareLock02Icon,
 	Tick02Icon,
@@ -20,18 +21,23 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, ty
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
+import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import {
 	actionNotice,
 	approvalLeft,
 	approvable,
 	CHOICES,
+	checkable,
 	clock,
 	consequence,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
 	hasBirthDate,
+	isMail,
 	isRequired,
+	mailHead,
+	mailRefusalText,
 	missingRequired,
 	operationTitle,
 	phaseOf,
@@ -52,7 +58,7 @@ import {
 // An approved change runs once in the background; the card follows it to its saved outcome and says plainly when it
 // was refused, expired or closed. Nothing changes in People until the owner approves.
 
-type Action = "approve" | "revise" | "cancel" | "retry";
+type Action = "approve" | "revise" | "cancel" | "retry" | "recheck";
 /** An action whose result is not known: no reply, and no read after it. It may have been saved. */
 type Unknown = { action: Action; revision: number };
 type Notice = { text: string; tone: "error" | "neutral" };
@@ -196,7 +202,10 @@ function useReview(proposalId: string) {
 		const code = reply.status === "refused" ? reply.error.code : null;
 		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable"))
 			return false;
-		setNotice({ text: actionNotice(reply.status === "refused" ? reply.error : "lost"), tone: "error" });
+		setNotice({
+			text: actionNotice(reply.status === "refused" ? reply.error : "lost", isMail(before.operation)),
+			tone: "error",
+		});
 		return false;
 	}
 
@@ -277,6 +286,18 @@ function useReview(proposalId: string) {
 				(v) => v.proposal,
 				(now) => now.outcome === null || now.outcome === "completed",
 			),
+		/** Asks the email service again about an email effect it has not confirmed. */
+		recheck: () =>
+			act(
+				"recheck",
+				(r) => api.check(r.id),
+				(v) => v.proposal,
+				(now) => now.outcome === "completed",
+				(now) =>
+					checkable(now)
+						? { text: "The email service still has not confirmed this. Check again later.", tone: "neutral" }
+						: null,
+			),
 		clearNotice: () => setNotice(null),
 	};
 }
@@ -287,6 +308,7 @@ const NOT_DONE: Record<Action, string> = {
 	revise: "Your update was not saved. Update the review again.",
 	cancel: "This change was not cancelled. It is still waiting for your review.",
 	retry: "Evry did not try this again. Try again.",
+	recheck: "Evry could not ask the email service again. Check again.",
 };
 const UNKNOWN_TEXT: Record<Action, string> = {
 	approve:
@@ -294,6 +316,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	revise: "Evry got no answer to your update, so it may already be saved. Check again to find out.",
 	cancel: "Evry got no answer to your cancel, so this change may already be cancelled. Check again to find out.",
 	retry: "Evry got no answer when it tried again, so the change may already be running. Check again to find out.",
+	recheck: "Evry got no answer from the email service. Check again.",
 };
 
 type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
@@ -356,6 +379,18 @@ const HEAD_TONE: Record<Tone, string> = {
 /** The note under the head: why the card is in this state, when that needs saying. Also what is announced. */
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
+	const mail = !!review && isMail(review.operation);
+	if (mail) {
+		if (view === "pending" && review.review.refusal) return review.review.refusal;
+		if (view === "pending" && review.stale)
+			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
+		if (view === "expired") return "This review expired, so nothing was done. Review required: prepare it again.";
+		if (view === "unconfirmed")
+			return retryable(review, lapsed)
+				? "Evry can't confirm what happened. Try again. A change the email service already holds is not made twice."
+				: "Evry can't confirm what happened, and the approval expired, so this card can't try again. Open Messages to see this message.";
+		if (view === "running") return "Working in the background. This card shows what the email service confirms.";
+	}
 	switch (view) {
 		case "pending":
 			return review && review.revision > 1
@@ -364,7 +399,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return refusalText(review?.receipt?.code, who);
+			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -395,6 +430,7 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	const head = view === "loading" || view === "lost" ? "" : HEAD[view].title.replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
+	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
 	if (view === "completed")
 		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
@@ -443,7 +479,10 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	}, [notice]);
 
 	const why = note(view, review, r.lapsed, unknown);
-	const h = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
+	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
+	// An email card says only what the email service confirmed (model.ts mailHead).
+	const mailTitle = review ? mailHead(review, view) : null;
+	const h = mailTitle ? { ...base, ...mailTitle } : base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
 		view === "completed" && review?.approvedAt
@@ -504,9 +543,25 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 					{/* A closed review keeps full contrast: the gray head says it is closed (WCAG 1.4.3). */}
 					<div className="flex flex-col gap-3 px-4 py-3.5">
 						<Affects review={review} />
-						<Changes review={review} staged={photoGone ? { status: "gone" } : staged.photo} onRetry={staged.retry} />
-						{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
-						{view === "pending" ? (
+						{isMail(review.operation) ? (
+							<>
+								<MailChanges review={review} />
+								{view === "completed" ? <MailResult review={review} /> : null}
+								{view === "pending" && !review.review.refusal ? (
+									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
+								) : null}
+							</>
+						) : (
+							<>
+								<Changes
+									review={review}
+									staged={photoGone ? { status: "gone" } : staged.photo}
+									onRetry={staged.retry}
+								/>
+								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+							</>
+						)}
+						{view === "pending" && !review.review.refusal && !review.stale ? (
 							<p className="text-xs text-text-3">
 								Nothing changes until you approve. Approve by {clock(review.expiresAt)}.
 							</p>
@@ -577,16 +632,23 @@ function Footer({
 	if (view === "pending")
 		body = (
 			<>
-				<Button
-					size="sm"
-					variant="primary"
-					icon={Tick02Icon}
-					loading={r.busy === "approve"}
-					disabled={other("approve") || !canApprove}
-					onClick={() => void r.approve()}
-				>
-					Approve
-				</Button>
+				{review.review.refusal ? null : (
+					<Button
+						size="sm"
+						variant="primary"
+						icon={Tick02Icon}
+						loading={r.busy === "approve"}
+						disabled={other("approve") || !canApprove || review.stale}
+						onClick={() => void r.approve()}
+					>
+						Approve
+					</Button>
+				)}
+				{review.stale ? (
+					<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
+						Review again
+					</Button>
+				) : null}
 				{editableChanges(review).length ? (
 					<Button ref={reviseButton} size="sm" variant="secondary" disabled={r.busy !== null} onClick={onRevise}>
 						Revise
@@ -643,7 +705,21 @@ function Footer({
 		body = (
 			<>
 				<span className="flex-1 text-xs whitespace-nowrap text-text-3">Approved by you</span>
-				{who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
+				{isMail(review.operation) ? (
+					<>
+						{checkable(review) ? (
+							<Button size="sm" variant="secondary" loading={r.busy === "recheck"} onClick={() => void r.recheck()}>
+								Check again
+							</Button>
+						) : null}
+						<Button size="sm" variant="ghost" asChild>
+							<IntentLink href="/communication">
+								Open Messages
+								<Icon icon={ArrowRight02Icon} size={16} />
+							</IntentLink>
+						</Button>
+					</>
+				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
 							Open {who.label}
@@ -714,13 +790,20 @@ function CardHead({
 
 /** Who the change affects: the person, or the new person a create adds. */
 function Affects({ review }: { review: Review }) {
+	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
-	const name = create
-		? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-		: (review.review.target?.label ?? "Not available");
+	const name = mail
+		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
+		: create
+			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+			: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{create ? (
+			{mail ? (
+				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
+					<Icon icon={Mail01Icon} size={16} />
+				</span>
+			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
 					<Icon icon={UserAdd01Icon} size={16} />
 				</span>

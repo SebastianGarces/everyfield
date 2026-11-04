@@ -48,6 +48,74 @@ function classify(text: string) {
 	return "application";
 }
 
+// Email requests (MAIL51-009): "draft an email to the launch team", "schedule it for Friday at 9am", "move the Friday
+// email to Saturday at 9am", "cancel the Friday email", "replace the body of the Friday email with: ...". The same
+// tools a model uses: find the message with a read, then propose the reviewed change.
+const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+/** The next date (UTC calendar) of a weekday name, from today: "friday" is never today. */
+function nextDate(day: string, now = new Date()) {
+	const ahead = (DAYS.indexOf(day.toLowerCase()) - now.getUTCDay() + 7) % 7 || 7;
+	return new Date(now.getTime() + ahead * 86_400_000).toISOString().slice(0, 10);
+}
+function clock(hour: string, am: string) {
+	const h = (Number(hour) % 12) + (/^p/i.test(am) ? 12 : 0);
+	return `${String(h).padStart(2, "0")}:00`;
+}
+const DAY = `(${DAYS.join("|")})`;
+const DRAFT = /\bdraft an email to the launch team\b/i;
+const EMAIL_REVIEW = /\b(schedule|move|cancel|replace|change the \w+ email)\b/i;
+function emailStep(text: string, canPropose: boolean, canRead: boolean, result: Record<string, unknown> | null) {
+	if (!canPropose) return null;
+	const schedule = new RegExp(`\\bschedule it for ${DAY} at (\\d{1,2})\\s*(am|pm)\\b`, "i").exec(text);
+	const relative = /\bschedule it for (yesterday|\d{1,3} days from now) at (\d{1,2})\s*(am|pm)\b/i.exec(text);
+	const move = new RegExp(`\\bmove the ${DAY} email to ${DAY} at (\\d{1,2})\\s*(am|pm)\\b`, "i").exec(text);
+	const cancel = new RegExp(`\\bcancel the ${DAY} email\\b`, "i").exec(text);
+	const body = new RegExp(`\\breplace the body of the ${DAY} email with:\\s*(.+)$`, "is").exec(text);
+	const audience = new RegExp(`\\bchange the ${DAY} email to go to the launch team\\b`, "i").exec(text);
+	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
+	if (DRAFT.test(text) && !result)
+		return propose("communication.saveDraft", {
+			subject: "Sunday's interest meeting",
+			body: "Hi {{name}},\n\nWe are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.\n\nSee you there.",
+			audience: { groups: ["launch_team"] },
+		});
+	const target = schedule ?? relative ?? move ?? cancel ?? body ?? audience;
+	if (!target || !canRead) return null;
+	if (!result)
+		return [
+			toolCall("communication_read", {
+				operation: "communication.list",
+				input: schedule || relative ? { state: "draft" } : { state: "scheduled", sendOn: nextDate(target[1]!) },
+			}),
+		];
+	const first = (result.rows as { id: string }[] | undefined)?.[0];
+	if (!first || typeof result.proposalId === "string") return null;
+	const communicationId = first.id;
+	if (schedule)
+		return propose("communication.scheduleReviewed", {
+			communicationId,
+			sendAt: `${nextDate(schedule[1]!)}T${clock(schedule[2]!, schedule[3]!)}`,
+		});
+	if (relative) {
+		const days = relative[1]!.toLowerCase() === "yesterday" ? -1 : Number(/\d+/.exec(relative[1]!)![0]);
+		const date = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+		return propose("communication.scheduleReviewed", {
+			communicationId,
+			sendAt: `${date}T${clock(relative[2]!, relative[3]!)}`,
+		});
+	}
+	if (move)
+		return propose("communication.rescheduleReviewed", {
+			communicationId,
+			sendAt: `${nextDate(move[2]!)}T${clock(move[3]!, move[4]!)}`,
+		});
+	if (cancel) return propose("communication.cancelScheduledReviewed", { communicationId });
+	return propose(
+		"communication.replaceScheduledReviewed",
+		body ? { communicationId, body: body[2]!.trim() } : { communicationId, audience: { groups: ["launch_team"] } },
+	);
+}
+
 const FORMATTING = /\bformatting demo\b/i;
 const FORMATTING_ANSWER = [
 	"There are **19 prospects** in this church, and the *list is complete*.",
@@ -74,6 +142,11 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		text,
 	);
 	const result = lastToolOutput(options.prompt);
+	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const email = emailStep(text, canPropose, canReadMail, result);
+	if (email) return email;
+	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))
+		return [{ type: "text", text: "I prepared a review. Nothing is saved or sent until you approve it." }];
 	if (result) {
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
 		if (typeof result.proposalId === "string") {

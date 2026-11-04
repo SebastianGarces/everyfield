@@ -1,6 +1,7 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { READ_DOMAINS } from "../catalog/catalog.ts";
+import { allowedWrites } from "../proposals/store.ts";
 import type { ReadAdapter } from "../catalog/types.ts";
 import type { EvryActor } from "../context/actor.ts";
 
@@ -29,4 +30,23 @@ export function readTools(
 		});
 	}
 	return tools;
+}
+
+/**
+ * The model's one write tool for this actor: it only prepares a review of a change, never makes it. The closed
+ * operation discriminator holds only the reviewed writes the actor may use now; null when there are none. The turn
+ * prepares the real review; the recorded evals pass a stub, so the model sees the same definition in both.
+ */
+export function proposeChangeTool(
+	actor: EvryActor,
+	execute: (call: { operation: string; input: unknown }) => Promise<Record<string, unknown>>,
+) {
+	const writes = allowedWrites(actor);
+	if (!writes.length) return null;
+	const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
+	return tool({
+		description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
+		inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
+		execute,
+	});
 }
