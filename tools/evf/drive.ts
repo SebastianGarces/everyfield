@@ -29,7 +29,8 @@ import {
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
-import { isOpus, validateOverride, type Role } from "./seats.ts";
+import { longRunCheck } from "./long-run.ts";
+import { isOpus, NOT_HEADLESS_SQL, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -123,10 +124,11 @@ type RunRow = {
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
+/** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	db
 		.prepare(
-			"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
+			`SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? AND ${NOT_HEADLESS_SQL} ORDER BY started_at, id`,
 		)
 		.all(taskId) as RunRow[];
 
@@ -1099,7 +1101,9 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 				`Store row ${row.id} of ${task.id} is merged; merged work is not abandoned.${rows.length > 1 ? ` The ref has rows ${rows.map((r) => `${r.id} (${r.status})`).join(", ")}: pick one with --id.` : ""}`,
 			);
 		if (row.status === "abandoned") fail(`Store row ${row.id} of ${task.id} is already abandoned.`);
-		const open = db.prepare("SELECT id FROM runs WHERE task_id = ? AND status = 'started'").all(row.id) as Array<{
+		const open = db
+			.prepare(`SELECT id FROM runs WHERE task_id = ? AND status = 'started' AND ${NOT_HEADLESS_SQL}`)
+			.all(row.id) as Array<{
 			id: number;
 		}>;
 		if (open.length)
@@ -1531,6 +1535,8 @@ export type DriveTiming = {
 	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
 	 */
 	abortBackoffMs?: number;
+	/** The present time of the long run check; tests fake it. Unset means the system clock. */
+	clock?: () => number;
 };
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -1794,6 +1800,21 @@ function waitOnSeat(
 	}
 	const watchStart = Date.now(),
 		deadline = watchStart + timing.waitMs;
+	const longRun = longRunCheck(
+		db,
+		{
+			taskId: t.id,
+			ref: task.id,
+			runId,
+			agent: r.herdr_agent,
+			worktree: () => {
+				const idea = /^idea(\d)$/.exec(r.stage),
+					cfg = loadConfig(root);
+				return idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : (t.worktree ?? worktreePath(root, cfg, task));
+			},
+		},
+		timing.clock ?? Date.now,
+	);
 	let turnSeen = false,
 		waitsLogged = 0;
 	for (let nudged = false; ;) {
@@ -1841,6 +1862,7 @@ function waitOnSeat(
 				});
 				return;
 			}
+			longRun(state === "working");
 			// A slice that ended with the seat still working, or a quick failure: look at the store again after a pause.
 			if (Date.now() - sliceStart < timing.seatPollMs) sleep(timing.seatPollMs - (Date.now() - sliceStart));
 			continue;
@@ -1851,6 +1873,7 @@ function waitOnSeat(
 			do {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
+				longRun(false);
 			} while (agentState(r.herdr_agent) === "blocked");
 			// The prompt is gone: say so, or the last event keeps reading "blocked" for as long as the seat works.
 			record(db, t.id, runId, "unblocked", { summary: `${r.herdr_agent} resumed after a prompt` });

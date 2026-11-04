@@ -25,6 +25,11 @@ Read the current brief and follow details on demand. Do not write product code.
    Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
+A coordinator-launched `claude -p` session starts with `bin/evf headless`, so its cost shows in `bin/evf usage`:
+`bin/evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]`.
+Name the task the session serves most; a registration session names the reserved id. The defaults are
+`claude-opus-5-5` and `medium`. The run has no stage: it does not change `evf next` for the task.
+
 Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
 
 Write the Done criteria from the verbatim ask (OPS-112): one criterion for each user action and expected
