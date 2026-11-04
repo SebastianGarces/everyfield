@@ -474,7 +474,6 @@ function nextStageOf(
 		round,
 		reason: named(reason),
 	});
-	// An evf run aborted by a restart never happened: the stage before it decides.
 	const last = runs.filter(happened).at(-1);
 	if (!last) return t.spec ? go("implement", "spec stored, no runs yet") : go("plan", "no spec yet");
 	if (extras.resumeCi) return go("ci", "the hold ended");
@@ -1730,25 +1729,6 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 /** How evf routes a ci or ship failure: a new round for the PR's own code, a hold for what a seat cannot change. */
 type Failure = { cause: "this_pr"; head: string | null } | Omit<Hold, "summary">;
 
-/** The PR head GitHub reports, or the worktree HEAD when GitHub does not answer. */
-function prHead(cwd: string, pr: number): string | null {
-	const head = prState(cwd, pr).head;
-	if (head) return head;
-	const local = run("git", ["rev-parse", "HEAD"], { cwd });
-	return local.code === 0 ? local.stdout.trim() : null;
-}
-
-/** Every check the PR head reports, not only the required ones. Null when GitHub gives no list. */
-function reportedChecks(cwd: string, pr: number): Array<{ name: string; bucket: string }> | null {
-	const r = run("gh", ["pr", "checks", String(pr), "--json", "name,bucket"], { cwd });
-	try {
-		const checks: unknown = JSON.parse(r.stdout);
-		return Array.isArray(checks) ? checks : null;
-	} catch {
-		return null;
-	}
-}
-
 const MAIN_COMMITS_READ = 10;
 const FAILED_ON_MAIN = new Set(["failure", "timed_out", "startup_failure", "error"]);
 const PASSED_ON_MAIN = new Set(["success", "neutral"]);
@@ -1762,20 +1742,17 @@ function failingOnMain(cwd: string, repo: string, base: string, names: string[])
 		if (r.code !== 0) fail(`gh api ${path} failed: ${(r.stderr || r.stdout).trim()}`);
 		return JSON.parse(r.stdout);
 	};
-	const commits = read(`repos/${repo}/commits?sha=${base}&per_page=${MAIN_COMMITS_READ}`);
-	if (!Array.isArray(commits)) fail(`The commits of ${base} are unreadable.`);
+	const commits = read(`repos/${repo}/commits?sha=${base}&per_page=${MAIN_COMMITS_READ}`) as Array<{ sha: string }>;
 	const failing: string[] = [];
 	const open = new Set(names);
-	for (const commit of commits as Array<{ sha: string }>) {
+	for (const commit of commits) {
 		if (!open.size) break;
 		const runs = read(`repos/${repo}/commits/${commit.sha}/check-runs?per_page=100`) as {
-			check_runs?: Array<{ name: string; conclusion: string | null }>;
+			check_runs: Array<{ name: string; conclusion: string | null }>;
 		};
 		const statuses = read(`repos/${repo}/commits/${commit.sha}/status`) as {
-			statuses?: Array<{ context: string; state: string }>;
+			statuses: Array<{ context: string; state: string }>;
 		};
-		if (!Array.isArray(runs.check_runs) || !Array.isArray(statuses.statuses))
-			fail(`The checks of ${base} at ${commit.sha} are unreadable.`);
 		const results = [
 			...runs.check_runs.map((c) => [c.name, c.conclusion] as const),
 			...statuses.statuses.map((c) => [c.context, c.state] as const),
@@ -1810,7 +1787,7 @@ function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string,
 	const cwd = existsSync(wt) ? wt : root;
 	const pr = t.pr_number;
 	if (!pr) return { cause: "this_pr", head: null };
-	const head = prHead(cwd, pr);
+	const head = prState(cwd, pr).head ?? null;
 	const thisPr: Failure = { cause: "this_pr", head };
 	try {
 		if (conflicting(cwd, pr)) return thisPr;
@@ -1820,7 +1797,10 @@ function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string,
 			ci = read?.ci ?? requiredCi(cwd, pr, required);
 		if (!ci.failed.length) {
 			if (!ci.missing.length && !ci.pending.length) return thisPr;
-			const outside = (reportedChecks(cwd, pr) ?? [])
+			const reported = JSON.parse(
+				run("gh", ["pr", "checks", String(pr), "--json", "name,bucket"], { cwd }).stdout,
+			) as Array<{ name: string; bucket: string }>;
+			const outside = reported
 				.filter((c) => !required.includes(c.name) && (c.bucket === "fail" || c.bucket === "cancel"))
 				.map((c) => c.name);
 			return outside.length ? { cause: "external", checks: outside, head } : thisPr;
@@ -1866,18 +1846,15 @@ function holdRelease(root: string, t: TaskRow, wt: string, hold: Hold): string |
 			const update = run("gh", ["pr", "update-branch", String(t.pr_number)], { cwd });
 			const updated =
 				update.code === 0 &&
-				existsSync(wt) &&
 				gitOk(wt, "fetch", "--quiet", cfg.remote, parseTask(t.ref).branch) &&
 				gitOk(wt, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
 			return `${hold.checks.join(", ")} no longer fail on main; ${updated ? "the branch includes main" : "the branch update failed"}`;
 		}
-		const head = prHead(cwd, t.pr_number!);
+		const head = prState(cwd, t.pr_number!).head;
 		if (head && head !== hold.head) return `the PR head moved to ${head.slice(0, 10)}`;
-		const checks = reportedChecks(cwd, t.pr_number!);
-		if (!checks) return null;
-		const failing = (name: string) =>
-			checks.some((c) => c.name === name && ["fail", "cancel", "skipping"].includes(c.bucket));
-		return hold.checks.some(failing) ? null : `${hold.checks.join(", ")} no longer fail on the PR head`;
+		// An unreadable list reports every name missing, which is no sign that the checks recovered.
+		const ci = requiredCi(cwd, t.pr_number!, hold.checks);
+		return ci.failed.length || ci.missing.length ? null : `${hold.checks.join(", ")} no longer fail on the PR head`;
 	} catch (e) {
 		if (e instanceof EvfError || e instanceof SyntaxError) return null;
 		throw e;

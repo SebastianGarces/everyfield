@@ -3008,10 +3008,14 @@ const passStages = (f: ReturnType<typeof driveFixture>) => {
 	])
 		f.insertRun(stage!, role!, "passed");
 };
+/** GitHub reports the worktree HEAD as the PR head. */
+const prAtHead = (f: ReturnType<typeof driveFixture>) =>
+	patchGh(f, { pr: { ...f.getState().pr, headRefOid: head(f) } });
 const atCi = (f: ReturnType<typeof driveFixture>) => {
 	withPr(f);
 	f.db.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE id = ?").run(f.taskId);
 	commitFile(f, "built.txt");
+	prAtHead(f);
 	passStages(f);
 };
 const payloads = (f: ReturnType<typeof driveFixture>, type: string) =>
@@ -3492,6 +3496,7 @@ routed(
 
 		// The head moves and the check is red again: the release runs ci, which starts a round at the new head.
 		commitFile(f, "fix.txt");
+		prAtHead(f);
 		assert.equal(pass(f).stage, "ci");
 		assert.equal(f.taskRow().status, "pr_open");
 		pass(f);
@@ -3581,6 +3586,7 @@ routed(
 			headChecks(g, RED("Vercel"));
 			pass(g);
 			const moved = commitFile(g, "fix.txt");
+			prAtHead(g);
 			assert.equal(pass(g).stage, "ci");
 			assert.match(payloads(g, "hold_released")[0]!.reason, new RegExp(`head moved to ${moved.slice(0, 10)}`));
 			assert.equal(g.taskRow().round, 0);
