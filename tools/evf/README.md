@@ -270,13 +270,9 @@ not a sandbox: it covers the edit tools only, and a seat with shell access can s
 
 `evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]` starts
 one `claude -p` session that a coordinator needs, and gives it a `runs` row. The defaults are `claude-opus-5-5` and
-`medium`. evf chooses the session id, sets `EVF_RUN` and `EVF_ROLE`, leaves `EVF_STAGE` unset, sends the prompt file on
-stdin, passes the session's stdout through and returns its exit code. The row ends `passed` on exit 0 and `failed` on
-any other exit, with usage filled, whatever the session-end hook wrote first. No permission flag is passed, so a tool
-that needs a prompt is denied. These roles are not Herdr seats: they stay out of `ROLES`, `evf launch` refuses them,
-and the drive ignores them (`runsOf`), so they change no stage, failure count or held-back escalation. `evf usage`
-shows them under the named task, and its by-model summary shows them in their own group. While such a run is the
-task's latest, the `STAGE` column of `evf status` reads from the `v_tasks` view and names the role.
+`medium`. The row ends `passed` on exit 0 and `failed` on any other exit, whatever the session-end hook wrote first. No
+permission flag is passed, so a tool that needs a prompt is denied. These roles are not Herdr seats: `evf launch`
+refuses them and the drive ignores them (`runsOf`). `evf usage` shows them in their own by-model group.
 
 ## Turn time and the long run check (OPS-134)
 
@@ -290,9 +286,8 @@ also after `cd x &&` or an environment prefix. Wait is `sleep`, `herdr agent wai
 stop-hook continuation, and ends at the last transcript entry. A missing or unreadable transcript records no
 `turn_end` and changes nothing else in the hook.
 
-The drive runs the long run check (`long-run.ts`) while it watches a seat. It reads the live transcript at most once a
-minute from minute 60, and stops after both events exist. Its split covers the time since `runs.started_at`; time
-outside any turn is wait, and a call with no result runs to the present.
+The drive runs the long run check (`long-run.ts`) while it watches a seat. Its split covers the time since
+`runs.started_at`; time outside any turn is wait, and a call with no result runs to the present.
 
 - **Nudge, once per run.** A seat that Herdr reports as working gets one `herdr agent prompt`, sent without `--wait` so
   that Claude Code queues it, when the run is open 60 min or more, the worktree HEAD's committer time is over 60 min old

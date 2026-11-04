@@ -40,7 +40,7 @@ export function headless(
 			stdio: ["pipe", "inherit", "inherit"],
 		});
 		if (r.error) console.error(`evf headless: claude did not run: ${r.error.message}`);
-		const code = r.error ? 127 : (r.status ?? 1);
+		const code = r.status ?? 1;
 		// Written whatever the session-end hook did: the hook aborts a started run, and only this exit code is the outcome.
 		db.prepare("UPDATE runs SET status = ?, ended_at = ? WHERE id = ?").run(
 			code === 0 ? "passed" : "failed",

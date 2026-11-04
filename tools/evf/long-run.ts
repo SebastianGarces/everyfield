@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { record } from "./db.ts";
 import { run } from "./lib.ts";
-import { readEntries, runSplit, type Split } from "./turn-time.ts";
+import { parseEntries, runSplit, type Split } from "./turn-time.ts";
 import { transcriptPath } from "./usage.ts";
 
 /**
@@ -15,7 +16,7 @@ const MINUTE = 60_000,
 	NOTICE_AT = 120 * MINUTE,
 	SEND_TIMEOUT_MS = 10_000;
 
-export type LongRunSeat = { taskId: number; ref: string; runId: number; agent: string; worktree: string };
+type LongRunSeat = { taskId: number; ref: string; runId: number; agent: string; worktree: string };
 
 const minutes = (ms: number) => Math.round(ms / MINUTE);
 function splitText(s: Split, elapsed: number): string {
@@ -29,7 +30,7 @@ function splitText(s: Split, elapsed: number): string {
 function readSplit(session: string | null, start: number, at: number): Split | null {
 	try {
 		const path = session ? transcriptPath(session) : null,
-			entries = path ? readEntries(path) : [];
+			entries = path ? parseEntries(readFileSync(path, "utf8").split("\n")) : [];
 		return entries.length ? runSplit(entries, start, at) : null;
 	} catch {
 		return null;

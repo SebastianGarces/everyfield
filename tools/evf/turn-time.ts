@@ -1,4 +1,4 @@
-import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 
 /**
  * Where a seat's time went, from its Claude Code transcript (OPS-134). The stop hook's `turn_end` and the long run check
@@ -172,6 +172,3 @@ export function readLastTurn(path: string): Entry[] {
 		closeSync(fd);
 	}
 }
-
-/** Every entry of a transcript, for the long run check. */
-export const readEntries = (path: string): Entry[] => parseEntries(readFileSync(path, "utf8").split("\n"));
