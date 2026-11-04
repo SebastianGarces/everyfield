@@ -24,7 +24,7 @@ import {
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
-import { runVerifier, stopSeat, verifierRefusal, type VerifierResult } from "./audit-verifier.ts";
+import { runVerifier, verifierRefusal, type VerifierResult } from "./audit-verifier.ts";
 import { awaitLoad } from "./load.ts";
 import { acCriteria } from "./spec.ts";
 
@@ -554,7 +554,7 @@ function killGroup(child: ChildProcess, sig: NodeJS.Signals): void {
 }
 
 const activePath = (root: string) => join(evfDataDir(root), "audit", "active.json");
-type Active = { pid: number; tree: string; runtime: string; review?: string };
+type Active = { pid: number; tree: string; runtime: string };
 
 function alive(pid: number): boolean {
 	try {
@@ -617,7 +617,6 @@ function recoverAudits(root: string, cfg: Config): string[] {
 		removeTree(root, cfg, tree, runtime);
 		removed.push(tree);
 	}
-	if (active?.review) rmSync(active.review, { recursive: true, force: true });
 	rmSync(activePath(root), { force: true });
 	return removed;
 }
@@ -905,10 +904,8 @@ async function runAudit(
 		stopping = true;
 		console.error("evf audit: stopping; removing the audit worktree and preview.");
 		for (const child of live) killGroup(child, "SIGTERM");
-		stopSeat("SIGTERM");
 		setTimeout(() => {
 			for (const child of live) killGroup(child, "SIGKILL");
-			stopSeat("SIGKILL");
 		}, 5000).unref();
 	};
 	process.on("SIGTERM", onSignal);
@@ -970,11 +967,7 @@ async function runAudit(
 				mutant: mutantSha,
 				dryRun: opts.dryRun ?? false,
 				tmpBase: opts.tmpBase,
-				onFolder: (review) => {
-					const active = readActive(root);
-					if (active) writeFileSync(activePath(root), JSON.stringify({ ...active, review: review ?? undefined }));
-				},
-				stopped: () => stopping,
+				live,
 			});
 			if (stopping) return 143;
 		}

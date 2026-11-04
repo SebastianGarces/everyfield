@@ -928,7 +928,7 @@ to the files the audited merges changed. `task.md` holds the task's stored ask a
 audit worktree before the seat starts. The seat runs `claude -p` with a new session id, `--model
 claude-opus-5-5`, `--effort medium` and the tools Read, Grep and Glob only. Its prompt is the one a
 reviewer of any change would get; it names no candidate, operator or outcome. Its environment holds
-`PATH`, `HOME`, the locale, proxy and temp variables and `CLAUDE_CONFIG_DIR`. It holds no `EVF_*`
+`PATH`, `HOME`, the user, shell, locale and temp variables and `CLAUDE_CONFIG_DIR`. It holds no `EVF_*`
 variable, no `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK` or
 `CLAUDE_CODE_USE_VERTEX`, so it runs only on the subscription. The seat writes no `runs` row and does not
 touch the task's row, so no ship, verify or drive gate reads it. The code is `tools/evf/audit-verifier.ts`.

@@ -13,17 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import {
-	grade,
-	parseFindings,
-	runSeatProcess,
-	seatEnv,
-	verdictOf,
-	verifierRefusal,
-	type Finding,
-	type Planted,
-	type SeatRun,
-} from "../audit-verifier.ts";
+import { runSeatProcess, seatEnv, verdictOf, type Finding, type Planted, type SeatRun } from "../audit-verifier.ts";
 import { openWorkDb } from "../db.ts";
 import { fixture, source } from "./fixtures.ts";
 
@@ -428,8 +418,6 @@ test("AC:OPS-124-2 the seat gets a plain folder of change.diff and task.md that 
 const PLANTED: Planted = { operator: "off-by-one", file: "packages/a/src/x.ts", line: 40 };
 const seat = (over: Partial<SeatRun> & { findings?: unknown; result?: string }): SeatRun => ({
 	code: 0,
-	err: "",
-	timedOut: false,
 	out: JSON.stringify({
 		type: "result",
 		is_error: false,
@@ -440,6 +428,7 @@ const seat = (over: Partial<SeatRun> & { findings?: unknown; result?: string }):
 
 test("AC:OPS-124-3 grading: found within 3 lines, missed outside, and no-verdict never becomes missed", async () => {
 	const at = (file: string, line: number): Finding => ({ file, line, summary: "s" });
+	const grade = (planted: Planted, findings: Finding[]) => verdictOf(planted, seat({ findings })).result;
 	// Both edges of the window.
 	for (const [line, expected] of [
 		[37, "found"],
@@ -459,22 +448,16 @@ test("AC:OPS-124-3 grading: found within 3 lines, missed outside, and no-verdict
 	const route: Planted = { operator: "removed-route", file: "apps/web/src/app/x/page.tsx", line: 1 };
 	assert.equal(grade(route, [at(route.file, 900)]), "found");
 	assert.equal(grade(route, [at("apps/web/src/app/y/page.tsx", 1)]), "missed");
-	// Fenced JSON and a bare list parse; so do findings inside prose.
-	assert.equal(
-		verdictOf(PLANTED, seat({ result: "```json\n" + JSON.stringify({ findings: [at(PLANTED.file, 40)] }) + "\n```" }))
-			.result,
-		"found",
-	);
-	assert.equal(verdictOf(PLANTED, seat({ result: JSON.stringify([at(PLANTED.file, 40)]) })).result, "found");
-	assert.equal(
-		verdictOf(PLANTED, seat({ result: `Here you go: ${JSON.stringify({ findings: [at(PLANTED.file, 40)] })} done.` }))
-			.result,
-		"found",
-	);
+	// Fenced JSON and findings inside prose parse.
+	const json = JSON.stringify({ findings: [at(PLANTED.file, 40)] });
+	for (const result of ["```json\n" + json + "\n```", `Here you go: ${json} done.`])
+		assert.equal(verdictOf(PLANTED, seat({ result })).result, "found", result);
 
-	// No verdict: output that does not parse, a bad finding, an error result, a non-zero exit, a timeout, no binary.
+	// No verdict: output that does not parse, a bad finding, an error result, a non-zero exit, a signal.
 	for (const bad of [
+		seat({ out: "" }),
 		seat({ out: "not json" }),
+		seat({ result: JSON.stringify([at(PLANTED.file, 40)]) }),
 		seat({ result: "I found nothing wrong." }),
 		seat({ result: JSON.stringify({ findings: [{ file: PLANTED.file, line: "40", summary: "s" }] }) }),
 		seat({ result: JSON.stringify({ findings: [{ file: PLANTED.file, line: 40 }] }) }),
@@ -482,23 +465,20 @@ test("AC:OPS-124-3 grading: found within 3 lines, missed outside, and no-verdict
 		seat({ out: JSON.stringify({ type: "result", is_error: true, result: JSON.stringify({ findings: [] }) }) }),
 		seat({ code: 1 }),
 		seat({ code: null }),
-		seat({ timedOut: true, code: null }),
-		seat({ spawnError: "spawn claude ENOENT", code: null }),
 	])
 		assert.equal(verdictOf(PLANTED, bad).result, "no-verdict", JSON.stringify(bad).slice(0, 80));
-	assert.equal(parseFindings(""), null);
 
 	// The process runner: a missing claude and a timeout, with a stub that waits.
 	const dir = mkdtempSync(join(tmpdir(), "evf-seat-"));
 	try {
-		const none = await runSeatProcess(dir, "s", { PATH: join(dir, "nothing") }, 5000);
-		assert.ok(none.spawnError);
+		const none = await runSeatProcess(dir, "s", { PATH: join(dir, "nothing") }, new Set(), 5000);
+		assert.equal(none.code, null);
 		assert.equal(verdictOf(PLANTED, none).result, "no-verdict");
 		writeFileSync(join(dir, "mode.json"), JSON.stringify({ kind: "wait" }));
 		writeFileSync(join(dir, "claude"), STUB(process.execPath));
 		chmodSync(join(dir, "claude"), 0o755);
-		const slow = await runSeatProcess(dir, "s", { PATH: `${dir}:${process.env.PATH}` }, 800);
-		assert.equal(slow.timedOut, true);
+		const slow = await runSeatProcess(dir, "s", { PATH: `${dir}:${process.env.PATH}` }, new Set(), 800);
+		assert.equal(slow.code, null);
 		assert.equal(verdictOf(PLANTED, slow).result, "no-verdict");
 		assert.equal(alive(Number(readFileSync(join(dir, "wait.pid"), "utf8"))), false, "the timeout stopped the seat");
 	} finally {
@@ -679,12 +659,6 @@ test("AC:OPS-124-6 one found or missed result in 30 days; no-verdict does not co
 			).sort(),
 			["HOME", "LC_ALL", "PATH"],
 		);
-		// The seat code lives in its own file; the default run's file names no model call (AC:OPS-116-10/11 test that).
-		assert.ok(existsSync(join(source, "tools/evf/audit-verifier.ts")));
-		const db2 = openWorkDb(f.root);
-		assert.match(verifierRefusal(db2, new Date())!, /one found or missed result/);
-		assert.equal(verifierRefusal(db2, new Date(Date.now() + 31 * DAY)), null);
-		db2.close();
 	} finally {
 		f.close();
 	}
