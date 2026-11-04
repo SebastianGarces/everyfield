@@ -149,7 +149,7 @@ after(() => f?.close());
 
 test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message goes to the email service with its send time and stores each recipient's id", async () => {
 	const friday = plantTime("Fri", 9);
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
 	const result = ok(await handOff(message, resend.transport));
 	assert.deepEqual(
@@ -208,7 +208,7 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 			"Not confirmed. The email service gave no answer. Accepted 0. Refused 0. No answer 3. Check result to ask it again.",
 		],
 	] as const) {
-		const resend = resendRecorder();
+		const resend = resendRecorder({ VERCEL_ENV: "production" });
 		resend.batch(mode);
 		const message = await reviewed(friday);
 		const result = ok(await handOff(message, resend.transport));
@@ -230,7 +230,7 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 	}
 
 	// One recipient without an answer: the other two are held, so the message is Scheduled with exact counts.
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	resend.batch((index) => index !== 1);
 	const partial = await reviewed(friday);
 	const result = ok(await handOff(partial, resend.transport));
@@ -241,7 +241,7 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 });
 
 test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
 	const stored = await mailOf(message);
@@ -281,7 +281,7 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email ser
 });
 
 test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
 	resend.take();
@@ -352,7 +352,7 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not co
 test("AC:MAIL51-004 a time change shows the new time only after every recipient holds it, and the old time appears nowhere", async () => {
 	const friday = plantTime("Fri", 9);
 	const saturday = plantTime("Sat", 9, new Date(friday));
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
 	ok(await handOff(message, resend.transport));
 	resend.take();
@@ -382,7 +382,7 @@ test("AC:MAIL51-004 a time change shows the new time only after every recipient 
 test("AC:MAIL51-004 a time change without confirmation names the requested and held times; Check again finishes it", async () => {
 	const friday = plantTime("Fri", 9);
 	const saturday = plantTime("Sat", 9, new Date(friday));
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
 	ok(await handOff(message, resend.transport));
 	resend.take();
@@ -426,7 +426,7 @@ test("AC:MAIL51-004 a time change without confirmation names the requested and h
 
 test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
 	const friday = plantTime("Fri", 9);
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
 	ok(await handOff(message, resend.transport));
 	resend.wentOut("re-2");
@@ -475,7 +475,7 @@ test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sen
 });
 
 test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays saved and repeats the same result", async () => {
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	resend.batch("refuse");
 	const message = await reviewed(plantTime("Fri", 9));
 	const result = ok(await handOff(message, resend.transport, "sendReviewed"));
@@ -508,7 +508,7 @@ test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays
 });
 
 test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result is Not confirmed, and no result says delivered", async () => {
-	const resend = resendRecorder();
+	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	// The batch holds only the two addresses that are not blocked; the second of them gets no answer.
 	resend.batch((index) => index !== 1);
 	// One recipient's address is blocked after an earlier bounce, so it is refused before the email service is asked.
@@ -531,7 +531,7 @@ test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result i
 	const totals = (await shown(mixed)).totals;
 	assert.deepEqual([totals.accepted, totals.failed, totals.unknown], [1, 1, 1]);
 
-	const silent = resendRecorder();
+	const silent = resendRecorder({ VERCEL_ENV: "production" });
 	silent.batch("error");
 	const lost = await reviewed(plantTime("Fri", 9));
 	const unknown = ok(await handOff(lost, silent.transport, "sendReviewed"));
