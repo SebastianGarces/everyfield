@@ -281,7 +281,8 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 			for (const [k, v] of Object.entries(saved))
 				if (v === undefined) delete process.env[k];
 				else process.env[k] = v;
-			rmSync(root, { recursive: true, force: true });
+			// A fake tool that a stopped drive left running can still write here for a moment.
+			rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 		},
 	};
 }

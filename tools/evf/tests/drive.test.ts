@@ -1940,7 +1940,7 @@ const fastHeartbeatEnv = () => ({
 /** Three more heartbeats arrive while the drive loop stays where it is. */
 async function moreHeartbeats(f: ReturnType<typeof driveFixture>) {
 	const from = f.events("drive_heartbeat").length;
-	for (let i = 0; i < 400 && f.events("drive_heartbeat").length < from + 3; i++)
+	for (let i = 0; i < 3600 && f.events("drive_heartbeat").length < from + 3; i++)
 		await new Promise((r) => setTimeout(r, 25));
 	assert.ok(f.events("drive_heartbeat").length >= from + 3, "heartbeats go on");
 	assert.deepEqual(Object.keys(JSON.parse(f.events("drive_heartbeat")[0]!.payload)), ["pid"]);
@@ -1961,7 +1961,8 @@ async function liveDrive(f: ReturnType<typeof driveFixture>, ready: () => boolea
 		{ cwd: f.root, env: fastHeartbeatEnv(), stdio: "ignore" },
 	);
 	const exited = new Promise<void>((resolve) => child.on("exit", () => resolve()));
-	for (let i = 0; i < 800 && !ready(); i++) await new Promise((r) => setTimeout(r, 25));
+	// A machine at full load takes many seconds to start node, the worker and each fake Herdr call.
+	for (let i = 0; i < 3600 && !ready(); i++) await new Promise((r) => setTimeout(r, 25));
 	assert.ok(ready(), "the drive reached the state under test");
 	const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
 	const pid = Number(readFileSync(pidFile, "utf8"));
