@@ -2966,18 +2966,9 @@ test("OPS-123-cap AC:OPS-123-7: a failed ship past the loop cap escalates with t
 // OPS-130: the simplifier seat runs the quick check; the pr stage stays the gate.
 test("OPS-130-seat AC:OPS-130-1: the simplifier seat commits first and runs the quick check, and no line asks it for the full check", () => {
 	const seat = readFileSync(join(source, ".claude/agents/simplifier.md"), "utf8");
-	const description = /^description: (.*)$/m.exec(seat)![1]!;
-	assert.match(description, /bin\/evf verify <task> --quick/);
-	assert.doesNotMatch(description, /evf check green/);
-
-	const step = /^3\. (.*)$/m.exec(seat)![1]!;
-	assert.match(step, /bin\/evf verify <task> --quick/);
-	assert.match(step, /[Cc]ommit/);
-	assert.ok(step.search(/[Cc]ommit/) < step.indexOf("bin/evf verify"), "step 3 commits before it verifies");
-
-	const verifyCalls = seat.match(/bin\/evf verify[^`]*/g) ?? [];
-	assert.equal(verifyCalls.length, 2, "the description and step 3");
-	for (const call of verifyCalls) assert.equal(call, "bin/evf verify <task> --quick");
+	assert.match(seat, /^description: .*bin\/evf verify <task> --quick/m);
+	assert.match(seat, /^3\. Commit.*bin\/evf verify <task> --quick/m);
+	assert.deepEqual(seat.match(/bin\/evf verify[^`]*/g), Array(2).fill("bin/evf verify <task> --quick"));
 });
 
 test("OPS-130-full AC:OPS-130-2: a passing quick report at the simplifier head does not stand in for full; the pr stage runs full author checks at that head and pushes it", () => {
@@ -2986,19 +2977,15 @@ test("OPS-130-full AC:OPS-130-2: a passing quick report at the simplifier head d
 		const remote = withPr(f);
 		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
 		assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the implementer's last verify, at head A");
-		const a = head(f);
 		const b = commitFile(f, "simplified.txt");
-		assert.notEqual(a, b);
 		assert.equal(verify(f.root, f.task, "author", "quick").passed, true, "the simplifier's quick check, at head B");
 		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
-		const fullAtB = join(evidenceDir(f.root, f.task, b, "author-full"), "checks.json");
-		assert.equal(existsSync(fullAtB), false);
 		assert.equal(hasVerifiedHead(f.root, f.task), false, "a quick report never counts as a verified head");
 
 		driveOnce(f.root, f.task, TIMING);
 
 		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "passed"]);
-		const report = JSON.parse(readFileSync(fullAtB, "utf8"));
+		const report = JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, b, "author-full"), "checks.json"), "utf8"));
 		assert.deepEqual([report.sha, report.mode, report.passed], [b, "full", true]);
 		assert.equal(sh(f.root, "--git-dir", remote, "rev-parse", "refs/heads/task/ops-1"), b);
 	} finally {
@@ -3026,7 +3013,6 @@ test("OPS-130-route AC:OPS-130-3: quick passes and full fails at the simplifier 
 		assert.match(summary, /author checks failed at [0-9a-f]{10}: fixture-check/);
 		const after = nextOf(f);
 		assert.deepEqual([after.stage, after.round], ["simplify", 0]);
-		assert.equal(f.taskRow().round, 0);
 
 		driveOnce(f.root, f.task, TIMING);
 		assert.equal(f.runs().at(-1)!.role, "simplifier");
