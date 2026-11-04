@@ -1,5 +1,5 @@
-// Criterion 35: dev mail capture records sends in development and preview, never in production,
-// and production sending through the provider is unchanged.
+// Criterion 35 and WP-029: outside production every address that is not approved is captured, with or without a provider
+// key. Production records nothing, and production sending through the provider is unchanged.
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -35,13 +35,16 @@ afterEach(() => {
 	Object.assign(process.env, saved);
 });
 
-test("AC:CASE-COM-003 capture is allowed only without a provider key in local, development or preview", () => {
+test("AC:CASE-COM-003 the capture outbox opens in local, development or preview, with or without a provider key", () => {
 	assert.equal(captureAllowed({}), true);
 	assert.equal(captureAllowed({ VERCEL_ENV: "development" }), true);
 	assert.equal(captureAllowed({ VERCEL_ENV: "preview" }), true);
 	assert.equal(captureAllowed({ VERCEL_ENV: "production" }), false);
 	assert.equal(captureAllowed({ VERCEL_ENV: "something-new" }), false);
-	assert.equal(captureAllowed({ RESEND_API_KEY: "re_live" }), false);
+	assert.equal(captureAllowed({ RESEND_API_KEY: "re_live" }), true);
+	assert.equal(captureAllowed({ VERCEL_ENV: "preview", RESEND_API_KEY: "re_live" }), true);
+	assert.equal(captureAllowed({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live" }), false);
+	assert.equal(captureAllowed({ VERCEL_ENV: "something-new", RESEND_API_KEY: "re_live" }), false);
 });
 
 test("AC:CASE-COM-003 production without a provider key is not ready, so nothing is recorded or sent", () => {

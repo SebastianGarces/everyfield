@@ -57,8 +57,10 @@ const server = createServer(async (req, res) => {
 	res.setHeader("content-type", "application/json");
 	res.end(JSON.stringify({ id: effects.get(requestKey) }));
 });
-const transport = createResendTransport("synthetic", async (url, init) =>
-	fetch(endpoint + new URL(url).pathname, init),
+const transport = createResendTransport(
+	"synthetic",
+	async (url, init) => fetch(endpoint + new URL(url).pathname, init),
+	{ VERCEL_ENV: "production" },
 );
 const authorize = async (tx, mail) => {
 	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, tenant: m.tenant }));
