@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, type Node as PMNode, type Schema } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
-import { nodeFromTable, selectIn } from "./table-actions.ts";
+import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
 import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
 
 // Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
@@ -195,6 +195,8 @@ export function regionAt(state: EditorState): "pageHeader" | "pageFooter" | null
 	return null;
 }
 
+const labelPlace = { row: null, col: 0 };
+
 /** Adds a block after the current block. Text blocks take the cursor. `alt` is the asset's alternative text for an image. */
 export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean {
 	const { state } = editor;
@@ -216,17 +218,19 @@ export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean
 			addParagraph || after < tr.doc.content.size ? Selection.near(near, 1) : NodeSelection.create(tr.doc, at),
 		);
 	} else if (node.type.name === "table") {
-		// The cursor goes into the first text cell; a table with no typed row yet is selected whole.
+		// The cursor goes into the first text cell; a table with no typed row yet takes its first header label below.
 		let firstText: number | null = null;
 		node.descendants((child, offset) => {
 			if (firstText === null && child.type.name === "cell") firstText = at + 1 + offset;
 			return firstText === null;
 		});
 		if (firstText !== null) tr.setSelection(TextSelection.create(tr.doc, firstText + 1));
-		else selectIn(tr, at, { row: null, col: 0 });
+		else selectIn(tr, at, labelPlace);
 	} else tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1));
 	editor.view.dispatch(tr);
 	editor.view.focus();
+	if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === "table")
+		focusPlace(editor.view, at, labelPlace);
 	return true;
 }
 

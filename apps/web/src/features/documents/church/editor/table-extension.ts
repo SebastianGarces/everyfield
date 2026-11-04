@@ -3,7 +3,9 @@ import {
 	columnWidths,
 	formatNumber,
 	parseAmount,
+	tileBox,
 	type ColumnSpec,
+	type PageSetup,
 	type TableNode,
 } from "@everyfield/contracts/documents";
 import { Extension, mergeAttributes, Node as TiptapNode, type Editor } from "@tiptap/core";
@@ -13,16 +15,19 @@ import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } fro
 import { Decoration, DecorationSet, type EditorView, type ViewMutationRecord } from "@tiptap/pm/view";
 import { attrsOfSpec, BLOCKS, px } from "./attrs.ts";
 import {
+	focusPlace,
 	newTyping,
 	noteCell,
 	noteFocus,
-	selectIn,
+	samePlace,
+	setAttrs,
 	tableContext,
 	tableFocusPlugin,
 	tableOf,
 	typeInto,
 } from "./table-actions.ts";
 import { blankRows, tableView } from "./table-model.ts";
+import type { Place } from "./table-ops.ts";
 
 // The table the editor draws and edits. It is the format's own `table`, not Tiptap's general table. A text column holds
 // typed text in `cell` nodes. Every other column holds `valueCell` leaves that this file draws: an amount field, a check
@@ -143,49 +148,21 @@ const alignOf = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "rig
 
 // ---------------------------------------------------------------- moving between cells
 
-type Stop = { area: "head"; col: number } | { area: "cell"; row: number; col: number } | { area: "blank" };
-
 /** The places a Tab stops in a table, in reading order: the header labels, then every cell that takes input. */
-function stopsOf(table: TableNode): Stop[] {
+function stopsOf(table: TableNode): Place[] {
 	const a = attrsOf(table);
-	const stops: Stop[] = [];
-	if (a.header) a.columns.forEach((_, col) => stops.push({ area: "head", col }));
+	const stops: Place[] = [];
+	if (a.header) a.columns.forEach((_, col) => stops.push({ row: null, col }));
 	(table.content ?? []).forEach((row, r) => {
 		const role = row.attrs?.role ?? "item";
 		a.columns.forEach((c, col) => {
 			if (c.type === "text" || (role === "item" && (c.type === "check" || c.type === "number" || c.type === "money")))
-				stops.push({ area: "cell", row: r, col });
+				stops.push({ row: r, col });
 		});
 	});
 	// The blank rows are one stop at the end: a person who lands there can remove a blank row.
-	if (!a.source && a.writeInRows > 0) stops.push({ area: "blank" });
+	if (!a.source && a.writeInRows > 0) stops.push({ row: null, col: null, blank: true });
 	return stops;
-}
-
-const sameStop = (a: Stop, b: Stop) => {
-	if (a.area !== b.area) return false;
-	if (a.area === "blank") return true;
-	if (a.area === "head") return b.area === "head" && a.col === b.col;
-	return b.area === "cell" && a.row === b.row && a.col === b.col;
-};
-
-function focusStop(view: EditorView, tablePos: number, stop: Stop) {
-	const table = view.nodeDOM(tablePos) as HTMLElement | null;
-	if (stop.area === "blank") {
-		table?.querySelector<HTMLElement>(".ef-table-blanks")?.focus();
-		return;
-	}
-	if (stop.area === "head") {
-		table?.querySelectorAll<HTMLInputElement>(".ef-head-cell")[stop.col]?.focus();
-		return;
-	}
-	const tr = selectIn(view.state.tr, tablePos, { row: stop.row, col: stop.col });
-	view.dispatch(tr);
-	// A text cell takes the editor's cursor; an amount or check box cell takes its own field.
-	if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === "valueCell") {
-		const dom = view.nodeDOM(tr.selection.from) as HTMLElement | null;
-		dom?.querySelector<HTMLElement>("input, button")?.focus();
-	} else view.focus();
 }
 
 const TABBABLE =
@@ -215,18 +192,18 @@ function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): bool
 }
 
 /** Tab (`1`) or Shift+Tab (`-1`) from `from`. At either end it moves on to the next control after or before the table. */
-function moveFocus(editor: Editor, tablePos: number, from: Stop, direction: 1 | -1): boolean {
+function moveFocus(editor: Editor, tablePos: number, from: Place, direction: 1 | -1): boolean {
 	const node = editor.state.doc.nodeAt(tablePos);
 	if (!node || node.type.name !== "table") return false;
 	const stops = stopsOf(tableOf(node));
-	const next = stops[stops.findIndex((s) => sameStop(s, from)) + direction];
+	const next = stops[stops.findIndex((s) => samePlace(s, from)) + direction];
 	if (!next) return leaveTable(editor.view, tablePos, direction);
-	focusStop(editor.view, tablePos, next);
+	focusPlace(editor.view, tablePos, next);
 	return true;
 }
 
 /** The keys every field of a table shares: one Undo history for the whole document, and Tab between the stops. */
-function fieldKey(editor: Editor, event: KeyboardEvent, tablePos: number | undefined, stop: Stop | null) {
+export function fieldKey(editor: Editor, event: KeyboardEvent, tablePos?: number, stop?: Place | null) {
 	const key = event.key.toLowerCase();
 	if ((event.metaKey || event.ctrlKey) && !event.altKey && (key === "z" || key === "y")) {
 		// The field's own Undo would split a typed amount.
@@ -279,11 +256,11 @@ function valueCellView(
 		for (let d = $pos.depth; d >= 1; d--) if ($pos.node(d).type.name === "table") return $pos.before(d);
 		return undefined;
 	};
-	const stopHere = (): Stop | null => {
+	const stopHere = (): Place | null => {
 		const pos = getPos();
 		if (pos === undefined) return null;
 		const $pos = editor.state.doc.resolve(pos);
-		return { area: "cell", row: $pos.index($pos.depth - 1), col: $pos.index($pos.depth) };
+		return { row: $pos.index($pos.depth - 1), col: $pos.index($pos.depth) };
 	};
 	const onKey = (event: KeyboardEvent) => fieldKey(editor, event, tablePosOf(), stopHere());
 
@@ -358,7 +335,7 @@ function valueCellView(
 					const current = pos === undefined ? null : editor.state.doc.nodeAt(pos);
 					if (!current || pos === undefined) return;
 					editor.view.dispatch(
-						closeHistory(editor.state.tr).setNodeMarkup(pos, undefined, {
+						setAttrs(closeHistory(editor.state.tr), pos, {
 							...current.attrs,
 							checked: current.attrs.checked !== true,
 						}),
@@ -397,6 +374,11 @@ function valueCellView(
 
 // ---------------------------------------------------------------- the table
 
+/** The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. */
+function textWidth(page: PageSetup) {
+	return (tileBox(page)?.width ?? 0) - (page.tile ? 2 * page.tile.padding : 0);
+}
+
 function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | undefined) {
 	const dom = el("div", "ef-table", { "data-ef-node": "table" });
 	const scroll = el("div", "ef-table-scroll");
@@ -419,10 +401,11 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	const table = () => attrsOf(tableOf(node));
 
 	function widths() {
-		const cols = table().columns;
-		// The editor lays the columns out by the same rule as the PDF, over the width the table has here.
-		const available = Math.max(0, scroll.clientWidth) * 0.75;
-		const points = columnWidths(cols, available);
+		// The columns have the PDF's widths on any screen: the page's text width, or the share of it a block inside a column
+		// or a box has. The table scrolls inside its own area when the screen is narrower than that.
+		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
+		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
+		const points = columnWidths(table().columns, textWidth(editor.state.doc.attrs.page as PageSetup) * share);
 		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
 		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
 	}
@@ -433,8 +416,10 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		if (key === headKey) {
 			// The inputs stay while a person types in one. Only Undo and Redo make a value differ from its label.
 			a.columns.forEach((c, i) => {
-				const input = head.children[i] as HTMLInputElement | undefined;
+				const cell = head.children[i] as HTMLElement | undefined;
+				const input = cell?.firstElementChild as HTMLInputElement | null | undefined;
 				if (input && input.value !== c.label) input.value = c.label;
+				cell?.setAttribute("aria-label", c.label);
 			});
 			return;
 		}
@@ -446,8 +431,9 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 				type: "text",
 				maxlength: "80",
 				"aria-label": `Label of column ${i + 1}`,
-				role: "columnheader",
 			});
+			const cell = el("div", "ef-head-wrap", { role: "columnheader", "aria-label": c.label });
+			cell.append(input);
 			input.value = c.label;
 			input.style.textAlign = alignOf(c);
 			input.addEventListener("focus", () => noteFocus(editor.view, getPos(), "head", i));
@@ -461,13 +447,13 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 				const columns = (current.attrs.columns as ColumnSpec[]).map((col, ci) =>
 					ci === i ? { ...col, label: input.value } : col,
 				);
-				typeInto(editor.view, typing, (tr) => tr.setNodeMarkup(pos, undefined, { ...current.attrs, columns }));
+				typeInto(editor.view, typing, (tr) => setAttrs(tr, pos, { ...current.attrs, columns }));
 			});
 			input.addEventListener("keydown", (event) => {
-				fieldKey(editor, event, getPos(), { area: "head", col: i });
+				fieldKey(editor, event, getPos(), { row: null, col: i });
 				if (event.key === "Enter") event.preventDefault();
 			});
-			head.append(input);
+			head.append(cell);
 		});
 	}
 
@@ -525,22 +511,44 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	observer?.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
 	blanks.addEventListener("keydown", (event) => {
-		if (event.key === "Tab") fieldKey(editor, event, getPos(), { area: "blank" });
+		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
 	});
+	// A change of the page setup changes the widths, also on a screen too narrow for the paper to change.
+	let page = editor.state.doc.attrs.page;
+	const onTransaction = () => {
+		if (editor.state.doc.attrs.page === page) return;
+		page = editor.state.doc.attrs.page;
+		widths();
+	};
+	editor.on("transaction", onTransaction);
 	return {
 		dom,
 		contentDOM: body,
 		update(next: PMNode) {
 			if (next.type !== initial.type) return false;
 			node = next;
+			const owned = head.contains(document.activeElement) || blanks.contains(document.activeElement);
 			draw();
+			// Undo or Redo can redraw the header under the person's focus. The focus stays in the table, after this update.
+			if (owned && !dom.contains(document.activeElement))
+				queueMicrotask(() => {
+					const pos = getPos();
+					const here = tableContext(editor.state);
+					if (dom.contains(document.activeElement)) return;
+					if (pos !== undefined && here?.pos === pos && here.at.row === null && here.at.col !== null)
+						focusPlace(editor.view, pos, here.at);
+					else editor.view.focus();
+				});
 			return true;
 		},
 		// Events in the header and the blank rows belong to the table, not to the document's cursor.
 		stopEvent: (event: Event) => event.target instanceof Node && !body.contains(event.target),
 		ignoreMutation: (mutation: ViewMutationRecord) =>
 			mutation.type === "selection" ? false : !body.contains(mutation.target),
-		destroy: () => observer?.disconnect(),
+		destroy: () => {
+			observer?.disconnect();
+			editor.off("transaction", onTransaction);
+		},
 	};
 }
 
@@ -673,6 +681,14 @@ export const TableRules = Extension.create({
 						const head = Math.min(Math.max($head.pos, start.start), start.end);
 						return TextSelection.create(doc, $anchor.pos, head);
 					},
+					// A key typed while the whole table is selected goes nowhere: it would replace the table.
+					handleTextInput: (view) => {
+						const { selection } = view.state;
+						if (!(selection instanceof NodeSelection) || selection.node.type.name !== "table") return false;
+						const first = stopsOf(tableOf(selection.node))[0];
+						if (first) focusPlace(view, selection.from, first);
+						return true;
+					},
 					transformPastedText: (text, _plain, view) => (inCell(view.state) ? flat(text) : text),
 					transformPasted: (slice, view) => (inCell(view.state) ? oneLine(slice) : slice),
 				},
@@ -702,7 +718,7 @@ export const TableRules = Extension.create({
 		const tab = (direction: 1 | -1) => () => {
 			const context = tableContext(editor().state);
 			if (!context || context.at.row === null || context.at.col === null) return false;
-			return moveFocus(editor(), context.pos, { area: "cell", row: context.at.row, col: context.at.col }, direction);
+			return moveFocus(editor(), context.pos, { row: context.at.row, col: context.at.col }, direction);
 		};
 		return {
 			// A cell is one line: no paragraph, no line break.

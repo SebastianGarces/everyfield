@@ -209,8 +209,6 @@ for (const [name, engine] of ENGINES) {
 				assert.match(await tip.first().innerText(), new RegExp(label));
 				await page.mouse.move(0, 0);
 			}
-			// A disabled control keeps its cursor and says why in the reasons line.
-			await page.getByRole("spinbutton", { name: "Blank rows" }).focus();
 			// Every cell and control is reachable by keyboard: three header labels, then six cells, then out of the table.
 			await t.cell(0, 0);
 			await page.locator(".ef-head-cell").first().focus();
@@ -221,7 +219,7 @@ for (const [name, engine] of ENGINES) {
 					const inTable = !!a?.closest?.('[data-ef-node="table"]');
 					const sel = document.querySelector(".ef-paper .ProseMirror")?.editor?.state.selection;
 					return {
-						head: a?.classList?.contains("ef-head-cell") ? [...a.parentElement.children].indexOf(a) : null,
+						head: a?.classList?.contains("ef-head-cell") ? [...a.closest(".ef-table-head").children].indexOf(a.parentElement) : null,
 						inTable,
 						cell: sel ? sel.$from.parent.type.name : null,
 						row: sel ? sel.$from.index(1) : null,

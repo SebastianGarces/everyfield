@@ -111,6 +111,8 @@ const lastTextColumn = (t: TableNode, index: number) =>
 
 const ROW_LIMIT = `A table holds at most ${TABLE_LIMITS.rows} rows.`;
 const COLUMN_LIMIT = `A table holds at most ${TABLE_LIMITS.columns} columns.`;
+/** A table with no header and no row has nothing to show or click: it would stay in the document, invisible. */
+export const LAST_ROW = "A table with no header keeps at least one row.";
 
 export function availability(t: TableNode, at: Place) {
 	const rows = rowsOf(t);
@@ -146,7 +148,12 @@ export function availability(t: TableNode, at: Place) {
 	const noCategory = "Put the cursor in a category.";
 	return {
 		addRow: ledger ? null : rows.length >= TABLE_LIMITS.rows ? ROW_LIMIT : noRows,
-		removeRow: at.row !== null || at.blank ? null : "Put the cursor in a row to remove it.",
+		removeRow:
+			at.row === null && !at.blank
+				? "Put the cursor in a row to remove it."
+				: !t.attrs.header && rows.length + (t.attrs.writeInRows ?? 0) <= 1
+					? LAST_ROW
+					: null,
 		addColumnLeft: addColumn(at.col ?? 0),
 		addColumnRight: addColumn(at.col === null ? cols.length : at.col + 1),
 		removeColumn,

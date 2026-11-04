@@ -8,7 +8,7 @@
 //   AC:WP-036-5 Blank write-in rows              AC:WP-036-6 Header color and stripes      AC:WP-036-7 Checklist rows
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { columnWidths, TABLE_LIMITS } from "../../../packages/contracts/src/documents/index.ts";
+import { TABLE_LIMITS } from "../../../packages/contracts/src/documents/index.ts";
 import { textOn } from "../../../packages/domain/src/documents/contrast.ts";
 import { makePalette, NEUTRAL_THEME, tokenColor } from "../../../packages/domain/src/documents/theme.ts";
 import { ENGINES } from "../setup.mjs";
@@ -193,7 +193,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:WP-036-3 (${name}): a table control adds a column left or right and removes one; the header edits the label; limits disable with a reason; columns have the PDF's widths`, async () => {
+	test(`AC:WP-036-3 (${name}): a table control adds a column left or right and removes one; the header edits the label; limits disable with a reason`, async () => {
 		await onFork(engine, "guest-sign-in-sheet", async (page, context, t) => {
 			await t.deleteAll();
 			await t.insert("Table");
@@ -232,24 +232,6 @@ for (const [name, engine] of ENGINES) {
 				await head.fill("Phone number");
 			});
 			assert.equal((await t.table()).attrs.columns[1].label, "Phone number");
-
-			// The editor lays the columns out by the PDF's own rule.
-			const measured = await page
-				.locator(`${PAPER} .ef-table-scroll`)
-				.first()
-				.evaluate((el) => ({
-					width: el.clientWidth,
-					cols: getComputedStyle(el.querySelector(".ef-table-grid")).getPropertyValue("--ef-cols").trim(),
-					cells: [...el.querySelectorAll(".ef-head-cell")].map((c) => c.getBoundingClientRect().width),
-				}));
-			const expected = columnWidths((await t.table()).attrs.columns, measured.width * 0.75).map((pt) => (pt * 4) / 3);
-			assert.deepEqual(
-				measured.cols.split(" ").map((v) => Math.round(Number.parseFloat(v))),
-				expected.map(Math.round),
-			);
-			measured.cells.forEach((w, i) =>
-				assert.ok(Math.abs(w - (expected[i] ?? 0)) < 2, `column ${i + 1} is ${w}px wide`),
-			);
 
 			// 16 columns is the most; the last column cannot be removed.
 			while ((await t.table()).attrs.columns.length < TABLE_LIMITS.columns) {

@@ -5,7 +5,8 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
-import { applyTable, newTyping, tableContext, typeInto, type TableContext } from "./table-actions.ts";
+import { applyTable, newTyping, setAttrs, tableContext, typeInto, type TableContext } from "./table-actions.ts";
+import { fieldKey } from "./table-extension.ts";
 import {
 	addCategory,
 	addColumn,
@@ -15,6 +16,7 @@ import {
 	categoryAt,
 	KINDS,
 	labelColumn,
+	LAST_ROW,
 	removeCategory,
 	removeColumn,
 	removeRow,
@@ -90,9 +92,14 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	const [draft, setDraft] = useState<string | null>(null);
 	const typing = useRef(newTyping());
 	const current = context.table.attrs.writeInRows ?? 0;
+	const lastRow = !context.table.attrs.header && !context.table.content?.length && !context.table.attrs.source;
 	const issue = (text: string) =>
-		text.trim() === "" ? "Type a number from 0 to 200." : attrIssue("table", "writeInRows", Number(text));
-	const problem = draft === null ? null : issue(draft);
+		text.trim() === ""
+			? "Type a number from 0 to 200."
+			: (attrIssue("table", "writeInRows", Number(text)) ?? (lastRow && Number(text) === 0 ? LAST_ROW : null));
+	// Undo or Redo can change the count under a typed draft: the field shows the stored count then.
+	const shown = draft !== null && (issue(draft) || Number(draft) === current) ? draft : String(current);
+	const problem = issue(shown);
 	return (
 		<span className="flex flex-wrap items-center gap-2">
 			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
@@ -106,7 +113,7 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 					min={0}
 					max={200}
 					step={1}
-					value={draft ?? String(current)}
+					value={shown}
 					aria-invalid={problem ? true : undefined}
 					aria-describedby={problem ? `${id}-problem` : undefined}
 					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
@@ -117,10 +124,9 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 						const count = Number(text);
 						const live = tableContext(editor.state);
 						if (!live || live.pos !== context.pos) return;
-						typeInto(editor.view, typing.current, (tr) =>
-							tr.setNodeMarkup(live.pos, undefined, { ...live.node.attrs, writeInRows: count }),
-						);
+						typeInto(editor.view, typing.current, (tr) => setAttrs(tr, live.pos, { ...live.node.attrs, writeInRows: count }));
 					}}
+					onKeyDown={(event) => fieldKey(editor, event.nativeEvent)}
 					onBlur={() => {
 						typing.current = newTyping();
 						setDraft(null);
@@ -145,11 +151,13 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 	const can = availability(table, at);
 	const column = at.col === null ? null : (table.attrs.columns[at.col] ?? null);
 	const textAt = labelColumn(table);
+	const sign = signAt(table, at.row);
 
 	// Reasons a control is off because of the table itself, shown under the controls. Where the cursor is stays in tooltips.
 	const reasons = (
 		[
 			["Add row", can.addRow],
+			["Remove row", can.removeRow],
 			["Add column", can.addColumnRight],
 			["Remove column", can.removeColumn],
 			["Column kind", can.kind],
@@ -184,12 +192,23 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 									if (place.row !== null) {
 										const next = removeRow(t, place.row);
 										const left = (next.content ?? []).length;
+										const blanks = next.attrs.writeInRows ?? 0;
 										return {
 											table: next,
-											place: { row: left ? Math.min(place.row, left - 1) : null, col: place.col },
+											place: left
+												? { row: Math.min(place.row, left - 1), col: place.col }
+												: { row: null, col: place.col, blank: !next.attrs.header && blanks > 0 },
 										};
 									}
-									return { table: setWriteInRows(t, Math.max(0, (t.attrs.writeInRows ?? 0) - 1)), place };
+									const count = Math.max(0, (t.attrs.writeInRows ?? 0) - 1);
+									const typed = (t.content ?? []).length;
+									// With the last blank row gone, the person goes to the last typed row, or else the header.
+									const after: Place = count
+										? place
+										: typed
+											? { row: typed - 1, col: place.col ?? 0 }
+											: { row: null, col: place.col ?? 0 };
+									return { table: setWriteInRows(t, count), place: after };
 								})
 							}
 						/>
@@ -311,21 +330,21 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 							})
 						}
 					/>
-					<Segmented
-						label="Category sign"
-						value={signAt(table, at.row) ?? "add"}
-						options={[
-							{ value: "add", label: "Adds", tooltip: "This category adds to the total" },
-							{ value: "subtract", label: "Subtracts", tooltip: "This category subtracts from the total" },
-						]}
-						onChange={(sign) =>
-							run(editor, ({ table: t, at: place }) =>
-								signAt(t, place.row) === null || place.row === null
-									? null
-									: { table: setSign(t, place.row, sign), place },
-							)
-						}
-					/>
+					{sign ? (
+						<Segmented
+							label="Category sign"
+							value={sign}
+							options={[
+								{ value: "add", label: "Adds", tooltip: "This category adds to the total" },
+								{ value: "subtract", label: "Subtracts", tooltip: "This category subtracts from the total" },
+							]}
+							onChange={(next) =>
+								run(editor, ({ table: t, at: place }) =>
+									place.row === null ? null : { table: setSign(t, place.row, next), place },
+								)
+							}
+						/>
+					) : null}
 				</Group>
 			) : null}
 			<Group label="Look">

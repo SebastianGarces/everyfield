@@ -1,7 +1,7 @@
 import { attrsOf, type TableNode } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
-import type { Node as PMNode, Schema } from "@tiptap/pm/model";
+import type { Attrs, Node as PMNode, Schema } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { clean } from "./document-json.ts";
@@ -48,8 +48,12 @@ export function tableFocusPlugin() {
 				const set = tr.getMeta(tableFocusKey) as TableFocus | null | undefined;
 				if (set !== undefined) return set;
 				if (!value) return null;
-				if (tr.selectionSet) return null;
-				return tr.docChanged ? { ...value, pos: tr.mapping.map(value.pos, -1) } : value;
+				// The note lasts while the table stays selected, so a change to the table's attributes keeps the person's place.
+				const pos = tr.mapping.map(value.pos, -1);
+				const { selection } = tr;
+				return selection instanceof NodeSelection && selection.from === pos && selection.node.type.name === "table"
+					? { ...value, pos }
+					: null;
 			},
 		},
 	});
@@ -79,15 +83,23 @@ export function tableContext(state: EditorState): TableContext | null {
 	if (pos < 0) return null;
 	const node = state.doc.nodeAt(pos);
 	if (!node || node.type.name !== "table") return null;
+	const table = tableOf(node);
 	let at: Place = { row: null, col: null };
 	if (depth >= 1 && $from.depth > depth) {
 		// A cursor in a text cell has the row and cell above it; a selected amount cell sits in its row.
 		at = { row: $from.index(depth), col: $from.index(depth + 1) };
 	} else {
+		// Undo can take away the column or the blank row the note names.
 		const focus = tableFocusKey.getState(state);
-		if (focus && focus.pos === pos) at = { row: null, col: focus.col, blank: focus.area === "blank" };
+		const a = attrsOf(table);
+		if (focus && focus.pos === pos)
+			at = {
+				row: null,
+				col: Math.min(focus.col, a.columns.length - 1),
+				blank: focus.area === "blank" && a.writeInRows > 0,
+			};
 	}
-	return { pos, node, table: tableOf(node), at };
+	return { pos, node, table, at };
 }
 
 // ---------------------------------------------------------------- selections
@@ -114,25 +126,57 @@ export function selectIn(tr: Transaction, tablePos: number, place: Place) {
 		.setMeta(tableFocusKey, { pos: tablePos, area: place.blank ? "blank" : "head", col } satisfies TableFocus);
 }
 
+/**
+ * Changes the attributes of the node at `pos` and leaves the selection where it was. `setNodeMarkup` alone reads a selected
+ * node as deleted, so the cursor would jump to the next text and the next control would act there.
+ */
+export function setAttrs(tr: Transaction, pos: number, attrs: Attrs) {
+	const selected = tr.selection instanceof NodeSelection && tr.selection.from === pos;
+	tr.setNodeMarkup(pos, undefined, attrs);
+	return selected ? tr.setSelection(NodeSelection.create(tr.doc, pos)) : tr;
+}
+
+/** Moves the browser's focus to `place`: a header label, the blank rows, or a cell's field or text. */
+export function focusPlace(view: EditorView, tablePos: number, place: Place) {
+	const table = view.nodeDOM(tablePos) as HTMLElement | null;
+	if (place.row === null) {
+		const label = table?.querySelectorAll<HTMLElement>(".ef-head-cell")[place.col ?? 0];
+		const blanks = table?.querySelector<HTMLElement>(".ef-table-blanks");
+		(place.blank ? blanks : (label ?? blanks))?.focus();
+		return;
+	}
+	const tr = selectIn(view.state.tr, tablePos, place);
+	view.dispatch(tr);
+	// A text cell takes the editor's cursor; an amount or check box cell takes its own field.
+	const field =
+		tr.selection instanceof NodeSelection
+			? (view.nodeDOM(tr.selection.from) as HTMLElement | null)?.querySelector<HTMLElement>("input, button")
+			: null;
+	if (field) field.focus();
+	else view.focus();
+}
+
 // ---------------------------------------------------------------- actions
+
+export const samePlace = (a: Place, b: Place) => a.row === b.row && a.col === b.col && !a.blank === !b.blank;
 
 /**
  * Replaces the table by `next` in one transaction and puts the cursor at `place`. When only the attributes changed, the
- * node keeps its rows, so its cells keep their text and their focus.
+ * node keeps its rows, so its cells keep their text and their focus. A person who works in the table stays in it.
  */
 export function applyTable(editor: Editor, context: TableContext, next: TableNode, place: Place) {
-	const { state } = editor;
+	const { state, view } = editor;
 	const tr = closeHistory(state.tr);
 	const replacement = nodeFromTable(state.schema, next);
 	const end = context.pos + context.node.nodeSize;
-	if (replacement.content.eq(context.node.content)) {
-		// Only attributes changed: the rows stay, and so does the cursor.
-		tr.setNodeMarkup(context.pos, undefined, replacement.attrs);
-	} else {
-		tr.replaceWith(context.pos, end, replacement);
-		selectIn(tr, context.pos, place);
-	}
-	editor.view.dispatch(tr.scrollIntoView());
+	const rowsChanged = !replacement.content.eq(context.node.content);
+	const moved = rowsChanged || !samePlace(place, context.at);
+	if (rowsChanged) tr.replaceWith(context.pos, end, replacement);
+	else setAttrs(tr, context.pos, replacement.attrs);
+	if (moved) selectIn(tr, context.pos, place);
+	const inTable = (view.nodeDOM(context.pos) as HTMLElement | null)?.contains(document.activeElement) === true;
+	view.dispatch(tr.scrollIntoView());
+	if (moved && inTable) focusPlace(view, context.pos, place);
 }
 
 // ---------------------------------------------------------------- typing into a field of the table
