@@ -210,6 +210,8 @@ export async function reviseProposal(
 		SELECT ${projection("x")} AS proposal FROM x`);
 	if (r.rows.length) return proposalRow.parse(r.rows[0]!.proposal);
 	const current = await readReview(db, actor, proposalId);
+	// A message that changed and can no longer be reviewed (it was cancelled or sent) has nothing to review again.
+	if (current.revision === change.revision && current.stale) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
 }
 

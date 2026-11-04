@@ -912,6 +912,18 @@ for (const [name, changeIt] of [
 				[service.calls.send.length, service.calls.cancel.length, service.calls.reschedule.length],
 				before,
 			);
+			// A cancelled or sent message has nothing left to review again, and the card says so.
+			if (name !== "rescheduled")
+				await assert.rejects(
+					reviseProposal(
+						db,
+						owner,
+						proposal.id,
+						{ operation, revision: proposal.revision, input: input(id) },
+						service.port,
+					),
+					{ code: "not_found" },
+				);
 		});
 
 test("AC:WP-028-9 a cancel that went out before the effect ran is refused by the effect, and an all-sent cancel never says Cancelled", async () => {
