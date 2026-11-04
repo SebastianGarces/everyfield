@@ -428,7 +428,7 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	const head = view === "loading" || view === "lost" ? "" : HEAD[view].title.replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
-	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")?.title ?? "Done";
+	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
 	if (view === "completed")
 		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");

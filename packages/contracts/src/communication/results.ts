@@ -390,7 +390,6 @@ export const mailReport = z.discriminatedUnion("kind", [
 		accepted: count,
 		refused: count,
 		unknown: count,
-		cancelled: count,
 	}),
 	/** No new send: a cancel is open or too late, or the new one was refused after the old one was cancelled. */
 	z.object({

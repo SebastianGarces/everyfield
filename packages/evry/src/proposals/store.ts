@@ -400,7 +400,7 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 		{
 			effectKey: `evry:${proposalId}:${current.revision}`,
 			checkKey: `evry:${proposalId}:check:${randomUUID()}`,
-			revision: current.receipt?.revision,
+			revision: current.receipt!.revision!,
 		},
 		mail,
 	);

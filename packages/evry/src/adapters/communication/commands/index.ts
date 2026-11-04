@@ -154,30 +154,25 @@ const scheduleInput = z.strictObject({ communicationId: messageId, sendAt: local
 const draftRead = z.object({
 	audience: z.unknown(),
 	body_html: z.string().nullable(),
-	subject: z.string().nullable(),
 	revision: z.string(),
 });
 /** Stands in for the first recipient's name until the review statement knows who that is. */
 const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
-const peopleRead = z.array(z.object({ id: z.uuid(), displayName: z.string(), email: z.string().nullable() }));
+const peopleRead = z.array(z.object({ email: z.string().nullable() }));
 
 /**
  * One audience as the handoff will resolve it. The address hashes are read first because the keys that hash an address
  * are not in the database: the review statement then compares them to the active blocks. Null with no mail keys.
  */
 async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
-	if (!context.mail) return null;
+	const { mail } = context;
+	if (!mail) return null;
 	const raw = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows[0]!.people;
-	const addresses = [
-		...new Set(
-			peopleRead
-				.parse(raw)
-				.map((p) => p.email?.trim().toLowerCase())
-				.filter((e): e is string => !!e),
-		),
-	];
 	const hashes = Object.fromEntries(
-		addresses.map((address) => [address, mailAddressHash(context.mail!.keys.addressKey, address)]),
+		peopleRead.parse(raw).flatMap((p) => {
+			const address = p.email?.trim().toLowerCase();
+			return address ? [[address, mailAddressHash(mail.keys.addressKey, address)]] : [];
+		}),
 	);
 	return { audience, hashes, digest: recipientsDigest(raw) };
 }
@@ -234,7 +229,7 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	allowed: ownerOrAdmin,
 	async review(actor, value, context): Promise<SQL | null> {
 		const found = await context.db.execute(
-			sql`SELECT c.audience,c.body_html,c.subject,c.revision::text AS revision FROM communication c
+			sql`SELECT c.audience,c.body_html,c.revision::text AS revision FROM communication c
 				WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','reviewed')`,
 		);
 		if (!found.rows.length) return null;
@@ -293,7 +288,6 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	async check(db, authority, args, keys, mail): Promise<EffectResult> {
 		const saved = savedSchedule.parse(args);
 		const { communicationId, scheduledAt } = saved.input;
-		if (!keys.revision) return { refused: "not_found" };
 		const asked = await communicationWriter.reconcileProviderOutcome(
 			db,
 			authority,
@@ -498,8 +492,7 @@ async function replaceStep(
 		input: { communicationId: input.communicationId },
 	});
 	if (gate.status !== "ok") return stopped("refused", gate.error.code);
-	if (!gate.value.replacementAllowed || old.value.scheduledCancel !== "confirmed" || counts.sent > 0)
-		return stopped(counts.open > 0 ? "not_confirmed" : "blocked");
+	if (!gate.value.replacementAllowed) return stopped(counts.open > 0 ? "not_confirmed" : "blocked");
 	const session = authority.session;
 	const owner = authority.actor.context.owner;
 	const scheduled = await db.transaction(async (tx) => {
@@ -552,7 +545,6 @@ async function replaceStep(
 			accepted: v.acceptedCount,
 			refused: v.rejectedCount,
 			unknown: v.unknownCount,
-			cancelled: counts.cancelled,
 		},
 	};
 }

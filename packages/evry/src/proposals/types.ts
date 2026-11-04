@@ -78,7 +78,7 @@ export type ReviewedWrite<I> = {
 		db: Database,
 		authority: RequestActor,
 		args: unknown,
-		keys: { effectKey: string; checkKey: string; revision: string | undefined },
+		keys: { effectKey: string; checkKey: string; revision: string },
 		mail: MailPort,
 	): Promise<EffectResult>;
 };

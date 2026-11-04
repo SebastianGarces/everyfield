@@ -221,6 +221,11 @@ type AudienceValue = {
 };
 const audienceOf = (value: unknown): AudienceValue | null =>
 	value && typeof value === "object" && "recipients" in value ? (value as AudienceValue) : null;
+/** The native command's audience, without the counts the review added. */
+function audienceArgs(value: unknown) {
+	const a = audienceOf(value);
+	return a && { groups: a.groups, teamIds: a.teamIds, personIds: a.personIds };
+}
 /** "Launch team, 2 people · 4 with an email address · 1 with no email address". */
 export function audienceText(value: unknown) {
 	const a = audienceOf(value);
@@ -373,14 +378,8 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (review.operation === "people.createPerson")
 		return Object.fromEntries(changes.map((c) => [c.field, value(c)]).filter(([, v]) => v !== null));
 	if (review.operation === "communication.saveDraft") {
-		const a = audienceOf(after("audience"));
-		return a
-			? {
-					subject: after("subject"),
-					body: after("body"),
-					audience: { groups: a.groups, teamIds: a.teamIds, personIds: a.personIds },
-				}
-			: null;
+		const audience = audienceArgs(after("audience"));
+		return audience ? { subject: after("subject"), body: after("body"), audience } : null;
 	}
 	if (!target) return null;
 	const personId = target.id;
@@ -403,14 +402,12 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
 		case "communication.replaceScheduledReviewed": {
-			const audience = audienceOf(after("audience"));
+			const audience = audienceArgs(after("audience"));
 			const body = after("body");
 			return {
 				communicationId: target.id,
 				...(typeof body === "string" ? { body } : {}),
-				...(audience
-					? { audience: { groups: audience.groups, teamIds: audience.teamIds, personIds: audience.personIds } }
-					: {}),
+				...(audience ? { audience } : {}),
 			};
 		}
 	}
@@ -489,7 +486,7 @@ export function stoppedReason(code: string | undefined): string {
 }
 
 /** What the card says after an action the server refused or never answered. */
-export function actionNotice(error: ProjectedError | "lost", mail = false): string {
+export function actionNotice(error: ProjectedError | "lost", mail: boolean): string {
 	if (error === "lost") return "Not confirmed. Check your connection, then try again.";
 	switch (error.code) {
 		case "review_changed":
