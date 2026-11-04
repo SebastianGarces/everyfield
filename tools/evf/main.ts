@@ -594,7 +594,7 @@ function main(argv: string[]): number | Promise<number> {
 		case "owner-queue": {
 			const json = flag(args, "--json"),
 				kind = option(args, "--kind");
-			if (args.length === 0 && kind === undefined) return ownerQueue(root, { json });
+			if (args.length === 0 && kind === undefined) return ownerQueue(root, json);
 			if (json || args.length !== 2) break;
 			if (args[0] === "ask") return ownerQueueAsk(root, parseTask(args[1]), kind);
 			if (args[0] === "answer" && kind === undefined) return ownerQueueAnswer(root, parseTask(args[1]));

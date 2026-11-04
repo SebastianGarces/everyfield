@@ -134,11 +134,9 @@ active seats, recent events and the health counters.
 
 ## Owner queue
 
-`evf owner-queue [--json]` lists what waits for Sebastian, one line per open item: the PR, the head, a one-sentence
-ask, the age and the number of tasks that wait. Urgent items come first, then the oldest. An item that blocks 2 or
-more tasks is urgent. An item older than 48 h carries the question "Keep, abandon or reopen?". The command opens the
-store read-only. evf sends no message and has no schedule: Jonah sends the printed digest at the digest times and
-sends an urgent item at once (`.agents/roles/coordinator.md`).
+`evf owner-queue [--json]` lists what waits for Sebastian, urgent items first and then the oldest. An item that blocks
+2 or more tasks is urgent. An item older than 48 h carries the question "Keep, abandon or reopen?". The command opens
+the store read-only and sends nothing: Jonah sends the digest (`.agents/roles/coordinator.md`).
 
 The blocked count is the item's own task, plus each follow-up row with this task as `parent_task_id` that is not
 merged or abandoned, plus each direct dependent package in `docs/plan/dag.json` that is not merged. A package is
@@ -155,7 +153,7 @@ the age restarts.
 |---|---|
 | `evf ship` holds a PR for a document template or an owner path | `owner_ask`, kind `template` or `owner_path` |
 | `evf ship` stops on the Wiki route, a design task or P2 or P3 feedback | `owner_ask`, kind `wiki`, `design` or `feedback` |
-| A void owner approval, in `evf ship` or the drive | `owner_ask`, kind `void_approval` |
+| A void owner approval | `owner_ask`, kind `void_approval` |
 | An escalation, an awaiting pick | `owner_ask`, kind `escalation` or `prototype_pick` |
 | `evf owner-queue ask <task> --kind parked` | `owner_ask`, for a PR no route recorded |
 | `evf approve` on either route, a merge through `evf ship` | `owner_answer` |
@@ -165,7 +163,7 @@ the age restarts.
 Recording never changes a merge. A failed write prints a warning on stderr, and the command goes on with the same exit
 code and the same GitHub calls. Migration 014 gives each task that already waits an `owner_ask`: `askedAt` is the time
 of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. Old waits
-do not name a route, so a voided approval and an FB ref give the kind and any other wait is `parked`.
+do not name a route, so their kind is `parked`.
 
 The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. An invalid value makes `evf owner-queue` refuse with a
 message that names the key.
@@ -185,10 +183,8 @@ the system time zone. `digestId` is the next digest slot at or after `askedAt`, 
 Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. An OPS branch cannot add the key,
 because it may change only its own `maintenanceTasks` entry. He adds the key himself to `evf.config.json` in the home
 checkout, which is the file evf reads. `start` must come before `end`, so a window that crosses midnight is refused.
-While it is unset, the queue says so and shows no split.
-With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
-`outsideMinutes` in `--json`). `splitWait` in `owner-queue.ts` does the split and counts real time across a
-daylight-saving change.
+While it is unset, the queue says so and shows no split. With it set, each item shows its age split into minutes inside
+and outside the hours (`insideMinutes` and `outsideMinutes` in `--json`).
 
 ## Usage and seat models
 

@@ -55,14 +55,10 @@ export function parseOwnerQueue(raw: unknown): OwnerQueueConfig {
 	if (!raw || typeof raw !== "object" || Array.isArray(raw))
 		fail("evf.config.json ownerQueue must be an object with timeZone, digestTimes and ownerHours.");
 	const { timeZone, digestTimes, ownerHours } = raw as Record<string, unknown>;
-	if (timeZone !== undefined) {
-		const zoneError = "evf.config.json ownerQueue.timeZone must be an IANA time zone such as America/Chicago.";
-		if (typeof timeZone !== "string") fail(zoneError);
-		try {
-			new Intl.DateTimeFormat("en-US", { timeZone });
-		} catch {
-			fail(zoneError);
-		}
+	try {
+		new Intl.DateTimeFormat("en-US", { timeZone: timeZone as string | undefined });
+	} catch {
+		fail("evf.config.json ownerQueue.timeZone must be an IANA time zone such as America/Chicago.");
 	}
 	if (digestTimes !== undefined) {
 		const list = digestTimes as unknown[];
@@ -134,7 +130,6 @@ export function splitWait(
 ): { inside: number; outside: number } {
 	const from = start.getTime(),
 		to = end.getTime();
-	if (to <= from) return { inside: 0, outside: 0 };
 	let inside = 0;
 	for (let day = midnightOf(from, timeZone); day <= midnightOf(to, timeZone); day += DAY) {
 		const open = instantOf(wallAt(day, ownerHours.start), timeZone),
@@ -181,9 +176,8 @@ function ask(
 	pr: number | null,
 	head: string | null,
 	kind: OwnerKind,
-): boolean {
-	const open = openAsk(db, row.id);
-	if (open && open.head === head) return false;
+): void {
+	if (openAsk(db, row.id)?.head === head) return;
 	const at = Date.now();
 	const payload: AskPayload = {
 		task: row.ref,
@@ -194,7 +188,6 @@ function ask(
 		askedAt: new Date(at).toISOString(),
 	};
 	record(db, row.id, null, "owner_ask", payload);
-	return true;
 }
 
 /** One owner_answer for the open ask, or none. `head` is the head he answered, when the answer names one. */
@@ -231,19 +224,16 @@ function warnedInStore(root: string, what: string, write: (db: DatabaseSync) => 
 	});
 }
 
-/** The task's worktree head, else its branch head, else null. */
+/** The task's worktree head, else its pushed branch head, else null. */
 function knownHead(root: string, row: { ref: string; worktree: string | null }): string | null {
-	const { branch } = parseTask(row.ref);
-	const remote = `${loadConfig(root).remote}/${branch}`;
 	const read = (cwd: string, rev: string) => {
 		const r = run("git", ["-C", cwd, "rev-parse", "--verify", "-q", rev]);
 		return r.code === 0 ? r.stdout.trim() : null;
 	};
-	if (row.worktree && existsSync(row.worktree)) {
-		const head = read(row.worktree, "HEAD");
-		if (head) return head;
-	}
-	return read(root, `refs/heads/${branch}`) ?? read(root, `refs/remotes/${remote}`);
+	return (
+		(row.worktree ? read(row.worktree, "HEAD") : null) ??
+		read(root, `refs/remotes/${loadConfig(root).remote}/${parseTask(row.ref).branch}`)
+	);
 }
 
 /** A route in evf ship or evf approve asks Sebastian about this PR head. */
@@ -379,9 +369,9 @@ function itemLine(i: OwnerItem): string {
 const HOURS_NOT_SET = "ownerHours is not set, so ages show no inside or outside split.";
 
 /** Print what waits for Sebastian. It opens the store read-only and sends nothing. */
-export function ownerQueue(root: string, opts: { json: boolean; now?: number }): number {
+export function ownerQueue(root: string, json: boolean): number {
 	const q = parseOwnerQueue(loadConfig(root).ownerQueue),
-		now = opts.now ?? Date.now(),
+		now = Date.now(),
 		next = nextDigest(now, q);
 	let items: OwnerItem[] = [];
 	if (existsSync(workDbPath(root))) {
@@ -395,19 +385,8 @@ export function ownerQueue(root: string, opts: { json: boolean; now?: number }):
 			db.close();
 		}
 	}
-	if (opts.json) {
-		console.log(
-			JSON.stringify(
-				{
-					nextDigest: next,
-					timeZone: q.timeZone,
-					...(q.ownerHours ? {} : { note: HOURS_NOT_SET }),
-					items,
-				},
-				null,
-				2,
-			),
-		);
+	if (json) {
+		console.log(JSON.stringify({ nextDigest: next, ...(q.ownerHours ? {} : { note: HOURS_NOT_SET }), items }, null, 2));
 		return 0;
 	}
 	console.log(items.length ? `${items.length} waiting for Sebastian.` : "Nothing waits for Sebastian.");
@@ -426,12 +405,8 @@ export function ownerQueueAsk(root: string, task: TaskRef, kind: string | undefi
 		if (!row) fail(`${task.id} has no task row, so nothing can wait on it.`);
 		if (!row.pr_number) fail(`${row.ref} has no PR number in the store, so no PR can be parked.`);
 		const head = knownHead(root, row);
-		const added = ask(db, root, row, row.pr_number, head, kind);
-		console.log(
-			added
-				? `owner-queue: ${row.ref} waits for Sebastian at ${head?.slice(0, 10) ?? "an unknown head"}.`
-				: `owner-queue: ${row.ref} already waits at this head; nothing added.`,
-		);
+		ask(db, root, row, row.pr_number, head, kind);
+		console.log(`owner-queue: ${row.ref} waits for Sebastian at ${head?.slice(0, 10) ?? "an unknown head"}.`);
 		return 0;
 	} finally {
 		db.close();

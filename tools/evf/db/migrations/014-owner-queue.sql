@@ -1,7 +1,7 @@
 -- 014-owner-queue: one owner_ask for each task that already waits for Sebastian when the queue starts (OPS-131). An
 -- escalated task, an awaiting_pick task and a pr_open task whose latest owner_approval_wait has no later owner approval.
 -- askedAt is the time of that event. The old events carry no head and no digest slot, so both are null. An old wait does
--- not name its route: the text of a voided approval and an FB ref give the kind, and any other wait is `parked`.
+-- not name its route, so its kind is `parked`.
 -- The NOT EXISTS keeps a second run from adding anything.
 
 INSERT INTO events (task_id, ts, type, payload)
@@ -33,11 +33,7 @@ FROM (
 		t.id,
 		COALESCE(t.ref, t.slug),
 		t.pr_number,
-		CASE
-			WHEN e.payload LIKE '%owner approval is void%' THEN 'void_approval'
-			WHEN t.ref LIKE 'FB-%' THEN 'feedback'
-			ELSE 'parked'
-		END,
+		'parked',
 		e.ts
 	FROM tasks t
 	JOIN events e ON e.id = (

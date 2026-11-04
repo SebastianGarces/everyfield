@@ -831,11 +831,11 @@ test("AC:OPS-131-10 the store migration gives each task that already waits one o
 		});
 		const asks = ownerEvents(f);
 		assert.deepEqual(asks.map((a) => [a.task, a.pr, a.head, a.kind, a.digestId]).sort(), [
-			["FB-6", 6, null, "feedback", null],
+			["FB-6", 6, null, "parked", null],
 			["OPS-2", 388, null, "escalation", null],
 			["OPS-3", null, null, "prototype_pick", null],
 			["OPS-4", 4, null, "parked", null],
-			["OPS-5", 5, null, "void_approval", null],
+			["OPS-5", 5, null, "parked", null],
 		]);
 		for (const a of asks) assertAskShape(a);
 		const age = (task: string) => (Date.now() - Date.parse(asks.find((a) => a.task === task)!.askedAt)) / 3_600_000;
