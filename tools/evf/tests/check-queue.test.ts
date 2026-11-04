@@ -9,7 +9,7 @@ import { fixture, source } from "./fixtures.ts";
 import { acRun } from "../ac.ts";
 import { CHECK_CAP, CHECK_QUEUE, withCheckQueue } from "../check-queue.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
-import { evfDataDir, parseTask, sleep, WaitGaveUp } from "../lib.ts";
+import { evfDataDir, parseTask, WaitGaveUp } from "../lib.ts";
 import { withShipQueue } from "../ship-queue.ts";
 import { verify } from "../verify.ts";
 
@@ -489,12 +489,7 @@ test("a full check holds its slot during the load wait, and a load give-up frees
 		assert.equal(await queued.done, 1);
 		assert.match(queued.err(), /The machine stayed above its load limit/);
 		assert.equal(f.tickets().length, 2, "the give-up left no ticket");
-		await f.stop(holders[1]!);
-		await f.stop(holders[2]!);
-		await until("the stopped holders to leave", () => {
-			quiet(() => withCheckQueue(f.root, "OPS-1", () => 0, CHECK_QUEUE));
-			return f.tickets().length === 0;
-		});
+		for (const ticket of f.tickets()) rmSync(join(f.dir, ticket));
 
 		// While the load step reads the machine, this process has its ticket.
 		const seen: number[] = [];
@@ -717,10 +712,9 @@ test("a full check gives up after 120 minutes: the message names the queue, no c
 
 		const real = quiet(() =>
 			verify(f.root, task, "author", "full", undefined, undefined, undefined, {
+				...CHECK_QUEUE,
 				waitMs: 30,
 				pollMs: 5,
-				now: Date.now,
-				sleep,
 			}),
 		);
 		assert.ok(real.thrown instanceof WaitGaveUp);

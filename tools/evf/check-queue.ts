@@ -65,7 +65,7 @@ export function withCheckQueue<T>(root: string, task: string, fn: () => T, timin
 				);
 				printed = Math.floor(waited / 60_000) + 1;
 			}
-			timing.sleep(Math.min(timing.pollMs, timing.waitMs - waited));
+			timing.sleep(timing.pollMs);
 		}
 		return fn();
 	} finally {

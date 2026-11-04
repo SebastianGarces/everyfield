@@ -204,8 +204,7 @@ Browser checks (any role)
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
 
 task start, verify, test, ac run, timing and browser run wait while the 1-minute load average is above 2 × CPU
-cores (C51, C81). --ignore-load "<reason>" runs at once and logs the override. A command inside one that passed
-this gate does not wait again, and evf test with CI set does not wait.
+cores (C51, C81). --ignore-load "<reason>" runs at once and logs the override.
 
 At most 3 full checks (evf verify, evf check, the pr stage) run at once on this machine. Others wait in arrival
 order, print their position once per minute and give up after 120 minutes. --ignore-load does not skip this queue.`;
