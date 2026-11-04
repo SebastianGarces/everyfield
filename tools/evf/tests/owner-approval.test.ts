@@ -727,6 +727,11 @@ const verified = (head: string) => ({
 		},
 	],
 });
+/** A verified, merge-ready new head. */
+const mergeReady = (head: string) => (s: any) => {
+	s.commitStatus = verified(head);
+	s.allowMerge = true;
+};
 /** Runs evf approve in the worktree, where the fake GitHub merges. */
 function approveIn(f: Fx, opts: { ownerApproval?: string; head?: string }) {
 	const cwd = process.cwd();
@@ -738,11 +743,11 @@ function approveIn(f: Fx, opts: { ownerApproval?: string; head?: string }) {
 	}
 }
 /** Runs the one command the output names, unedited except for his words. */
-function runNamed(f: Fx, out: string, words = HIS_WORDS) {
+function runNamed(f: Fx, out: string) {
 	const named = /bin\/evf approve (\d+) --owner-approval "<his words>" --head ([0-9a-f]{40})/.exec(out);
 	assert.ok(named, out);
 	assert.equal(named[1], "77");
-	return f.quietly(() => approveIn(f, { ownerApproval: words, head: named[2] }));
+	return f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS, head: named[2] }));
 }
 const commandsIn = (out: string) => out.match(/bin\/evf /g)?.length ?? 0;
 /** Every GitHub write evf approve or evf ship could make. */
@@ -757,22 +762,25 @@ const writes = (f: Fx) =>
 /** The latest EVF-Owner record among the comments on the fake PR. */
 const latestRecord = (f: Fx) =>
 	JSON.parse(
-		[...f.getState().comments["77"].flatMap((c: any) => [...c.body.matchAll(/^EVF-Owner: (.+)$/gm)])].at(-1)![1],
+		f
+			.getState()
+			.comments["77"].flatMap((c: any) => [...c.body.matchAll(/^EVF-Owner: (.+)$/gm)])
+			.at(-1)![1],
 	);
 /** The merge happened at `head` with his words on the record, the approvals row and the shipped record. */
-function assertMergedWithRecord(f: Fx, head: string, words = HIS_WORDS) {
+function assertMergedWithRecord(f: Fx, head: string) {
 	assert.deepEqual(f.calls("merge").at(-1).args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
 	const record = latestRecord(f);
-	assert.deepEqual([record.head, record.quote], [head, words]);
+	assert.deepEqual([record.head, record.quote], [head, HIS_WORDS]);
 	assert.deepEqual(f.ownerRows().at(-1), {
 		gate: "owner",
 		approver: "Sebastian",
 		head_sha: head,
 		decision: "approved",
-		quote: words,
+		quote: HIS_WORDS,
 	});
 	const shipped = f.shipped().owner_approval;
-	assert.deepEqual([shipped.approved_head, shipped.quote], [head, words]);
+	assert.deepEqual([shipped.approved_head, shipped.quote], [head, HIS_WORDS]);
 	// Nobody touches an earlier comment: comments are only added.
 	for (const call of f.getState().calls as Array<{ args: string[] }>) {
 		const text = call.args.join(" ");
@@ -783,10 +791,7 @@ function assertMergedWithRecord(f: Fx, head: string, words = HIS_WORDS) {
 function stuck(f: Fx, files: Record<string, string>) {
 	const a = approvedWork(f);
 	const b = f.commit("Add a held path", files);
-	f.publish([f.owner(a), f.review(b)], (s) => {
-		s.commitStatus = verified(b);
-		s.allowMerge = true;
-	});
+	f.publish([f.owner(a), f.review(b)], mergeReady(b));
 	return { a, b };
 }
 
@@ -827,10 +832,7 @@ for (const [name, files] of HELD) {
 		try {
 			const a = f.commit("Held change", files);
 			const b = f.commit("Code change", { "tools/evf/feature.ts": "export const feature = 1;\n" });
-			f.publish([f.owner(a), f.review(b)], (s) => {
-				s.commitStatus = verified(b);
-				s.allowMerge = true;
-			});
+			f.publish([f.owner(a), f.review(b)], mergeReady(b));
 			const { out } = f.quietly(() => ship(f.root, f.task, fastShip));
 			assert.deepEqual([f.merges(), f.calls("update-branch")], [[], []]);
 			assert.equal(commandsIn(out), 1, out);
@@ -848,10 +850,7 @@ for (const [name, files] of HELD) {
 		try {
 			const a = f.commit("Held change", files);
 			const b = f.commit("Code change", { "tools/evf/feature.ts": "export const feature = 1;\n" });
-			f.publish([f.owner(a), f.review(b)], (s) => {
-				s.commitStatus = verified(b);
-				s.allowMerge = true;
-			});
+			f.publish([f.owner(a), f.review(b)], mergeReady(b));
 			const message = f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS, head: a }));
 			assert.deepEqual(writes(f), []);
 			assert.ok(
@@ -873,10 +872,7 @@ for (const [name, files] of HELD) {
 		try {
 			const { a, b } = stuck(f, files);
 			const comments = [f.owner(a), f.review(b)];
-			const ready = (s: any) => {
-				s.commitStatus = verified(b);
-				s.allowMerge = true;
-			};
+			const ready = mergeReady(b);
 			const refuses = (opts: { ownerApproval?: string; head?: string }, expected: RegExp) => {
 				const message = f.refusal(() => approveIn(f, opts));
 				assert.match(message, expected);
@@ -944,10 +940,7 @@ for (const [name, files] of HELD) {
 			f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
 			f.inWt("merge", "-q", "--no-edit", "origin/main");
 			const c = f.inWt("rev-parse", "HEAD");
-			f.publish([...record, f.review(c)], (s) => {
-				s.commitStatus = verified(c);
-				s.allowMerge = true;
-			});
+			f.publish([...record, f.review(c)], mergeReady(c));
 			assert.ok(f.quietly(() => ship(f.root, f.task, fastShip)).out.endsWith(command(c)));
 			assert.ok(f.refusal(() => approveIn(f, { ownerApproval: WORDS })).includes(command(c)), "no --head refuses");
 			assert.ok(
@@ -1100,10 +1093,7 @@ test("AC:OPS-129-8 these merge as today: no record, an exact record, a record ca
 	f = heldFixture();
 	try {
 		const head = f.commit("Template change", TEMPLATE_FILE);
-		f.publish([f.review(head)], (s) => {
-			s.commitStatus = verified(head);
-			s.allowMerge = true;
-		});
+		f.publish([f.review(head)], mergeReady(head));
 		assert.equal(f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS })).value, 0);
 		assert.deepEqual(f.merges(), [head]);
 		assertMergedWithRecord(f, head);
@@ -1113,33 +1103,28 @@ test("AC:OPS-129-8 these merge as today: no record, an exact record, a record ca
 });
 
 /** approve on a route with its own stale --head wording: no --head and the old head refuse, the new head merges. */
-function otherRoute(f: Fx, a: string, b: string, staleWords: RegExp) {
+function otherRoute(f: Fx, a: string, b: string) {
 	assert.ok(
 		f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS })).includes(command(b)),
 		"no --head names the new head",
 	);
 	assert.match(
 		f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS, head: a })),
-		staleWords,
+		/have the verifier pass the new head \(bin\/evf ship [\w-]+\), then ask Sebastian to approve it\./,
 	);
 	assert.deepEqual(writes(f), []);
 	f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS, head: b }));
 	assert.deepEqual(f.merges(), [b]);
 	assert.deepEqual([latestRecord(f).head, latestRecord(f).quote], [b, HIS_WORDS]);
 }
-const VERIFIER_FIRST =
-	/have the verifier pass the new head \(bin\/evf ship [\w-]+\), then ask Sebastian to approve it\./;
 
 test("AC:OPS-129-11 a Wiki-content task PR with a stale record merges through approve --head; its refusals stay", () => {
 	const f = ownerFixture(["docs/reference/wiki/", "tools/evf/", "evf.config.json"]);
 	try {
 		const a = approvedWork(f);
 		const b = f.commit("Wiki content", { "docs/reference/wiki/fixture-note.md": "A note.\n" });
-		f.publish([f.owner(a), f.review(b)], (s) => {
-			s.commitStatus = verified(b);
-			s.allowMerge = true;
-		});
-		otherRoute(f, a, b, VERIFIER_FIRST);
+		f.publish([f.owner(a), f.review(b)], mergeReady(b));
+		otherRoute(f, a, b);
 		assertMergedWithRecord(f, b);
 	} finally {
 		f.close();
@@ -1156,7 +1141,7 @@ test("AC:OPS-129-11 a design task PR with a stale record merges through approve 
 			s.commitStatus = verified(b);
 			s.allowMerge = true;
 		});
-		otherRoute(f, a, b, VERIFIER_FIRST);
+		otherRoute(f, a, b);
 	} finally {
 		f.close();
 	}
@@ -1168,11 +1153,8 @@ test("AC:OPS-129-11 a P2 feedback fix with a stale record merges through approve
 		feedbackTriage(f.root, 1, { cls: "p2", reason: "scoped feedback", wp: "WP-034" });
 		const a = approvedWork(f);
 		const b = f.commit("The fix", { "tools/evf/feature.ts": "export const feature = 2;\n" });
-		f.publish([f.owner(a), f.review(b)], (s) => {
-			s.commitStatus = verified(b);
-			s.allowMerge = true;
-		});
-		otherRoute(f, a, b, VERIFIER_FIRST);
+		f.publish([f.owner(a), f.review(b)], mergeReady(b));
+		otherRoute(f, a, b);
 	} finally {
 		f.close();
 	}

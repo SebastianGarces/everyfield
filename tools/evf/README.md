@@ -47,7 +47,7 @@ record. A route with a task also writes the `approvals` row. A PR with a record 
 path, or a held PR that gains a commit, is refused until he approves the new head: `evf ship` and the drive name
 `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`. On any route, `evf approve` without `--head` on a
 PR whose latest record names another head refuses before any write and names that command. On a held route, a stale
-`--head` names it too, after the commits it lists. No one edits, hides or deletes a comment.
+`--head` names it too.
 
 Document-template class: a WP part, an OPS task without the design route or a P0/P1 fix joins it when
 its exact-head diff touches a path in `mergePolicy.documentTemplates` in `evf.config.json`. The diff runs
@@ -56,8 +56,8 @@ renaming a file out of a template folder does not leave the class. `evf ship` ru
 checks, posts the `evf/verify` status and prints the `evf approve` command with `--head <sha>`; it never queues,
 updates the branch or merges, and exits 0. `evf approve <PR> --owner-approval "<his words>" --head <sha>` merges it
 after Sebastian approves in chat, only with an independent review of the exact head and the verified status on it.
-`--head` stays optional on a document-template PR with no `EVF-Owner` record for another head. Then it
-writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
+Then it writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
+`--head` stays optional on a document-template PR with no `EVF-Owner` record for another head.
 `evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
 absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
@@ -67,8 +67,7 @@ and matching rules as `documentTemplates`. `heldClasses` in `merge.ts` decides b
 live in `DEFAULT_OWNER_PATHS` in `tools/evf/policy.ts`, which applies when the key is absent, as for templates.
 The held message names up to five paths per class and the command
 `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`; `evf approve` refuses an owner-path PR without
-`--head`, without the verifier's `evf/verify` pass on that head, at another head or while the branch is behind. Its
-approval comment carries the `EVF-Owner` line for that head (OPS-129).
+`--head`, without the verifier's `evf/verify` pass on that head, at another head or while the branch is behind.
 
 Stale code (OPS-111): `evf ship` and `evf drive` call `requireCurrentCode` at their start. When the running
 `tools/evf` or `bin/evf` tree differs from the base branch, has uncommitted changes or cannot be read, they refuse

@@ -165,9 +165,9 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 
 /**
  * His approval of one exact head: one PR comment with its EVF-Owner line and, for a route with a task, an `approvals`
- * row (gate owner). The latest record then covers this head, whatever earlier record the PR has. Returns the time.
+ * row (gate owner). The latest record then covers this head, whatever earlier record the PR has.
  */
-function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined, head: string, words: string): string {
+function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined, head: string, words: string): void {
 	const at = new Date().toISOString();
 	gh([
 		"pr",
@@ -176,7 +176,7 @@ function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined,
 		"--body",
 		`Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words.replace(/\n/g, "\n> ")}\n\n${ownerLine({ head, quote: words, at })}`,
 	]);
-	if (!task) return at;
+	if (!task) return;
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
@@ -186,7 +186,6 @@ function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined,
 	} finally {
 		db.close();
 	}
-	return at;
 }
 
 /**
@@ -282,7 +281,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 			);
 		baseSha = git(root, "merge-base", head, baseRef(root, cfg));
 	}
-	const approvedAt = recordOwnerApproval(root, n, "task" in route ? route.task : undefined, head, words);
+	recordOwnerApproval(root, n, "task" in route ? route.task : undefined, head, words);
 	if (pr.isDraft) gh(["pr", "ready", String(n)]);
 	const protectedMain = run("gh", ["api", `repos/${repo}/branches/${cfg.baseBranch}/protection`]).code === 0;
 	if (protectedMain)
@@ -324,7 +323,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 			hasWorktree = existsSync(path);
 		return afterMerge(root, cfg, route.task, hasWorktree ? path : root, n, evidence, baseSha, {
 			...(hasWorktree ? {} : { rev: head }),
-			ownerApproval: { quote: words, approved_head: head, approved_at: approvedAt },
+			ownerApproval: { quote: words, approved_head: head, approved_at: new Date().toISOString() },
 		});
 	}
 	return 0;
