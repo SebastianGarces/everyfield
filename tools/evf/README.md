@@ -183,9 +183,10 @@ message that names the key.
 the system time zone. `digestId` is the next digest slot at or after `askedAt`, in local date and time, such as
 `2026-11-04T13:00`.
 
-Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. To set it, he gives Jonah a daily
-start and end, and a reviewed OPS task or a home-checkout edit adds the key to `evf.config.json`. `start` must come
-before `end`, so a window that crosses midnight is refused. While it is unset, the queue says so and shows no split.
+Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. An OPS branch cannot add the key,
+because it may change only its own `maintenanceTasks` entry. He adds the key himself to `evf.config.json` in the home
+checkout, which is the file evf reads. `start` must come before `end`, so a window that crosses midnight is refused.
+While it is unset, the queue says so and shows no split.
 With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
 `outsideMinutes` in `--json`). `splitWait` in `owner-queue.ts` does the split and counts real time across a
 daylight-saving change.
