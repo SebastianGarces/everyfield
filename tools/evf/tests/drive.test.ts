@@ -3124,6 +3124,25 @@ routed(
 	},
 );
 
+routed("round routing (AC:OPS-135-2): a newer green on main wins over an older red", (f) => {
+	headChecks(f, RED("ci"));
+	patchGh(f, {
+		api: {
+			"repos/test/private/commits?sha=main&per_page=10": [{ sha: "m2" }, { sha: "m1" }],
+			"repos/test/private/commits/m2/check-runs?per_page=100": { check_runs: [{ name: "ci", conclusion: "success" }] },
+			"repos/test/private/commits/m2/status": { statuses: [] },
+			"repos/test/private/commits/m1/check-runs?per_page=100": {
+				check_runs: [{ name: "ci", conclusion: "failure" }],
+			},
+			"repos/test/private/commits/m1/status": { statuses: [] },
+		},
+	});
+	pass(f);
+	assert.equal(f.taskRow().round, 1);
+	assert.equal(payloads(f, "held_external").length, 0);
+	assert.equal(nextOf(f).stage, "implement");
+});
+
 routed("round routing (AC:OPS-135-2): a commit status on main counts like a check run", (f) => {
 	headChecks(f, RED("ci"));
 	patchGh(f, {
