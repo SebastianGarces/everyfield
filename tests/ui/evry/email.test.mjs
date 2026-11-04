@@ -111,8 +111,13 @@ async function ask(panel, text, heading) {
 	await card.waitFor({ timeout: 120_000 });
 	return card;
 }
-/** The head icon of a card, to tell the confirmed tick from the alert. */
-const headIcon = (card) => card.locator("h3 svg").first().innerHTML();
+/** The head icon's drawing, to tell the confirmed tick from the alert. A re-render may reorder an SVG's attributes, so only the path shapes count. */
+const headIcon = (card) =>
+	card
+		.locator("h3 svg")
+		.first()
+		.locator("path")
+		.evaluateAll((paths) => paths.map((path) => path.getAttribute("d")).join(" "));
 /** Approves the way a keyboard user does (Safari does not focus a button on a mouse click). */
 async function approve(card) {
 	await card.getByRole("button", { name: "Approve" }).focus();
