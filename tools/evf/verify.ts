@@ -21,7 +21,6 @@ import {
 	sleep,
 	type CheckDef,
 	type TaskRef,
-	type Config,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
 import { cachedTriage } from "./feedback.ts";
@@ -29,7 +28,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad, withFullCheck } from "./load.ts";
+import { awaitLoad, markFullCheck } from "./load.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -92,38 +91,6 @@ export function verify(
 	const queueStart = performance.now();
 	awaitLoad(root, "verify", ignoreLoad, undefined, task);
 	const queuedMs = Math.round(performance.now() - queueStart);
-	return withFullCheck(root, mode, () =>
-		runChecks({ root, task, role, mode, wt, cfg, wp, ref, baseSha, sha, queuedMs, caller }),
-	);
-}
-
-function runChecks({
-	root,
-	task,
-	role,
-	mode,
-	wt,
-	cfg,
-	wp,
-	ref,
-	baseSha,
-	sha,
-	queuedMs,
-	caller,
-}: {
-	root: string;
-	task: TaskRef;
-	role: Role;
-	mode: Mode;
-	wt: string;
-	cfg: Config;
-	wp: string | undefined;
-	ref: string;
-	baseSha: string;
-	sha: string;
-	queuedMs: number;
-	caller: DriveCaller | undefined;
-}): CheckReport {
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });
@@ -160,6 +127,7 @@ function runChecks({
 	);
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const signals = checkSignals({ root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller });
+	const unmarkFullCheck = markFullCheck(root, mode);
 	try {
 		const reports: string[] = [];
 		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -280,6 +248,8 @@ function runChecks({
 	} catch (error) {
 		signals.end("error");
 		throw error;
+	} finally {
+		unmarkFullCheck();
 	}
 }
 

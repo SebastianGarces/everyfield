@@ -82,8 +82,6 @@ export const STAGES = ["plan", "implement", "simplify", "pr", "verify", "body", 
 export const PROTOTYPE_STAGES = ["plan", "idea", "compare", "pick", "merge"] as const;
 export const IDEAS = 3;
 export type Stage = (typeof STAGES)[number] | (typeof PROTOTYPE_STAGES)[number];
-export const isStage = (stage: string): stage is Stage =>
-	(STAGES as readonly string[]).includes(stage) || (PROTOTYPE_STAGES as readonly string[]).includes(stage);
 const SEAT_STAGES: Partial<Record<Stage, Role>> = {
 	plan: "planner",
 	implement: "implementer",

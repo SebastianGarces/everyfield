@@ -13,7 +13,7 @@ import { loadavg } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
-import { isStage, nextStageFromStore } from "./drive.ts";
+import { nextStageFromStore } from "./drive.ts";
 import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
 import { alive } from "./ship-queue.ts";
@@ -151,9 +151,8 @@ function queueCounts(db: DatabaseSync) {
 		if (stage === "escalated") holdReasons.escalated++;
 		// A task at `pick` waits for Sebastian: no free slot can take it, so it is held, as `waiting`.
 		else if (stage === "waiting" || stage === "pick") holdReasons.waiting++;
-		else if (isStage(stage)) runnable++;
-		// Only a stage to perform is runnable, so `blocked`, `held` and any later stage with no seat stay held.
-		else holdReasons[t.status === "queued" ? "queued" : "blocked"]++;
+		else if (stage === "blocked" || stage === "held") holdReasons[t.status === "queued" ? "queued" : "blocked"]++;
+		else runnable++; // What is left names a stage to perform.
 	}
 	const held = Object.values(holdReasons).reduce((sum, n) => sum + n, 0);
 	return { runnable, held, holdReasons, seats, slotsFree: Math.max(0, SLOT_TARGET - seats) };

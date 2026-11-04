@@ -114,11 +114,11 @@ function recordLoadWait(
 const fullCheckDir = (root: string) => join(evfDataDir(root), "full-checks");
 
 /**
- * Marks a full `evf verify` as live while `checks` runs. `ps` cannot count these: the drive's pr stage runs verify
+ * Marks a full `evf verify` as live until the returned call. `ps` cannot count these: the drive's pr stage runs verify
  * inside its own process. A mark names its pid, so a killed verify stops counting. The mark never changes the checks.
  */
-export function withFullCheck<T>(root: string, mode: string, checks: () => T): T {
-	if (mode !== "full") return checks();
+export function markFullCheck(root: string, mode: string): () => void {
+	if (mode !== "full") return () => {};
 	const mark = join(fullCheckDir(root), String(process.pid));
 	try {
 		mkdirSync(fullCheckDir(root), { recursive: true });
@@ -126,11 +126,7 @@ export function withFullCheck<T>(root: string, mode: string, checks: () => T): T
 	} catch (e) {
 		console.error(`evf verify: full check not marked: ${String(e)}`);
 	}
-	try {
-		return checks();
-	} finally {
-		rmSync(mark, { force: true });
-	}
+	return () => rmSync(mark, { force: true });
 }
 
 /** The live full checks. A mark whose process is gone is removed. */
