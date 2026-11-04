@@ -1004,7 +1004,7 @@ test("AC:OPS-131-14 with event writes forced to fail, evf ship and evf approve r
 	// On this task's branch, the diff of ship.ts and approve.ts against main only adds recording calls.
 	const git = (...args: string[]) => spawnSync("git", ["-C", source, ...args], { encoding: "utf8" });
 	if (git("rev-parse", "--abbrev-ref", "HEAD").stdout.trim() !== "task/ops-131") return;
-	const base = git("merge-base", "HEAD", "main");
+	const base = git("merge-base", "HEAD", "origin/main");
 	if (base.status !== 0) return;
 	const diff = git("diff", "--unified=0", base.stdout.trim(), "--", "tools/evf/ship.ts", "tools/evf/approve.ts");
 	const changed = diff.stdout.split("\n").filter((l) => /^[-+]/.test(l) && !/^(---|\+\+\+) /.test(l));
