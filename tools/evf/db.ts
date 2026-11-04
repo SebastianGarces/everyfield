@@ -403,7 +403,7 @@ export function seatOverrideOf(root: string, task: TaskRef, taskId?: number): { 
 /** Append one event to a task's log. */
 export function record(
 	db: DatabaseSync,
-	taskId: number,
+	taskId: number | null,
 	runId: number | null,
 	type: string,
 	payload: Record<string, unknown>,
@@ -689,8 +689,11 @@ export function orphanRuns(db: DatabaseSync, root: string): OrphanRun[] {
 export const orphanLine = (o: OrphanRun): string =>
 	`orphan evf run ${o.run_id}: ${o.ref} ${o.stage} started ${o.age_minutes} min ago, no live drive. Repair: ${o.repair}`;
 
-/** One verify writes these many times, so they stay out of `recent` and reopen, nudge and escalation rows stay in it. */
-const NOT_SIGNAL = "type NOT IN ('check_start', 'check_end', 'check_suite_end', 'test_failed')";
+/**
+ * One verify writes the check rows many times and the sampler writes queue_tick once per minute (OPS-133), so they stay
+ * out of `recent` and reopen, nudge and escalation rows stay in it.
+ */
+const NOT_SIGNAL = "type NOT IN ('check_start', 'check_end', 'check_suite_end', 'test_failed', 'queue_tick')";
 
 const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/;
 
@@ -822,11 +825,11 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	);
 	if (tasks.length) {
 		console.log(
-			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} ${column("SEATS", 26)} UPDATED`,
+			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 13)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} ${column("SEATS", 26)} UPDATED`,
 		);
 		for (const t of tasks)
 			console.log(
-				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
+				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 13)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
 			);
 	}
 	for (const t of tasks) if (t.partial) console.log(`${t.ref ?? t.slug}: ${t.partial}`);

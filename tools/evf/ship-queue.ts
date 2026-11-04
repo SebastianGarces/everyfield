@@ -5,7 +5,7 @@ import { evfDataDir, fail, sleep } from "./lib.ts";
 export type QueueTiming = { waitMs: number; pollMs: number };
 type Holder = { pid: number; task: string; at: string };
 
-function alive(pid: number): boolean {
+export function alive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;

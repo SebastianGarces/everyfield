@@ -497,6 +497,40 @@ Sebastian's delegation, which he can revert:
 `simplify_skipped` event that names that run and its head, and pr runs next. The PR body and the proofs live outside
 the repository, so a round that changed only those skips simplify. Round 0 and every round with a new commit still
 run it. When the author checks fail in the pr stage after a skip, the task goes back to implement, not to simplify.
+In round 1 or later, a passed implement whose commits since that run are only clean merges of main also skips, and the
+event carries `reason: "merge_only"`. One new non-merge commit, or a merge with a conflict resolution (non-empty
+`git show --cc`), runs simplify. A merge-only branch in round 0 runs it.
+
+**Round routing.** Before a failed ci or ship starts a round, the drive reads the checks on the PR head and classifies
+the failure:
+
+- `this_pr`: a required check fails on the PR head, does not fail on main, and the head has no earlier ci or ship
+  failure after the reopen marker. A conflict with main, no failing check anywhere, required checks all green and an
+  unreadable GitHub are also `this_pr`. With several failing checks, one `this_pr` check makes the whole failure
+  `this_pr`. The task starts a round as before. A verifier's changes request is always `this_pr`.
+- `main`: each failing required check that is not the PR's fails in its latest finished result on main. Main is read
+  over its last 10 commits, as check runs and commit statuses.
+- `external`: a required check fails again at the head of the previous failure, or required checks are missing or
+  pending and a non-required check fails. Required checks green with a non-required check red still pass ci.
+
+`main` and `external` hold the task. Its status is `held_external`, one `held_external` event records
+`{cause, checks, head, summary}`, the run closes `aborted`, no seat launches, `tasks.round` and the retry count do not
+change, and one Herdr notification names the cause, the checks and the way out. A poll or restart during the hold writes
+nothing. `evf next` prints stage `held` with the cause. The drive looks again every `holdPollMs` and resumes with one
+`hold_released` event when the cause clears, then runs ci:
+
+- `main`: the checks no longer fail on main. The drive runs `gh pr update-branch` and fast-forwards the worktree. A
+  failed update leaves the conflict for ci to report as `this_pr`.
+- `external`: the PR head moved, or the named checks no longer fail.
+
+`evf task reopen` also ends a hold. Failures before it no longer count, so a check that still fails at that head with
+main green starts a round; a check that still fails on main holds again. `evf ship` reads the same checks as before and
+refuses a held task while a required check fails.
+
+**`round_start`.** Each new round records `{cause, nonMergeCommits, diffLines, round, stage, head, summary}`. The counts
+cover what the previous round added: non-merge commits and added plus deleted lines from the head of the previous
+`round_start` (the merge base with `origin/main` for the first) to HEAD, without main's commits. They are null when the
+worktree is gone. A hold, a repeat review of a reviewed head and a loop cap stop record none.
 
 **Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
 while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
@@ -1047,6 +1081,58 @@ because it may change only its own `maintenanceTasks` entry.
 `--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
 `load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
 current load and limit. CI runners use the same rule with their own core count.
+
+## Minute sampler
+
+One detached process (OPS-133) records load, CPU share by class and queue state once per minute, so a bottleneck
+review reads numbers. It only writes history. No gate, scheduler, report or doctor line reads these records, and the
+load limit above does not change.
+
+`evf sampler start` starts it. A second start exits 0 and says a sampler already runs. `evf sampler stop` ends it with
+SIGTERM, removes its lock and exits 0 when none runs. `evf drive` starts it if none runs, and a sampler failure never
+stops a drive. There is no start at login: the sampler lives until `evf sampler stop`, a reboot or its own crash, and
+the next drive starts it again. The lock is `sampler.lock` in the same folder. A lock whose pid is dead or now runs
+another command does not block a start.
+
+Retention: 30 days. At start and then once per hour the sampler removes lines and
+events older than 30 days from all four record kinds. That is at most 43,200 lines per file. It rewrites each file
+through a temporary file and a rename, so a reader never sees half a file. A line with an unreadable `at` stays.
+
+| Record       | Where                          | Fields                                                                                |
+| ------------ | ------------------------------ | ------------------------------------------------------------------------------------- |
+| Load line    | `.git/evf/load.jsonl`          | `at`, `load1`, `load5`, `swapUsedGb`, `freeMemPct`, `seats`, `fullChecks`, `previews` |
+| CPU line     | `.git/evf/cpu.jsonl`           | `at`, `next`, `node-test`, `browser`, `tsc`, `claude`, `macOS`, `other`               |
+| `queue_tick` | `events` table, null `task_id` | `runnable`, `held`, `holdReasons`, `seats`, `slotsFree`, `load`                       |
+| `load_wait`  | `events` table                 | `command`, `task`, `startAt`, `endAt`, `maxLoad`                                      |
+
+- `freeMemPct` is the figure `memory_pressure` prints as free percentage (`sysctl kern.memorystatus_level`).
+- `fullChecks` counts live full `evf verify` calls through a mark under `.git/evf/full-checks/`, because the drive's pr
+  stage runs verify inside its own process and `ps` cannot see it.
+- `previews` counts portless previews that are not removed, failed or expired.
+- A CPU value is that class's part of the CPU in use at that tick, from `ps` `pcpu`, which macOS reports as a decayed
+  average. The parts sum to 1 apart from rounding. `cpu.jsonl` holds class names only, never command text.
+- A failed or timed-out probe writes null in its fields for that tick. A busy store costs the `queue_tick` and leaves
+  both files written, with `seats` still the real count. `seats` is null only when the store cannot be opened or read.
+- `queue_tick` is left out of the recent feed of `evf status` and the TUI, which it would otherwise fill within an hour.
+- `load_wait` is one event per wait the gate caused, whether the wait ended under the limit or gave up. `maxLoad` is the
+  highest load seen. A command under the limit on its first read or run with `--ignore-load` records none. `task` is
+  null for a caller with no task (`evf browser run`), and the event has the task's row id when the task has a store row.
+
+A slot is one seat up to the top of the seat target: `slotsFree` is `max(0, 12 - seats)`, and `seats` counts started runs
+whose role is not `evf`. The counts come from `nextStage`, applied to each open task with no started run:
+
+- Runnable: the next stage names a stage to perform. This includes stages evf runs itself (pr, ci, ship).
+- Held: `blocked`, `escalated` and `waiting`, counted by those names in `holdReasons`, plus `queued` for a queued
+  follow-up. A prototype at `pick` counts as `waiting`, because it waits for Sebastian and no free slot can take it. A
+  `held_external` task (stage `held`) counts as `blocked`, because no seat can change the failure that holds it.
+- In neither: a task with a started run, and merged, done and abandoned tasks.
+
+`runnable` ignores package dependency order: a WP task whose dependency has not merged counts as runnable if `nextStage`
+names a stage for it. Later analysis must allow for that.
+
+Read a free slot together with `load`, which `queue_tick` carries. A free slot with runnable work and load under the
+limit is idle time. The same slot with load above the limit is a machine with no room, and a seat started there waits at
+the gate.
 
 ## Browser checks and process hygiene
 

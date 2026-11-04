@@ -16,12 +16,30 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
-import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
-import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals, workDbPath } from "../db.ts";
+import { DatabaseSync } from "node:sqlite";
+import {
+	assistantLine,
+	fixture,
+	sessionStartJs,
+	source,
+	STORE_LATEST,
+	STORE_MIGRATIONS,
+	writeTranscript,
+} from "./fixtures.ts";
+import {
+	ensureTask,
+	findTask,
+	markMerged,
+	migrate,
+	openWorkDb,
+	sessionsRecorded,
+	syncGoals,
+	workDbPath,
+} from "../db.ts";
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
-import { verify } from "../verify.ts";
+import { hasVerifiedHead, verify } from "../verify.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
@@ -29,7 +47,7 @@ const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 		encoding: "utf8",
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "", ...env },
 	});
-const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150, holdPollMs: 10 };
 
 /** A Herdr that answers at once: every agent is idle unless the test writes another state to herdr-state.json. */
 function fakeHerdr(root: string) {
@@ -57,10 +75,11 @@ function fakeHerdr(root: string) {
 	};
 }
 
-function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
+function driveFixture(opts: { failWhenFile?: string; failFullOnly?: boolean; nested?: string[] } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	// `failWhenFile` makes the first check fail while that file exists in the worktree, to fail the author checks at one head.
+	// `failFullOnly` limits that check to full runs, so a quick run at the same head passes.
 	// `nested` makes the first check run a guarded evf command through main.ts, once: the nested verify sees EVF_NESTED.
 	const first = opts.nested
 		? {
@@ -79,6 +98,7 @@ function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 						"-e",
 						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
 					],
+					...(opts.failFullOnly ? { modes: ["full"] } : {}),
 				}
 			: undefined;
 	const checks = first ? [first, ...f.cfg.checks.slice(1)] : f.cfg.checks;
@@ -2960,5 +2980,824 @@ test("OPS-123-cap AC:OPS-123-7: a failed ship past the loop cap escalates with t
 	} finally {
 		f.db.close();
 		f.close();
+	}
+});
+
+// OPS-130: the simplifier seat runs the quick check; the pr stage stays the gate.
+test("OPS-130-seat AC:OPS-130-1: the simplifier seat commits first and runs the quick check, and no line asks it for the full check", () => {
+	const seat = readFileSync(join(source, ".claude/agents/simplifier.md"), "utf8");
+	assert.match(seat, /^description: .*bin\/evf verify <task> --quick/m);
+	assert.match(seat, /^3\. Commit.*bin\/evf verify <task> --quick/m);
+	assert.deepEqual(seat.match(/bin\/evf verify[^`]*/g), Array(2).fill("bin/evf verify <task> --quick"));
+});
+
+test("OPS-130-full AC:OPS-130-2: a passing quick report at the simplifier head does not stand in for full; the pr stage runs full author checks at that head and pushes it", () => {
+	const f = driveFixture();
+	try {
+		const remote = withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the implementer's last verify, at head A");
+		const b = commitFile(f, "simplified.txt");
+		assert.equal(verify(f.root, f.task, "author", "quick").passed, true, "the simplifier's quick check, at head B");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(hasVerifiedHead(f.root, f.task), false, "a quick report never counts as a verified head");
+
+		driveOnce(f.root, f.task, TIMING);
+
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "passed"]);
+		const report = JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, b, "author-full"), "checks.json"), "utf8"));
+		assert.deepEqual([report.sha, report.mode, report.passed], [b, "full", true]);
+		assert.equal(sh(f.root, "--git-dir", remote, "rev-parse", "refs/heads/task/ops-1"), b);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-130-route AC:OPS-130-3: quick passes and full fails at the simplifier head; the pr run fails and the task returns to simplify in round 0 with the failure, no second implement run", () => {
+	const f = driveFixture({ failWhenFile: "tools/evf/FAIL", failFullOnly: true });
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		commitFile(f, "FAIL");
+		assert.equal(verify(f.root, f.task, "author", "quick").passed, true, "the simplifier's quick check passes");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+
+		driveOnce(f.root, f.task, TIMING);
+
+		const failed = f.runs().at(-1)!;
+		assert.deepEqual([failed.stage, failed.status], ["pr", "failed"]);
+		const { summary } = f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(failed.id as number) as {
+			summary: string;
+		};
+		assert.match(summary, /author checks failed at [0-9a-f]{10}: fixture-check/);
+		const after = nextOf(f);
+		assert.deepEqual([after.stage, after.round], ["simplify", 0]);
+
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(f.runs().at(-1)!.role, "simplifier");
+		const prompt = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.at(-1)![3]!;
+		assert.match(prompt, /author checks failed at [0-9a-f]{10}: fixture-check/);
+		assert.equal(f.runs().filter((r) => r.stage === "implement").length, 1, "no second implement run starts");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-135: round routing.
+
+const PASS = (name: string) => ({ name, bucket: "pass", link: "https://github.com/test/private/actions/runs/1" });
+const RED = (name: string) => ({ name, bucket: "fail", link: "https://github.com/test/private/actions/runs/2" });
+const patchGh = (f: ReturnType<typeof driveFixture>, patch: Record<string, unknown>) =>
+	f.setState({ ...f.getState(), ...patch });
+const headChecks = (f: ReturnType<typeof driveFixture>, ...checks: unknown[]) => patchGh(f, { requiredChecks: checks });
+/** Main's newest commit reports these results. Without this call the fake gh refuses the read, as an unreadable GitHub. */
+const onMain = (f: ReturnType<typeof driveFixture>, results: Record<string, string>) =>
+	patchGh(f, {
+		api: {
+			...f.getState().api,
+			"repos/test/private/commits?sha=main&per_page=10": [{ sha: "m1" }],
+			"repos/test/private/commits/m1/check-runs?per_page=100": {
+				check_runs: Object.entries(results).map(([name, conclusion]) => ({ name, conclusion })),
+			},
+			"repos/test/private/commits/m1/status": { statuses: [] },
+		},
+	});
+/** A PR whose runs passed through verify, so the next stage is ci. */
+const passStages = (f: ReturnType<typeof driveFixture>) => {
+	for (const [stage, role] of [
+		["implement", "implementer"],
+		["simplify", "simplifier"],
+		["pr", "evf"],
+		["verify", "verifier"],
+	])
+		f.insertRun(stage!, role!, "passed");
+};
+/** GitHub reports the worktree HEAD as the PR head. */
+const prAtHead = (f: ReturnType<typeof driveFixture>) =>
+	patchGh(f, { pr: { ...f.getState().pr, headRefOid: head(f) } });
+const atCi = (f: ReturnType<typeof driveFixture>) => {
+	withPr(f);
+	f.db.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE id = ?").run(f.taskId);
+	commitFile(f, "built.txt");
+	prAtHead(f);
+	passStages(f);
+};
+const payloads = (f: ReturnType<typeof driveFixture>, type: string) =>
+	f.events(type).map((e) => JSON.parse(e.payload) as Record<string, any>);
+const notices = (f: ReturnType<typeof driveFixture>) => f.herdr.calls().filter((c) => c[0] === "notification");
+const seatStarts = (f: ReturnType<typeof driveFixture>) =>
+	f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start");
+const pass = (f: ReturnType<typeof driveFixture>) => quiet(() => driveOnce(f.root, f.task, TIMING));
+/** Every part of "holds": status, one new event with the exact fields, no seat, the same round, an aborted evf run. */
+const assertHeld = (
+	f: ReturnType<typeof driveFixture>,
+	expected: { cause: string; checks: string[]; round?: number; events?: number },
+) => {
+	const row = f.taskRow();
+	assert.equal(row.status, "held_external");
+	assert.equal(row.round, expected.round ?? 0);
+	const events = payloads(f, "held_external");
+	assert.equal(events.length, expected.events ?? 1);
+	const e = events.at(-1)!;
+	assert.deepEqual(Object.keys(e).sort(), ["cause", "checks", "head", "summary"]);
+	assert.deepEqual([e.cause, e.checks, e.head], [expected.cause, expected.checks, head(f)]);
+	assert.equal(seatStarts(f).length, 0, "no seat launched");
+	assert.deepEqual([f.runs().at(-1)!.role, f.runs().at(-1)!.status], ["evf", "aborted"]);
+};
+const routed = (name: string, body: (f: ReturnType<typeof driveFixture>) => void) =>
+	test(name, () => {
+		const f = driveFixture();
+		try {
+			atCi(f);
+			body(f);
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	});
+const mainCommit = (f: ReturnType<typeof driveFixture>, name: string, text = name) => {
+	writeFileSync(join(f.root, name), text);
+	f.git("add", name);
+	f.git("commit", "-qm", `main adds ${name}`);
+	f.git("push", "-q", "origin", "main");
+	return f.git("rev-parse", "HEAD");
+};
+const mergeMain = (f: ReturnType<typeof driveFixture>) => {
+	sh(f.wt, "fetch", "-q", "origin", "main");
+	sh(f.wt, "merge", "-q", "--no-ff", "--no-edit", "origin/main");
+	return head(f);
+};
+const pushBranch = (f: ReturnType<typeof driveFixture>) => sh(f.wt, "push", "-q", "origin", `HEAD:${f.task.branch}`);
+
+routed(
+	"round routing (AC:OPS-135-1): a non-required failure with the required check missing holds as external; required green with Vercel red still ships",
+	(f) => {
+		headChecks(f, RED("Vercel"));
+		assert.equal(pass(f).stage, "ci");
+		assertHeld(f, { cause: "external", checks: ["Vercel"] });
+		assert.equal(payloads(f, "round_start").length, 0);
+
+		const g = driveFixture();
+		try {
+			atCi(g);
+			headChecks(g, PASS("ci"), RED("Vercel"));
+			assert.equal(pass(g).stage, "ci");
+			assert.deepEqual([g.runs().at(-1)!.stage, g.runs().at(-1)!.status], ["ci", "passed"]);
+			assert.equal(g.taskRow().status, "pr_open");
+			assert.equal(nextOf(g).stage, "ship");
+			assert.equal(payloads(g, "held_external").length, 0);
+		} finally {
+			g.db.close();
+			g.close();
+		}
+	},
+);
+
+routed(
+	"round routing (AC:OPS-135-1): a required check that stays missing with no failing check anywhere stays this_pr",
+	(f) => {
+		headChecks(f);
+		pass(f);
+		assert.equal(f.taskRow().round, 1);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(payloads(f, "held_external").length, 0);
+		assert.equal(nextOf(f).stage, "implement");
+	},
+);
+
+routed("round routing (AC:OPS-135-2): a required check that also fails on main holds as main", (f) => {
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "failure" });
+	pass(f);
+	assertHeld(f, { cause: "main", checks: ["ci"] });
+});
+
+routed(
+	"round routing (AC:OPS-135-2): main's latest finished result decides; a run in progress on main does not hide it",
+	(f) => {
+		headChecks(f, RED("ci"));
+		patchGh(f, {
+			api: {
+				"repos/test/private/commits?sha=main&per_page=10": [{ sha: "m2" }, { sha: "m1" }],
+				"repos/test/private/commits/m2/check-runs?per_page=100": { check_runs: [{ name: "ci", conclusion: null }] },
+				"repos/test/private/commits/m2/status": { statuses: [] },
+				"repos/test/private/commits/m1/check-runs?per_page=100": {
+					check_runs: [{ name: "ci", conclusion: "failure" }],
+				},
+				"repos/test/private/commits/m1/status": { statuses: [] },
+			},
+		});
+		pass(f);
+		assertHeld(f, { cause: "main", checks: ["ci"] });
+	},
+);
+
+routed("round routing (AC:OPS-135-2): a newer green on main wins over an older red", (f) => {
+	headChecks(f, RED("ci"));
+	patchGh(f, {
+		api: {
+			"repos/test/private/commits?sha=main&per_page=10": [{ sha: "m2" }, { sha: "m1" }],
+			"repos/test/private/commits/m2/check-runs?per_page=100": { check_runs: [{ name: "ci", conclusion: "success" }] },
+			"repos/test/private/commits/m2/status": { statuses: [] },
+			"repos/test/private/commits/m1/check-runs?per_page=100": {
+				check_runs: [{ name: "ci", conclusion: "failure" }],
+			},
+			"repos/test/private/commits/m1/status": { statuses: [] },
+		},
+	});
+	pass(f);
+	assert.equal(f.taskRow().round, 1);
+	assert.equal(payloads(f, "held_external").length, 0);
+	assert.equal(nextOf(f).stage, "implement");
+});
+
+routed("round routing (AC:OPS-135-2): a commit status on main counts like a check run", (f) => {
+	headChecks(f, RED("ci"));
+	patchGh(f, {
+		api: {
+			"repos/test/private/commits?sha=main&per_page=10": [{ sha: "m1" }],
+			"repos/test/private/commits/m1/check-runs?per_page=100": { check_runs: [] },
+			"repos/test/private/commits/m1/status": { statuses: [{ context: "ci", state: "failure" }] },
+		},
+	});
+	pass(f);
+	assertHeld(f, { cause: "main", checks: ["ci"] });
+});
+
+routed("round routing (AC:OPS-135-2): an unreadable main leaves the failure this_pr", (f) => {
+	headChecks(f, RED("ci"));
+	pass(f);
+	assert.equal(f.taskRow().round, 1);
+	assert.equal(f.taskRow().status, "pr_open");
+	assert.equal(payloads(f, "held_external").length, 0);
+	assert.equal(nextOf(f).stage, "implement");
+});
+
+routed(
+	"round routing (AC:OPS-135-3): a required check red only on this PR at a new head starts a round, and a verifier's request is never classified",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "success" });
+		pass(f);
+		assert.equal(f.taskRow().round, 1);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(payloads(f, "held_external").length, 0);
+		assert.equal(nextOf(f).stage, "implement");
+
+		const g = driveFixture();
+		try {
+			atCi(g);
+			onMain(g, { ci: "failure" });
+			close(g, "verify", "verifier", "failed", "Findings: the door sticks.");
+			assert.equal(g.taskRow().round, 1);
+			assert.equal(g.taskRow().status, "pr_open");
+			assert.equal(nextOf(g).stage, "implement");
+			const reads = g.getState().calls.filter((c: { args: string[] }) => c.args.some((a) => a.includes("/commits")));
+			assert.deepEqual(reads, [], "a changes request reads no check");
+		} finally {
+			g.db.close();
+			g.close();
+		}
+	},
+);
+
+routed("round routing (AC:OPS-135-3): one failing check that is only this PR's makes a mixed failure this_pr", (f) => {
+	patchGh(f, { protection: { required_status_checks: { contexts: ["ci", "db"] } } });
+	headChecks(f, RED("ci"), RED("db"));
+	onMain(f, { ci: "failure", db: "success" });
+	pass(f);
+	assert.equal(f.taskRow().round, 1);
+	assert.equal(payloads(f, "held_external").length, 0);
+});
+
+routed("round routing (AC:OPS-135-3): a PR that conflicts with main is this_pr, even with a red check on main", (f) => {
+	patchGh(f, { pr: { ...f.getState().pr, mergeable: "CONFLICTING" } });
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "failure" });
+	pass(f);
+	assert.equal(f.taskRow().round, 1);
+	assert.equal(payloads(f, "held_external").length, 0);
+});
+
+routed(
+	"round routing (AC:OPS-135-4): one notification per hold; polls and a restart add no notice, no next and no held_external; a later hold adds one",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "failure" });
+		pass(f);
+		assert.equal(notices(f).length, 1);
+		const text = notices(f)[0]!.join(" ");
+		for (const part of ["OPS-1", "main", "ci", "bin/evf task reopen OPS-1"])
+			assert.ok(text.includes(part), `${part} in: ${text}`);
+
+		const nexts = payloads(f, "next").length;
+		assert.equal(pass(f).stage, "held");
+		assert.equal(pass(f).stage, "held");
+		const restart = cli(f.root, {}, "drive", "OPS-1", "--once");
+		assert.equal(restart.status, 0, restart.stderr);
+		assert.match(restart.stdout, /held/);
+		assert.equal(notices(f).length, 1);
+		assert.equal(payloads(f, "next").length, nexts);
+		assert.equal(payloads(f, "held_external").length, 1);
+
+		// The retry cap never counts a hold: more holds than RETRY_CAP in a row still do not escalate.
+		for (let n = 2; n <= RETRY_CAP + 2; n++) {
+			onMain(f, { ci: "success" });
+			assert.equal(pass(f).stage, "ci", "the hold ends");
+			onMain(f, { ci: "failure" });
+			pass(f);
+			assertHeld(f, { cause: "main", checks: ["ci"], events: n });
+			assert.equal(notices(f).length, n);
+		}
+		assert.equal(f.taskRow().round, 0);
+	},
+);
+
+test("round routing (AC:OPS-135-5): each new round records round_start with the previous round's counts; a hold, a repeat review and a loop cap stop record none", () => {
+	const f = driveFixture();
+	try {
+		withPr(f);
+		f.db.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE id = ?").run(f.taskId);
+		const write = (name: string, text: string) => {
+			writeFileSync(join(f.wt, "tools/evf", name), text);
+			sh(f.wt, "add", "tools/evf");
+			sh(f.wt, "commit", "-qm", `add ${name}`);
+		};
+		write("one.txt", "a\nb\n");
+		close(f, "verify", "verifier", "failed", "Findings: the door sticks.");
+		const first = head(f);
+		assert.deepEqual(payloads(f, "round_start"), [
+			{
+				cause: "this_pr",
+				nonMergeCommits: 1,
+				diffLines: 2,
+				round: 1,
+				stage: "verify",
+				head: first,
+				summary: "round 1 starts after verify failed: Findings: the door sticks.",
+			},
+		]);
+
+		// A repeat review of a reviewed head costs no round and records no round_start.
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), {
+			status: "failed",
+			summary: "Again.",
+			closedBy: "evf",
+		});
+		assert.equal(f.taskRow().round, 1);
+		assert.equal(payloads(f, "round_start").length, 1);
+
+		// One commit and a merge of main: main's commit and the merge do not count.
+		write("two.txt", "a\nb\nc\n");
+		mainCommit(f, "main-a.txt", "a\nb\nc\nd\ne\n");
+		const second = mergeMain(f);
+		passStages(f);
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "success" });
+		pass(f);
+		const ci = payloads(f, "round_start").at(-1)!;
+		assert.deepEqual([ci.round, ci.stage, ci.head, ci.nonMergeCommits, ci.diffLines], [2, "ci", second, 1, 3]);
+
+		// A hold records none.
+		mainCommit(f, "main-b.txt");
+		const third = mergeMain(f);
+		passStages(f);
+		onMain(f, { ci: "failure" });
+		pass(f);
+		assert.equal(f.taskRow().status, "held_external");
+		assert.equal(f.taskRow().round, 2);
+		assert.equal(payloads(f, "round_start").length, 2);
+
+		// A round that added only a merge counts zero. The hold moved nothing, so the counts start at the ci head.
+		reopen(f);
+		onMain(f, { ci: "success" });
+		pass(f);
+		const merged = payloads(f, "round_start").at(-1)!;
+		assert.deepEqual([merged.round, merged.head, merged.nonMergeCommits, merged.diffLines], [3, third, 0, 0]);
+
+		// The worktree is gone: both counts are null.
+		f.db.prepare("UPDATE tasks SET worktree = ? WHERE id = ?").run(join(f.root, "no-such-worktree"), f.taskId);
+		f.db.prepare("UPDATE tasks SET round = 2 WHERE id = ?").run(f.taskId);
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), {
+			status: "failed",
+			summary: "Gone.",
+			closedBy: "evf",
+		});
+		const gone = payloads(f, "round_start").at(-1)!;
+		assert.deepEqual([gone.round, gone.head, gone.nonMergeCommits, gone.diffLines], [3, null, null, null]);
+
+		// The loop cap stop records none.
+		const before = payloads(f, "round_start").length;
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), {
+			status: "failed",
+			summary: "Cap.",
+			closedBy: "evf",
+		});
+		assert.equal(f.taskRow().round, LOOP_CAP + 1);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(payloads(f, "round_start").length, before);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+/** Round 1 with a passed simplify at the current head, ready for what the round adds. */
+const roundOneAfterSimplify = (f: ReturnType<typeof driveFixture>) => {
+	withPr(f);
+	commitFile(f, "built.txt");
+	close(f, "implement", "implementer", "passed", "Built.");
+	const simplified = commitFile(f, "simplified.txt");
+	const run = close(f, "simplify", "simplifier", "passed", "Simplified.");
+	close(f, "verify", "verifier", "failed", "Findings: criterion 2 has no proof.");
+	assert.equal(f.taskRow().round, 1);
+	return { run, simplified };
+};
+const skipFixture = (name: string, body: (f: ReturnType<typeof driveFixture>) => void) =>
+	test(name, () => {
+		const f = driveFixture();
+		try {
+			body(f);
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	});
+
+skipFixture(
+	"round routing (AC:OPS-135-6): a round 1 of only a clean merge of main skips simplify with reason merge_only and goes to pr",
+	(f) => {
+		const { run, simplified } = roundOneAfterSimplify(f);
+		mainCommit(f, "main-a.txt");
+		mergeMain(f);
+		close(f, "implement", "implementer", "passed", "Merged main.");
+		const before = f.runs().length;
+		const n = pass(f);
+		assert.equal(n.stage, "pr");
+		assert.deepEqual(n.skipped, { run, head: simplified, reason: "merge_only" });
+		assert.deepEqual(
+			f
+				.runs()
+				.slice(before)
+				.map((r) => [r.stage, r.role]),
+			[["pr", "evf"]],
+		);
+		assert.equal(agentStarts(f, "simplifier"), 0);
+		const [skipped] = payloads(f, "simplify_skipped");
+		assert.deepEqual([skipped!.simplify_run, skipped!.head, skipped!.reason], [run, simplified, "merge_only"]);
+	},
+);
+
+skipFixture(
+	"round routing (AC:OPS-135-6): a PR body change adds no commit and skips under the existing rule, with no merge_only reason",
+	(f) => {
+		const { run, simplified } = roundOneAfterSimplify(f);
+		writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), `${prBody()}\n`);
+		close(f, "implement", "implementer", "passed", "Body.");
+		assert.deepEqual(nextOf(f).skipped, { run, head: simplified });
+	},
+);
+
+skipFixture("round routing (AC:OPS-135-6): one new non-merge commit beside a merge of main runs simplify", (f) => {
+	roundOneAfterSimplify(f);
+	mainCommit(f, "main-a.txt");
+	mergeMain(f);
+	commitFile(f, "fix.txt");
+	close(f, "implement", "implementer", "passed", "Fixed.");
+	const n = nextOf(f);
+	assert.equal(n.stage, "simplify");
+	assert.equal(n.skipped, undefined);
+});
+
+skipFixture("round routing (AC:OPS-135-6): a merge with a conflict resolution runs simplify", (f) => {
+	roundOneAfterSimplify(f);
+	writeFileSync(join(f.wt, "clash.txt"), "branch\n");
+	sh(f.wt, "add", "clash.txt");
+	sh(f.wt, "commit", "-qm", "branch clash");
+	const simplified = head(f);
+	close(f, "simplify", "simplifier", "passed", "Simplified again.");
+	mainCommit(f, "clash.txt", "main\n");
+	sh(f.wt, "fetch", "-q", "origin", "main");
+	sh(f.wt, "merge", "-q", "--no-edit", "origin/main");
+	writeFileSync(join(f.wt, "clash.txt"), "both\n");
+	sh(f.wt, "add", "clash.txt");
+	sh(f.wt, "commit", "-q", "--no-edit");
+	assert.notEqual(head(f), simplified);
+	assert.notEqual(sh(f.wt, "show", "--cc", "--format=", "HEAD"), "", "the fixture merge carries a resolution");
+	close(f, "implement", "implementer", "passed", "Merged main.");
+	assert.equal(nextOf(f).stage, "simplify");
+});
+
+skipFixture(
+	"round routing (AC:OPS-135-7): in round 0 a merge-only branch runs simplify; the OPS-115 skip applies in every round and keeps its fields",
+	(f) => {
+		withPr(f);
+		commitFile(f, "built.txt");
+		close(f, "implement", "implementer", "passed", "Built.");
+		const simplified = commitFile(f, "simplified.txt");
+		const run = close(f, "simplify", "simplifier", "passed", "Simplified.");
+		assert.equal(f.taskRow().round, 0);
+
+		// Round 0, no change since the simplify: the OPS-115 skip, with its present fields only.
+		close(f, "implement", "implementer", "passed", "Nothing new.");
+		const n = pass(f);
+		assert.equal(n.stage, "pr");
+		assert.deepEqual(n.skipped, { run, head: simplified });
+		const [skipped] = payloads(f, "simplify_skipped");
+		assert.deepEqual(Object.keys(skipped!).sort(), ["head", "simplify_run", "summary"]);
+
+		// Round 0, only a merge of main since the simplify: simplify runs.
+		mainCommit(f, "main-a.txt");
+		mergeMain(f);
+		close(f, "implement", "implementer", "passed", "Merged main.");
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(nextOf(f).stage, "simplify");
+	},
+);
+
+routed(
+	"round routing (AC:OPS-135-8): evf ship on a held task still refuses while a required check fails, and the owning paths exclude ship.ts",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "failure" });
+		pushBranch(f);
+		patchGh(f, {
+			pr: {
+				...f.getState().pr,
+				body: prBody(),
+				headRefName: f.task.branch,
+				headRefOid: head(f),
+				baseRefName: "main",
+				isDraft: false,
+			},
+		});
+		pass(f);
+		assert.equal(f.taskRow().status, "held_external");
+		const shipped = cli(f.root, {}, "ship", "OPS-1");
+		assert.notEqual(shipped.status, 0);
+		assert.match(shipped.stderr, /Required GitHub CI must be green on the exact PR head: ci failed/);
+		assert.equal(f.taskRow().status, "held_external");
+		const config = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8"));
+		const paths: string[] = config.maintenanceTasks["OPS-135"].owningPaths;
+		assert.deepEqual(
+			paths.filter((p) => "tools/evf/ship.ts".startsWith(p)),
+			[],
+		);
+	},
+);
+
+routed(
+	"round routing (AC:OPS-135-9): a required check that fails again at the same head holds as external with main green; a moved head starts a round",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "success" });
+		pass(f);
+		assert.equal(f.taskRow().round, 1);
+
+		passStages(f);
+		pass(f);
+		assertHeld(f, { cause: "external", checks: ["ci"], round: 1 });
+
+		// The head moves and the check is red again: the release runs ci, which starts a round at the new head.
+		commitFile(f, "fix.txt");
+		prAtHead(f);
+		assert.equal(pass(f).stage, "ci");
+		assert.equal(f.taskRow().status, "pr_open");
+		pass(f);
+		assert.equal(f.taskRow().round, 2);
+		assert.equal(f.taskRow().status, "pr_open");
+	},
+);
+
+routed("round routing (AC:OPS-135-9): a same-head comparison ignores failures before the latest reopen", (f) => {
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "success" });
+	pass(f);
+	passStages(f);
+	f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
+	assert.equal(reopen(f).status, 0);
+	pass(f);
+	assert.equal(f.taskRow().round, 2, "no earlier failure counts after the reopen");
+	assert.equal(payloads(f, "held_external").length, 0);
+});
+
+routed(
+	"round routing (AC:OPS-135-10): a main hold clears: the drive updates the branch, fast-forwards the worktree and runs ci at the new head with no seat and no round",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "failure" });
+		pushBranch(f);
+		pass(f);
+		assertHeld(f, { cause: "main", checks: ["ci"] });
+		const held = head(f);
+
+		const fix = mainCommit(f, "main-fix.txt");
+		assert.equal(pass(f).stage, "held", "main is still red");
+		onMain(f, { ci: "success" });
+		const n = pass(f);
+		assert.equal(n.stage, "ci");
+		assert.equal(f.taskRow().status, "pr_open");
+		const [released] = payloads(f, "hold_released");
+		assert.equal(payloads(f, "hold_released").length, 1);
+		assert.match(released!.reason, /ci no longer fail on main; the branch includes main/);
+		assert.notEqual(head(f), held);
+		assert.equal(spawnSync("git", ["-C", f.wt, "merge-base", "--is-ancestor", fix, "HEAD"]).status, 0);
+		assert.ok(f.getState().calls.some((c: { args: string[] }) => c.args[1] === "update-branch"));
+
+		headChecks(f, PASS("ci"));
+		pass(f);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["ci", "passed"]);
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(seatStarts(f).length, 0);
+		assert.equal(nextOf(f).stage, "ship");
+	},
+);
+
+routed(
+	"round routing (AC:OPS-135-10): a failed branch update still runs ci, which reports the conflict as this_pr",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "failure" });
+		pass(f); // The branch was never pushed, so the fake's update-branch fails.
+		onMain(f, { ci: "success" });
+		assert.equal(pass(f).stage, "ci");
+		assert.match(payloads(f, "hold_released")[0]!.reason, /the branch update failed/);
+		patchGh(f, { pr: { ...f.getState().pr, mergeable: "CONFLICTING" } });
+		pass(f);
+		assert.equal(f.taskRow().round, 1);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(nextOf(f).stage, "implement");
+	},
+);
+
+routed(
+	"round routing (AC:OPS-135-10): an external hold clears when the named checks no longer fail or the head moves",
+	(f) => {
+		headChecks(f, RED("Vercel"));
+		pass(f);
+		assertHeld(f, { cause: "external", checks: ["Vercel"] });
+		assert.equal(pass(f).stage, "held");
+		headChecks(f, PASS("ci"), PASS("Vercel"));
+		assert.equal(pass(f).stage, "ci");
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.match(payloads(f, "hold_released")[0]!.reason, /Vercel no longer fail/);
+		pass(f);
+		assert.equal(nextOf(f).stage, "ship");
+
+		const g = driveFixture();
+		try {
+			atCi(g);
+			headChecks(g, RED("Vercel"));
+			pass(g);
+			const moved = commitFile(g, "fix.txt");
+			prAtHead(g);
+			assert.equal(pass(g).stage, "ci");
+			assert.match(payloads(g, "hold_released")[0]!.reason, new RegExp(`head moved to ${moved.slice(0, 10)}`));
+			assert.equal(g.taskRow().round, 0);
+		} finally {
+			g.db.close();
+			g.close();
+		}
+	},
+);
+
+skipFixture("round routing (AC:OPS-135-10): a held ship failure resumes at ci, not at ship", (f) => {
+	withPr(f);
+	readyToShip(f);
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "failure" });
+	assert.equal(pass(f).stage, "ship");
+	assert.equal(f.taskRow().status, "held_external");
+	assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["ship", "aborted"]);
+	onMain(f, { ci: "success" });
+	assert.equal(pass(f).stage, "ci");
+	assert.equal(nextOf(f).stage, "ci");
+});
+
+routed("round routing (AC:OPS-135-10): an abandoned or merged held task ends the drive", (f) => {
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "failure" });
+	pass(f);
+	const abandoned = cli(f.root, {}, "task", "abandon", "OPS-1", "--reason", "not needed now");
+	assert.equal(abandoned.status, 0, abandoned.stderr);
+	const row = f.taskId;
+	assert.equal(quiet(() => driveOnce(f.root, f.task, TIMING, row)).stage, "abandoned");
+
+	const g = driveFixture();
+	try {
+		atCi(g);
+		headChecks(g, RED("ci"));
+		onMain(g, { ci: "failure" });
+		pass(g);
+		patchGh(g, { pr: { number: 77, state: "MERGED", mergeCommit: { oid: SHA } } });
+		assert.equal(pass(g).stage, "done");
+		assert.equal(g.taskRow().status, "merged");
+	} finally {
+		g.db.close();
+		g.close();
+	}
+});
+
+routed(
+	"round routing (AC:OPS-135-11): evf task reopen accepts a held task; a check red at that head with main green then starts a round",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "success" });
+		pass(f);
+		passStages(f);
+		pass(f);
+		assertHeld(f, { cause: "external", checks: ["ci"], round: 1 });
+		const same = head(f);
+
+		const opened = reopen(f);
+		assert.equal(opened.status, 0, opened.stderr);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(payloads(f, "reopen").at(-1)!.from, "held_external");
+		assert.equal(nextOf(f).stage, "ci");
+		pass(f);
+		assert.equal(head(f), same);
+		assert.equal(f.taskRow().round, 2);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(nextOf(f).stage, "implement");
+	},
+);
+
+routed("round routing (AC:OPS-135-11): a check still red on main holds again after a reopen", (f) => {
+	headChecks(f, RED("ci"));
+	onMain(f, { ci: "failure" });
+	pass(f);
+	assert.equal(reopen(f).status, 0);
+	assert.equal(nextOf(f).stage, "ci");
+	pass(f);
+	assertHeld(f, { cause: "main", checks: ["ci"], events: 2 });
+	assert.equal(notices(f).length, 2);
+});
+
+routed(
+	"round routing (AC:OPS-135-12): evf next prints stage held with the cause and evf status shows held_external",
+	(f) => {
+		headChecks(f, RED("ci"));
+		onMain(f, { ci: "failure" });
+		pass(f);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.cause, n.round], ["held", "main", 0]);
+		assert.match(n.reason, /OPS-1 held \(main\): ci at /);
+		const text = cli(f.root, {}, "status");
+		assert.match(text.stdout, /OPS-1\s+implement\s+held_external/);
+		const json = JSON.parse(cli(f.root, {}, "status", "--json").stdout);
+		assert.equal(json.tasks.find((t: { ref: string }) => t.ref === "OPS-1").status, "held_external");
+		assert.equal(json.tasks.find((t: { ref: string }) => t.ref === "OPS-1").hold_cause, "main");
+	},
+);
+
+test("round routing (AC:OPS-135-12): the migration leaves existing rows and statuses unchanged and accepts held_external", () => {
+	const db = new DatabaseSync(":memory:");
+	try {
+		db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
+		for (const file of STORE_MIGRATIONS.slice(
+			0,
+			STORE_MIGRATIONS.findIndex((m) => m.endsWith("-held-external.sql")),
+		)) {
+			db.exec(readFileSync(join(source, "tools/evf/db/migrations", file), "utf8"));
+			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'then')").run(Number(file.slice(0, 3)), file.slice(4, -4));
+		}
+		const statuses = [
+			"new",
+			"queued",
+			"specced",
+			"active",
+			"awaiting_pick",
+			"escalated",
+			"pr_open",
+			"merged",
+			"done",
+			"abandoned",
+		];
+		statuses.forEach((status, i) =>
+			db
+				.prepare(
+					"INSERT INTO tasks (slug, mode, ref, status, round, pr_number, spec, seat_model, parent_task_id, slice, linked, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, 'spec', 'm', ?, ?, ?, 'a', 'b')",
+				)
+				.run(`ops-${i}`, `OPS-${i}`, status, i, 100 + i, i ? 1 : null, i ? i : null, i % 2),
+		);
+		const rows = () => db.prepare("SELECT * FROM tasks ORDER BY id").all();
+		const before = rows();
+		assert.equal(before.length, statuses.length);
+		assert.equal(migrate(db).version, STORE_LATEST);
+		assert.deepEqual(rows(), before);
+		db.prepare("UPDATE tasks SET status = 'held_external' WHERE id = 4").run();
+		assert.throws(() => db.prepare("UPDATE tasks SET status = 'nonsense' WHERE id = 4").run(), /CHECK/);
+		const view = db.prepare("SELECT status, hold_cause, parent_task_id FROM v_tasks WHERE id = 4").get() as Record<
+			string,
+			unknown
+		>;
+		assert.deepEqual({ ...view }, { status: "held_external", hold_cause: null, parent_task_id: 1 });
+	} finally {
+		db.close();
 	}
 });

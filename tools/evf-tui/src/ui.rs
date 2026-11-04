@@ -48,7 +48,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 pub(crate) fn state_style(state: &str) -> Style {
     match state {
         "working" => GOOD,
-        "blocked" | "escalated" | "needs pick" | "awaiting owner" => {
+        "blocked" | "escalated" | "held" | "needs pick" | "awaiting owner" => {
             WARN.add_modifier(Modifier::BOLD)
         }
         "idle" | "done" | "merged" => DIM,
