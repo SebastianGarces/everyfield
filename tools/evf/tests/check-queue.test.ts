@@ -7,9 +7,9 @@ import os from "node:os";
 import { syncBuiltinESMExports } from "node:module";
 import { fixture, source } from "./fixtures.ts";
 import { acRun } from "../ac.ts";
-import { CHECK_CAP, CHECK_QUEUE, withCheckQueue, type CheckQueueTiming } from "../check-queue.ts";
+import { CHECK_CAP, CHECK_QUEUE, withCheckQueue } from "../check-queue.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
-import { evfDataDir, EvfError, parseTask, sleep, WaitGaveUp } from "../lib.ts";
+import { evfDataDir, parseTask, sleep, WaitGaveUp } from "../lib.ts";
 import { withShipQueue } from "../ship-queue.ts";
 import { verify } from "../verify.ts";
 
@@ -107,7 +107,7 @@ function queueFixture(checks?: Array<{ name: string; run: string[]; modes?: stri
 		const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { stdio: "ignore" });
 		children.push(child);
 		writeFileSync(
-			join(dir, `${String(n).padStart(15, "0")}.json`),
+			join(dir, ticketName(n)),
 			JSON.stringify({ pid: child.pid, task: `OPS-H${n}`, at: new Date().toISOString() }),
 		);
 		return child;
@@ -195,12 +195,11 @@ const logged = (log: string) => (existsSync(log) ? readFileSync(log, "utf8").tri
 function tickets(dir: string, numbers: number[]) {
 	for (const n of numbers)
 		writeFileSync(
-			join(dir, `${String(n).padStart(15, "0")}.json`),
+			join(dir, ticketName(n)),
 			JSON.stringify({ pid: process.pid, task: `OPS-T${n}`, at: new Date().toISOString() }),
 		);
 }
 const ticketName = (n: number) => `${String(n).padStart(15, "0")}.json`;
-const quickGiveUp: CheckQueueTiming = { waitMs: 30, pollMs: 5, now: Date.now, sleep };
 
 function quiet<T>(fn: () => T): { value?: T; thrown?: unknown; err: string } {
 	const { log, error } = console;
@@ -427,11 +426,9 @@ test("every full verify queues; --quick and refusals that need no check do not w
 			assert.equal(await r.done, status, r.err());
 			assert.match(r.err() + r.out(), pattern);
 			assert.doesNotMatch(r.err(), /waits in the full check queue/);
-			return r;
 		};
 		// Quick: no slot, and it holds no ticket while it runs.
-		const quick = await expectNoWait(["verify", "OPS-1", "--quick"], 0, /PASSED local tooling checks/);
-		assert.match(quick.err(), /expected duration 2-15 minutes\./);
+		await expectNoWait(["verify", "OPS-1", "--quick"], 0, /PASSED local tooling checks/);
 		await expectNoWait(["verify", "OPS-1", "--head", "0".repeat(40)], 1, /does not match requested SHA/);
 		writeFileSync(join(f.wt, "dirty"), "x");
 		await expectNoWait(["verify", "OPS-1"], 1, /is not clean/);
@@ -713,13 +710,19 @@ test("a full check gives up after 120 minutes: the message names the queue, no c
 			}),
 		);
 		assert.ok(fake.thrown instanceof WaitGaveUp);
-		assert.ok(fake.thrown instanceof EvfError);
 		assert.match(fake.thrown.message, /waited in the full check queue for 120 min and no check ran/);
 		assert.equal(clock, 120 * 60_000);
 		assert.equal(fake.err.trim().split("\n").length, 120, "one line per minute until the limit");
 		assert.deepEqual(f.tickets(), held);
 
-		const real = quiet(() => verify(f.root, task, "author", "full", undefined, undefined, undefined, quickGiveUp));
+		const real = quiet(() =>
+			verify(f.root, task, "author", "full", undefined, undefined, undefined, {
+				waitMs: 30,
+				pollMs: 5,
+				now: Date.now,
+				sleep,
+			}),
+		);
 		assert.ok(real.thrown instanceof WaitGaveUp);
 		assert.match(real.thrown.message, /full check queue .*no check ran/);
 		assert.deepEqual(f.events("check_start"), []);

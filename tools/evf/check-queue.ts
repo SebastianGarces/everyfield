@@ -1,29 +1,27 @@
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, sleep, WaitGaveUp } from "./lib.ts";
-import { alive, readHolder, type Holder, type QueueTiming } from "./ship-queue.ts";
+import { alive, readHolder, type QueueTiming } from "./ship-queue.ts";
 
 /** Code defaults (OPS-138): an OPS branch cannot add a key to evf.config.json, and no flag changes them. */
 export const CHECK_CAP = 3;
 export type CheckQueueTiming = QueueTiming & { now: () => number; sleep: (ms: number) => void };
 export const CHECK_QUEUE: CheckQueueTiming = { waitMs: 120 * 60_000, pollMs: 1000, now: Date.now, sleep };
 
-const TICKET = /^\d{15}\.json$/;
-const tickets = (dir: string) =>
-	readdirSync(dir)
-		.filter((name) => TICKET.test(name))
-		.sort();
+const tickets = (dir: string) => readdirSync(dir).sort();
 
 /**
  * A ticket's number is never reused and sorts after each ticket that existed when it was taken, so tickets ahead of a
  * process only ever disappear. A later clock reading can reach the folder first; the slower process then takes a new
  * number, and until it does its ticket only makes others wait longer.
  */
-function takeTicket(dir: string, me: Holder): string {
+function takeTicket(dir: string, task: string): string {
 	for (;;) {
 		const name = `${String(Math.max(Date.now(), Number.parseInt(tickets(dir).at(-1) ?? "0") + 1)).padStart(15, "0")}.json`;
 		try {
-			writeFileSync(join(dir, name), JSON.stringify(me), { flag: "wx" });
+			writeFileSync(join(dir, name), JSON.stringify({ pid: process.pid, task, at: new Date().toISOString() }), {
+				flag: "wx",
+			});
 		} catch (e) {
 			if ((e as NodeJS.ErrnoException).code === "EEXIST") continue;
 			throw e;
@@ -53,7 +51,7 @@ function liveTickets(dir: string): string[] {
 export function withCheckQueue<T>(root: string, task: string, fn: () => T, timing: CheckQueueTiming): T {
 	const dir = join(evfDataDir(root), "check-queue");
 	mkdirSync(dir, { recursive: true });
-	const ticket = takeTicket(dir, { pid: process.pid, task, at: new Date().toISOString() });
+	const ticket = takeTicket(dir, task);
 	const release = () => rmSync(join(dir, ticket), { force: true });
 	process.on("exit", release);
 	try {

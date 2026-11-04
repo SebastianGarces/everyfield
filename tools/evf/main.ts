@@ -261,11 +261,9 @@ function main(argv: string[]): number | Promise<number> {
 						? "5-20 minutes"
 						: cmd === "escape" && args[0] === "soak"
 							? "20-60 minutes (20 runs)"
-							: cmd === "check" || (cmd === "verify" && !argv.includes("--quick"))
-								? "2-15 minutes, after any wait in the full check queue"
-								: cmd === "verify" || (cmd === "ac" && args[0] === "run")
-									? "2-15 minutes"
-									: undefined;
+							: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
+								? "2-15 minutes"
+								: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
@@ -392,10 +390,11 @@ function main(argv: string[]): number | Promise<number> {
 			if (args[0] === "run") {
 				const ignoreLoad = ignoreLoadReason(args);
 				if (args.length !== 2) break;
-				const rows = acRun(root, parseTask(args[1]), {
-					runId: Number(process.env.EVF_RUN) || null,
-					loadGate: { ignoreLoad },
-				});
+				const task = parseTask(args[1]);
+				// Only this command passes the gate; the acRun of `evf run done` stays ungated at its own start.
+				awaitLoad(root, "ac run", ignoreLoad);
+				Object.assign(process.env, loadGatePassed(root));
+				const rows = acRun(root, task, { runId: Number(process.env.EVF_RUN) || null });
 				return rows.every((row) => row.status === "met") ? 0 : 1;
 			}
 			console.log((args.length ? args : [" "]).map((id) => renderAc(root, id)).join("\n\n"));

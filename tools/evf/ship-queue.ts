@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { evfDataDir, fail, sleep } from "./lib.ts";
 
 export type QueueTiming = { waitMs: number; pollMs: number };
-export type Holder = { pid: number; task: string; at: string };
+type Holder = { pid: number; task: string; at: string };
 
 export function alive(pid: number): boolean {
 	try {
