@@ -1,4 +1,4 @@
-import { closeSync, fstatSync, openSync, readSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 /**
  * Where a seat's time went, from its Claude Code transcript (OPS-134). The stop hook's `turn_end` and the long run check
@@ -18,13 +18,6 @@ type Entry = {
 	results: string[];
 };
 
-/** The simple commands of a shell line. Quoted text and a heredoc body are not code. */
-const simpleCommands = (line: string): string[] =>
-	line
-		.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''")
-		.replace(/<<[^]*$/, "")
-		.split(/[\n;|&(){}]/);
-
 const ENV_PREFIX = /^(?:[A-Za-z_]\w*=(?:'[^']*'|"[^"]*"|\S*)\s+)*/;
 /** The shell words that can stand before a command, as in `until x; do sleep 5; done`. */
 const SHELL_PREFIX = /^(?:(?:do|then|else|elif|if|while|until|time|!)\s+)*/;
@@ -32,7 +25,12 @@ const EVF_CHECKS = new Set(["verify", "check", "test", "timing", "ac run", "brow
 
 function kindOfCommand(command: string): Kind {
 	let kind: Kind = "tool";
-	for (const part of simpleCommands(command)) {
+	// Quoted text and a heredoc body are not code.
+	const parts = command
+		.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''")
+		.replace(/<<[^]*$/, "")
+		.split(/[\n;|&(){}]/);
+	for (const part of parts) {
 		const words = part.trim().replace(SHELL_PREFIX, "").replace(ENV_PREFIX, "").split(/\s+/),
 			[path = "", second = "", third = ""] = words,
 			first = path.slice(path.lastIndexOf("/") + 1);
@@ -127,13 +125,14 @@ function partition(spans: Span[], start: number, end: number): Split {
 	return split;
 }
 
-type Turn = Split & { startedAt: number; endedAt: number };
-
 /**
  * The turn that just ended: from the last prompt, or from `previousEnd` for a stop-hook continuation (whose feedback
  * entry is meta and opens no turn), to the last entry. Null when the entries show no such turn.
  */
-export function turnOf(entries: Entry[], previousEnd: number | null): Turn | null {
+export function turnOf(
+	entries: Entry[],
+	previousEnd: number | null,
+): (Split & { startedAt: number; endedAt: number }) | null {
 	const endedAt = entries.at(-1)?.ts,
 		startedAt = previousEnd ?? entries.findLast((e) => e.opens)?.ts;
 	if (endedAt === undefined || startedAt === undefined || endedAt < startedAt) return null;
@@ -156,21 +155,5 @@ export function runSplit(entries: Entry[], start: number, now: number): Split {
 	return partition([...toolSpans(entries, now), ...outside], start, now);
 }
 
-const TAIL_BYTES = 1024 * 1024;
-/** The end of a transcript, as long as the last turn needs: the Stop hook has 15 seconds and a transcript can be large. */
-export function readLastTurn(path: string): Entry[] {
-	const fd = openSync(path, "r");
-	try {
-		const size = fstatSync(fd).size;
-		for (let want = TAIL_BYTES; ; want *= 4) {
-			const length = Math.min(want, size),
-				buffer = Buffer.alloc(length);
-			readSync(fd, buffer, 0, length, size - length);
-			// A first line cut in half does not parse, so it is skipped.
-			const entries = parseEntries(buffer.toString("utf8").split("\n"));
-			if (length === size || entries.some((e) => e.opens)) return entries;
-		}
-	} finally {
-		closeSync(fd);
-	}
-}
+/** A transcript's entries. A whole read is fast enough for the Stop hook's 15 seconds: 215 MB parses in 1.4 s. */
+export const readEntries = (path: string): Entry[] => parseEntries(readFileSync(path, "utf8").split("\n"));

@@ -26,11 +26,13 @@ export function headless(
 		db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
-		const runId = db
-			.prepare(
-				"INSERT INTO runs (task_id, stage, role, model, effort, round, session_id, status, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'started', ?)",
-			)
-			.run(t.id, role, role, model, effort, t.round, session, now()).lastInsertRowid;
+		const runId = Number(
+			db
+				.prepare(
+					"INSERT INTO runs (task_id, stage, role, model, effort, round, session_id, status, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'started', ?)",
+				)
+				.run(t.id, role, role, model, effort, t.round, session, now()).lastInsertRowid,
+		);
 		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: String(runId), EVF_ROLE: role, EVF_SESSION: session };
 		// A session started from inside a seat must not inherit that seat's stage or edit rails.
 		for (const k of ["EVF_STAGE", "EVF_WORKTREE", "EVF_RUNTIME", "EVF_BLIND"]) delete env[k];
@@ -47,7 +49,7 @@ export function headless(
 			now(),
 			runId,
 		);
-		fillRunUsage(db, Number(runId));
+		fillRunUsage(db, runId);
 		return code;
 	} finally {
 		db.close();

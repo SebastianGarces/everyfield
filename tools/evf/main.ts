@@ -34,7 +34,7 @@ import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
 import { headless } from "./headless.ts";
-import { HEADLESS_ROLES, isHeadlessRole, isRole, ROLES } from "./seats.ts";
+import { isHeadlessRole, isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
 import { finishPane } from "./panes.ts";
 import { tui } from "./tui.ts";
@@ -664,7 +664,7 @@ function main(argv: string[]): number | Promise<number> {
 				promptFile = option(args, "--prompt-file"),
 				model = option(args, "--model"),
 				effort = option(args, "--effort");
-			if (!isHeadlessRole(role)) throw new EvfError(`--role must be one of ${HEADLESS_ROLES.join(", ")}.`);
+			if (!isHeadlessRole(role)) throw new EvfError("--role must be one of coordinator, registration.");
 			if (!promptFile || !existsSync(promptFile)) throw new EvfError("--prompt-file must name an existing file.");
 			if (args.length !== 1) break;
 			return headless(root, parseTask(args[0]), role, { promptFile, model, effort });

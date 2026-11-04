@@ -207,8 +207,9 @@ type Group = "build" | "review" | "prototype" | "coordination";
 const BUILD_STAGES = ["plan", "implement", "simplify"];
 const REVIEW_STAGES = ["evidence", "verify", "body"];
 /** Build is plan, implement, ui and simplify in round 0; review and rework is the rest of the seat stages. */
-function groupOf(role: string, stage: string, round: number): Group | null {
-	if (isHeadlessRole(role)) return "coordination";
+function groupOf(stage: string, round: number): Group | null {
+	// `evf headless` writes the role as the run's stage.
+	if (isHeadlessRole(stage)) return "coordination";
 	if (BUILD_STAGES.includes(stage)) return round === 0 ? "build" : "review";
 	if (REVIEW_STAGES.includes(stage)) return "review";
 	if (/^idea\d*$/.test(stage) || stage === "compare" || stage === "merge") return "prototype";
@@ -297,7 +298,7 @@ export function buildUsageReport(db: DatabaseSync, only?: string): UsageReport {
 			add(b, r);
 			groups.set(key, b);
 			add(total, r);
-			const g = groupOf(r.role, r.stage, r.round);
+			const g = groupOf(r.stage, r.round);
 			if (g) {
 				const m = models.get(r.model ?? "unknown") ?? {
 					build: bucket(),

@@ -27,8 +27,8 @@ Read the current brief and follow details on demand. Do not write product code.
 
 A coordinator-launched `claude -p` session starts with `bin/evf headless`, so its cost shows in `bin/evf usage`:
 `bin/evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]`.
-Name the task the session serves most; a registration session names the reserved id. The defaults are
-`claude-opus-5-5` and `medium`. The run has no stage: it does not change `evf next` for the task.
+Name the task the session serves most; a registration session names the reserved id. The run does not change
+`evf next` for the task.
 
 Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
 

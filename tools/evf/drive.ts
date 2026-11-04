@@ -1811,7 +1811,7 @@ function waitOnSeat(
 			ref: task.id,
 			runId,
 			agent: r.herdr_agent,
-			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : (t.worktree ?? worktreePath(root, cfg, task)),
+			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
 		},
 		timing.clock ?? Date.now,
 	);

@@ -5,7 +5,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { readLastTurn, turnOf } from "./turn-time.ts";
+import { readEntries, turnOf } from "./turn-time.ts";
 import { fillRunUsage, transcriptPath } from "./usage.ts";
 import { coordinatorNotes, doneCriteria, sectionItems, specSections } from "./spec.ts";
 
@@ -314,7 +314,7 @@ function recordTurnEnd(db: DatabaseSync, seat: SeatRun, input: HookInput): void 
 						)
 						.get(seat.id) as { endedAt: string } | undefined)
 				: undefined;
-		const turn = turnOf(readLastTurn(path), previous ? Date.parse(previous.endedAt) : null);
+		const turn = turnOf(readEntries(path), previous ? Date.parse(previous.endedAt) : null);
 		if (!turn) return;
 		record(db, seat.task_id, seat.id, "turn_end", {
 			run: seat.id,

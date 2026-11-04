@@ -310,8 +310,7 @@ not a sandbox: it covers the edit tools only, and a seat with shell access can s
 ### Headless sessions (OPS-134)
 
 `evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]` starts
-one `claude -p` session that a coordinator needs, and gives it a `runs` row. The defaults are `claude-opus-5-5` and
-`medium`. The row ends `passed` on exit 0 and `failed` on any other exit, whatever the session-end hook wrote first. No
+one `claude -p` session that a coordinator needs, and gives it a `runs` row. The row ends `passed` on exit 0 and `failed` on any other exit, whatever the session-end hook wrote first. No
 permission flag is passed, so a tool that needs a prompt is denied. These roles are not Herdr seats: `evf launch`
 refuses them and the drive ignores them (`runsOf`). `evf usage` shows them in their own by-model group.
 

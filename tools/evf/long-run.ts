@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { record } from "./db.ts";
 import { run } from "./lib.ts";
-import { parseEntries, runSplit, type Split } from "./turn-time.ts";
+import { readEntries, runSplit, type Split } from "./turn-time.ts";
 import { transcriptPath } from "./usage.ts";
 
 /**
@@ -30,7 +29,7 @@ function splitText(s: Split, elapsed: number): string {
 function readSplit(session: string | null, start: number, at: number): Split | null {
 	try {
 		const path = session ? transcriptPath(session) : null,
-			entries = path ? parseEntries(readFileSync(path, "utf8").split("\n")) : [];
+			entries = path ? readEntries(path) : [];
 		return entries.length ? runSplit(entries, start, at) : null;
 	} catch {
 		return null;
@@ -72,13 +71,12 @@ export function longRunCheck(db: DatabaseSync, seat: LongRunSeat, clock: () => n
 			text = split ? splitText(split, elapsed) : "the split is not available (no readable transcript)";
 		if (wantsNotice) {
 			const body = `${agent} is open at ${elapsedMin} min: ${text}. It keeps working; no action is taken.`;
-			const sent = run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
+			run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
 				timeoutMs: SEND_TIMEOUT_MS,
 			});
 			record(db, taskId, runId, "long_run_notice", {
 				elapsedMin,
 				split,
-				delivered: sent.code === 0,
 				summary: `${ref} ${body}`,
 			});
 		}

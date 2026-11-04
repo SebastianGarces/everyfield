@@ -214,13 +214,11 @@ function watchHerdr(f: Fixture, run: number, script: { waits: string[]; promptFa
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+	const read = () => JSON.parse(readFileSync(calls, "utf8")) as string[][];
 	return {
-		calls: () => JSON.parse(readFileSync(calls, "utf8")) as string[][],
-		longNudges: () =>
-			(JSON.parse(readFileSync(calls, "utf8")) as string[][]).filter(
-				(c) => c[0] === "agent" && c[1] === "prompt" && /Long run check/.test(c[3] ?? ""),
-			),
-		notifications: () => (JSON.parse(readFileSync(calls, "utf8")) as string[][]).filter((c) => c[0] === "notification"),
+		calls: read,
+		longNudges: () => read().filter((c) => c[0] === "agent" && c[1] === "prompt" && /Long run check/.test(c[3] ?? "")),
+		notifications: () => read().filter((c) => c[0] === "notification"),
 		setScript: (s: object) => writeFileSync(state, JSON.stringify(s)),
 	};
 }
@@ -415,12 +413,10 @@ test("AC:OPS-134-8 the durations are a partition: each class, each wrapper, and 
 		"cd x && bin/evf verify OPS-1",
 		'cd x && EVF_MONITOR="a b" /abs/bin/evf test',
 		"if true; then bin/evf verify OPS-1; fi",
-	])
-		assert.deepEqual(
-			(({ toolMs, checkMs, waitMs, modelMs }) => ({ toolMs, checkMs, waitMs, modelMs }))(bash(command)),
-			{ toolMs: 0, checkMs: 2000, waitMs: 0, modelMs: 4000 },
-			command,
-		);
+	]) {
+		const t = bash(command);
+		assert.deepEqual([t.toolMs, t.checkMs, t.waitMs, t.modelMs], [0, 2000, 0, 4000], command);
+	}
 	for (const command of [
 		"sleep 30",
 		"herdr agent wait w1 --until idle",
