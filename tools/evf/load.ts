@@ -1,7 +1,10 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
-import { evfDataDir, fail, loadConfig, sleep } from "./lib.ts";
+import { findTask, openWorkDb, record, workDbPath } from "./db.ts";
+import { evfDataDir, fail, loadConfig, sleep, type TaskRef } from "./lib.ts";
+import { alive } from "./ship-queue.ts";
 
 export type LoadLimit = { cores: number; maxPerCore: number; limit: number; maxWaitMinutes: number };
 export type LoadProbe = { read: () => number; sleep: (ms: number) => void; now: () => number };
@@ -33,7 +36,13 @@ export function describeLoad(load: number, gate: LoadLimit): string {
  * Heavy commands wait while the 1-minute load average is above the limit, print one line per minute and give up
  * after maxWaitMinutes. `--ignore-load <reason>` runs at once and appends the override to load-overrides.jsonl.
  */
-export function awaitLoad(root: string, command: string, override: string | undefined, probe = machine): void {
+export function awaitLoad(
+	root: string,
+	command: string,
+	override: string | undefined,
+	probe = machine,
+	task: TaskRef | null = null,
+): void {
 	const gate = loadLimit(root);
 	if (override !== undefined) {
 		if (!override.trim()) fail("--ignore-load needs a reason.");
@@ -49,14 +58,22 @@ export function awaitLoad(root: string, command: string, override: string | unde
 	}
 	const start = probe.now(),
 		maxWaitMs = gate.maxWaitMinutes * 60_000;
+	let maxLoad: number | null = null;
+	const recordWait = () => recordLoadWait(root, command, task, start, probe.now(), maxLoad!);
 	for (let printed = 0; ;) {
 		const load = probe.read();
-		if (load <= gate.limit) return;
+		if (load <= gate.limit) {
+			if (maxLoad !== null) recordWait();
+			return;
+		}
+		maxLoad = Math.max(maxLoad ?? load, load);
 		const waited = probe.now() - start;
-		if (waited >= maxWaitMs)
+		if (waited >= maxWaitMs) {
+			recordWait();
 			fail(
 				`The machine stayed above its load limit for ${gate.maxWaitMinutes} min (${describeLoad(load, gate)}). Retry later, or pass --ignore-load "<reason>", which evf logs.`,
 			);
+		}
 		if (waited >= printed * 60_000) {
 			console.error(
 				`evf ${command}: ${describeLoad(load, gate)}; waiting, ${Math.floor(waited / 60_000)} of ${gate.maxWaitMinutes} min.`,
@@ -65,4 +82,67 @@ export function awaitLoad(root: string, command: string, override: string | unde
 		}
 		probe.sleep(Math.min(15_000, maxWaitMs - waited));
 	}
+}
+
+/** One `load_wait` event (OPS-133). The record is history, so no failure here changes what the gate decides. */
+function recordLoadWait(
+	root: string,
+	command: string,
+	task: TaskRef | null,
+	startMs: number,
+	endMs: number,
+	maxLoad: number,
+): void {
+	try {
+		if (!existsSync(workDbPath(root))) return;
+		const db = openWorkDb(root),
+			endAt = new Date(endMs).toISOString();
+		try {
+			const payload = {
+				command,
+				task: task?.id ?? null,
+				startAt: new Date(startMs).toISOString(),
+				endAt,
+				maxLoad,
+			};
+			record(db, (task && findTask(db, task)?.id) ?? null, null, "load_wait", payload, endAt);
+		} finally {
+			db.close();
+		}
+	} catch (e) {
+		console.error(`evf ${command}: load_wait not recorded: ${String(e)}`);
+	}
+}
+
+const fullCheckDir = (root: string) => join(evfDataDir(root), "full-checks");
+
+/**
+ * Marks a full `evf verify` as live while `checks` runs. `ps` cannot count these: the drive's pr stage runs verify
+ * inside its own process. A mark names its pid, so a killed verify stops counting. The mark never changes the checks.
+ */
+export function withFullCheck<T>(root: string, mode: string, checks: () => T): T {
+	if (mode !== "full") return checks();
+	const mark = join(fullCheckDir(root), `${process.pid}-${randomUUID()}`);
+	try {
+		mkdirSync(fullCheckDir(root), { recursive: true });
+		writeFileSync(mark, "");
+	} catch (e) {
+		console.error(`evf verify: full check not marked: ${String(e)}`);
+	}
+	try {
+		return checks();
+	} finally {
+		rmSync(mark, { force: true });
+	}
+}
+
+/** The live full checks. A mark whose process is gone is removed. */
+export function countFullChecks(root: string): number {
+	const dir = fullCheckDir(root);
+	if (!existsSync(dir)) return 0;
+	return readdirSync(dir).filter((mark) => {
+		const live = alive(Number.parseInt(mark, 10));
+		if (!live) rmSync(join(dir, mark), { force: true });
+		return live;
+	}).length;
 }

@@ -828,7 +828,7 @@ export async function audit(root: string, opts: AuditOptions = {}): Promise<numb
 		);
 		console.log(`  ${c.operator} ${c.file}:${c.line}  ${oneLineDiff(c)}`);
 		console.log(`  tests (${tests.length}): ${tests.join(", ")}`);
-		awaitLoad(root, "audit", opts.ignoreLoad);
+		awaitLoad(root, "audit", opts.ignoreLoad, undefined, parseTask(target.ref));
 		return await runAudit(root, cfg, db, main, target, c, seed, tests, opts);
 	} finally {
 		db.close();

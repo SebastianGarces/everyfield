@@ -403,15 +403,16 @@ export function seatOverrideOf(root: string, task: TaskRef, taskId?: number): { 
 /** Append one event to a task's log. */
 export function record(
 	db: DatabaseSync,
-	taskId: number,
+	taskId: number | null,
 	runId: number | null,
 	type: string,
 	payload: Record<string, unknown>,
+	ts: string = now(),
 ): void {
 	db.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)").run(
 		taskId,
 		runId,
-		now(),
+		ts,
 		type,
 		JSON.stringify(payload),
 	);
@@ -735,8 +736,8 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	const recent = (
 		opts.task
 			? db.prepare(`SELECT * FROM v_recent WHERE task_id IN ${inIds} LIMIT 50`).all()
-			: db.prepare("SELECT * FROM v_recent LIMIT 50").all()
-	) as Row[];
+			: db.prepare("SELECT * FROM v_recent WHERE type <> 'queue_tick' LIMIT 50").all()
+	) as Row[]; // One per minute (OPS-133).
 	const detail = opts.task
 		? {
 				runs: db.prepare(`SELECT * FROM runs WHERE task_id IN ${inIds} ORDER BY started_at, id`).all() as Row[],

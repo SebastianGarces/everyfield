@@ -29,6 +29,7 @@ import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
+import { runSampler, startSampler, stopSampler } from "./sampler.ts";
 import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
@@ -192,6 +193,8 @@ Upkeep
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
 
 Browser checks (any role)
+  evf sampler start | stop                                    one detached process records load, CPU share and queue state once per minute;
+                                                              evf drive starts it, stop ends it (see "Minute sampler" in tools/evf/README.md)
   evf browser run [--timeout <seconds>] [--session <name>] [--ignore-load "<reason>"] -- <command> [args...]
         runs a browser check in its own process group (default timeout 900 s), then closes its
         agent-browser session and stops every process it started, also on failure or timeout
@@ -532,7 +535,7 @@ function main(argv: string[]): number | Promise<number> {
 			if (!setFile || args.length !== 1) break;
 			if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)
 				throw new EvfError("--timeout takes a number of seconds.");
-			awaitLoad(root, "timing", ignoreLoad);
+			awaitLoad(root, "timing", ignoreLoad, undefined, parseTask(args[0]));
 			return timing(root, parseTask(args[0]), { setFile, head, timeoutSeconds });
 		}
 		case "qa": {
@@ -646,6 +649,16 @@ function main(argv: string[]): number | Promise<number> {
 			if (args.length !== 1) break;
 			if (detach) return drive(root, parseTask(args[0]), { once, detach });
 			return driveWithSignals(root, parseTask(args[0]), once);
+		}
+		case "sampler": {
+			if (args.length !== 1) break;
+			if (args[0] === "start") return startSampler(root);
+			if (args[0] === "stop") return stopSampler(root);
+			if (args[0] === "run") {
+				runSampler(root); // internal: the detached process that `start` spawns
+				return 0;
+			}
+			break;
 		}
 		case "pane-finish": // internal: the detached close and rebalance of closeRunPane
 			if (args.length !== 2) break;

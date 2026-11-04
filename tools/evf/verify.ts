@@ -21,6 +21,7 @@ import {
 	sleep,
 	type CheckDef,
 	type TaskRef,
+	type Config,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
 import { cachedTriage } from "./feedback.ts";
@@ -28,7 +29,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad } from "./load.ts";
+import { awaitLoad, withFullCheck } from "./load.ts";
 import { uiEscapedGate } from "./escape.ts";
 
 export type Role = "author" | "verifier";
@@ -77,7 +78,22 @@ export function verify(
 	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
 	requireFreeMigrationNumbers(wt, baseSha, task);
-	awaitLoad(root, "verify", ignoreLoad);
+	awaitLoad(root, "verify", ignoreLoad, undefined, task);
+	return withFullCheck(root, mode, () => runChecks(root, task, role, mode, wt, cfg, wp, ref, baseSha, sha));
+}
+
+function runChecks(
+	root: string,
+	task: TaskRef,
+	role: Role,
+	mode: Mode,
+	wt: string,
+	cfg: Config,
+	wp: string | undefined,
+	ref: string,
+	baseSha: string,
+	sha: string,
+): CheckReport {
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });

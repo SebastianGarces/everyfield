@@ -239,7 +239,7 @@ pub fn read(conn: &Connection) -> Result<Snapshot> {
         }
     }
     let recent = conn
-        .prepare(&format!("SELECT * FROM v_recent LIMIT {RECENT_LIMIT}"))?
+        .prepare(&format!("SELECT * FROM v_recent WHERE type <> 'queue_tick' LIMIT {RECENT_LIMIT}"))?
         .query_map([], |r| {
             Ok(Event {
                 id: r.get("id")?,
@@ -527,6 +527,24 @@ pub mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("readonly"), "{err}");
         assert!(detail(&conn, 999).is_err());
+    }
+
+    #[test]
+    fn the_recent_feed_leaves_out_the_sampler_queue_ticks() {
+        let store = TempStore::new();
+        store.seed();
+        let conn = open(&store.path).unwrap();
+        let before = read(&conn).unwrap().recent.len();
+        store
+            .writer()
+            .execute_batch(
+                "INSERT INTO events (ts, type) VALUES ('2026-10-27T20:50:00.000Z', 'queue_tick');
+                 INSERT INTO events (ts, type) VALUES ('2026-10-27T20:51:00.000Z', 'load_wait');",
+            )
+            .unwrap();
+        let recent = read(&conn).unwrap().recent;
+        assert_eq!(recent.len(), before + 1);
+        assert_eq!(recent[0].kind, "load_wait");
     }
 
     #[test]
