@@ -64,6 +64,7 @@ for (const [name, engine] of ENGINES) {
 		await onFork(engine, "budget-worksheet", async (page, context, t) => {
 			const blocks = (await t.body()).length;
 			await page.locator(`${PAPER} [data-ef-cell="text"]`).nth(1).click();
+			await t.settle();
 			await page.keyboard.press(`${MOD}+a`);
 			await page.keyboard.type("Rent");
 			await t.settle();
@@ -276,7 +277,7 @@ for (const [name, engine] of ENGINES) {
 
 			const sign = page.getByRole("radiogroup", { name: "Category sign" });
 			assert.equal(await sign.count(), 1, "a category shows its sign");
-			const total = after.content.findIndex((r) => r.attrs?.role === "total");
+			const total = (await t.table()).content.findIndex((r) => r.attrs?.role === "total");
 			if (total >= 0) {
 				await t.cell(total, 0);
 				assert.equal(await sign.count(), 0, "a grand total has none");
