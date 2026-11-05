@@ -360,7 +360,7 @@ test("an evf test inside a full verify takes no second slot and repeats no wait;
 		assert.equal(readsOfVerify, 2, "one memory and one swap read, by the verify");
 
 		rmSync(f.log);
-		const quick = f.seat(f.wt, ["verify", "OPS-1", "--quick"]);
+		const quick = f.seat(f.wt, ["verify", "OPS-1", "--quick"], "inside");
 		assert.equal(await within(120_000, "the quick verify", quick.done), 0, quick.err() + quick.out());
 		assert.deepEqual(f.order(), ["3"], "two holders and the nested evf test, because the quick verify holds none");
 		assert.equal(f.tickets().length, 2, "its own slot is free again");
@@ -570,6 +570,11 @@ test("SIGKILL of a direct evf test holder and of a verify holder frees the slot,
 		await delay(200);
 		await f.finish();
 	}
+});
+
+test("the default on 12 cores and a cap of 3 is the value the PR chose (AC:OPS-151-14)", () => {
+	// The OPS-151 PR body, "Comparison table": 4 test processes, which is cores / slots. The table states why it won.
+	assert.equal(testBudget(12, 3, false).testProcesses, 4);
 });
 
 test("evf help and the README state the budget, the floor, the ceiling and the CI behavior (AC:OPS-151-15)", () => {
