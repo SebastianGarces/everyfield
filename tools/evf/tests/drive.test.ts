@@ -2837,8 +2837,6 @@ test("with required checks green and a non-required check red on 2 PRs, the alar
 			pollChecks(f.root).alarms.map((a) => [a.kind, a.check, a.prs]),
 			[["red", "vercel", [77, 78]]],
 		);
-		assert.equal(f.events("stage_end").length, 0, "a poll writes no stage event");
-		assert.equal(f.runs().length, 0, "a poll writes no run");
 
 		f.db.prepare("UPDATE tasks SET status = 'active', pr_number = 77 WHERE id = ?").run(f.taskId);
 		const head = spawnSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();

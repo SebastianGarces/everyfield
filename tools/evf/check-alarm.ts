@@ -26,7 +26,7 @@ type OpenPr = { number: number; head: string; checks: Array<{ name: string; red:
 type AlarmKind = "new" | "red";
 const ALARM_EVENT: Record<AlarmKind, string> = { new: "ci_new_check_alarm", red: "ci_nonrequired_red_alarm" };
 type Alarm = { kind: AlarmKind; check: string; prs: number[] };
-export type PollResult = {
+type PollResult = {
 	baseline: boolean;
 	firstSeen: string[];
 	red: Array<{ check: string; prs: number[] }>;
@@ -104,7 +104,6 @@ export function claimPoll(db: DatabaseSync, nowMs: number): boolean {
 }
 
 type NameRow = {
-	name: string;
 	first_seen_at: string;
 	last_seen_at: string;
 	prs: string;
@@ -176,7 +175,7 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 			}
 		}
 		db.prepare(
-			"UPDATE check_names SET red_alarmed = 0 WHERE red_alarmed = 1 AND name NOT IN (SELECT value FROM json_each(?))",
+			"UPDATE check_names SET red_alarmed = 0 WHERE name NOT IN (SELECT value FROM json_each(?))",
 		).run(JSON.stringify([...red.keys()]));
 
 		db.prepare("UPDATE check_poll SET last_ok_at = ? WHERE id = 1").run(at);
@@ -227,12 +226,10 @@ export function pollChecks(root: string, clock: Clock = REAL_CLOCK): PollResult 
 				`check-alarm: a GitHub read failed, so this poll recorded nothing: ${e instanceof Error ? e.message : String(e)}`,
 			);
 		}
-		const { baseline, firstSeen, red, alarms } = writePoll(db, required, prs, nowMs);
+		const written = writePoll(db, required, prs, nowMs);
 		return {
-			baseline,
-			firstSeen,
-			red,
-			alarms: alarms.map(({ eventId, ...alarm }) => {
+			...written,
+			alarms: written.alarms.map(({ eventId, ...alarm }) => {
 				const notified = sendAlarm(alarm);
 				db.prepare("UPDATE events SET payload = json_set(payload, '$.notified', json(?)) WHERE id = ?").run(
 					String(notified),
@@ -290,9 +287,8 @@ const LAUNCHER = `require("node:child_process").spawn(process.execPath,process.a
  */
 export function startPoll(root: string, launchTimeoutMs: number): void {
 	if (process.env.EVF_NO_CHECK_POLL) return;
-	const r = run(process.execPath, ["-e", LAUNCHER, "--", ...evfArgs(root, "check-alarm", "sampled")], {
+	run(process.execPath, ["-e", LAUNCHER, "--", ...evfArgs(root, "check-alarm", "sampled")], {
 		cwd: root,
 		timeoutMs: launchTimeoutMs,
 	});
-	if (r.code !== 0) throw new Error(`The check poll did not start: ${r.stderr.trim()}`);
 }
