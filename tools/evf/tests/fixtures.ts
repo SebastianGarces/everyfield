@@ -1,9 +1,10 @@
+import { evfDataDir } from "../lib.ts";
 import { setLoadedCode } from "../merge.ts";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
 /** Runs a repo TypeScript file with tsx, as the QA seed runs, with `env` over a clean NODE_ENV and DATABASE_URL. */
 export function tsxRun(args: string[], env: Record<string, string | undefined>) {
@@ -47,6 +48,36 @@ process.env.NODE_OPTIONS =
 
 // A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
 process.env.EVF_NO_SAMPLER = "1";
+
+/** The environment of a real evf process that a test starts: it carries no seat identity. */
+export const noSeatEnv = () => ({
+	...process.env,
+	EVF_RUN: "",
+	EVF_WORKTREE: "",
+	EVF_SESSION: "",
+	EVF_ROLE: "",
+	EVF_STAGE: "",
+});
+
+/** Runs real evf through main.ts in `cwd`. */
+export const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
+	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
+		cwd,
+		encoding: "utf8",
+		env: { ...noSeatEnv(), ...env },
+	});
+
+/** A real process that holds a task's pid file. Named `main.ts` with the args `drive <id>`, its command reads as a drive. */
+export async function pidFileHolder(root: string, slug: string, name: string, ...args: string[]) {
+	const script = join(root, name);
+	writeFileSync(script, "setInterval(() => {}, 1000);\n");
+	const child = spawn(process.execPath, [script, ...args], { stdio: "ignore" });
+	await new Promise((resolve) => child.once("spawn", resolve));
+	mkdirSync(join(evfDataDir(root), "drive"), { recursive: true });
+	writeFileSync(join(evfDataDir(root), "drive", `${slug}.pid`), `${child.pid}\n`);
+	const exited = new Promise<NodeJS.Signals | null>((resolve) => child.once("exit", (_, signal) => resolve(signal)));
+	return { child, exited };
+}
 
 /**
  * A clock that a test moves. `sleep` records the wait, advances the time and returns at once. It starts at the current
@@ -302,7 +333,8 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 			for (const [k, v] of Object.entries(saved))
 				if (v === undefined) delete process.env[k];
 				else process.env[k] = v;
-			rmSync(root, { recursive: true, force: true });
+			// A fake tool that a stopped drive left running can still write here for a moment.
+			rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 		},
 	};
 }

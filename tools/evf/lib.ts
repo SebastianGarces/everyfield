@@ -236,6 +236,17 @@ export function run(
 	return { code: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
+/** A process's command line, or null when the read fails: the process is gone, or `ps` passed the limit. */
+export function processCommand(pid: number, timeoutMs: number): string | null {
+	const ps = run("ps", ["-p", String(pid), "-wwo", "command="], { timeoutMs });
+	return (ps.code === 0 && ps.stdout.trim()) || null;
+}
+
+/** One Herdr notification. A hung Herdr costs the caller the limit, never the caller's work. */
+export function notify(title: string, body: string): void {
+	run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"], { timeoutMs: 10_000 });
+}
+
 /** Config commands named `node` run on evf's own Node 24, not whichever node is first on PATH. */
 export function command(argv: Argv): Argv {
 	return argv[0] === "node" ? [process.execPath, ...argv.slice(1)] : argv;
