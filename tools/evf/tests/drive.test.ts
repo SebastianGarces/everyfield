@@ -1131,6 +1131,222 @@ test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier co
 	}
 });
 
+/**
+ * A PR at the verify stage (OPS-140): the pr stage passed, PR #77 is open and the branch holds one README change on
+ * origin. `onMain` lands one commit on main after the branch split.
+ */
+function atVerify(f: ReturnType<typeof driveFixture>, onMain: { path: string; text: string } | null) {
+	withPr(f);
+	const readme = readFileSync(join(f.wt, "README.md"), "utf8");
+	writeFileSync(join(f.wt, "README.md"), `Branch line.\n${readme}`);
+	sh(f.wt, "add", "README.md");
+	sh(f.wt, "commit", "-qm", "Branch work");
+	sh(f.wt, "push", "-q", "origin", f.task.branch);
+	f.insertRun("implement", "implementer", "passed");
+	f.insertRun("simplify", "simplifier", "passed");
+	f.insertRun("pr", "evf", "passed");
+	f.db.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE id = ?").run(f.taskId);
+	if (onMain) landOnMain(f, onMain.path, onMain.text);
+	return head(f);
+}
+function landOnMain(f: ReturnType<typeof driveFixture>, path: string, text: string) {
+	writeFileSync(join(f.root, path), text);
+	f.git("add", path);
+	f.git("commit", "-qm", `Main changes ${path}`);
+	f.git("push", "-q", "origin", "main");
+	return f.git("rev-parse", "HEAD");
+}
+/** A second open PR that changes README.md, with the review `verdict` at its head when one is given. */
+function otherPr(
+	f: ReturnType<typeof driveFixture>,
+	verdict: string | null,
+	isDraft = false,
+	other = "a".repeat(40),
+	reviewed = other,
+) {
+	const state = f.getState();
+	state.openPrs = [
+		{ number: 77, isDraft: false, headRefOid: head(f), files: [{ path: "README.md" }] },
+		{ number: 88, isDraft, headRefOid: other, files: [{ path: "README.md" }] },
+	];
+	state.comments["88"] = verdict
+		? [
+				{
+					body: `EVF-Review: ${JSON.stringify({ head: reviewed, verifier: VERIFIER, verdict, quality: { verdict: "approved", principles: ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"] }, experience: { verdict: "approved", budget: "met" } })}`,
+					html_url: "https://github.com/test/private/pull/88#issuecomment-1",
+				},
+			]
+		: [];
+	f.setState(state);
+}
+const overlapLog = (f: ReturnType<typeof driveFixture>) =>
+	f.events("verify_overlap").map((e) => JSON.parse(e.payload) as Record<string, any>);
+const updateBranchCalls = (f: ReturnType<typeof driveFixture>) =>
+	f.getState().calls.filter((c: { args: string[] }) => c.args[0] === "pr" && c.args[1] === "update-branch");
+const FAST_LAUNCH = { ...TIMING, launch: { shellReadyMs: 2000, shellPollMs: 1, shellQuietPolls: 1 } };
+
+test("AC:OPS-140-2 main changed a path the PR changes: the drive merges main into the branch, then launches the verifier at the new head", () => {
+	const f = driveFixture();
+	try {
+		const before = atVerify(f, {
+			path: "README.md",
+			text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n`,
+		});
+		const main = f.git("rev-parse", "HEAD");
+		const n = quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH));
+		assert.equal(n.stage, "verify");
+		assert.equal(updateBranchCalls(f).length, 1);
+		const after = head(f);
+		assert.deepEqual(sh(f.wt, "rev-list", "--parents", "-n", "1", after).split(" ").slice(1), [before, main]);
+		assert.deepEqual(
+			overlapLog(f).map((e) => [e.choice, e.overlapPaths]),
+			[
+				["merge_main", ["README.md"]],
+				["start", []],
+			],
+		);
+		assert.equal(agentStarts(f, "verifier"), 1);
+		// The merge event comes before the event of the verifier seat, so the verifier saw the merged head.
+		const ids = f.db
+			.prepare("SELECT type FROM events WHERE task_id = ? AND type IN ('verify_overlap', 'session_start') ORDER BY id")
+			.all(f.taskId)
+			.map((row) => (row as { type: string }).type);
+		assert.equal(ids.at(-1), "session_start");
+		assert.equal(f.runs().at(-1)!.stage, "verify");
+		assert.equal(f.taskRow().round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("AC:OPS-140-2 main conflicts with the branch: no verifier starts, the implementer gets the reason and no round is lost", () => {
+	const f = driveFixture();
+	try {
+		atVerify(f, { path: "README.md", text: `Main line.\n${readFileSync(join(f.root, "README.md"), "utf8")}` });
+		const gh = join(f.root, "fake-bin/gh"),
+			base = join(f.root, "fake-bin/gh-base");
+		writeFileSync(base, readFileSync(gh));
+		chmodSync(base, 0o755);
+		writeFileSync(
+			gh,
+			`#!${process.execPath}\nconst a=process.argv.slice(2);if(a[1]==="update-branch"){process.stderr.write("GraphQL: merge conflict between base and head");process.exit(1)}\nconst r=require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"});process.exit(r.status??1);\n`,
+		);
+		const n = quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH));
+		assert.equal(n.stage, "pr");
+		assert.equal(agentStarts(f, "verifier"), 0);
+		assert.equal(overlapLog(f).at(-1)!.choice, "merge_conflict");
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status, f.taskRow().round], ["pr", "failed", 0]);
+		const next = nextOf(f);
+		assert.equal(next.stage, "implement");
+		assert.match(next.reason, /conflicts with this branch in README\.md/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("AC:OPS-140-3 AC:OPS-140-4 a ready PR overlaps: the verifier waits with the reason logged, starts when the PR lands, and starts anyway at the time limit", () => {
+	const limit = { overlapWaitMs: 180_000, overlapPollMs: 60_000 };
+	// The PR never lands: three polls fill the stated limit, then the verifier starts.
+	const f = driveFixture();
+	try {
+		atVerify(f, null);
+		otherPr(f, "approved");
+		const clock = fakeClock();
+		quiet(() => driveOnce(f.root, f.task, { ...FAST_LAUNCH, ...limit, clock }));
+		assert.deepEqual(clock.sleeps.slice(0, 3), [60_000, 60_000, 60_000]);
+		const log = overlapLog(f);
+		assert.deepEqual(
+			log.map((e) => e.choice),
+			["wait", "start_after_limit"],
+		);
+		assert.deepEqual(log[0]!.ready, [{ pr: 88, paths: ["README.md"] }]);
+		assert.equal(log[0]!.limitMs, 180_000);
+		assert.match(log[0]!.summary, /waits up to 3 min for ready PR #88 \(README\.md\)/);
+		assert.equal(agentStarts(f, "verifier"), 1, "no task waits forever");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+	// The PR lands during the wait: main now overlaps, so main merges and the verifier starts before the limit.
+	const g = driveFixture();
+	try {
+		atVerify(g, null);
+		otherPr(g, "approved");
+		const readme = `${readFileSync(join(g.root, "README.md"), "utf8")}Landed line.\n`;
+		const clock = fakeClock(() => {
+			if (clock.sleeps.length !== 1) return;
+			landOnMain(g, "README.md", readme);
+			const state = g.getState();
+			state.openPrs = [];
+			g.setState(state);
+		});
+		quiet(() => driveOnce(g.root, g.task, { ...FAST_LAUNCH, ...limit, clock }));
+		assert.equal(clock.sleeps.filter((ms) => ms === 60_000).length, 1);
+		assert.deepEqual(
+			overlapLog(g).map((e) => e.choice),
+			["wait", "merge_main", "start"],
+		);
+		assert.equal(agentStarts(g, "verifier"), 1);
+	} finally {
+		g.db.close();
+		g.close();
+	}
+	// A PR whose approval carries over a clean merge of main is ready too: ship is about to land it.
+	const h = driveFixture();
+	try {
+		atVerify(h, null);
+		h.git("checkout", "-qb", "other");
+		writeFileSync(join(h.root, "README.md"), `Other line.\n${readFileSync(join(h.root, "README.md"), "utf8")}`);
+		h.git("add", "README.md");
+		h.git("commit", "-qm", "Other work");
+		const reviewed = h.git("rev-parse", "HEAD");
+		h.git("checkout", "-q", "main");
+		landOnMain(h, "docs/elsewhere.md", "Elsewhere.\n");
+		h.git("checkout", "-q", "other");
+		h.git("merge", "-q", "--no-edit", "main");
+		const merged = h.git("rev-parse", "HEAD");
+		h.git("push", "-q", "origin", "other");
+		h.git("checkout", "-q", "main");
+		otherPr(h, "approved", false, merged, reviewed);
+		quiet(() => driveOnce(h.root, h.task, { ...FAST_LAUNCH, overlapWaitMs: 60_000, clock: fakeClock() }));
+		assert.equal(overlapLog(h)[0]!.choice, "wait");
+	} finally {
+		h.db.close();
+		h.close();
+	}
+});
+
+test("AC:OPS-140-5 no overlap: the verifier starts at once, with no wait and no merge", () => {
+	// Main moved elsewhere, and the overlapping PRs are not ready: no review, a rejected review, a draft, an old approval.
+	for (const [verdict, draft, reviewed] of [
+		[null, false, undefined],
+		["changes_requested", false, undefined],
+		["approved", true, undefined],
+		["approved", false, "b".repeat(40)],
+	] as const) {
+		const f = driveFixture();
+		try {
+			const before = atVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+			otherPr(f, verdict, draft, "a".repeat(40), reviewed);
+			const clock = fakeClock();
+			quiet(() => driveOnce(f.root, f.task, { ...FAST_LAUNCH, overlapWaitMs: 180_000, clock }));
+			assert.equal(clock.sleeps.includes(60_000), false, "no overlap wait");
+			assert.deepEqual(
+				overlapLog(f).map((e) => e.choice),
+				["start"],
+			);
+			assert.equal(updateBranchCalls(f).length, 0);
+			assert.equal(head(f), before, "the branch stays where it is");
+			assert.equal(agentStarts(f, "verifier"), 1);
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	}
+});
+
 test("the pr stage's verify that gives up in the queue or the load wait reruns the pr stage: no implement run, no round, no escalation (AC:OPS-138-5 AC:OPS-138-11)", () => {
 	const f = driveFixture();
 	const real = os.loadavg,

@@ -52,7 +52,17 @@ import {
 } from "./lib.ts";
 import { driveHolder } from "./drive-signal.ts";
 import { closeRunPane } from "./panes.ts";
-import { bodyOnlyItems, nameWithOwner, prFor, prOpen, requiredCheckNames, requiredCi, ship } from "./ship.ts";
+import { overlapGate } from "./overlap.ts";
+import {
+	bodyOnlyItems,
+	conflicting,
+	nameWithOwner,
+	prFor,
+	prOpen,
+	requiredCheckNames,
+	requiredCi,
+	ship,
+} from "./ship.ts";
 import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
 import { isPrototype } from "./feedback.ts";
 import { fillRunUsage } from "./usage.ts";
@@ -1612,7 +1622,7 @@ export const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context. Write one Done criterion for each user action and expected result in the verbatim ask, and cover each Ask coverage deliverable (route, page, screen, command, file). Give each criterion one line under it: "Check: AC:${task.id}-<n>" when a test can prove it (a test whose name carries that marker), or "Check: owner — <reason>" for a taste call a person must judge. A UI spec cannot be stored without them. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify, ci or ship summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify, ci or ship summary with bin/evf status --json ${task.id} and fix those findings first.` : ""}${!next.round && !ctx.reopen && next.reason.startsWith("pr failed: ") ? ` evf stopped at the pr stage (${next.reason}). Fix that first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	body: (task, next, ctx) => {
@@ -1665,8 +1675,11 @@ export type DriveTiming = {
 	holdPollMs: number;
 	/** The real-time kill limit of the `herdr agent wait` child. Unset means agentWaitKillMs's default. */
 	waitKillMs?: number;
-	/** What the seat wait reads and sleeps on. Unset means the real clock. */
+	/** What the seat wait and the overlap wait read and sleep on. Unset means the real clock. */
 	clock?: Clock;
+	/** How long a verifier waits for an overlapping ready PR, and how often it looks. Unset means the overlap.ts values. */
+	overlapWaitMs?: number;
+	overlapPollMs?: number;
 };
 export const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -1716,16 +1729,6 @@ function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: 
 			t.id,
 		);
 	return { status: "passed", summary: `PR #${pr?.number ?? "?"} open` };
-}
-
-/** Whether GitHub reports the PR as conflicting with its base: then required checks never start on its head. */
-function conflicting(wt: string, number: number): boolean {
-	const r = run("gh", ["pr", "view", String(number), "--json", "mergeable"], { cwd: wt });
-	try {
-		return (JSON.parse(r.stdout) as { mergeable?: string }).mergeable === "CONFLICTING";
-	} catch {
-		return false;
-	}
 }
 
 /**
@@ -2397,6 +2400,21 @@ export function driveOnce(
 			}
 			waitOnSeat(db, root, task, t, n.run!, timing);
 			return n;
+		}
+		if (n.stage === "verify") {
+			const conflict = overlapGate(db, root, task, t.id, t.pr_number, timing);
+			if (conflict) {
+				// Required CI never starts on a conflicting head. A failed pr run sends it to the implementer at no round.
+				const runId = Number(
+					db
+						.prepare(
+							"INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'pr', 'evf', ?, 'started', ?)",
+						)
+						.run(t.id, t.round, now()).lastInsertRowid,
+				);
+				runDone(root, runId, { status: "failed", summary: conflict });
+				return { stage: "pr", round: t.round, reason: conflict };
+			}
 		}
 		if (n.role) {
 			const cfg = loadConfig(root);
