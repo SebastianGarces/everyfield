@@ -353,6 +353,7 @@ function openItems(root: string, db: DatabaseSync, q: OwnerQueueConfig, now: num
 	return items.sort((a, b) => Number(b.urgent) - Number(a.urgent) || Date.parse(a.askedAt) - Date.parse(b.askedAt));
 }
 
+export const prList = (prs: number[]) => prs.map((pr) => `#${pr}`).join(", ");
 const ageText = (minutes: number) => `age ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 
 type NewCheckAlarm = { check: string; prs: number[]; raisedAt: string; ageMinutes: number };
@@ -418,7 +419,7 @@ export function ownerQueue(root: string, json: boolean): number {
 	for (const item of items) console.log(itemLine(item));
 	if (newChecks.length) console.log("New check alarms, for information. These are not waiting items:");
 	for (const { check, prs, ageMinutes } of newChecks)
-		console.log(`${check} | PRs ${prs.map((pr) => `#${pr}`).join(", ")} | ${ageText(ageMinutes)}`);
+		console.log(`${check} | PRs ${prList(prs)} | ${ageText(ageMinutes)}`);
 	console.log(`Next digest: ${next} (${q.timeZone}).`);
 	if (!q.ownerHours) console.log(HOURS_NOT_SET);
 	return 0;

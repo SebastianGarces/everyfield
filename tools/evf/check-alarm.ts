@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record } from "./db.ts";
 import { fail, loadConfig, REAL_CLOCK, run, type Clock } from "./lib.ts";
+import { prList } from "./owner-queue.ts";
 import { nameWithOwner, requiredCheckNames } from "./ship.ts";
 
 /**
@@ -13,8 +14,7 @@ import { nameWithOwner, requiredCheckNames } from "./ship.ts";
 
 const MINUTE = 60_000,
 	WEEK = 7 * 24 * 60 * MINUTE;
-const NEW_ALARM_PRS = 2,
-	RED_ALARM_PRS = 2;
+const ALARM_PRS = 2;
 /** The sampler starts a poll this often. With a tick each minute, a new check waits at most 6 min for its poll. */
 const POLL_EVERY_MS = 5 * MINUTE;
 /** Under POLL_EVERY_MS, so polls never overlap. 6 min plus this stays inside the 10 min the alert promises. */
@@ -22,60 +22,48 @@ const POLL_TIMEOUT_MS = 2 * MINUTE;
 const READ_TIMEOUT_MS = 60_000,
 	SEND_TIMEOUT_MS = 10_000;
 
-type Bucket = "pass" | "fail" | "pending" | "skipping" | "cancel";
-type OpenPr = { number: number; head: string; checks: Array<{ name: string; bucket: Bucket }> };
+type OpenPr = { number: number; head: string; checks: Array<{ name: string; red: boolean }> };
 type AlarmKind = "new" | "red";
 const ALARM_EVENT: Record<AlarmKind, string> = { new: "ci_new_check_alarm", red: "ci_nonrequired_red_alarm" };
-type Alarm = { kind: AlarmKind; check: string; prs: number[]; eventId: number; notified: boolean | null };
+type Alarm = { kind: AlarmKind; check: string; prs: number[] };
 export type PollResult = {
 	baseline: boolean;
 	firstSeen: string[];
 	red: Array<{ check: string; prs: number[] }>;
-	alarms: Array<Omit<Alarm, "eventId">>;
+	alarms: Array<Alarm & { notified: boolean }>;
 };
 
-/** The bucket of a rollup item, by the rule `gh pr checks` applies. A check run has status and conclusion, a status context has state. */
-function bucketOf(item: { state?: unknown; status?: unknown; conclusion?: unknown }): Bucket {
-	const state = item.state || (item.status === "COMPLETED" ? item.conclusion : item.status);
-	switch (state) {
-		case "SUCCESS":
-			return "pass";
-		case "SKIPPED":
-		case "NEUTRAL":
-			return "skipping";
-		case "ERROR":
-		case "FAILURE":
-		case "TIMED_OUT":
-		case "ACTION_REQUIRED":
-		case "STARTUP_FAILURE":
-			return "fail";
-		case "CANCELLED":
-			return "cancel";
-		default:
-			return "pending";
-	}
-}
-
-const timeOf = (value: unknown) => (typeof value === "string" && Date.parse(value)) || 0;
+/** The states `gh pr checks` puts in its fail and cancel buckets. A check run has status and conclusion, a status context has state. */
+const RED_STATES = new Set<unknown>([
+	"ERROR",
+	"FAILURE",
+	"TIMED_OUT",
+	"ACTION_REQUIRED",
+	"STARTUP_FAILURE",
+	"CANCELLED",
+]);
 
 /**
  * The checks of one PR head. A rollup can hold a name twice in one workflow, one run per trigger, and only the latest
  * counts: `gh pr checks` drops the older runs too. Two workflows may share a name, and each keeps its own run.
  */
 function checksOf(rollup: unknown[]): OpenPr["checks"] {
-	const latest = new Map<string, { name: string; bucket: Bucket; started: number; completed: number }>();
+	const latest = new Map<string, { name: string; red: boolean; started: number }>();
 	for (const raw of rollup) {
 		const item = raw as Record<string, unknown> | null;
 		const name = item?.name || item?.context;
 		if (typeof name !== "string") throw new Error("a rollup item has no check name");
 		const key = `${String(item!.workflowName ?? "")}\0${name}`,
-			started = timeOf(item!.startedAt),
-			completed = timeOf(item!.completedAt),
+			started = Date.parse(String(item!.startedAt)) || 0,
 			held = latest.get(key);
-		if (!held || started > held.started || (started === held.started && completed >= held.completed))
-			latest.set(key, { name, bucket: bucketOf(item!), started, completed });
+		if (!held || started >= held.started)
+			latest.set(key, {
+				name,
+				red: RED_STATES.has(item!.state || (item!.status === "COMPLETED" && item!.conclusion)),
+				started,
+			});
 	}
-	return [...latest.values()].map(({ name, bucket }) => ({ name, bucket }));
+	return [...latest.values()].map(({ name, red }) => ({ name, red }));
 }
 
 function readOpenPrs(root: string): OpenPr[] {
@@ -87,15 +75,17 @@ function readOpenPrs(root: string): OpenPr[] {
 	if (r.code !== 0) throw new Error(`gh pr list failed: ${(r.stderr || r.stdout).trim() || `exit ${r.code}`}`);
 	const parsed: unknown = JSON.parse(r.stdout);
 	if (!Array.isArray(parsed)) throw new Error("gh pr list did not print a list");
-	return parsed.map((raw: { number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }) => {
-		if (typeof raw?.number !== "number" || typeof raw.headRefOid !== "string")
-			throw new Error("gh pr list printed a PR with no number or head");
-		return {
-			number: raw.number,
-			head: raw.headRefOid,
-			checks: checksOf(Array.isArray(raw.statusCheckRollup) ? raw.statusCheckRollup : []),
-		};
-	});
+	return parsed
+		.map((raw: { number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }) => {
+			if (typeof raw?.number !== "number" || typeof raw.headRefOid !== "string")
+				throw new Error("gh pr list printed a PR with no number or head");
+			return {
+				number: raw.number,
+				head: raw.headRefOid,
+				checks: checksOf(Array.isArray(raw.statusCheckRollup) ? raw.statusCheckRollup : []),
+			};
+		})
+		.sort((a, b) => a.number - b.number);
 }
 
 /**
@@ -126,33 +116,26 @@ type NameRow = {
 function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: number) {
 	const at = new Date(nowMs).toISOString();
 	const seen = new Map<string, Set<number>>(),
-		red = new Map<string, Array<{ pr: number; head: string }>>();
+		red = new Map<string, Map<number, string>>();
 	for (const pr of prs)
-		for (const { name, bucket } of pr.checks) {
-			if (!seen.has(name)) seen.set(name, new Set());
-			seen.get(name)!.add(pr.number);
-			if ((bucket !== "fail" && bucket !== "cancel") || required.includes(name)) continue;
-			if (!red.has(name)) red.set(name, []);
-			if (!red.get(name)!.some((r) => r.pr === pr.number)) red.get(name)!.push({ pr: pr.number, head: pr.head });
+		for (const check of pr.checks) {
+			if (!seen.has(check.name)) seen.set(check.name, new Set());
+			seen.get(check.name)!.add(pr.number);
+			if (!check.red || required.includes(check.name)) continue;
+			if (!red.has(check.name)) red.set(check.name, new Map());
+			red.get(check.name)!.set(pr.number, pr.head);
 		}
-	const alarms: Alarm[] = [],
+	const alarms: Array<Alarm & { eventId: number }> = [],
 		firstSeen: string[] = [];
 	const raise = (kind: AlarmKind, check: string, alarmPrs: number[]) => {
-		const words = kind === "new" ? "New check" : "Non-required check red:";
-		record(db, null, null, ALARM_EVENT[kind], {
-			check,
-			prs: alarmPrs,
-			raisedAt: at,
-			notified: null,
-			summary: `${words} ${check} on ${prList(alarmPrs)}`,
-		});
+		record(db, null, null, ALARM_EVENT[kind], { check, prs: alarmPrs, raisedAt: at, notified: null });
 		const { id } = db.prepare("SELECT last_insert_rowid() AS id").get() as { id: number };
-		alarms.push({ kind, check, prs: alarmPrs, eventId: id, notified: null });
+		alarms.push({ kind, check, prs: alarmPrs, eventId: id });
 	};
 	db.exec("BEGIN IMMEDIATE");
 	try {
-		const { last_ok_at: lastOk } = (db.prepare("SELECT last_ok_at FROM check_poll").get() ?? {}) as {
-				last_ok_at?: string | null;
+		const { last_ok_at: lastOk } = db.prepare("SELECT last_ok_at FROM check_poll").get() as {
+				last_ok_at: string | null;
 			},
 			{ n: known } = db.prepare("SELECT COUNT(*) AS n FROM check_names").get() as { n: number };
 		const baseline = known === 0 || (!!lastOk && nowMs - Date.parse(lastOk) > WEEK);
@@ -171,50 +154,44 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 				(a, b) => a - b,
 			);
 			let state: NameRow["new_state"] = fresh ? (baseline ? "baseline" : "watching") : row.new_state;
-			if (state === "watching" && namePrs.length >= NEW_ALARM_PRS && nowMs - Date.parse(firstAt) < WEEK) {
+			if (state === "watching" && namePrs.length >= ALARM_PRS && nowMs - Date.parse(firstAt) < WEEK) {
 				state = "alarmed";
 				raise("new", name, namePrs);
 			}
 			writeName.run(name, firstAt, at, JSON.stringify(namePrs), state, row?.red_alarmed ?? 0);
 		}
 
-		const recorded = new Set(
-			(
-				db.prepare("SELECT payload FROM events WHERE type = 'ci_nonrequired_red'").all() as Array<{ payload: string }>
-			).map(({ payload }) => {
-				const { check, pr, head } = JSON.parse(payload) as { check: string; pr: number; head: string };
-				return JSON.stringify([check, pr, head]);
-			}),
+		const recorded = db.prepare(
+			`SELECT 1 FROM events WHERE type = 'ci_nonrequired_red'
+			AND payload ->> 'check' = ? AND payload ->> 'pr' = ? AND payload ->> 'head' = ?`,
 		);
 		for (const [check, reds] of red) {
-			for (const { pr, head } of reds)
-				if (!recorded.has(JSON.stringify([check, pr, head])))
+			for (const [pr, head] of reds)
+				if (!recorded.get(check, pr, head))
 					record(db, null, null, "ci_nonrequired_red", { check, pr, head, firstSeenAt: at });
 			const row = readName.get(check) as unknown as NameRow;
-			if (!baseline && reds.length >= RED_ALARM_PRS && !row.red_alarmed) {
+			if (!baseline && reds.size >= ALARM_PRS && !row.red_alarmed) {
 				db.prepare("UPDATE check_names SET red_alarmed = 1 WHERE name = ?").run(check);
-				raise(
-					"red",
-					check,
-					reds.map((r) => r.pr).sort((a, b) => a - b),
-				);
+				raise("red", check, [...reds.keys()]);
 			}
 		}
-		for (const { name } of db.prepare("SELECT name FROM check_names WHERE red_alarmed = 1").all() as Array<{
-			name: string;
-		}>)
-			if (!red.has(name)) db.prepare("UPDATE check_names SET red_alarmed = 0 WHERE name = ?").run(name);
+		db.prepare(
+			"UPDATE check_names SET red_alarmed = 0 WHERE red_alarmed = 1 AND name NOT IN (SELECT value FROM json_each(?))",
+		).run(JSON.stringify([...red.keys()]));
 
 		db.prepare("UPDATE check_poll SET last_ok_at = ? WHERE id = 1").run(at);
 		db.exec("COMMIT");
-		return { baseline, firstSeen, red, alarms };
+		return {
+			baseline,
+			firstSeen,
+			red: [...red].map(([check, reds]) => ({ check, prs: [...reds.keys()] })),
+			alarms,
+		};
 	} catch (e) {
 		db.exec("ROLLBACK");
 		throw e;
 	}
 }
-
-const prList = (prs: number[]) => prs.map((pr) => `#${pr}`).join(", ");
 
 /** The notification holdTask sends, with a timeout. False when it fails, which never fails the poll. */
 function sendAlarm({ kind, check, prs }: Alarm): boolean {
@@ -251,18 +228,18 @@ export function pollChecks(root: string, clock: Clock = REAL_CLOCK): PollResult 
 			);
 		}
 		const { baseline, firstSeen, red, alarms } = writePoll(db, required, prs, nowMs);
-		for (const alarm of alarms) {
-			alarm.notified = sendAlarm(alarm);
-			db.prepare("UPDATE events SET payload = json_set(payload, '$.notified', json(?)) WHERE id = ?").run(
-				String(alarm.notified),
-				alarm.eventId,
-			);
-		}
 		return {
 			baseline,
 			firstSeen,
-			red: [...red].map(([check, reds]) => ({ check, prs: reds.map((r) => r.pr).sort((a, b) => a - b) })),
-			alarms: alarms.map(({ eventId: _eventId, ...alarm }) => alarm),
+			red,
+			alarms: alarms.map(({ eventId, ...alarm }) => {
+				const notified = sendAlarm(alarm);
+				db.prepare("UPDATE events SET payload = json_set(payload, '$.notified', json(?)) WHERE id = ?").run(
+					String(notified),
+					eventId,
+				);
+				return { ...alarm, notified };
+			}),
 		};
 	} finally {
 		db.close();
@@ -289,7 +266,7 @@ export function checkAlarm(root: string, json: boolean): number {
 	return 0;
 }
 
-const evfArgs = (root: string, ...args: string[]) => {
+export const evfArgs = (root: string, ...args: string[]) => {
 	// A sampler runs the home checkout's code, which outlives a worktree (see spawnSampler).
 	const home = join(root, "tools/evf/main.ts");
 	return [

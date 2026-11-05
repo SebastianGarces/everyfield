@@ -13,7 +13,7 @@ import { loadavg } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
-import { claimPoll, startPoll } from "./check-alarm.ts";
+import { claimPoll, evfArgs, startPoll } from "./check-alarm.ts";
 import { nextStageFromStore } from "./drive.ts";
 import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
@@ -328,17 +328,11 @@ export function runSampler(root: string, probes = machineProbes(root), opts: { t
  * worktree that ship can remove: the home checkout's copy outlives it. A test fixture has no evf code of its own.
  */
 function spawnSampler(root: string): number | undefined {
-	const home = join(root, "tools/evf/main.ts");
-	const child = spawn(
-		process.execPath,
-		[
-			"--disable-warning=ExperimentalWarning",
-			existsSync(home) ? home : join(import.meta.dirname, "main.ts"),
-			"sampler",
-			"run",
-		],
-		{ cwd: root, detached: true, stdio: "ignore" },
-	);
+	const child = spawn(process.execPath, evfArgs(root, "sampler", "run"), {
+		cwd: root,
+		detached: true,
+		stdio: "ignore",
+	});
 	child.unref();
 	return child.pid;
 }
