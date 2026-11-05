@@ -1422,6 +1422,219 @@ test("AC:OPS-140-3 AC:OPS-140-4 a ready PR overlaps: the verifier waits with the
 	}
 });
 
+/** OPS-145. The verifier approved the branch at its head; the next pass after the given runs is a new verify. */
+function approvedAtVerify(f: ReturnType<typeof driveFixture>, onMain: { path: string; text: string } | null = null) {
+	const approved = atVerify(f, null);
+	closeVerify(f, approved, "approved");
+	if (onMain) landOnMain(f, onMain.path, onMain.text);
+	return approved;
+}
+function closeVerify(f: ReturnType<typeof driveFixture>, at: string, decision: string) {
+	const run = f.insertRun("verify", "verifier", decision === "changes_requested" ? "failed" : "passed");
+	f.db.prepare("UPDATE runs SET progress_head = ? WHERE id = ?").run(at, run);
+	f.db
+		.prepare(
+			"INSERT INTO approvals (task_id, gate, approver, head_sha, decision, created_at) VALUES (?, 'verify', 'verifier', ?, ?, ?)",
+		)
+		.run(f.taskId, at, decision, new Date().toISOString());
+}
+/** The seats that run between an approval and the next verify, each closing at the worktree head. */
+function seatRun(f: ReturnType<typeof driveFixture>, stage: "implement" | "simplify") {
+	const run = f.insertRun(stage, stage === "implement" ? "implementer" : "simplifier", "passed");
+	f.db.prepare("UPDATE runs SET progress_head = ? WHERE id = ?").run(head(f), run);
+}
+function seatRuns(f: ReturnType<typeof driveFixture>, ...stages: Array<"implement" | "simplify">) {
+	for (const stage of stages) seatRun(f, stage);
+	f.insertRun("pr", "evf", "passed");
+}
+const commitInWt = (f: ReturnType<typeof driveFixture>, path: string, text: string, message = "New work") => {
+	writeFileSync(join(f.wt, path), text);
+	sh(f.wt, "add", path);
+	sh(f.wt, "commit", "-qm", message);
+};
+const syncBranch = (f: ReturnType<typeof driveFixture>) => sh(f.wt, "push", "-q", "origin", f.task.branch);
+const mergeOriginMain = (f: ReturnType<typeof driveFixture>) => {
+	sh(f.wt, "fetch", "-q", "origin", "main");
+	sh(f.wt, "merge", "-q", "--no-edit", "origin/main");
+};
+/** One drive pass launches the verifier. Returns its `verify_start` record and its prompt. */
+function verifyPass(f: ReturnType<typeof driveFixture>) {
+	syncBranch(f);
+	const n = quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH));
+	assert.equal(n.stage, "verify");
+	const prompt = f.herdr
+		.calls()
+		.filter((c) => c[0] === "agent" && c[1] === "prompt")
+		.at(-1)![3]!;
+	return { start: JSON.parse(f.events("verify_start").at(-1)!.payload) as Record<string, any>, prompt };
+}
+const FULL_REVIEW = /read the full diff and judge the code and its simplicity/;
+const withDrive = (fn: (f: ReturnType<typeof driveFixture>) => void) => () => {
+	const f = driveFixture();
+	try {
+		fn(f);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+};
+
+test(
+	"AC:OPS-145-1 AC:OPS-145-4 AC:OPS-145-5 AC:OPS-145-7 a clean merge of main after an approval: merge_only, and the prompt limits the review and names the prior head, the merge result and an exact-head review",
+	withDrive((f) => {
+		const approved = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+		mergeOriginMain(f);
+		seatRuns(f, "implement");
+		const { start, prompt } = verifyPass(f),
+			merged = head(f);
+		assert.deepEqual(
+			[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines, start.overlapPaths],
+			[merged, approved, "merge_only", 1, []],
+		);
+		assert.ok(prompt.includes(`prior head ${approved}`));
+		assert.ok(prompt.includes(`merge result ${merged}`));
+		assert.ok(prompt.includes(`post-review.mjs --head ${merged}`));
+		assert.match(prompt, /Limit your review to the merge result and the overlap/);
+		assert.match(prompt, /Required CI on the exact head stays required/);
+		assert.doesNotMatch(prompt, FULL_REVIEW);
+	}),
+);
+
+test(
+	"AC:OPS-145-1 AC:OPS-145-4 the overlap check merges an overlapping main: the record and the prompt name the path and read the head the verifier reviews",
+	withDrive((f) => {
+		const approved = approvedAtVerify(f, {
+			path: "README.md",
+			text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n`,
+		});
+		seatRuns(f, "implement");
+		const { start, prompt } = verifyPass(f);
+		assert.equal(updateBranchCalls(f).length, 1);
+		assert.notEqual(head(f), approved);
+		assert.deepEqual(
+			[start.head, start.priorApprovedHead, start.deltaKind, start.overlapPaths],
+			[head(f), approved, "merge_only", ["README.md"]],
+		);
+		assert.match(prompt, /both changed these paths.*: README\.md\./);
+	}),
+);
+
+test("AC:OPS-145-2 a merge that is not the clean merge gives code and the full review: a conflict resolution, a hand edit, a merge that drops main's change", () => {
+	const resolved = (f: ReturnType<typeof driveFixture>) => {
+		// Both sides change the same line, so the merge stops on a conflict and a person writes the result.
+		const line = readFileSync(join(f.wt, "README.md"), "utf8");
+		spawnSync("git", ["-C", f.wt, "fetch", "-q", "origin", "main"]);
+		const merge = spawnSync("git", ["-C", f.wt, "merge", "--no-edit", "origin/main"], { encoding: "utf8" });
+		assert.notEqual(merge.status, 0, "the fixture merge must conflict");
+		writeFileSync(join(f.wt, "README.md"), `Resolved.\n${line}`);
+		sh(f.wt, "add", "README.md");
+		sh(f.wt, "commit", "-qm", "Merge main, resolve the conflict");
+	};
+	const edited = (f: ReturnType<typeof driveFixture>) => {
+		mergeOriginMain(f);
+		writeFileSync(join(f.wt, "docs-hand-edit.md"), "A change inside the merge.\n");
+		sh(f.wt, "add", "docs-hand-edit.md");
+		sh(f.wt, "commit", "-q", "--amend", "--no-edit");
+	};
+	const dropped = (f: ReturnType<typeof driveFixture>) => {
+		sh(f.wt, "fetch", "-q", "origin", "main");
+		sh(f.wt, "merge", "-q", "--no-edit", "-s", "ours", "origin/main");
+	};
+	for (const [write, onMain] of [
+		[resolved, { path: "README.md", text: "Main rewrites this line.\n" }],
+		[edited, { path: "docs/elsewhere.md", text: "Elsewhere.\n" }],
+		[dropped, { path: "docs/elsewhere.md", text: "Elsewhere.\n" }],
+	] as const)
+		withDrive((f) => {
+			const approved = approvedAtVerify(f, onMain);
+			write(f);
+			seatRuns(f, "implement");
+			const { start, prompt } = verifyPass(f);
+			assert.deepEqual([start.priorApprovedHead, start.deltaKind], [approved, "code"], write.name);
+			assert.match(prompt, FULL_REVIEW);
+		})();
+});
+
+test("AC:OPS-145-3 a new non-merge commit: code from the implementer, simplify from the simplifier, both with the full review", () => {
+	withDrive((f) => {
+		const approved = approvedAtVerify(f);
+		commitInWt(f, "feature.md", "One.\nTwo.\n");
+		seatRuns(f, "implement", "simplify");
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual(
+			[start.priorApprovedHead, start.deltaKind, start.deltaLines],
+			[approved, "code", 2],
+			"the implementer's commit is code, even with a simplify run after it",
+		);
+		assert.match(prompt, FULL_REVIEW);
+	})();
+	withDrive((f) => {
+		const approved = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+		mergeOriginMain(f);
+		seatRun(f, "implement");
+		commitInWt(f, "feature.md", "Simpler.\n", "Simplify");
+		seatRuns(f, "simplify");
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual([start.priorApprovedHead, start.deltaKind], [approved, "simplify"]);
+		assert.match(prompt, FULL_REVIEW);
+	})();
+	withDrive((f) => {
+		// No seat run explains the commit: it counts as code.
+		approvedAtVerify(f);
+		commitInWt(f, "feature.md", "Unexplained.\n");
+		seatRuns(f);
+		assert.equal(verifyPass(f).start.deltaKind, "code");
+	})();
+});
+
+test("AC:OPS-145-7 no prior approval gives code and the full review: a first review, changes requested, a body_only review, a reopen", () => {
+	withDrive((f) => {
+		atVerify(f, null);
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual(
+			[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines],
+			[head(f), null, "code", 1],
+		);
+		assert.match(prompt, FULL_REVIEW);
+	})();
+	for (const decision of ["changes_requested", "body_only"])
+		withDrive((f) => {
+			closeVerify(f, atVerify(f, null), decision);
+			landOnMain(f, "docs/elsewhere.md", "Elsewhere.\n");
+			mergeOriginMain(f);
+			seatRuns(f, "implement");
+			const { start, prompt } = verifyPass(f);
+			assert.deepEqual([start.priorApprovedHead, start.deltaKind], [null, "code"], decision);
+			assert.match(prompt, FULL_REVIEW);
+		})();
+	withDrive((f) => {
+		approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+		mergeOriginMain(f);
+		const last = f.runs().at(-1)!.id;
+		f.db
+			.prepare("INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, 'reopen', ?)")
+			.run(f.taskId, new Date().toISOString(), JSON.stringify({ after_run: last, reason: "Look again." }));
+		seatRuns(f, "implement");
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual([start.priorApprovedHead, start.deltaKind], [null, "code"]);
+		assert.match(prompt, FULL_REVIEW);
+	})();
+});
+
+test(
+	"AC:OPS-145-2 a head with no change since the approval is not merge_only: a verify again at that head gets the full review",
+	withDrive((f) => {
+		const approved = approvedAtVerify(f);
+		seatRuns(f, "implement");
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual(
+			[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines],
+			[approved, approved, "code", 0],
+		);
+		assert.match(prompt, FULL_REVIEW);
+	}),
+);
+
 test("AC:OPS-140-5 no overlap: the verifier starts at once, with no wait and no merge", () => {
 	// Main moved elsewhere, and the overlapping PRs are not ready: no review, a rejected review, a draft, an old approval.
 	for (const [verdict, draft, reviewed] of [

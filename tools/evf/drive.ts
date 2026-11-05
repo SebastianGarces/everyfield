@@ -72,6 +72,7 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
+import { mergeOnlyPrompt, verifyDelta, type VerifyDelta } from "./verify-delta.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -668,6 +669,18 @@ const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
 		.get(taskId) as { head_sha: string | null; decision: string } | undefined;
 	return a?.decision === "body_only" && a.head_sha ? a.head_sha : null;
 };
+/**
+ * What changed since the task's latest verify close, for the verifier about to start (OPS-145). A prior approval needs
+ * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
+ */
+function deltaSinceApproval(db: DatabaseSync, taskId: number, wt: string, main: string): VerifyDelta {
+	const marker = reopenMarker(db, taskId),
+		runs = runsOf(db, taskId).filter((r) => r.id > marker),
+		at = runs.findLastIndex((r) => r.stage === "verify" && (r.status === "passed" || r.status === "failed")),
+		close = runs[at],
+		approved = close?.status === "passed" && !bodyOnlyHead(db, taskId) ? close.progress_head : null;
+	return verifyDelta(wt, main, approved, runs.slice(at + 1));
+}
 function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
 	const head = bodyOnlyHead(db, taskId);
 	if (!head) return null;
@@ -1596,6 +1609,8 @@ type PromptContext = {
 	choice: CompareChoice | null;
 	/** Set for the body stage only (OPS-113): the reviewed head and the items of its body_only review, or why evf has none. */
 	body?: { head: string; items: BodyItem[] | string };
+	/** The verify prompt: what changed since the prior approval. */
+	delta?: VerifyDelta;
 };
 const notesOf = (ctx: PromptContext) =>
 	ctx.notes.length
@@ -1642,8 +1657,10 @@ export const STAGE_PROMPTS: Record<string, Prompt> = {
 				: ` The items: ${items.map((item, i) => `${i + 1}. ${describeBodyItem(item)}`).join(" ")}`;
 		return `Fix the PR body of task ${task.id} at ${at}. The verifier approved the code and the experience there and posted a body_only review: only the PR body needs these fixes.${list}${next.reason.startsWith("body failed") ? ` evf checked the body after the last body run and it failed (${next.reason}). Fix that first.` : ""} Edit only the PR body file ${ctx.prBody}: each "present" text must appear in it exactly, each "absent" text must not appear, and the body must still pass bin/evf pr body --body-file ${ctx.prBody} --task ${task.id}. Keep the EVF-Author line. Make no commit and change no other file: a commit sends the task to a full verify. When you close passed, evf pushes the body with evf pr open --body-file at the same head, checks it with the evf pr body standard and checks every item. ${CLOSE}`;
 	},
-	verify: (task) =>
-		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code and its simplicity. You judge the owner rows. evf wrote the AC: rows by running the marked tests at the head, and run done reruns them, so you may rely on those rows; still read each marked test and request changes when it checks too little (a test that only sees the page load proves nothing). Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
+	verify: (task, _next, ctx) =>
+		ctx.delta?.deltaKind === "merge_only"
+			? mergeOnlyPrompt(task, ctx.delta)
+			: `Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code and its simplicity. You judge the owner rows. evf wrote the AC: rows by running the marked tests at the head, and run done reruns them, so you may rely on those rows; still read each marked test and request changes when it checks too little (a test that only sees the page load proves nothing). Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
 
 /** The items of the body_only review at `head` for the body prompt, or why GitHub has none. */
@@ -2501,6 +2518,7 @@ export function driveOnce(
 			waitOnSeat(db, root, task, t, n.run!, timing);
 			return n;
 		}
+		let delta: VerifyDelta | undefined;
 		if (n.stage === "verify") {
 			const stopped = overlapGate(db, root, task, t.id, t.pr_number, timing);
 			if (stopped) {
@@ -2515,6 +2533,13 @@ export function driveOnce(
 				runDone(root, runId, { status: "failed", summary: stopped });
 				return { stage: "pr", round: t.round, reason: stopped };
 			}
+			// After the overlap check, which can merge main: this reads the head the verifier reviews.
+			const cfg = loadConfig(root);
+			delta = deltaSinceApproval(db, t.id, worktreePath(root, cfg, task), baseRef(root, cfg));
+			record(db, t.id, null, "verify_start", {
+				...delta,
+				summary: `${task.id}: verifier starts at ${delta.head.slice(0, 10)}, ${delta.deltaKind}`,
+			});
 		}
 		if (n.role) {
 			const cfg = loadConfig(root);
@@ -2529,6 +2554,7 @@ export function driveOnce(
 				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : (extras.reopenReason ?? null),
 				previous: previousIdeaRun(runs, n.idea),
 				choice: extras.choice ?? null,
+				delta,
 				...(n.stage === "body" && extras.bodyOnly
 					? { body: { head: extras.bodyOnly.head, items: bodyItemsOf(root, t, extras.bodyOnly.head) } }
 					: {}),
