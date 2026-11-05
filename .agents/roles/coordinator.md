@@ -30,7 +30,10 @@ A coordinator-launched `claude -p` session starts with `bin/evf headless`, so it
 Name the task the session serves most; a registration session names the reserved id. The run does not change
 `evf next` for the task.
 
-Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
+Stop a drive with `bin/evf drive <task> --stop`. It sends SIGTERM so that the drive closes its run, and it tells the
+dead drive watcher not to restart the drive. A plain SIGTERM restarts within 5 min, and SIGKILL also leaves the run for
+`evf doctor`. A `drive_death_alert` means that a drive died twice: read why, then start it again with the command in
+the alert. A `drive_stopped` whose summary names a merge within 60 s: consider an OPS task.
 
 The owner digest routine (OPS-131): Jonah runs `bin/evf owner-queue` and sends the digest at the fixed digest times,
 sends an urgent item at once, and asks the keep, abandon or reopen question for an item older than 48 h. An item is
@@ -54,7 +57,8 @@ follow-up. Owner-review reports for a partial PR start with the `Partial:` line 
 slices and their follow-up labels, as `evf ship` and `evf status` print it. An existing task covers a slice or
 deferred scope through `bin/evf task link <task> --follow-up <task2> [--slice <n>]`, with no new id.
 
-Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
+Intent owns scheduling, dependencies, discussions and work watchers. Do not add another scheduler. The one exception
+is the dead drive watcher in the sampler: it restores a drive that was already running and schedules no new work (D86).
 Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task
 finishes end to end through Phase 7. Full package closure remains an integration decision.
 Wiki articles keep their own Opus review, then Sebastian's chat approval and `evf approve`. A task PR that
