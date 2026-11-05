@@ -483,7 +483,7 @@ changed and one `evf proof add` per `owner` or unchecked Done criterion it built
 (see "Answer key" below); otherwise evf adds no proof gate on that close, and the verifier covers a missing proof. The PR body is gated (OPS-113): an implement run closes passed only when the body
 file in the runtime dir exists and passes the `evf pr body` check, and the refusal names the failed check, so a body
 fault shows up before verify. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
-The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
+The verifier reads the full diff, except in a merge-only review (OPS-145), reads the proof table and re-runs a flow only where a proof is unmet,
 missing or looks wrong; it captures a missing screenshot itself. A failed verify, ci or ship costs a round, except a
 failed verify at a head where an earlier verify of the task already closed (a second review of an unchanged head
 records `review_repeat` and costs no round; it still counts toward the three-failure cap). The fourth
@@ -748,6 +748,22 @@ The check uses the same path comparison as the Fresh gate of `evf ship` and does
 Each refusal of `evf ship` records one `ship_refused` event: `{kind, overlapPaths, main, head}`. `kind` is `fresh_gate`
 for a Fresh gate refusal or an approval that does not carry because main overlaps, and `refused` for any other refusal.
 Read them with `evf events --type ship_refused`.
+
+### What the verifier reviews (OPS-145)
+
+After the overlap check, the drive classifies the head against the latest verify close and records one `verify_start`
+event per launch attempt: `{head, priorApprovedHead, deltaKind, deltaLines}`. `deltaLines` counts lines added plus removed
+since the prior approved head, or since the branch's base with none.
+
+| `deltaKind` | When | Review |
+|---|---|---|
+| `merge_only` | Every commit since the approved head is a clean merge of main (`cleanMerges`, the check behind the carry proof). | The prompt names the prior head, the merge result and the `overlapPaths`, and limits the review to them. |
+| `simplify` | The non-merge commits came from the simplify seat: no implement run since the approval added code. | Full. |
+| `code` | Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
+
+Only a `passed` close without a `body_only` decision counts as an approval. Changes requested, a `body_only` review and a
+reopen each leave `priorApprovedHead` null. A `merge_only` review changes what the verifier reads and nothing that
+`evf ship` checks: it still requires required CI and an independent review on the exact head.
 
 ## Answer key (OPS-112)
 
