@@ -104,11 +104,12 @@ function seed(db: DatabaseSync, f: Fx) {
 	const ask = (id: number, at: number, digestId: string | null = null) =>
 		ev(id, "owner_ask", at, { kind: "parked", digestId, askedAt: iso(at) });
 	const answer = (id: number, at: number) => ev(id, "owner_answer", at, { answeredAt: iso(at) });
-	// Digest "before": F waits 6 h inside, and a wait at the same time as G's ask counts once.
+	// Digest "before": F waits 6 h inside over 2 wait events, and a wait at the time of G's ask counts once.
 	ask(G, utc("10-27", "09:00"));
 	ev(G, "owner_approval_wait", utc("10-27", "09:00"));
 	answer(G, utc("10-27", "13:00"));
 	ev(F, "owner_approval_wait", utc("10-28", "09:00"));
+	ev(F, "owner_approval_wait", utc("10-28", "10:30"));
 	ev(F, "merged", utc("10-28", "15:00"));
 	ask(D, utc("11-03", "10:00"));
 	ask(E, utc("11-04", "08:00"));
@@ -372,6 +373,55 @@ test("OPS-142-3: a week with merges and no check runs prints no data for runs pe
 		assert.equal(by.escalations!.value.per10Merges, 0);
 		assert.equal(by.roundsPerMerge!.value.perMerge, 0);
 		assert.match(by.roundsPerMerge!.text, /non-code no data/);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-142-2: a dead spell ends when its task leaves active, or at the next heartbeat if that comes first", () => {
+	const f = fixture();
+	try {
+		config(f, true);
+		const db = openWorkDb(f.root);
+		const ev = (id: number, type: string, at: number) =>
+			db.prepare("INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, ?, '{}')").run(id, iso(at), type);
+		// Each task: a heartbeat, a death record 6 min later, then the event that ends the spell `minutes` after the beat.
+		const ends: Array<[string, string, number]> = [
+			["OPS-911", "abandon", 30],
+			["OPS-912", "merged", 20],
+			["OPS-913", "held_external", 10],
+			["OPS-914", "escalation", 7],
+			["OPS-915", "handoff", 8],
+			["OPS-916", "awaiting_pick", 9],
+		];
+		ends.forEach(([ref, type, minutes], i) => {
+			const id = Number(
+				db
+					.prepare(
+						"INSERT INTO tasks (slug, mode, ref, status, created_at, updated_at) VALUES (?, 'implement', ?, 'active', ?, ?)",
+					)
+					.run(ref.toLowerCase(), ref, iso(ago(150)), iso(ago(150))).lastInsertRowid,
+			);
+			const beat = ago(100 - i);
+			ev(id, "drive_heartbeat", beat);
+			ev(id, "drive_death_alert", beat + 6 * MINUTE);
+			ev(id, type, beat + minutes * MINUTE);
+		});
+		// The next heartbeat at 3 min comes before the merge at 40 min.
+		const id = Number(
+			db
+				.prepare(
+					"INSERT INTO tasks (slug, mode, ref, status, created_at, updated_at) VALUES ('opsx', 'implement', 'OPS-917', 'active', ?, ?)",
+				)
+				.run(iso(ago(150)), iso(ago(150))).lastInsertRowid,
+		);
+		ev(id, "drive_heartbeat", ago(50));
+		ev(id, "drive_restart", ago(50) + 2 * MINUTE);
+		ev(id, "drive_heartbeat", ago(50) + 3 * MINUTE);
+		ev(id, "merged", ago(50) + 40 * MINUTE);
+		db.close();
+		const dead = week(f).all.find((m) => m.key === "deadDrive")!;
+		assert.deepEqual(dead.value, { minutes: 87, deaths: 7 });
 	} finally {
 		f.close();
 	}

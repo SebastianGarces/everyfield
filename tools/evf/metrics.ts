@@ -42,7 +42,13 @@ const SIGNALS = [
 	"drive_restart_refused",
 	"escalation",
 	"ship_refused",
+	"abandon",
+	"held_external",
+	"handoff",
+	"awaiting_pick",
 ];
+/** The events that take a task out of `active`, so its drive is no longer one that should be running. */
+const LEAVES_ACTIVE = new Set(["merged", "abandon", "held_external", "handoff", "awaiting_pick", "escalation"]);
 
 type Level = "target" | "alarm";
 type Breach = { level: Level; text: string };
@@ -142,6 +148,17 @@ function ownerWaits(events: Event[], closedTasks: Set<number>, now: number): Wai
 	}
 	for (const [task, asked] of open) if (!closedTasks.has(task)) waits.push({ task, asked, end: now, open: true });
 	return waits;
+}
+
+/** One task's overlapping records of a wait are one wait: a PR that logged several wait events still waited once. */
+function oneWaitEach(waits: Wait[]): Wait[] {
+	const out: Wait[] = [];
+	for (const w of waits.toSorted((a, b) => a.task - b.task || a.asked - b.asked)) {
+		const last = out.at(-1);
+		if (last?.task === w.task && w.asked <= last.end) last.end = Math.max(last.end, w.end);
+		else out.push({ ...w });
+	}
+	return out;
 }
 
 function weekReport(root: string): WeekReport {
@@ -523,7 +540,9 @@ function weekReport(root: string): WeekReport {
 			const own = beats.filter((b) => b.task === death.task),
 				before = own.findLast((b) => b.at <= death.at),
 				after = own.find((b) => b.at > death.at);
-			if (before) spells.set(before.id, ((after?.at ?? now) - before.at) / MINUTE);
+			if (!before) continue;
+			const left = events.find((e) => e.task === death.task && e.at > before.at && LEAVES_ACTIVE.has(e.type));
+			spells.set(before.id, (Math.min(after?.at ?? now, left?.at ?? now) - before.at) / MINUTE);
 		}
 		const minutes = round(sum([...spells.values()]));
 		return metric(
@@ -673,32 +692,28 @@ function weekReport(root: string): WeekReport {
 		if (!firstDigest) return missing("digest", name, target, "no digest ask yet");
 		const start = Date.parse(firstDigest.p.askedAt),
 			answered = waits.filter((w) => !w.open);
-		const before = new Map(
-			answered
-				.filter((w) => w.asked < start && w.asked >= start - DIGEST_SPAN)
-				.map((w) => [`${w.task}:${w.asked}`, w] as const),
-		);
+		const samples = answered.filter((w) => w.asked < start && w.asked >= start - DIGEST_SPAN);
 		// Before the owner queue, an approval wait was the only record of an ask. Its merge ended the wait.
 		for (const wait of all("owner_approval_wait")) {
 			if (wait.task === null || wait.at >= start || wait.at < start - DIGEST_SPAN) continue;
 			const closed = events.find(
 				(e) => e.id > wait.id && e.task === wait.task && (e.type === "merged" || e.type === "owner_answer"),
 			);
-			if (closed)
-				before.set(`${wait.task}:${wait.at}`, { task: wait.task, asked: wait.at, end: closed.at, open: false });
+			if (closed) samples.push({ task: wait.task, asked: wait.at, end: closed.at, open: false });
 		}
+		const before = oneWaitEach(samples);
 		const after = answered.filter((w) => w.asked >= start && w.asked < start + DIGEST_SPAN);
-		if (!before.size || !after.length)
-			return missing("digest", name, target, `${before.size} asks before, ${after.length} after`);
-		const was = round(percentile([...before.values()].map(insideHours), 90)),
+		if (!before.length || !after.length)
+			return missing("digest", name, target, `${before.length} asks before, ${after.length} after`);
+		const was = round(percentile(before.map(insideHours), 90)),
 			is = round(percentile(after.map(insideHours), 90)),
 			cutPct = was > 0 ? round((100 * (was - is)) / was) : null;
 		return metric(
 			"digest",
 			name,
 			target,
-			{ beforeP90Hours: was, afterP90Hours: is, cutPct, before: before.size, after: after.length },
-			`inside-hours p90 ${was} h before (${before.size} asks), ${is} h after (${after.length} asks), cut ${cutPct === null ? noData() : `${cutPct}%`}`,
+			{ beforeP90Hours: was, afterP90Hours: is, cutPct, before: before.length, after: after.length },
+			`inside-hours p90 ${was} h before (${before.length} asks), ${is} h after (${after.length} asks), cut ${cutPct === null ? noData() : `${cutPct}%`}`,
 		);
 	};
 

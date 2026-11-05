@@ -279,14 +279,14 @@ Percentiles use nearest rank. A straight run counts one tick as one minute, and 
 | Start to merge | First `stage_start` of the task row to its `merged`, for merges this week. | p90 under 10 h. |
 | Full run p90 | `check_end` `durationMs`, mode `full`, result `passed`. A failed author run stops early, so it would shorten this. | Under 15 min. |
 | Suite p90 week on week | `check_suite_end` p90 per suite against the 7 days before. A suite in only one week is left out. | Alarm at up 50%. |
-| Dead-drive minutes | For each `drive_restart`, `drive_death_alert` or `drive_restart_refused`, the gap from the last `drive_heartbeat` before it to the next one, or to now. One gap counts once. A death no watcher saw is not here. | Alarm at 5 min. |
+| Dead-drive minutes | For each `drive_restart`, `drive_death_alert` or `drive_restart_refused`, the gap from the last `drive_heartbeat` before it to the earliest of the next heartbeat, the task leaving active (`merged`, `abandon`, `held_external`, `handoff`, `awaiting_pick` or `escalation`) and now. One gap counts once. A death no watcher saw is not here. | Alarm at 5 min. |
 | Body handoff p50 | Start of each `body` run minus the latest end of an earlier run of the task. | Under 5 min. |
 | Escalations per 10 merges | `escalation` events times 10, divided by `merged`. | Alarm over 1. |
 | Refusals per path | `ship_refused` total, and a count per path in `overlapPaths`. A refusal with no paths counts only in the total. | Alarm at 3 for one path. |
 | Registration per OPS task | Closed runs of role `registration`, summed per OPS ref. The target applies to the worst task. | Under 15 min. |
 | Coordinator share of seat time | Closed run time of role `coordinator`, out of closed run time of every role but `evf`. | Under 10%. |
 | Median run time by overlap | Median `durationMs` of passed full runs, grouped by how many other `check_end` runs overlap each one. | None. |
-| Digest before and after | Inside-hours p90 of answered asks, 14 days before and after the first ask with a `digestId`. Before also counts each `owner_approval_wait` closed by a `merged` or `owner_answer`, since the owner queue did not exist then. | Keep digests at a cut of 20% or more. No alarm. |
+| Digest before and after | Inside-hours p90 of answered asks, 14 days before and after the first ask with a `digestId`. Before also counts each `owner_approval_wait` closed by a `merged` or `owner_answer`, since the owner queue did not exist then. A task's overlapping records count as one wait. | Keep digests at a cut of 20% or more. No alarm. |
 
 ## Usage and seat models
 
