@@ -1641,16 +1641,59 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		assert.equal(calls("update-branch").length, 1);
 		assert.deepEqual(calls("merge"), []);
 		assert.equal(existsSync(lock), false);
+		const refusals = () => {
+			const db = openWorkDb(f.root);
+			try {
+				return (
+					db.prepare("SELECT payload FROM events WHERE type = 'ship_refused' ORDER BY id").all() as Array<{
+						payload: string;
+					}>
+				).map((row) => JSON.parse(row.payload));
+			} finally {
+				db.close();
+			}
+		};
+		assert.deepEqual(
+			refusals().at(-1).overlapPaths,
+			[],
+			"AC:OPS-140-1 a Fresh gate refusal without an overlap records no paths",
+		);
+		assert.equal(refusals().at(-1).kind, "fresh_gate");
 
 		// Main changed a path the PR changes: refuse before touching the branch.
 		mainCommit("README.md", readFileSync(join(f.root, "README.md"), "utf8") + "Main line.\n");
-		assert.throws(
-			attempt([]),
-			/Fresh gate needed: main changed paths this PR also changes: README.md\. .*branch is unchanged/,
-		);
+		const overlapMain = mainCommit("README.md", readFileSync(join(f.root, "README.md"), "utf8") + "Main line.\n");
+		// AC:OPS-140-6 the rule and its message are unchanged, byte for byte.
+		assert.throws(attempt([]), {
+			message:
+				"Fresh gate needed: main changed paths this PR also changes: README.md. Include current main, run CI and get a new verifier review. The branch is unchanged.",
+		});
 		assert.deepEqual([calls("update-branch"), calls("merge")], [[], []]);
 		assert.equal(inWt("rev-parse", "HEAD"), approved);
 		assert.equal(existsSync(lock), false);
+		// AC:OPS-140-1 the refusal records its kind, overlap paths, main and head.
+		const refused = refusals().at(-1);
+		assert.deepEqual(
+			[refused.kind, refused.overlapPaths, refused.main, refused.head],
+			["fresh_gate", ["README.md"], overlapMain, approved],
+		);
+
+		// AC:OPS-140-1 a head that already merged the overlapping main refuses in the carry check: the same paths.
+		const before = refusals().length;
+		const retry = attempt([]);
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		inWt("push", "-q", "origin", `HEAD:refs/heads/${f.taskRef.branch}`);
+		const merged = f.getState();
+		merged.pr.headRefOid = inWt("rev-parse", "HEAD");
+		f.setState(merged);
+		assert.throws(retry, /does not carry: main changed paths this PR also changes: README.md\./);
+		assert.deepEqual(
+			refusals()
+				.slice(before)
+				.map((r) => [r.kind, r.overlapPaths]),
+			[["fresh_gate", ["README.md"]]],
+			"one event for one refusal",
+		);
 	} finally {
 		console.log = log;
 		f.close();

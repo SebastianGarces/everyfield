@@ -1802,6 +1802,15 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-140": {
+			"title": "Overlap check before verify, and ship refusal record",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
