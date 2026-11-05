@@ -161,8 +161,9 @@ because one verify would push out the reopen, nudge and escalation rows.
 
 `test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
 `EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
-WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. Any other failed check,
-at present `package-unit-tests` and `local-app`, records no `test_failed`, and its `check_suite_end` has `passed`
+WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. `local-app` does so through
+`scripts/test-workflow.mjs`, which `pnpm check` runs after typecheck and lint, so a failure in any other step of that check
+records no name. Any other failed check, at present `package-unit-tests`, records no `test_failed`, and its `check_suite_end` has `passed`
 false. One check records each test name once. `postgres://` and `npg_` values in a name are stored redacted.
 `file` is the test's path in the checkout, and `touchesOwnPaths` says whether the branch changed the test's paths (see
 "Broken-main brake"). Both are null when the reporter gave no file.
@@ -569,8 +570,9 @@ main green starts a round; a check that still fails on main holds again. `evf sh
 refuses a held task while a required check fails.
 
 **Broken-main brake (OPS-141, `brake.ts`).** One test that fails on 2 or more branches that do not touch its paths,
-within 60 min, starts a brake. A test's paths are its app, package or tool folder (`tools/evf/`, `packages/db/`), or else
-the folder of its file. A branch counts while its latest finished verify still fails the test. `test_failed` needs a
+within 60 min, starts a brake. A test's paths are its app, package or tool folder (`packages/db/`), or else the folder of
+its file. A test under `tools/evf/tests/` has only its own file as its path, because the evf suite runs mostly on branches
+that change `tools/evf/`. A branch counts while its latest finished verify still fails the test. `test_failed` needs a
 test file, so a failure with no file and a failure in a check that reports no names, such as GitHub ci, never counts.
 
 - The drive that reaches the threshold records one `brake_tripped` event with `{test, file, branches, summary}` and sends
@@ -589,8 +591,9 @@ test file, so a failure with no file and a failure in a check that reports no na
 **Staged release.** A task released from a brake, or a drive that starts new work, takes a slot first and records
 `release_start`. 2 tasks may hold a slot in any 5 min. A new slot also needs load under 24 and fewer than 3 checks
 waiting in the full check queue. A drive looks again each `holdPollMs`. A held task stays `held_external` until its slot.
-A task that holds a slot keeps it, so a restart costs none. One drive start with no other start in the last 5 min reads
-no load or queue, because one drive is no burst. `evf drive --once` and a drive with an open seat take no slot.
+A task that holds a slot keeps it, so a restart costs none. A drive's first look, with no other start in the last 5 min,
+reads no load or queue, because one drive is no burst. Each later look reads them, so a drive that waits stays held at high
+load after the 5 min run out. `evf drive --once` and a drive with an open seat take no slot.
 
 **`round_start`.** Each new round records `{cause, nonMergeCommits, diffLines, round, stage, head, summary}`. The counts
 cover what the previous round added: non-merge commits and added plus deleted lines from the head of the previous

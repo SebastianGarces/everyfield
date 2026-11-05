@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 
 const tests = [];
 const stream = run({ files: [fileURLToPath(new URL("../tests/workflow/stack.test.mjs", import.meta.url))] });
-stream.on("test:pass", ({ name }) => tests.push({ name, status: "passed" }));
-stream.on("test:fail", ({ name }) => {
-	tests.push({ name, status: "failed" });
+stream.on("test:pass", ({ name, file }) => tests.push({ name, file, status: "passed" }));
+stream.on("test:fail", ({ name, file }) => {
+	tests.push({ name, file, status: "failed" });
 	process.exitCode = 1;
 });
 stream.on("error", () => {

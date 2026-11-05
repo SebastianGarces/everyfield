@@ -2363,12 +2363,12 @@ const BRAKE_STATUSES = ["new", "specced", "active", "pr_open"];
  * with a seat still open starts nothing and waits for nothing.
  */
 function awaitDriveStart(root: string, task: TaskRef, pin: number, timing: DriveTiming): void {
-	for (let said = ""; ; sleep(timing.holdPollMs)) {
+	for (let said = "", firstLook = true; ; firstLook = false, sleep(timing.holdPollMs)) {
 		const db = openWorkDb(root);
 		try {
 			const t = taskById(db, pin);
 			if (!t || !BRAKE_STATUSES.includes(t.status) || runsOf(db, t.id).some((r) => r.status === "started")) return;
-			const wait = releaseWait(db, root, t.id, task.id, "drive", timing.release);
+			const wait = releaseWait(db, root, t.id, task.id, "drive", timing.release, firstLook);
 			if (!wait) return;
 			if (wait !== said) console.log(`${now()} drive ${task.id}: waits to start: ${wait}`);
 			said = wait;

@@ -19,8 +19,13 @@ export const RELEASE_LOAD = 24;
 /** Tickets waiting behind the running full checks at which the queue is no longer short. */
 export const RELEASE_QUEUE = CHECK_CAP;
 
-/** A test's paths: the app, package or tool that holds its file, or else the folder of its file. */
+/**
+ * A test's paths: the app, package or tool that holds its file, or else the folder of its file. An evf test's path is its
+ * own file: the evf suite runs mostly on branches that change tools/evf/, so that folder would make a test broken on
+ * main count as each branch's own failure.
+ */
 export function testPaths(file: string): string[] {
+	if (file.startsWith("tools/evf/tests/")) return [file];
 	const unit = /^(?:apps|packages|tools)\/[^/]+\//.exec(file)?.[0];
 	if (unit) return [unit];
 	return dirname(file) === "." ? [file] : [`${dirname(file)}/`];
@@ -198,7 +203,8 @@ const machineRelease = (root: string): ReleaseProbe => ({
 
 /**
  * Takes a release slot, or says why this task waits. A task that holds a slot in the last 5 min keeps it, so a restart
- * costs none. One drive alone is no burst: a `drive` start with no other start in the last 5 min reads no load or queue.
+ * costs none. One drive alone is no burst: a drive's first look, with no other start in the last 5 min, reads no load or
+ * queue. Each later look reads them, so a drive that waits does not pass when the 5 min run out.
  */
 export function releaseWait(
 	db: DatabaseSync,
@@ -207,6 +213,7 @@ export function releaseWait(
 	task: string,
 	why: "hold" | "drive",
 	probe: ReleaseProbe = machineRelease(root),
+	firstLook = false,
 ): string | null {
 	const at = probe.now(),
 		load = probe.load(),
@@ -219,7 +226,7 @@ export function releaseWait(
 				.all(new Date(at - RELEASE_EVERY_MS).toISOString()) as Array<{ task_id: number }>
 		).map((r) => r.task_id);
 		let wait: string | null = null;
-		if (!slots.includes(taskId) && (why === "hold" || slots.length > 0)) {
+		if (!slots.includes(taskId) && !(why === "drive" && firstLook && slots.length === 0)) {
 			if (slots.length >= RELEASE_BATCH)
 				wait = `${RELEASE_BATCH} tasks started in the last ${RELEASE_EVERY_MS / 60_000} min`;
 			else if (load >= RELEASE_LOAD) wait = `load ${load.toFixed(1)} is ${RELEASE_LOAD} or more`;

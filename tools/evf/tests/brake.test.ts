@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { cli, fakeClock, fixture } from "./fixtures.ts";
+import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { cli, fakeClock, fixture, source } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals } from "../db.ts";
 import { drive, driveOnce, taskReopen } from "../drive.ts";
 import { evfDataDir, evidenceDir, git, parseTask, runtimeDir } from "../lib.ts";
@@ -16,20 +16,31 @@ const MIN = 60_000;
 const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150, holdPollMs: 10 };
 
 /** The check every branch runs: it reports TEST failed until main's fix reaches the branch. */
-const brokenCheck = {
+const brokenCheck = (file = FILE) => ({
 	name: "shared-tests",
 	run: [
 		process.execPath,
 		"-e",
-		`const fs=require("node:fs");const fixed=fs.existsSync("tests/workflow/fix.txt");fs.writeFileSync(process.env.EVF_TEST_REPORT,JSON.stringify({tests:[{name:${JSON.stringify(TEST)},file:${JSON.stringify(FILE)},status:fixed?"passed":"failed"}]}));process.exit(fixed?0:1)`,
+		`const fs=require("node:fs");const fixed=fs.existsSync("tests/workflow/fix.txt");fs.writeFileSync(process.env.EVF_TEST_REPORT,JSON.stringify({tests:[{name:${JSON.stringify(TEST)},file:${JSON.stringify(file)},status:fixed?"passed":"failed"}]}));process.exit(fixed?0:1)`,
 	],
-};
+});
 
 /** A store with one worktree per ref. Each sits before its pr stage, with a commit of its own. */
-function brakeFixture(refs: string[], touching: string[] = []) {
+function brakeFixture(
+	refs: string[],
+	touching: string[] = [],
+	opts: { check?: object; touchPath?: string; prepare?: (root: string) => void } = {},
+) {
 	const f = fixture();
+	if (opts.prepare) {
+		opts.prepare(f.root);
+		f.git("add", "-A", "scripts", "tests");
+	}
 	f.cfg.maintenanceTasks = Object.fromEntries(
-		refs.map((ref) => [ref, { title: "Brake", owningPaths: ["tools/evf/", "tests/workflow/"], checks: [brokenCheck] }]),
+		refs.map((ref) => [
+			ref,
+			{ title: "Brake", owningPaths: ["tools/evf/", "tests/workflow/"], checks: [opts.check ?? brokenCheck()] },
+		]),
 	);
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
@@ -54,8 +65,10 @@ function brakeFixture(refs: string[], touching: string[] = []) {
 				).run(id, stage, stage === "implement" ? "implementer" : "simplifier", new Date().toISOString());
 			mkdirSync(runtimeDir(f.root, task), { recursive: true });
 			writeFileSync(join(runtimeDir(f.root, task), "pr-body.md"), "body");
-			const path = touching.includes(ref) ? `tests/workflow/${task.slug}.txt` : `tools/evf/${task.slug}.txt`;
-			mkdirSync(join(wt, "tests/workflow"), { recursive: true });
+			const path = touching.includes(ref)
+				? (opts.touchPath ?? `tests/workflow/${task.slug}.txt`)
+				: `tools/evf/${task.slug}.txt`;
+			mkdirSync(dirname(join(wt, path)), { recursive: true });
 			writeFileSync(join(wt, path), ref);
 			git(wt, "add", path);
 			git(wt, "commit", "-qm", `${ref} work`);
@@ -464,8 +477,133 @@ test("AC:OPS-141-4 evf task reopen overrules the brake for one task, and a new f
 	}
 });
 
-test("a test's paths are its app, package or tool, or else its folder", () => {
-	assert.deepEqual(testPaths("tools/evf/tests/x.test.ts"), ["tools/evf/"]);
+test("AC:OPS-141-1 an evf test broken on main holds branches that change other tools/evf files; a branch that changes the test's file does not count", () => {
+	const file = "tools/evf/tests/shared.test.ts";
+	const f = brakeFixture(["OPS-1", "OPS-2", "OPS-3"], ["OPS-3"], { check: brokenCheck(file), touchPath: file });
+	try {
+		f.pass("OPS-3");
+		f.pass("OPS-1");
+		assert.equal(f.types("brake_tripped").length, 0, "the branch that changed the file is no second branch");
+		f.pass("OPS-2");
+		assert.deepEqual(
+			f.types("test_failed").map((e) => [e.task, e.touchesOwnPaths]),
+			[
+				["OPS-3", true],
+				["OPS-1", false],
+				["OPS-2", false],
+			],
+		);
+		assert.deepEqual(f.types("brake_tripped")[0]!.branches, ["OPS-1", "OPS-2"]);
+		assert.equal(f.row("OPS-2").status, "held_external");
+		assert.equal(f.row("OPS-3").status, "active");
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-141-1 a failure in the real scripts/test-workflow.mjs records its file and starts a brake", () => {
+	const name = "INV-workflow stack test";
+	const f = brakeFixture(["OPS-1", "OPS-2"], [], {
+		check: { name: "local-app", run: ["node", "scripts/test-workflow.mjs"] },
+		prepare: (root) => {
+			mkdirSync(join(root, "scripts"), { recursive: true });
+			cpSync(join(source, "scripts/test-workflow.mjs"), join(root, "scripts/test-workflow.mjs"));
+			mkdirSync(join(root, "tests/workflow"), { recursive: true });
+			writeFileSync(
+				join(root, "tests/workflow/stack.test.mjs"),
+				`import test from "node:test";\ntest("green", () => {});\ntest(${JSON.stringify(name)}, () => { throw new Error("broken"); });\n`,
+			);
+		},
+	});
+	// The script calls run(), which skips its files inside a test runner's child process, as this test file is.
+	const context = process.env.NODE_TEST_CONTEXT;
+	delete process.env.NODE_TEST_CONTEXT;
+	try {
+		f.pass("OPS-1");
+		f.pass("OPS-2");
+		const failed = f.types("test_failed");
+		assert.deepEqual(
+			failed.map((e) => [e.task, e.test, e.file, e.touchesOwnPaths]),
+			["OPS-1", "OPS-2"].map((ref) => [ref, name, "tests/workflow/stack.test.mjs", false]),
+		);
+		assert.equal(f.types("brake_tripped").length, 1);
+		assert.equal(f.row("OPS-2").status, "held_external");
+	} finally {
+		if (context !== undefined) process.env.NODE_TEST_CONTEXT = context;
+		f.close();
+	}
+});
+
+test("AC:OPS-141-5 a drive that waits at high load or a long queue stays held when the 5 min window empties", () => {
+	const f = brakeFixture(["OPS-1", "OPS-2", "OPS-3"]);
+	const quietDrive = (ref: string, release: object) => {
+		const { log } = console;
+		console.log = () => {};
+		try {
+			const { task, id } = f.tasks[ref]!;
+			for (let i = 0; i < 3; i++)
+				f.db
+					.prepare(
+						"INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'pr', 'evf', 0, 'failed', ?)",
+					)
+					.run(id, new Date().toISOString());
+			assert.equal(drive(f.root, task, {}, { ...TIMING, release } as never), 2);
+		} finally {
+			console.log = log;
+		}
+	};
+	const slot = (ref: string) =>
+		f.db
+			.prepare("SELECT ts, payload FROM events WHERE type = 'release_start' AND task_id = ?")
+			.all(f.tasks[ref]!.id) as Array<{
+			ts: string;
+			payload: string;
+		}>;
+	try {
+		const { clock, probe } = machine(132, 50);
+		quietDrive("OPS-1", probe);
+		const start = clock.now();
+
+		// The clock moves 1 min per look. Load 132 holds 12 min, far past the 5 min when OPS-1's slot leaves the window.
+		const moving = (load: () => number, waiting: () => number) => ({
+			now: () => {
+				clock.sleep(MIN);
+				return clock.now();
+			},
+			load,
+			waiting,
+		});
+		quietDrive(
+			"OPS-2",
+			moving(
+				() => (clock.now() - start < 12 * MIN ? 132 : 23),
+				() => 0,
+			),
+		);
+		const [second] = slot("OPS-2");
+		assert.ok(second, "it starts in the end");
+		assert.equal(Date.parse(second!.ts) - start, 12 * MIN, "at the first look with load under 24");
+		assert.equal(JSON.parse(second!.payload).load, 23);
+
+		// The same for the queue. OPS-2's slot fills the window at the first look, so that look reads the gates.
+		const queued = clock.now();
+		quietDrive(
+			"OPS-3",
+			moving(
+				() => 1,
+				() => (clock.now() - queued < 9 * MIN ? 50 : 2),
+			),
+		);
+		assert.equal(Date.parse(slot("OPS-3")[0]!.ts) - queued, 9 * MIN);
+		assert.equal(JSON.parse(slot("OPS-3")[0]!.payload).waiting, 2);
+	} finally {
+		f.close();
+	}
+});
+
+test("a test's paths are its app, package or tool, or else its folder; an evf test's path is its own file", () => {
+	assert.deepEqual(testPaths("tools/evf/tests/x.test.ts"), ["tools/evf/tests/x.test.ts"]);
+	assert.deepEqual(testPaths("tools/wiki/tests/x.test.ts"), ["tools/wiki/"]);
 	assert.deepEqual(testPaths("packages/db/src/a.test.ts"), ["packages/db/"]);
 	assert.deepEqual(testPaths("tests/e2e/a.spec.ts"), ["tests/e2e/"]);
 	assert.deepEqual(testPaths("a.test.ts"), ["a.test.ts"]);
