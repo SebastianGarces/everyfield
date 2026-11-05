@@ -67,6 +67,7 @@ import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
 import { checkAlarm, runSampledPoll } from "./check-alarm.ts";
+import { metricsWeek } from "./metrics.ts";
 import { outsideSettingApproved, ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -138,6 +139,7 @@ State store (harness)
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
   evf events [--since <time>] [--type <name>] [--task <task>] [--json]   every matching event in id order, with no row limit
+  evf metrics --week [--json]                                 the 8 weekly metrics, the Part 2 lines and an ALARM line per breach; writes nothing
   evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
   evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
   evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
@@ -705,6 +707,12 @@ function main(argv: string[]): number | Promise<number> {
 				task = option(args, "--task");
 			if (args.length) break;
 			return events(root, { json, since, type, task });
+		}
+		case "metrics": {
+			const json = flag(args, "--json"),
+				week = flag(args, "--week");
+			if (!week || args.length) break;
+			return metricsWeek(root, { json });
 		}
 		case "status": {
 			const json = flag(args, "--json");
