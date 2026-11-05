@@ -1002,7 +1002,8 @@ During checks, a watch process polls the checkout every 10 seconds. A commit, a 
 file (`tree_changed`), or a changed `.env*` file or dependency install (`inputs_changed`) must hold on two polls in a
 row, so a temporary file a check removes stops nothing. The watch then stops the check and each process it started,
 with SIGTERM and after 5 seconds SIGKILL. evf prints `INVALIDATED` and requires a fresh run on stable inputs. The watch
-reads only the size and time of an env file, never its content. It also stops the check when evf is killed.
+reads only the size and time of an env file, never its content. It also stops the check on a signal, and on its next
+poll after evf is killed. `EVF_CHECK_POLL_MS` overrides the poll for tests.
 
 A move of main during checks does not invalidate the run. The next run refuses until it includes main, and `evf ship`
 applies the overlap check and required CI to the merge, so a run that used a slightly older main cannot merge unchecked.

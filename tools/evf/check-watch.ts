@@ -62,7 +62,7 @@ export function watchedRun(
 	return existsSync(opts.stopFile) ? { ...result, stopped: readFileSync(opts.stopFile, "utf8") as StopReason } : result;
 }
 
-type Process = { pid: number; ppid: number; pgid: number; zombie: boolean; started: string };
+export type Process = { pid: number; ppid: number; pgid: number; zombie: boolean; started: string };
 
 function processTable(): Process[] {
 	const rows = run("ps", ["-A", "-o", "pid=,ppid=,pgid=,stat=,lstart="], { timeoutMs: 10_000 }).stdout.split("\n");
@@ -82,6 +82,31 @@ function signal(pid: number, name: NodeJS.Signals): void {
 	} catch {}
 }
 
+/**
+ * Add the check's new descendants to `family` and return its live processes. `family` maps pid to start time, and a
+ * process stays there after its parent exits. A start time that differs means the system reused the pid, so that
+ * process, its children and a group of that id are not the check's. A group id cannot be reused while the group has a
+ * member, so a reused root id proves the check's own group is empty.
+ */
+export function liveFamily(family: Map<number, string>, root: number, table: Process[]): Process[] {
+	const startedOf = new Map(table.map((p) => [p.pid, p.started])),
+		rootStarted = family.get(root),
+		rootIsCheck = rootStarted === undefined || !startedOf.has(root) || startedOf.get(root) === rootStarted,
+		isFamily = (pid: number) => family.has(pid) && family.get(pid) === startedOf.get(pid);
+	for (let grew = true; grew;) {
+		grew = false;
+		for (const p of table)
+			if (
+				family.get(p.pid) !== p.started &&
+				((rootIsCheck && (p.pid === root || p.pgid === root)) || isFamily(p.ppid))
+			) {
+				family.set(p.pid, p.started);
+				grew = true;
+			}
+	}
+	return table.filter((p) => !p.zombie && family.get(p.pid) === p.started);
+}
+
 function supervise({ argv, wt, sha, inputs, stopFile, pollMs }: WatchSpec): void {
 	const parent = process.ppid;
 	const child = spawn(argv[0], argv.slice(1), { detached: true, stdio: ["ignore", "inherit", "inherit"] });
@@ -91,23 +116,13 @@ function supervise({ argv, wt, sha, inputs, stopFile, pollMs }: WatchSpec): void
 	});
 	const root = child.pid;
 	if (root === undefined) return;
-	/** pid to start time, so a pid the system reuses is never signalled. A process stays here after its parent exits. */
 	const family = new Map<number, string>();
-	const live = () => {
-		const table = processTable();
-		for (let grew = true; grew;) {
-			grew = false;
-			for (const p of table)
-				if (!family.has(p.pid) && (p.pid === root || p.pgid === root || family.has(p.ppid))) {
-					family.set(p.pid, p.started);
-					grew = true;
-				}
-		}
-		return table.filter((p) => !p.zombie && family.get(p.pid) === p.started);
-	};
+	const live = () => liveFamily(family, root, processTable());
 	const signalAll = (name: NodeJS.Signals) => {
-		signal(-root, name);
-		for (const p of live()) signal(p.pid, name);
+		// Read first: the group's signal ends the check at once, and a detached child then has no link to it in `ps`.
+		const known = live();
+		if (known.some((p) => p.pgid === root)) signal(-root, name);
+		for (const p of known) signal(p.pid, name);
 	};
 	let stopping = false;
 	const stopAll = async (code: number) => {

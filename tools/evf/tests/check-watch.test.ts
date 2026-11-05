@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fixture, source } from "./fixtures.ts";
 import { approvedExperience, approvedQuality, mergeFixture, VERIFIER } from "./reconciliation-helpers.ts";
+import { liveFamily, type Process } from "../check-watch.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { evidenceDir, parseTask } from "../lib.ts";
 import { ship } from "../ship.ts";
@@ -175,20 +176,25 @@ test("AC:OPS-143-2 AC:OPS-143-6 a commit during a run stops it within 60 s on th
 	}
 });
 
-for (const [how, stop] of [
-	["evf gets SIGKILL", (pid: number) => process.kill(pid, "SIGKILL")],
-	["a person presses Ctrl-C", (pid: number) => process.kill(-pid, "SIGINT")],
+/** Each poll is longer than the time to the stop, except that evf's death is found only on a poll. */
+for (const [how, pollMs, stop] of [
+	["evf gets SIGKILL", "15000", (evf: number) => process.kill(evf, "SIGKILL")],
+	["a person presses Ctrl-C", "120000", (evf: number) => process.kill(-evf, "SIGINT")],
+	["the watch gets SIGTERM", "120000", (_: number, watch: number) => process.kill(watch, "SIGTERM")],
 ] as const)
-	test(`AC:OPS-143-6 ${how} during a check: no process of the check is left`, async () => {
+	test(`AC:OPS-143-6 ${how} before any poll: no process of the check is left, not even a detached child`, async () => {
 		const f = setup();
 		try {
 			const pidFile = join(f.root, "fake-bin/pid");
+			const stay = `process.on('SIGTERM',()=>{});setTimeout(()=>{},120000)`;
 			f.use([
 				{
 					name: "long",
 					run: node(
-						`const c=require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>{},60000)"],{stdio:"ignore"});` +
-							`require("node:fs").writeFileSync(${JSON.stringify(pidFile)},JSON.stringify([process.pid,c.pid]));setTimeout(()=>{},60000)`,
+						`const {spawn}=require("node:child_process");` +
+							`const a=spawn(process.execPath,["-e","setTimeout(()=>{},120000)"],{stdio:"ignore"});` +
+							`const b=spawn(process.execPath,["-e",${JSON.stringify(stay)}],{stdio:"ignore",detached:true});` +
+							`require("node:fs").writeFileSync(${JSON.stringify(pidFile)},JSON.stringify([process.ppid,process.pid,a.pid,b.pid]));setTimeout(()=>{},120000)`,
 					),
 				},
 			]);
@@ -197,17 +203,62 @@ for (const [how, stop] of [
 				cwd: f.wt,
 				detached: true,
 				stdio: "ignore",
-				env: { ...process.env, EVF_RUN: "", EVF_FOREGROUND: "1", ...FAST_POLL },
+				env: { ...process.env, EVF_RUN: "", EVF_FOREGROUND: "1", EVF_CHECK_POLL_MS: pollMs },
 			});
+			const ended = new Promise((done) => evf.once("exit", done));
 			await until(() => existsSync(pidFile) && readFileSync(pidFile, "utf8") !== "");
 			const pids = JSON.parse(readFileSync(pidFile, "utf8")) as number[];
 			assert.deepEqual(pids.filter(alive), pids, "the check runs");
-			stop(evf.pid!);
-			await until(() => pids.filter(alive).length === 0);
+			stop(evf.pid!, pids[0]);
+			await ended;
+			try {
+				await until(() => pids.filter(alive).length === 0);
+			} finally {
+				// A failing run must not leave its survivors on the machine.
+				const left = pids.filter(alive);
+				for (const pid of left) process.kill(pid, "SIGKILL");
+				assert.deepEqual(left, [], "no process of the check is left");
+			}
 		} finally {
 			f.close();
 		}
 	});
+
+const row = (pid: number, ppid: number, pgid: number, started: string): Process => ({
+	pid,
+	ppid,
+	pgid,
+	started,
+	zombie: false,
+});
+
+test("AC:OPS-143-6 a reused pid is not family: not the process, not its children, not its group", () => {
+	// The check is 100 and its child is 200. Both end, and the system gives both pids to unrelated processes.
+	const family = new Map<number, string>();
+	assert.deepEqual(
+		liveFamily(family, 100, [row(100, 1, 100, "t1"), row(200, 100, 100, "t2")]).map((p) => p.pid),
+		[100, 200],
+	);
+	const reused = [
+		row(200, 1, 200, "t8"),
+		row(201, 200, 200, "t9"),
+		row(100, 1, 100, "t8"),
+		row(101, 100, 100, "t9"),
+		row(300, 1, 300, "t9"),
+	];
+	assert.deepEqual(liveFamily(family, 100, reused), []);
+	assert.deepEqual([...family.keys()], [100, 200]);
+});
+
+test("AC:OPS-143-6 a child stays family after its parent exits, and a new grandchild of a live child joins", () => {
+	const family = new Map<number, string>();
+	liveFamily(family, 100, [row(100, 1, 100, "t1"), row(200, 100, 200, "t2")]);
+	const later = [row(200, 1, 200, "t2"), row(300, 200, 300, "t3")];
+	assert.deepEqual(
+		liveFamily(family, 100, later).map((p) => p.pid),
+		[200, 300],
+	);
+});
 
 for (const [name, change] of [
 	["the install record", (wt: string) => join(wt, "node_modules/.pnpm/lock.yaml")],
