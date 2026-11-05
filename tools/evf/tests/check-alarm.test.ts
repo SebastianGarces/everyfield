@@ -251,6 +251,21 @@ test("one red non-required check on 2 PRs records one event per PR and head and 
 	}
 });
 
+test("red means the gh fail or cancel bucket, so ACTION_REQUIRED is red and STARTUP_FAILURE is pending (AC:OPS-139-3)", () => {
+	const f = setup();
+	try {
+		const clock = started(f, "asks", "startup");
+		f.open(
+			pr(1, checkRun("asks", "ACTION_REQUIRED"), checkRun("startup", "STARTUP_FAILURE")),
+			pr(2, checkRun("asks", "ACTION_REQUIRED"), checkRun("startup", "STARTUP_FAILURE")),
+		);
+		pollChecks(f.root, clock);
+		assert.deepEqual(alarmsOf(f, RED), [["asks", [1, 2]]]);
+	} finally {
+		f.close();
+	}
+});
+
 test("a repeat poll in another process raises nothing new; a new head records an event and no alarm; a poll with no red rearms it (AC:OPS-139-4)", () => {
 	const f = setup();
 	try {

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record } from "./db.ts";
-import { fail, loadConfig, REAL_CLOCK, run, type Clock } from "./lib.ts";
+import { fail, loadConfig, notify, REAL_CLOCK, run, type Clock } from "./lib.ts";
 import { prList } from "./owner-queue.ts";
 import { nameWithOwner, requiredCheckNames } from "./ship.ts";
 
@@ -19,8 +19,7 @@ const ALARM_PRS = 2;
 const POLL_EVERY_MS = 5 * MINUTE;
 /** Under POLL_EVERY_MS, so polls never overlap. 6 min plus this stays inside the 10 min the alert promises. */
 const POLL_TIMEOUT_MS = 2 * MINUTE;
-const READ_TIMEOUT_MS = 60_000,
-	SEND_TIMEOUT_MS = 10_000;
+const READ_TIMEOUT_MS = 60_000;
 
 type OpenPr = { number: number; head: string; checks: Array<{ name: string; red: boolean }> };
 type AlarmKind = "new" | "red";
@@ -34,18 +33,12 @@ type PollResult = {
 };
 
 /** The states `gh pr checks` puts in its fail and cancel buckets. A check run has status and conclusion, a status context has state. */
-const RED_STATES = new Set<unknown>([
-	"ERROR",
-	"FAILURE",
-	"TIMED_OUT",
-	"ACTION_REQUIRED",
-	"STARTUP_FAILURE",
-	"CANCELLED",
-]);
+const RED_STATES = new Set<unknown>(["ERROR", "FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "CANCELLED"]);
 
 /**
  * The checks of one PR head. A rollup can hold a name twice in one workflow, one run per trigger, and only the latest
- * counts: `gh pr checks` drops the older runs too. Two workflows may share a name, and each keeps its own run.
+ * counts. `gh pr checks` also keeps one run per event, but a rollup does not carry the event, so this keeps one run per
+ * workflow and name. Two workflows may share a name, and each keeps its own run.
  */
 function checksOf(rollup: unknown[]): OpenPr["checks"] {
 	const latest = new Map<string, { name: string; red: boolean; started: number }>();
@@ -192,7 +185,7 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 	}
 }
 
-/** The notification holdTask sends, with a timeout. False when it fails, which never fails the poll. */
+/** The notification holdTask sends. False when it fails, which never fails the poll. */
 function sendAlarm({ kind, check, prs }: Alarm): boolean {
 	const [title, body] =
 		kind === "new"
@@ -201,10 +194,7 @@ function sendAlarm({ kind, check, prs }: Alarm): boolean {
 					`Non-required check red: ${check}`,
 					`${check} is red on PRs ${prList(prs)}. It is not required, so the ci stage ignores it. Decide if it belongs.`,
 				];
-	return (
-		run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"], { timeoutMs: SEND_TIMEOUT_MS })
-			.code === 0
-	);
+	return notify(title, body);
 }
 
 /**
