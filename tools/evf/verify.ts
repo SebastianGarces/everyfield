@@ -29,7 +29,9 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
+import { budgetEnv, machineBudget } from "./budget.ts";
 import { withCheckQueue } from "./check-queue.ts";
+import { machineProbes } from "./sampler.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -108,10 +110,10 @@ export function verify(
 	inputs();
 	const queueStart = performance.now();
 	// The slot comes first, so waiters keep their arrival order while the load is high.
-	const checked = () => {
-		awaitLoad(root, "verify", ignoreLoad, undefined, task);
+	const checked = (slot: NodeJS.ProcessEnv = {}) => {
+		awaitLoad(root, "verify", ignoreLoad, undefined, task, mode === "full" ? machineProbes(root) : null);
 		const queuedMs = Math.round(performance.now() - queueStart);
-		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, ...inputs() });
+		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, slot, ...inputs() });
 	};
 	return mode === "full" ? withCheckQueue(root, task.id, checked) : checked();
 }
@@ -126,6 +128,7 @@ function runChecks({
 	caller,
 	definitions,
 	queuedMs,
+	slot,
 	ref,
 	baseSha,
 	sha,
@@ -139,6 +142,7 @@ function runChecks({
 	caller: DriveCaller | undefined;
 	definitions: CheckDef[];
 	queuedMs: number;
+	slot: NodeJS.ProcessEnv;
 	ref: string;
 	baseSha: string;
 	sha: string;
@@ -165,6 +169,8 @@ function runChecks({
 	const env = {
 		...stackEnv(root, task, wt),
 		...loadGatePassed(root),
+		...budgetEnv(machineBudget()),
+		...slot,
 		EVF_SHA: sha,
 		EVF_EVIDENCE_DIR: dir,
 		EVF_ROLE: role,
