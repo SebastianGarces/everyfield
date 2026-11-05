@@ -253,6 +253,44 @@ git apply /tmp/owner-queue-key.patch
 The last step refuses and changes nothing when main changed the lines next to the key. Add the key again by hand then.
 Between `git restore` and `git apply`, the queue shows no split. `machineLoad` has the same cost.
 
+## Weekly metrics
+
+`evf metrics --week [--json]` (OPS-142, `metrics.ts`) reports the last 7 days, ending now, from evf's own records. It
+opens the store read-only and reads `.git/evf/load.jsonl`, so it writes nothing. `--json` returns `{from, to, metrics,
+lines, alarms}`, and the text is rendered from that same object. It always exits 0.
+
+**No data.** A metric with no signal prints `no data`, and its JSON `value` is null. It prints 0 only when a record
+shows that the thing it counts could have happened: a week with merges can show 0 escalations. A signal that started
+inside the week only counts its own time, so full runs per merge counts merges from the first `check_start`, and
+coordinator share counts seats from the first coordinator run.
+
+**Alarm lines.** Each breached threshold prints one line after the metrics. `ALARM <metric>: <text>` is an alarm
+threshold, and `ALARM <metric> (target missed): <text>` is a target. An alarm replaces the target line of the same
+number. In JSON, each entry of `alarms` has `level` set to `alarm` or `target`.
+
+Percentiles use nearest rank. A straight run counts one tick as one minute, and a gap over 2 min ends it.
+
+| Metric | Definition | Target and alarm |
+|---|---|---|
+| Seat time split | `turn_end` totals: `modelMs`, `checkMs`, `waitMs`, and `toolMs` as other. Time outside a turn is not in `turn_end`, so it is not here. | Checks under 35%. Alarm over 50%. |
+| Full check runs per merge | `check_start` with mode `full`, killed runs included, divided by `merged`. | 4 or fewer. |
+| Rounds per merge and non-code share | `round` events divided by `merged`. Non-code is the share of `round_start` with `nonMergeCommits` 0, out of those with a count. | Under 1.0 and under 20%. |
+| Owner wait inside ownerHours | p90 of the time inside `ownerHours` from `askedAt` to `answeredAt`, for asks answered this week and asks still open. An ask on a new head restarts the age, as in the owner queue. A merged or abandoned task has no open ask. `no data` until `ownerHours` is set. | p90 under 4 h. Alarm at an open ask older than 24 h, whatever `ownerHours` says. |
+| Queue idle time | Share of `queue_tick` minutes with `runnable` over 0, `slotsFree` over 0 and `load` under the load limit. | Under 5%. Alarm at 10 straight min. |
+| Flake and invalidation rate | Flake: `check_end` failed with a later pass on the same task, `treeHash` and mode, out of passed and failed runs. Invalid: `invalidated` out of all `check_end`. | Flake under 1%, invalid under 2%. Alarm at invalid 5%, or one `test_failed` name on 3 tasks in 24 h. |
+| Load-throttled minutes | Sum of `load_wait` from `startAt` to `endAt`, so two commands waiting together count twice. The worst day is the worst 24 h period counted back from now, by `endAt`. A week with `check_start` and no wait reads 0. | Worst day under 60. Alarm when `load1` in `load.jsonl` stays above 72 for 5 min. |
+| Start to merge | First `stage_start` of the task row to its `merged`, for merges this week. | p90 under 10 h. |
+| Full run p90 | `check_end` `durationMs`, mode `full`, result `passed`. A failed author run stops early, so it would shorten this. | Under 15 min. |
+| Suite p90 week on week | `check_suite_end` p90 per suite against the 7 days before. A suite in only one week is left out. | Alarm at up 50%. |
+| Dead-drive minutes | For each `drive_restart`, `drive_death_alert` or `drive_restart_refused`, the gap from the last `drive_heartbeat` before it to the earliest of the next heartbeat, the task leaving active (`merged`, `abandon`, `held_external`, `handoff`, `awaiting_pick` or `escalation`) and now. One gap counts once. A death no watcher saw is not here. | Alarm at 5 min. |
+| Body handoff p50 | Start of each `body` run minus the latest end of an earlier run of the task. | Under 5 min. |
+| Escalations per 10 merges | `escalation` events times 10, divided by `merged`. | Alarm over 1. |
+| Refusals per path | `ship_refused` total, and a count per path in `overlapPaths`. A refusal with no paths counts only in the total. | Alarm at 3 for one path. |
+| Registration per OPS task | Closed runs of role `registration`, summed per OPS ref. The target applies to the worst task. | Under 15 min. |
+| Coordinator share of seat time | Closed run time of role `coordinator`, out of closed run time of every role but `evf`. | Under 10%. |
+| Median run time by overlap | Median `durationMs` of passed full runs, grouped by how many other `check_end` runs overlap each one. | None. |
+| Digest before and after | Inside-hours p90 of answered asks, 14 days before and after the first ask with a `digestId`. Before also counts each `owner_approval_wait` closed by a `merged` or `owner_answer`, since the owner queue did not exist then. A task's overlapping records count as one wait. | Keep digests at a cut of 20% or more. No alarm. |
+
 ## Usage and seat models
 
 `evf usage` reports what each seat run used. Nothing is billed: Sebastian is on a subscription, so every cost

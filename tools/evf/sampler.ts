@@ -37,7 +37,7 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 /** A tick's five child processes at this timeout and a busy store still end inside one minute, so ticks cannot stack. */
 const PROBE_TIMEOUT_MS = 10_000;
-const LOAD_FILE = "load.jsonl";
+export const LOAD_FILE = "load.jsonl";
 const CPU_FILE = "cpu.jsonl";
 /** The states preview-slots.mjs does not count as in use. */
 const DEAD_PREVIEW_STATES = new Set(["removed", "failed", "expired"]);
