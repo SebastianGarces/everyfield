@@ -14,6 +14,7 @@ import { ship } from "../ship.ts";
 import { driveOnce } from "../drive.ts";
 import { mergePullRequest, OWNER_VOID } from "../merge.ts";
 import { DEFAULT_OWNER_PATHS } from "../policy.ts";
+import { behindCode, currentCode, withCode } from "./reconciliation-helpers.ts";
 
 const source = resolve(import.meta.dirname, "../../..");
 const AUTHOR = { session: "11111111-1111-4111-8111-111111111111", model: "claude-sonnet-5-5", role: "implementer" };
@@ -1645,6 +1646,47 @@ test("AC:OPS-146-1 main moves to an unrelated path after evf's merge: a second r
 		assert.equal(lines.length, 2);
 		assert.deepEqual([lines[1].approved_head, lines[1].merged_head], [a, final]);
 		assert.equal(f.shipped().owner_approval.carry.merges.length, 2);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 stale evf code refuses before any write on a behind held PR", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish([f.review(a)], behindReady(a));
+		const out = withCode(behindCode, () => f.refusal(() => approveBehind(f, a)));
+		assert.match(out, /evf approve does not merge PR #77: /);
+		assert.deepEqual(writes(f), []);
+		assert.equal(remoteHead(f), a);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 a ship ahead lands evf code during the queue wait: approve refuses with the branch unchanged, and a rerun on new code merges", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		const moved = nextMain(f, { "tools/evf/landed.ts": "export const landed = 1;\n" });
+		f.publish([f.review(a)], behindReady(a));
+		shipAheadMovesMain(f);
+		// This process loaded its code before the ship ahead landed, so it matches every main but the moved one.
+		const loadedBefore = (base: Parameters<typeof currentCode>[0]) =>
+			base.commit === moved ? behindCode(base) : currentCode(base);
+		const out = withCode(loadedBefore, () => f.refusal(() => approveBehind(f, a)));
+		assert.match(out, /evf approve does not merge PR #77: .*tools\/evf or bin\/evf differ from main/);
+		assert.equal(remoteHead(f), a);
+		assert.deepEqual([f.calls("update-branch"), f.merges(), ownerMerges(f)], [[], [], []]);
+
+		// The rerun, on the code main now holds: his approval was not lost.
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.notEqual(final, a);
+		assert.deepEqual(f.merges(), [final]);
 	} finally {
 		f.close();
 	}

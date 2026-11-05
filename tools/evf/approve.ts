@@ -242,9 +242,10 @@ function mergeMain(
 	let sha = pr.headRefOid;
 	for (let round = 1; ; round++) {
 		if (round > 3) fail(`Main moved during ${round - 1} branch updates. Run ${rerun} again.`);
-		// The queue wait and the CI wait both let main move, and a ship ahead in the queue is what moves it. Judge the
-		// main that GitHub is about to merge, so an overlap refuses before the branch changes.
-		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+		// The queue wait and the CI wait both let main move, and a ship ahead in the queue is what moves it. This fetches
+		// main and refuses if it landed evf code. The checks below then judge the main GitHub is about to merge, so stale
+		// code or an overlap refuses before the branch changes.
+		requireCurrentCode(root, cfg, `evf approve does not merge PR #${n}`);
 		const main = git(root, "rev-parse", baseRef(root, cfg)),
 			refusal = mainMergeRefusal(root, approved, sha, main);
 		if (refusal)
