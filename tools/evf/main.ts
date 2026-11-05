@@ -65,7 +65,8 @@ import { driveWithSignals, stopDrive } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
-import { ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
+import { checkAlarm, runSampledPoll } from "./check-alarm.ts";
+import { outsideSettingApproved, ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -139,6 +140,11 @@ State store (harness)
   evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
   evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
   evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
+  evf check-alarm [--json]                                    one poll of the open PRs' checks: names first seen, red non-required checks, alarms raised;
+                                                              alarms: a new check name on 2 PRs, one non-required check red on 2 PRs; they block nothing.
+                                                              The sampler polls each 5 min, and only while it runs; evf sampler stop stops the polls
+  evf outside-setting approved --what "<what>" --words "<his words>"   record Sebastian's words before anyone creates or links a Vercel project,
+                                                              repo setting or integration; a seat cannot run it
   evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
   evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
@@ -708,6 +714,19 @@ function main(argv: string[]): number | Promise<number> {
 			if (args[0] === "ask") return ownerQueueAsk(root, parseTask(args[1]), kind);
 			if (args[0] === "answer" && kind === undefined) return ownerQueueAnswer(root, parseTask(args[1]));
 			break;
+		}
+		case "check-alarm": {
+			if (args.length === 1 && args[0] === "sampled") return runSampledPoll(root); // internal: the sampler's poll
+			const json = flag(args, "--json");
+			if (args.length) break;
+			return checkAlarm(root, json);
+		}
+		case "outside-setting": {
+			const sub = args.shift(),
+				what = option(args, "--what"),
+				words = option(args, "--words");
+			if (sub !== "approved" || args.length) break;
+			return outsideSettingApproved(root, what, words);
 		}
 		case "usage": {
 			const backfill = flag(args, "--backfill"),
