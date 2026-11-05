@@ -20,13 +20,32 @@ import {
 	isHeld,
 	mergePullRequest,
 	ownerApproveCommand,
+	ownerCover,
 	ownerHeld,
 	ownerLine,
+	ownerMergeLine,
+	ownerMergeRecordOf,
 	ownerRecordOf,
+	requireCurrentCode,
 	wikiClass,
+	type OwnerMergeRecord,
 } from "./merge.ts";
 import { unfinishedDrafts } from "./wiki.ts";
-import { afterMerge, checkPr, ship, type MergeEvidence } from "./ship.ts";
+import {
+	afterMerge,
+	carryProof,
+	checkPr,
+	mainMergeRefusal,
+	requiredCheckNames,
+	requiredCi,
+	requireGreenMain,
+	ship,
+	SHIP_TIMING,
+	waitForRequiredCi,
+	type MergeEvidence,
+	type ShipTiming,
+} from "./ship.ts";
+import { withShipQueue } from "./ship-queue.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
 import { recordOwnerAnswer } from "./owner-queue.ts";
 
@@ -41,6 +60,8 @@ import { recordOwnerAnswer } from "./owner-queue.ts";
  * Sebastian approves in chat; the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
+ * A held PR that is behind main takes a clean merge of main with no path overlap first (OPS-146, `mergeMain`): his words
+ * cover that merge, and an EVF-Owner-Merge line records them with the approved head and the merged head.
  */
 
 type Pr = {
@@ -53,6 +74,7 @@ type Pr = {
 	headRefName: string;
 	headRefOid: string;
 	mergeStateStatus: string;
+	body: string;
 	files: Array<{ path: string }>;
 };
 /**
@@ -79,7 +101,7 @@ const readPr = (n: number): Pr =>
 			"view",
 			String(n),
 			"--json",
-			"number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,files",
+			"number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,body,files",
 		]),
 	) as Pr;
 
@@ -190,6 +212,79 @@ function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined,
 }
 
 /**
+ * A rerun finishes the merge that an earlier `evf approve` started (a CI wait ran out, or the process died): the head is
+ * the one its EVF-Owner-Merge line names, his latest record is still that approval and the head still carries from it.
+ * Any later commit, or a merge of main by anyone else, has no such line and needs his approval of the new head.
+ */
+function resumedMerge(root: string, cfg: Config, pr: Pr, named: string | undefined): OwnerMergeRecord | undefined {
+	const record = ownerMergeRecordOf(root, pr.number);
+	if (record?.merged_head !== pr.headRefOid || (named && !record.approved_head.startsWith(named))) return undefined;
+	if (ownerRecordOf(root, pr.number)?.head !== record.approved_head) return undefined;
+	fetchHead(root, cfg, pr);
+	const proof = carryProof(root, record.approved_head, pr.headRefOid, baseRef(root, cfg));
+	return typeof proof === "string" ? undefined : record;
+}
+
+/**
+ * Merges main into a held PR's branch (a plain merge, never a force push) until the branch includes main, and waits for
+ * required CI on each new head. Inside the ship queue, so no ship moves main during those steps. Returns the final head.
+ */
+function mergeMain(
+	root: string,
+	cfg: Config,
+	pr: Pr,
+	approved: string,
+	quote: string,
+	again: string,
+	postVerified: (sha: string) => void,
+	timing: ShipTiming,
+): string {
+	const n = pr.number,
+		rerun = `bin/evf approve ${n} --owner-approval "<his words>" --head ${approved}`;
+	let sha = pr.headRefOid;
+	for (let round = 1; ; round++) {
+		if (round > 3) fail(`Main moved during ${round - 1} branch updates. Run ${rerun} again.`);
+		// The queue wait and the CI wait both let main move, and a ship ahead in the queue is what moves it. This fetches
+		// main and refuses if it landed evf code. The checks below then judge the main GitHub is about to merge, so stale
+		// code or an overlap refuses before the branch changes.
+		requireCurrentCode(root, cfg, `evf approve does not merge PR #${n}`);
+		// As in evf ship: a red main stays out of the branch, because the failure would strand his approval on that head.
+		requireGreenMain(root, cfg, gh(["pr", "view", String(n), "--json", "body", "--jq", ".body"]));
+		const main = git(root, "rev-parse", baseRef(root, cfg)),
+			refusal = mainMergeRefusal(root, approved, sha, main);
+		if (refusal)
+			fail(
+				round === 1
+					? notMerged(n, cfg, refusal, again)
+					: `PR #${n} holds evf approve's merge of ${cfg.baseBranch} at ${sha}, and ${cfg.baseBranch} moved again to ${main.slice(0, 10)}. evf approve did not merge that newer ${cfg.baseBranch}: ${refusal}. Update the branch (gh pr update-branch ${n}), then ${again}.`,
+			);
+		console.log(`approve: PR #${n} is behind ${cfg.baseBranch}; merging ${main.slice(0, 10)} into ${pr.headRefName}.`);
+		gh(["pr", "update-branch", String(n)]);
+		// With the base branch: carryProof below must see the main GitHub merged.
+		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName);
+		sha = git(root, "rev-parse", `${cfg.remote}/${pr.headRefName}`);
+		// Anything but a clean merge of main voids his approval here, before his words reach the new head.
+		ownerCover(root, cfg, undefined, n, sha);
+		const record = { quote, approved_head: approved, merged_head: sha, at: new Date().toISOString() };
+		gh([
+			"pr",
+			"comment",
+			String(n),
+			"--body",
+			`evf approve merged \`${cfg.baseBranch}\` into this branch. Sebastian approved \`${approved.slice(0, 10)}\`; the merged head is \`${sha.slice(0, 10)}\`.\n\n> ${quote.replace(/\n/g, "\n> ")}\n\n${ownerMergeLine(record)}`,
+		]);
+		postVerified(sha);
+		waitForRequiredCi(root, cfg, n, sha, timing, rerun);
+		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+		if (run("git", ["-C", root, "merge-base", "--is-ancestor", baseRef(root, cfg), sha]).code === 0) return sha;
+	}
+}
+
+/** The refusal of a PR whose branch evf approve did not change. */
+const notMerged = (n: number, cfg: Config, why: string, again: string): string =>
+	`PR #${n} is behind ${cfg.baseBranch}, and evf approve did not merge ${cfg.baseBranch} into it: ${why}. The branch is unchanged. Update it (gh pr update-branch ${n}), then ${again}.`;
+
+/**
  * The ordinary route (OPS-121): the record, and with a verifier approval and green required CI it merges through evf
  * ship; otherwise it keeps the record and names what is missing. A behind branch is fine: ship's update is a clean
  * merge of main, which carries his approval.
@@ -210,7 +305,12 @@ function approveOrdinary(root: string, n: number, task: TaskRef, head: string, w
 	return ship(root, task);
 }
 
-export function approve(root: string, n: number, opts: { ownerApproval?: string; head?: string }): number {
+export function approve(
+	root: string,
+	n: number,
+	opts: { ownerApproval?: string; head?: string },
+	timing: ShipTiming = SHIP_TIMING,
+): number {
 	const words = opts.ownerApproval?.trim() ?? "";
 	if (words.split(/\s+/).filter(Boolean).length < 2)
 		fail(
@@ -238,22 +338,36 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		fail(
 			`PR #${n} changes ${route.what}. Name the head Sebastian approved: bin/evf approve ${n} --owner-approval "<his words>" --head ${head}`,
 		);
+	const resumed = route.kind === "ordinary" ? undefined : resumedMerge(root, cfg, pr, opts.head);
+	const approved = resumed?.approved_head ?? head,
+		quote = resumed?.quote ?? words;
 	// A record for another head voids the merge unless this approval replaces it, and only an exact head replaces it.
-	const stale = opts.head ? undefined : ownerRecordOf(root, n);
+	const stale = opts.head || resumed ? undefined : ownerRecordOf(root, n);
 	if (stale && stale.head !== head)
 		fail(
 			`PR #${n} has Sebastian's approval of ${stale.head.slice(0, 10)} ("${stale.quote}"), but its head is ${head.slice(0, 10)}. Name the head he approves. ${ownerApproveCommand(n, head)}`,
 		);
-	if (opts.head && !head.startsWith(opts.head))
+	if (opts.head && !resumed && !head.startsWith(opts.head))
 		fail(
 			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${route.kind === "ordinary" || route.kind === "template" ? ownerApproveCommand(n, head) : `${again}.`}\n${commitsAfter(root, opts.head, head)}`,
 		);
 	if (route.kind === "ordinary") return approveOrdinary(root, n, route.task, head, words);
-	// Updating the branch would create a head Sebastian never saw, so approve never updates it.
-	if (pr.mergeStateStatus === "BEHIND")
-		fail(
-			`PR #${n} is behind ${cfg.baseBranch}. Update it (gh pr update-branch ${n}), then ${again}. evf approve merges only the exact head he approved.`,
-		);
+	// His words cover a clean merge of main with no path overlap (OPS-146). Anything else refuses before any write. A
+	// conflicting PR reports DIRTY, not BEHIND, and refuses the same way.
+	const needsMain = pr.mergeStateStatus === "BEHIND" || pr.mergeStateStatus === "DIRTY";
+	if (needsMain) {
+		requireCurrentCode(root, cfg, `evf approve does not merge PR #${n}`);
+		requireGreenMain(root, cfg, pr.body);
+		let why: string | undefined;
+		try {
+			fetchHead(root, cfg, pr);
+			why = mainMergeRefusal(root, approved, head, baseRef(root, cfg));
+		} catch (e) {
+			if (!(e instanceof EvfError)) throw e;
+			why = e.message.split("\n")[0];
+		}
+		if (why) fail(notMerged(n, cfg, why, again));
+	}
 
 	// A Wiki task PR merges only with every draft claim-checked and promoted (OPS-109).
 	const unfinished = route.kind === "wiki-task" && unfinishedDrafts(root, baseRef(root, cfg), head, route.task);
@@ -262,9 +376,19 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
 	let evidence: MergeEvidence | undefined,
 		baseSha = "";
+	// A rerun waits as the first run did; its merge of main is the only change after the verifier's pass.
+	if (resumed)
+		waitForRequiredCi(
+			root,
+			cfg,
+			n,
+			head,
+			timing,
+			`bin/evf approve ${n} --owner-approval "<his words>" --head ${approved}`,
+		);
 	if (route.kind === "verified" || shipRoute) {
 		try {
-			evidence = checkPr(root, n, head, { wikiCarry: route.kind === "wiki-task" });
+			evidence = checkPr(root, n, head, resumed ? { carry: true } : { wikiCarry: route.kind === "wiki-task" });
 		} catch (e) {
 			// A held task PR waits for the verifier's pass first; name the command that gives it.
 			if (shipRoute && e instanceof EvfError)
@@ -273,42 +397,63 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 				);
 			throw e;
 		}
-		const status = JSON.parse(gh(["api", `repos/${repo}/commits/${head}/status`])) as {
+		const status = JSON.parse(gh(["api", `repos/${repo}/commits/${approved}/status`])) as {
 			statuses: Array<{ context: string; state: string; description: string | null }>;
 		};
 		const verified = status.statuses.find((s) => s.context === cfg.statusContext);
 		if (verified?.state !== "success" || !verified.description?.startsWith("Verified"))
 			fail(
-				`PR #${n} needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
+				`PR #${n} needs the verifier to pass it first (bin/evf ship ${route.id}) at ${approved.slice(0, 10)}; a branch update needs a fresh verification.`,
 			);
 		baseSha = git(root, "merge-base", head, baseRef(root, cfg));
 	}
-	recordOwnerApproval(root, n, "task" in route ? route.task : undefined, head, words);
+	if (!resumed) recordOwnerApproval(root, n, "task" in route ? route.task : undefined, head, words);
 	if (pr.isDraft) gh(["pr", "ready", String(n)]);
 	const protectedMain = run("gh", ["api", `repos/${repo}/branches/${cfg.baseBranch}/protection`]).code === 0;
-	if (protectedMain)
+	const postVerified = (sha: string) => {
+		if (!protectedMain) return;
 		gh([
 			"api",
 			"-X",
 			"POST",
-			`repos/${repo}/statuses/${head}`,
+			`repos/${repo}/statuses/${sha}`,
 			"-f",
 			"state=success",
 			"-f",
 			`context=${cfg.statusContext}`,
 			"-f",
-			`description=Approved by Sebastian at ${head.slice(0, 10)}`,
+			`description=Approved by Sebastian at ${approved.slice(0, 10)}${sha === approved ? "" : `; main merged at ${sha.slice(0, 10)}`}`,
 		]);
-	const merged = mergePullRequest({
-		root,
-		cfg,
-		number: n,
-		sha: head,
-		ownerApproval: { quote: words, approved_head: head },
-	});
-	if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
-	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
-	recordOwnerAnswer(root, pr.headRefName, head);
+	};
+	const merge = (sha: string) => {
+		// The checks of the head that merges, read while the PR is open, for the shipped record.
+		const checks = evidence && requiredCi(root, n, requiredCheckNames(root, repo, cfg.baseBranch)).passed;
+		const merged = mergePullRequest({
+			root,
+			cfg,
+			number: n,
+			sha,
+			ownerApproval: { quote, approved_head: approved },
+		});
+		if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
+		return { sha, owner: merged.owner, checks };
+	};
+	const {
+		sha: final,
+		owner,
+		checks,
+	} = needsMain
+		? withShipQueue(
+				root,
+				"id" in route ? route.id : `PR #${n}`,
+				() => merge(mergeMain(root, cfg, pr, approved, quote, again, postVerified, timing)),
+				timing.queue,
+			)
+		: (postVerified(head), merge(head));
+	console.log(
+		`Merged PR #${n} (${pr.title}) at ${final.slice(0, 10)} with Sebastian's approval${final === approved ? "" : ` of ${approved.slice(0, 10)}`}.`,
+	);
+	recordOwnerAnswer(root, pr.headRefName, approved);
 	const mergeCommit = run("gh", [
 		"pr",
 		"view",
@@ -320,13 +465,23 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	]).stdout.trim();
 	markMergedByBranch(root, pr.headRefName, /^[0-9a-f]{40}$/.test(mergeCommit) ? mergeCommit : null);
 	if (shipRoute && evidence) {
+		// The record of a merged main names the head that merged, as evf ship's carry does; `owner` holds the proof.
+		if (final !== evidence.head) {
+			evidence = {
+				...evidence,
+				head: final,
+				checks: checks ?? evidence.checks,
+				...(owner?.carry ? { carry: owner.carry } : {}),
+			};
+			baseSha = git(root, "merge-base", final, baseRef(root, cfg));
+		}
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree
 		// reads its registration from the merged head in the home checkout.
 		const path = worktreePath(root, cfg, route.task),
 			hasWorktree = existsSync(path);
 		return afterMerge(root, cfg, route.task, hasWorktree ? path : root, n, evidence, baseSha, {
-			...(hasWorktree ? {} : { rev: head }),
-			ownerApproval: { quote: words, approved_head: head, approved_at: new Date().toISOString() },
+			...(hasWorktree ? {} : { rev: final }),
+			ownerApproval: owner ?? { quote, approved_head: approved, approved_at: new Date().toISOString() },
 		});
 	}
 	return 0;

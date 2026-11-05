@@ -244,6 +244,7 @@ else if(a[0]==='pr'&&a[1]==='checks'){result=s.checksQueue?.length?s.checksQueue
 else if(a[0]==='pr'&&a[1]==='update-branch'){
  const cp=require('node:child_process'),os=require('node:os'),path=require('node:path');
  const g=(...x)=>cp.execFileSync('git',x,{encoding:'utf8'}).trim();
+ if(s.beforeUpdateBranch)cp.execFileSync(s.beforeUpdateBranch[0],s.beforeUpdateBranch.slice(1));
  const branch=g('-C',process.cwd(),'branch','--show-current'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'evf-update-branch-'));
  g('clone','-q','-b',branch,g('-C',process.cwd(),'remote','get-url','origin'),tmp);
  g('-C',tmp,'-c','user.name=GitHub','-c','user.email=noreply@github.invalid','merge','-q','--no-ff','--no-edit','origin/main');

@@ -29,7 +29,27 @@ previous head and whose second parent is on main, each merge tree equals the cle
 `git merge-tree` result, the PR's paths (A against its base on main) and main's paths since that
 base do not overlap, and required CI passes on H. Ship posts the proof as an `EVF-Carry:` comment
 before it merges and keeps it in the shipped record. Any other change refuses as before.
-Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
+Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review, with one exception below (OPS-146).
+
+Approve merges a clean main (OPS-146): Sebastian's words on a held PR cover a merge of main he did not see. When
+`evf approve` finds a held PR behind main, it checks the approved head and the verifier's pass as usual and refuses
+before any write on a path overlap (the carry rule above) or a `git merge-tree` conflict. Otherwise it posts his
+`EVF-Owner` line and, in the ship queue, runs `gh pr update-branch`, posts `EVF-Owner-Merge: {"quote","approved_head","merged_head","at"}`
+and the `evf/verify` status on the new head, waits for required CI there and merges that head. It reads main again
+before each update, so a main that moved during the queue or CI wait gets the same stale-code, overlap and conflict checks.
+It follows ship's red-main rule below, before any write and before each update: while main's latest finished CI run is
+red, it merges main only into a PR whose body says `Fixes #<n>` for the open P0 issue. Only that line lets a
+held PR merge a head other than the approved one, and the head must still pass `carryProof`. A merge of main by anyone
+else has no line, so it still needs his approval of the new head. A CI wait that runs out names
+`bin/evf approve <PR> --owner-approval "<his words>" --head <approved head>`; that rerun finishes on his recorded words.
+A Wiki-content task PR cannot finish that way, because the verifier's pass reaches its head over claim-check commits:
+it needs a new verifier pass at the merged head. The shipped record keeps the carry proof in `owner_approval`.
+
+A stale home checkout catches up (OPS-146): when `evf ship` or `evf drive` would refuse on stale code and the home
+checkout is behind main, evf runs `git merge --ff-only`, starts the same command from the home checkout's new code and
+exits with its code. The old process does no more work. It refuses as before when the checkout is on another branch,
+has a detached HEAD, has changes in `tools/evf` or `bin/evf`, has its own commits, or when git refuses the fast-forward.
+It never stashes or overwrites a local change, including an ignored file at a path main adds. `evf approve` does not catch up; it refuses and names the command.
 
 Owner approval of an ordinary-route PR (OPS-121): a PR that `evf ship` merges by itself can carry Sebastian's
 recorded approval of one head. After his OK in chat, run `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`.
@@ -244,7 +264,7 @@ With it set, each item shows its age split into minutes inside and outside the h
 
 The key has a cost: no merge route carries it, so it stays an uncommitted edit in the home checkout. Each OPS task that
 registers changes `evf.config.json` on main, and `git merge --ff-only` then refuses to update the home checkout. When
-`tools/evf` or `bin/evf` also changed on main, `evf ship` and `evf drive` refuse until the home checkout is current.
+`tools/evf` or `bin/evf` also changed on main, the catch-up of `evf ship` and `evf drive` cannot run, so both refuse until the home checkout is current.
 `evf doctor` also warns that the workspace root has uncommitted changes. To update the home checkout with the key in
 place, from the home checkout:
 
