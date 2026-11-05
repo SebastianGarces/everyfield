@@ -693,7 +693,8 @@ export const orphanLine = (o: OrphanRun): string =>
  * One verify writes the check rows many times and the sampler writes queue_tick once per minute (OPS-133), so they stay
  * out of `recent` and reopen, nudge and escalation rows stay in it.
  */
-const NOT_SIGNAL = "type NOT IN ('check_start', 'check_end', 'check_suite_end', 'test_failed', 'queue_tick')";
+const NOT_SIGNAL =
+	"type NOT IN ('check_start', 'check_end', 'check_suite_end', 'check_invalidated', 'test_failed', 'queue_tick')";
 
 const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/;
 

@@ -20,6 +20,7 @@ import {
 	runtimeDir,
 	sleep,
 	type CheckDef,
+	type RunResult,
 	type TaskRef,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
@@ -33,7 +34,8 @@ import { budgetEnv, machineBudget } from "./budget.ts";
 import { withCheckQueue } from "./check-queue.ts";
 import { machineProbes } from "./sampler.ts";
 import { uiEscapedGate } from "./escape.ts";
-import { checkSignals, type DriveCaller } from "./signals.ts";
+import { checkSignals, type CheckInvalidated, type DriveCaller } from "./signals.ts";
+import { changeSince, inputFiles, watchedRun, type StopReason } from "./check-watch.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -65,6 +67,8 @@ export type CheckReport = {
 	/** An author run stops at its first failed check (OPS-144). A record of a run that did not stop has neither. */
 	stoppedAfter?: string;
 	notRun?: string[];
+	/** Why the run cannot count, or that main moved and it still counts (OPS-143). A record from before it has none. */
+	invalidated?: CheckInvalidated;
 	passed: boolean;
 	evidenceDir: string;
 	finishedAt: string;
@@ -88,7 +92,8 @@ export function verify(
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
 	/**
 	 * Every refusal that needs no check, and the check list. Main or the checkout can move during a wait, so this runs
-	 * again after it. `sha` comes first: a commit after that read makes the run INVALIDATED.
+	 * again after it. `sha` comes first: a commit after that read makes the run INVALIDATED. A move of main after this
+	 * check does not: `evf ship` applies the overlap check and required CI to the merge (OPS-143).
 	 */
 	const inputs = () => {
 		const sha = git(wt, "rev-parse", "HEAD"),
@@ -110,7 +115,7 @@ export function verify(
 			cfg.checks,
 		);
 		if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
-		return { ref, baseSha, sha, definitions };
+		return { ref, baseSha, sha, definitions, fetchBase: hasRemote(root, cfg) ? [cfg.remote, cfg.baseBranch] : null };
 	};
 	const { definitions } = inputs();
 	// OPS-144: a format error takes seconds to find, so it never waits for a slot or the load gate. It then runs once more
@@ -144,6 +149,7 @@ function runChecks({
 	ref,
 	baseSha,
 	sha,
+	fetchBase,
 }: {
 	root: string;
 	wt: string;
@@ -158,6 +164,7 @@ function runChecks({
 	ref: string;
 	baseSha: string;
 	sha: string;
+	fetchBase: string[] | null;
 }): CheckReport {
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
@@ -196,8 +203,16 @@ function runChecks({
 	const unmarkFullCheck = markFullCheck(root, mode);
 	try {
 		const reports: string[] = [];
-		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
-		let treeUnchanged = true;
+		const inputs = inputFiles(wt);
+		/** Set once a check ends or stops on a change. Later steps of the run then do not start. */
+		let invalidReason: StopReason | null = null;
+		const stillValid = () => (invalidReason ??= changeSince(wt, sha, inputs)) === null;
+		const watched = (argv: string[], stopFile: string, opts: { cwd: string; env?: NodeJS.ProcessEnv }) => {
+			rmSync(stopFile, { force: true });
+			const result = watchedRun(argv, { ...opts, wt, sha, inputs, stopFile });
+			invalidReason ??= result.stopped ?? null;
+			return result;
+		};
 		const planned = formatFirst(definitions.filter((c) => !c.modes || c.modes.includes(mode)));
 		const notRun: string[] = [];
 		const stopped = () => role === "author" && checks.some((c) => !c.passed);
@@ -212,7 +227,8 @@ function runChecks({
 			const file = `${index + 1}-${c.name.replace(/[^\w.-]+/g, "_")}`,
 				testReport = join(dir, `${file}.tests.json`),
 				failedTests = join(dir, `${file}.failed-tests.jsonl`),
-				skipReason = join(dir, `${file}.skip`);
+				skipReason = join(dir, `${file}.skip`),
+				stopFile = join(dir, `${file}.stopped`);
 			rmSync(testReport, { force: true });
 			rmSync(failedTests, { force: true });
 			rmSync(skipReason, { force: true });
@@ -240,7 +256,7 @@ function runChecks({
 				checkEnv = { ...checkEnv, UI_BASE_URL: escaped.baseUrl };
 			}
 			console.error(`evf verify: running ${c.name}.`);
-			let result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
+			let result = watched(argv, stopFile, { cwd: wt, env: checkEnv });
 			let output = `${result.stdout}\n${result.stderr}`;
 			for (
 				let retry = 1;
@@ -249,16 +265,16 @@ function runChecks({
 				/Another next build process is already running\./i.test(
 					stripVTControlCharacters(`${result.stdout}\n${result.stderr}`),
 				) &&
-				inputsUnchanged();
+				stillValid();
 				retry++
 			) {
 				const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
 				console.error(notice);
 				sleep(10_000);
-				if (!inputsUnchanged()) break;
+				if (!stillValid()) break;
 				rmSync(testReport, { force: true });
 				rmSync(failedTests, { force: true });
-				result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
+				result = watched(argv, stopFile, { cwd: wt, env: checkEnv });
 				output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
 			}
 			const skipped = result.code === 0 && existsSync(skipReason) ? readFileSync(skipReason, "utf8") : undefined;
@@ -278,26 +294,32 @@ function runChecks({
 					...(skipped ? { skipped } : {}),
 				}),
 			);
-			signals.testsFailed(c.name, testReport, failedTests);
-			if (!inputsUnchanged()) {
-				treeUnchanged = false;
-				break;
-			}
+			// A stopped check's failures say nothing about its tests, and the broken-main brake reads this event.
+			if (!result.stopped) signals.testsFailed(c.name, testReport, failedTests);
+			if (!stillValid()) break;
 		}
-		if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
+		if (invalidReason === null && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
 			if (stopped()) notRun.push("fresh-checkout-typecheck");
 			else {
 				console.error("evf verify: running fresh-checkout-typecheck.");
 				const finished = signals.suite();
-				checks.push(finished(freshCheckoutTypecheck(root, wt, sha, dir, role)));
-				treeUnchanged = inputsUnchanged();
+				const stopFile = join(dir, "fresh-checkout-typecheck.stopped");
+				checks.push(
+					finished(
+						freshCheckoutTypecheck(root, wt, sha, dir, role, undefined, (argv, cwd) =>
+							watched(argv, stopFile, { cwd }),
+						),
+					),
+				);
+				stillValid();
 			}
 		}
 		// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
 		// Real acceptance remains the verifier's job.
-		const results = treeUnchanged
-			? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
-			: [];
+		const results =
+			invalidReason === null
+				? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
+				: [];
 		if (results.some(hasCaseMarkers) && stopped()) notRun.push("case-coverage");
 		else if (results.some(hasCaseMarkers)) {
 			const finished = signals.suite();
@@ -320,7 +342,11 @@ function runChecks({
 			writeFileSync(join(dir, "scope.json"), JSON.stringify(scope, null, 2) + "\n");
 			console.log(formatScope(scope));
 		}
-		const unchanged = treeUnchanged && inputsUnchanged() && git(root, "rev-parse", ref) === baseSha;
+		const unchanged = stillValid();
+		// Other worktrees fetch at their own pace, so this run asks. Without a network the event only comes later or never.
+		if (fetchBase) run("git", ["fetch", "--quiet", ...fetchBase], { cwd: root, timeoutMs: BASE_FETCH_MS });
+		const newBase = git(root, "rev-parse", ref),
+			invalidated = signals.invalidated(invalidReason, newBase);
 		const report: CheckReport = {
 			schema: 3,
 			task: task.id,
@@ -334,6 +360,7 @@ function runChecks({
 			queuedMs,
 			checks,
 			...(notRun.length ? { stoppedAfter: checks.find((c) => !c.passed)!.name, notRun } : {}),
+			...(invalidated ? { invalidated } : {}),
 			passed: unchanged && checks.length > 0 && checks.every((c) => c.passed),
 			evidenceDir: dir,
 			finishedAt: new Date().toISOString(),
@@ -344,7 +371,7 @@ function runChecks({
 		if (notRun.length)
 			console.error(`evf verify: stopped after ${report.stoppedAfter}. Did not run: ${notRun.join(", ")}.`);
 		console.log(
-			`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
+			`${!unchanged ? `INVALIDATED (${invalidReason}): checked tree or inputs changed during verification; rerun on stable inputs.` : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
 		);
 		return report;
 	} catch (error) {
@@ -355,6 +382,7 @@ function runChecks({
 	}
 }
 
+const BASE_FETCH_MS = 30_000;
 const FORMAT = "format";
 const FORMAT_FIX = "Format error. Run corepack pnpm format (prettier --write), commit, then run evf verify again.";
 /** The cheapest check goes first, so a format error costs no time in a longer check. */
@@ -411,6 +439,7 @@ export function freshCheckoutTypecheck(
 		["corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
 		["corepack", "pnpm", "typecheck"],
 	],
+	runStep: (argv: string[], cwd: string) => RunResult = (argv, cwd) => run(argv[0], argv.slice(1), { cwd }),
 ): CheckResult {
 	const base = join(evfDataDir(root), "fresh"),
 		log = join(dir, "fresh-checkout-typecheck.log");
@@ -423,7 +452,7 @@ export function freshCheckoutTypecheck(
 		git(wt, "worktree", "add", "--quiet", "--detach", fresh, sha);
 		admin = git(fresh, "rev-parse", "--absolute-git-dir");
 		for (const argv of steps) {
-			const result = run(argv[0], argv.slice(1), { cwd: fresh });
+			const result = runStep(argv, fresh);
 			output += `$ ${argv.join(" ")}\n\n${result.stdout}\n${result.stderr}\n`;
 			exitCode = result.code;
 			if (exitCode !== 0) break;

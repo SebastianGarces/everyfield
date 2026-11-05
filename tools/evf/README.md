@@ -153,11 +153,16 @@ because one verify would push out the reopen, nudge and escalation rows.
 | `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result` |
 | `check_suite_end` | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
 | `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths`, `file`, `touchesOwnPaths` |
+| `check_invalidated` | `task`, `head`, `role`, `mode`, `reason`, `oldBase`, `newBase`, `wastedMs` |
 
 `check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
 `trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the full check queue plus the load wait. `result` is
 `passed`, `failed`, `invalidated` or, when verify throws, `error`. Each `checks` entry in `checks.json` holds the same
 `startedAt` and `durationMs` as its `check_suite_end`.
+
+`check_invalidated` has `reason` `tree_changed` or `inputs_changed` for a run that cannot count, with `wastedMs` the time
+the run spent. It has `reason` `base_moved` with `wastedMs` 0 for a run that stayed valid while main moved. `oldBase` and
+`newBase` are main at the start and at the end, and `checks.json` holds the same fields as `invalidated`.
 
 `test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
 `EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
@@ -1025,8 +1030,17 @@ bin/evf verify OPS-9 --role verifier --head <full-40-character-SHA>
 
 Verifier mode always uses the caller's Git checkout, including its committed check definitions.
 `--head` refuses a different HEAD; without it, the command pins the caller's current HEAD.
-A dirty checkout refuses before checks. Changes to the checked tree or base during checks print
-`INVALIDATED`, stop further checks and require a fresh run on stable inputs.
+A dirty checkout refuses before checks. A checkout behind main refuses with "Include current main".
+
+During checks, a watch process polls the checkout every 10 seconds. A commit, a modified, staged or untracked
+file (`tree_changed`), or a changed `.env*` file or dependency install (`inputs_changed`) must hold on two polls in a
+row, so a temporary file a check removes stops nothing. The watch then stops the check and each process it started,
+with SIGTERM and after 5 seconds SIGKILL. evf prints `INVALIDATED` and requires a fresh run on stable inputs. The watch
+reads only the size and time of an env file, never its content. It also stops the check on a signal, and on its next
+poll after evf is killed. `EVF_CHECK_POLL_MS` overrides the poll for tests.
+
+A move of main during checks does not invalidate the run. The next run refuses until it includes main, and `evf ship`
+applies the overlap check and required CI to the merge, so a run that used a slightly older main cannot merge unchecked.
 
 Local checks see what CI sees. A clean checkout has no modified, staged or untracked files, even when
 the user's git config hides untracked files. OPS tasks run their own checks plus the configured
