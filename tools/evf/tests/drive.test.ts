@@ -6,13 +6,15 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	statSync,
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import os, { tmpdir } from "node:os";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
@@ -1116,6 +1118,65 @@ test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier co
 		assert.equal(after.stage, "verify");
 		assert.equal(after.round, 0);
 	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("the pr stage's verify that gives up in the queue or the load wait reruns the pr stage: no implement run, no round, no escalation (AC:OPS-138-5 AC:OPS-138-11)", () => {
+	const f = driveFixture();
+	const real = os.loadavg,
+		realNow = Date.now;
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		commitFile(f, "simplified.txt");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		const queue = join(evfDataDir(f.root), "check-queue");
+		mkdirSync(queue, { recursive: true });
+		const held = [1, 2, 3].map((n) => join(queue, `${String(n).padStart(15, "0")}.json`));
+		for (const path of held)
+			writeFileSync(path, JSON.stringify({ pid: process.pid, task: "OPS-H", at: new Date().toISOString() }));
+		const summaryOf = (id: number) =>
+			(f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(id) as { summary: string }).summary;
+		const agents = () => f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length;
+		const seats = agents();
+		// More times than the retry cap: a give-up is no failure of the PR. Each clock reading is past the queue's limit.
+		let clock = realNow();
+		Date.now = () => (clock += 120 * 60_000);
+		for (let i = 0; i < RETRY_CAP + 1; i++) {
+			assert.equal(driveOnce(f.root, f.task, TIMING).stage, "pr");
+			const run = f.runs().at(-1)!;
+			assert.deepEqual([run.stage, run.role, run.status], ["pr", "evf", "aborted"]);
+			assert.match(summaryOf(run.id), /full check queue .*no check ran/);
+			assert.equal(nextOf(f).stage, "pr");
+		}
+
+		Date.now = realNow;
+		for (const path of held) rmSync(path);
+		const limited = { ...f.cfg, machineLoad: { maxPerCore: 0.000001, maxWaitMinutes: 0 } };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(limited));
+		os.loadavg = () => [50, 50, 50];
+		syncBuiltinESMExports();
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "pr");
+		assert.equal(f.runs().at(-1)!.status, "aborted");
+		assert.match(summaryOf(f.runs().at(-1)!.id), /The machine stayed above its load limit/);
+		assert.equal(nextOf(f).stage, "pr");
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(agents(), seats, "no seat started");
+		assert.deepEqual(readdirSync(queue), [], "no ticket left");
+
+		os.loadavg = real;
+		syncBuiltinESMExports();
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg, null, 2));
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "pr");
+		assert.equal(f.runs().at(-1)!.status, "passed");
+		assert.equal(nextOf(f).stage, "verify");
+		assert.equal(f.taskRow().round, 0);
+	} finally {
+		Date.now = realNow;
+		os.loadavg = real;
+		syncBuiltinESMExports();
 		f.db.close();
 		f.close();
 	}

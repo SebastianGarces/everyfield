@@ -34,6 +34,7 @@ import { noteOwnerAnswer, noteOwnerAsk } from "./owner-queue.ts";
 import { isHeadlessRole, isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
+	WaitGaveUp,
 	evfDataDir,
 	fail,
 	git,
@@ -1997,6 +1998,16 @@ function evfStage(
 						: { status: "failed", summary: `evf cannot run stage ${stage}` };
 	} catch (e) {
 		if (!(e instanceof EvfError)) throw e;
+		if (e instanceof WaitGaveUp) {
+			// No check ran, so the PR failed nothing: an aborted run sends the drive back to this stage.
+			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
+				now(),
+				e.message,
+				runId,
+			);
+			record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary: e.message });
+			return "failed";
+		}
 		outcome = { status: "failed", summary: e.message };
 	}
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.

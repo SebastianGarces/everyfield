@@ -149,7 +149,7 @@ because one verify would push out the reopen, nudge and escalation rows.
 | `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths` |
 
 `check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
-`trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the load wait. `result` is
+`trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the full check queue plus the load wait. `result` is
 `passed`, `failed`, `invalidated` or, when verify throws, `error`. Each `checks` entry in `checks.json` holds the same
 `startedAt` and `durationMs` as its `check_suite_end`.
 
@@ -1105,15 +1105,35 @@ no paid API. A `--with-verifier` step waits for Sebastian's answer to report dec
 
 ## Machine load limit
 
-Agents share one Mac. `evf task start`, `evf verify` and `evf browser run` wait while the 1-minute
-load average is above 2 × CPU cores (24 on Sebastian's 12-core Mac, rulings C51 and C81). A waiting
+Agents share one Mac. `evf task start`, `evf verify`, `evf test`, `evf ac run`, `evf timing`, `evf audit` and
+`evf browser run` wait while the 1-minute load average is above 2 × CPU cores (24 on Sebastian's 12-core Mac, rulings C51 and C81). A waiting
 command prints one line per minute with the load and the limit, and gives up after 30 minutes
 without starting work. An optional `"machineLoad": {"maxPerCore": 2, "maxWaitMinutes": 30}` in
 `evf.config.json` overrides the default in `tools/evf/load.ts`; an OPS branch cannot add it,
 because it may change only its own `maintenanceTasks` entry.
 `--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
 `load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
-current load and limit. CI runners use the same rule with their own core count.
+current load and limit. A command inside one that passed this gate does not wait again: `evf verify`, `evf test` and
+`evf ac run` pass that on to what they start. `evf ac run` that `evf run done` starts is ungated at its own start, and
+its browser runs keep their gate. In CI, `evf test` with `CI` set does not wait, so a required GitHub job never depends
+on this gate.
+
+## Full check queue
+
+At most 3 full checks run at once on this machine, a code default with no `evf.config.json` key. The queue covers every
+full-mode `verify`: `evf verify`, `evf check` and the pr stage. `evf verify --quick`, `evf test` and `evf ac run` take no
+slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths, a blank `--ignore-load` reason)
+comes before the queue. The refusals run again when a slot is free, and the check list is read again, because main or
+the checkout can move during the wait.
+
+Waiters start in arrival order. A waiter prints its position when it starts to wait and then once per minute. A process
+that stops, also by SIGKILL, loses its place, and a slot frees when the checks pass, fail or throw. After 120 minutes in
+the queue the command fails, names the queue and says that no check ran. It writes no `check_start` event and leaves no
+ticket.
+
+A full check takes its slot first and then runs the load wait while it holds the slot, so waiters keep their order under
+high load. `--ignore-load` skips the load wait and not the queue. When the pr stage's `verify` gives up in the queue or
+in the load wait, the drive closes that run as `aborted` and reruns the pr stage, with no implement run and no round.
 
 ## Minute sampler
 
