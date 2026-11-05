@@ -40,6 +40,7 @@ import {
 	workDbPath,
 } from "../db.ts";
 import { agentWaitKillMs, drive, DRIVE_TIMING, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { pollChecks } from "../check-alarm.ts";
 import { LAUNCH_TIMING } from "../launch.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
@@ -2674,6 +2675,59 @@ test("OPS-113-check: a passed body seat makes evf push the body at the same head
 		assert.equal(nextOf(f).stage, "ship");
 		assert.equal(f.runs().filter((r) => r.stage === "verify").length, 1, "no verify run starts");
 		assert.equal(f.taskRow().round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("with required checks green and a non-required check red on 2 PRs, the alarm is raised and the ci stage passes (AC:OPS-139-7)", () => {
+	const f = driveFixture();
+	try {
+		withPr(f);
+		writeFileSync(join(f.root, "fake-bin/herdr"), "#!/bin/sh\nexit 0\n");
+		chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+		const check = (name: string, conclusion: string) => ({ name, status: "COMPLETED", conclusion });
+		const rollup = [check("ci", "SUCCESS"), check("vercel", "FAILURE")];
+		const state = f.getState();
+		state.openPrs = [
+			{
+				number: 90,
+				headRefOid: "a".repeat(40),
+				statusCheckRollup: [check("ci", "SUCCESS"), check("vercel", "SUCCESS")],
+			},
+		];
+		f.setState(state);
+		assert.equal(pollChecks(f.root).baseline, true);
+		state.openPrs = [77, 78].map((number) => ({ number, headRefOid: "b".repeat(40), statusCheckRollup: rollup }));
+		state.requiredChecks = [
+			{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
+			{ name: "vercel", bucket: "fail", link: "https://vercel.example/1" },
+		];
+		f.setState(state);
+		assert.deepEqual(
+			pollChecks(f.root).alarms.map((a) => [a.kind, a.check, a.prs]),
+			[["red", "vercel", [77, 78]]],
+		);
+		assert.equal(f.events("stage_end").length, 0, "a poll writes no stage event");
+		assert.equal(f.runs().length, 0, "a poll writes no run");
+
+		f.db.prepare("UPDATE tasks SET status = 'active', pr_number = 77 WHERE id = ?").run(f.taskId);
+		const head = spawnSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+		for (const c of ["1", "2"])
+			f.db
+				.prepare("INSERT INTO proofs (task_id, head_sha, criterion, status, created_at) VALUES (?, ?, ?, 'met', ?)")
+				.run(f.taskId, head, c, new Date().toISOString());
+		for (const [stage, role] of [
+			["implement", "implementer"],
+			["simplify", "simplifier"],
+			["pr", "evf"],
+			["verify", "verifier"],
+		] as const)
+			runDone(f.root, f.insertRun(stage, role, "started"), { status: "passed", summary: "done" });
+		const n = driveOnce(f.root, f.task, TIMING);
+		assert.equal(n.stage, "ci");
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["ci", "passed"]);
 	} finally {
 		f.db.close();
 		f.close();
