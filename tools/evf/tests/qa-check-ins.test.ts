@@ -271,7 +271,6 @@ function checkOps125Change(repo: string, diagnostic: (message: string) => void =
 		return r.stdout.split("\n").filter(Boolean);
 	};
 	// CI checks out the PR merge commit at depth 1, with no main ref and no parents to diff against.
-	// The history half then runs in `evf ac run` on the full worktree.
 	if (git("rev-parse", "--is-shallow-repository")[0] === "true") {
 		diagnostic("shallow checkout: no main history, so only the import scan runs");
 		return { shallow: true, commits: [] };

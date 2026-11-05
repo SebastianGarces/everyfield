@@ -290,8 +290,6 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 			if (t.kind !== "id" || isP(expr[i - 1], ".")) continue;
 			if (t.text === "process" && expr[i + 2]?.text === "cwd") return true;
 			if (t.text === "import" && expr[i + 2]?.text === "meta") return true;
-			// A temporary directory is a fixture, wherever its name comes from.
-			if (/^(mkdtemp|mkdtempSync|tmpdir|fixture)$/.test(t.text)) return false;
 			if (isP(expr[i + 1], "(")) continue;
 			const found = lookup(t.text, at);
 			if (!found) {
