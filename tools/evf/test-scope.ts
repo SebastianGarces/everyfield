@@ -9,6 +9,7 @@ import { baseRef, loadConfig, run } from "./lib.ts";
  */
 const EVF_PATHS = [
 	"tools/evf/",
+	"tools/evf-tui/",
 	"tools/wiki/pr-images.ts",
 	"bin/evf",
 	"bin/wiki",

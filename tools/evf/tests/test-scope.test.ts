@@ -59,7 +59,13 @@ test("OPS-172: a branch with no evf path starts no tooling test, and --all still
 });
 
 test("OPS-172: evf code, a file evf's tests read, and uncommitted or untracked evf files run the tooling tests", () => {
-	for (const path of ["tools/evf/x.ts", "bin/evf", ".github/workflows/ci.yml", ".claude/agents/implementer.md"]) {
+	for (const path of [
+		"tools/evf/x.ts",
+		"tools/evf-tui/src/main.rs",
+		"bin/evf",
+		".github/workflows/ci.yml",
+		".claude/agents/implementer.md",
+	]) {
 		const { f, commit, write, run } = scoped();
 		try {
 			f.git("checkout", "-qb", "task");

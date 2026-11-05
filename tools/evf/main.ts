@@ -198,7 +198,7 @@ Upkeep
         survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR
   evf audit --list [--task <task>]                           the mutation candidates of one merged task
   evf ci-tests                                              check integration test inclusion in CI
-  evf test [--all] [--ignore-load "<reason>"] [Node test options]    tooling regressions on evf's Node; skips them when
+  evf test [--ignore-load "<reason>"] [--all] [Node test options]    tooling regressions on evf's Node; skips them when
         the checkout changes no evf path (OPS-172), --all runs them anyway
   evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
   evf gc [--apply]
