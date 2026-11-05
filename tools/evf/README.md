@@ -1078,8 +1078,8 @@ are the commits since the merge base with main, plus uncommitted and untracked f
 `bin/evf`, any `evf.config.json` setting other than `maintenanceTasks`, and the listed files that evf runs or that its
 tests read, such as `.github/workflows/` and `.claude/agents/`. Otherwise the command prints why, starts nothing and
 exits 0, so `workflow-regressions` in `evf verify` and the `evf` job in CI pass at once. The branch-diff lint and
-`evf ci-tests` still run first, because they guard the other tasks too. Main has no changes, so the push to main runs
-the whole suite, and fail-forward reports a failure there. A checkout whose merge base git cannot find runs the suite.
+`evf ci-tests` still run first, because they guard the other tasks too. A checkout with no commits of its own runs the
+suite, so the push to main runs all of it, and fail-forward reports a failure there. A checkout whose merge base git cannot find runs the suite.
 `bin/evf test --all` always runs it.
 
 ## Mutation audit

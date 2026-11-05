@@ -43,8 +43,8 @@ function configChanged(checkout: string, mergeBase: string): boolean {
 
 /**
  * Why `evf test` can skip this checkout, or undefined when the suite must run. The checkout's changes are its commits
- * since the merge base with main, plus uncommitted and untracked files. Main itself has no changes, so it runs. So does
- * a checkout whose merge base git cannot find, such as a shallow clone.
+ * since the merge base with main, plus uncommitted and untracked files. A checkout with no commits of its own runs, so
+ * main runs whatever stray files it holds. So does a checkout whose merge base git cannot find, such as a shallow clone.
  */
 export function evfTestSkip(checkout: string): string | undefined {
 	const lines = (...args: string[]) => {
@@ -59,8 +59,9 @@ export function evfTestSkip(checkout: string): string | undefined {
 	}
 	const base = run("git", ["merge-base", "HEAD", ref], { cwd: checkout });
 	if (base.code !== 0) return undefined;
-	const mergeBase = base.stdout.trim(),
-		changed = lines("diff", "--name-only", "--no-renames", "-z", mergeBase),
+	const mergeBase = base.stdout.trim();
+	if (mergeBase === run("git", ["rev-parse", "HEAD"], { cwd: checkout }).stdout.trim()) return undefined;
+	const changed = lines("diff", "--name-only", "--no-renames", "-z", mergeBase),
 		untracked = lines("ls-files", "--others", "--exclude-standard", "-z");
 	if (!changed || !untracked) return undefined;
 	const files = [...changed, ...untracked];

@@ -104,6 +104,9 @@ test("OPS-172: main itself and a checkout with no merge base run the tooling tes
 	const { f, commit, write, run } = scoped();
 	try {
 		assert.equal(run().ran, true, "main has no changes");
+		write("docs/plan/stray.md");
+		assert.equal(run().ran, true, "main with an untracked file outside evf");
+		rmSync(join(f.root, "docs/plan/stray.md"));
 		f.git("checkout", "-q", "--orphan", "unrelated");
 		write("docs/plan/notes.md");
 		commit();
