@@ -15,7 +15,7 @@ export function alive(pid: number): boolean {
 }
 
 /** A holder file that never got its content is stale once its writer had ample time to finish. */
-function readHolder(path: string): Holder | "missing" | "stale" {
+export function readHolder(path: string): Holder | "missing" | "stale" {
 	try {
 		return JSON.parse(readFileSync(path, "utf8")) as Holder;
 	} catch (e) {
@@ -27,6 +27,9 @@ function readHolder(path: string): Holder | "missing" | "stale" {
 		}
 	}
 }
+
+export const stopped = (holder: ReturnType<typeof readHolder>): boolean =>
+	holder === "stale" || (typeof holder === "object" && !alive(holder.pid));
 
 /**
  * One machine-wide ship queue in the home checkout's Git folder. Waiters take numbered tickets and the oldest
@@ -56,7 +59,7 @@ export function withShipQueue<T>(root: string, task: string, fn: () => T, timing
 				.sort()
 				.filter((name) => {
 					const holder = readHolder(join(tickets, name));
-					if (holder === "stale" || (typeof holder === "object" && !alive(holder.pid))) {
+					if (stopped(holder)) {
 						rmSync(join(tickets, name), { force: true });
 						return false;
 					}
@@ -73,7 +76,7 @@ export function withShipQueue<T>(root: string, task: string, fn: () => T, timing
 					if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
 				}
 				ahead = readHolder(lock);
-				if (ahead === "stale" || (typeof ahead === "object" && !alive(ahead.pid))) {
+				if (stopped(ahead)) {
 					console.error(
 						`ship: removed the queue lock of a stopped ship${typeof ahead === "object" ? ` (${ahead.task}, pid ${ahead.pid})` : ""}.`,
 					);

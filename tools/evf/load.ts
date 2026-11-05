@@ -1,8 +1,8 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
 import { findTask, openWorkDb, record, workDbPath } from "./db.ts";
-import { evfDataDir, fail, loadConfig, sleep, type TaskRef } from "./lib.ts";
+import { evfDataDir, fail, loadConfig, sleep, WaitGaveUp, type TaskRef } from "./lib.ts";
 import { alive } from "./ship-queue.ts";
 
 export type LoadLimit = { cores: number; maxPerCore: number; limit: number; maxWaitMinutes: number };
@@ -32,6 +32,21 @@ export function describeLoad(load: number, gate: LoadLimit): string {
 }
 
 /**
+ * The environment of what a command starts after it passed the gate: nothing inside it waits a second time. It names
+ * the home checkout, so a disposable repository of a test keeps its own gate.
+ */
+export function loadGatePassed(root: string): NodeJS.ProcessEnv {
+	return { EVF_LOAD_GATE_ROOT: realpathSync(root) };
+}
+
+/** What awaitLoad refuses whatever the load is. A command that waits for anything else first calls it before that wait. */
+export function requireLoadInputs(root: string, override: string | undefined): LoadLimit {
+	const gate = loadLimit(root);
+	if (override !== undefined && !override.trim()) fail("--ignore-load needs a reason.");
+	return gate;
+}
+
+/**
  * Heavy commands wait while the 1-minute load average is above the limit, print one line per minute and give up
  * after maxWaitMinutes. `--ignore-load <reason>` runs at once and appends the override to load-overrides.jsonl.
  */
@@ -42,9 +57,8 @@ export function awaitLoad(
 	probe = machine,
 	task: TaskRef | null = null,
 ): void {
-	const gate = loadLimit(root);
+	const gate = requireLoadInputs(root, override);
 	if (override !== undefined) {
-		if (!override.trim()) fail("--ignore-load needs a reason.");
 		const load = probe.read();
 		mkdirSync(evfDataDir(root), { recursive: true });
 		appendFileSync(
@@ -55,6 +69,7 @@ export function awaitLoad(
 		console.error(`evf ${command}: load override logged (${describeLoad(load, gate)}): ${override}`);
 		return;
 	}
+	if (process.env.EVF_LOAD_GATE_ROOT === realpathSync(root)) return;
 	const start = probe.now(),
 		maxWaitMs = gate.maxWaitMinutes * 60_000;
 	let maxLoad = 0; // Above 0 once a read passed the limit, so a command that never waited records nothing.
@@ -69,7 +84,7 @@ export function awaitLoad(
 		const waited = probe.now() - start;
 		if (waited >= maxWaitMs) {
 			recordWait();
-			fail(
+			throw new WaitGaveUp(
 				`The machine stayed above its load limit for ${gate.maxWaitMinutes} min (${describeLoad(load, gate)}). Retry later, or pass --ignore-load "<reason>", which evf logs.`,
 			);
 		}

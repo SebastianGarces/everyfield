@@ -28,7 +28,7 @@ import { wikiClaimCheck } from "./wiki.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
-import { awaitLoad } from "./load.ts";
+import { awaitLoad, loadGatePassed } from "./load.ts";
 import { runSampler, startSampler, stopSampler } from "./sampler.ts";
 import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
@@ -69,7 +69,7 @@ Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
   evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
-  evf ac run <task>                                           the answer key: run every test whose name carries
+  evf ac run <task> [--ignore-load "<reason>"]                the answer key: run every test whose name carries
         AC:<task>-<n> (tests/ui on Chromium and WebKit against the worktree's ready preview of HEAD, with video;
         tools/evf/tests once) and write evf's proof row per AC: criterion at HEAD. Local only, never in CI
   evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
@@ -196,7 +196,7 @@ Upkeep
         survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR
   evf audit --list [--task <task>]                           the mutation candidates of one merged task
   evf ci-tests                                              check integration test inclusion in CI
-  evf test [Node test options]                               local tooling regressions on evf's Node
+  evf test [--ignore-load "<reason>"] [Node test options]    local tooling regressions on evf's Node
   evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
   evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
@@ -212,8 +212,11 @@ Browser checks (any role)
 <task> is WP-NNN for a single-part package, WP-NNN/api (contract first), WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
 
-task start, verify, timing and browser run wait while the 1-minute load average is above 2 × CPU cores
-(C51, C81). --ignore-load "<reason>" runs at once and logs the override.`;
+task start, verify, test, ac run, timing and browser run wait while the 1-minute load average is above 2 × CPU
+cores (C51, C81). --ignore-load "<reason>" runs at once and logs the override.
+
+At most 3 full checks (evf verify, evf check, the pr stage) run at once on this machine. Others wait in arrival
+order, print their position once per minute and give up after 120 minutes. --ignore-load does not skip this queue.`;
 
 function flag(args: string[], name: string): boolean {
 	const i = args.indexOf(name);
@@ -228,6 +231,23 @@ function option(args: string[], name: string): string | undefined {
 	const v = args[i + 1];
 	args.splice(i, 2);
 	return v;
+}
+
+/**
+ * Takes `--ignore-load` and its reason out of a command line whose other options go on to another program, so neither
+ * reaches it. A missing reason is refused here: the next option is not a reason.
+ */
+function ignoreLoadReason(args: string[]): string | undefined {
+	let reason: string | undefined;
+	for (;;) {
+		const i = args.findIndex((a) => a === "--ignore-load" || a.startsWith("--ignore-load="));
+		if (i === -1) return reason;
+		const inline = args[i].startsWith("--ignore-load=");
+		reason = inline ? args[i].slice("--ignore-load=".length) : args[i + 1];
+		if (reason === undefined || (!inline && reason.startsWith("--")))
+			throw new EvfError("--ignore-load needs a reason.");
+		args.splice(i, inline ? 1 : 2);
+	}
 }
 
 function main(argv: string[]): number | Promise<number> {
@@ -249,9 +269,11 @@ function main(argv: string[]): number | Promise<number> {
 						? "5-20 minutes"
 						: cmd === "escape" && args[0] === "soak"
 							? "20-60 minutes (20 runs)"
-							: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
-								? "2-15 minutes"
-								: undefined;
+							: cmd === "verify" || cmd === "check"
+								? "2-15 minutes, plus any wait in the full check queue (up to 120 minutes)"
+								: cmd === "ac" && args[0] === "run"
+									? "2-15 minutes"
+									: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
@@ -259,6 +281,9 @@ function main(argv: string[]): number | Promise<number> {
 			return 0;
 		case "test": {
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
+			const ignoreLoad = ignoreLoadReason(args);
+			// A required GitHub job never depends on the load gate.
+			if (ignoreLoad !== undefined || !process.env.CI) awaitLoad(root, "test", ignoreLoad);
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
 			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
 			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
@@ -278,7 +303,7 @@ function main(argv: string[]): number | Promise<number> {
 					...args,
 					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
 				],
-				{ cwd: process.cwd(), inherit: true, env },
+				{ cwd: process.cwd(), inherit: true, env: { ...env, ...loadGatePassed(root) } },
 			).code;
 		}
 		case "audit": {
@@ -373,8 +398,13 @@ function main(argv: string[]): number | Promise<number> {
 		}
 		case "ac":
 			if (args[0] === "run") {
+				const ignoreLoad = option(args, "--ignore-load");
 				if (args.length !== 2) break;
-				const rows = acRun(root, parseTask(args[1]), { runId: Number(process.env.EVF_RUN) || null });
+				const task = parseTask(args[1]);
+				// Only this command passes the gate; the acRun of `evf run done` stays ungated at its own start.
+				awaitLoad(root, "ac run", ignoreLoad);
+				Object.assign(process.env, loadGatePassed(root));
+				const rows = acRun(root, task, { runId: Number(process.env.EVF_RUN) || null });
 				return rows.every((row) => row.status === "met") ? 0 : 1;
 			}
 			console.log((args.length ? args : [" "]).map((id) => renderAc(root, id)).join("\n\n"));
