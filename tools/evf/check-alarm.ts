@@ -21,16 +21,10 @@ const POLL_EVERY_MS = 5 * MINUTE;
 const POLL_TIMEOUT_MS = 2 * MINUTE;
 const READ_TIMEOUT_MS = 60_000;
 
-type OpenPr = { number: number; head: string; checks: Array<{ name: string; red: boolean }> };
-type AlarmKind = "new" | "red";
-const ALARM_EVENT: Record<AlarmKind, string> = { new: "ci_new_check_alarm", red: "ci_nonrequired_red_alarm" };
+type OpenPr = { number: number; head: string; checks: Array<{ name: string; red: boolean; started: number }> };
+const ALARM_EVENT = { new: "ci_new_check_alarm", red: "ci_nonrequired_red_alarm" };
+type AlarmKind = keyof typeof ALARM_EVENT;
 type Alarm = { kind: AlarmKind; check: string; prs: number[] };
-type PollResult = {
-	baseline: boolean;
-	firstSeen: string[];
-	red: Array<{ check: string; prs: number[] }>;
-	alarms: Array<Alarm & { notified: boolean }>;
-};
 
 /** The states `gh pr checks` puts in its fail and cancel buckets. A check run has status and conclusion, a status context has state. */
 const RED_STATES = new Set<unknown>(["ERROR", "FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "CANCELLED"]);
@@ -41,7 +35,7 @@ const RED_STATES = new Set<unknown>(["ERROR", "FAILURE", "TIMED_OUT", "ACTION_RE
  * workflow and name. Two workflows may share a name, and each keeps its own run.
  */
 function checksOf(rollup: unknown[]): OpenPr["checks"] {
-	const latest = new Map<string, { name: string; red: boolean; started: number }>();
+	const latest = new Map<string, OpenPr["checks"][number]>();
 	for (const raw of rollup) {
 		const item = raw as Record<string, unknown> | null;
 		const name = item?.name || item?.context;
@@ -56,7 +50,7 @@ function checksOf(rollup: unknown[]): OpenPr["checks"] {
 				started,
 			});
 	}
-	return [...latest.values()].map(({ name, red }) => ({ name, red }));
+	return [...latest.values()];
 }
 
 function readOpenPrs(root: string): OpenPr[] {
@@ -66,10 +60,8 @@ function readOpenPrs(root: string): OpenPr[] {
 		{ cwd: root, timeoutMs: READ_TIMEOUT_MS },
 	);
 	if (r.code !== 0) throw new Error(`gh pr list failed: ${(r.stderr || r.stdout).trim() || `exit ${r.code}`}`);
-	const parsed: unknown = JSON.parse(r.stdout);
-	if (!Array.isArray(parsed)) throw new Error("gh pr list did not print a list");
-	return parsed
-		.map((raw: { number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }) => {
+	return (JSON.parse(r.stdout) as Array<{ number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }>)
+		.map((raw) => {
 			if (typeof raw?.number !== "number" || typeof raw.headRefOid !== "string")
 				throw new Error("gh pr list printed a PR with no number or head");
 			return {
@@ -202,7 +194,7 @@ function sendAlarm({ kind, check, prs }: Alarm): boolean {
  * An alarm's event commits with its state, then the send runs, then the event gets the result: a poll killed between
  * them leaves `notified` null and never sends twice.
  */
-export function pollChecks(root: string, clock: Clock = REAL_CLOCK): PollResult {
+export function pollChecks(root: string, clock: Clock = REAL_CLOCK) {
 	const db = openWorkDb(root);
 	try {
 		const nowMs = clock.now();

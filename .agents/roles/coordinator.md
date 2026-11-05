@@ -69,8 +69,7 @@ only on Sebastian's approval of that head.
 
 Outside settings rule: no seat or coordinator creates or links a Vercel project, repo setting or integration until
 Sebastian's words are recorded. Record them first, from a human shell, with
-`bin/evf outside-setting approved --what "<what>" --words "<his words>"`. On Nov 3 a stray Vercel project put a red check
-on PRs for 6 h 44 min.
+`bin/evf outside-setting approved --what "<what>" --words "<his words>"`.
 
 ## Principles to read in full at the start
 

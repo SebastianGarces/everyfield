@@ -356,7 +356,7 @@ function openItems(root: string, db: DatabaseSync, q: OwnerQueueConfig, now: num
 export const prList = (prs: number[]) => prs.map((pr) => `#${pr}`).join(", ");
 const ageText = (minutes: number) => `age ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 
-type NewCheckAlarm = { check: string; prs: number[]; raisedAt: string; ageMinutes: number };
+type NewCheckAlarm = { check: string; prs: number[]; ageMinutes: number };
 
 /** New check alarms raised in the last 24 h. Any 24 h holds each of the three daily digest times. They block nothing. */
 function recentNewChecks(db: DatabaseSync, now: number): NewCheckAlarm[] {
@@ -366,7 +366,7 @@ function recentNewChecks(db: DatabaseSync, now: number): NewCheckAlarm[] {
 	return rows.flatMap(({ payload }) => {
 		const { check, prs, raisedAt } = JSON.parse(payload) as { check: string; prs: number[]; raisedAt: string };
 		const age = now - Date.parse(raisedAt);
-		return age <= DAY ? [{ check, prs, raisedAt, ageMinutes: Math.floor(age / MINUTE) }] : [];
+		return age <= DAY ? [{ check, prs, ageMinutes: Math.floor(age / MINUTE) }] : [];
 	});
 }
 
