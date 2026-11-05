@@ -10,6 +10,12 @@ which may be wiped and reseeded, never production. Vercel builds production from
 Include current main, commit and run `bin/evf verify <task>`. Logs and checks.json live under
 the Git common directory. Local checks do not prove application acceptance or mint approval.
 
+Author runs check `format` first, before the full check queue and the load wait, so a format error fails in seconds
+and names `corepack pnpm format`. An author run stops after its first failed check: `checks.json` holds `stoppedAfter`
+and `notRun`, and neither `evf pre-push` nor `evf pr open` accepts that record. A verifier run has no format refusal
+and no stop: it runs every check after a failure. It also never takes the `evf test` skip described under tooling
+regressions.
+
 An independent verifier (another Claude Code session, verifier seat, Opus model; D82) exercises the real branch, records an exact-head review
 on the PR and runs `evf ship`. Ship reads the PR's required GitHub check status, refuses missing
 or nonpassing CI, verifies the recorded head and the review's independence and checks the PR body against
@@ -1101,9 +1107,11 @@ that machine load cannot fail them.
 are the commits since the merge base with main, plus uncommitted and untracked files. Evf work is `tools/evf/`,
 `bin/evf`, any `evf.config.json` setting other than `maintenanceTasks`, and the listed files that evf runs or that its
 tests read, such as `.github/workflows/` and `.claude/agents/`. Otherwise the command prints why, starts nothing and
-exits 0, so `workflow-regressions` in `evf verify` and the `evf` job in CI pass at once. The branch-diff lint and
+exits 0, so `workflow-regressions` in `evf verify` and the `evf` job in CI pass at once. Under `evf verify` the
+command writes its reason to the `EVF_SKIP_REASON` file, and the check's `checks.json` entry holds it as `skipped`.
+With `EVF_ROLE=verifier`, set by `evf verify --role verifier` and by a verifier seat, the command always runs the suite. The branch-diff lint and
 `evf ci-tests` still run first, because they guard the other tasks too. A checkout with no commits of its own runs the
-suite, so the push to main runs all of it, and fail-forward reports a failure there. A checkout whose merge base git cannot find runs the suite.
+suite. The push to main runs all of it, because `ci.yml` passes `--all` on a push, and fail-forward reports a failure there. A checkout whose merge base git cannot find runs the suite.
 `bin/evf test --all` always runs it.
 
 ## Mutation audit

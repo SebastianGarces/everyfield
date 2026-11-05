@@ -46,6 +46,8 @@ export type CheckResult = {
 	/** Written since OPS-132. A record from before it has neither. */
 	startedAt?: string;
 	durationMs?: number;
+	/** Why the check started no work and still passed (OPS-144): `evf test` on a branch with no evf path. */
+	skipped?: string;
 };
 export type CheckReport = {
 	schema: 3;
@@ -60,6 +62,9 @@ export type CheckReport = {
 	/** The queue wait plus the load wait. A record from before OPS-138 has none. */
 	queuedMs?: number;
 	checks: CheckResult[];
+	/** An author run stops at its first failed check (OPS-144). A record of a run that did not stop has neither. */
+	stoppedAfter?: string;
+	notRun?: string[];
 	passed: boolean;
 	evidenceDir: string;
 	finishedAt: string;
@@ -107,15 +112,22 @@ export function verify(
 		if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 		return { ref, baseSha, sha, definitions };
 	};
-	inputs();
+	const { definitions } = inputs();
+	// OPS-144: a format error takes seconds to find, so it never waits for a slot or the load gate. It then runs once more
+	// inside runChecks, which writes the record with its evidence and events.
+	const format = definitions.find((c) => c.name === FORMAT && (!c.modes || c.modes.includes(mode)));
+	const refused =
+		role === "author" &&
+		format !== undefined &&
+		run(command(format.run)[0], command(format.run).slice(1), { cwd: wt }).code !== 0;
 	const queueStart = performance.now();
 	// The slot comes first, so waiters keep their arrival order while the load is high.
 	const checked = (slot: NodeJS.ProcessEnv = {}) => {
-		awaitLoad(root, "verify", ignoreLoad, undefined, task, mode === "full" ? machineProbes(root) : null);
+		if (!refused) awaitLoad(root, "verify", ignoreLoad, undefined, task, mode === "full" ? machineProbes(root) : null);
 		const queuedMs = Math.round(performance.now() - queueStart);
 		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, slot, ...inputs() });
 	};
-	return mode === "full" ? withCheckQueue(root, task.id, checked) : checked();
+	return mode === "full" && !refused ? withCheckQueue(root, task.id, checked) : checked();
 }
 
 function runChecks({
@@ -186,19 +198,33 @@ function runChecks({
 		const reports: string[] = [];
 		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
 		let treeUnchanged = true;
-		for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
+		const planned = formatFirst(definitions.filter((c) => !c.modes || c.modes.includes(mode)));
+		const notRun: string[] = [];
+		const stopped = () => role === "author" && checks.some((c) => !c.passed);
+		for (const [index, c] of planned.entries()) {
+			if (stopped()) {
+				notRun.push(...planned.slice(index).map((p) => p.name));
+				break;
+			}
 			const finished = signals.suite();
 			// Each check writes its own report, so one check can never overwrite another's results.
 			// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
 			const file = `${index + 1}-${c.name.replace(/[^\w.-]+/g, "_")}`,
 				testReport = join(dir, `${file}.tests.json`),
-				failedTests = join(dir, `${file}.failed-tests.jsonl`);
+				failedTests = join(dir, `${file}.failed-tests.jsonl`),
+				skipReason = join(dir, `${file}.skip`);
 			rmSync(testReport, { force: true });
 			rmSync(failedTests, { force: true });
+			rmSync(skipReason, { force: true });
 			reports.push(testReport);
 			const argv = command(fill(c.run, { ...vars, testReport }));
 			const log = join(dir, `${file}.log`);
-			let checkEnv: NodeJS.ProcessEnv = { ...env, EVF_TEST_REPORT: testReport, EVF_FAILED_TESTS: failedTests };
+			let checkEnv: NodeJS.ProcessEnv = {
+				...env,
+				EVF_TEST_REPORT: testReport,
+				EVF_FAILED_TESTS: failedTests,
+				EVF_SKIP_REASON: skipReason,
+			};
 			if (c.name === UI_ESCAPED) {
 				const escaped = uiEscapedGate(root, wt, task, baseSha);
 				if ("skip" in escaped) {
@@ -235,9 +261,23 @@ function runChecks({
 				result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
 				output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
 			}
-			console.error(`evf verify: ${c.name} ${result.code === 0 ? "passed" : "failed"}.`);
-			writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
-			checks.push(finished({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 }));
+			const skipped = result.code === 0 && existsSync(skipReason) ? readFileSync(skipReason, "utf8") : undefined;
+			console.error(
+				`evf verify: ${c.name} ${skipped ? `skipped: ${skipped}` : result.code === 0 ? "passed" : "failed"}.`,
+			);
+			const formatFix = c.name === FORMAT && result.code !== 0 ? `${FORMAT_FIX}\n` : "";
+			if (formatFix) console.error(`evf verify: ${formatFix.trim()}\n${warnLines(output)}`);
+			writeFileSync(log, `${formatFix}$ ${argv.join(" ")}\n\n${output}`);
+			checks.push(
+				finished({
+					name: c.name,
+					command: argv,
+					exitCode: result.code,
+					log,
+					passed: result.code === 0,
+					...(skipped ? { skipped } : {}),
+				}),
+			);
 			signals.testsFailed(c.name, testReport, failedTests);
 			if (!inputsUnchanged()) {
 				treeUnchanged = false;
@@ -245,17 +285,21 @@ function runChecks({
 			}
 		}
 		if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
-			console.error("evf verify: running fresh-checkout-typecheck.");
-			const finished = signals.suite();
-			checks.push(finished(freshCheckoutTypecheck(root, wt, sha, dir, role)));
-			treeUnchanged = inputsUnchanged();
+			if (stopped()) notRun.push("fresh-checkout-typecheck");
+			else {
+				console.error("evf verify: running fresh-checkout-typecheck.");
+				const finished = signals.suite();
+				checks.push(finished(freshCheckoutTypecheck(root, wt, sha, dir, role)));
+				treeUnchanged = inputsUnchanged();
+			}
 		}
 		// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
 		// Real acceptance remains the verifier's job.
 		const results = treeUnchanged
 			? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
 			: [];
-		if (results.some(hasCaseMarkers)) {
+		if (results.some(hasCaseMarkers) && stopped()) notRun.push("case-coverage");
+		else if (results.some(hasCaseMarkers)) {
 			const finished = signals.suite();
 			const coverage = caseCoverage(cases, { tests: results.flatMap((r) => testsOf(r)) }),
 				log = join(dir, "case-coverage.log");
@@ -289,6 +333,7 @@ function runChecks({
 			unchanged,
 			queuedMs,
 			checks,
+			...(notRun.length ? { stoppedAfter: checks.find((c) => !c.passed)!.name, notRun } : {}),
 			passed: unchanged && checks.length > 0 && checks.every((c) => c.passed),
 			evidenceDir: dir,
 			finishedAt: new Date().toISOString(),
@@ -296,6 +341,8 @@ function runChecks({
 		};
 		writeFileSync(join(dir, "checks.json"), JSON.stringify(report, null, 2) + "\n");
 		signals.end(!unchanged ? "invalidated" : report.passed ? "passed" : "failed");
+		if (notRun.length)
+			console.error(`evf verify: stopped after ${report.stoppedAfter}. Did not run: ${notRun.join(", ")}.`);
 		console.log(
 			`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
 		);
@@ -307,6 +354,20 @@ function runChecks({
 		unmarkFullCheck();
 	}
 }
+
+const FORMAT = "format";
+const FORMAT_FIX = "Format error. Run corepack pnpm format (prettier --write), commit, then run evf verify again.";
+/** The cheapest check goes first, so a format error costs no time in a longer check. */
+const formatFirst = (checks: CheckDef[]) => [
+	...checks.filter((c) => c.name === FORMAT),
+	...checks.filter((c) => c.name !== FORMAT),
+];
+/** Prettier's lines that name each unformatted file. */
+const warnLines = (output: string) =>
+	stripVTControlCharacters(output)
+		.split("\n")
+		.filter((line) => line.startsWith("[warn]"))
+		.join("\n");
 
 /**
  * CI runs Prettier and every package's unit tests, including the db schema check, on every PR. An OPS task's

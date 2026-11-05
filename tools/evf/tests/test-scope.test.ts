@@ -29,7 +29,7 @@ function scoped() {
 	};
 	const run = (...args: string[]) => {
 		rmSync(started, { force: true });
-		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "" };
+		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_ROLE: "" };
 		delete env.NODE_TEST_CONTEXT;
 		const r = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "test", ...args], {
 			cwd: f.root,
@@ -166,5 +166,5 @@ test("OPS-172: CI's evf job has the history the skip needs and still calls evf t
 		.split(/^  evf:$/m)[1]
 		.split(/^  \w+:$/m)[0];
 	assert.match(job, /actions\/checkout@\S+\n\s+with:\n\s+fetch-depth: 0/);
-	assert.match(job, /^ +- run: bin\/evf test$/m);
+	assert.match(job, /^ +- run: bin\/evf test( \$\{\{ .* \}\})?$/m);
 });

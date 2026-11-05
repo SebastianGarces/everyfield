@@ -207,7 +207,10 @@ test("OPS-136: evf test prints the refusal, exits non-zero and starts no tests; 
 	} finally {
 		clean.f.close();
 	}
-	assert.match(readFileSync(join(source, ".github/workflows/ci.yml"), "utf8"), /^ +- run: bin\/evf test$/m);
+	assert.match(
+		readFileSync(join(source, ".github/workflows/ci.yml"), "utf8"),
+		/^ +- run: bin\/evf test( \$\{\{ .* \}\})?$/m,
+	);
 });
 
 test("OPS-136: the lint passes on the real tools/evf/tests AC:OPS-136-9", () => {

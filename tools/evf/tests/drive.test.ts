@@ -2283,7 +2283,7 @@ const nestedLog = (f: ReturnType<typeof driveFixture>) =>
 			JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, head(f), "author-full"), "checks.json"), "utf8")) as {
 				checks: Array<{ log: string }>;
 			}
-		).checks[0]!.log,
+		).checks[1]!.log,
 		"utf8",
 	);
 

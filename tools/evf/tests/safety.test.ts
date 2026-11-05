@@ -62,7 +62,7 @@ test("BUG-OPS9-verifier: check caller checkout and refuse a dirty tree or mismat
 		const report = JSON.parse(
 			readFileSync(join(evfDataDir(f.root), "evidence/ops-1", sha, "verifier-full/checks.json"), "utf8"),
 		);
-		assert.match(readFileSync(report.checks[0].log, "utf8"), new RegExp(realpathSync(reviewer)));
+		assert.match(readFileSync(report.checks[1].log, "utf8"), new RegExp(realpathSync(reviewer)));
 		const mismatch = cli(reviewer, "verify", "OPS-1", "--role", "verifier", "--head", "a".repeat(40));
 		assert.equal(mismatch.status, 1);
 		assert.match(mismatch.stderr, /HEAD.*does not match/);
@@ -122,8 +122,8 @@ test("BUG-164-ci-parity: OPS verify adds CI's format and unit checks; PR open re
 		assert.deepEqual(
 			report.checks.map((c) => [c.name, c.passed]),
 			[
-				["check", true],
 				["format", true],
+				["check", true],
 				["package-unit-tests", true],
 			],
 		);
@@ -155,7 +155,7 @@ console.log('built');`);
 		assert.equal(report.passed, true);
 		const attempts = join(evfDataDir(f.root), "runtime/ops-1/attempts");
 		assert.equal(readFileSync(attempts, "utf8"), "2");
-		assert.match(readFileSync(report.checks[0].log, "utf8"), /Retry.*Next build lock/);
+		assert.match(readFileSync(report.checks[1].log, "utf8"), /Retry.*Next build lock/);
 		const run = (error: string) => {
 			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
 			cfg.maintenanceTasks["OPS-1"].checks[0].run[2] =
@@ -202,7 +202,7 @@ test("BUG-OPS9-node: checks launched from a Node 22 shell inherit evf's Node 24"
 			readFileSync(join(evfDataDir(f.root), "evidence/ops-1", sha, "author-full/checks.json"), "utf8"),
 		);
 		assert.match(
-			readFileSync(report.checks[0].log, "utf8"),
+			readFileSync(report.checks[1].log, "utf8"),
 			new RegExp(`v${process.versions.node.replaceAll(".", "\\.")}`),
 		);
 	} finally {
@@ -303,7 +303,7 @@ test("BUG-home-registration: an OPS task registers on its own branch and verifie
 		);
 		const report = verify(f.root, task, "author", "full");
 		assert.equal(report.passed, true);
-		assert.match(readFileSync(report.checks[0].log, "utf8"), /branch check ran/);
+		assert.match(readFileSync(report.checks[1].log, "utf8"), /branch check ran/);
 		// Owning evf.config.json never waives the rule: the branch still changes only its own entry.
 		cfg.maintenanceTasks["OPS-900"].owningPaths = ["tools/evf/", "evf.config.json"];
 		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));

@@ -97,7 +97,9 @@ jobs:
           git config --global user.name "evf ci"
           git config --global user.email "ci@everyfield.invalid"
           git config --global init.defaultBranch main
-      - run: bin/evf test
+      # Every push to main runs the whole suite. A pull request with no evf path skips it (tools/evf/test-scope.ts):
+      # this step still exits 0, so this job and the required `ci` check report success.
+      - run: bin/evf test ${{ github.event_name == 'push' && '--all' || '' }}
       - name: Local stack isolation and reporting
         run: corepack pnpm test:workflow
       - name: Evry eval coverage

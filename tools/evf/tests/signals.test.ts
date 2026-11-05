@@ -317,10 +317,10 @@ test("AC:OPS-132-2 result covers invalidated and a throw, and a suite's time inc
 			},
 		]);
 		const report = withRun(undefined, () => quiet(() => verify(f.root, task, "author", "full"))).value;
-		const suite = ofType(stored(f), "check_suite_end")[0].payload;
+		const suite = ofType(stored(f), "check_suite_end")[1].payload;
 		assert.equal(suite.passed, true);
 		assert.ok(Number(suite.durationMs) >= 10_000, `retry wait is in ${suite.durationMs}`);
-		assert.equal(report.checks[0].durationMs, suite.durationMs);
+		assert.equal(report.checks[1].durationMs, suite.durationMs);
 		assert.equal(stored(f).at(-1)!.payload.result, "passed");
 
 		const setChecks = (checks: Check[]) => {
@@ -461,7 +461,6 @@ test("AC:OPS-132-4 a failed test records one test_failed; passed, skipped and na
 				],
 				1,
 			),
-			{ name: "silent", run: node("process.exit(1)") },
 		]);
 		const sha = f.git("-C", wt, "rev-parse", "HEAD");
 		const verifyOnce = () => withRun(undefined, () => quiet(() => verify(f.root, task, "author", "full")));
@@ -477,8 +476,6 @@ test("AC:OPS-132-4 a failed test records one test_failed; passed, skipped and na
 			test: "red",
 			touchesTestPaths: false,
 		});
-		const suites = ofType(stored(f), "check_suite_end");
-		assert.equal(suites.find((s) => s.payload.suite === "silent")!.payload.passed, false);
 
 		// The attempt number counts reruns at this head.
 		verifyOnce();
@@ -501,6 +498,19 @@ test("AC:OPS-132-4 a failed test records one test_failed; passed, skipped and na
 		commit("tools/evf/widget.test.ts", "export {};\n");
 		verifyOnce();
 		assert.equal(ofType(stored(f), "test_failed").at(-1)!.payload.touchesTestPaths, true);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-132-4 a failed check with no test names records no test_failed", () => {
+	const f = fixture();
+	try {
+		const { task } = opsTask(f, [{ name: "silent", run: node("process.exit(1)") }]);
+		withRun(undefined, () => quiet(() => verify(f.root, task, "author", "full")));
+		assert.equal(ofType(stored(f), "test_failed").length, 0);
+		const suites = ofType(stored(f), "check_suite_end");
+		assert.equal(suites.find((s) => s.payload.suite === "silent")!.payload.passed, false);
 	} finally {
 		f.close();
 	}
@@ -555,7 +565,7 @@ test("AC:OPS-132-5 a rerun copies the earlier run to attempt-n and the current p
 			readdirSync(dir)
 				.filter((e) => e.includes("attempt"))
 				.sort();
-		const logOf = (report: CheckReport) => readFileSync(report.checks[0].log, "utf8");
+		const logOf = (report: CheckReport) => readFileSync(report.checks[1].log, "utf8");
 		const recordIn = (path: string) => JSON.parse(readFileSync(join(path, "checks.json"), "utf8")) as CheckReport;
 
 		const first = once();
@@ -572,15 +582,15 @@ test("AC:OPS-132-5 a rerun copies the earlier run to attempt-n and the current p
 		const one = recordIn(join(dir, "attempt-1"));
 		assert.equal(one.finishedAt, firstFinished);
 		assert.equal(one.evidenceDir, join(dir, "attempt-1"));
-		assert.ok(one.checks[0].log.startsWith(join(dir, "attempt-1") + "/"));
-		assert.match(readFileSync(one.checks[0].log, "utf8"), /run 1 folders/);
+		assert.ok(one.checks[1].log.startsWith(join(dir, "attempt-1") + "/"));
+		assert.match(readFileSync(one.checks[1].log, "utf8"), /run 1 folders/);
 		assert.equal(recordIn(dir).finishedAt, second.finishedAt);
 
 		const third = once();
 		assert.deepEqual(folders(), ["attempt-1", "attempt-2"]);
 		const two = recordIn(join(dir, "attempt-2"));
 		assert.equal(two.finishedAt, second.finishedAt);
-		assert.match(readFileSync(two.checks[0].log, "utf8"), /run 2 folders/);
+		assert.match(readFileSync(two.checks[1].log, "utf8"), /run 2 folders/);
 		assert.equal(existsSync(join(dir, "attempt-2/attempt-1")), false, "attempt folders are not copied again");
 		assert.deepEqual(
 			readdirSync(join(dir, "attempt-1")).filter((e) => e.includes("attempt")),
