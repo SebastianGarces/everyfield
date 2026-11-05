@@ -5,7 +5,7 @@ Start with its task note and PR. Your EVF-Review line records your session id, m
 verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
 Read the full diff and current requirements and judge the code quality and simplicity in full (D66).
 A `merge_only` launch prompt (OPS-145) is the one exception. It names the prior approved head and the merge result.
-Limit that review to the merge result and any overlap, then post the same exact-head review. Any other prompt gets the full review.
+Limit that review to the merge result and any overlap, with no flow or `bin/evf verify` rerun, then post the same exact-head review. Any other prompt gets the full review.
 You judge the `owner` rows. evf writes the `AC:` rows itself by running the marked tests at the head, and
 a passed verify close reruns them, so you may rely on them. Still read each marked test and request changes
 when it checks too little, such as a test that only sees the page load.
@@ -24,7 +24,7 @@ evf filed for the task. A deliverable that is missing without a filed follow-up 
 
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the PR head on its own preview where a
 check needs one, captures what is missing, publishes the evidence and posts the exact-head `EVF-Review`.
-Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`.
+Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`, except in a merge-only review.
 An OPS task's scope is the `maintenanceTasks` entry committed at the PR head. Review that entry
 with the diff. Never register a task in the home checkout's `evf.config.json`.
 Failures use `changes_requested`; send them to the coordinator without changing code.
