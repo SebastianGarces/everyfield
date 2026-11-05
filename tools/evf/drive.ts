@@ -157,6 +157,10 @@ type RunRow = {
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
 /** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
+const specHash = (spec: string | null) =>
+	createHash("sha256")
+		.update(spec ?? "")
+		.digest("hex");
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	(
 		db
@@ -672,14 +676,16 @@ const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
 /**
  * What changed since the task's latest verify close, for the verifier about to start (OPS-145). A prior approval needs
  * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
+ * A spec changed since that close keeps the head on record, but the approval judged the old contract: a full review.
  */
 function deltaSinceApproval(db: DatabaseSync, taskId: number, wt: string, main: string): VerifyDelta {
 	const marker = reopenMarker(db, taskId),
 		runs = runsOf(db, taskId).filter((r) => r.id > marker),
 		at = runs.findLastIndex((r) => r.stage === "verify" && (r.status === "passed" || r.status === "failed")),
 		close = runs[at],
-		approved = close?.status === "passed" && !bodyOnlyHead(db, taskId) ? close.progress_head : null;
-	return verifyDelta(wt, main, approved, runs.slice(at + 1));
+		approved = close?.status === "passed" && !bodyOnlyHead(db, taskId) ? close.progress_head : null,
+		spec = db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null };
+	return verifyDelta(wt, main, approved, runs.slice(at + 1), close?.progress_spec !== specHash(spec.spec));
 }
 function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
 	const head = bodyOnlyHead(db, taskId);
@@ -916,18 +922,7 @@ export function runDone(
 		const fingerprinted = opts.closedBy !== "evf" && r.mode === "implement" && FINGERPRINTED.has(r.stage) && !!head;
 		db.prepare(
 			"UPDATE runs SET status = ?, ended_at = ?, summary = ?, progress_head = ?, progress_spec = ? WHERE id = ?",
-		).run(
-			status,
-			now(),
-			summary,
-			fingerprinted ? head : null,
-			fingerprinted
-				? createHash("sha256")
-						.update(r.spec ?? "")
-						.digest("hex")
-				: null,
-			runId,
-		);
+		).run(status, now(), summary, fingerprinted ? head : null, fingerprinted ? specHash(r.spec) : null, runId);
 		fillRunUsage(db, runId);
 		record(db, r.task_id, runId, "stage_end", {
 			stage: r.stage,

@@ -1431,7 +1431,10 @@ function approvedAtVerify(f: ReturnType<typeof driveFixture>, onMain: { path: st
 }
 function closeVerify(f: ReturnType<typeof driveFixture>, at: string, decision: string) {
 	const run = f.insertRun("verify", "verifier", decision === "changes_requested" ? "failed" : "passed");
-	f.db.prepare("UPDATE runs SET progress_head = ? WHERE id = ?").run(at, run);
+	const spec = createHash("sha256")
+		.update(f.taskRow().spec ?? "")
+		.digest("hex");
+	f.db.prepare("UPDATE runs SET progress_head = ?, progress_spec = ? WHERE id = ?").run(at, spec, run);
 	f.db
 		.prepare(
 			"INSERT INTO approvals (task_id, gate, approver, head_sha, decision, created_at) VALUES (?, 'verify', 'verifier', ?, ?, ?)",
@@ -1496,6 +1499,7 @@ test(
 		assert.ok(prompt.includes(`post-review.mjs --head ${merged}`));
 		assert.match(prompt, /Limit your review to the merge result and the overlap/);
 		assert.match(prompt, /Required CI on the exact head stays required/);
+		assert.match(prompt, /Read the current PR body/);
 		assert.doesNotMatch(prompt, FULL_REVIEW);
 	}),
 );
@@ -1552,6 +1556,23 @@ test("AC:OPS-145-2 a merge that is not the clean merge gives code and the full r
 			const { start, prompt } = verifyPass(f);
 			assert.deepEqual([start.priorApprovedHead, start.deltaKind], [approved, "code"], write.name);
 			assert.match(prompt, FULL_REVIEW);
+		})();
+});
+
+test("AC:OPS-145-2 a spec changed after the approval: a clean merge of main gets code and the full review, and the record keeps the prior head; the same spec stays merge_only", () => {
+	for (const changed of [false, true])
+		withDrive((f) => {
+			const approved = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+			if (changed) f.db.prepare("UPDATE tasks SET spec = spec || ? WHERE id = ?").run("\n2. New.", f.taskId);
+			mergeOriginMain(f);
+			seatRuns(f, "implement");
+			const { start, prompt } = verifyPass(f);
+			assert.deepEqual(
+				[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines],
+				[head(f), approved, changed ? "code" : "merge_only", 1],
+			);
+			assert.equal(/merge-only review/.test(prompt), !changed);
+			assert.equal(FULL_REVIEW.test(prompt), changed);
 		})();
 });
 
@@ -1632,6 +1653,16 @@ test(
 			[approved, approved, "code", 0],
 		);
 		assert.match(prompt, FULL_REVIEW);
+	}),
+);
+
+test(
+	"AC:OPS-145-3 a simplify run that changed nothing is not a simplify delta: the same head stays code",
+	withDrive((f) => {
+		const approved = approvedAtVerify(f);
+		seatRuns(f, "simplify");
+		const { start } = verifyPass(f);
+		assert.deepEqual([start.head, start.deltaKind, start.deltaLines], [approved, "code", 0]);
 	}),
 );
 

@@ -40,9 +40,16 @@ function onlySimplified(wt: string, main: string, prior: string, head: string, a
 
 /**
  * Classifies the worktree head against `prior`, the head the latest verify close approved. `after` lists the runs since
- * that close. A Git error gives `code`: an unreadable delta gets the full review.
+ * that close. `specChanged` means the spec is not the one that close judged, which gives `code` whatever Git shows.
+ * A Git error gives `code`: an unreadable delta gets the full review.
  */
-export function verifyDelta(wt: string, main: string, prior: string | null, after: RunAfterApproval[]): VerifyDelta {
+export function verifyDelta(
+	wt: string,
+	main: string,
+	prior: string | null,
+	after: RunAfterApproval[],
+	specChanged: boolean,
+): VerifyDelta {
 	const head = git(wt, "rev-parse", "HEAD");
 	try {
 		if (!prior)
@@ -53,8 +60,9 @@ export function verifyDelta(wt: string, main: string, prior: string | null, afte
 				deltaLines: changedLines(wt, git(wt, "merge-base", head, main), head),
 			};
 		const known = { head, priorApprovedHead: prior, deltaLines: changedLines(wt, prior, head) };
+		if (specChanged || head === prior) return { ...known, deltaKind: "code" };
 		const merges = cleanMerges(wt, prior, head, main);
-		if (typeof merges !== "string" && merges.length) {
+		if (typeof merges !== "string") {
 			const { base, overlap } = mergedMainOverlap(wt, prior, head, main);
 			return { ...known, deltaKind: "merge_only", base, overlapPaths: overlap };
 		}
@@ -71,5 +79,5 @@ export function mergeOnlyPrompt(task: TaskRef, delta: VerifyDelta): string {
 	const overlap = overlapPaths.length
 		? `The branch and main both changed these paths, so read each one at ${head} and confirm that both sides' changes survive: ${overlapPaths.join(", ")}.`
 		: "The branch and main changed no path in common.";
-	return `Verify task ${task.id}: this is a merge-only review. The verifier approved the prior head ${prior}. Every commit from it to the merge result ${head} is a clean merge of main: evf recomputed each merge tree and it matches. Limit your review to the merge result and the overlap. Read git diff ${prior} ${head}, which is what main brought in, against the branch's own change in git diff ${base} ${prior}. ${overlap} Also check whether what main changed breaks anything the branch calls or depends on. The approved review at the prior head stands for the rest: do not judge the rest of the diff again and do not rerun flows or bin/evf verify. Required CI on the exact head stays required, and evf ship checks it. Post one exact-head review with post-review.mjs --head ${head} --session <bin/evf session> --model claude-opus-5-5. Take the Ask coverage rows from the approved review at the prior head, and judge Code quality and Experience on the merge result. Close with bin/evf run done $EVF_RUN --status passed (approved) or failed (changes requested) --summary-file <path> listing every finding.`;
+	return `Verify task ${task.id}: this is a merge-only review. The verifier approved the prior head ${prior}. Every commit from it to the merge result ${head} is a clean merge of main: evf recomputed each merge tree and it matches. Limit your review to the merge result and the overlap. Read git diff ${prior} ${head}, which is what main brought in, against the branch's own change in git diff ${base} ${prior}. ${overlap} Also check whether what main changed breaks anything the branch calls or depends on. The approved review at the prior head stands for the rest: do not judge the rest of the diff again and do not rerun flows or bin/evf verify. Required CI on the exact head stays required, and evf ship checks it. Read the current PR body and confirm that it still describes the branch. Post one exact-head review with post-review.mjs --head ${head} --session <bin/evf session> --model claude-opus-5-5. Take the Ask coverage rows from the approved review at the prior head, and judge Code quality and Experience on the merge result. Close with bin/evf run done $EVF_RUN --status passed (approved) or failed (changes requested) --summary-file <path> listing every finding.`;
 }

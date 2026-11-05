@@ -759,10 +759,10 @@ since the prior approved head, or since the branch's base with none.
 |---|---|---|
 | `merge_only` | Every commit since the approved head is a clean merge of main (`cleanMerges`, the check behind the carry proof). | The prompt names the prior head, the merge result and the `overlapPaths`, and limits the review to them. |
 | `simplify` | The non-merge commits came from the simplify seat: no implement run since the approval added code. | Full. |
-| `code` | Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
+| `code` | A spec changed since the approval, whatever Git shows. Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
 
 Only a `passed` close without a `body_only` decision counts as an approval. Changes requested, a `body_only` review and a
-reopen each leave `priorApprovedHead` null. A `merge_only` review changes what the verifier reads and nothing that
+reopen each leave `priorApprovedHead` null. A changed spec keeps it on record, with `deltaKind` `code`. A `merge_only` review changes what the verifier reads and nothing that
 `evf ship` checks: it still requires required CI and an independent review on the exact head.
 
 ## Answer key (OPS-112)
