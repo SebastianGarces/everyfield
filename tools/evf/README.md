@@ -1251,11 +1251,56 @@ A full check takes its slot first and then runs the load wait while it holds the
 high load. `--ignore-load` skips the load wait and not the queue. When the pr stage's `verify` gives up in the queue or
 in the load wait, the drive closes that run as `aborted` and reruns the pr stage, with no implement run and no round.
 
+## Check alarm
+
+`evf check-alarm [--json]` (OPS-139) reads the checks at the current head of each open PR, drafts too, and prints the
+names it first saw, the red non-required checks and the alarms it raised. An alarm blocks nothing and closes nothing:
+the ci stage, `evf ship` and the required checks do not read it, and a poll writes no task status, run or stage event.
+
+| Alarm | Raised when | Event | In the owner digest |
+| --- | --- | --- | --- |
+| New check | a name not seen in the last 7 days has reached 2 PRs, also across polls, within 7 days of its first sighting | `ci_new_check_alarm` | yes, 24 h, apart from the open items |
+| Red check | one non-required check is red (`fail` or `cancel` bucket) on 2 open PRs | `ci_nonrequired_red_alarm` | no |
+
+- Each alarm sends the Herdr notification that `holdTask` sends, once. Its event holds `check`, `prs` and
+  `notified`: true or false for the send, null when the poll was killed before the send ended. A failed send does not
+  fail the poll.
+- `ci_nonrequired_red` {check, pr, head, firstSeenAt} records each red non-required check once per PR and head.
+  `evf events --type ci_nonrequired_red` lists them.
+- A red alarm is raised once. It can be raised again only after a poll that finds the check red on no open PR.
+- A check that is new and red on 2 PRs raises one alarm of each kind. Any name can be new, required or not.
+- A baseline poll records names and raises no alarm: the first poll on a store with no names, and any poll after more
+  than 7 days with no successful poll. Otherwise the checks that exist would all alarm as new. It still records
+  `ci_nonrequired_red` events, and a check that is still red on 2 PRs raises its red alarm on the next poll.
+- A failed GitHub read, also of the required-check list, ends the poll with a message and exit 1. That poll records no
+  sighting and no event, and it does not count as the last successful poll.
+- A name that ran only on PRs closed before the first poll can raise one false new-check alarm later.
+
+The state is in the store: `check_names` holds one row per name, and `check_poll` holds the last attempt and the last
+successful poll.
+
+The minute sampler is the only clock. A tick starts one poll when the last poll is 5 min old or more, and a manual poll
+counts. The poll runs in its own process with a 2 min timeout, and the tick does not wait for it. A new check waits at
+most 6 min for a poll and the poll takes at most 2 min, so the alert arrives within 10 min. A sampled poll prints to no one, so
+a repeated read failure is silent: run `evf check-alarm` to see the message.
+
+Limit: polls run only while the sampler runs. `evf sampler stop` stops the polls, and the next `evf drive` or
+`evf sampler start` starts them again. A sampler keeps the code it started with, so it starts polling only after a
+restart at code that holds this section.
+
+### Outside settings
+
+No seat or coordinator creates or links a Vercel project, repo setting or integration until Sebastian's words are
+recorded (`.agents/roles/coordinator.md`). `evf outside-setting approved --what "<what>" --words "<his words>"` records one
+`outside_setting_approved` event {what, words, at} with the words unchanged. It refuses an empty value and refuses to
+run from a seat. evf does not watch those settings and does not block a call to them.
+
 ## Minute sampler
 
 One detached process (OPS-133) records load, CPU share by class and queue state once per minute, so a bottleneck
 review reads numbers. These records are only history. No gate, scheduler, report or doctor line reads them, and the load
-limit above does not change. The same process also runs the dead drive watcher (below), which reads none of them.
+limit above does not change. The same process also runs the dead drive watcher (below), which reads none of them. A tick
+also starts the poll of the check alarm (see "Check alarm"), which reads none of them either.
 
 `evf sampler start` starts it. A second start exits 0 and says a sampler already runs. `evf sampler stop` ends it with
 SIGTERM, removes its lock and exits 0 when none runs. `evf drive` starts it if none runs, and a sampler failure never

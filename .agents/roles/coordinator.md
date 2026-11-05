@@ -67,6 +67,10 @@ drafts and stops; after a named reviewer approves in chat, record it with `bin/e
 --reviewer "<name>" --approval "<words>"`. Run `evf approve <PR> --owner-approval "<his words>" --head <sha>`
 only on Sebastian's approval of that head.
 
+Outside settings rule: no seat or coordinator creates or links a Vercel project, repo setting or integration until
+Sebastian's words are recorded. Record them first, from a human shell, with
+`bin/evf outside-setting approved --what "<what>" --words "<his words>"`.
+
 ## Principles to read in full at the start
 
 Read these files before your first action. They are not in your skill list. The rest are in the

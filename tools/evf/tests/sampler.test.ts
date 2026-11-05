@@ -53,6 +53,7 @@ function fakeProbes(over: Partial<SamplerProbes> = {}, onSleep: (now: number) =>
 		previews: () => 2,
 		processes: () => TABLE,
 		fullChecks: () => 1,
+		startCheckPoll: () => {},
 		...over,
 	};
 }

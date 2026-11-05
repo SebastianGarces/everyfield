@@ -242,9 +242,12 @@ export function processCommand(pid: number, timeoutMs: number): string | null {
 	return (ps.code === 0 && ps.stdout.trim()) || null;
 }
 
-/** One Herdr notification. A hung Herdr costs the caller the limit, never the caller's work. */
-export function notify(title: string, body: string): void {
-	run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"], { timeoutMs: 10_000 });
+/** One Herdr notification, true when it was sent. A hung Herdr costs the caller the limit, never the caller's work. */
+export function notify(title: string, body: string): boolean {
+	return (
+		run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"], { timeoutMs: 10_000 }).code ===
+		0
+	);
 }
 
 /** Config commands named `node` run on evf's own Node 24, not whichever node is first on PATH. */

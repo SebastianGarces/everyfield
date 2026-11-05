@@ -13,6 +13,7 @@ import { loadavg } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
+import { claimPoll, evfArgs, startPoll } from "./check-alarm.ts";
 import { nextStageFromStore } from "./drive.ts";
 import { machineWatcher, watcherTick, type WatcherProbes } from "./drive-watcher.ts";
 import { evfDataDir, parseTask, processCommand, run, sleep } from "./lib.ts";
@@ -24,6 +25,7 @@ import { alive } from "./ship-queue.ts";
  * The minute sampler (OPS-133): one detached process that records load, CPU share by class and queue state once per
  * minute, so a bottleneck review reads numbers. It only writes history: nothing reads these records to decide anything.
  * The same process runs the dead drive watcher once per minute (drive-watcher.ts), which reads none of these records.
+ * A tick also starts the check alarm's poll (OPS-139), in its own process, when the last poll is 5 min old.
  * The rules a reader of the records needs are in the "Minute sampler" section of tools/evf/README.md.
  */
 
@@ -33,7 +35,7 @@ const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const HEARTBEAT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
-/** A tick's four child processes at this timeout and a busy store still end inside one minute, so ticks cannot stack. */
+/** A tick's five child processes at this timeout and a busy store still end inside one minute, so ticks cannot stack. */
 const PROBE_TIMEOUT_MS = 10_000;
 const LOAD_FILE = "load.jsonl";
 const CPU_FILE = "cpu.jsonl";
@@ -53,6 +55,8 @@ export type SamplerProbes = {
 	previews: () => number;
 	processes: () => ProcessRow[];
 	fullChecks: () => number;
+	/** Starts the check alarm's poll and returns at once. */
+	startCheckPoll: () => void;
 };
 
 const round = (n: number, digits: number) => Number(n.toFixed(digits));
@@ -137,6 +141,7 @@ export function machineProbes(root: string, timeoutMs = PROBE_TIMEOUT_MS): Sampl
 					return m ? [{ pcpu: Number(m[1]!.replace(",", ".")) || 0, command: m[2]! }] : [];
 				}),
 		fullChecks: () => countFullChecks(root),
+		startCheckPoll: () => startPoll(root, timeoutMs),
 	};
 }
 
@@ -180,7 +185,7 @@ function attempt<T>(action: () => T): T | null {
 const appendLine = (dir: string, file: string, line: Record<string, unknown>) =>
 	appendFileSync(join(dir, file), `${JSON.stringify(line)}\n`);
 
-/** One minute's records. The store write goes last: a busy store costs only the queue_tick. */
+/** One minute's records. The store writes go last: a busy store costs only the queue_tick and this tick's check poll. */
 export function samplerTick(root: string, probes: SamplerProbes): void {
 	const dir = evfDataDir(root),
 		at = new Date(probes.now()).toISOString();
@@ -210,6 +215,10 @@ export function samplerTick(root: string, probes: SamplerProbes): void {
 			}),
 		);
 		if (db && queue) attempt(() => record(db, null, null, "queue_tick", { ...queue, load: load1 }));
+		if (db)
+			attempt(() => {
+				if (claimPoll(db, probes.now())) probes.startCheckPoll();
+			});
 	} finally {
 		db?.close();
 	}
@@ -334,17 +343,11 @@ export function runSampler(
  * worktree that ship can remove: the home checkout's copy outlives it. A test fixture has no evf code of its own.
  */
 function spawnSampler(root: string): number | undefined {
-	const home = join(root, "tools/evf/main.ts");
-	const child = spawn(
-		process.execPath,
-		[
-			"--disable-warning=ExperimentalWarning",
-			existsSync(home) ? home : join(import.meta.dirname, "main.ts"),
-			"sampler",
-			"run",
-		],
-		{ cwd: root, detached: true, stdio: "ignore" },
-	);
+	const child = spawn(process.execPath, evfArgs(root, "sampler", "run"), {
+		cwd: root,
+		detached: true,
+		stdio: "ignore",
+	});
 	child.unref();
 	return child.pid;
 }
