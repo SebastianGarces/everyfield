@@ -713,7 +713,10 @@ test("OPS-144-1: a format error refuses at once with the queue full and the load
 		f.git("-C", f.wt, "merge", "-q", "--no-edit", "main");
 		tickets(f.dir, [1, 2, 3]);
 		const held = f.tickets().length;
-		const { value: report, err } = quiet(() => verify(f.root, task, "author", "full"));
+		// Any wait for the load gate would throw here: this limit is below every real load, and it allows no wait.
+		f.setLoad({ maxPerCore: 0.000001, maxWaitMinutes: 0 });
+		const { value: report, err, thrown } = quiet(() => verify(f.root, task, "author", "full"));
+		assert.equal(thrown, undefined);
 		assert.equal(report?.passed, false);
 		assert.deepEqual(
 			report?.checks.map((c) => c.name),

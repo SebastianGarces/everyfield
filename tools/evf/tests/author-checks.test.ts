@@ -106,7 +106,7 @@ test("OPS-144-3: a verifier run records every check after a failure and no stop"
 });
 
 /** A branch with a real `evf test` check. Its one tooling test leaves a marker outside the checkout when it runs. */
-function regressions() {
+function regressions(extraTest = "") {
 	const f = fixture();
 	const started = join(f.root, "..", `started-${process.pid}-${Date.now()}`);
 	mkdirSync(join(f.root, "tools/evf/tests"), { recursive: true });
@@ -115,7 +115,7 @@ function regressions() {
 	writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
 	writeFileSync(
 		join(f.root, "tools/evf/tests/one.test.ts"),
-		`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(started)}, "started");\n`,
+		`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(started)}, "started");\n${extraTest}`,
 	);
 	f.cfg.maintenanceTasks = {
 		"OPS-1": {
@@ -161,6 +161,37 @@ test("OPS-144-4,5,8: the record shows a skip with its reason, pre-push accepts i
 	} finally {
 		rmSync(started, { force: true });
 		f.close();
+	}
+});
+
+test("OPS-144-4: a nested evf test that skips inside a full suite run leaves no skip on the outer check", () => {
+	// The fixtures of test-scope.test.ts do this: the full suite runs `evf test` in a repo with no evf path.
+	const inner = regressions();
+	const nestedOut = join(inner.f.root, "nested-out.txt");
+	const { f, wt, started } = regressions(
+		`import { spawnSync } from "node:child_process";
+const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+const r = spawnSync(process.execPath, [${JSON.stringify(join(source, "tools/evf/main.ts"))}, "test"], { cwd: ${JSON.stringify(inner.wt)}, encoding: "utf8", env });
+writeFileSync(${JSON.stringify(nestedOut)}, String(r.status) + r.stdout + r.stderr);
+`,
+	);
+	try {
+		writeFileSync(join(inner.wt, "docs-notes.md"), "changed\n");
+		git(inner.wt, "add", "-A");
+		git(inner.wt, "commit", "-qm", "Doc only");
+		writeFileSync(join(wt, "tools/evf/x.ts"), "changed\n");
+		git(wt, "add", "-A");
+		git(wt, "commit", "-qm", "Tool path");
+		const check = verify(f.root, task, "author", "full").checks.find((c) => c.name === "workflow-regressions")!;
+		assert.equal(check.passed, true, readFileSync(check.log, "utf8"));
+		assert.match(readFileSync(nestedOut, "utf8"), /^0.*skipped the tooling tests/s, "the nested evf test skipped");
+		assert.equal(existsSync(started), true);
+		assert.equal("skipped" in check, false, "the outer suite ran");
+	} finally {
+		rmSync(started, { force: true });
+		rmSync(inner.started, { force: true });
+		f.close();
+		inner.f.close();
 	}
 });
 

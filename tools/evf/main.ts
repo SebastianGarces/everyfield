@@ -312,7 +312,13 @@ function main(argv: string[]): number | Promise<number> {
 			const budget = machineBudget();
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
 			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
-			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
+			// The record files belong to this check, so a nested evf process in the suite must not write to them.
+			const {
+				EVF_FAILED_TESTS: failedTests,
+				EVF_SKIP_REASON: _skipReason,
+				EVF_TEST_REPORT: _testReport,
+				...env
+			} = process.env;
 			const report = failedTests
 				? [
 						"--test-reporter=spec",

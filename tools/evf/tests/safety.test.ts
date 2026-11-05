@@ -202,7 +202,7 @@ test("BUG-OPS9-node: checks launched from a Node 22 shell inherit evf's Node 24"
 			readFileSync(join(evfDataDir(f.root), "evidence/ops-1", sha, "author-full/checks.json"), "utf8"),
 		);
 		assert.match(
-			readFileSync(report.checks[0].log, "utf8"),
+			readFileSync(report.checks[1].log, "utf8"),
 			new RegExp(`v${process.versions.node.replaceAll(".", "\\.")}`),
 		);
 	} finally {
