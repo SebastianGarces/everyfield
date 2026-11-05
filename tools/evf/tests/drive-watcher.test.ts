@@ -15,7 +15,7 @@ import { machineWatcher, watcherTick, type WatcherProbes } from "../drive-watche
 import { drive } from "../drive.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { applyRetention, runSampler, type SamplerProbes } from "../sampler.ts";
-import { fixture, pidFileHolder, source } from "./fixtures.ts";
+import { cli, fixture, noSeatEnv, pidFileHolder, source } from "./fixtures.ts";
 
 const T0 = Date.parse("2026-11-04T10:00:00.000Z");
 const MIN = 60_000;
@@ -57,11 +57,10 @@ function store(status = "active") {
 	return { ...f, db, id, seed, events, count, insertRun, done: () => (db.close(), f.close()) };
 }
 
-/** A fake clock and machine. `refusal` makes each start refuse; `live` is what the pid file names. */
+/** A fake clock and machine. `refusal` makes each start refuse; no pid file names a live drive. */
 function watcher(s: ReturnType<typeof store>) {
 	const w = {
 		at: T0,
-		live: null as number | null,
 		refusal: null as string | null,
 		starts: [] as Array<{ ref: string; restartsAtSpawn: number }>,
 		notes: [] as Array<{ title: string; body: string }>,
@@ -73,7 +72,7 @@ function watcher(s: ReturnType<typeof store>) {
 	};
 	w.probes = {
 		now: () => w.at,
-		liveDrive: () => w.live,
+		liveDrive: () => false,
 		startDrive: (ref) => {
 			w.starts.push({ ref, restartsAtSpawn: s.count("drive_restart") });
 			return w.refusal;
@@ -363,11 +362,7 @@ test("a stop 60 s after the newest merge of any task carries the flag and says s
 		assert.equal(at61.lastMergeAt, iso(T0));
 		assert.doesNotMatch(at61.summary, /merge|OPS task/);
 
-		const status = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "status", "--json"], {
-			cwd: s.root,
-			encoding: "utf8",
-			env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "" },
-		});
+		const status = cli(s.root, {}, "status", "--json");
 		const recent = (JSON.parse(status.stdout) as { recent: Array<{ type: string; summary: string }> }).recent;
 		assert.ok(recent.some((e) => e.type === "drive_stopped" && /consider an OPS task/.test(e.summary)));
 	} finally {
@@ -431,16 +426,7 @@ test("the real restart: stale code refuses through requireCurrentCode with no se
 });
 
 /** A real `evf drive` through main.ts. Its exit code and the events are what a watcher reads. */
-const realDrive = (s: ReturnType<typeof store>, ...flags: string[]) =>
-	spawnSync(
-		process.execPath,
-		["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1", ...flags],
-		{
-			cwd: s.root,
-			encoding: "utf8",
-			env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
-		},
-	);
+const realDrive = (s: ReturnType<typeof store>, ...flags: string[]) => cli(s.root, {}, "drive", "OPS-1", ...flags);
 
 test("every normal exit records drive_ended with its stage and exit code, and the watcher skips that task (AC:OPS-137-8)", () => {
 	const cases: Array<[string, string, number, (s: ReturnType<typeof store>) => string[]]> = [
@@ -571,9 +557,6 @@ test("an uncaught failure in the drive loop records no drive_ended, so the watch
 	}
 });
 
-const fakeDriveProcess = (s: ReturnType<typeof store>, name = "main.ts", ...args: string[]) =>
-	pidFileHolder(s.root, task.slug, name, ...args);
-
 test("evf drive --stop records the request, signals the live drive and exits 0 when none runs; that stop never restarts, a new drive's heartbeat clears it (AC:OPS-137-9)", async () => {
 	const s = store();
 	try {
@@ -582,7 +565,7 @@ test("evf drive --stop records the request, signals the live drive and exits 0 w
 		assert.match(none.stdout, /No drive runs for OPS-1/);
 		assert.equal(s.events("drive_stop_requested")[0]!.payload.pid, null);
 
-		const { child, exited } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+		const { child, exited } = await pidFileHolder(s.root, task.slug, "main.ts", "drive", "OPS-1");
 		beat(s, T0, child.pid!);
 		const stopped = realDrive(s, "--stop");
 		assert.equal(stopped.status, 0);
@@ -607,7 +590,7 @@ test("evf drive --stop records the request, signals the live drive and exits 0 w
 
 test("--stop signals no process that a pid file names when that pid now runs another command (AC:OPS-137-9)", async () => {
 	const s = store();
-	const { child } = await fakeDriveProcess(s, "other.ts");
+	const { child } = await pidFileHolder(s.root, task.slug, "other.ts");
 	try {
 		const r = realDrive(s, "--stop");
 		assert.equal(r.status, 0);
@@ -622,7 +605,7 @@ test("--stop signals no process that a pid file names when that pid now runs ano
 
 test("--stop on a live pid whose command ps cannot read sends no signal, records nothing and exits non-zero; the watcher waits; a start refuses (AC:OPS-137-9) (AC:OPS-137-10)", async () => {
 	const s = store();
-	const { child } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+	const { child } = await pidFileHolder(s.root, task.slug, "main.ts", "drive", "OPS-1");
 	try {
 		writeFileSync(join(s.root, "fake-bin/ps"), "#!/bin/sh\nexit 1\n");
 		chmodSync(join(s.root, "fake-bin/ps"), 0o755);
@@ -653,7 +636,7 @@ test("--stop on a live pid whose command ps cannot read sends no signal, records
 
 test("--stop exits 0 with a message when the drive ends between the check and the signal (AC:OPS-137-9)", async () => {
 	const s = store();
-	const { child, exited } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+	const { child, exited } = await pidFileHolder(s.root, task.slug, "main.ts", "drive", "OPS-1");
 	try {
 		// The drive dies during the check. The async spawn lets this test process reap it, so the pid is really gone.
 		writeFileSync(
@@ -664,10 +647,7 @@ test("--stop exits 0 with a message when the drive ends between the check and th
 		const stop = spawn(
 			process.execPath,
 			["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1", "--stop"],
-			{
-				cwd: s.root,
-				env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
-			},
+			{ cwd: s.root, env: noSeatEnv() },
 		);
 		let out = "";
 		stop.stdout.on("data", (d) => (out += d));
@@ -722,7 +702,7 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 		w.probes.liveDrive = machineWatcher(s.root).liveDrive;
 		beat(s, T0);
 
-		const live = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+		const live = await pidFileHolder(s.root, task.slug, "main.ts", "drive", "OPS-1");
 		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "drive", pid: live.child.pid });
 		for (const m of [5, 60, 600]) w.tick(T0 + m * MIN);
 		assert.equal(watcherEvents(s), 0);
@@ -732,7 +712,7 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 		await live.exited;
 
 		// A pid that a different command now holds.
-		const other = await fakeDriveProcess(s, "other.ts");
+		const other = await pidFileHolder(s.root, task.slug, "other.ts");
 		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "none" });
 		w.tick(T0 + 601 * MIN);
 		assert.equal(s.count("drive_restart"), 1, "another command's pid counts as dead");
@@ -746,7 +726,7 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 		beat(s, T0 + 700 * MIN);
 		w.tick(T0 + 705 * MIN);
 		assert.equal(s.count("drive_restart"), 2);
-		const back = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+		const back = await pidFileHolder(s.root, task.slug, "main.ts", "drive", "OPS-1");
 		w.tick(T0 + 900 * MIN);
 		assert.equal(s.count("drive_death_alert"), 1);
 		back.child.kill("SIGKILL");
@@ -758,7 +738,7 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 
 test("the real restart recovers a drive whose pid another command now holds: the new drive takes the pid file and records a heartbeat (AC:OPS-137-10)", async () => {
 	const s = store("pr_open");
-	const other = await fakeDriveProcess(s, "other.ts");
+	const other = await pidFileHolder(s.root, task.slug, "other.ts");
 	try {
 		symlinkSync(join(source, "tools/evf/main.ts"), join(s.root, "tools/evf/main.ts"));
 		beat(s, Date.now() - 10 * MIN);
@@ -802,11 +782,7 @@ test("heartbeats and drive_ended leave v_tasks' last event alone, heartbeats sta
 			.map((e) => e.type);
 		assert.equal(recent.includes("drive_heartbeat"), false);
 		assert.ok(recent.includes("drive_ended"));
-		const status = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "status", "--json"], {
-			cwd: s.root,
-			encoding: "utf8",
-			env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "" },
-		});
+		const status = cli(s.root, {}, "status", "--json");
 		const types = (JSON.parse(status.stdout) as { recent: Array<{ type: string }> }).recent.map((e) => e.type);
 		assert.ok(types.includes("owner_approval_wait"));
 		assert.equal(types.includes("drive_heartbeat"), false);
@@ -869,7 +845,7 @@ test("the watcher ticks once per minute in the sampler; either one's failure lea
 				calls++;
 				throw new Error("watcher failure");
 			},
-			liveDrive: () => null,
+			liveDrive: () => false,
 			startDrive: () => null,
 			notify: () => {},
 		};
@@ -909,7 +885,6 @@ test("the watcher ticks once per minute in the sampler; either one's failure lea
 		// It reads no sampler record.
 		const code = readFileSync(join(source, "tools/evf/drive-watcher.ts"), "utf8");
 		assert.doesNotMatch(code, /queue_tick|load\.jsonl|cpu\.jsonl|load_wait/);
-		assert.match(code, /export function watcherTick/);
 
 		process.env.EVF_NO_SAMPLER = "1";
 		calls = 0;

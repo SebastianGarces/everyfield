@@ -19,7 +19,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import {
 	assistantLine,
+	cli,
 	fixture,
+	noSeatEnv,
 	pidFileHolder,
 	sessionStartJs,
 	source,
@@ -42,12 +44,6 @@ import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
 import { hasVerifiedHead, verify } from "../verify.ts";
 
-const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
-	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
-		cwd,
-		encoding: "utf8",
-		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "", ...env },
-	});
 const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150, holdPollMs: 10 };
 
 /** A Herdr that answers at once: every agent is idle unless the test writes another state to herdr-state.json. */
@@ -623,7 +619,6 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 		);
 
 		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
-		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
 		const holder = await pidFileHolder(f.root, "ops-1", "main.ts", "drive", "OPS-1");
 		const busy = cli(f.root, {}, "drive", "OPS-1", "--once");
 		holder.child.kill("SIGKILL");
@@ -1931,12 +1926,7 @@ test("OPS-75-seat: a seat the drive launches carries the promise naming the driv
 
 /** A real drive's environment, with the one-minute heartbeat timer shortened (fast-heartbeat.ts). */
 const fastHeartbeatEnv = () => ({
-	...process.env,
-	EVF_RUN: "",
-	EVF_WORKTREE: "",
-	EVF_SESSION: "",
-	EVF_ROLE: "",
-	EVF_STAGE: "",
+	...noSeatEnv(),
 	NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(source, "tools/evf/tests/fast-heartbeat.ts")).href}`,
 });
 
@@ -2031,8 +2021,7 @@ test("in a real hold: heartbeats go on, and a SIGTERM between stages records nul
 				new Date().toISOString(),
 				JSON.stringify({ cause: "pr", checks: ["x"], head: "abc", summary: "held" }),
 			);
-		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
-		const d = await liveDrive(f, () => existsSync(pidFile) && f.events("drive_heartbeat").length > 0);
+		const d = await liveDrive(f, () => f.events("drive_heartbeat").length > 0);
 		await moreHeartbeats(f);
 		await d.stop();
 		const stopped = f.events("drive_stopped").map((e) => JSON.parse(e.payload));
@@ -2048,18 +2037,11 @@ test("in a real hold: heartbeats go on, and a SIGTERM between stages records nul
 test("a drive that refuses to start records no heartbeat: stale code, and another drive that holds the task (AC:OPS-137-1)", async () => {
 	const f = driveFixture();
 	try {
-		const env = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" };
-		const start = (startEnv: NodeJS.ProcessEnv) =>
-			spawnSync(
-				process.execPath,
-				["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1"],
-				{ cwd: f.root, encoding: "utf8", env: startEnv },
-			);
-		const stale = start({ ...env, NODE_OPTIONS: "" });
+		const stale = cli(f.root, { NODE_OPTIONS: "" }, "drive", "OPS-1");
 		assert.notEqual(stale.status, 0);
 		assert.match(stale.stderr, /evf drive does not start OPS-1/);
 		const holder = await pidFileHolder(f.root, "ops-1", "main.ts", "drive", "OPS-1");
-		const held = start(env);
+		const held = cli(f.root, {}, "drive", "OPS-1");
 		holder.child.kill("SIGKILL");
 		await holder.exited;
 		assert.notEqual(held.status, 0);

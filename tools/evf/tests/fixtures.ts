@@ -49,8 +49,26 @@ process.env.NODE_OPTIONS =
 // A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
 process.env.EVF_NO_SAMPLER = "1";
 
+/** The environment of a real evf process that a test starts: it carries no seat identity. */
+export const noSeatEnv = () => ({
+	...process.env,
+	EVF_RUN: "",
+	EVF_WORKTREE: "",
+	EVF_SESSION: "",
+	EVF_ROLE: "",
+	EVF_STAGE: "",
+});
+
+/** Runs real evf through main.ts in `cwd`. */
+export const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
+	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
+		cwd,
+		encoding: "utf8",
+		env: { ...noSeatEnv(), ...env },
+	});
+
 /** A real process that holds a task's pid file. Named `main.ts` with the args `drive <id>`, its command reads as a drive. */
-export async function pidFileHolder(root: string, slug: string, name = "main.ts", ...args: string[]) {
+export async function pidFileHolder(root: string, slug: string, name: string, ...args: string[]) {
 	const script = join(root, name);
 	writeFileSync(script, "setInterval(() => {}, 1000);\n");
 	const child = spawn(process.execPath, [script, ...args], { stdio: "ignore" });

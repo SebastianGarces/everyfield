@@ -1,9 +1,6 @@
 -- 016-drive-heartbeat (OPS-137): a live drive records a heartbeat each minute, and the drive records its normal end and
 -- a requested stop. These records say nothing about the task's work, so last_event and last_event_at in v_tasks skip
--- them and the TUI still shows `awaiting owner` after them. v_recent leaves the heartbeats out. The dead drive watcher
--- reads the latest event of each type for each task once per minute, so that read gets an index.
-
-CREATE INDEX events_task_type ON events (task_id, type, id);
+-- them and the TUI still shows `awaiting owner` after them. v_recent leaves the heartbeats out.
 
 DROP VIEW v_health;
 DROP VIEW v_recent;

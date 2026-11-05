@@ -14,8 +14,8 @@ const COMMAND_TIMEOUT_MS = 30_000;
 
 export type WatcherProbes = {
 	now: () => number;
-	/** The pid of the live `evf drive` process that the task's pid file names, or null. A pid it cannot read counts as live. */
-	liveDrive: (slug: string) => number | null;
+	/** Whether the task's pid file names a live `evf drive` process. A pid it cannot read counts as live. */
+	liveDrive: (slug: string) => boolean;
 	/** Runs `evf drive <ref> --detach`. A string is the refusal text; null means that the drive started. */
 	startDrive: (ref: string) => string | null;
 	notify: (title: string, body: string) => void;
@@ -25,10 +25,7 @@ export type WatcherProbes = {
 export function machineWatcher(root: string): WatcherProbes {
 	return {
 		now: Date.now,
-		liveDrive: (slug) => {
-			const holder = driveHolder(root, slug);
-			return holder.kind === "none" ? null : holder.pid;
-		},
+		liveDrive: (slug) => driveHolder(root, slug).kind !== "none",
 		startDrive: (ref) => {
 			// The sampler inherits the environment of the drive that started it, which may carry a seat's identity.
 			const { EVF_RUN, EVF_WORKTREE, EVF_SESSION, EVF_ROLE, EVF_STAGE, ...env } = process.env;
@@ -44,9 +41,10 @@ export function machineWatcher(root: string): WatcherProbes {
 }
 
 type Latest = { id: number; ts: string; payload: string };
+type Watched = { id: number; ref: string; slug: string };
 
 /** One task's decision. Each early return is a case in which the watcher must leave the task alone. */
-function watchTask(db: DatabaseSync, t: { id: number; ref: string; slug: string }, probes: WatcherProbes) {
+function watchTask(db: DatabaseSync, t: Watched, probes: WatcherProbes) {
 	const latest = (type: string) =>
 		db
 			.prepare("SELECT id, ts, payload FROM events WHERE task_id = ? AND type = ? ORDER BY id DESC LIMIT 1")
@@ -75,7 +73,7 @@ function watchTask(db: DatabaseSync, t: { id: number; ref: string; slug: string 
 	const now = probes.now();
 	if (now - Math.max(Date.parse(beat.ts), used ? Date.parse(used.ts) : 0) < DEAD_AFTER_MS) return;
 	// A silent drive can still be alive, for example after the Mac wakes from sleep.
-	if (probes.liveDrive(t.slug) !== null) return;
+	if (probes.liveDrive(t.slug)) return;
 
 	const at = new Date(now).toISOString();
 	const write = (type: string, payload: Record<string, unknown>) =>
@@ -87,7 +85,7 @@ function watchTask(db: DatabaseSync, t: { id: number; ref: string; slug: string 
 	const command = `bin/evf drive ${t.ref} --detach`;
 	if (used) {
 		const body = `The drive of ${t.ref} died again after its restart. Last heartbeat: ${beat.ts}. Start it with: ${command}`;
-		write("drive_death_alert", { lastHeartbeat: beat.ts, command, summary: body });
+		write("drive_death_alert", { lastHeartbeat: beat.ts, summary: body });
 		probes.notify(`${t.ref} drive died twice`, body);
 		return;
 	}
@@ -113,7 +111,7 @@ export function watcherTick(root: string, probes: WatcherProbes): void {
 	try {
 		const tasks = db
 			.prepare("SELECT id, ref, slug FROM tasks WHERE status IN ('active', 'pr_open') AND ref IS NOT NULL")
-			.all() as Array<{ id: number; ref: string; slug: string }>;
+			.all() as Watched[];
 		for (const t of tasks) {
 			try {
 				// A restart pins the row that `evf drive` finds, so only that row can come back to life.

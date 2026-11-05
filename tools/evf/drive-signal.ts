@@ -210,7 +210,6 @@ export function driveWithSignals(root: string, task: TaskRef, once: boolean): Pr
 				// done() ended the heartbeats, so no heartbeat can follow a drive_ended.
 				if (m.end && pin !== undefined)
 					recordSafely(root, pin, "drive_ended", {
-						pid: process.pid,
 						stage: m.end.stage,
 						code,
 						summary: `drive ended at ${m.end.stage}, exit ${code}: ${m.end.reason}`,

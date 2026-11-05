@@ -601,7 +601,7 @@ heartbeat can come after the drive's own end.
   per minute, on that row with a null run. Heartbeats go on while the loop blocks in a stage, a seat wait or a hold. A
   failed write costs one heartbeat, never the drive. A drive that refuses to start records none. Heartbeats stay out of
   `v_recent`, so of `evf status` recent and the TUI feed. `evf events --type drive_heartbeat` reads them.
-- `drive_ended` `{pid, stage, code, summary}`: each normal exit, which is an owner wait, `pick`, `blocked`, `escalated`,
+- `drive_ended` `{stage, code, summary}`: each normal exit, which is an owner wait, `pick`, `blocked`, `escalated`,
   `abandoned`, `done` and `--once`. An uncaught failure in the loop records none, so the watcher counts that as a death.
 - `drive_stop_requested` (above).
 
@@ -1224,7 +1224,7 @@ alone in each of these cases:
 | Event                   | When                                                                                      | Fields                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `drive_restart`         | The first tick with no heartbeat for 5 min. It goes in before `evf drive <ref> --detach` runs from the home checkout, so a crash cannot cause two restarts. | `lastHeartbeat`, `summary`                |
-| `drive_death_alert`     | One restart is already used, and 5 min have passed with no heartbeat since the later of the last heartbeat and that restart. There is one Herdr notification with the task, the last heartbeat and the command. Later ticks add nothing. | `lastHeartbeat`, `command`, `summary`     |
+| `drive_death_alert`     | One restart is already used, and 5 min have passed with no heartbeat since the later of the last heartbeat and that restart. There is one Herdr notification with the task, the last heartbeat and the command. Later ticks add nothing. | `lastHeartbeat`, `summary`                |
 | `drive_restart_refused` | `evf drive --detach` exits non-zero, which is the `requireCurrentCode` refusal of the new process. There is one Herdr notification. | `lastHeartbeat`, `refusal`, `summary`     |
 
 The allowance is one restart since the last alert for the task row. It has no counter column. A drive that lives for
