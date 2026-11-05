@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { cli, fakeClock, fixture, source } from "./fixtures.ts";
-import { ensureTask, openWorkDb, syncGoals } from "../db.ts";
+import { cli, fakeClock, fixture, sessionStartJs, source } from "./fixtures.ts";
+import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { drive, driveOnce, taskReopen } from "../drive.ts";
 import { evfDataDir, evidenceDir, git, parseTask, runtimeDir } from "../lib.ts";
 import { hasVerifiedHead } from "../verify.ts";
@@ -44,11 +44,20 @@ function brakeFixture(
 	);
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
-	const notices = join(f.root, "notices.json");
-	writeFileSync(notices, "[]");
+	const calls = join(f.root, "herdr-calls.json");
+	writeFileSync(calls, "[]");
+	// Records each call and answers as Herdr does, so a seat launches.
 	writeFileSync(
 		join(f.root, "fake-bin/herdr"),
-		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);if(a[0]==="notification"){const n=JSON.parse(fs.readFileSync(${JSON.stringify(notices)},"utf8"));n.push(a.join(" "));fs.writeFileSync(${JSON.stringify(notices)},JSON.stringify(n))}process.stdout.write("{}")\n`,
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
+			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
+			`if(a[0]==="pane"&&a[1]==="read")process.exit(0);const st={};\n` +
+			sessionStartJs(workDbPath(f.root)) +
+			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w9",tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
+			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:"idle"}};\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_session:{value:"55555555-5555-4555-8555-555555555555"},agent_status:calls.some(c=>c[0]==="agent"&&c[1]==="prompt"&&c[2]===a[2])?"working":"idle"}};\n` +
+			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
 	const db = openWorkDb(f.root);
@@ -108,6 +117,7 @@ function brakeFixture(
 	};
 	const brakeId = () =>
 		(db.prepare("SELECT MAX(id) AS id FROM events WHERE type = 'brake_tripped'").get() as { id: number }).id;
+	const herdrCalls = () => JSON.parse(readFileSync(calls, "utf8")) as string[][];
 	const close = () => {
 		db.close();
 		f.close();
@@ -123,7 +133,11 @@ function brakeFixture(
 		fix,
 		brakeId,
 		close,
-		notices: () => JSON.parse(readFileSync(notices, "utf8")) as string[],
+		herdrCalls,
+		notices: () =>
+			herdrCalls()
+				.filter((c) => c[0] === "notification")
+				.map((c) => c.join(" ")),
 	};
 }
 type Fixture = ReturnType<typeof brakeFixture>;
@@ -135,7 +149,7 @@ const machine = (load = 1, waiting = 0) => {
 	return { m, clock, probe: { now: clock.now, load: () => m.load, waiting: () => m.waiting } };
 };
 
-test("AC:OPS-141-1 one test failing on 2 branches that do not touch its paths holds those rounds, and a seat that closes later holds too", () => {
+test("AC:OPS-141-1 one test failing on 2 branches that do not touch its paths holds those rounds, and the first branch holds at its next pass", () => {
 	const f = brakeFixture(["OPS-1", "OPS-2", "OPS-3"]);
 	try {
 		// The first branch alone is an ordinary failure: its implementer may look at it.
@@ -454,24 +468,56 @@ test("AC:OPS-141-6 the brake never marks a check as passed and never clears a re
 	}
 });
 
-test("AC:OPS-141-4 evf task reopen overrules the brake for one task, and a new failure holds it again", () => {
+test("AC:OPS-141-4 evf task reopen exempts one task from the open brake: its next failure goes to a seat, the other branch stays held, and a later brake can hold it", () => {
 	const f = brakeFixture(["OPS-1", "OPS-2"]);
 	const saved = process.env.EVF_RUN;
 	delete process.env.EVF_RUN;
+	const { log } = console;
 	try {
 		f.pass("OPS-1");
 		f.pass("OPS-2");
-		const { log } = console;
+		f.pass("OPS-1");
 		console.log = () => {};
 		taskReopen(f.root, f.tasks["OPS-2"]!.task, "coordinator needs this branch");
 		console.log = log;
 		assert.equal(f.row("OPS-2").status, "active");
-		// pr runs again rather than ci: no check counts as passed. The check still fails, so the task holds again.
+
+		// pr runs again rather than ci: no check counts as passed. It still fails, and this time that is a real failure.
 		f.pass("OPS-2");
 		assert.equal(f.types("check_start").filter((e) => e.task === "OPS-2").length, 2);
-		assert.equal(f.row("OPS-2").status, "held_external");
+		assert.deepEqual(f.runs("OPS-2").at(-1), { stage: "pr", status: "failed" });
+		assert.equal(f.row("OPS-2").status, "active");
+
+		// The next pass launches a seat with the coordinator's reason. The simplifier committed last, so its seat runs
+		// first, as for any author check failure; a head with no simplify run goes to the implementer.
+		f.pass("OPS-2");
+		assert.deepEqual(f.runs("OPS-2").at(-1), { stage: "simplify", status: "started" });
+		const prompts = f.herdrCalls().filter((c) => c[0] === "agent" && c[1] === "prompt");
+		assert.ok(
+			prompts.some((c) => c.join(" ").includes("coordinator needs this branch")),
+			"the reason reaches the seat",
+		);
+		assert.equal(f.row("OPS-2").round, 0);
+
+		assert.equal(f.pass("OPS-1").stage, "held", "the other branch stays held");
 		assert.equal(f.types("brake_tripped").length, 1);
+		assert.equal(f.notices().length, 1);
+
+		// The exemption ends with the brake: both fail again after a commit that fixes nothing, and a new brake holds both.
+		const sha = f.fix("tests/workflow/not-the-fix.txt");
+		assert.equal(cli(f.root, {}, "brake", "fixed", String(f.brakeId()), "--commit", sha).status, 0);
+		f.db
+			.prepare("UPDATE runs SET status = 'passed' WHERE task_id = ? AND status = 'started'")
+			.run(f.tasks["OPS-2"]!.id);
+		const { probe } = machine();
+		assert.equal(f.pass("OPS-1", probe).stage, "pr");
+		f.pass("OPS-1");
+		git(f.tasks["OPS-2"]!.wt, "merge", "-q", "--no-edit", "main");
+		f.pass("OPS-2");
+		assert.equal(f.types("brake_tripped").length, 2);
+		assert.equal(f.row("OPS-2").status, "held_external");
 	} finally {
+		console.log = log;
 		if (saved !== undefined) process.env.EVF_RUN = saved;
 		f.close();
 	}

@@ -586,7 +586,8 @@ test file, so a failure with no file and a failure in a check that reports no na
 - A brake writes only events and the status. It never marks a check passed. A released task merges main and runs its pr
   stage again, so its checks run at the new head. A test that still fails on one branch goes to the implementer, and on two
   branches it starts a new brake.
-- `evf task reopen` overrules the brake for one task until its next failure.
+- `evf task reopen` overrules the brake for one task until that brake ends: the task's next failure of that test goes to
+  a seat, while the other branches stay held. A later brake can hold it again.
 
 **Staged release.** A task released from a brake, or a drive that starts new work, takes a slot first and records
 `release_start`. 2 tasks may hold a slot in any 5 min. A new slot also needs load under 24 and fewer than 3 checks
