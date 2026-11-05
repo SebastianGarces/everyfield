@@ -64,6 +64,7 @@ const REVIEW_RULES = [
 	".github/workflows/",
 	".agents/",
 	".claude/agents/",
+	"design/",
 ];
 const MANIFEST = "docs/plan/context-manifest.json";
 export function ruleChanges(wt: string, prior: string, head: string): string[] {
@@ -85,8 +86,11 @@ function hashed(read: () => unknown): string | null {
 	}
 }
 
-/** The full text of each id the context names. An id with no text stops this: the contract is then unknown. */
-function textsOf(wt: string, context: Context): unknown {
+/**
+ * The full text of each name the context lists. A name with no text, or a list this does not know how to read, stops
+ * this: the contract is then unknown. The context's own hash holds its plain text, and renderAc reads `acceptance_ids`.
+ */
+export function textsOf(wt: string, context: Context): unknown {
 	const { requirements, cases } = currentCatalog(wt);
 	const operations = new Map(
 		readJson<{ operations: Array<{ id: string }> }>(join(wt, "docs/catalog/operations.json")).operations.map((o) => [
@@ -99,6 +103,13 @@ function textsOf(wt: string, context: Context): unknown {
 			readJson<{ contracts: Record<string, unknown> }>(join(wt, "docs/catalog/shared-contracts.json")).contracts,
 		),
 	);
+	const features = new Map(
+		readJson<Array<{ id: string }>>(join(wt, "docs/catalog/features.json")).map((f) => [f.id, f]),
+	);
+	const tables = new Map(
+		readJson<{ tables: Array<{ name: string }> }>(join(wt, "docs/schema/target.json")).tables.map((t) => [t.name, t]),
+	);
+	const packages = new Map(loadDag(wt).packages.map((p) => [p.id, p]));
 	const source = (key: string): Map<string, unknown> | null =>
 		key.endsWith("requirement_ids") || key === "case_requirements_at_start"
 			? requirements
@@ -108,10 +119,17 @@ function textsOf(wt: string, context: Context): unknown {
 					? operations
 					: key === "shared_contract_ids"
 						? contracts
-						: null;
+						: key === "feature_ids"
+							? features
+							: key.endsWith("table_names")
+								? tables
+								: key.endsWith("_prerequisites")
+									? packages
+									: null;
 	return Object.entries(context).flatMap(([key, ids]) => {
+		if (typeof ids === "string" || key === "acceptance_ids" || (Array.isArray(ids) && !ids.length)) return [];
 		const from = source(key);
-		if (!from) return [];
+		if (!from || !Array.isArray(ids)) fail(`${context.id} ${key} holds names evf cannot read.`);
 		return (ids as string[]).map((id) => {
 			if (!from.has(id)) fail(`${context.id} ${key} names ${id}, which has no text.`);
 			return [id, from.get(id)];
@@ -121,7 +139,7 @@ function textsOf(wt: string, context: Context): unknown {
 
 /**
  * The task's contract in the repo at the worktree head: evf.config.json without other tasks' entries, then the package,
- * its context, and the text of each requirement, case, operation and shared contract the context names.
+ * its context, and the text of each name the context lists (textsOf).
  */
 export function contractOf(root: string, wt: string, task: TaskRef): string | null {
 	return hashed(() => {
@@ -194,7 +212,8 @@ export function reviewInputs(
 			followUpsOf(db, taskId).map((f) => [f.label, f.status, f.title]),
 		]),
 		proofs: proofsHash(db, taskId),
-		prBody: hashed(() => readFileSync(prBody, "utf8")),
+		// Each implementer writes its own EVF-Author line, and approvedOnGitHub reads the current one.
+		prBody: hashed(() => readFileSync(prBody, "utf8").replace(/^EVF-Author:.*$/gm, "")),
 		contract: contractOf(root, wt, task),
 	};
 }

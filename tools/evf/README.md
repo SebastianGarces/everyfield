@@ -792,7 +792,7 @@ counts lines added plus removed since the prior approved head, or since the bran
 2. Every commit since that head is a clean merge of main (`cleanMerges`), and there is at least one.
 3. Each input below is the same now as when the approved verifier launched.
 4. Main's change touches no file the branch changed (`overlap: <path>`). The ask's "any overlap" no longer applies: an overlap gets the full review.
-5. Main's change touches no rule file (`rules: <path>`): `AGENTS.md`, `docs/START-HERE.md`, `docs/build-agent-workflow.md`, `docs/architecture/`, `.github/workflows/`, `.agents/`, `.claude/agents/` or a `shared_read_paths` entry of the context manifest.
+5. Main's change touches no rule file (`rules: <path>`): `AGENTS.md`, `docs/START-HERE.md`, `docs/build-agent-workflow.md`, `docs/architecture/`, `.github/workflows/`, `.agents/`, `.claude/agents/`, `design/` or a `shared_read_paths` entry of the context manifest.
 6. A passed full author record exists at the head (`checks`). It holds the local checks CI does not run, such as `ui-escaped`. The overlap check moves a head with no pr stage, so that head has none.
 7. The latest review on GitHub approves the prior head, and its verifier is independent of the `EVF-Author` in the PR body (`review`).
 
@@ -808,8 +808,8 @@ An input that reads null always counts as changed.
 | Goal chain | `goal` | The project's title and body, and the task's mission as the seat reads it. |
 | Follow-ups, which Ask coverage can defer to | `followUps` | Each link's label, status and title, and the task's own parent and slice. |
 | Proofs | `proofs` | Rows a seat or person wrote. `AC:` rows that evf wrote do not count, because evf reruns them at each close. |
-| PR body | `prBody` | The file evf pushes from. A direct edit on GitHub does not count; the prompt asks the verifier to read the current body. |
-| Task contract at the head | `contract` | `evf.config.json` without other tasks' entries, then for a WP or FB its package, its context, and the full text of each requirement, case, operation and shared contract the context names. An id with no text reads null. |
+| PR body | `prBody` | The file evf pushes from, without its `EVF-Author` line: each implementer writes its own, and the `review` proof reads the current one. A direct edit on GitHub does not count; the prompt asks the verifier to read the current body. |
+| Task contract at the head | `contract` | `evf.config.json` without other tasks' entries, then for a WP or FB its package, its context, and the full text of each requirement, case, operation, shared contract, feature, table and prerequisite package the context names. A name with no text, or a list evf cannot read, reads null. |
 
 ## Answer key (OPS-112)
 
