@@ -1097,6 +1097,15 @@ exercise workflow behavior only. Tests contact no real GitHub or application dat
 checkout's branch diff, and timing tests pass a fake `Clock` (`timing.clock`, `fakeClock` in `tests/fixtures.ts`) so
 that machine load cannot fail them.
 
+`bin/evf test` runs the tooling tests only when the checkout changes evf work (OPS-172, `test-scope.ts`). The changes
+are the commits since the merge base with main, plus uncommitted and untracked files. Evf work is `tools/evf/`,
+`bin/evf`, any `evf.config.json` setting other than `maintenanceTasks`, and the listed files that evf runs or that its
+tests read, such as `.github/workflows/` and `.claude/agents/`. Otherwise the command prints why, starts nothing and
+exits 0, so `workflow-regressions` in `evf verify` and the `evf` job in CI pass at once. The branch-diff lint and
+`evf ci-tests` still run first, because they guard the other tasks too. A checkout with no commits of its own runs the
+suite, so the push to main runs all of it, and fail-forward reports a failure there. A checkout whose merge base git cannot find runs the suite.
+`bin/evf test --all` always runs it.
+
 ## Mutation audit
 
 `evf audit` (OPS-116) checks the answer key itself. A task's `AC:` tests can pass and still check
