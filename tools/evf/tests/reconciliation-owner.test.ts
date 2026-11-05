@@ -1269,10 +1269,6 @@ test("OPS-111-approve: merges a verified owner-path PR at --head; refuses withou
 			/head is .*, not the deadbee Sebastian approved\. His approval does not carry over/,
 			verified,
 		);
-		refuses({ head }, /PR #77 is behind main\. Update it/, (s) => {
-			verified(s);
-			s.pr.mergeStateStatus = "BEHIND";
-		});
 		const s = f.getState();
 		s.pr.mergeStateStatus = "CLEAN";
 		s.calls = [];

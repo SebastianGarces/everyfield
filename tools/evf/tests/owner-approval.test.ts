@@ -972,13 +972,14 @@ for (const [name, files] of HELD) {
 			});
 			refuses(atB, /Required GitHub CI is missing on the exact PR head: ci/);
 
+			f.mainCommit("Main changes a path this PR changes", { [Object.keys(files)[0]]: "Main's text.\n" });
 			f.publish(comments, (s) => {
 				ready(s);
 				s.pr.mergeStateStatus = "BEHIND";
 			});
 			refuses(
 				atB,
-				/is behind main\. Update it \(gh pr update-branch 77\), then have the verifier pass the new head \(bin\/evf ship OPS-1\), then ask Sebastian to approve it\./,
+				/is behind main, and evf approve did not merge main into it: main changed paths .*The branch is unchanged\. Update it \(gh pr update-branch 77\), then have the verifier pass the new head \(bin\/evf ship OPS-1\), then ask Sebastian to approve it\./,
 			);
 
 			f.publish(comments, ready);
@@ -1208,6 +1209,283 @@ test("AC:OPS-129-11 a P2 feedback fix with a stale record merges through approve
 		const b = f.commit("The fix", { "tools/evf/feature.ts": "export const feature = 2;\n" });
 		f.publish([f.owner(a), f.review(b)], mergeReady(b));
 		otherRoute(f, a, b);
+	} finally {
+		f.close();
+	}
+});
+
+// OPS-146: approve merges a clean main into a held PR that is behind; his words cover only that merge.
+const SHIP_FAST = { queue: { waitMs: 5000, pollMs: 10 }, ciWaitMs: 2000, ciPollMs: 1 };
+function approveBehind(f: Fx, head: string, timing = SHIP_FAST) {
+	const cwd = process.cwd();
+	process.chdir(f.wt);
+	try {
+		return approve(f.root, 77, { ownerApproval: HIS_WORDS, head }, timing);
+	} finally {
+		process.chdir(cwd);
+	}
+}
+/** The head of the PR branch on the remote, which only a push or a merge of main moves. */
+const remoteHead = (f: Fx) => f.git("ls-remote", "origin", `refs/heads/${f.task.branch}`).split("\t")[0];
+const behindReady =
+	(head: string, edit: (s: any) => void = () => {}) =>
+	(s: any) => {
+		mergeReady(head)(s);
+		s.pr.mergeStateStatus = "BEHIND";
+		edit(s);
+	};
+const ownerMerges = (f: Fx) =>
+	f
+		.getState()
+		.comments["77"].flatMap((c: any) => [...c.body.matchAll(/^EVF-Owner-Merge: (.+)$/gm)].map((m) => JSON.parse(m[1])));
+
+for (const [name, files] of HELD)
+	test(`AC:OPS-146-1 AC:OPS-146-2 ${name}: a behind held PR merges main, waits for required CI on the final head and merges it with his words, the approved head and the merged head on record`, () => {
+		const f = heldFixture();
+		try {
+			const a = f.commit("Held work", files);
+			const main = f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+			// Required CI on the final head starts pending; the merge waits for it.
+			f.publish(
+				[f.review(a)],
+				behindReady(
+					a,
+					(s) =>
+						(s.checksQueue = [
+							[pass("ci"), pass("pr-body")],
+							[{ ...pass("ci"), state: "PENDING", bucket: "pending" }, pass("pr-body")],
+						]),
+				),
+			);
+			const { value } = f.quietly(() => approveBehind(f, a));
+			assert.equal(value, 0);
+
+			const final = remoteHead(f);
+			assert.notEqual(final, a);
+			f.git("fetch", "-q", "origin", f.task.branch);
+			assert.deepEqual(
+				f.git("rev-list", "--parents", "-n", "1", final).split(" ").slice(1),
+				[a, main],
+				"a plain merge of main",
+			);
+			assert.deepEqual(f.merges(), [final]);
+			const state = f.getState(),
+				order = state.calls.map((c: any) => `${c.args[0]} ${c.args[1]}`);
+			assert.equal(state.checksQueue.length, 0, "evf read the pending checks of the final head");
+			assert.ok(order.indexOf("pr update-branch") < order.lastIndexOf("pr checks"));
+			assert.ok(order.lastIndexOf("pr checks") < order.indexOf("pr merge"));
+
+			// The record: his words, the approved head and the merged head.
+			assert.deepEqual([latestRecord(f).head, latestRecord(f).quote], [a, HIS_WORDS]);
+			const [line] = ownerMerges(f);
+			assert.deepEqual([line.quote, line.approved_head, line.merged_head], [HIS_WORDS, a, final]);
+			assert.deepEqual(
+				f.ownerRows().map((r: any) => [r.head_sha, r.quote]),
+				[[a, HIS_WORDS]],
+			);
+			const shipped = f.shipped();
+			assert.deepEqual(
+				[
+					shipped.owner_approval.quote,
+					shipped.owner_approval.approved_head,
+					shipped.owner_approval.carry.head,
+					shipped.verified_head,
+				],
+				[HIS_WORDS, a, final, final],
+			);
+			assert.ok(
+				state.calls.some(
+					(c: any) => c.args.includes("POST") && c.args.some((x: string) => x.endsWith(`/statuses/${final}`)),
+				),
+				"evf/verify is on the final head",
+			);
+		} finally {
+			f.close();
+		}
+	});
+
+test("AC:OPS-146-1 a design task PR behind main merges the same way, and its PR comment holds the record", () => {
+	const f = ownerFixture(["design/"], { route: "design" });
+	try {
+		const a = f.commit("Design work", { "design/a.md": "A.\n" });
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => (s.pr.files = [{ path: "design/a.md" }])),
+		);
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.deepEqual(f.merges(), [final]);
+		assert.deepEqual(
+			ownerMerges(f).map((r: any) => [r.quote, r.approved_head, r.merged_head]),
+			[[HIS_WORDS, a, final]],
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 required CI that fails on the final head merges nothing and names the fresh gate", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish(
+			[f.review(a)],
+			behindReady(
+				a,
+				(s) =>
+					(s.checksQueue = [
+						[pass("ci"), pass("pr-body")],
+						[{ ...pass("ci"), state: "FAILURE", bucket: "fail" }, pass("pr-body")],
+					]),
+			),
+		);
+		assert.match(
+			f.refusal(() => approveBehind(f, a)),
+			/Fresh gate needed at .*required CI failed after the merge of main \(ci\)/,
+		);
+		assert.deepEqual(f.merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 a CI wait that runs out names one rerun, which finishes on the same words with no new approval", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		const pending = [{ ...pass("ci"), state: "PENDING", bucket: "pending" }, pass("pr-body")];
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => {
+				// The first read is the check of the approved head; the wait on the final head stays pending.
+				s.checksQueue = [[pass("ci"), pass("pr-body")]];
+				s.requiredChecks = pending;
+			}),
+		);
+		const out = f.refusal(() => approveBehind(f, a, { ...SHIP_FAST, ciWaitMs: 1 }));
+		assert.ok(
+			out.includes(`Run bin/evf approve 77 --owner-approval "<his words>" --head ${a} again when it finishes`),
+			out,
+		);
+		assert.deepEqual(f.merges(), []);
+
+		const final = remoteHead(f),
+			s = f.getState();
+		s.requiredChecks = [pass("ci"), pass("pr-body")];
+		s.pr.mergeStateStatus = "CLEAN";
+		f.setState(s);
+		f.quietly(() => approveIn(f, { ownerApproval: "other typed words", head: a }));
+		assert.deepEqual(f.merges(), [final]);
+		assert.deepEqual(
+			f.ownerRows().map((r: any) => [r.head_sha, r.quote]),
+			[[a, HIS_WORDS]],
+			"one approval, his words",
+		);
+		assert.deepEqual([f.shipped().owner_approval.quote, f.shipped().owner_approval.carry.head], [HIS_WORDS, final]);
+	} finally {
+		f.close();
+	}
+});
+
+for (const [name, setup] of [
+	[
+		"a path both changed",
+		(f: Fx) => {
+			const a = f.commit("Held work", TEMPLATE_FILE);
+			// The same text: git merges it cleanly, and the overlap alone refuses.
+			f.mainCommit("Main changes the same path", TEMPLATE_FILE);
+			return {
+				a,
+				why: /main changed paths this PR also changes: docs\/catalog\/document-templates\.json/,
+				state: "BEHIND",
+			};
+		},
+	],
+	[
+		"a conflict with no shared path",
+		(f: Fx) => {
+			const a = f.commit("Held work", { ...TEMPLATE_FILE, "docs/shape/inner.md": "Inner.\n" });
+			f.mainCommit("Main adds a file where the PR has a folder", { "docs/shape": "A file.\n" });
+			return { a, why: /the merge of main conflicts/, state: "DIRTY" };
+		},
+	],
+] as Array<[string, (f: Fx) => { a: string; why: RegExp; state: string }]>)
+	test(`AC:OPS-146-3 ${name} refuses before any write, and the branch is unchanged`, () => {
+		const f = heldFixture();
+		try {
+			const { a, why, state } = setup(f);
+			f.publish(
+				[f.review(a)],
+				behindReady(a, (s) => (s.pr.mergeStateStatus = state)),
+			);
+			const out = f.refusal(() => approveBehind(f, a));
+			assert.match(out, why);
+			assert.match(out, /The branch is unchanged\. Update it \(gh pr update-branch 77\)/);
+			assert.deepEqual(writes(f), []);
+			assert.equal(remoteHead(f), a);
+			assert.deepEqual(f.ownerRows(), []);
+		} finally {
+			f.close();
+		}
+	});
+
+test("AC:OPS-146-4 a non-merge commit after the approval voids it: on a held PR, after evf's own merge of main and at the merge", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		const code = f.commit("A commit he never saw", { "tools/evf/feature.ts": "export const feature = 9;\n" });
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		// Behind, with a code commit after his head: refused before any write.
+		f.publish([f.review(code)], behindReady(code));
+		assert.match(
+			f.refusal(() => approveBehind(f, a)),
+			/not the [0-9a-f]+ Sebastian approved\. His approval does not carry over/,
+		);
+		assert.deepEqual(writes(f), []);
+
+		// evf merged main, then someone pushed a code commit: the rerun on his old head refuses and lists it.
+		f.inWt("reset", "-q", "--hard", a);
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => {
+				s.checksQueue = [[pass("ci"), pass("pr-body")]];
+				s.requiredChecks = [{ ...pass("ci"), state: "PENDING", bucket: "pending" }, pass("pr-body")];
+			}),
+		);
+		f.refusal(() => approveBehind(f, a, { ...SHIP_FAST, ciWaitMs: 1 }));
+		assert.notEqual(remoteHead(f), a, "evf merged main into the branch");
+		assert.equal(ownerMerges(f).length, 1);
+		const records = f.getState().comments["77"];
+		f.inWt("fetch", "-q", "origin", f.task.branch);
+		f.inWt("merge", "-q", "--ff-only", "FETCH_HEAD");
+		const after = f.commit("A commit after the merge of main", {
+			"tools/evf/feature.ts": "export const feature = 10;\n",
+		});
+		f.publish(records, mergeReady(after));
+		const out = f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS, head: a }));
+		assert.match(out, /not the [0-9a-f]+ Sebastian approved\. His approval does not carry over/);
+		assert.ok(out.includes("A commit after the merge of main"), out);
+		assert.deepEqual(f.merges(), []);
+
+		// The merge rule itself: his words for the old head do not reach this head.
+		assert.ok(
+			f
+				.refusal(() =>
+					mergePullRequest({
+						root: f.root,
+						cfg: f.cfg,
+						cwd: f.wt,
+						number: 77,
+						sha: after,
+						ownerApproval: { quote: HIS_WORDS, approved_head: a },
+					}),
+				)
+				.includes(OWNER_VOID),
+		);
+		assert.deepEqual(f.merges(), []);
 	} finally {
 		f.close();
 	}

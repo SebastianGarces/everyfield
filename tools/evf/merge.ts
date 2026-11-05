@@ -25,8 +25,8 @@ import { carryProof, nameWithOwner, type CarryProof } from "./ship.ts";
  * 1. The running evf code is the base branch's evf code. A long process (the drive) loads tools/evf once, so a
  *    merge rule that lands later never reaches it. Such a process refuses to merge; it never merges on old rules.
  * 2. A PR in the document-template class (mergePolicy.documentTemplates, classified on the exact sha being
- *    merged, from the base branch's config) merges only with Sebastian's recorded approval for that head.
- *    Any doubt about the class counts as the class.
+ *    merged, from the base branch's config) merges only with Sebastian's recorded approval for that head, or for a
+ *    head that rule 5 carries to it (OPS-146). Any doubt about the class counts as the class.
  * 3. A PR whose exact-head diff changes Wiki content (any path under docs/reference/wiki/, OPS-109) merges only with
  *    his recorded approval for that head too. Doubt holds it under rule 2.
  * 4. A PR in the owner-path class (mergePolicy.ownerPaths: the landing and marketing site, OPS-111) merges only with his
@@ -232,8 +232,8 @@ export const wikiApproveCommand = (number: number, head: string): string =>
 type OwnerRecord = { head: string; quote: string; at: string };
 export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringify(r)}`;
 
-/** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
-export function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
+/** The PR's comment bodies, oldest first. Unreadable comments refuse. */
+function commentBodies(cwd: string, number: number): string[] {
 	const r = run("gh", ["api", `repos/${nameWithOwner(cwd)}/issues/${number}/comments`, "--paginate", "--slurp"], {
 		cwd,
 	});
@@ -246,13 +246,46 @@ export function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefi
 	} catch {
 		fail(`evf does not merge PR #${number}: its comments are unreadable, so evf cannot read an owner approval.`);
 	}
+	return comments.map((comment) => String(comment?.body ?? ""));
+}
+
+/** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
+export function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
 	let latest: OwnerRecord | undefined;
-	for (const comment of comments)
-		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Owner: (.+)$/gm)) {
+	for (const body of commentBodies(cwd, number))
+		for (const match of body.matchAll(/^EVF-Owner: (.+)$/gm)) {
 			try {
 				const { head, quote, at } = JSON.parse(match[1]);
 				if (/^[0-9a-f]{40}$/.test(head) && typeof quote === "string" && typeof at === "string")
 					latest = { head, quote, at };
+			} catch {
+				// Not a record.
+			}
+		}
+	return latest;
+}
+
+/**
+ * The record of a merge of main that `evf approve` made itself (OPS-146): his words, the head he approved and the head
+ * the merge made. It is what lets a rerun after a CI wait finish the merge; a merge of main by anyone else has none.
+ */
+export type OwnerMergeRecord = { quote: string; approved_head: string; merged_head: string; at: string };
+export const ownerMergeLine = (r: OwnerMergeRecord): string => `EVF-Owner-Merge: ${JSON.stringify(r)}`;
+
+/** The latest valid EVF-Owner-Merge record in the PR's comments. */
+export function ownerMergeRecordOf(cwd: string, number: number): OwnerMergeRecord | undefined {
+	let latest: OwnerMergeRecord | undefined;
+	for (const body of commentBodies(cwd, number))
+		for (const match of body.matchAll(/^EVF-Owner-Merge: (.+)$/gm)) {
+			try {
+				const { quote, approved_head, merged_head, at } = JSON.parse(match[1]);
+				if (
+					typeof quote === "string" &&
+					typeof at === "string" &&
+					/^[0-9a-f]{40}$/.test(approved_head) &&
+					/^[0-9a-f]{40}$/.test(merged_head)
+				)
+					latest = { quote, approved_head, merged_head, at };
 			} catch {
 				// Not a record.
 			}
@@ -329,15 +362,18 @@ export function mergePullRequest(req: MergeRequest): RunResult & { owner?: Owner
 		: wiki?.paths.length
 			? `${wikiWhy(wiki)}. ${wikiApproveCommand(number, sha)}`
 			: undefined;
-	if (held) {
-		if (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2)
-			fail(`evf does not merge PR #${number}: ${held}`);
-		if (ownerApproval.approved_head !== sha)
+	if (held && (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2))
+		fail(`evf does not merge PR #${number}: ${held}`);
+	const owner = ownerCover(root, cfg, req.cwd, number, sha);
+	// A held PR keeps its exact-head rule. The one way past it is the merge of main evf approve made and recorded for
+	// these words (OPS-146), and that merge must still carry; a merge of main by anyone else does not.
+	if (held && ownerApproval!.approved_head !== sha) {
+		const merge = ownerMergeRecordOf(req.cwd ?? root, number);
+		if (!owner?.carry || merge?.merged_head !== sha || merge.approved_head !== ownerApproval!.approved_head)
 			fail(
-				`evf does not merge PR #${number}: Sebastian approved ${ownerApproval.approved_head.slice(0, 10)}, not ${sha.slice(0, 10)}. His approval does not carry over to a new head.`,
+				`evf does not merge PR #${number}: Sebastian approved ${ownerApproval!.approved_head.slice(0, 10)}, not ${sha.slice(0, 10)}. His approval does not carry over to a new head.`,
 			);
 	}
-	const owner = ownerCover(root, cfg, req.cwd, number, sha);
 	return {
 		...run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: req.cwd }),
 		owner,
