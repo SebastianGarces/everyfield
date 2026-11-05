@@ -20,9 +20,10 @@ function stale(newCode = CODE) {
 	};
 	f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
 	write("tools/evf/main.ts", "throw new Error('old code');\n");
+	write("tools/evf/other.ts", "export const other = 1;\n");
 	write("bin/evf", "#!/bin/sh\n");
 	write("shared.md", "Old.\n");
-	f.git("add", "tools/evf/main.ts", "bin/evf", "shared.md");
+	f.git("add", "tools/evf/main.ts", "tools/evf/other.ts", "bin/evf", "shared.md");
 	f.git("commit", "-qm", "Old evf code");
 	f.git("push", "-q", "origin", "main");
 	const old = f.git("rev-parse", "HEAD");
@@ -108,10 +109,30 @@ const REFUSALS: Array<[string, (f: ReturnType<typeof stale>) => () => void]> = [
 		},
 	],
 	[
-		"has an uncommitted change in tools/evf",
+		// A file main does not change: git would fast-forward over this edit, so only the dirty check refuses.
+		"has an uncommitted change in a tools/evf file main did not change",
 		(f) => {
-			f.write("tools/evf/main.ts", "// Local edit.\n");
-			return () => assert.equal(readFileSync(join(f.root, "tools/evf/main.ts"), "utf8"), "// Local edit.\n");
+			f.write("tools/evf/other.ts", "// Local edit.\n");
+			return () => assert.equal(readFileSync(join(f.root, "tools/evf/other.ts"), "utf8"), "// Local edit.\n");
+		},
+	],
+	[
+		// git says "already up to date" and exits 0 here, so only the ancestor check refuses.
+		"is ahead of main",
+		(f) => {
+			f.git("reset", "-q", "--hard", f.next);
+			f.write("own.md", "Own.\n");
+			f.git("add", "own.md");
+			f.git("commit", "-qm", "A commit on top of main");
+			return () => assert.equal(readFileSync(join(f.root, "own.md"), "utf8"), "Own.\n");
+		},
+	],
+	[
+		// Stale code with nothing to fast-forward: a rerun here would run the same code again.
+		"is already at main",
+		(f) => {
+			f.git("reset", "-q", "--hard", f.next);
+			return () => assert.equal(f.git("rev-parse", "HEAD"), f.next);
 		},
 	],
 	[
