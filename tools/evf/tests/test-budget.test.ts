@@ -103,7 +103,9 @@ const concurrency = (argv: string[]) => argv.filter((a) => a.startsWith("--test-
 /** Fails instead of hanging the suite when a command deadlocks. */
 async function within(ms: number, what: string, done: Promise<number | null>) {
 	let timer: NodeJS.Timeout;
-	const late = new Promise<never>((_, no) => (timer = setTimeout(() => no(new Error(`${what}: no end in ${ms} ms`)), ms)));
+	const late = new Promise<never>(
+		(_, no) => (timer = setTimeout(() => no(new Error(`${what}: no end in ${ms} ms`)), ms)),
+	);
 	try {
 		return await Promise.race([done, late]);
 	} finally {
@@ -116,7 +118,8 @@ const slowStub = (name: string, ms: number) =>
 	`import test from "node:test";\nimport { appendFileSync } from "node:fs";\nconst log = (t) => appendFileSync(process.env.EVF_ORDER_LOG, t + "\\n");\ntest("${name}", async () => {\n\tlog("start ${name}");\n\tawait new Promise((d) => setTimeout(d, ${ms}));\n\tlog("end ${name}");\n});\n`;
 const holdingStub = (release: string) =>
 	`import test from "node:test";\nimport { existsSync } from "node:fs";\nconst end = Date.now() + 60000;\ntest("hold", async () => {\n\twhile (!process.env.EVF_NO_HOLD && !existsSync(${JSON.stringify(release)}) && Date.now() < end) await new Promise((d) => setTimeout(d, 20));\n});\n`;
-const interleaved = (order: string[]) => order.some((line, i) => line.startsWith("start") && order[i + 1]?.startsWith("start"));
+const interleaved = (order: string[]) =>
+	order.some((line, i) => line.startsWith("start") && order[i + 1]?.startsWith("start"));
 
 test("the budget of 12 cores and a cap of 3 reaches node, and a later explicit --test-concurrency wins (AC:OPS-151-1)", async () => {
 	assert.deepEqual(testBudget(12, 3, false), {
@@ -168,7 +171,10 @@ test("evf verify gives its check children the budget through the three variables
 	]);
 	try {
 		const file = f.state("budget.json");
-		for (const args of [["verify", "OPS-1"], ["verify", "OPS-1", "--quick"]]) {
+		for (const args of [
+			["verify", "OPS-1"],
+			["verify", "OPS-1", "--quick"],
+		]) {
 			rmSync(file, { force: true });
 			const run = f.seat(f.wt, args, undefined, { [out]: file });
 			assert.equal(await run.done, 0, run.err());
@@ -199,12 +205,19 @@ const unbudgeted = (script: string) =>
 	script
 		.split(/\s*(?:&&|\|\||;)\s*/)
 		.filter((part) => /^(?:\S+=\S+ )*(?:node|tsx)\b.*\s--test(\s|$)/.test(part))
-		.filter((part) => !part.includes("--test ${EVF_NODE_TEST_FLAGS:-}") && !part.includes("--test --test-concurrency=1"));
+		.filter(
+			(part) => !part.includes("--test ${EVF_NODE_TEST_FLAGS:-}") && !part.includes("--test --test-concurrency=1"),
+		);
 
 test("every package test command carries the budget, next.config reads the workers, ci-tests finds the same files (AC:OPS-151-4)", () => {
 	assert.deepEqual(unbudgeted("node --test a.test.mts"), ["node --test a.test.mts"], "the check sees a bare command");
-	assert.deepEqual(unbudgeted("pnpm x && tsx --conditions=y --test b.test.mts"), ["tsx --conditions=y --test b.test.mts"]);
-	assert.deepEqual(unbudgeted("node --test ${EVF_NODE_TEST_FLAGS:-} a.test.mts && tsx --test --test-concurrency=1 b"), []);
+	assert.deepEqual(unbudgeted("pnpm x && tsx --conditions=y --test b.test.mts"), [
+		"tsx --conditions=y --test b.test.mts",
+	]);
+	assert.deepEqual(
+		unbudgeted("node --test ${EVF_NODE_TEST_FLAGS:-} a.test.mts && tsx --test --test-concurrency=1 b"),
+		[],
+	);
 
 	let scripts = 0;
 	for (const file of packageFiles(source)) {
@@ -243,7 +256,11 @@ test("every package test command carries the budget, next.config reads the worke
 			writeFileSync(join(copy, path), text);
 		};
 		for (const path of tracked.filter((p) => /\.test\.\w+$/.test(p))) put(path, "");
-		for (const path of ["tests/integration/writes/suites.json", ".github/workflows/ci.yml", "tools/evf/ci-test-exceptions.json"])
+		for (const path of [
+			"tests/integration/writes/suites.json",
+			".github/workflows/ci.yml",
+			"tools/evf/ci-test-exceptions.json",
+		])
 			if (existsSync(join(source, path))) put(path, readFileSync(join(source, path), "utf8"));
 		for (const file of packageFiles(source))
 			put(file, readFileSync(join(source, file), "utf8").replaceAll(" ${EVF_NODE_TEST_FLAGS:-}", ""));
@@ -306,7 +323,9 @@ test("a fourth direct evf test waits for a slot, prints its position and starts 
 		f.commitFiles({ "tools/evf/tests/stub.test.ts": STUB_TESTS }, f.root);
 		const [first] = [1, 2, 3].map(f.holder);
 		const fourth = f.seat(f.root, ["test"]);
-		await until("the position", () => /evf test waits in the full check queue, position 1, 3 running/.test(fourth.err()));
+		await until("the position", () =>
+			/evf test waits in the full check queue, position 1, 3 running/.test(fourth.err()),
+		);
 		await delay(200);
 		assert.deepEqual(f.argv(), [], "no test process started");
 		await f.stop(first!);
@@ -407,8 +426,16 @@ test("a full check waits on free memory and on swap, prints each minute, starts 
 	try {
 		f.setLoad(DEFAULT_LOAD);
 		const cases: Array<[string, (t: () => number) => MemoryProbe, RegExp]> = [
-			["free memory", (t) => ({ freeMemPct: () => (t() < 150_000 ? 9 : 40), swapUsedGb: () => 1 }), /free memory 9%, floor 15%/],
-			["swap", (t) => ({ freeMemPct: () => 40, swapUsedGb: () => (t() < 150_000 ? 13.5 : 11) }), /swap used 13\.5 GB, ceiling 12 GB/],
+			[
+				"free memory",
+				(t) => ({ freeMemPct: () => (t() < 150_000 ? 9 : 40), swapUsedGb: () => 1 }),
+				/free memory 9%, floor 15%/,
+			],
+			[
+				"swap",
+				(t) => ({ freeMemPct: () => 40, swapUsedGb: () => (t() < 150_000 ? 13.5 : 11) }),
+				/swap used 13\.5 GB, ceiling 12 GB/,
+			],
 		];
 		for (const [what, probe, reading] of cases) {
 			const c = clock();
@@ -548,7 +575,9 @@ test("SIGKILL of a direct evf test holder and of a verify holder frees the slot,
 test("evf help and the README state the budget, the floor, the ceiling and the CI behavior (AC:OPS-151-15)", () => {
 	const help = spawnSync(process.execPath, [MAIN, "help"], { encoding: "utf8" }).stdout.replace(/\s+/g, " ");
 	const readme = readFileSync(join(source, "tools/evf/README.md"), "utf8");
-	const section = readme.slice(readme.indexOf("## Machine load limit"), readme.indexOf("## Full check queue")).replace(/\s+/g, " ");
+	const section = readme
+		.slice(readme.indexOf("## Machine load limit"), readme.indexOf("## Full check queue"))
+		.replace(/\s+/g, " ");
 	for (const [name, text] of [
 		["help", help],
 		["README", section],

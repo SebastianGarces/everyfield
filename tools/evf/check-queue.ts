@@ -60,7 +60,12 @@ export function holdsCheckSlot(root: string): boolean {
  * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw. `fn` receives the
  * environment that tells a nested `evf test` it runs under this slot.
  */
-export function withCheckQueue<T>(root: string, task: string, fn: (slot: NodeJS.ProcessEnv) => T, timing = CHECK_QUEUE): T {
+export function withCheckQueue<T>(
+	root: string,
+	task: string,
+	fn: (slot: NodeJS.ProcessEnv) => T,
+	timing = CHECK_QUEUE,
+): T {
 	const dir = queueDir(root);
 	mkdirSync(dir, { recursive: true });
 	const ticket = takeTicket(dir, task);

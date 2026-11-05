@@ -1,4 +1,13 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+	writeSync,
+} from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";

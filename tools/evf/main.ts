@@ -317,7 +317,11 @@ function main(argv: string[]): number | Promise<number> {
 						...args,
 						join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
 					],
-					{ cwd: process.cwd(), inherit: true, env: { ...env, ...budgetEnv(budget), ...loadGatePassed(root), ...slot } },
+					{
+						cwd: process.cwd(),
+						inherit: true,
+						env: { ...env, ...budgetEnv(budget), ...loadGatePassed(root), ...slot },
+					},
 				).code;
 			};
 			// The slot comes first, as in `evf verify`: waiters keep their arrival order while the load is high.

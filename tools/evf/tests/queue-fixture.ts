@@ -165,7 +165,8 @@ export function queueFixture(checks?: Array<{ name: string; run: string[]; modes
 
 export const ticketName = (n: number) => `${String(n).padStart(15, "0")}.json`;
 export const STUB_TESTS = `import test from "node:test";\ntest("alpha", () => {});\ntest("beta", () => {});\n`;
-export const specOf = (marker: string) => `Goal: g.\nDone criteria:\n1. One.\n   Check: AC:${marker}\nNon-goals: none.\n`;
+export const specOf = (marker: string) =>
+	`Goal: g.\nDone criteria:\n1. One.\n   Check: AC:${marker}\nNon-goals: none.\n`;
 export const TOOL_STUB = `import test from "node:test";\ntest("tool (AC:OPS-1-1)", () => {});\n`;
 export const UI_STUB = `import test from "node:test";\ntest("browser (AC:OPS-1-1)", () => {});\n`;
 

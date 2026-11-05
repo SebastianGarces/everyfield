@@ -424,7 +424,6 @@ test("a full check holds its slot during the load wait, and a load give-up frees
 	}
 });
 
-
 test("evf test waits on load, logs an override, refuses an empty reason and passes only Node's options on (AC:OPS-138-7)", async () => {
 	const f = queueFixture();
 	try {
@@ -472,8 +471,6 @@ test("evf test waits on load, logs an override, refuses an empty reason and pass
 		await f.finish();
 	}
 });
-
-
 
 test("evf ac run waits on load; --ignore-load runs at once, logs it, and its browser run does not wait (AC:OPS-138-8)", async () => {
 	const f = queueFixture();
