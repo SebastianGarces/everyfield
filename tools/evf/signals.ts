@@ -1,6 +1,18 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+	cpSync,
+	existsSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { loadavg } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, normalize, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { touchesOwnPaths } from "./brake.ts";
 import { findTask, openWorkDb, record, workDbPath } from "./db.ts";
 import { git, oneLine, redactConnections, type TaskRef } from "./lib.ts";
 import type { CheckReport, CheckResult, Mode, Role } from "./verify.ts";
@@ -55,18 +67,41 @@ function keepEarlierRun(dir: string, { next, entries }: { next: number; entries:
 	}
 }
 
-/** The test names one check failed: its EVF_TEST_REPORT file and the names `evf test` wrote, each name once. */
-function failedNames(testReport: string, failedTests: string): string[] {
-	const names = new Set<string>();
+/** A reported test file as a path inside the checkout, or null when a reporter gave none or it lies outside. */
+function repoFile(wt: string, file: unknown): string | null {
+	if (typeof file !== "string" || !file) return null;
+	try {
+		const path = file.startsWith("file:") ? fileURLToPath(file) : file,
+			inside = normalize(isAbsolute(path) ? relative(realpathSync(wt), realpathSync(path)) : path);
+		return inside.startsWith("..") ? null : inside;
+	} catch {
+		return null;
+	}
+}
+
+/** The tests one check failed: its EVF_TEST_REPORT file and what `evf test` wrote, each name once. */
+function failedNames(
+	wt: string,
+	testReport: string,
+	failedTests: string,
+): Array<{ name: string; file: string | null }> {
+	const found = new Map<string, string | null>();
+	const add = (name: string, file: unknown) => {
+		if (!found.get(name)) found.set(name, repoFile(wt, file));
+	};
 	if (existsSync(testReport)) {
 		const { tests } = JSON.parse(readFileSync(testReport, "utf8")) as {
-			tests: Array<{ name: unknown; status: unknown }>;
+			tests: Array<{ name: unknown; status: unknown; file?: unknown }>;
 		};
-		for (const t of tests) if (t.status === "failed" && typeof t.name === "string") names.add(t.name);
+		for (const t of tests) if (t.status === "failed" && typeof t.name === "string") add(t.name, t.file);
 	}
 	if (existsSync(failedTests))
-		for (const line of readFileSync(failedTests, "utf8").split("\n")) if (line) names.add(JSON.parse(line) as string);
-	return [...names];
+		for (const line of readFileSync(failedTests, "utf8").split("\n"))
+			if (line) {
+				const { name, file } = JSON.parse(line) as { name: string; file?: unknown };
+				add(name, file);
+			}
+	return [...found].map(([name, file]) => ({ name, file }));
 }
 
 /**
@@ -129,9 +164,8 @@ export function checkSignals(ctx: Context) {
 	const earlier = earlierRun(dir);
 	if (earlier.entries.length) guard("earlier evidence not copied", () => keepEarlierRun(dir, earlier));
 	const attempt = earlier.entries.length ? earlier.next + 1 : earlier.next;
-	const touchesTestPaths = git(wt, "diff", "--name-only", "--no-renames", "-z", `${baseSha}..${sha}`)
-		.split("\0")
-		.some((path) => TEST_PATH.test(path));
+	const changed = git(wt, "diff", "--name-only", "--no-renames", "-z", `${baseSha}..${sha}`).split("\0"),
+		touchesTestPaths = changed.some((path) => TEST_PATH.test(path));
 	const started = performance.now();
 	emit("check_start", runFields(null, null));
 	return {
@@ -158,7 +192,9 @@ export function checkSignals(ctx: Context) {
 			};
 		},
 		testsFailed(suite: string, testReport: string, failedTests: string) {
-			for (const name of guard("failed test names not read", () => failedNames(testReport, failedTests)) ?? []) {
+			for (const { name, file } of guard("failed test names not read", () =>
+				failedNames(wt, testReport, failedTests),
+			) ?? []) {
 				emit("test_failed", {
 					task: task.id,
 					head: sha,
@@ -166,6 +202,8 @@ export function checkSignals(ctx: Context) {
 					suite,
 					test: redactConnections(name),
 					touchesTestPaths,
+					file,
+					touchesOwnPaths: file === null ? null : touchesOwnPaths(file, changed),
 				});
 			}
 		},

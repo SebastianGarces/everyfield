@@ -35,10 +35,12 @@ import { isHeadlessRole, isOpus, validateOverride, type Role } from "./seats.ts"
 import {
 	EvfError,
 	WaitGaveUp,
+	baseRef,
 	evfDataDir,
 	fail,
 	git,
 	gitOk,
+	hasRemote,
 	loadConfig,
 	notify,
 	parseTask,
@@ -53,6 +55,7 @@ import {
 import { driveHolder } from "./drive-signal.ts";
 import { closeRunPane } from "./panes.ts";
 import { overlapGate } from "./overlap.ts";
+import { brakeOn, brakeStands, releaseWait, type BrakeHit, type ReleaseProbe } from "./brake.ts";
 import {
 	bodyOnlyItems,
 	conflicting,
@@ -82,7 +85,8 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  * escalate too. The circuit breaker (OPS-115): a seat stage that a seat closes twice in a row with the same status at
  * the same progress fingerprint (worktree HEAD and spec hash) escalates at the second close, so no third seat launches.
  * Round routing (OPS-135): a ci or ship failure a seat cannot change holds the task (`held_external`) with no seat and
- * no round, until its cause clears or the coordinator reopens it.
+ * no round, until its cause clears or the coordinator reopens it. The brake (OPS-141, brake.ts) uses the same status for
+ * one test that fails on several branches that do not touch its paths.
  * `evf next` reads the store and names the next stage; `evf drive` performs it, waits on the seat through Herdr and
  * repeats. Jonah only launches `evf drive --detach` and polls `evf status --json`.
  */
@@ -134,9 +138,9 @@ export type Next = {
  */
 export type SimplifySkip = { run: number; head: string; reason?: "merge_only" };
 /** Who can clear a held failure: main's owners, or a rerun or new head of a PR whose own code is not the cause. */
-type HoldCause = "main" | "external";
+type HoldCause = "main" | "external" | "test";
 /** The payload of a `held_external` event. `head` is the PR head the failure was read at. */
-type Hold = { cause: HoldCause; checks: string[]; head: string | null; summary: string };
+type Hold = { cause: HoldCause; checks: string[]; head: string | null; summary: string; brake?: number };
 type RunRow = {
 	id: number;
 	stage: string;
@@ -630,7 +634,11 @@ const storeExtrasOf = (db: DatabaseSync, taskId: number, spec: string | null): N
 		unfiled: unfiledSlices(db, taskId, spec),
 		waitsFor: waitsFor(db, taskId),
 		hold: held?.payload as Hold | undefined,
-		resumeCi: !!held && (runsOf(db, taskId).filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
+		// A brake holds a task before its checks passed, so the checks run again, not ci.
+		resumeCi:
+			!!held &&
+			held.payload.cause !== "test" &&
+			(runsOf(db, taskId).filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
 	};
 };
 
@@ -1680,6 +1688,8 @@ export type DriveTiming = {
 	/** How long a verifier waits for an overlapping ready PR, and how often it looks. Unset means the overlap.ts values. */
 	overlapWaitMs?: number;
 	overlapPollMs?: number;
+	/** What the staged release reads. Unset means the real clock, load and check queue. */
+	release?: ReleaseProbe;
 };
 export const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -1814,7 +1824,7 @@ function failingOnMain(cwd: string, repo: string, base: string, names: string[])
 function previousFailureHead(db: DatabaseSync, taskId: number): string | null | undefined {
 	const row = db
 		.prepare(
-			"SELECT json_extract(payload, '$.head') AS head FROM events WHERE task_id = ? AND run_id > ? AND (type = 'held_external' OR (type = 'round_start' AND json_extract(payload, '$.stage') IN ('ci', 'ship'))) ORDER BY id DESC LIMIT 1",
+			"SELECT json_extract(payload, '$.head') AS head FROM events WHERE task_id = ? AND run_id > ? AND ((type = 'held_external' AND json_extract(payload, '$.cause') <> 'test') OR (type = 'round_start' AND json_extract(payload, '$.stage') IN ('ci', 'ship'))) ORDER BY id DESC LIMIT 1",
 		)
 		.get(taskId, reopenMarker(db, taskId)) as { head: string | null } | undefined;
 	return row?.head;
@@ -1858,22 +1868,58 @@ function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string,
 	}
 }
 
-const WAY_OUT: Record<HoldCause, string> = {
+const WAY_OUT: Record<Exclude<HoldCause, "test">, string> = {
 	main: "It resumes when they no longer fail on main.",
 	external: "It resumes when the PR head moves or they no longer fail.",
 };
-/** The failure is not the PR's: close the run as if it never happened, hold the task and tell the coordinator once. */
-function holdTask(db: DatabaseSync, t: TaskRow, runId: number, stage: Stage, f: Omit<Hold, "summary">): void {
+/**
+ * The failure is not the PR's: close the run as if it never happened, hold the task and tell the coordinator once. A
+ * brake hold has no notice of its own and no test name in its summary: the brake reports the test once, for all its
+ * tasks. A brake also holds a task between stages, with no run to close.
+ */
+function holdTask(db: DatabaseSync, t: TaskRow, runId: number | null, stage: Stage, f: Omit<Hold, "summary">): void {
 	const { cause, checks, head } = f;
-	const summary = `${t.ref} held (${cause}): ${checks.join(", ")} at ${head?.slice(0, 10) ?? "an unknown head"}; no seat and no round`;
-	db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(now(), summary, runId);
-	record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary });
+	const named = cause === "test" ? `brake ${f.brake}` : checks.join(", ");
+	const summary = `${t.ref} held (${cause}): ${named} at ${head?.slice(0, 10) ?? "an unknown head"}; no seat and no round`;
+	if (runId !== null) {
+		db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(now(), summary, runId);
+		record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary });
+	}
 	db.prepare("UPDATE tasks SET status = 'held_external', updated_at = ? WHERE id = ?").run(now(), t.id);
 	record(db, t.id, runId, "held_external", { ...f, summary });
-	notify(
-		`${t.ref} held: ${cause}`,
-		`${summary}. ${WAY_OUT[cause]} To overrule: bin/evf task reopen ${t.ref} --reason "<words>"`,
-	);
+	if (cause !== "test")
+		notify(
+			`${t.ref} held: ${cause}`,
+			`${summary}. ${WAY_OUT[cause]} To overrule: bin/evf task reopen ${t.ref} --reason "<words>"`,
+		);
+}
+
+/** Reads the brake for this task and reports each brake this call started. The report is the only one for its test. */
+function brakeHit(db: DatabaseSync, t: TaskRow): BrakeHit | null {
+	const hit = brakeOn(db, t.id);
+	for (const { test, file, brake, branches } of hit?.tripped ?? [])
+		notify(
+			"Brake: one test fails on several branches",
+			`${test} (${file}) fails on ${branches.join(", ")}, which do not touch its paths. Those rounds hold. File one OPS fix. After it merges: bin/evf brake fixed ${brake} --commit <sha>`,
+		);
+	return hit;
+}
+
+const brakeHold = (hit: BrakeHit): Omit<Hold, "summary"> => ({
+	cause: "test",
+	checks: [hit.test],
+	head: hit.head,
+	brake: hit.brake,
+});
+
+/** A released task runs its checks on a head that includes the fix. A conflict is left for the next stage to report. */
+function includeMain(root: string, wt: string): string {
+	const cfg = loadConfig(root);
+	if (!existsSync(wt)) return "the worktree is gone";
+	if (hasRemote(root, cfg)) gitOk(wt, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	if (gitOk(wt, "merge", "--quiet", "--no-edit", baseRef(root, cfg))) return "the branch includes main";
+	gitOk(wt, "merge", "--abort");
+	return "the merge of main failed";
 }
 
 /**
@@ -2026,7 +2072,9 @@ function evfStage(
 			outcome.status === "failed" && (stage === "ci" || stage === "ship")
 				? classifyFailure(db, root, t, wt, outcome.read)
 				: null;
-		if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure);
+		const braked = outcome.status === "failed" && stage === "pr" ? brakeHit(db, t) : null;
+		if (braked) holdTask(db, t, runId, stage, brakeHold(braked));
+		else if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure);
 		else runDone(root, runId, { status: outcome.status, summary: outcome.summary, failedHead: failure?.head });
 	} else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
@@ -2307,6 +2355,29 @@ export function pinRow(root: string, task: TaskRef): number {
  * One transition on the pinned row `pin` (a fresh drive's pin when absent). Returns the stage it performed or waited
  * on. A pass first ends the drive when the row is abandoned or merged, a merge on GitHub included.
  */
+/** The statuses of a task that can start new work. */
+const BRAKE_STATUSES = ["new", "specced", "active", "pr_open"];
+
+/**
+ * A drive that starts new work takes a release slot first, so a burst of drives starts in stages (OPS-141). A restart
+ * with a seat still open starts nothing and waits for nothing.
+ */
+function awaitDriveStart(root: string, task: TaskRef, pin: number, timing: DriveTiming): void {
+	for (let said = "", firstLook = true; ; firstLook = false, sleep(timing.holdPollMs)) {
+		const db = openWorkDb(root);
+		try {
+			const t = taskById(db, pin);
+			if (!t || !BRAKE_STATUSES.includes(t.status) || runsOf(db, t.id).some((r) => r.status === "started")) return;
+			const wait = releaseWait(db, root, t.id, task.id, "drive", timing.release, firstLook);
+			if (!wait) return;
+			if (wait !== said) console.log(`${now()} drive ${task.id}: waits to start: ${wait}`);
+			said = wait;
+		} finally {
+			db.close();
+		}
+	}
+}
+
 export function driveOnce(
 	root: string,
 	task: TaskRef,
@@ -2333,6 +2404,24 @@ export function driveOnce(
 		// A hold writes nothing while it stands, so polls and restarts add no event and no notification.
 		if (t.status === "held_external") {
 			const hold = latestEvent(db, t.id, ["held_external"])!.payload as Hold;
+			if (hold.cause === "test") {
+				const wait = brakeStands(db, hold.brake!)
+					? "its fix has not merged"
+					: releaseWait(db, root, t.id, task.id, "hold", timing.release);
+				if (wait) return { stage: "held", round: t.round, cause: hold.cause, reason: `${hold.summary}; ${wait}` };
+				const merged = includeMain(root, worktreePath(root, loadConfig(root), task));
+				db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(
+					t.pr_number ? "pr_open" : "active",
+					now(),
+					t.id,
+				);
+				record(db, t.id, null, "hold_released", {
+					cause: hold.cause,
+					reason: merged,
+					summary: `${task.id} hold released: brake ${hold.brake} ended; ${merged}`,
+				});
+				return { stage: "pr", round: t.round, reason: `hold released: ${merged}` };
+			}
 			const released = holdRelease(root, t, worktreePath(root, loadConfig(root), task), hold);
 			if (!released) return { stage: "held", round: t.round, cause: hold.cause, reason: hold.summary };
 			db.prepare("UPDATE tasks SET status = 'pr_open', updated_at = ? WHERE id = ?").run(now(), t.id);
@@ -2344,6 +2433,17 @@ export function driveOnce(
 			return { stage: "ci", round: t.round, reason: `hold released: ${released}` };
 		}
 		const runs = runsOf(db, t.id);
+		// A brake stops a task between stages. A seat that already works closes first.
+		if (BRAKE_STATUSES.includes(t.status) && t.mode !== "prototype" && !runs.some((r) => r.status === "started")) {
+			const braked = brakeHit(db, t);
+			if (braked) {
+				// A pr stage that failed on this test before the brake started goes the same way as one that fails after it.
+				const last = runs.filter(happened).at(-1),
+					failedPr = last?.stage === "pr" && last.status === "failed" ? last.id : null;
+				holdTask(db, t, failedPr, "pr", brakeHold(braked));
+				return { stage: "held", round: t.round, cause: "test", reason: `${task.id} held by brake ${braked.brake}` };
+			}
+		}
 		const pick = pickOf(db, t.id);
 		const marker = reopenMarker(db, t.id),
 			extras = extrasOf(db, t.id);
@@ -2522,6 +2622,7 @@ export function drive(
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
 		opts.onPinned?.(pin);
+		if (!opts.once) awaitDriveStart(root, task, pin, timing);
 		for (;;) {
 			const n = driveOnce(root, task, timing, pin);
 			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
