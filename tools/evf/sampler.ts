@@ -118,7 +118,11 @@ export function machineProbes(root: string, timeoutMs = PROBE_TIMEOUT_MS): Sampl
 			return Number(used[1]) / (used[2] === "M" ? 1024 : 1);
 		},
 		// The figure `memory_pressure` prints as "free percentage"; os.freemem leaves out memory macOS can reclaim.
-		freeMemPct: () => Number(probeOutput("sysctl", ["-n", "kern.memorystatus_level"], timeoutMs)),
+		freeMemPct: () => {
+			const level = probeOutput("sysctl", ["-n", "kern.memorystatus_level"], timeoutMs).trim();
+			if (!level) throw new Error("sysctl kern.memorystatus_level has no figure");
+			return Number(level);
+		},
 		previews: () => {
 			const records = JSON.parse(probeOutput("portless", ["preview", "status", "--json"], timeoutMs)) as Array<{
 				state: string;
