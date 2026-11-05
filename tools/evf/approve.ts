@@ -225,7 +225,7 @@ function resumedMerge(root: string, cfg: Config, pr: Pr, named: string | undefin
 
 /**
  * Merges main into a held PR's branch (a plain merge, never a force push) until the branch includes main, and waits for
- * required CI on each new head. Inside the ship queue, so no ship moves main meanwhile. Returns the final head.
+ * required CI on each new head. Inside the ship queue, so no ship moves main during those steps. Returns the final head.
  */
 function mergeMain(
 	root: string,
@@ -242,12 +242,21 @@ function mergeMain(
 	let sha = pr.headRefOid;
 	for (let round = 1; ; round++) {
 		if (round > 3) fail(`Main moved during ${round - 1} branch updates. Run ${rerun} again.`);
+		// The queue wait and the CI wait both let main move, and a ship ahead in the queue is what moves it. Judge the
+		// main that GitHub is about to merge, so an overlap refuses before the branch changes.
+		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 		const main = git(root, "rev-parse", baseRef(root, cfg)),
 			refusal = mainMergeRefusal(root, approved, sha, main);
-		if (refusal) fail(notMerged(n, cfg, refusal, again));
+		if (refusal)
+			fail(
+				round === 1
+					? notMerged(n, cfg, refusal, again)
+					: `PR #${n} holds evf approve's merge of ${cfg.baseBranch} at ${sha}, and ${cfg.baseBranch} moved again to ${main.slice(0, 10)}. evf approve did not merge that newer ${cfg.baseBranch}: ${refusal}. Update the branch (gh pr update-branch ${n}), then ${again}.`,
+			);
 		console.log(`approve: PR #${n} is behind ${cfg.baseBranch}; merging ${main.slice(0, 10)} into ${pr.headRefName}.`);
 		gh(["pr", "update-branch", String(n)]);
-		git(root, "fetch", "--quiet", cfg.remote, pr.headRefName);
+		// With the base branch: carryProof below must see the main GitHub merged.
+		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName);
 		sha = git(root, "rev-parse", `${cfg.remote}/${pr.headRefName}`);
 		// Anything but a clean merge of main voids his approval here, before his words reach the new head.
 		ownerCover(root, cfg, undefined, n, sha);

@@ -2,8 +2,8 @@
 // The drive's ci stage is green only when every required check passed on the exact PR head.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fixture } from "./fixtures.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
@@ -1486,6 +1486,165 @@ test("AC:OPS-146-4 a non-merge commit after the approval voids it: on a held PR,
 				.includes(OWNER_VOID),
 		);
 		assert.deepEqual(f.merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+const origin = (f: Fx) => join(f.root, "fake-bin/origin.git");
+/**
+ * The next main: a commit the remote holds as `held-main`, and on the home checkout's main for the fake merge. Nothing
+ * local learns that main moved until it fetches, as when another machine or GitHub moves it.
+ */
+function nextMain(f: Fx, files: Record<string, string>) {
+	for (const [path, text] of Object.entries(files)) {
+		mkdirSync(join(f.root, path, ".."), { recursive: true });
+		writeFileSync(join(f.root, path), text);
+	}
+	f.git("add", ...Object.keys(files));
+	f.git("commit", "-qm", "Main moves later");
+	const sha = f.git("rev-parse", "HEAD");
+	f.git("push", "-q", "origin", `${sha}:refs/heads/held-main`);
+	return sha;
+}
+/** The command that moves the remote's main to the commit nextMain holds. */
+const moveMain = (f: Fx) => ["git", "--git-dir", origin(f), "update-ref", "refs/heads/main", "refs/heads/held-main"];
+
+/**
+ * Another ship holds the queue while approve waits. Once approve has reached the queue, the holder moves main and
+ * leaves, as a ship ahead in the queue does.
+ */
+function shipAheadMovesMain(f: Fx) {
+	const lock = join(evfDataDir(f.root), "ship-queue/lock.json");
+	mkdirSync(join(lock, ".."), { recursive: true });
+	const script = `
+		const fs = require("node:fs"), cp = require("node:child_process");
+		const [lock, signal, ...move] = process.argv.slice(1);
+		fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, task: "OPS-2", at: new Date().toISOString() }));
+		fs.writeFileSync(signal, "held");
+		const tickets = lock.replace(/lock\\.json$/, "tickets");
+		const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+		for (let i = 0; i < 3000 && !(fs.existsSync(tickets) && fs.readdirSync(tickets).length); i++) sleep(10);
+		cp.execFileSync(move[0], move.slice(1));
+		fs.rmSync(lock, { force: true });
+	`;
+	const signal = join(f.root, "fake-bin/ship-ahead-held");
+	const child = spawn(process.execPath, ["-e", script, lock, signal, ...moveMain(f)], { stdio: "ignore" });
+	for (let i = 0; i < 1000 && !existsSync(signal); i++)
+		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+	assert.ok(existsSync(signal), "the ship ahead holds the queue");
+	return child;
+}
+
+test("AC:OPS-146-3 main moves to an overlapping path during the queue wait: approve refuses with the branch unchanged", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		// The same text: git merges it cleanly, so only a check on the moved main can refuse.
+		nextMain(f, TEMPLATE_FILE);
+		f.publish([f.review(a)], behindReady(a));
+		shipAheadMovesMain(f);
+		const out = f.refusal(() => approveBehind(f, a));
+		assert.match(
+			out,
+			/did not merge main into it: main changed paths this PR also changes: docs\/catalog\/document-templates\.json/,
+		);
+		assert.match(out, /The branch is unchanged/);
+		assert.equal(remoteHead(f), a);
+		assert.deepEqual([f.calls("update-branch"), f.merges()], [[], []]);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 main moves to an unrelated path during the queue wait: approve merges that main and keeps his approval", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		const moved = nextMain(f, { "docs/moved.md": "Moved.\n" });
+		f.publish([f.review(a)], behindReady(a));
+		shipAheadMovesMain(f);
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		f.git("fetch", "-q", "origin", f.task.branch);
+		assert.deepEqual(f.git("rev-list", "--parents", "-n", "1", final).split(" ").slice(1), [a, moved]);
+		assert.deepEqual(f.merges(), [final]);
+		assert.deepEqual(
+			ownerMerges(f).map((r: any) => [r.approved_head, r.merged_head]),
+			[[a, final]],
+		);
+	} finally {
+		f.close();
+	}
+});
+
+/** Main moves during evf's first update: a hook on the remote moves it as soon as the update reaches the PR branch. */
+function mainMovesOnFirstUpdate(f: Fx, files: Record<string, string>) {
+	nextMain(f, files);
+	const hook = join(origin(f), "hooks/post-receive");
+	writeFileSync(hook, `#!/bin/sh\n${moveMain(f).join(" ")}\n`);
+	chmodSync(hook, 0o755);
+	// A machine-wide core.hooksPath would hide this hook.
+	execFileSync("git", ["--git-dir", origin(f), "config", "core.hooksPath", join(origin(f), "hooks")]);
+}
+
+test("AC:OPS-146-1 main moves just before the update: approve reads the main GitHub merged, so his approval carries", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		const moved = nextMain(f, { "docs/moved.md": "Moved.\n" });
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => (s.beforeUpdateBranch = moveMain(f))),
+		);
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		f.git("fetch", "-q", "origin", f.task.branch);
+		assert.deepEqual(f.git("rev-list", "--parents", "-n", "1", final).split(" ").slice(1), [a, moved]);
+		assert.deepEqual(f.merges(), [final]);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-3 main moves to an overlapping path after evf's merge: the refusal names the merged head and states no false fact", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish([f.review(a)], behindReady(a));
+		mainMovesOnFirstUpdate(f, TEMPLATE_FILE);
+		const out = f.refusal(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.notEqual(final, a);
+		assert.ok(out.includes(`holds evf approve's merge of main at ${final}`), out);
+		assert.match(out, /main changed paths this PR also changes/);
+		assert.doesNotMatch(out, /into it:|The branch is unchanged/);
+		assert.equal(f.calls("update-branch").length, 1);
+		assert.deepEqual(f.merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 main moves to an unrelated path after evf's merge: a second round merges it, and the record names the final head", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish([f.review(a)], behindReady(a));
+		mainMovesOnFirstUpdate(f, { "docs/moved.md": "Moved.\n" });
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.equal(f.calls("update-branch").length, 2);
+		assert.deepEqual(f.merges(), [final]);
+		const lines = ownerMerges(f);
+		assert.equal(lines.length, 2);
+		assert.deepEqual([lines[1].approved_head, lines[1].merged_head], [a, final]);
+		assert.equal(f.shipped().owner_approval.carry.merges.length, 2);
 	} finally {
 		f.close();
 	}
