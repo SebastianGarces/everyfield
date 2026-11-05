@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +36,7 @@ import { carryProof, nameWithOwner, type CarryProof } from "./ship.ts";
  *    a head that carryProof reaches from it. Any other commit voids his approval until he approves the new head.
  *
  * `evf ship` and `evf drive` also refuse at their start on stale code (`requireCurrentCode`), before any GitHub write.
+ * Before that, a home checkout that is behind fast-forwards and the command reruns on the new code (`rerunOnCaughtUpCode`).
  */
 
 /** The evf code a process runs: the git trees of tools/evf and bin/evf, as they were when the process loaded it. */
@@ -106,6 +108,35 @@ export function requireCurrentCode(
 ): void {
 	const stale = staleCode(root, cfg, fetchError);
 	if (stale) fail(`${refusal}: ${stale}`);
+}
+
+/**
+ * OPS-146: when this process would refuse as stale and the home checkout is behind the base branch, fast-forward the
+ * checkout and run the same command from it. The caller returns the exit code at once, so this process never goes on
+ * with the command on the code it loaded. Undefined means nothing changed, and the command goes on to its usual check:
+ * current code passes it, and a checkout that is on another branch, has changes in tools/evf or bin/evf, has its own
+ * commits or that git refuses to fast-forward refuses there. Each rerun starts from a later commit, so reruns end.
+ */
+export function rerunOnCaughtUpCode(root: string, cfg: Config, argv: string[]): number | undefined {
+	if (!hasRemote(root, cfg)) return undefined;
+	const fetchError = fetchBase(root, cfg);
+	if (fetchError || !staleCode(root, cfg, fetchError)) return undefined;
+	const ref = baseRef(root, cfg),
+		home = readCodeIdentity(root),
+		base = run("git", ["-C", root, "rev-parse", `${ref}^{commit}`]).stdout.trim(),
+		branch = run("git", ["-C", root, "symbolic-ref", "--quiet", "--short", "HEAD"]).stdout.trim();
+	if (!home || home.dirty || branch !== cfg.baseBranch || home.commit === base) return undefined;
+	if (run("git", ["-C", root, "merge-base", "--is-ancestor", home.commit, base]).code !== 0) return undefined;
+	if (run("git", ["-C", root, "merge", "--quiet", "--ff-only", base]).code !== 0) return undefined;
+	console.error(
+		`evf: the home checkout moved from ${home.commit.slice(0, 10)} to ${base.slice(0, 10)}; rerunning evf ${argv[0]} on that code.`,
+	);
+	const rerun = spawnSync(
+		process.execPath,
+		["--disable-warning=ExperimentalWarning", join(root, "tools/evf/main.ts"), ...argv],
+		{ stdio: "inherit" },
+	);
+	return rerun.status ?? 1;
 }
 
 /** The matched paths of one class for one exact head, or why evf cannot tell. Doubt counts as the class. */
