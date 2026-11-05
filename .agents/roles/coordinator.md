@@ -79,3 +79,9 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-never-block-on-the-human/SKILL.md`
 - `.agents/skills/principle-separate-before-serializing-shared-state/SKILL.md`
 - `.agents/skills/principle-sequence-verifiable-units/SKILL.md`
+
+## Broken-main brake
+
+A `Brake:` notification names one test that fails on several branches that do not touch its paths. Those rounds hold.
+File one OPS fix for that test. After the fix merges, run the `bin/evf brake fixed <brake> --commit <sha>` line from the
+notification. The held tasks then release in stages. To find the number later: `bin/evf events --type brake_tripped`.

@@ -152,7 +152,7 @@ because one verify would push out the reopen, nudge and escalation rows.
 |---|---|
 | `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result` |
 | `check_suite_end` | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
-| `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths` |
+| `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths`, `file`, `touchesOwnPaths` |
 
 `check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
 `trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the full check queue plus the load wait. `result` is
@@ -161,9 +161,12 @@ because one verify would push out the reopen, nudge and escalation rows.
 
 `test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
 `EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
-WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. Any other failed check,
-at present `package-unit-tests` and `local-app`, records no `test_failed`, and its `check_suite_end` has `passed`
+WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. `local-app` does so through
+`scripts/test-workflow.mjs`, which `pnpm check` runs after typecheck and lint, so a failure in any other step of that check
+records no name. Any other failed check, at present `package-unit-tests`, records no `test_failed`, and its `check_suite_end` has `passed`
 false. One check records each test name once. `postgres://` and `npg_` values in a name are stored redacted.
+`file` is the test's path in the checkout, and `touchesOwnPaths` says whether the branch changed the test's paths (see
+"Broken-main brake"). Both are null when the reporter gave no file.
 
 Before the first check of a rerun at one head, role and mode, evf copies the earlier evidence to
 `<evidence dir>/attempt-<n>`, with the next free number:
@@ -565,6 +568,33 @@ nothing. `evf next` prints stage `held` with the cause. The drive looks again ev
 `evf task reopen` also ends a hold. Failures before it no longer count, so a check that still fails at that head with
 main green starts a round; a check that still fails on main holds again. `evf ship` reads the same checks as before and
 refuses a held task while a required check fails.
+
+**Broken-main brake (OPS-141, `brake.ts`).** One test that fails on 2 or more branches that do not touch its paths,
+within 60 min, starts a brake. A test's paths are its app, package or tool folder (`packages/db/`), or else the folder of
+its file. A test under `tools/evf/tests/` has only its own file as its path, because the evf suite runs mostly on branches
+that change `tools/evf/`. A branch counts while its latest finished verify still fails the test. `test_failed` needs a
+test file, so a failure with no file and a failure in a check that reports no names, such as GitHub ci, never counts.
+
+- The drive that reaches the threshold records one `brake_tripped` event with `{test, file, branches, summary}` and sends
+  one Herdr notification with the test name. No other event summary and no other notification names the test.
+- Each branch holds at `held_external` with cause `test` and the field `brake`: in its failed pr stage, or at its next pass
+  between stages. A seat that works already closes first. The failed pr run closes `aborted`, so it costs no retry and no
+  round.
+- The coordinator files one OPS fix. After it merges, `bin/evf brake fixed <brake> --commit <sha>` records `brake_fixed`
+  and refuses a commit that is not on main. The brake never ends by itself: a commit that touches the test's paths may
+  fix nothing.
+- A brake writes only events and the status. It never marks a check passed. A released task merges main and runs its pr
+  stage again, so its checks run at the new head. A test that still fails on one branch goes to the implementer, and on two
+  branches it starts a new brake.
+- `evf task reopen` of a task this brake holds overrules the brake for that task until the brake ends: the task's next failure of that test goes to
+  a seat, while the other branches stay held. A later brake can hold it again. A reopen from `escalated` or from another hold exempts nothing.
+
+**Staged release.** A task released from a brake, or a drive that starts new work, takes a slot first and records
+`release_start`. 2 tasks may hold a slot in any 5 min. A new slot also needs load under 24 and fewer than 3 checks
+waiting in the full check queue. A drive looks again each `holdPollMs`. A held task stays `held_external` until its slot.
+A task that holds a slot keeps it, so a restart costs none. A drive's first look, with no other start in the last 5 min,
+reads no load or queue, because one drive is no burst. Each later look reads them, so a drive that waits stays held at high
+load after the 5 min run out. `evf drive --once` and a drive with an open seat take no slot.
 
 **`round_start`.** Each new round records `{cause, nonMergeCommits, diffLines, round, stage, head, summary}`. The counts
 cover what the previous round added: non-merge commits and added plus deleted lines from the head of the previous
