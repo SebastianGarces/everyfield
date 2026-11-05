@@ -72,7 +72,7 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
-import { mergeOnlyPrompt, verifyDelta, type VerifyDelta } from "./verify-delta.ts";
+import { changedInputs, mergeOnlyPrompt, reviewInputs, verifyDelta, type VerifyDelta } from "./verify-delta.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -157,10 +157,6 @@ type RunRow = {
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
 /** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
-const specHash = (spec: string | null) =>
-	createHash("sha256")
-		.update(spec ?? "")
-		.digest("hex");
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	(
 		db
@@ -676,16 +672,36 @@ const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
 /**
  * What changed since the task's latest verify close, for the verifier about to start (OPS-145). A prior approval needs
  * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
- * A spec changed since that close keeps the head on record, but the approval judged the old contract: a full review.
+ * A changed review input keeps the head on record, but the approval judged the old input: a full review.
  */
-function deltaSinceApproval(db: DatabaseSync, taskId: number, wt: string, main: string): VerifyDelta {
-	const marker = reopenMarker(db, taskId),
-		runs = runsOf(db, taskId).filter((r) => r.id > marker),
+function deltaSinceApproval(
+	db: DatabaseSync,
+	root: string,
+	task: TaskRef,
+	t: TaskRow,
+	wt: string,
+	main: string,
+): VerifyDelta {
+	const marker = reopenMarker(db, t.id),
+		runs = runsOf(db, t.id).filter((r) => r.id > marker),
 		at = runs.findLastIndex((r) => r.stage === "verify" && (r.status === "passed" || r.status === "failed")),
 		close = runs[at],
-		approved = close?.status === "passed" && !bodyOnlyHead(db, taskId) ? close.progress_head : null,
-		spec = db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null };
-	return verifyDelta(wt, main, approved, runs.slice(at + 1), close?.progress_spec !== specHash(spec.spec));
+		approved = close?.status === "passed" && !bodyOnlyHead(db, t.id) ? close.progress_head : null;
+	const recorded =
+		close &&
+		(db
+			.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_end' ORDER BY id DESC LIMIT 1")
+			.get(close.id) as { payload: string } | undefined);
+	const changed = approved
+		? changedInputs(
+				recorded ? JSON.parse(recorded.payload).reviewInputs : undefined,
+				reviewInputs(db, root, t.id, task, wt, prBodyPath(root, task)),
+				wt,
+				t.pr_number,
+				approved,
+			)
+		: [];
+	return verifyDelta(wt, main, approved, runs.slice(at + 1), changed);
 }
 function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
 	const head = bodyOnlyHead(db, taskId);
@@ -922,12 +938,35 @@ export function runDone(
 		const fingerprinted = opts.closedBy !== "evf" && r.mode === "implement" && FINGERPRINTED.has(r.stage) && !!head;
 		db.prepare(
 			"UPDATE runs SET status = ?, ended_at = ?, summary = ?, progress_head = ?, progress_spec = ? WHERE id = ?",
-		).run(status, now(), summary, fingerprinted ? head : null, fingerprinted ? specHash(r.spec) : null, runId);
+		).run(
+			status,
+			now(),
+			summary,
+			fingerprinted ? head : null,
+			fingerprinted
+				? createHash("sha256")
+						.update(r.spec ?? "")
+						.digest("hex")
+				: null,
+			runId,
+		);
 		fillRunUsage(db, runId);
 		record(db, r.task_id, runId, "stage_end", {
 			stage: r.stage,
 			status: opts.status === "body-only" ? "body_only" : status,
 			summary: headline(summary, 200),
+			...(r.stage === "verify" && status === "passed" && r.worktree
+				? {
+						reviewInputs: reviewInputs(
+							db,
+							root,
+							r.task_id,
+							parseTask(r.ref),
+							r.worktree,
+							prBodyPath(root, parseTask(r.ref)),
+						),
+					}
+				: {}),
 		});
 		// A second review of a head an earlier verify of this task already closed at costs no round (OPS-113).
 		const reviewedBefore =
@@ -2530,7 +2569,7 @@ export function driveOnce(
 			}
 			// After the overlap check, which can merge main: this reads the head the verifier reviews.
 			const cfg = loadConfig(root);
-			delta = deltaSinceApproval(db, t.id, worktreePath(root, cfg, task), baseRef(root, cfg));
+			delta = deltaSinceApproval(db, root, task, t, worktreePath(root, cfg, task), baseRef(root, cfg));
 			record(db, t.id, null, "verify_start", {
 				...delta,
 				summary: `${task.id}: verifier starts at ${delta.head.slice(0, 10)}, ${delta.deltaKind}`,

@@ -759,11 +759,29 @@ since the prior approved head, or since the branch's base with none.
 |---|---|---|
 | `merge_only` | Every commit since the approved head is a clean merge of main (`cleanMerges`, the check behind the carry proof). | The prompt names the prior head, the merge result and the `overlapPaths`, and limits the review to them. |
 | `simplify` | The non-merge commits came from the simplify seat: no implement run since the approval added code. | Full. |
-| `code` | A spec changed since the approval, whatever Git shows. Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
+| `code` | A review input changed since the approval, whatever Git shows (table below). Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
 
 Only a `passed` close without a `body_only` decision counts as an approval. Changes requested, a `body_only` review and a
-reopen each leave `priorApprovedHead` null. A changed spec keeps it on record, with `deltaKind` `code`. A `merge_only` review changes what the verifier reads and nothing that
+reopen each leave `priorApprovedHead` null. A `merge_only` review changes what the verifier reads and nothing that
 `evf ship` checks: it still requires required CI and an independent review on the exact head.
+
+A verify close that passes stores one hash per input in its `stage_end` event (`reviewInputs`). A change to any input in
+this table before the next verifier gives `code`. `priorApprovedHead` stays on record, and `changedInputs` names the input.
+A close with no record, or an input evf cannot read, counts as changed.
+
+| Input | `changedInputs` name | What counts as a change |
+|---|---|---|
+| Ask, Coordinator notes and title | `ask` | Any text, by any writer: `evf task new`, audit, escape or follow-up filing. |
+| Spec | `spec` | Any text. |
+| Goal chain | `goal` | The project or the task's mission, title or body. |
+| Follow-ups, which Ask coverage can defer to | `followUps` | A link, a status, a title, or the task's own parent or slice. |
+| Proofs | `proofs` | A row a seat or person wrote. `AC:` rows that evf wrote do not count, because evf reruns them at each close. |
+| PR body | `prBody` | The file evf pushes from, in the runtime dir. A direct edit on GitHub does not count; the prompt asks the verifier to read the current body. |
+| Task contract at the head | `contract` | An OPS task's `maintenanceTasks` entry, or a WP's package entry and the text of its requirements and cases. Other tasks' entries do not count. |
+| Rulings and review rules on main | `rules: <path>` | The merge brings a change to `AGENTS.md`, `decisions.md`, `patterns.md`, the verifier role or agent, `verify-preview`, `test-standard` or a principle. |
+| The approved review | `review` | GitHub has no `approved` EVF-Review at the prior head, or GitHub is unreadable. |
+
+A reopen clears the approval itself, so `priorApprovedHead` is null.
 
 ## Answer key (OPS-112)
 
