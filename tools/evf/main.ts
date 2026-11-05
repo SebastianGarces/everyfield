@@ -62,6 +62,7 @@ import {
 	taskSpec,
 } from "./drive.ts";
 import { driveWithSignals, stopDrive } from "./drive-signal.ts";
+import { brakeFixed } from "./brake.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
@@ -165,6 +166,7 @@ Drive (harness)
                                                               (wins over config seats and seatTrial; a non-Opus model leaves the verifier on Opus)
   evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts;
                                                               the reason goes verbatim into the next seat's prompt
+  evf brake fixed <brake> --commit <sha>                      after the fix merges: the tasks that brake holds release, 2 per 5 min
   evf task compare-passed <task> --owner-approval "<words>"   prototype task escalated on one idea while the others passed:
                                                               compare only the passed ideas (the missing idea cannot be picked)
   evf task abandon <task> [--id <store id>] --reason "<words>"  close a stale task row (not merged, no started run, no live drive)
@@ -772,6 +774,13 @@ function main(argv: string[]): number | Promise<number> {
 			if (stop) return stopDrive(root, parseTask(args[0]));
 			if (detach) return drive(root, parseTask(args[0]), { once, detach });
 			return driveWithSignals(root, parseTask(args[0]), once);
+		}
+		case "brake": {
+			const sub = args.shift(),
+				brake = Number(args.shift()),
+				commit = option(args, "--commit");
+			if (sub !== "fixed" || !Number.isInteger(brake) || !commit || args.length) break;
+			return brakeFixed(root, brake, commit);
 		}
 		case "sampler": {
 			if (args.length !== 1) break;

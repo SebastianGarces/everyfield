@@ -1,7 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import os from "node:os";
 import { syncBuiltinESMExports } from "node:module";
@@ -28,7 +38,7 @@ const SUITE_KEYS = [
 	"suite",
 	"task",
 ];
-const FAILED_KEYS = ["attempt", "head", "suite", "task", "test", "touchesTestPaths"];
+const FAILED_KEYS = ["attempt", "file", "head", "suite", "task", "test", "touchesOwnPaths", "touchesTestPaths"];
 const SIGNALS = "'check_start','check_end','check_suite_end','test_failed'";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
@@ -476,6 +486,8 @@ test("AC:OPS-132-4 a failed test records one test_failed; passed, skipped and na
 			suite: "reported",
 			test: "red",
 			touchesTestPaths: false,
+			file: null,
+			touchesOwnPaths: null,
 		});
 		const suites = ofType(stored(f), "check_suite_end");
 		assert.equal(suites.find((s) => s.payload.suite === "silent")!.payload.passed, false);
@@ -528,6 +540,8 @@ test("AC:OPS-132-4 bin/evf test gives verify one name per failed test, not one f
 		for (const e of failed) {
 			assert.equal(e.payload.suite, "workflow");
 			assert.equal(e.payload.touchesTestPaths, true);
+			assert.equal(e.payload.file, "tools/evf/tests/sample.test.ts");
+			assert.equal(e.payload.touchesOwnPaths, true);
 		}
 	} finally {
 		f.close();
@@ -869,7 +883,10 @@ test("AC:OPS-132-9 failed names from bin/evf test stay out of EVF_TEST_REPORT, s
 		assert.equal(plain.code, 1);
 		assert.match(plain.out, /marked workflow test/);
 		assert.deepEqual(captured, plain);
-		assert.equal(readFileSync(capture, "utf8"), `${JSON.stringify("AC:OPS-1-2 marked red")}\n`);
+		assert.equal(
+			readFileSync(capture, "utf8"),
+			`${JSON.stringify({ name: "AC:OPS-1-2 marked red", file: join(realpathSync(wt), "tools/evf/tests/sample.test.ts") })}\n`,
+		);
 
 		// A green suite exits 0 with an empty capture.
 		commit("tools/evf/tests/sample.test.ts", 'import test from "node:test";\ntest("AC:OPS-1-1 all good", () => {});\n');

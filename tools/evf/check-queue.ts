@@ -41,6 +41,12 @@ function liveTickets(dir: string): string[] {
 
 const queueDir = (root: string) => join(evfDataDir(root), "check-queue");
 
+/** The tickets that wait behind the running full checks. */
+export function checkQueueWaiting(root: string): number {
+	mkdirSync(queueDir(root), { recursive: true });
+	return Math.max(0, liveTickets(queueDir(root)).length - CHECK_CAP);
+}
+
 /**
  * True when this command runs inside a check that holds a slot of this queue. The token is the holder's ticket path, so
  * a dead holder, a finished check or a token from another queue folder gives no bypass and a stale shell skips nothing.
