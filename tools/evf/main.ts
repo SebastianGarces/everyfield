@@ -1,4 +1,5 @@
 import { requireForeground } from "./foreground.ts";
+import { checkBranchDiffTests } from "./branch-diff-lint.ts";
 import { checkCiTests } from "./ci-tests.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { checkGithubBody, checkPrBody, taskOfBranch } from "./pr-body.ts";
@@ -279,6 +280,7 @@ function main(argv: string[]): number | Promise<number> {
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			return 0;
 		case "test": {
+			checkBranchDiffTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			const ignoreLoad = ignoreLoadReason(args);
 			// A required GitHub job never depends on the load gate.

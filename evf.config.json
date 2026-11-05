@@ -1678,6 +1678,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-136": {
+			"title": "Fake clock for timing tests and a lint on branch-diff tests",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-134": {
 			"title": "Seat turn time, coordinator run records and the long run check",
 			"owningPaths": ["tools/evf/", ".agents/roles/coordinator.md"],

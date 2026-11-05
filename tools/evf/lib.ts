@@ -210,6 +210,10 @@ export function sleep(ms: number): void {
 	if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+/** What a wait reads and sleeps on. Only a test passes another clock (tests/fixtures.ts); no timing default carries one. */
+export type Clock = { now(): number; sleep(ms: number): void };
+export const REAL_CLOCK: Clock = { now: () => Date.now(), sleep };
+
 export type RunResult = { code: number; stdout: string; stderr: string };
 
 export function run(

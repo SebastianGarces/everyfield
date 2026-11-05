@@ -9,10 +9,11 @@ import {
 	fail,
 	git,
 	loadConfig,
+	REAL_CLOCK,
 	run,
 	runtimeDir,
-	sleep,
 	worktreePath,
+	type Clock,
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
@@ -337,7 +338,11 @@ export type LaunchTiming = {
 	turnPollMs: number;
 	/** A typed line of this many bytes or more is refused before a pane exists. Herdr's terminal limit; tests lower it. */
 	typedLineLimit: number;
+	/** What the launch waits read and sleep on. Unset means the real clock. */
+	clock?: Clock;
 };
+/** The timing inside a launch, which has settled on its clock. */
+type LaunchWaits = LaunchTiming & { clock: Clock };
 export const LAUNCH_TIMING: LaunchTiming = {
 	paneReadyMs: 30_000,
 	paneReadyPollMs: 500,
@@ -379,22 +384,23 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 }
 /** The pause between the two quiet polls: long enough to catch a subshell that starts next, short against a launch. */
 const QUIET_RECHECK_MS = 100;
-function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
-	const started = Date.now();
+function waitForShell(workspace: string, pane: string, timing: LaunchWaits): void {
+	const { clock } = timing,
+		started = clock.now();
 	for (let quiet = 0; ;) {
 		const state = paneShellReady(pane);
 		quiet = state.ready ? quiet + 1 : 0;
 		if (quiet >= 2) return;
 		if (quiet === 1) {
-			sleep(Math.min(QUIET_RECHECK_MS, timing.paneReadyPollMs));
+			clock.sleep(Math.min(QUIET_RECHECK_MS, timing.paneReadyPollMs));
 			continue;
 		}
-		const waited = Date.now() - started;
+		const waited = clock.now() - started;
 		if (waited >= timing.paneReadyMs)
 			fail(
 				`pane ${pane} in workspace ${workspace} was not an available shell after waiting ${Math.round(waited / 100) / 10} s (${state.seen}).`,
 			);
-		sleep(Math.min(timing.paneReadyPollMs, timing.paneReadyMs - waited));
+		clock.sleep(Math.min(timing.paneReadyPollMs, timing.paneReadyMs - waited));
 	}
 }
 
@@ -418,7 +424,8 @@ function agentPresent(agent: string, pane: string): boolean | null {
  * pane with growing backoff; each retry first waits for the quiet shell again, and the agent list proves the earlier
  * start did not succeed late, so a seat never starts twice. Any other failure tries the trust dialog once.
  */
-function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: LaunchTiming): void {
+function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: LaunchWaits): void {
+	const { clock } = timing;
 	let waitedMs = 0;
 	for (let attempt = 0; ; attempt++) {
 		const started = run("herdr", startArgs(plan, pane));
@@ -436,7 +443,7 @@ function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: La
 				`herdr agent start answered ${code} in workspace ${workspace} pane ${pane} on all ${attempt + 1} attempts over ${Math.round(waitedMs / 100) / 10} s of waiting: ${output}. Read the pane, then close the workspace or retry.`,
 			);
 		const backoff = timing.busyBackoffMs * 2 ** attempt;
-		sleep(backoff);
+		clock.sleep(backoff);
 		waitedMs += backoff;
 		const present = agentPresent(plan.agent, pane);
 		if (present === true) return; // The earlier start succeeded late: that seat is the one.
@@ -444,9 +451,9 @@ function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: La
 			fail(
 				`herdr agent start answered ${code} in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`,
 			);
-		const before = Date.now();
+		const before = clock.now();
 		waitForShell(workspace, pane, timing);
-		waitedMs += Date.now() - before;
+		waitedMs += clock.now() - before;
 	}
 }
 
@@ -478,13 +485,14 @@ function agentStatus(agent: string): string {
 }
 
 /** Wait for the run's session_start event: the Claude session-start hook ran, so the session reads a prompt. */
-function waitForSession(db: DatabaseSync, runId: number, timing: LaunchTiming): boolean {
-	const started = Date.now();
+function waitForSession(db: DatabaseSync, runId: number, timing: LaunchWaits): boolean {
+	const { clock } = timing,
+		started = clock.now();
 	for (;;) {
 		if (db.prepare("SELECT 1 FROM events WHERE run_id = ? AND type = 'session_start'").get(runId)) return true;
-		const waited = Date.now() - started;
+		const waited = clock.now() - started;
 		if (waited >= timing.sessionReadyMs) return false;
-		sleep(Math.min(timing.sessionPollMs, timing.sessionReadyMs - waited));
+		clock.sleep(Math.min(timing.sessionPollMs, timing.sessionReadyMs - waited));
 	}
 }
 
@@ -526,7 +534,7 @@ export function launch(
 		taskId?: number;
 	},
 ): number {
-	const timing = { ...LAUNCH_TIMING, ...opts.timing };
+	const timing: LaunchWaits = { clock: REAL_CLOCK, ...LAUNCH_TIMING, ...opts.timing };
 	// A merged ref fails before it gets a worktree or a row, dry run included. Reading never creates the store.
 	if (existsSync(workDbPath(root))) {
 		const known = openWorkDb(root, { readOnly: true });
@@ -675,10 +683,11 @@ export function launch(
 			herdr(["agent", "prompt", plan.agent, opts.prompt]);
 			const sent = event("prompt_sent", { summary: opts.prompt.slice(0, 200) }, runId);
 			// A prompt that went in before the session was ready, or was swallowed, starts no turn: send it once more.
-			const confirmStart = Date.now();
+			const { clock } = timing,
+				confirmStart = clock.now();
 			let began = false;
-			while (!(began = turnBegan(db, runId, plan.agent, sent)) && Date.now() - confirmStart < timing.turnConfirmMs)
-				sleep(Math.min(timing.turnPollMs, Math.max(1, timing.turnConfirmMs - (Date.now() - confirmStart))));
+			while (!(began = turnBegan(db, runId, plan.agent, sent)) && clock.now() - confirmStart < timing.turnConfirmMs)
+				clock.sleep(Math.min(timing.turnPollMs, Math.max(1, timing.turnConfirmMs - (clock.now() - confirmStart))));
 			if (!began) {
 				herdr(["agent", "prompt", plan.agent, opts.prompt]);
 				event("prompt_resent", { summary: `no turn began after the first prompt; sent it again` }, runId);

@@ -240,12 +240,8 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 
 /** The task branch whose own diff is the OPS-125 change before it merges. */
 const OPS_BRANCH = "task/ops-125";
-/**
- * The OPS-125 change check on `repo`: no app or package file imports tools/evf/, and outside a shallow checkout at
- * least one non-merge `OPS-125:` commit exists and none of them, each against its first parent, edits apps/ or packages/. On
- * task/ops-125 the branch diff counts too. Another task branch's own app diff is not part of the change.
- */
-function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
+/** No app or package file in `repo` imports tools/evf/. */
+function checkNoToolingImports(repo: string) {
 	const importers: string[] = [];
 	const walk = (dir: string) => {
 		if (!existsSync(dir)) return;
@@ -260,13 +256,21 @@ function checkOps125Change(repo: string, diagnostic: (message: string) => void =
 	walk(join(repo, "apps"));
 	walk(join(repo, "packages"));
 	assert.deepEqual(importers, [], `app or package files import the QA tooling: ${importers.join(", ")}`);
+}
+
+/**
+ * The OPS-125 change check on a fixture `repo`: the import scan, and outside a shallow checkout at least one non-merge
+ * `OPS-125:` commit exists and none of them, each against its first parent, edits apps/ or packages/. On task/ops-125 the
+ * branch diff counts too. Another task branch's own app diff is not part of the change.
+ */
+function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
+	checkNoToolingImports(repo);
 	const git = (...args: string[]) => {
 		const r = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
 		assert.equal(r.status, 0, `git ${args.join(" ")}: ${r.stderr}`);
 		return r.stdout.split("\n").filter(Boolean);
 	};
 	// CI checks out the PR merge commit at depth 1, with no main ref and no parents to diff against.
-	// The history half then runs in `evf ac run` on the full worktree.
 	if (git("rev-parse", "--is-shallow-repository")[0] === "true") {
 		diagnostic("shallow checkout: no main history, so only the import scan runs");
 		return { shallow: true, commits: [] };
@@ -335,8 +339,9 @@ test("OPS-125: an app task branch on top of the OPS-125 change passes the check 
 	assert.equal(checkOps125Change(repo.dir).commits.length, 2);
 });
 
-test("OPS-125: the real worktree's OPS-125 change edits no app or package and nothing imports the tooling AC:OPS-125-2", (t) => {
-	checkOps125Change(source, (m) => t.diagnostic(m));
+// The history half stays in the fixture tests: the real checkout's history changes with each branch (OPS-136).
+test("OPS-125: nothing in the real worktree's apps or packages imports the tooling AC:OPS-125-2", () => {
+	checkNoToolingImports(source);
 });
 
 test("OPS-125: an OPS-125 commit, or the task/ops-125 branch, that edits apps/x.ts fails the check AC:OPS-125-2", (t) => {
