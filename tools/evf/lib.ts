@@ -544,7 +544,8 @@ export function evidenceDir(root: string, task: TaskRef, sha: string, label: str
 
 /** Untracked files count even when the user's git config hides them: CI never sees them. */
 export function isClean(wt: string): boolean {
-	return git(wt, "status", "--porcelain", "--untracked-files=all") === "";
+	// No optional locks: a read must never collide with a git command that a running check makes in this checkout.
+	return git(wt, "--no-optional-locks", "status", "--porcelain", "--untracked-files=all") === "";
 }
 
 /** Hide connection strings and Neon passwords in text that leaves a process. */
