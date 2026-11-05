@@ -1203,7 +1203,7 @@ the ci stage, `evf ship` and the required checks do not read it, and a poll writ
 | New check | a name not seen in the last 7 days has reached 2 PRs, also across polls, within 7 days of its first sighting | `ci_new_check_alarm` | yes, 24 h, apart from the open items |
 | Red check | one non-required check is red (`fail` or `cancel` bucket) on 2 open PRs | `ci_nonrequired_red_alarm` | no |
 
-- Each alarm sends the Herdr notification that `holdTask` sends, once. Its event holds `check`, `prs`, `raisedAt` and
+- Each alarm sends the Herdr notification that `holdTask` sends, once. Its event holds `check`, `prs` and
   `notified`: true or false for the send, null when the poll was killed before the send ended. A failed send does not
   fail the poll.
 - `ci_nonrequired_red` {check, pr, head, firstSeenAt} records each red non-required check once per PR and head.

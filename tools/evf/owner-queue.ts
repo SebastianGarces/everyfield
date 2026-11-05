@@ -360,12 +360,15 @@ type NewCheckAlarm = { check: string; prs: number[]; ageMinutes: number };
 
 /** New check alarms raised in the last 24 h. Any 24 h holds each of the three daily digest times. They block nothing. */
 function recentNewChecks(db: DatabaseSync, now: number): NewCheckAlarm[] {
-	const rows = db.prepare("SELECT payload FROM events WHERE type = 'ci_new_check_alarm' ORDER BY id").all() as Array<{
+	const rows = db
+		.prepare("SELECT ts, payload FROM events WHERE type = 'ci_new_check_alarm' ORDER BY id")
+		.all() as Array<{
+		ts: string;
 		payload: string;
 	}>;
-	return rows.flatMap(({ payload }) => {
-		const { check, prs, raisedAt } = JSON.parse(payload) as { check: string; prs: number[]; raisedAt: string };
-		const age = now - Date.parse(raisedAt);
+	return rows.flatMap(({ ts, payload }) => {
+		const { check, prs } = JSON.parse(payload) as { check: string; prs: number[] };
+		const age = now - Date.parse(ts);
 		return age <= DAY ? [{ check, prs, ageMinutes: Math.floor(age / MINUTE) }] : [];
 	});
 }

@@ -60,8 +60,8 @@ function readOpenPrs(root: string): OpenPr[] {
 		{ cwd: root, timeoutMs: READ_TIMEOUT_MS },
 	);
 	if (r.code !== 0) throw new Error(`gh pr list failed: ${(r.stderr || r.stdout).trim() || `exit ${r.code}`}`);
-	return (JSON.parse(r.stdout) as Array<{ number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }>)
-		.map((raw) => {
+	return (JSON.parse(r.stdout) as Array<{ number?: unknown; headRefOid?: unknown; statusCheckRollup?: unknown }>).map(
+		(raw) => {
 			if (typeof raw?.number !== "number" || typeof raw.headRefOid !== "string")
 				throw new Error("gh pr list printed a PR with no number or head");
 			return {
@@ -69,8 +69,8 @@ function readOpenPrs(root: string): OpenPr[] {
 				head: raw.headRefOid,
 				checks: checksOf(Array.isArray(raw.statusCheckRollup) ? raw.statusCheckRollup : []),
 			};
-		})
-		.sort((a, b) => a.number - b.number);
+		},
+	);
 }
 
 /**
@@ -112,7 +112,7 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 	const alarms: Array<Alarm & { eventId: number }> = [],
 		firstSeen: string[] = [];
 	const raise = (kind: AlarmKind, check: string, alarmPrs: number[]) => {
-		record(db, null, null, ALARM_EVENT[kind], { check, prs: alarmPrs, raisedAt: at, notified: null });
+		record(db, null, null, ALARM_EVENT[kind], { check, prs: alarmPrs, notified: null });
 		const { id } = db.prepare("SELECT last_insert_rowid() AS id").get() as { id: number };
 		alarms.push({ kind, check, prs: alarmPrs, eventId: id });
 	};
@@ -122,7 +122,7 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 				last_ok_at: string | null;
 			},
 			{ n: known } = db.prepare("SELECT COUNT(*) AS n FROM check_names").get() as { n: number };
-		const baseline = known === 0 || (!!lastOk && nowMs - Date.parse(lastOk) > WEEK);
+		const baseline = known === 0 || nowMs - Date.parse(lastOk!) > WEEK;
 
 		const readName = db.prepare("SELECT * FROM check_names WHERE name = ?");
 		const writeName = db.prepare(
@@ -134,9 +134,7 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 			const fresh = !row || nowMs - Date.parse(row.last_seen_at) > WEEK;
 			if (fresh) firstSeen.push(name);
 			const firstAt = fresh ? at : row.first_seen_at;
-			const namePrs = [...new Set([...(fresh ? [] : (JSON.parse(row.prs) as number[])), ...current])].sort(
-				(a, b) => a - b,
-			);
+			const namePrs = [...new Set([...(fresh ? [] : (JSON.parse(row.prs) as number[])), ...current])];
 			let state: NameRow["new_state"] = fresh ? (baseline ? "baseline" : "watching") : row.new_state;
 			if (state === "watching" && namePrs.length >= ALARM_PRS && nowMs - Date.parse(firstAt) < WEEK) {
 				state = "alarmed";
@@ -149,15 +147,12 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 			`SELECT 1 FROM events WHERE type = 'ci_nonrequired_red'
 			AND payload ->> 'check' = ? AND payload ->> 'pr' = ? AND payload ->> 'head' = ?`,
 		);
+		const markRed = db.prepare("UPDATE check_names SET red_alarmed = 1 WHERE name = ? AND red_alarmed = 0");
 		for (const [check, reds] of red) {
 			for (const [pr, head] of reds)
 				if (!recorded.get(check, pr, head))
 					record(db, null, null, "ci_nonrequired_red", { check, pr, head, firstSeenAt: at });
-			const row = readName.get(check) as unknown as NameRow;
-			if (!baseline && reds.size >= ALARM_PRS && !row.red_alarmed) {
-				db.prepare("UPDATE check_names SET red_alarmed = 1 WHERE name = ?").run(check);
-				raise("red", check, [...reds.keys()]);
-			}
+			if (!baseline && reds.size >= ALARM_PRS && markRed.run(check).changes) raise("red", check, [...reds.keys()]);
 		}
 		db.prepare("UPDATE check_names SET red_alarmed = 0 WHERE name NOT IN (SELECT value FROM json_each(?))").run(
 			JSON.stringify([...red.keys()]),

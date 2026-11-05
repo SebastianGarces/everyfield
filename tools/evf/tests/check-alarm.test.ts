@@ -607,12 +607,15 @@ test("a failed GitHub read ends the poll with a message and records nothing (AC:
 test("owner-queue shows a new-check alarm for 24 h, apart from the items; the red alarm is not in it (AC:OPS-139-12)", () => {
 	const f = setup();
 	try {
-		const raised = Date.parse("2026-11-04T10:00:00.000Z");
+		const polled = Date.parse("2026-11-04T10:00:00.000Z");
 		f.open(pr(90, checkRun("ci")));
-		assert.equal(cliAt(f, raised - HOUR, "check-alarm").status, 0);
+		assert.equal(cliAt(f, polled - HOUR, "check-alarm").status, 0);
 		f.open(pr(1, checkRun("stray", "FAILURE")), pr(2, checkRun("stray", "FAILURE")));
-		assert.equal(cliAt(f, raised, "check-alarm").status, 0);
+		assert.equal(cliAt(f, polled, "check-alarm").status, 0);
 		assert.equal(eventsOf(f, RED).length, 1);
+		const raised = Date.parse(
+			withStore(f, (db) => db.prepare("SELECT ts FROM events WHERE type = ?").get(NEW) as { ts: string }).ts,
+		);
 
 		const at = (now: number) => {
 			const text = cliAt(f, now, "owner-queue"),
