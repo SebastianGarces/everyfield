@@ -18,6 +18,7 @@ import {
 	requireWorktree,
 	run,
 	sleep,
+	worktreePath,
 	type Config,
 	type ReviewParty,
 	type TaskRef,
@@ -33,7 +34,7 @@ import {
 	unmetBodyItem,
 	type BodyItem,
 } from "./pr-body.ts";
-import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
+import { findTask, followUpsOfTask, markMerged, openWorkDb, record, sessionsRecorded, withPartial } from "./db.ts";
 import {
 	heldApproveCommand,
 	heldClasses,
@@ -314,6 +315,20 @@ function readApproval(input: unknown): Approval | null {
 	};
 }
 
+/** The carryProof reason when main and the PR changed the same paths: the same fact as the Fresh gate. */
+const CARRY_OVERLAP = "main changed paths this PR also changes: ";
+
+/** A refusal that knows its kind and overlap paths, for the `ship_refused` event (OPS-140). */
+export class ShipRefusal extends EvfError {
+	readonly kind: string;
+	readonly overlapPaths: string[];
+	constructor(message: string, kind: string, overlapPaths: string[] = []) {
+		super(message);
+		this.kind = kind;
+		this.overlapPaths = overlapPaths;
+	}
+}
+
 /**
  * The approval of `approved` carries to `head` only when every commit between them is a merge whose first parent
  * is the previous head and whose second parent is on main, each merge tree is the clean `git merge-tree` result,
@@ -343,8 +358,18 @@ export function carryProof(repo: string, approved: string, head: string, main: s
 		git(repo, "diff", "--name-only", "--no-renames", from, to).split("\n").filter(Boolean);
 	const mainPaths = new Set(paths(base, mainIncluded));
 	const overlap = paths(base, approved).filter((path) => mainPaths.has(path));
-	if (overlap.length) return `main changed paths this PR also changes: ${overlap.join(", ")}`;
+	if (overlap.length) return `${CARRY_OVERLAP}${overlap.join(", ")}`;
 	return { approvedHead: approved, head, merges, base, mainIncluded, overlap };
+}
+
+/** Whether GitHub reports the PR as conflicting with its base: then required checks never start on its head. */
+export function conflicting(wt: string, number: number): boolean {
+	const r = run("gh", ["pr", "view", String(number), "--json", "mergeable"], { cwd: wt });
+	try {
+		return (JSON.parse(r.stdout) as { mergeable?: string }).mergeable === "CONFLICTING";
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -397,7 +422,7 @@ type Review = { approval: Approval; url: string };
  * The EVF-Review lines on a PR, oldest first: the latest valid review, the latest valid review at `head` (a later
  * review at one head replaces an earlier one) and the fields a review at `head` lacks.
  */
-function reviewsOf(
+export function reviewsOf(
 	root: string,
 	repo: string,
 	number: number,
@@ -477,10 +502,12 @@ export function checkPr(
 		if (!gitOk(root, "cat-file", "-e", `${approved}^{commit}`))
 			run("git", ["fetch", "--quiet", cfg.remote, approved], { cwd: root });
 		const proof = (opts.wikiCarry ? wikiCarryProof : carryProof)(root, approved, pr.headRefOid, baseRef(root, cfg));
-		if (typeof proof === "string")
-			fail(
-				`Missing verifier approval for the exact PR head. The approval of ${approved.slice(0, 10)} does not carry: ${proof}.${opts.wikiCarry ? ` Ask the verifier for a new pass at ${pr.headRefOid.slice(0, 10)}.` : ""}`,
-			);
+		if (typeof proof === "string") {
+			const message = `Missing verifier approval for the exact PR head. The approval of ${approved.slice(0, 10)} does not carry: ${proof}.${opts.wikiCarry ? ` Ask the verifier for a new pass at ${pr.headRefOid.slice(0, 10)}.` : ""}`;
+			if (proof.startsWith(CARRY_OVERLAP))
+				throw new ShipRefusal(message, "fresh_gate", proof.slice(CARRY_OVERLAP.length).split(", "));
+			fail(message);
+		}
 		selected = latest;
 		if ("merges" in proof) carry = proof;
 		else wikiCarry = proof;
@@ -533,7 +560,43 @@ const SHIP_TIMING: ShipTiming = {
 	ciPollMs: 20_000,
 };
 
+/** Each refusal of `evf ship` leaves one `ship_refused` event. A store that cannot take it never hides the refusal. */
+function recordShipRefusal(root: string, task: TaskRef, e: EvfError): void {
+	const sha = (cwd: string, ref: string) => {
+		const r = run("git", ["rev-parse", ref], { cwd });
+		return r.code === 0 ? r.stdout.trim() : null;
+	};
+	try {
+		const cfg = loadConfig(root),
+			wt = worktreePath(root, cfg, task),
+			db = openWorkDb(root);
+		try {
+			record(db, findTask(db, task)?.id ?? null, null, "ship_refused", {
+				kind: e instanceof ShipRefusal ? e.kind : "refused",
+				overlapPaths: e instanceof ShipRefusal ? e.overlapPaths : [],
+				main: sha(root, baseRef(root, cfg)),
+				head: existsSync(wt) ? sha(wt, "HEAD") : null,
+				task: task.id,
+				summary: `${task.id}: ${e.message}`,
+			});
+		} finally {
+			db.close();
+		}
+	} catch (recordError) {
+		console.error(`ship: could not record the refusal: ${String(recordError)}`);
+	}
+}
+
 export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMING): number {
+	try {
+		return shipChecked(root, task, timing);
+	} catch (e) {
+		if (e instanceof EvfError) recordShipRefusal(root, task, e);
+		throw e;
+	}
+}
+
+function shipChecked(root: string, task: TaskRef, timing: ShipTiming): number {
 	const cfg = loadConfig(root),
 		wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
 	const wt = requireWorktree(root, cfg, task);
@@ -690,8 +753,10 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		const mainPaths = new Set(paths(main)),
 			overlap = paths(approved).filter((path) => mainPaths.has(path));
 		if (overlap.length)
-			fail(
+			throw new ShipRefusal(
 				`Fresh gate needed: main changed paths this PR also changes: ${overlap.join(", ")}. Include current main, run CI and get a new verifier review. The branch is unchanged.`,
+				"fresh_gate",
+				overlap,
 			);
 		console.log(`ship: PR #${number} is behind ${cfg.baseBranch}; merging ${main.slice(0, 10)} into ${task.branch}.`);
 		gh(wt, ["pr", "update-branch", String(number)]);
@@ -703,8 +768,10 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 			verification = checkPr(wt, number, sha, { carry: true });
 		} catch (e) {
 			if (e instanceof EvfError)
-				fail(
+				throw new ShipRefusal(
 					`Fresh gate needed at ${sha}: ${e.message} The branch now includes ${cfg.baseBranch} at ${main.slice(0, 10)}.`,
+					"fresh_gate",
+					e instanceof ShipRefusal ? e.overlapPaths : [],
 				);
 			throw e;
 		}
@@ -743,8 +810,9 @@ function waitForRequiredCi(wt: string, cfg: Config, number: number, sha: string,
 	for (let printed = 0; ;) {
 		const ci = requiredCi(wt, number, required);
 		if (ci.failed.length)
-			fail(
+			throw new ShipRefusal(
 				`Fresh gate needed at ${sha}: required CI failed after the merge of main (${ci.failed.join(", ")}). Fix the branch, then get a new verifier review.`,
+				"fresh_gate",
 			);
 		if (!ci.missing.length && !ci.pending.length) return;
 		const waited = Date.now() - start;
