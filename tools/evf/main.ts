@@ -28,8 +28,10 @@ import { wikiClaimCheck } from "./wiki.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
-import { awaitLoad, loadGatePassed } from "./load.ts";
-import { runSampler, startSampler, stopSampler } from "./sampler.ts";
+import { budgetEnv, inGitHubCi, machineBudget } from "./budget.ts";
+import { holdsCheckSlot, withCheckQueue } from "./check-queue.ts";
+import { awaitLoad, loadGatePassed, requireLoadInputs } from "./load.ts";
+import { machineProbes, runSampler, startSampler, stopSampler } from "./sampler.ts";
 import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
@@ -214,8 +216,14 @@ FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
 task start, verify, test, ac run, timing and browser run wait while the 1-minute load average is above 2 × CPU
 cores (C51, C81). --ignore-load "<reason>" runs at once and logs the override.
 
-At most 3 full checks (evf verify, evf check, the pr stage) run at once on this machine. Others wait in arrival
-order, print their position once per minute and give up after 120 minutes. --ignore-load does not skip this queue.`;
+At most 3 full checks (evf verify, evf check, the pr stage, a direct evf test) run at once on this machine. Others
+wait in arrival order, print their position once per minute and give up after 120 minutes. --ignore-load does not skip
+this queue. An evf test inside a full evf verify uses the slot of its parent.
+
+Each full check gets cores / 3 of the machine: that many test processes, pnpm packages at once and Next workers, with 1
+test process per package. An explicit --test-concurrency=<n> on evf test wins. A full check that holds its slot also
+waits while free memory is under 15% or swap used is over 12 GB; --ignore-load skips this, and a probe that fails does
+not block. In GitHub CI, evf test uses every core, takes no slot and reads no load, memory or swap.`;
 
 function flag(args: string[], name: string): boolean {
 	const i = args.indexOf(name);
@@ -259,7 +267,7 @@ function main(argv: string[]): number | Promise<number> {
 	const root = homeRoot();
 	const duration =
 		cmd === "test"
-			? "2-5 minutes"
+			? "2-5 minutes, plus any wait in the full check queue (up to 120 minutes)"
 			: cmd === "pre-push"
 				? "under 10 seconds"
 				: cmd === "audit" && !argv.includes("--list")
@@ -281,8 +289,12 @@ function main(argv: string[]): number | Promise<number> {
 		case "test": {
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			const ignoreLoad = ignoreLoadReason(args);
-			// A required GitHub job never depends on the load gate.
-			if (ignoreLoad !== undefined || !process.env.CI) awaitLoad(root, "test", ignoreLoad);
+			// A required GitHub job never depends on the load gate, and no other job shares its runner.
+			const githubCi = inGitHubCi(),
+				gated = ignoreLoad !== undefined || !(process.env.CI || githubCi),
+				nested = holdsCheckSlot(root);
+			if (gated) requireLoadInputs(root, ignoreLoad);
+			const budget = machineBudget();
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
 			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
 			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
@@ -294,16 +306,22 @@ function main(argv: string[]): number | Promise<number> {
 						`--test-reporter-destination=${failedTests}`,
 					]
 				: [];
-			return run(
-				process.execPath,
-				[
-					"--test",
-					...report,
-					...args,
-					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
-				],
-				{ cwd: process.cwd(), inherit: true, env: { ...env, ...loadGatePassed(root) } },
-			).code;
+			const tests = (slot: NodeJS.ProcessEnv = {}) => {
+				if (gated) awaitLoad(root, "test", ignoreLoad, undefined, null, nested ? null : machineProbes(root));
+				return run(
+					process.execPath,
+					[
+						"--test",
+						`--test-concurrency=${budget.testProcesses}`,
+						...report,
+						...args,
+						join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
+					],
+					{ cwd: process.cwd(), inherit: true, env: { ...env, ...budgetEnv(budget), ...loadGatePassed(root), ...slot } },
+				).code;
+			};
+			// The slot comes first, as in `evf verify`: waiters keep their arrival order while the load is high.
+			return githubCi || nested ? tests() : withCheckQueue(root, "evf test", tests);
 		}
 		case "audit": {
 			const list = flag(args, "--list"),

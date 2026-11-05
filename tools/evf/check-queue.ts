@@ -1,10 +1,10 @@
-import { mkdirSync, readdirSync, rmSync, writeFileSync, writeSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { evfDataDir, sleep, WaitGaveUp } from "./lib.ts";
 import { readHolder, stopped, type QueueTiming } from "./ship-queue.ts";
 
 /** Code defaults (OPS-138): an OPS branch cannot add a key to evf.config.json, and no flag changes them. */
-const CHECK_CAP = 3;
+export const CHECK_CAP = 3;
 const CHECK_QUEUE: QueueTiming = { waitMs: 120 * 60_000, pollMs: 1000 };
 
 const tickets = (dir: string) => readdirSync(dir).sort();
@@ -39,13 +39,29 @@ function liveTickets(dir: string): string[] {
 	});
 }
 
+const queueDir = (root: string) => join(evfDataDir(root), "check-queue");
+
+/**
+ * True when this command runs inside a check that holds a slot of this queue. The token is the holder's ticket path, so
+ * a dead holder, a finished check or a token from another queue folder gives no bypass and a stale shell skips nothing.
+ */
+export function holdsCheckSlot(root: string): boolean {
+	const token = process.env.EVF_CHECK_SLOT;
+	if (!token) return false;
+	mkdirSync(queueDir(root), { recursive: true });
+	if (dirname(token) !== realpathSync(queueDir(root))) return false;
+	const holder = readHolder(token);
+	return holder !== "missing" && !stopped(holder);
+}
+
 /**
  * One machine-wide, first-come queue for full checks in the home checkout's Git folder. The first CHECK_CAP live
  * tickets run and the others wait, so a running check keeps its ticket and needs no second lock file. A process that
- * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw.
+ * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw. `fn` receives the
+ * environment that tells a nested `evf test` it runs under this slot.
  */
-export function withCheckQueue<T>(root: string, task: string, fn: () => T, timing = CHECK_QUEUE): T {
-	const dir = join(evfDataDir(root), "check-queue");
+export function withCheckQueue<T>(root: string, task: string, fn: (slot: NodeJS.ProcessEnv) => T, timing = CHECK_QUEUE): T {
+	const dir = queueDir(root);
 	mkdirSync(dir, { recursive: true });
 	const ticket = takeTicket(dir, task);
 	try {
@@ -64,14 +80,14 @@ export function withCheckQueue<T>(root: string, task: string, fn: () => T, timin
 				try {
 					writeSync(
 						2,
-						`evf verify: ${task} waits in the full check queue, position ${index - CHECK_CAP + 1}, ${CHECK_CAP} running, ${Math.floor(waited / 60_000)} min.\n`,
+						`evf: ${task} waits in the full check queue, position ${index - CHECK_CAP + 1}, ${CHECK_CAP} running, ${Math.floor(waited / 60_000)} min.\n`,
 					);
 				} catch {}
 				printed = Math.floor(waited / 60_000) + 1;
 			}
 			sleep(timing.pollMs);
 		}
-		return fn();
+		return fn({ EVF_CHECK_SLOT: join(realpathSync(dir), ticket) });
 	} finally {
 		rmSync(join(dir, ticket), { force: true });
 	}
