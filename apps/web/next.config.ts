@@ -22,7 +22,11 @@ const config: NextConfig = {
 	serverExternalPackages: ["@formepdf/core", "@formepdf/react"],
 	transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui", "@everyfield/evry"],
 	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
-	experimental: { optimizePackageImports: ["@hugeicons/core-free-icons"] },
+	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
+	experimental: {
+		optimizePackageImports: ["@hugeicons/core-free-icons"],
+		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
+	},
 	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.
 	async headers() {
 		return [

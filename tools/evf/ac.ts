@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { machineBudget } from "./budget.ts";
 import { findTask, openWorkDb, record } from "./db.ts";
 import {
 	evidenceDir,
@@ -100,7 +101,7 @@ function nodeTest(wt: string, files: string[], marker: string, engine: Engine, e
 	try {
 		const test = [
 			"--test",
-			...(engine === "node" ? [] : [`--import=${VIDEO}`]),
+			...(engine === "node" ? [`--test-concurrency=${machineBudget().testProcesses}`] : [`--import=${VIDEO}`]),
 			`--test-name-pattern=${markerPattern(marker)}`,
 			`--test-reporter=${REPORTER}`,
 			`--test-reporter-destination=${out}`,

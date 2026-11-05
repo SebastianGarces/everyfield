@@ -1669,7 +1669,14 @@ test("INV-load-limit: heavy commands wait above the machine limit with one line 
 		const limit = 2 * availableParallelism();
 		delete f.cfg.machineLoad;
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
-		assert.deepEqual(loadLimit(f.root), { cores: availableParallelism(), maxPerCore: 2, maxWaitMinutes: 30, limit });
+		assert.deepEqual(loadLimit(f.root), {
+			cores: availableParallelism(),
+			maxPerCore: 2,
+			maxWaitMinutes: 30,
+			memoryFloorPct: 15,
+			swapCeilingGb: 12,
+			limit,
+		});
 		setLimit(2, 3);
 		// A fake clock: each sleep advances it; the load falls below the limit after `busyMs`.
 		const probe = (busyMs: number) => {

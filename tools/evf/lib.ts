@@ -28,7 +28,7 @@ export type Config = {
 	statusContext: string;
 	maxAgentsMdLines: number;
 	/** C51, C81: task start, verify and browser run wait while the 1-minute load is above maxPerCore × CPU cores. Default in load.ts. */
-	machineLoad?: { maxPerCore: number; maxWaitMinutes: number };
+	machineLoad?: { maxPerCore: number; maxWaitMinutes: number; memoryFloorPct?: number; swapCeilingGb?: number };
 	/** OPS-131: the time zone, digest times and owner hours of evf owner-queue, parsed in owner-queue.ts. */
 	ownerQueue?: unknown;
 	stack: StackDef | null;
