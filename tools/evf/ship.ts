@@ -354,12 +354,30 @@ export function carryProof(repo: string, approved: string, head: string, main: s
 	}
 	const base = git(repo, "merge-base", approved, main),
 		mainIncluded = git(repo, "merge-base", head, main);
-	const paths = (from: string, to: string) =>
-		git(repo, "diff", "--name-only", "--no-renames", from, to).split("\n").filter(Boolean);
-	const mainPaths = new Set(paths(base, mainIncluded));
-	const overlap = paths(base, approved).filter((path) => mainPaths.has(path));
+	const overlap = overlapWithMain(repo, approved, mainIncluded);
 	if (overlap.length) return `${CARRY_OVERLAP}${overlap.join(", ")}`;
 	return { approvedHead: approved, head, merges, base, mainIncluded, overlap };
+}
+
+/** The paths the PR changes up to `approved` that main also changed, both since their merge base, up to `main`. */
+function overlapWithMain(repo: string, approved: string, main: string): string[] {
+	const base = git(repo, "merge-base", approved, main);
+	const paths = (to: string) => git(repo, "diff", "--name-only", "--no-renames", base, to).split("\n").filter(Boolean);
+	const mainPaths = new Set(paths(main));
+	return paths(approved).filter((path) => mainPaths.has(path));
+}
+
+/**
+ * Why a merge of `main` into `head` would not carry the approval of `approved`, before anything is written: the same
+ * overlap rule as carryProof, or a conflict in `git merge-tree`. Undefined when the merge is clean with no overlap.
+ */
+export function mainMergeRefusal(repo: string, approved: string, head: string, main: string): string | undefined {
+	const overlap = overlapWithMain(repo, approved, main);
+	if (overlap.length) return `${CARRY_OVERLAP}${overlap.join(", ")}`;
+	const merged = run("git", ["merge-tree", "--write-tree", head, main], { cwd: repo });
+	return merged.code === 0
+		? undefined
+		: `the merge of main conflicts: ${merged.stdout.split("\n").slice(1).join(" ").trim()}`;
 }
 
 /** Whether GitHub reports the PR as conflicting with its base: then required checks never start on its head. */
@@ -462,7 +480,8 @@ export function bodyOnlyItems(root: string, number: number, head: string): BodyI
 
 /**
  * One unsigned review convention, shared by the verifier and GitHub merge workflow. `carry` lets an approval of
- * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it. `wikiCarry`
+ * an earlier head hold over merge-only commits (carryProof); the owner approval routes pass it only to finish evf
+ * approve's own merge of main (OPS-146). `wikiCarry`
  * lets it hold over evf's claim-check and promotion commits only (wikiCarryProof), for a Wiki-content task.
  */
 export function checkPr(
@@ -554,7 +573,7 @@ export function checkPr(
 }
 
 export type ShipTiming = { queue: QueueTiming; ciWaitMs: number; ciPollMs: number };
-const SHIP_TIMING: ShipTiming = {
+export const SHIP_TIMING: ShipTiming = {
 	queue: { waitMs: 60 * 60_000, pollMs: 2_000 },
 	ciWaitMs: 30 * 60_000,
 	ciPollMs: 20_000,
@@ -747,11 +766,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 	for (let round = 1; !gitOk(wt, "merge-base", "--is-ancestor", baseRef(root, cfg), sha); round++) {
 		if (round > 3) fail(`Main moved during ${round - 1} branch updates. Run evf ship ${task.id} again.`);
 		const main = git(root, "rev-parse", baseRef(root, cfg)),
-			approved = verification.approval.head,
-			base = git(root, "merge-base", approved, main),
-			paths = (to: string) => git(root, "diff", "--name-only", "--no-renames", base, to).split("\n").filter(Boolean);
-		const mainPaths = new Set(paths(main)),
-			overlap = paths(approved).filter((path) => mainPaths.has(path));
+			overlap = overlapWithMain(root, verification.approval.head, main);
 		if (overlap.length)
 			throw new ShipRefusal(
 				`Fresh gate needed: main changed paths this PR also changes: ${overlap.join(", ")}. Include current main, run CI and get a new verifier review. The branch is unchanged.`,
@@ -804,7 +819,14 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
  * Required checks of a new head start missing or pending; ship waits until every required name has passed.
  * Any failure means the merge of main broke something.
  */
-function waitForRequiredCi(wt: string, cfg: Config, number: number, sha: string, timing: ShipTiming): void {
+export function waitForRequiredCi(
+	wt: string,
+	cfg: Config,
+	number: number,
+	sha: string,
+	timing: ShipTiming,
+	rerun = "evf ship",
+): void {
 	const required = requiredCheckNames(wt, nameWithOwner(wt), cfg.baseBranch);
 	const start = Date.now();
 	for (let printed = 0; ;) {
@@ -818,7 +840,7 @@ function waitForRequiredCi(wt: string, cfg: Config, number: number, sha: string,
 		const waited = Date.now() - start;
 		if (waited >= timing.ciWaitMs)
 			fail(
-				`Required CI on ${sha} is still running after ${Math.round(waited / 60_000)} min (${[...ci.missing.map((n) => `${n} missing`), ...ci.pending.map((n) => `${n} pending`)].join(", ")}). Run evf ship again when it finishes.`,
+				`Required CI on ${sha} is still running after ${Math.round(waited / 60_000)} min (${[...ci.missing.map((n) => `${n} missing`), ...ci.pending.map((n) => `${n} pending`)].join(", ")}). Run ${rerun} again when it finishes.`,
 			);
 		if (waited >= printed * 60_000) {
 			console.log(`ship: waiting for required CI on ${sha.slice(0, 10)}, ${Math.floor(waited / 60_000)} min.`);
@@ -835,7 +857,7 @@ const MAIN_CI_WORKFLOW = "ci.yml",
  * Main's latest finished CI run decides, not the issue state: a red main merges only the PR whose body says
  * Fixes #N for the open fail-forward issue. Cancelled and skipped runs prove nothing either way.
  */
-function requireGreenMain(cwd: string, cfg: Config, body: string): void {
+export function requireGreenMain(cwd: string, cfg: Config, body: string): void {
 	const runs = JSON.parse(
 		gh(cwd, [
 			"run",

@@ -23,6 +23,7 @@ import {
 	feedbackTriage,
 	feedbackQueue,
 } from "./feedback.ts";
+import { rerunOnCaughtUpCode } from "./merge.ts";
 import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
 import { audit } from "./audit.ts";
@@ -100,7 +101,8 @@ Verification (verifier)
         database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
   evf pre-push <task>                                        require full exact-head author checks; a stopped run does not count
   evf ship <task>                           report status and squash-merge
-        refuses before any GitHub write when the running evf code differs from main (update the home checkout)
+        refuses before any GitHub write when the running evf code differs from main; a home checkout that is
+        behind main fast-forwards and the command reruns on the new code (evf drive too)
         a PR that changes landing and marketing owner paths (mergePolicy.ownerPaths), or that evf cannot classify,
         is held: evf posts evf/verify and names evf approve <PR> --owner-approval "<his words>" --head <sha>
         a task PR that changes docs/reference/wiki/ is held: evf records the verifier's claim check on pending
@@ -810,6 +812,8 @@ function main(argv: string[]): number | Promise<number> {
 				stop = flag(args, "--stop");
 			if (args.length !== 1 || (stop && (once || detach))) break;
 			if (stop) return stopDrive(root, parseTask(args[0]));
+			const rerun = rerunOnCaughtUpCode(root, loadConfig(root), argv);
+			if (rerun !== undefined) return rerun;
 			if (detach) return drive(root, parseTask(args[0]), { once, detach });
 			return driveWithSignals(root, parseTask(args[0]), once);
 		}
@@ -875,7 +879,7 @@ function main(argv: string[]): number | Promise<number> {
 			return askPlanner(root, parseTask(args[1]), args[2]!);
 		}
 		case "ship": {
-			return ship(root, parseTask(args[0]));
+			return rerunOnCaughtUpCode(root, loadConfig(root), argv) ?? ship(root, parseTask(args[0]));
 		}
 	}
 	console.error(`Unknown command: evf ${argv.join(" ")}\n\n${HELP}`);
