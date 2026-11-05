@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fixture, source } from "./fixtures.ts";
 import { approvedExperience, approvedQuality, mergeFixture, VERIFIER } from "./reconciliation-helpers.ts";
@@ -219,6 +219,46 @@ for (const [how, pollMs, stop] of [
 				for (const pid of left) process.kill(pid, "SIGKILL");
 				assert.deepEqual(left, [], "no process of the check is left");
 			}
+		} finally {
+			f.close();
+		}
+	});
+
+for (const [how, script] of [
+	["fails", "exit 1"],
+	["gives no rows", "exit 0"],
+] as const)
+	test(`AC:OPS-143-2 AC:OPS-143-6 ps ${how} on every read: a stop still signals the group, keeps the grace and leaves no process in it`, () => {
+		const f = setup();
+		try {
+			const bin = join(f.root, "fake-bin/failing-ps"),
+				pidFile = join(f.root, "fake-bin/pids.json"),
+				cleaned = join(f.root, "fake-bin/cleaned");
+			mkdirSync(bin);
+			writeFileSync(join(bin, "ps"), `#!/bin/sh\n${script}\n`);
+			chmodSync(join(bin, "ps"), 0o755);
+			const stay = `process.on('SIGTERM',()=>{});setTimeout(()=>{},120000)`;
+			f.use([
+				{
+					name: "long",
+					run: node(
+						`const fs=require("node:fs");` +
+							`const a=require("node:child_process").spawn(process.execPath,["-e",${JSON.stringify(stay)}],{stdio:"ignore"});` +
+							// The check needs a moment to clean up, so an early SIGKILL leaves no `cleaned` file.
+							`process.on("SIGTERM",()=>setTimeout(()=>{fs.writeFileSync(${JSON.stringify(cleaned)},"done");process.exit(0)},1500));` +
+							`fs.writeFileSync(${JSON.stringify(pidFile)},JSON.stringify([process.pid,a.pid]));` +
+							`fs.writeFileSync(${JSON.stringify(join(f.wt, "dirty.txt"))},"x");setTimeout(()=>{},120000)`,
+					),
+				},
+			]);
+			const run = cli(f.wt, { ...FAST_POLL, PATH: `${bin}:${process.env.PATH}` }, "verify", "OPS-1");
+			const pids = JSON.parse(readFileSync(pidFile, "utf8")) as number[],
+				left = pids.filter(alive);
+			for (const pid of left) process.kill(pid, "SIGKILL");
+			assert.deepEqual(left, [], "no process of the group is left");
+			assert.equal(run.status, 1, run.stderr + run.stdout);
+			assert.match(run.stdout, /INVALIDATED \(tree_changed\)/);
+			assert.equal(existsSync(cleaned), true, "the check had its grace after SIGTERM");
 		} finally {
 			f.close();
 		}

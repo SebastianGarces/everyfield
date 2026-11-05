@@ -64,14 +64,16 @@ export function watchedRun(
 
 export type Process = { pid: number; ppid: number; pgid: number; zombie: boolean; started: string };
 
-function processTable(): Process[] {
-	const rows = run("ps", ["-A", "-o", "pid=,ppid=,pgid=,stat=,lstart="], { timeoutMs: 10_000 }).stdout.split("\n");
-	return rows.flatMap((row) => {
+/** Every process, or null when `ps` failed or passed its limit: a good read always holds at least init. */
+function processTable(): Process[] | null {
+	const ps = run("ps", ["-A", "-o", "pid=,ppid=,pgid=,stat=,lstart="], { timeoutMs: 10_000 });
+	const table = ps.stdout.split("\n").flatMap((row) => {
 		const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s*$/.exec(row);
 		return m
 			? [{ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), zombie: m[4].startsWith("Z"), started: m[5] }]
 			: [];
 	});
+	return ps.code === 0 && table.length ? table : null;
 }
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -117,21 +119,26 @@ function supervise({ argv, wt, sha, inputs, stopFile, pollMs }: WatchSpec): void
 	const root = child.pid;
 	if (root === undefined) return;
 	const family = new Map<number, string>();
-	const live = () => liveFamily(family, root, processTable());
+	/** The family's live processes, or null when the read failed. A failed read proves nothing is gone. */
+	const live = () => {
+		const table = processTable();
+		return table && liveFamily(family, root, table);
+	};
 	const signalAll = (name: NodeJS.Signals) => {
 		// Read first: the group's signal ends the check at once, and a detached child then has no link to it in `ps`.
 		const known = live();
-		if (known.some((p) => p.pgid === root)) signal(-root, name);
-		for (const p of known) signal(p.pid, name);
+		// Only a good read can show the group is empty. Without one, a pid's start time is unknown, so only the group gets it.
+		if (!known || known.some((p) => p.pgid === root)) signal(-root, name);
+		for (const p of known ?? []) signal(p.pid, name);
 	};
 	let stopping = false;
 	const stopAll = async (code: number) => {
 		if (stopping) return;
 		stopping = true;
 		signalAll("SIGTERM");
-		for (const end = Date.now() + TERM_GRACE_MS; live().length && Date.now() < end;) await pause(STOP_STEP_MS);
+		for (const end = Date.now() + TERM_GRACE_MS; live()?.length !== 0 && Date.now() < end;) await pause(STOP_STEP_MS);
 		signalAll("SIGKILL");
-		for (const end = Date.now() + KILL_WAIT_MS; live().length && Date.now() < end;) await pause(STOP_STEP_MS);
+		for (const end = Date.now() + KILL_WAIT_MS; live()?.length !== 0 && Date.now() < end;) await pause(STOP_STEP_MS);
 		process.exit(code);
 	};
 	child.on("exit", (code) => {
