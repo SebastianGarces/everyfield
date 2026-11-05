@@ -9,6 +9,7 @@ import { browserRun } from "./browser.ts";
 import { acRun, acVideoMarkers } from "./ac.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
+import { evfTestSkip } from "./test-scope.ts";
 import { recordFastTrack } from "./progress.ts";
 import { join } from "node:path";
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
@@ -197,7 +198,8 @@ Upkeep
         survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR
   evf audit --list [--task <task>]                           the mutation candidates of one merged task
   evf ci-tests                                              check integration test inclusion in CI
-  evf test [--ignore-load "<reason>"] [Node test options]    local tooling regressions on evf's Node
+  evf test [--all] [--ignore-load "<reason>"] [Node test options]    tooling regressions on evf's Node; skips them when
+        the checkout changes no evf path (OPS-172), --all runs them anyway
   evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
   evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
@@ -281,9 +283,17 @@ function main(argv: string[]): number | Promise<number> {
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			return 0;
 		case "test": {
-			checkBranchDiffTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
-			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
+			const checkout = git(process.cwd(), "rev-parse", "--show-toplevel");
+			checkBranchDiffTests(checkout);
+			checkCiTests(checkout);
+			const all = flag(args, "--all");
 			const ignoreLoad = ignoreLoadReason(args);
+			// Before the load gate: a skip starts no work, so it waits for nothing.
+			const skip = all ? undefined : evfTestSkip(checkout);
+			if (skip) {
+				console.log(`evf test: skipped the tooling tests: ${skip}. Run them with bin/evf test --all.`);
+				return 0;
+			}
 			// A required GitHub job never depends on the load gate.
 			if (ignoreLoad !== undefined || !process.env.CI) awaitLoad(root, "test", ignoreLoad);
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
@@ -297,16 +307,11 @@ function main(argv: string[]): number | Promise<number> {
 						`--test-reporter-destination=${failedTests}`,
 					]
 				: [];
-			return run(
-				process.execPath,
-				[
-					"--test",
-					...report,
-					...args,
-					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
-				],
-				{ cwd: process.cwd(), inherit: true, env: { ...env, ...loadGatePassed(root) } },
-			).code;
+			return run(process.execPath, ["--test", ...report, ...args, join(checkout, "tools/evf/tests/*.test.ts")], {
+				cwd: process.cwd(),
+				inherit: true,
+				env: { ...env, ...loadGatePassed(root) },
+			}).code;
 		}
 		case "audit": {
 			const list = flag(args, "--list"),
