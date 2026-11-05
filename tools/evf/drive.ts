@@ -42,10 +42,12 @@ import {
 	loadConfig,
 	notify,
 	parseTask,
+	REAL_CLOCK,
 	run,
 	runtimeDir,
 	sleep,
 	worktreePath,
+	type Clock,
 	type TaskRef,
 } from "./lib.ts";
 import { driveHolder } from "./drive-signal.ts";
@@ -1658,11 +1660,15 @@ export type DriveTiming = {
 	 */
 	abortBackoffMs?: number;
 	/** The present time of the long run check; tests fake it. Unset means the system clock. */
-	clock?: () => number;
+	longRunClock?: () => number;
 	/** How often a drive looks at a held task again. */
 	holdPollMs: number;
+	/** The real-time kill limit of the `herdr agent wait` child. Unset means agentWaitKillMs's default. */
+	waitKillMs?: number;
+	/** What the seat wait reads and sleeps on. Unset means the real clock. */
+	clock?: Clock;
 };
-const DRIVE_TIMING: DriveTiming = {
+export const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
 	seatPollMs: 5_000,
 	startGraceMs: 30_000,
@@ -1671,6 +1677,10 @@ const DRIVE_TIMING: DriveTiming = {
 	abortBackoffMs: 30_000,
 	holdPollMs: 60_000,
 };
+
+/** A floor keeps a slow runner from killing a wait that is about to answer. */
+export const agentWaitKillMs = (timing: Pick<DriveTiming, "seatPollMs" | "waitKillMs">): number =>
+	timing.waitKillMs ?? Math.max(timing.seatPollMs + 200, 2_000);
 
 type Outcome = {
 	status: "passed" | "failed";
@@ -2087,7 +2097,8 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run", closedBy: "evf" });
 		return;
 	}
-	const watchStart = Date.now(),
+	const clock = timing.clock ?? REAL_CLOCK,
+		watchStart = clock.now(),
 		deadline = watchStart + timing.waitMs;
 	const idea = /^idea(\d)$/.exec(r.stage),
 		cfg = loadConfig(root),
@@ -2101,7 +2112,7 @@ function waitOnSeat(
 			agent,
 			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
 		},
-		timing.clock ?? Date.now,
+		timing.longRunClock ?? clock.now,
 		// `agent wait` never answers `working`: a slice that ends with the seat working is a timeout with empty stdout.
 		() => agentState(agent) === "working",
 	);
@@ -2118,7 +2129,7 @@ function waitOnSeat(
 				`${now()} drive ${task.id}: ${r.herdr_agent}: ${(JSON.parse(e.payload) as { summary?: string }).summary}`,
 			);
 		}
-		const sliceStart = Date.now();
+		const sliceStart = clock.now();
 		const waited = run(
 			"herdr",
 			[
@@ -2134,8 +2145,7 @@ function waitOnSeat(
 				"--timeout",
 				String(Math.max(1, Math.min(timing.seatPollMs, deadline - sliceStart))),
 			],
-			// A floor keeps a slow runner from killing a wait that is about to answer.
-			{ timeoutMs: Math.max(timing.seatPollMs + 200, 2_000) },
+			{ timeoutMs: agentWaitKillMs(timing) },
 		);
 		if (runStatus(db, runId) !== "started") return;
 		const state = parseAgentState(waited.stdout);
@@ -2145,7 +2155,7 @@ function waitOnSeat(
 				return;
 			}
 			longRun();
-			if (Date.now() >= deadline) {
+			if (clock.now() >= deadline) {
 				runDone(root, runId, {
 					status: "failed",
 					summary: `herdr agent wait timed out after ${Math.round(timing.waitMs / 60_000)} min: ${(waited.stderr || waited.stdout).trim().slice(0, 200)}`,
@@ -2154,14 +2164,14 @@ function waitOnSeat(
 				return;
 			}
 			// A slice that ended with the seat still working, or a quick failure: look at the store again after a pause.
-			if (Date.now() - sliceStart < timing.seatPollMs) sleep(timing.seatPollMs - (Date.now() - sliceStart));
+			if (clock.now() - sliceStart < timing.seatPollMs) clock.sleep(timing.seatPollMs - (clock.now() - sliceStart));
 			continue;
 		}
 		if (state === "blocked") {
 			record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
 			notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
 			do {
-				sleep(timing.seatPollMs);
+				clock.sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
 				longRun();
 			} while (agentState(r.herdr_agent) === "blocked");
@@ -2173,8 +2183,8 @@ function waitOnSeat(
 			// The launch prompt may not have begun its turn yet: wait for the seat to leave idle before reading idle as finished.
 			const sent = promptSentAt(db, runId);
 			if (sent !== null) {
-				for (let left = watchStart + timing.startGraceMs; Date.now() < left;) {
-					sleep(timing.seatPollMs);
+				for (let left = watchStart + timing.startGraceMs; clock.now() < left;) {
+					clock.sleep(timing.seatPollMs);
 					if (runStatus(db, runId) !== "started") return;
 					if (agentState(r.herdr_agent) !== "idle") {
 						turnSeen = true;

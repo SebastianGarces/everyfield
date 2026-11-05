@@ -293,20 +293,20 @@ test("AC:OPS-134-4 a working seat at 60 min that meets the rule gets one nudge, 
 		const h = watchHerdr(f, run, { waits: [...WORKING] });
 		// The clock moves two minutes per reading, so later polls read the transcript again and still do not nudge.
 		let later = NOW;
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => (later += 2 * MIN) - 2 * MIN });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => (later += 2 * MIN) - 2 * MIN });
 		assert.equal(h.longNudges().length, 1, "one nudge over several polls");
 		assert.equal(f.events("long_run_nudge").length, 1);
 		// A new drive process: the seat is open again and only the store remembers the nudge.
 		f.db.prepare("UPDATE runs SET status = 'started' WHERE id = ?").run(run);
 		h.setScript({ waits: [...WORKING] });
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => (later += 2 * MIN) });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => (later += 2 * MIN) });
 		assert.equal(h.longNudges().length, 1, "no second nudge after a new drive process");
 		// The near misses, on a clean store. Each case replaces the run before it.
 		const nudges = (elapsedMin: number, lines: string[], gets?: string[]) => {
 			f.db.exec("DELETE FROM events; DELETE FROM runs");
 			const { run: id } = seat(f, elapsedMin, lines);
 			const quiet = watchHerdr(f, id, { waits: [...WORKING], ...(gets ? { gets } : {}) });
-			driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
+			driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW });
 			assert.equal(f.events("long_run_nudge").length, quiet.longNudges().length);
 			return quiet.longNudges().length;
 		};
@@ -334,7 +334,7 @@ test("AC:OPS-134-4 a working seat at 60 min that meets the rule gets one nudge, 
 		const { run: onPrompt } = seat(f, 61, longCheck(NOW - 61 * MIN));
 		const blocked = watchHerdr(f, onPrompt, { waits: ["blocked"], gets: Array(6).fill("blocked") });
 		let blockedNow = NOW;
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => (blockedNow += 2 * MIN) });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => (blockedNow += 2 * MIN) });
 		assert.equal(f.events("blocked").length, 1);
 		assert.equal(blocked.longNudges().length, 0, "a seat in the blocked loop");
 		commitAt(f, NOW - 10 * MIN);
@@ -359,10 +359,10 @@ test("AC:OPS-134-5 a run open at 120 min gives one notice with the split in even
 			toolCallLine(s + 90 * MIN, "c", "Bash", { command: "sleep 1800" }),
 		]);
 		const h = watchHerdr(f, run, { waits: [...WORKING] });
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW });
 		f.db.prepare("UPDATE runs SET status = 'started' WHERE id = ?").run(run);
 		h.setScript({ waits: [...WORKING] });
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW + 5 * MIN });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW + 5 * MIN });
 		const split = "model 30 min (25%), tool 30 min (25%), check 30 min (25%), wait 30 min (25%)";
 		const [notice, ...more] = f.events("long_run_notice");
 		assert.equal(more.length, 0, "one notice across two drives");
@@ -390,7 +390,7 @@ test("AC:OPS-134-6 the check ends nothing: run, pane and task stay as they are, 
 		let ticks = 0;
 		driveOnce(f.root, f.task, {
 			...TIMING,
-			clock: () => {
+			longRunClock: () => {
 				// Read while the seat is watched, after the first check has sent both messages.
 				if (++ticks > 2)
 					seen.push(
@@ -424,7 +424,7 @@ test("AC:OPS-134-6 the check ends nothing: run, pane and task stay as they are, 
 	try {
 		const { run } = seat(g, 130, longCheck(NOW - 130 * MIN));
 		watchHerdr(g, run, { waits: [], keepOpen: true });
-		driveOnce(g.root, g.task, { ...TIMING, waitMs: 1500, clock: () => NOW });
+		driveOnce(g.root, g.task, { ...TIMING, waitMs: 1500, longRunClock: () => NOW });
 		const closed = g.db.prepare("SELECT status, summary FROM runs WHERE id = ?").get(run) as Record<string, string>;
 		assert.equal(closed.status, "failed");
 		assert.match(closed.summary!, /timed out/);
@@ -766,7 +766,7 @@ test("AC:OPS-134-12 the run split reads the live transcript: an open call runs t
 			toolCallLine(start + MIN, "z", "Bash", { command: "bin/evf verify OPS-1" }),
 		]);
 		const h = watchHerdr(f, run, { waits: [...WORKING] });
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW });
 		assert.equal(f.events("turn_end").length, 0);
 		assert.equal(h.longNudges().length, 1, "one long turn gets the nudge");
 		const [nudge] = f.events("long_run_nudge");
@@ -784,7 +784,7 @@ test("AC:OPS-134-13 the nudge does not block or replace the close nudge, holds t
 		const { run } = seat(f, 61, longCheck(NOW - 61 * MIN));
 		// The seat works, then goes idle twice without closing.
 		const h = watchHerdr(f, run, { waits: ["working", "idle", "idle"] });
-		driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
+		driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW });
 		const prompts = h.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
 		assert.equal(prompts.length, 2, "the long run nudge and the one close nudge");
 		const [long, close] = prompts as [string[], string[]];
@@ -810,7 +810,7 @@ test("AC:OPS-134-13 the nudge does not block or replace the close nudge, holds t
 		const { run } = seat(g, 61, longCheck(NOW - 61 * MIN));
 		const h = watchHerdr(g, run, { waits: [...WORKING], promptFails: true });
 		let later = NOW;
-		driveOnce(g.root, g.task, { ...TIMING, clock: () => (later += 2 * MIN) - 2 * MIN });
+		driveOnce(g.root, g.task, { ...TIMING, longRunClock: () => (later += 2 * MIN) - 2 * MIN });
 		assert.equal(h.longNudges().length, 1, "a failed send does not retry on the later polls");
 		const events = g.events("long_run_nudge");
 		assert.equal(events.length, 1);
@@ -831,7 +831,7 @@ test("AC:OPS-134-14 a missing or unreadable transcript gets no nudge and no fail
 		try {
 			const { run } = seat(f, 125, lines);
 			const h = watchHerdr(f, run, { waits: [...WORKING] });
-			driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
+			driveOnce(f.root, f.task, { ...TIMING, longRunClock: () => NOW });
 			assert.equal(h.longNudges().length, 0);
 			assert.equal(f.events("long_run_nudge").length, 0);
 			const [notice, ...more] = f.events("long_run_notice");
