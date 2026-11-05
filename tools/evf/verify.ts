@@ -28,7 +28,8 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad, markFullCheck } from "./load.ts";
+import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
+import { withCheckQueue } from "./check-queue.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -54,6 +55,8 @@ export type CheckReport = {
 	baseSha: string;
 	clean: boolean;
 	unchanged: boolean;
+	/** The queue wait plus the load wait. A record from before OPS-138 has none. */
+	queuedMs?: number;
 	checks: CheckResult[];
 	passed: boolean;
 	evidenceDir: string;
@@ -75,22 +78,71 @@ export function verify(
 		role === "verifier"
 			? git(process.cwd(), "rev-parse", "--show-toplevel")
 			: requireWorktree(root, loadConfig(root), task);
-	const cfg = loadConfig(wt);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	requireTaskScope(root, wt, task, wp);
-	requireMaintenancePaths(root, wt, task);
-	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
-	const ref = baseRef(root, cfg),
-		baseSha = git(root, "rev-parse", ref),
-		sha = git(wt, "rev-parse", "HEAD");
-	if (head !== undefined && (!/^[a-f0-9]{40}$/.test(head) || sha !== head))
-		fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
-	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
-	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
-	requireFreeMigrationNumbers(wt, baseSha, task);
+	/**
+	 * Every refusal that needs no check, and the check list. Main or the checkout can move during a wait, so this runs
+	 * again after it. `sha` comes first: a commit after that read makes the run INVALIDATED.
+	 */
+	const inputs = () => {
+		const sha = git(wt, "rev-parse", "HEAD"),
+			cfg = loadConfig(wt);
+		requireLoadInputs(root, ignoreLoad);
+		requireTaskScope(root, wt, task, wp);
+		if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+		const ref = baseRef(root, cfg),
+			baseSha = git(root, "rev-parse", ref);
+		if (head !== undefined && (!/^[a-f0-9]{40}$/.test(head) || sha !== head))
+			fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
+		if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
+		if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
+		// After the check above: while main is not included, this diff lists main's own new files as the task's changes.
+		requireMaintenancePaths(root, wt, task);
+		requireFreeMigrationNumbers(wt, baseSha, task);
+		const definitions = withUiEscaped(
+			task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
+			cfg.checks,
+		);
+		if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
+		return { ref, baseSha, sha, definitions };
+	};
+	inputs();
 	const queueStart = performance.now();
-	awaitLoad(root, "verify", ignoreLoad, undefined, task);
-	const queuedMs = Math.round(performance.now() - queueStart);
+	// The slot comes first, so waiters keep their arrival order while the load is high.
+	const checked = () => {
+		awaitLoad(root, "verify", ignoreLoad, undefined, task);
+		const queuedMs = Math.round(performance.now() - queueStart);
+		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, ...inputs() });
+	};
+	return mode === "full" ? withCheckQueue(root, task.id, checked) : checked();
+}
+
+function runChecks({
+	root,
+	wt,
+	task,
+	wp,
+	role,
+	mode,
+	caller,
+	definitions,
+	queuedMs,
+	ref,
+	baseSha,
+	sha,
+}: {
+	root: string;
+	wt: string;
+	task: TaskRef;
+	wp: string | undefined;
+	role: Role;
+	mode: Mode;
+	caller: DriveCaller | undefined;
+	definitions: CheckDef[];
+	queuedMs: number;
+	ref: string;
+	baseSha: string;
+	sha: string;
+}): CheckReport {
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });
@@ -112,6 +164,7 @@ export function verify(
 	const checks: CheckResult[] = [];
 	const env = {
 		...stackEnv(root, task, wt),
+		...loadGatePassed(root),
 		EVF_SHA: sha,
 		EVF_EVIDENCE_DIR: dir,
 		EVF_ROLE: role,
@@ -121,11 +174,6 @@ export function verify(
 		// command inside a check (`evf test`) may therefore run without a terminal. An existing value stays.
 		EVF_MONITOR: process.env.EVF_MONITOR?.trim() || `evf verify ${task.id}`,
 	};
-	const definitions = withUiEscaped(
-		task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
-		cfg.checks,
-	);
-	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const signals = checkSignals({ root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller });
 	const unmarkFullCheck = markFullCheck(root, mode);
 	try {
@@ -233,6 +281,7 @@ export function verify(
 			baseSha,
 			clean: true,
 			unchanged,
+			queuedMs,
 			checks,
 			passed: unchanged && checks.length > 0 && checks.every((c) => c.passed),
 			evidenceDir: dir,
