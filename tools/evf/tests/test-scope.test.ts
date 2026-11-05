@@ -124,6 +124,34 @@ test("OPS-172: main's own changes after the fork are not the branch's work, so a
 	}
 });
 
+test("OPS-172: GitHub's PR merge commit compares with origin/main, also after main moved", () => {
+	const { f, commit, write, run } = scoped();
+	const prMerge = (branch: string) => {
+		f.git("update-ref", "refs/remotes/origin/main", "main");
+		f.git("checkout", "-q", "--detach", "origin/main");
+		f.git("merge", "-q", "--no-ff", "--no-edit", branch);
+	};
+	try {
+		f.git("remote", "add", "origin", join(f.root, "no-such-remote.git"));
+		f.git("checkout", "-qb", "docs-pr");
+		write("docs/plan/notes.md");
+		commit();
+		f.git("checkout", "-qb", "evf-pr", "main");
+		write("tools/evf/x.ts");
+		commit();
+		f.git("checkout", "-q", "main");
+		write("tools/evf/from-main.ts");
+		commit();
+		prMerge("docs-pr");
+		assert.equal(run().ran, false, "a docs PR skips");
+		f.git("checkout", "-q", "main");
+		prMerge("evf-pr");
+		assert.equal(run().ran, true, "an evf PR runs");
+	} finally {
+		f.close();
+	}
+});
+
 test("OPS-172: CI's evf job has the history the skip needs and still calls evf test", () => {
 	const job = readFileSync(join(source, ".github/workflows/ci.yml"), "utf8")
 		.split(/^  evf:$/m)[1]
