@@ -14,10 +14,13 @@ import { fail } from "./lib.ts";
  *
  * Limit: it sees direct git calls and helpers in the same file. It does not follow a git read across files, into an evf
  * command, or through a helper passed as a value. It accepts a call whose arguments it cannot read: a subcommand or
- * options in a variable, a shell string that is not one literal or template, or `shell: true`. It also accepts three forms
- * it does not recognize: a helper written as a function expression (`const c = function (repo) { ... }`), a flag in a
- * template (`--git-dir=${source}/.git`), and a git program given by path (`/usr/bin/git`). It refuses a local `source` that
- * comes from destructuring or a `for...of` loop, because it reads that name as the current checkout.
+ * options in a variable, a shell string that is not one literal or template, or `shell: true`. It also accepts forms it does
+ * not recognize: a helper written as a function expression (`const c = function (repo) { ... }`) or a generic arrow
+ * (`const c = <T,>(repo: string) => ...`), a flag in a template (`--git-dir=${source}/.git`), and a git program given by
+ * path (`/usr/bin/git`). A regex with a quote that follows a closing paren (`if (x) /"/.test(y)`) reads as the start of a
+ * string, so the scan can miss what follows it. It refuses a local `source` that comes from destructuring or a `for...of`
+ * loop, because it reads that name as the current checkout. Helpers that call each other are followed once around: a
+ * parameter that resolves to itself names nothing.
  */
 
 type Token = {
@@ -34,6 +37,8 @@ type Variable = { name: string; init: Token[]; scope: Scope };
 type Scope = { from: number; to: number };
 type Call = { args: Token[][]; at: number };
 type Env = Map<Fn, Call>;
+/** A name resolved on the way to a value. One Env gives each one value, so a repeat is a cycle. */
+type Binding = Variable | Param;
 type Word = { lit: string | null; tokens: Token[]; at: number };
 type Site = { at: number; options: Token[] | null } & (
 	{ kind: "git"; args: Token[] } | { kind: "shell"; command: Token[] }
@@ -275,7 +280,7 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	};
 
 	/** Does this expression name the current checkout? */
-	function isCurrent(expr: Token[], at: number, env: Env, seen: Set<Variable> = new Set()): boolean {
+	function isCurrent(expr: Token[], at: number, env: Env, seen: Set<Binding> = new Set()): boolean {
 		for (let i = 0; i < expr.length; i++) {
 			const t = expr[i]!;
 			if (t.kind === "tpl") {
@@ -301,7 +306,11 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 				const call = boundArgs(found.fn, env);
 				const arg = call.args[found.index];
 				// A helper called without the path runs the child in the current directory.
-				if (!arg || isCurrent(arg, call.at, env, seen)) return true;
+				if (!arg) return true;
+				const param = found.fn.params[found.index]!;
+				if (seen.has(param)) continue;
+				seen.add(param);
+				if (isCurrent(arg, call.at, env, seen)) return true;
 			}
 		}
 		return false;
@@ -313,19 +322,21 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	const wordOf = (expr: Token[], at: number): Word => ({ lit: literal(expr), tokens: expr, at });
 
 	/** The words of an argv expression: an array literal, an alias of one, or an array or rest parameter. */
-	function wordsOf(expr: Token[], at: number, env: Env): Word[] {
-		const element = (e: Token[], from: number) =>
-			isP(e[0], "...") ? wordsOf(e.slice(1), from, env) : [wordOf(e, from)];
+	function wordsOf(expr: Token[], at: number, env: Env, path: ReadonlySet<Binding> = new Set()): Word[] {
+		const element = (e: Token[], from: number, inner = path) =>
+			isP(e[0], "...") ? wordsOf(e.slice(1), from, env, inner) : [wordOf(e, from)];
 		if (isP(expr[0], "[")) return splitCommas(expr.slice(1, closer(expr, 0))).flatMap((e) => element(e, at));
 		if (expr.length === 1 && expr[0]!.kind === "id") {
 			const found = lookup(expr[0]!.text, at);
-			if (found?.kind === "var") return wordsOf(found.variable.init, at, env);
-			if (found?.kind === "param") {
-				const call = boundArgs(found.fn, env);
-				if (found.fn.params[found.index]!.rest)
-					return call.args.slice(found.index).flatMap((arg) => element(arg, call.at));
+			if (found?.kind === "var" && !path.has(found.variable))
+				return wordsOf(found.variable.init, at, env, new Set(path).add(found.variable));
+			if (found?.kind === "param" && !path.has(found.fn.params[found.index]!)) {
+				const call = boundArgs(found.fn, env),
+					param = found.fn.params[found.index]!,
+					inner = new Set(path).add(param);
+				if (param.rest) return call.args.slice(found.index).flatMap((arg) => element(arg, call.at, inner));
 				const arg = call.args[found.index];
-				if (arg) return wordsOf(arg, call.at, env);
+				if (arg) return wordsOf(arg, call.at, env, inner);
 			}
 		}
 		return [wordOf(expr, at)];

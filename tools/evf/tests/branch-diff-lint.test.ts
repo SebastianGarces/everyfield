@@ -57,6 +57,26 @@ const outer = (r: string) => read(r);
 ${inTest("outer(source);")}`,
 		[[4, "git diff"]],
 	],
+	[
+		"helpers that call each other, called with source",
+		`const a = (r: string) => {
+	b(r);
+	spawnSync("git", ["log"], { cwd: r });
+};
+const b = (r: string) => a(r);
+${inTest("a(source);")}`,
+		[[7, "git log"]],
+	],
+	[
+		"helpers that call each other, with the argv in a rest parameter",
+		`const a = (...x: string[]) => {
+	b(...x);
+	execFileSync("git", x);
+};
+const b = (...x: string[]) => a(...x);
+${inTest(`a("log");`)}`,
+		[[7, "git log"]],
+	],
 ];
 
 for (const [name, text, expected] of REFUSED)
@@ -76,6 +96,15 @@ test("OPS-136: a refusal names the file, the line and the fix AC:OPS-136-6", () 
 });
 
 const ACCEPTED: Array<[string, string]> = [
+	[
+		"helpers that call each other, called with a fixture",
+		`const a = (r: string) => {
+	b(r);
+	spawnSync("git", ["log"], { cwd: r });
+};
+const b = (r: string) => a(r);
+${inTest("a(fixture().root);")}`,
+	],
 	["fixture()", inTest(`const f = fixture();\nf.git("diff", "main");\nspawnSync("git", ["-C", f.root, "log"]);`)],
 	[
 		"a fixture worktree",

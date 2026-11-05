@@ -1325,7 +1325,8 @@ test("OPS-136: an agent wait child slower than the 2 s production floor keeps it
 	try {
 		const id = openSeatRun(slow, false);
 		scriptedHerdr(slow, id, { waits: ["blocked", "close"], gets: ["working"], waitDelayMs: 2_100 });
-		driveOnce(slow.root, slow.task, { ...TIMING, waitMs: 60_000, waitKillMs: SLOW_CHILD_MS, clock: fakeClock() });
+		// A kill takes 2 s of real time and moves the fake clock one poll, so a small waitMs ends a broken limit in about 20 s.
+		driveOnce(slow.root, slow.task, { ...TIMING, waitMs: 100, waitKillMs: SLOW_CHILD_MS, clock: fakeClock() });
 		assert.equal(slow.events("blocked").length, 1, "the late answer counted");
 		assert.equal(slow.runs()[0]!.status, "passed");
 	} finally {
@@ -1345,7 +1346,8 @@ test("OPS-136: production timing carries no clock, keeps its kill limit and wait
 	const killed = driveFixture();
 	try {
 		const id = openSeatRun(killed, false);
-		scriptedHerdr(killed, id, { waits: ["blocked"], gets: ["working"], waitDelayMs: 2_100 });
+		// SIGKILL ends the child at the floor, so a late kill under load still finds it long before it answers.
+		scriptedHerdr(killed, id, { waits: ["blocked"], gets: ["working"], waitDelayMs: 60_000 });
 		const started = Date.now();
 		driveOnce(killed.root, killed.task, { ...TIMING, waitMs: 0 });
 		assert.ok(Date.now() - started >= 2_000, "the child ran until the floor");
