@@ -1,7 +1,7 @@
 import { requireForeground } from "./foreground.ts";
 import { checkBranchDiffTests } from "./branch-diff-lint.ts";
 import { checkCiTests } from "./ci-tests.ts";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { checkGithubBody, checkPrBody, taskOfBranch } from "./pr-body.ts";
 import type { FollowUp } from "./followups.ts";
 import { renderAc, renderBrief } from "./brief.ts";
@@ -95,7 +95,7 @@ Verification (verifier)
   evf timing <task> --set <file> [--head <sha>] [--timeout <seconds>] [--ignore-load "<reason>"]
         runs a declared timing set on a production preview of the exact head and a quiet local
         database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
-  evf pre-push <task>                                        require full exact-head author checks
+  evf pre-push <task>                                        require full exact-head author checks; a stopped run does not count
   evf ship <task>                           report status and squash-merge
         refuses before any GitHub write when the running evf code differs from main (update the home checkout)
         a PR that changes landing and marketing owner paths (mergePolicy.ownerPaths), or that evf cannot classify,
@@ -300,6 +300,8 @@ function main(argv: string[]): number | Promise<number> {
 			const skip = all ? undefined : evfTestSkip(checkout);
 			if (skip) {
 				console.log(`evf test: skipped the tooling tests: ${skip}. Run them with bin/evf test --all.`);
+				// Under evf verify, the reason goes into the check's record.
+				if (process.env.EVF_SKIP_REASON) writeFileSync(process.env.EVF_SKIP_REASON, skip);
 				return 0;
 			}
 			// A required GitHub job never depends on the load gate, and no other job shares its runner.

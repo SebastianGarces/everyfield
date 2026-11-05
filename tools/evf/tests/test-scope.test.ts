@@ -166,5 +166,5 @@ test("OPS-172: CI's evf job has the history the skip needs and still calls evf t
 		.split(/^  evf:$/m)[1]
 		.split(/^  \w+:$/m)[0];
 	assert.match(job, /actions\/checkout@\S+\n\s+with:\n\s+fetch-depth: 0/);
-	assert.match(job, /^ +- run: bin\/evf test$/m);
+	assert.match(job, /^ +- run: bin\/evf test( \$\{\{ .* \}\})?$/m);
 });

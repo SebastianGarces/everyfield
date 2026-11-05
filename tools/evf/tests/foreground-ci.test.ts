@@ -51,7 +51,7 @@ test("BUG-OPS10-foreground: detached checks refuse before work; explicit supervi
 			const match = result.stdout.match(/checks: (.*checks\.json)/);
 			assert.ok(match);
 			const report = JSON.parse(readFileSync(match[1], "utf8"));
-			assert.match(readFileSync(report.checks[0].log, "utf8"), /finished check/);
+			assert.match(readFileSync(report.checks[1].log, "utf8"), /finished check/);
 			const push = cli(f.root, ["pre-push", "OPS-1"], env);
 			assert.equal(push.status, 0, push.stderr);
 			assert.match(push.stderr, /expected duration/);
