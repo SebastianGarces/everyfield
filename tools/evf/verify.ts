@@ -357,7 +357,7 @@ function runChecks({
 
 const FORMAT = "format";
 const FORMAT_FIX = "Format error. Run corepack pnpm format (prettier --write), commit, then run evf verify again.";
-/** The cheapest check goes first: `format` failed 16 of 308 runs, and most of them after minutes of other checks. */
+/** The cheapest check goes first, so a format error costs no time in a longer check. */
 const formatFirst = (checks: CheckDef[]) => [
 	...checks.filter((c) => c.name === FORMAT),
 	...checks.filter((c) => c.name !== FORMAT),
