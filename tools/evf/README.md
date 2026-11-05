@@ -565,12 +565,47 @@ cover what the previous round added: non-merge commits and added plus deleted li
 `round_start` (the merge base with `origin/main` for the first) to HEAD, without main's commits. They are null when the
 worktree is gone. A hold, a repeat review of a reviewed head and a loop cap stop record none.
 
-**Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
-while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
-`aborted` with `drive stopped by <SIGNAL> during <stage>` and records one `drive_stopped` event with `{stage, signal}`.
-The drive removes its pid file and ends by the signal, which a shell reads as exit 128 plus the signal number (143 for
-SIGTERM). A signal between stages or inside a seat wait writes no run: only the pid file goes. Stop a drive with
-SIGTERM. SIGKILL cannot be caught and leaves the run `started`; `evf status` and `evf doctor` report it (below).
+**Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT while a
+stage blocks in a child process or a seat wait. Stop a drive with `evf drive <task> --stop`. It records
+`drive_stop_requested` with `{pid, summary}`, sends SIGTERM to the live drive and tells the dead drive watcher not to
+restart it. It exits 0 with a message when no drive runs, and it still records the request, so a drive that died just
+before the stop also stays down. A pid file whose pid now runs another command gets no signal, and that pid blocks no new
+`evf drive` or `evf task abandon`. When `ps` cannot read the command of a live pid, `--stop` sends no signal, records
+nothing and exits non-zero, and a new `evf drive` or `evf task abandon` refuses. SIGKILL cannot be caught and leaves the
+run `started`; `evf status` and `evf doctor` report it (below).
+
+Each SIGTERM or SIGINT records exactly one `drive_stopped` event, in a pr, ci or ship stage, in a seat wait and between
+stages. The drive removes its pid file and ends by the signal, which a shell reads as exit 128 plus the signal number
+(143 for SIGTERM). An open `evf` run closes `aborted` with `drive stopped by <SIGNAL> during <stage>`. A seat's run stays
+open, because the seat goes on working. The event's `run_id` column names the closed `evf` run, else it is null.
+
+| Field            | Value                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `pid`, `ppid`    | The drive's process id and its parent's process id                                            |
+| `parentCommand`  | The parent's command line, read at the signal with a 2 s limit, at most 200 characters, or null |
+| `run`            | The open `evf` run, else the open seat run, else null                                         |
+| `stage`          | That run's stage, else null                                                                   |
+| `lastMergeAt`    | The time of the newest `merged` event of any task, else null                                  |
+| `mergeWithin60s` | True when the stop came 60 s or less after `lastMergeAt`                                      |
+| `signal`         | `SIGTERM` or `SIGINT`                                                                         |
+| `summary`        | What `evf status` recent shows                                                                |
+
+`ppid` and `parentCommand` describe the parent of the drive. They do not name the sender of the signal: Node does not
+report a sender, and no record claims one. When `mergeWithin60s` is true, the summary says so and tells the coordinator
+to consider an OPS task. Nothing files that task automatically.
+
+**Drive records.** Three more events tell what a drive did. The drive's main thread writes the first two, so no
+heartbeat can come after the drive's own end.
+
+- `drive_heartbeat` `{pid}`: one at the start, when the drive holds its pid file and has pinned its row, and then one
+  per minute, on that row with a null run. Heartbeats go on while the loop blocks in a stage, a seat wait or a hold. A
+  failed write costs one heartbeat, never the drive. A drive that refuses to start records none. Heartbeats stay out of
+  `v_recent`, so of `evf status` recent and the TUI feed. `evf events --type drive_heartbeat` reads them.
+- `drive_ended` `{stage, code, summary}`: each normal exit, which is an owner wait, `pick`, `blocked`, `escalated`,
+  `abandoned`, `done` and `--once`. An uncaught failure in the loop records none, so the watcher counts that as a death.
+- `drive_stop_requested` (above).
+
+`last_event` and `last_event_at` in `v_tasks` skip all three, so the TUI still shows `awaiting owner` after them.
 
 **Orphaned `evf` runs.** A `started` run of role `evf` whose task has no live drive (the pid file under `evf/drive/`
 is missing or names a dead pid) is orphaned. `evf status` (text, and `--json` under `orphanRuns`) and `evf doctor`
@@ -1141,8 +1176,8 @@ in the load wait, the drive closes that run as `aborted` and reruns the pr stage
 ## Minute sampler
 
 One detached process (OPS-133) records load, CPU share by class and queue state once per minute, so a bottleneck
-review reads numbers. It only writes history. No gate, scheduler, report or doctor line reads these records, and the
-load limit above does not change.
+review reads numbers. These records are only history. No gate, scheduler, report or doctor line reads them, and the load
+limit above does not change. The same process also runs the dead drive watcher (below), which reads none of them.
 
 `evf sampler start` starts it. A second start exits 0 and says a sampler already runs. `evf sampler stop` ends it with
 SIGTERM, removes its lock and exits 0 when none runs. `evf drive` starts it if none runs, and a sampler failure never
@@ -1153,6 +1188,7 @@ another command does not block a start.
 Retention: 30 days. At start and then once per hour the sampler removes lines and
 events older than 30 days from all four record kinds. That is at most 43,200 lines per file. It rewrites each file
 through a temporary file and a rename, so a reader never sees half a file. A line with an unreadable `at` stays.
+The same pass removes `drive_heartbeat` events older than 7 days, and it keeps every other drive event.
 
 | Record       | Where                          | Fields                                                                                |
 | ------------ | ------------------------------ | ------------------------------------------------------------------------------------- |
@@ -1189,6 +1225,50 @@ names a stage for it. Later analysis must allow for that.
 Read a free slot together with `load`, which `queue_tick` carries. A free slot with runnable work and load under the
 limit is idle time. The same slot with load above the limit is a machine with no room, and a seat started there waits at
 the gate.
+
+### Dead drive watcher
+
+The watcher (OPS-137, `tools/evf/drive-watcher.ts`) ticks once per minute in the sampler process, in its own function.
+A failed watcher tick leaves the sampler's records whole, and a failed sampler probe does not stop the watcher tick.
+With `EVF_NO_SAMPLER` set, no watcher runs. It schedules no new work and only restores a drive that was already running
+(D86). The events table holds all its state.
+
+It looks at each `active` or `pr_open` task (`pr_open` is the status of an active task with a PR) and leaves the task
+alone in each of these cases:
+
+- The task has no `drive_heartbeat` in the store. It never had a drive that the watcher knows, or its drive runs old code.
+- The latest drive record is `drive_ended`, so the drive ended by itself.
+- A `drive_stop_requested` has no later heartbeat from another pid, or the last stop was a SIGINT. A SIGTERM from any
+  other sender does not protect the task: it restarts like any other death.
+- The pid file names a live `evf drive` process, for example after the Mac wakes from sleep. The tick starts nothing,
+  records nothing and uses no restart. A live pid whose command `ps` cannot read counts the same until a later tick. A
+  dead pid, or a pid that another command now holds, counts as dead, and the restarted drive takes over the pid file.
+
+Each event's payload is its `summary`, which names the last heartbeat or the refusal text.
+
+| Event                   | When                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `drive_restart`         | The first tick with no heartbeat for 5 min. It goes in before `evf drive <ref> --detach` runs from the home checkout, so a crash cannot cause two restarts. |
+| `drive_death_alert`     | One restart is already used, and 5 min have passed with no heartbeat since the later of the last heartbeat and that restart. There is one Herdr notification with the task, the last heartbeat and the command. Later ticks add nothing. |
+| `drive_restart_refused` | `evf drive --detach` exits non-zero, which is the `requireCurrentCode` refusal of the new process. There is one Herdr notification. |
+
+The allowance is one restart since the last alert for the task row. It has no counter column. A drive that lives for
+days after a restart and then dies still counts as a second death, which errs toward alerting a person. A drive that a
+person starts after an alert gets a new allowance.
+
+A refusal uses no restart. The tick deletes the `drive_restart` row it just wrote and creates no seat and no run row. The
+sampler loads evf once, so only a new process can test the code on disk, and the watcher tries that start each minute.
+One `drive_restart_refused` and one notification cover all the tries since the last heartbeat, so a long stale period does
+not fill the recent feed. The first tick after the code is current restarts the drive once.
+
+The watcher does not flag a death that records no stop, such as SIGKILL: it restarts that drive, but it has no stop time
+to compare with a merge. A kill that also takes the sampler leaves no watcher until the next drive starts one.
+
+Rollout after this change merges:
+
+1. Run `evf sampler stop`. The next drive starts a sampler on the new code.
+2. Restart each live drive with `evf drive <task> --stop` and `evf drive <task> --detach`, so that it records heartbeats.
+   Until then its task has no heartbeat, so the watcher does not watch it.
 
 ## Browser checks and process hygiene
 

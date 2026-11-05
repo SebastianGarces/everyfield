@@ -1766,6 +1766,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-137": {
+			"title": "Drive heartbeat, stop details and dead drive watcher",
+			"owningPaths": ["tools/evf/", ".agents/roles/coordinator.md", "docs/architecture/decisions.md"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-140": {
 			"title": "Overlap check before verify, and ship refusal record",
 			"owningPaths": ["tools/evf/"],

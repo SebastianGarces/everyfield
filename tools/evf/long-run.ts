@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { record } from "./db.ts";
-import { run } from "./lib.ts";
+import { notify, run } from "./lib.ts";
 import { readEntries, runSplit, type Split } from "./turn-time.ts";
 import { transcriptPath } from "./usage.ts";
 
@@ -76,9 +76,7 @@ export function longRunCheck(
 			text = split ? splitText(split, elapsed) : "the split is not available (no readable transcript)";
 		if (wantsNotice) {
 			const body = `${agent} is open at ${elapsedMin} min: ${text}. It keeps working; no action is taken.`;
-			run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
-				timeoutMs: RUN_TIMEOUT_MS,
-			});
+			notify(`${ref} long run`, body);
 			record(db, taskId, runId, "long_run_notice", {
 				elapsedMin,
 				split,
