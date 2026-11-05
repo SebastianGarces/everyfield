@@ -702,8 +702,7 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 		assert.match(episode[1]!.payload, /implementer-ops-1-\d+ resumed after a prompt/);
 		assert.equal(f.herdr.calls().filter((c) => c[0] === "notification" && c[1] === "show").length, 1);
 		const gets = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "get");
-		// A wait that the 2 s floor kills under load adds one `agent get` for the seat's existence.
-		assert.ok(gets.length >= 4, "the state was polled until it left blocked");
+		assert.equal(gets.length, 4, "the state was polled until it left blocked");
 		assert.equal(f.runs()[0]!.status, "passed");
 		assert.equal(f.events("nudge").length, 0);
 	} finally {
@@ -2121,7 +2120,6 @@ test("in a real seat wait: heartbeats go on, and a SIGTERM records the seat's ru
 		assert.equal(f.events("drive_heartbeat").length, count, "no heartbeat after the stop");
 	} finally {
 		if (existsSync(hung)) process.kill(Number(readFileSync(hung, "utf8")), "SIGKILL");
-		await new Promise((r) => setTimeout(r, 200));
 		f.db.close();
 		f.close();
 	}
