@@ -330,11 +330,11 @@ export class ShipRefusal extends EvfError {
 }
 
 /**
- * The approval of `approved` carries to `head` only when every commit between them is a merge whose first parent
- * is the previous head and whose second parent is on main, each merge tree is the clean `git merge-tree` result,
- * and the PR's own changes share no path with what main changed since the PR's base. Returns the refusal reason.
+ * The commits from `approved` to `head`, oldest first, when every one is a merge whose first parent is the previous
+ * head and whose second parent is on main, and each merge tree is the clean `git merge-tree` result. Empty when the two
+ * heads are the same commit. A conflict resolution or a hand edit in a merge fails. Returns the refusal reason.
  */
-export function carryProof(repo: string, approved: string, head: string, main: string): CarryProof | string {
+export function cleanMerges(repo: string, approved: string, head: string, main: string): CarryProof["merges"] | string {
 	if (!gitOk(repo, "merge-base", "--is-ancestor", approved, head))
 		return `${approved.slice(0, 10)} is not an ancestor of ${head.slice(0, 10)}`;
 	const merges: CarryProof["merges"] = [];
@@ -352,12 +352,28 @@ export function carryProof(repo: string, approved: string, head: string, main: s
 		merges.unshift({ commit, branchParent, mainParent });
 		commit = branchParent;
 	}
+	return merges;
+}
+
+/** The PR's base, the main commit that `head` includes, and the paths the PR and that part of main both changed. */
+export function mergedMainOverlap(repo: string, approved: string, head: string, main: string) {
 	const base = git(repo, "merge-base", approved, main),
 		mainIncluded = git(repo, "merge-base", head, main);
 	const paths = (from: string, to: string) =>
 		git(repo, "diff", "--name-only", "--no-renames", from, to).split("\n").filter(Boolean);
 	const mainPaths = new Set(paths(base, mainIncluded));
-	const overlap = paths(base, approved).filter((path) => mainPaths.has(path));
+	return { base, mainIncluded, overlap: paths(base, approved).filter((path) => mainPaths.has(path)) };
+}
+
+/**
+ * The approval of `approved` carries to `head` only when every commit between them is a clean merge of main
+ * (cleanMerges) and the PR's own changes share no path with what main changed since the PR's base. Returns the
+ * refusal reason.
+ */
+export function carryProof(repo: string, approved: string, head: string, main: string): CarryProof | string {
+	const merges = cleanMerges(repo, approved, head, main);
+	if (typeof merges === "string") return merges;
+	const { base, mainIncluded, overlap } = mergedMainOverlap(repo, approved, head, main);
 	if (overlap.length) return `${CARRY_OVERLAP}${overlap.join(", ")}`;
 	return { approvedHead: approved, head, merges, base, mainIncluded, overlap };
 }
