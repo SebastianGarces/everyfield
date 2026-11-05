@@ -72,7 +72,14 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
-import { changedInputs, mergeOnlyPrompt, reviewInputs, verifyDelta, type VerifyDelta } from "./verify-delta.ts";
+import {
+	changedInputs,
+	mergeOnlyPrompt,
+	proofsHash,
+	reviewInputs,
+	verifyDelta,
+	type VerifyDelta,
+} from "./verify-delta.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -669,10 +676,35 @@ const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
 		.get(taskId) as { head_sha: string | null; decision: string } | undefined;
 	return a?.decision === "body_only" && a.head_sha ? a.head_sha : null;
 };
+/** Ties the launch's `verify_start` to its run, so the close reads what this verifier read. An unlinked one never counts. */
+function linkVerifyStart(root: string, taskId: number) {
+	const db = openWorkDb(root);
+	try {
+		db.prepare(
+			"UPDATE events SET run_id = (SELECT MAX(id) FROM runs WHERE task_id = ? AND stage = 'verify') WHERE id = (SELECT MAX(id) FROM events WHERE task_id = ? AND type = 'verify_start')",
+		).run(taskId, taskId);
+	} finally {
+		db.close();
+	}
+}
+/**
+ * What a passed verify close stores for the next classifier: the inputs its launch read, and the proofs as they are now,
+ * because the verifier may add one. Nothing when the launch recorded none or the head moved during the run. The next
+ * classifier then has no record and gives the full review (OPS-145).
+ */
+function closedInputs(db: DatabaseSync, runId: number, head: string | null) {
+	const start = db
+		.prepare("SELECT task_id, payload FROM events WHERE run_id = ? AND type = 'verify_start' ORDER BY id DESC LIMIT 1")
+		.get(runId) as { task_id: number; payload: string } | undefined;
+	if (!start) return {};
+	const launched = JSON.parse(start.payload) as VerifyDelta;
+	if (!launched.reviewInputs || launched.head !== head) return {};
+	return { reviewInputs: { ...launched.reviewInputs, proofs: proofsHash(db, start.task_id) } };
+}
 /**
  * What changed since the task's latest verify close, for the verifier about to start (OPS-145). A prior approval needs
  * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
- * A changed review input keeps the head on record, but the approval judged the old input: a full review.
+ * Anything else that moved keeps the head on record, but the approval no longer covers it: a full review.
  */
 function deltaSinceApproval(
 	db: DatabaseSync,
@@ -686,22 +718,33 @@ function deltaSinceApproval(
 		runs = runsOf(db, t.id).filter((r) => r.id > marker),
 		at = runs.findLastIndex((r) => r.stage === "verify" && (r.status === "passed" || r.status === "failed")),
 		close = runs[at],
-		approved = close?.status === "passed" && !bodyOnlyHead(db, t.id) ? close.progress_head : null;
-	const recorded =
-		close &&
-		(db
-			.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_end' ORDER BY id DESC LIMIT 1")
-			.get(close.id) as { payload: string } | undefined);
-	const changed = approved
-		? changedInputs(
-				recorded ? JSON.parse(recorded.payload).reviewInputs : undefined,
-				reviewInputs(db, root, t.id, task, wt, prBodyPath(root, task)),
-				wt,
-				t.pr_number,
-				approved,
-			)
-		: [];
-	return verifyDelta(wt, main, approved, runs.slice(at + 1), changed);
+		approved = close?.status === "passed" && !bodyOnlyHead(db, t.id) ? close.progress_head : null,
+		body = prBodyPath(root, task),
+		now = reviewInputs(db, root, t.id, task, wt, body);
+	const recorded = close
+		? (db
+				.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_end' ORDER BY id DESC LIMIT 1")
+				.get(close.id) as { payload: string } | undefined)
+		: undefined;
+	const changed = () => {
+		try {
+			return [
+				...changedInputs(
+					recorded ? JSON.parse(recorded.payload).reviewInputs : undefined,
+					now,
+					wt,
+					t.pr_number,
+					approved!,
+					body,
+				),
+				// The local checks CI does not run, such as ui-escaped. The overlap check moves a head with no pr stage.
+				...(hasVerifiedHead(root, task) ? [] : ["checks"]),
+			];
+		} catch {
+			return ["unreadable"];
+		}
+	};
+	return { ...verifyDelta(wt, main, approved, runs.slice(at + 1), approved ? changed() : []), reviewInputs: now };
 }
 function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
 	const head = bodyOnlyHead(db, taskId);
@@ -955,18 +998,7 @@ export function runDone(
 			stage: r.stage,
 			status: opts.status === "body-only" ? "body_only" : status,
 			summary: headline(summary, 200),
-			...(r.stage === "verify" && status === "passed" && r.worktree
-				? {
-						reviewInputs: reviewInputs(
-							db,
-							root,
-							r.task_id,
-							parseTask(r.ref),
-							r.worktree,
-							prBodyPath(root, parseTask(r.ref)),
-						),
-					}
-				: {}),
+			...(r.stage === "verify" && status === "passed" ? closedInputs(db, runId, head) : {}),
 		});
 		// A second review of a head an earlier verify of this task already closed at costs no round (OPS-113).
 		const reviewedBefore =
@@ -2358,6 +2390,7 @@ function launchOrLog(
 			driven: true,
 			taskId,
 		});
+		if (launching.role === "verifier") linkVerifyStart(root, taskId);
 	} catch (e) {
 		if (e instanceof LaunchLineTooLong) {
 			console.log(`${now()} drive ${task.id}: launch of ${launching.role} refused: ${e.message}`);

@@ -757,36 +757,39 @@ Read them with `evf events --type ship_refused`.
 ### What the verifier reviews (OPS-145)
 
 After the overlap check, the drive classifies the head against the latest verify close and records one `verify_start`
-event per launch attempt: `{head, priorApprovedHead, deltaKind, deltaLines}`. `deltaLines` counts lines added plus removed
-since the prior approved head, or since the branch's base with none.
+event per launch attempt: `{head, priorApprovedHead, deltaKind, deltaLines, changedInputs, reviewInputs}`. `deltaLines`
+counts lines added plus removed since the prior approved head, or since the branch's base with none.
 
 | `deltaKind` | When | Review |
 |---|---|---|
-| `merge_only` | Every commit since the approved head is a clean merge of main (`cleanMerges`, the check behind the carry proof). | The prompt names the prior head, the merge result and the `overlapPaths`, and limits the review to them. |
-| `simplify` | The non-merge commits came from the simplify seat: no implement run since the approval added code. | Full. |
-| `code` | A review input changed since the approval, whatever Git shows (table below). Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, or an unreadable delta. | Full. |
+| `merge_only` | Every proof in the list below holds. | The prompt names the prior head and the merge result and limits the review to them. |
+| `simplify` | The non-merge commits came from the simplify seat: no implement run since the approval added code. Nothing in `changedInputs`. | Full. |
+| `code` | Anything else: a first review, a conflict resolution, a hand edit in a merge, a head with no change, any entry in `changedInputs`. | Full. |
 
-Only a `passed` close without a `body_only` decision counts as an approval. Changes requested, a `body_only` review and a
-reopen each leave `priorApprovedHead` null. A `merge_only` review changes what the verifier reads and nothing that
-`evf ship` checks: it still requires required CI and an independent review on the exact head.
+`merge_only` fails closed. It needs all of these, and anything evf cannot read or prove gives `code`:
 
-A verify close that passes stores one hash per input in its `stage_end` event (`reviewInputs`). A change to any input in
-this table before the next verifier gives `code`. `priorApprovedHead` stays on record, and `changedInputs` names the input.
-A close with no record, or an input evf cannot read, counts as changed.
+1. A prior approval: the latest verify close is `passed` with no `body_only` decision and no reopen after it.
+2. Every commit since that head is a clean merge of main (`cleanMerges`), and there is at least one.
+3. Each input below is the same now as when the approved verifier launched.
+4. Main's change touches no file the branch changed (`overlap: <path>`). The ask's "any overlap" no longer applies: an overlap gets the full review.
+5. Main's change touches no rule file (`rules: <path>`): `AGENTS.md`, `docs/START-HERE.md`, `docs/build-agent-workflow.md`, `docs/architecture/`, `.github/workflows/`, `.agents/`, `.claude/agents/` or a `shared_read_paths` entry of the context manifest.
+6. A passed full author record exists at the head (`checks`). It holds the local checks CI does not run, such as `ui-escaped`. The overlap check moves a head with no pr stage, so that head has none.
+7. The latest review on GitHub approves the prior head, and its verifier is independent of the `EVF-Author` in the PR body (`review`).
 
-| Input | `changedInputs` name | What counts as a change |
+The launch stores the input hashes in `verify_start.reviewInputs`, and evf ties that event to its run. A passed close carries
+them to its `stage_end` event, with `proofs` read again because a verifier may add one. A change during the run therefore
+counts as a change. No linked launch record, or a head that moved during the run, leaves no record, and the next classifier names every input.
+An input that reads null always counts as changed.
+
+| Input | `changedInputs` name | What the hash covers |
 |---|---|---|
-| Ask, Coordinator notes and title | `ask` | Any text, by any writer: `evf task new`, audit, escape or follow-up filing. |
-| Spec | `spec` | Any text. |
-| Goal chain | `goal` | The project or the task's mission, title or body. |
-| Follow-ups, which Ask coverage can defer to | `followUps` | A link, a status, a title, or the task's own parent or slice. |
-| Proofs | `proofs` | A row a seat or person wrote. `AC:` rows that evf wrote do not count, because evf reruns them at each close. |
-| PR body | `prBody` | The file evf pushes from, in the runtime dir. A direct edit on GitHub does not count; the prompt asks the verifier to read the current body. |
-| Task contract at the head | `contract` | An OPS task's `maintenanceTasks` entry, or a WP's package entry and the text of its requirements and cases. Other tasks' entries do not count. |
-| Rulings and review rules on main | `rules: <path>` | The merge brings a change to `AGENTS.md`, `decisions.md`, `patterns.md`, the verifier role or agent, `verify-preview`, `test-standard` or a principle. |
-| The approved review | `review` | GitHub has no `approved` EVF-Review at the prior head, or GitHub is unreadable. |
-
-A reopen clears the approval itself, so `priorApprovedHead` is null.
+| Ask, Coordinator notes and title | `ask` | The text, plus each `task_new`, `spec_set`, `reopen` and `handoff` event. Storing the same text again counts. |
+| Spec | `spec` | The text. |
+| Goal chain | `goal` | The project's title and body, and the task's mission as the seat reads it. |
+| Follow-ups, which Ask coverage can defer to | `followUps` | Each link's label, status and title, and the task's own parent and slice. |
+| Proofs | `proofs` | Rows a seat or person wrote. `AC:` rows that evf wrote do not count, because evf reruns them at each close. |
+| PR body | `prBody` | The file evf pushes from. A direct edit on GitHub does not count; the prompt asks the verifier to read the current body. |
+| Task contract at the head | `contract` | `evf.config.json` without other tasks' entries, then for a WP or FB its package, its context, and the full text of each requirement, case, operation and shared contract the context names. An id with no text reads null. |
 
 ## Answer key (OPS-112)
 

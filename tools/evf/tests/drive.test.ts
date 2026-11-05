@@ -1150,11 +1150,15 @@ test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier co
  * A PR at the verify stage (OPS-140): the pr stage passed, PR #77 is open and the branch holds one README change on
  * origin. `onMain` lands one commit on main after the branch split.
  */
-function atVerify(f: ReturnType<typeof driveFixture>, onMain: { path: string; text: string } | null) {
+function atVerify(
+	f: ReturnType<typeof driveFixture>,
+	onMain: { path: string; text: string } | null,
+	file = "README.md",
+) {
 	withPr(f);
-	const readme = readFileSync(join(f.wt, "README.md"), "utf8");
-	writeFileSync(join(f.wt, "README.md"), `Branch line.\n${readme}`);
-	sh(f.wt, "add", "README.md");
+	const path = join(f.wt, file);
+	writeFileSync(path, `Branch line.\n${existsSync(path) ? readFileSync(path, "utf8") : ""}`);
+	sh(f.wt, "add", file);
 	sh(f.wt, "commit", "-qm", "Branch work");
 	sh(f.wt, "push", "-q", "origin", f.task.branch);
 	f.insertRun("implement", "implementer", "passed");
@@ -1437,25 +1441,38 @@ test("AC:OPS-140-3 AC:OPS-140-4 a ready PR overlaps: the verifier waits with the
 });
 
 /** OPS-145. The verifier approved the branch at its head; the next pass after the given runs is a new verify. */
-function approvedAtVerify(f: ReturnType<typeof driveFixture>, onMain: { path: string; text: string } | null = null) {
-	const approved = atVerify(f, null);
-	closeVerify(f, approved, "approved");
+function approvedAtVerify(
+	f: ReturnType<typeof driveFixture>,
+	onMain: { path: string; text: string } | null = null,
+	during?: () => void,
+	file = "tools/evf/branch.md",
+) {
+	const approved = atVerify(f, null, file);
+	closeVerify(f, approved, "approved", during);
 	if (onMain) landOnMain(f, onMain.path, onMain.text);
 	return approved;
 }
-/** A real verify close: runDone stores what the approval judged. An approval also posts its exact-head review. */
-function closeVerify(f: ReturnType<typeof driveFixture>, at: string, decision: string) {
+/**
+ * A real verifier: the drive launches it, `during` runs while it reads, it adds its proofs and closes through runDone. An
+ * approval also posts its exact-head review.
+ */
+function closeVerify(f: ReturnType<typeof driveFixture>, at: string, decision: string, during?: () => void) {
 	assert.equal(head(f), at);
-	const status = decision === "changes_requested" ? "failed" : decision === "body_only" ? "body-only" : "passed";
+	quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH));
+	const run = f.runs().at(-1)!;
+	assert.deepEqual([run.stage, run.status], ["verify", "started"]);
+	during?.();
 	quiet(() => {
 		for (const criterion of ["1", "2"])
 			proofAdd(f.root, f.task, { criterion, status: "met", evidence: "https://example.test/proof.png" });
+		const status = decision === "changes_requested" ? "failed" : decision === "body_only" ? "body-only" : "passed";
+		runDone(f.root, run.id, { status: status as "passed", summary: decision });
 	});
-	quiet(() =>
-		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: status as "passed", summary: decision }),
-	);
 	if (decision === "approved") postReview(f, at);
 }
+/** The author checks at the head, as the pr stage runs them. A head without them gets no merge-only review. */
+const authorChecks = (f: ReturnType<typeof driveFixture>) =>
+	assert.equal(quiet(() => verify(f.root, f.task, "author", "full")).passed, true);
 function postReview(f: ReturnType<typeof driveFixture>, at: string | null) {
 	const state = f.getState();
 	state.comments["77"] = at
@@ -1515,16 +1532,26 @@ test(
 		const approved = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
 		mergeOriginMain(f);
 		seatRuns(f, "implement");
+		authorChecks(f);
 		const { start, prompt } = verifyPass(f),
 			merged = head(f);
 		assert.deepEqual(
-			[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines, start.overlapPaths],
-			[merged, approved, "merge_only", 1, []],
+			[start.head, start.priorApprovedHead, start.deltaKind, start.deltaLines, start.changedInputs],
+			[merged, approved, "merge_only", 1, undefined],
 		);
+		assert.deepEqual(Object.keys(start.reviewInputs), [
+			"ask",
+			"spec",
+			"goal",
+			"followUps",
+			"proofs",
+			"prBody",
+			"contract",
+		]);
 		assert.ok(prompt.includes(`prior head ${approved}`));
 		assert.ok(prompt.includes(`merge result ${merged}`));
 		assert.ok(prompt.includes(`post-review.mjs --head ${merged}`));
-		assert.match(prompt, /Limit your review to the merge result and the overlap/);
+		assert.match(prompt, /Limit your review to the merge result/);
 		assert.match(prompt, /Required CI on the exact head stays required/);
 		assert.match(prompt, /Read the current PR body/);
 		assert.doesNotMatch(prompt, FULL_REVIEW);
@@ -1532,23 +1559,54 @@ test(
 );
 
 test(
-	"AC:OPS-145-1 AC:OPS-145-4 the overlap check merges an overlapping main: the record and the prompt name the path and read the head the verifier reviews",
+	"AC:OPS-145-2 the overlap check merges an overlapping main with no pr stage: no local check ran at that head and main changed the branch's file, so it gets code and the full review",
 	withDrive((f) => {
-		const approved = approvedAtVerify(f, {
-			path: "README.md",
-			text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n`,
-		});
+		const approved = approvedAtVerify(
+			f,
+			{ path: "README.md", text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n` },
+			undefined,
+			"README.md",
+		);
 		seatRuns(f, "implement");
 		const { start, prompt } = verifyPass(f);
 		assert.equal(updateBranchCalls(f).length, 1);
 		assert.notEqual(head(f), approved);
 		assert.deepEqual(
-			[start.head, start.priorApprovedHead, start.deltaKind, start.overlapPaths],
-			[head(f), approved, "merge_only", ["README.md"]],
+			[start.head, start.priorApprovedHead, start.deltaKind, start.changedInputs],
+			[head(f), approved, "code", ["checks", "overlap: README.md"]],
 		);
-		assert.match(prompt, /both changed these paths.*: README\.md\./);
+		assert.match(prompt, FULL_REVIEW);
 	}),
 );
+
+test(
+	"AC:OPS-145-2 a clean merge with no author checks at the head: the local checks CI does not run have not run, so it gets code and the full review",
+	withDrive((f) => {
+		approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+		mergeOriginMain(f);
+		seatRuns(f, "implement");
+		const { start, prompt } = verifyPass(f);
+		assert.deepEqual([start.deltaKind, start.changedInputs], ["code", ["checks"]]);
+		assert.match(prompt, FULL_REVIEW);
+	}),
+);
+
+test("AC:OPS-145-2 the ask or the spec changes while the verifier reads: the close stores what the launch read, so the next clean merge gets code and the full review", () => {
+	for (const [input, during] of [
+		["ask", (f) => newAsk(f, "A new deliverable, stored during the run.")],
+		["spec", (f) => storeSpec(f, "Goal: new.\n\nDone criteria:\n1. One.\n2. Two.\n\nNon-goals: none.")],
+	] as Array<[string, (f: ReturnType<typeof driveFixture>) => void]>)
+		withDrive((f) => {
+			approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" }, () => during(f));
+			mergeOriginMain(f);
+			seatRuns(f, "implement");
+			authorChecks(f);
+			const { start, prompt } = verifyPass(f);
+			assert.deepEqual(start.deltaKind, "code");
+			assert.ok(start.changedInputs.includes(input), start.changedInputs.join());
+			assert.match(prompt, FULL_REVIEW);
+		})();
+});
 
 test("AC:OPS-145-2 a merge that is not the clean merge gives code and the full review: a conflict resolution, a hand edit, a merge that drops main's change", () => {
 	const resolved = (f: ReturnType<typeof driveFixture>) => {
@@ -1577,7 +1635,7 @@ test("AC:OPS-145-2 a merge that is not the clean merge gives code and the full r
 		[dropped, { path: "docs/elsewhere.md", text: "Elsewhere.\n" }],
 	] as const)
 		withDrive((f) => {
-			const approved = approvedAtVerify(f, onMain);
+			const approved = approvedAtVerify(f, onMain, undefined, "README.md");
 			write(f);
 			seatRuns(f, "implement");
 			const { start, prompt } = verifyPass(f);
@@ -1609,8 +1667,14 @@ function verifyAfterChange(f: ReturnType<typeof driveFixture>, change: (f: Retur
 	change(f);
 	mergeOriginMain(f);
 	seatRuns(f, "implement");
+	authorChecks(f);
 	return { approved, ...verifyPass(f) };
 }
+const storeSpec = (f: ReturnType<typeof driveFixture>, spec: string) => {
+	const file = join(f.root, "fake-bin/spec.md");
+	writeFileSync(file, spec);
+	quiet(() => taskSpec(f.root, f.task, file));
+};
 const newAsk = (f: ReturnType<typeof driveFixture>, text: string) =>
 	void quiet(() => taskNew(f.root, f.task, askFile(f, text)));
 const newRuling = (f: ReturnType<typeof driveFixture>) =>
@@ -1636,12 +1700,12 @@ test(
 	"AC:OPS-145-2 each input an approval judged, and only those: one fixture, one change at a time",
 	withDrive((f) => {
 		const prior = approvedAtVerify(f);
-		const inputs = () =>
-			reviewInputs(f.db, f.root, f.taskId, f.task, f.wt, join(runtimeDir(f.root, f.task), "pr-body.md"));
+		const body = join(runtimeDir(f.root, f.task), "pr-body.md");
+		const inputs = () => reviewInputs(f.db, f.root, f.taskId, f.task, f.wt, body);
 		const movedBy = (change: () => void) => {
 			const then = inputs();
 			change();
-			return changedInputs(then, inputs(), f.wt, 77, prior);
+			return changedInputs(then, inputs(), f.wt, 77, prior, body);
 		};
 		const merged = (path: string, edit: (text: string) => string) => () => {
 			mainEdit(f, path, edit);
@@ -1651,14 +1715,11 @@ test(
 			["the ask", ["ask"], () => newAsk(f, "A new deliverable.")],
 			["a Coordinator note", ["ask"], () => newAsk(f, "A new deliverable.\n\nCoordinator note: keep the old route.")],
 			[
-				"the spec",
-				["spec"],
-				() => {
-					const file = join(f.root, "fake-bin/spec.md");
-					writeFileSync(file, "Goal: new.\n\nDone criteria:\n1. New.\n\nNon-goals: none.");
-					quiet(() => taskSpec(f.root, f.task, file));
-				},
+				"the same ask stored again",
+				["ask"],
+				() => newAsk(f, "A new deliverable.\n\nCoordinator note: keep the old route."),
 			],
+			["the spec", ["ask", "spec"], () => storeSpec(f, "Goal: new.\n\nDone criteria:\n1. New.\n\nNon-goals: none.")],
 			[
 				"the goal chain",
 				["goal"],
@@ -1693,6 +1754,11 @@ test(
 				() => writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), `${prBody()}\nA new claim.`),
 			],
 			["the task's contract", ["contract"], merged("evf.config.json", (text) => renamedEntry(text, "OPS-1"))],
+			[
+				"the checks config",
+				["contract"],
+				merged("evf.config.json", (text) => JSON.stringify({ ...JSON.parse(text), checks: [] })),
+			],
 			// What no approval judged moves nothing.
 			["another task's entry", [], merged("evf.config.json", (text) => renamedEntry(text, "OPS-9"))],
 			[
@@ -1716,31 +1782,127 @@ test(
 		];
 		for (const [name, expected, change] of cases) assert.deepEqual(movedBy(change), expected, name);
 
-		// The rules on main, read from the merge, and the review, read from GitHub. A close with no record names all.
-		const rule = head(f);
-		for (const path of [
-			"docs/architecture/patterns.md",
-			".agents/roles/verifier.md",
-			".agents/skills/verify-preview/SKILL.md",
-		]) {
-			merged(path, (t) => `${t}New.\n`)();
-			assert.ok(verifyDelta(f.wt, "origin/main", rule, [], []).changedInputs?.includes(`rules: ${path}`), path);
-		}
 		const now = inputs();
-		assert.deepEqual(changedInputs(undefined, now, f.wt, 77, prior), Object.keys(now));
-		assert.deepEqual(changedInputs(now, now, f.wt, 77, head(f)), ["review"]);
-		assert.deepEqual(changedInputs(now, now, f.wt, null, prior), ["review"]);
-		assert.deepEqual(changedInputs({ ...now }, { ...now, contract: null }, f.wt, 77, prior), ["contract"]);
+		assert.deepEqual(changedInputs(undefined, now, f.wt, 77, prior, body), Object.keys(now), "a close with no record");
+		assert.deepEqual(changedInputs(now, now, f.wt, 77, prior, body), [], "the approved review, unchanged");
+		assert.deepEqual(changedInputs(now, now, f.wt, 77, head(f), body), ["review"], "no review at that head");
+		assert.deepEqual(changedInputs(now, now, f.wt, null, prior, body), ["review"], "no PR");
+		// A review by the author's own session is no approval, and neither is one a later review replaced.
+		const state = f.getState(),
+			review = state.comments["77"][0];
+		const line = (fields: object) => ({
+			...review,
+			body: `EVF-Review: ${JSON.stringify({ ...JSON.parse(review.body.split("EVF-Review: ")[1]), ...fields })}`,
+		});
+		state.comments["77"] = [line({ verifier: { ...VERIFIER, session: AUTHOR.session } })];
+		f.setState(state);
+		assert.deepEqual(changedInputs(now, now, f.wt, 77, prior, body), ["review"], "the author's session");
+		state.comments["77"] = [review, line({ head: "a".repeat(40), verdict: "changes_requested" })];
+		f.setState(state);
+		assert.deepEqual(changedInputs(now, now, f.wt, 77, prior, body), ["review"], "a later review");
 	}),
 );
 
-test("AC:OPS-145-2 a WP task's contract reads from this repo: a package, its requirements and cases, the same each time", () => {
-	const wp = parseTask("WP-001");
-	const contract = contractOf(source, source, wp);
-	assert.match(contract ?? "", /^[a-f0-9]{64}$/);
-	assert.equal(contractOf(source, source, wp), contract);
-	assert.notEqual(contractOf(source, source, parseTask("WP-002")), contract);
-});
+test(
+	"AC:OPS-145-2 a WP task's contract covers the text of each requirement, case, operation and shared contract its context names",
+	withDrive((f) => {
+		// WP-002 has no acceptance_ids, so nothing here passes through renderAc.
+		const wp = parseTask("WP-002"),
+			catalog = join(f.wt, "docs/catalog");
+		const edit = (file: string, change: (data: any) => void) => {
+			const path = join(f.wt, file),
+				data = JSON.parse(readFileSync(path, "utf8"));
+			change(data);
+			writeFileSync(path, JSON.stringify(data));
+		};
+		const reworded = (rows: Array<Record<string, unknown>>, id: string) => {
+			rows.find((r) => r.id === id)!.reworded = "A new contract.";
+		};
+		let contract = contractOf(f.root, f.wt, wp);
+		assert.match(contract ?? "", /^[a-f0-9]{64}$/);
+		assert.equal(contractOf(f.root, f.wt, wp), contract, "the same each time");
+		const caseFile: string = JSON.parse(readFileSync(join(catalog, "index.json"), "utf8")).case_files.find(
+			(file: string) =>
+				(JSON.parse(readFileSync(join(f.wt, file), "utf8")).cases as Array<{ id: string }>).some(
+					(c) => c.id === "AUDIT-001",
+				),
+		);
+		for (const [name, change] of [
+			[
+				"a requirement",
+				() => edit("docs/catalog/requirements/identity-access.json", (d) => reworded(d.requirements, "REQ-IDN-029")),
+			],
+			["a case", () => edit(caseFile, (d) => reworded(d.cases, "AUDIT-001"))],
+			["an operation", () => edit("docs/catalog/operations.json", (d) => reworded(d.operations, "calendar.resolve"))],
+			[
+				"a shared contract",
+				() => edit("docs/catalog/shared-contracts.json", (d) => (d.contracts["C0-TIME"].reworded = "New.")),
+			],
+		] as Array<[string, () => void]>) {
+			change();
+			const next = contractOf(f.root, f.wt, wp);
+			assert.match(next ?? "", /^[a-f0-9]{64}$/, name);
+			assert.notEqual(next, contract, name);
+			contract = next;
+		}
+		// An id with no text is a contract evf cannot prove unchanged.
+		edit("docs/catalog/shared-contracts.json", (d) => delete d.contracts["C0-TIME"]);
+		assert.equal(contractOf(f.root, f.wt, wp), null);
+	}),
+);
+
+test(
+	"AC:OPS-145-2 main changes a file that says how a verifier judges: each shared read path and rule file gives code",
+	withDrive((f) => {
+		const shared: string[] = JSON.parse(
+			readFileSync(join(source, "docs/plan/context-manifest.json"), "utf8"),
+		).shared_read_paths;
+		assert.ok(shared.includes("docs/architecture/core.md"));
+		approvedAtVerify(f);
+		for (const path of [
+			...shared,
+			"docs/architecture/decisions.md",
+			".github/workflows/ci.yml",
+			".agents/skills/verify/SKILL.md",
+			".agents/skills/everyfield-pr/template.md",
+			".claude/agents/verifier.md",
+		]) {
+			const from = head(f);
+			mainEdit(f, path, (t) => `${t}New.\n`);
+			mergeOriginMain(f);
+			assert.deepEqual(verifyDelta(f.wt, "origin/main", from, [], []).changedInputs, [`rules: ${path}`], path);
+		}
+	}),
+);
+
+test(
+	"AC:OPS-145-2 an unknown or unhashable input gives code: a missing PR body, an unreadable manifest, an unknown commit, a close with no launch record",
+	withDrive((f) => {
+		const prior = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
+		mergeOriginMain(f);
+		const body = join(runtimeDir(f.root, f.task), "pr-body.md"),
+			now = reviewInputs(f.db, f.root, f.taskId, f.task, f.wt, body);
+		assert.equal(verifyDelta(f.wt, "origin/main", prior, [], []).deltaKind, "merge_only", "the control");
+		// An input that reads null is changed even when the record also holds null.
+		const missing = { ...now, prBody: null };
+		assert.deepEqual(changedInputs(missing, missing, f.wt, 77, prior, body), ["prBody"]);
+		assert.equal(reviewInputs(f.db, f.root, f.taskId, f.task, f.wt, `${body}.gone`).prBody, null);
+		assert.equal(verifyDelta(f.wt, "origin/main", prior, [], ["prBody"]).deltaKind, "code");
+		assert.deepEqual(verifyDelta(f.wt, "origin/main", "b".repeat(40), [], []).changedInputs, ["unreadable"]);
+		writeFileSync(join(f.wt, "docs/plan/context-manifest.json"), "{");
+		assert.deepEqual(verifyDelta(f.wt, "origin/main", prior, [], []).changedInputs, ["unreadable"]);
+		sh(f.wt, "checkout", "--", "docs/plan/context-manifest.json");
+
+		// Through the drive: a close whose launch left no record names every input.
+		f.db.prepare("UPDATE events SET payload = json_remove(payload, '$.reviewInputs') WHERE type = 'stage_end'").run();
+		seatRuns(f, "implement");
+		authorChecks(f);
+		const { start, prompt } = verifyPass(f);
+		assert.equal(start.deltaKind, "code");
+		assert.deepEqual(start.changedInputs, Object.keys(now));
+		assert.match(prompt, FULL_REVIEW);
+	}),
+);
 
 test("AC:OPS-145-3 a new non-merge commit: code from the implementer, simplify from the simplifier, both with the full review", () => {
 	withDrive((f) => {
@@ -1759,8 +1921,9 @@ test("AC:OPS-145-3 a new non-merge commit: code from the implementer, simplify f
 		const approved = approvedAtVerify(f, { path: "docs/elsewhere.md", text: "Elsewhere.\n" });
 		mergeOriginMain(f);
 		seatRun(f, "implement");
-		commitInWt(f, "feature.md", "Simpler.\n", "Simplify");
+		commitInWt(f, "tools/evf/feature.md", "Simpler.\n", "Simplify");
 		seatRuns(f, "simplify");
+		authorChecks(f);
 		const { start, prompt } = verifyPass(f);
 		assert.deepEqual([start.priorApprovedHead, start.deltaKind], [approved, "simplify"]);
 		assert.match(prompt, FULL_REVIEW);

@@ -22,7 +22,7 @@ Read the current brief and follow details on demand. Do not write product code.
 5. Delegate verification to a fresh Opus 5.5 medium session that never shared context with the author.
    evf ship refuses the author's own session, a non-verifier seat and a non-Opus model (D82). Give the
    task note and PR, not the author's narrative. The verifier reads the full diff and spot-checks the proof. A merge-only delta (OPS-145) limits that read to the
-   merge result and any overlap.
+   merge result.
    Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
