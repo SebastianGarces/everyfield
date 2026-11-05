@@ -174,9 +174,9 @@ function writePoll(db: DatabaseSync, required: string[], prs: OpenPr[], nowMs: n
 				raise("red", check, [...reds.keys()]);
 			}
 		}
-		db.prepare(
-			"UPDATE check_names SET red_alarmed = 0 WHERE name NOT IN (SELECT value FROM json_each(?))",
-		).run(JSON.stringify([...red.keys()]));
+		db.prepare("UPDATE check_names SET red_alarmed = 0 WHERE name NOT IN (SELECT value FROM json_each(?))").run(
+			JSON.stringify([...red.keys()]),
+		);
 
 		db.prepare("UPDATE check_poll SET last_ok_at = ? WHERE id = 1").run(at);
 		db.exec("COMMIT");
