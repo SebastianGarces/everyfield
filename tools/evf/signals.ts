@@ -15,11 +15,19 @@ import { fileURLToPath } from "node:url";
 import { touchesOwnPaths } from "./brake.ts";
 import { findTask, openWorkDb, record, workDbPath } from "./db.ts";
 import { git, oneLine, redactConnections, type TaskRef } from "./lib.ts";
+import type { StopReason } from "./check-watch.ts";
 import type { CheckReport, CheckResult, Mode, Role } from "./verify.ts";
 
 /** Who started this verify, when a drive stage did. Any other caller is a seat or a person. */
 export type DriveCaller = "pr-stage" | "evf-check";
 type RunResult = "passed" | "failed" | "invalidated" | "error";
+/** `base_moved` only informs: main moved and the run still counts, so it wasted nothing. */
+export type CheckInvalidated = {
+	reason: StopReason | "base_moved";
+	oldBase: string;
+	newBase: string;
+	wastedMs: number;
+};
 
 type Context = {
 	root: string;
@@ -206,6 +214,18 @@ export function checkSignals(ctx: Context) {
 					touchesOwnPaths: file === null ? null : touchesOwnPaths(file, changed),
 				});
 			}
+		},
+		/** The event for this run, or nothing when it stayed valid and main stayed still. */
+		invalidated(reason: StopReason | null, newBase: string): CheckInvalidated | undefined {
+			if (!reason && newBase === baseSha) return undefined;
+			const event: CheckInvalidated = {
+				reason: reason ?? "base_moved",
+				oldBase: baseSha,
+				newBase,
+				wastedMs: reason ? elapsed(started) : 0,
+			};
+			emit("check_invalidated", { task: task.id, head: sha, role, mode, ...event });
+			return event;
 		},
 		end(result: RunResult) {
 			emit("check_end", runFields(elapsed(started), result));
