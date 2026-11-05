@@ -659,7 +659,8 @@ The drive runs this check before each verifier launch. It logs one `verify_overl
 |---|---|---|
 | Main changed a path the PR changes | `merge_main` | Runs `gh pr update-branch`, then continues the check at the new head. |
 | That merge conflicts | `merge_conflict` | Starts no verifier. A failed pr run sends the task to the implementer, at no round. |
-| That merge fails for another reason | `merge_failed` | The verifier starts. |
+| That merge fails on GitHub for another reason | `merge_failed` | The verifier starts. The PR head did not move. |
+| GitHub merged, but the worktree cannot reach the new head | `sync_failed` | Tries 3 times, then starts no verifier. A failed pr run sends the task to the implementer, at no round. |
 | A ready PR changes a path the PR changes | `wait`, then `start_after_limit` if it never lands | Looks again each minute for up to 30 min (`OVERLAP_WAIT_MS`), then the verifier starts. A drive restart keeps the same limit. |
 | No overlap | `start` | The verifier starts at once. |
 | Git or GitHub is unreadable | `check_failed` | The verifier starts. |

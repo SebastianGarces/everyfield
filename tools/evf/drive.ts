@@ -2402,9 +2402,9 @@ export function driveOnce(
 			return n;
 		}
 		if (n.stage === "verify") {
-			const conflict = overlapGate(db, root, task, t.id, t.pr_number, timing);
-			if (conflict) {
-				// Required CI never starts on a conflicting head. A failed pr run sends it to the implementer at no round.
+			const stopped = overlapGate(db, root, task, t.id, t.pr_number, timing);
+			if (stopped) {
+				// A verifier cannot review this head: a failed pr run sends the task to the implementer at no round.
 				const runId = Number(
 					db
 						.prepare(
@@ -2412,8 +2412,8 @@ export function driveOnce(
 						)
 						.run(t.id, t.round, now()).lastInsertRowid,
 				);
-				runDone(root, runId, { status: "failed", summary: conflict });
-				return { stage: "pr", round: t.round, reason: conflict };
+				runDone(root, runId, { status: "failed", summary: stopped });
+				return { stage: "pr", round: t.round, reason: stopped };
 			}
 		}
 		if (n.role) {

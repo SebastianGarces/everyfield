@@ -1183,6 +1183,17 @@ const overlapLog = (f: ReturnType<typeof driveFixture>) =>
 	f.events("verify_overlap").map((e) => JSON.parse(e.payload) as Record<string, any>);
 const updateBranchCalls = (f: ReturnType<typeof driveFixture>) =>
 	f.getState().calls.filter((c: { args: string[] }) => c.args[0] === "pr" && c.args[1] === "update-branch");
+/** GitHub refuses `gh pr update-branch` with `message`; every other call goes to the fixture's fake gh. */
+function failUpdateBranch(f: ReturnType<typeof driveFixture>, message: string) {
+	const gh = join(f.root, "fake-bin/gh"),
+		base = join(f.root, "fake-bin/gh-base");
+	writeFileSync(base, readFileSync(gh));
+	chmodSync(base, 0o755);
+	writeFileSync(
+		gh,
+		`#!${process.execPath}\nconst a=process.argv.slice(2);if(a[1]==="update-branch"){process.stderr.write(${JSON.stringify(message)});process.exit(1)}\nconst r=require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"});process.exit(r.status??1);\n`,
+	);
+}
 const FAST_LAUNCH = { ...TIMING, launch: { shellReadyMs: 2000, shellPollMs: 1, shellQuietPolls: 1 } };
 
 test("AC:OPS-140-2 main changed a path the PR changes: the drive merges main into the branch, then launches the verifier at the new head", () => {
@@ -1224,14 +1235,7 @@ test("AC:OPS-140-2 main conflicts with the branch: no verifier starts, the imple
 	const f = driveFixture();
 	try {
 		atVerify(f, { path: "README.md", text: `Main line.\n${readFileSync(join(f.root, "README.md"), "utf8")}` });
-		const gh = join(f.root, "fake-bin/gh"),
-			base = join(f.root, "fake-bin/gh-base");
-		writeFileSync(base, readFileSync(gh));
-		chmodSync(base, 0o755);
-		writeFileSync(
-			gh,
-			`#!${process.execPath}\nconst a=process.argv.slice(2);if(a[1]==="update-branch"){process.stderr.write("GraphQL: merge conflict between base and head");process.exit(1)}\nconst r=require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"});process.exit(r.status??1);\n`,
-		);
+		failUpdateBranch(f, "GraphQL: merge conflict between base and head");
 		const n = quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH));
 		assert.equal(n.stage, "pr");
 		assert.equal(agentStarts(f, "verifier"), 0);
@@ -1240,6 +1244,105 @@ test("AC:OPS-140-2 main conflicts with the branch: no verifier starts, the imple
 		const next = nextOf(f);
 		assert.equal(next.stage, "implement");
 		assert.match(next.reason, /conflicts with this branch in README\.md/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("AC:OPS-140-2 GitHub refuses the merge for another reason: the PR head did not move, so merge_failed logs GitHub's error and the verifier starts", () => {
+	const f = driveFixture();
+	try {
+		const before = atVerify(f, {
+			path: "README.md",
+			text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n`,
+		});
+		failUpdateBranch(f, "HTTP 502: Bad Gateway");
+		assert.equal(quiet(() => driveOnce(f.root, f.task, FAST_LAUNCH)).stage, "verify");
+		const log = overlapLog(f);
+		assert.deepEqual(
+			log.map((e) => e.choice),
+			["merge_failed"],
+		);
+		assert.match(log[0]!.summary, /HTTP 502: Bad Gateway/);
+		assert.equal(head(f), before);
+		assert.equal(f.getState().pr.headRefOid ?? before, before);
+		assert.equal(agentStarts(f, "verifier"), 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("AC:OPS-140-2 GitHub merged main but the worktree cannot reach the new head: it retries, and no verifier starts on the old head", () => {
+	// A file main adds sits untracked in the worktree, so git merge --ff-only refuses. Both main commits are real.
+	const land = (f: ReturnType<typeof driveFixture>) => {
+		const before = atVerify(f, {
+			path: "README.md",
+			text: `${readFileSync(join(f.root, "README.md"), "utf8")}Main line.\n`,
+		});
+		landOnMain(f, "docs/in-the-way.md", "From main.\n");
+		writeFileSync(join(f.wt, "docs/in-the-way.md"), "Untracked.\n");
+		return before;
+	};
+	const f = driveFixture();
+	try {
+		const before = land(f);
+		const clock = fakeClock();
+		const n = quiet(() => driveOnce(f.root, f.task, { ...FAST_LAUNCH, clock }));
+		assert.equal(n.stage, "pr");
+		assert.equal(agentStarts(f, "verifier"), 0, "the worktree head is not the PR head");
+		assert.equal(updateBranchCalls(f).length, 1, "GitHub merges once");
+		assert.deepEqual(clock.sleeps.slice(0, 2), [5_000, 5_000]);
+		assert.equal(head(f), before);
+		assert.notEqual(f.getState().pr.headRefOid, before, "GitHub has the new head");
+		const log = overlapLog(f);
+		assert.deepEqual(
+			log.map((e) => e.choice),
+			["sync_failed"],
+		);
+		assert.match(log[0]!.summary, /GitHub merged main .* cannot reach that head: .*in-the-way\.md/s);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status, f.taskRow().round], ["pr", "failed", 0]);
+		assert.equal(nextOf(f).stage, "implement");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+	// The cause clears between tries: the worktree reaches the new head and the verifier starts there.
+	const g = driveFixture();
+	try {
+		land(g);
+		const clock = fakeClock(() => rmSync(join(g.wt, "docs/in-the-way.md"), { force: true }));
+		assert.equal(quiet(() => driveOnce(g.root, g.task, { ...FAST_LAUNCH, clock })).stage, "verify");
+		assert.equal(head(g), g.getState().pr.headRefOid);
+		assert.deepEqual(
+			overlapLog(g).map((e) => e.choice),
+			["merge_main", "start"],
+		);
+		assert.equal(agentStarts(g, "verifier"), 1);
+	} finally {
+		g.db.close();
+		g.close();
+	}
+});
+
+test("AC:OPS-140-4 a drive restart during a wait keeps the same limit", () => {
+	const f = driveFixture();
+	try {
+		const at = atVerify(f, null);
+		otherPr(f, "approved");
+		// The stopped drive began its wait 2 min ago, so 1 min of the 3 min limit is left.
+		f.db
+			.prepare("INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, 'verify_overlap', ?)")
+			.run(f.taskId, new Date(Date.now() - 120_000).toISOString(), JSON.stringify({ choice: "wait", head: at }));
+		const clock = fakeClock();
+		quiet(() => driveOnce(f.root, f.task, { ...FAST_LAUNCH, overlapWaitMs: 180_000, overlapPollMs: 60_000, clock }));
+		assert.equal(clock.sleeps.filter((ms) => ms > 50_000).length, 1, "one poll, not a new 3 min wait");
+		assert.deepEqual(
+			overlapLog(f).map((e) => e.choice),
+			["wait", "start_after_limit"],
+		);
+		assert.equal(agentStarts(f, "verifier"), 1);
 	} finally {
 		f.db.close();
 		f.close();
