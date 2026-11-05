@@ -300,7 +300,8 @@ function main(argv: string[]): number | Promise<number> {
 			const checkout = git(process.cwd(), "rev-parse", "--show-toplevel");
 			checkBranchDiffTests(checkout);
 			checkCiTests(checkout);
-			const all = flag(args, "--all");
+			// OPS-144: a verifier run stays full, under `evf verify --role verifier` and in a verifier seat.
+			const all = flag(args, "--all") || process.env.EVF_ROLE === "verifier";
 			const ignoreLoad = ignoreLoadReason(args);
 			// Before the load gate and the queue: a skip starts no work, so it waits for nothing.
 			const skip = all ? undefined : evfTestSkip(checkout);
@@ -318,10 +319,12 @@ function main(argv: string[]): number | Promise<number> {
 			const budget = machineBudget();
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
 			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
-			// The record files belong to this check, so a nested evf process in the suite must not write to them.
+			// The record files belong to this check, so a nested evf process in the suite must not write to them. The role
+			// belongs to this run too: a nested evf test in a fixture follows its own path rule.
 			const {
 				EVF_FAILED_TESTS: failedTests,
 				EVF_SKIP_REASON: _skipReason,
+				EVF_ROLE: _role,
 				EVF_TEST_REPORT: _testReport,
 				...env
 			} = process.env;

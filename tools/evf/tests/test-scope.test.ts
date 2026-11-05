@@ -29,7 +29,7 @@ function scoped() {
 	};
 	const run = (...args: string[]) => {
 		rmSync(started, { force: true });
-		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "" };
+		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_ROLE: "" };
 		delete env.NODE_TEST_CONTEXT;
 		const r = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "test", ...args], {
 			cwd: f.root,
