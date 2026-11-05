@@ -36,7 +36,7 @@ Approve merges a clean main (OPS-146): Sebastian's words on a held PR cover a me
 before any write on a path overlap (the carry rule above) or a `git merge-tree` conflict. Otherwise it posts his
 `EVF-Owner` line and, in the ship queue, runs `gh pr update-branch`, posts `EVF-Owner-Merge: {"quote","approved_head","merged_head","at"}`
 and the `evf/verify` status on the new head, waits for required CI there and merges that head. It reads main again
-before each update, so a main that moved during the queue or CI wait gets the same overlap and conflict check. Only that line lets a
+before each update, so a main that moved during the queue or CI wait gets the same stale-code, overlap and conflict checks. Only that line lets a
 held PR merge a head other than the approved one, and the head must still pass `carryProof`. A merge of main by anyone
 else has no line, so it still needs his approval of the new head. A CI wait that runs out names
 `bin/evf approve <PR> --owner-approval "<his words>" --head <approved head>`; that rerun finishes on his recorded words.
@@ -47,7 +47,7 @@ A stale home checkout catches up (OPS-146): when `evf ship` or `evf drive` would
 checkout is behind main, evf runs `git merge --ff-only`, starts the same command from the home checkout's new code and
 exits with its code. The old process does no more work. It refuses as before when the checkout is on another branch,
 has a detached HEAD, has changes in `tools/evf` or `bin/evf`, has its own commits, or when git refuses the fast-forward.
-It never stashes or overwrites a local change. `evf approve` does not catch up; it refuses and names the command.
+It never stashes or overwrites a local change, including an ignored file at a path main adds. `evf approve` does not catch up; it refuses and names the command.
 
 Owner approval of an ordinary-route PR (OPS-121): a PR that `evf ship` merges by itself can carry Sebastian's
 recorded approval of one head. After his OK in chat, run `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`.

@@ -29,7 +29,8 @@ function stale(newCode = CODE) {
 	const old = f.git("rev-parse", "HEAD");
 	write("tools/evf/main.ts", newCode);
 	write("shared.md", "New.\n");
-	f.git("add", "tools/evf/main.ts", "shared.md");
+	write("from-main.local", "From main.\n");
+	f.git("add", "tools/evf/main.ts", "shared.md", "from-main.local");
 	f.git("commit", "-qm", "New evf code");
 	f.git("push", "-q", "origin", "main");
 	const next = f.git("rev-parse", "HEAD");
@@ -140,6 +141,15 @@ const REFUSALS: Array<[string, (f: ReturnType<typeof stale>) => () => void]> = [
 		(f) => {
 			f.write("shared.md", "Local key.\n");
 			return () => assert.equal(readFileSync(join(f.root, "shared.md"), "utf8"), "Local key.\n");
+		},
+	],
+	[
+		// git overwrites an ignored file by default, with no copy left.
+		"has an ignored local file at a path main adds",
+		(f) => {
+			f.write("from-main.local", "Local text.\n");
+			writeFileSync(join(f.root, ".git/info/exclude"), "from-main.local\n");
+			return () => assert.equal(readFileSync(join(f.root, "from-main.local"), "utf8"), "Local text.\n");
 		},
 	],
 	[

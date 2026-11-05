@@ -115,7 +115,8 @@ export function requireCurrentCode(
  * checkout and run the same command from it. The caller returns the exit code at once, so this process never goes on
  * with the command on the code it loaded. Undefined means nothing changed, and the command goes on to its usual check:
  * current code passes it, and a checkout that is on another branch, has changes in tools/evf or bin/evf, has its own
- * commits or that git refuses to fast-forward refuses there. Each rerun starts from a later commit, so reruns end.
+ * commits or that git refuses to fast-forward refuses there. By default git overwrites an ignored file at a path main
+ * adds, such as an .env file; --no-overwrite-ignore makes it refuse instead. Each rerun starts from a later commit, so reruns end.
  */
 export function rerunOnCaughtUpCode(root: string, cfg: Config, argv: string[]): number | undefined {
 	if (!hasRemote(root, cfg)) return undefined;
@@ -127,7 +128,8 @@ export function rerunOnCaughtUpCode(root: string, cfg: Config, argv: string[]): 
 		branch = run("git", ["-C", root, "symbolic-ref", "--quiet", "--short", "HEAD"]).stdout.trim();
 	if (!home || home.dirty || branch !== cfg.baseBranch || home.commit === base) return undefined;
 	if (run("git", ["-C", root, "merge-base", "--is-ancestor", home.commit, base]).code !== 0) return undefined;
-	if (run("git", ["-C", root, "merge", "--quiet", "--ff-only", base]).code !== 0) return undefined;
+	if (run("git", ["-C", root, "merge", "--quiet", "--ff-only", "--no-overwrite-ignore", base]).code !== 0)
+		return undefined;
 	console.error(
 		`evf: the home checkout moved from ${home.commit.slice(0, 10)} to ${base.slice(0, 10)}; rerunning evf ${argv[0]} on that code.`,
 	);
