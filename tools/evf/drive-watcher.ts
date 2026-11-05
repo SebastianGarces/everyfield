@@ -76,24 +76,24 @@ function watchTask(db: DatabaseSync, t: Watched, probes: WatcherProbes) {
 	if (probes.liveDrive(t.slug)) return;
 
 	const at = new Date(now).toISOString();
-	const write = (type: string, payload: Record<string, unknown>) =>
+	const write = (type: string, summary: string) =>
 		Number(
 			db
 				.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, NULL, ?, ?, ?)")
-				.run(t.id, at, type, JSON.stringify(payload)).lastInsertRowid,
+				.run(t.id, at, type, JSON.stringify({ summary })).lastInsertRowid,
 		);
 	const command = `bin/evf drive ${t.ref} --detach`;
 	if (used) {
 		const body = `The drive of ${t.ref} died again after its restart. Last heartbeat: ${beat.ts}. Start it with: ${command}`;
-		write("drive_death_alert", { lastHeartbeat: beat.ts, summary: body });
+		write("drive_death_alert", body);
 		probes.notify(`${t.ref} drive died twice`, body);
 		return;
 	}
 	// The write goes before the spawn, so a crash in this tick can never cause two restarts.
-	const restartId = write("drive_restart", {
-		lastHeartbeat: beat.ts,
-		summary: `${t.ref} had no drive heartbeat since ${beat.ts}: one restart with ${command}`,
-	});
+	const restartId = write(
+		"drive_restart",
+		`${t.ref} had no drive heartbeat since ${beat.ts}: one restart with ${command}`,
+	);
 	const refusal = probes.startDrive(t.ref);
 	if (refusal === null) return;
 	// A refused start uses no restart and keeps no restart record. It tries again each minute, with one record and one
@@ -101,7 +101,7 @@ function watchTask(db: DatabaseSync, t: Watched, probes: WatcherProbes) {
 	db.prepare("DELETE FROM events WHERE id = ?").run(restartId);
 	if (later(latest("drive_restart_refused"), beat)) return;
 	const body = `The restart of the ${t.ref} drive was refused: ${refusal}`;
-	write("drive_restart_refused", { lastHeartbeat: beat.ts, refusal, summary: body });
+	write("drive_restart_refused", body);
 	probes.notify(`${t.ref} drive restart refused`, body);
 }
 

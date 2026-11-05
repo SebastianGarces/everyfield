@@ -1241,11 +1241,13 @@ alone in each of these cases:
   records nothing and uses no restart. A live pid whose command `ps` cannot read counts the same until a later tick. A
   dead pid, or a pid that another command now holds, counts as dead, and the restarted drive takes over the pid file.
 
-| Event                   | When                                                                                      | Fields                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `drive_restart`         | The first tick with no heartbeat for 5 min. It goes in before `evf drive <ref> --detach` runs from the home checkout, so a crash cannot cause two restarts. | `lastHeartbeat`, `summary`                |
-| `drive_death_alert`     | One restart is already used, and 5 min have passed with no heartbeat since the later of the last heartbeat and that restart. There is one Herdr notification with the task, the last heartbeat and the command. Later ticks add nothing. | `lastHeartbeat`, `summary`                |
-| `drive_restart_refused` | `evf drive --detach` exits non-zero, which is the `requireCurrentCode` refusal of the new process. There is one Herdr notification. | `lastHeartbeat`, `refusal`, `summary`     |
+Each event's payload is its `summary`, which names the last heartbeat or the refusal text.
+
+| Event                   | When                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `drive_restart`         | The first tick with no heartbeat for 5 min. It goes in before `evf drive <ref> --detach` runs from the home checkout, so a crash cannot cause two restarts. |
+| `drive_death_alert`     | One restart is already used, and 5 min have passed with no heartbeat since the later of the last heartbeat and that restart. There is one Herdr notification with the task, the last heartbeat and the command. Later ticks add nothing. |
+| `drive_restart_refused` | `evf drive --detach` exits non-zero, which is the `requireCurrentCode` refusal of the new process. There is one Herdr notification. |
 
 The allowance is one restart since the last alert for the task row. It has no counter column. A drive that lives for
 days after a restart and then dies still counts as a second death, which errs toward alerting a person. A drive that a

@@ -71,8 +71,9 @@ export function recordDriveStopped(
 			const { lastMergeAt } = db.prepare("SELECT MAX(ts) AS lastMergeAt FROM events WHERE type = 'merged'").get() as {
 				lastMergeAt: string | null;
 			};
-			const mergeWithin60s = lastMergeAt !== null && probes.now() - Date.parse(lastMergeAt) <= MERGE_WINDOW_MS;
-			const at = new Date(probes.now()).toISOString();
+			const nowMs = probes.now();
+			const mergeWithin60s = lastMergeAt !== null && nowMs - Date.parse(lastMergeAt) <= MERGE_WINDOW_MS;
+			const at = new Date(nowMs).toISOString();
 			for (const r of evfRuns)
 				db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
 					at,

@@ -241,7 +241,7 @@ test("a stale active or pr_open task gets one restart: nothing at 4 min 59 s, on
 			assert.deepEqual(w.starts, [{ ref: "OPS-1", restartsAtSpawn: 1 }], "the record goes before the start");
 			assert.equal(s.count("drive_restart"), 1);
 			assert.equal(s.events("drive_restart")[0]!.ts, iso(T0 + 5 * MIN));
-			assert.equal(s.events("drive_restart")[0]!.payload.lastHeartbeat, iso(T0));
+			assert.match(s.events("drive_restart")[0]!.payload.summary, new RegExp(iso(T0)));
 			for (const m of [6, 7, 8, 9]) w.tick(T0 + m * MIN);
 			w.tick(T0 + 10 * MIN - 1000);
 			assert.equal(s.count("drive_restart"), 1);
@@ -260,10 +260,7 @@ test("the real start runs evf drive <ref> --detach from the home checkout, with 
 		const out = join(s.root, "started.json");
 		writeFileSync(
 			join(s.root, "tools/evf/main.ts"),
-			`require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), seat: process.env.EVF_RUN ?? null }));`.replace(
-				"require",
-				'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); require',
-			),
+			`import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(out)}, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), seat: process.env.EVF_RUN ?? null }));`,
 		);
 		process.env.EVF_RUN = "99";
 		assert.equal(machineWatcher(s.root).startDrive("OPS-1"), null);
@@ -378,7 +375,7 @@ test("a refused restart records one refusal and one notification, uses no restar
 		w.refusal = "evf drive does not start OPS-1: the running evf code is old";
 		for (let m = 5; m <= 20; m++) w.tick(T0 + m * MIN);
 		assert.equal(s.count("drive_restart_refused"), 1);
-		assert.equal(s.events("drive_restart_refused")[0]!.payload.refusal, w.refusal);
+		assert.ok(s.events("drive_restart_refused")[0]!.payload.summary.includes(w.refusal));
 		assert.equal(w.notes.length, 1);
 		assert.ok(w.notes[0]!.body.includes(w.refusal));
 		assert.equal(s.count("drive_restart"), 0, "a refusal keeps no restart record");
