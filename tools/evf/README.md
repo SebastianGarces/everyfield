@@ -1179,11 +1179,30 @@ current load and limit. A command inside one that passed this gate does not wait
 its browser runs keep their gate. In CI, `evf test` with `CI` set does not wait, so a required GitHub job never depends
 on this gate.
 
+A full check also has a process budget and a memory wait (OPS-151). `testBudget` in `tools/evf/budget.ts` gives each full
+check cores / 3, the cap of the full check queue: on 12 cores, 4 test processes, 4 packages at once under `pnpm -r` and 4
+Next workers. Each package runs 1 test process, because `pnpm -r` multiplies by it. `evf test` and the node tests of
+`evf ac run` pass `--test-concurrency`; an explicit `--test-concurrency=<n>` on a direct `evf test` comes later and wins.
+`evf verify` gives its check children `npm_config_workspace_concurrency`, `EVF_NODE_TEST_FLAGS` and `EVF_NEXT_WORKERS`.
+Package scripts carry `${EVF_NODE_TEST_FLAGS:-}` or their own `--test-concurrency=1`, and `apps/web/next.config.ts` reads
+the worker count. With these unset, each command behaves as it did before.
+
+A full check that holds its slot also waits while free memory is under 15% or swap used is over 12 GB, the
+`memoryFloorPct` and `swapCeilingGb` code defaults, read with the probes of the minute sampler. It prints the reading once
+per minute. This wait shares the 30-minute limit of the load wait, and the give-up message names the reading.
+`--ignore-load` skips it and logs one line. A probe that fails, or a platform with no probe, prints one line and does not
+block. A `machineLoad` entry replaces the whole default, so one without these two keys has no memory or swap wait.
+
+In GitHub CI (`GITHUB_ACTIONS=true`), `evf test` uses the whole runner: its test processes equal the core count, it takes
+no queue slot and it reads no load, memory or swap.
+
 ## Full check queue
 
 At most 3 full checks run at once on this machine, a code default with no `evf.config.json` key. The queue covers every
-full-mode `verify`: `evf verify`, `evf check` and the pr stage. `evf verify --quick`, `evf test` and `evf ac run` take no
-slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths, a blank `--ignore-load` reason)
+full-mode `verify` (`evf verify`, `evf check` and the pr stage) and a direct `evf test`. `evf verify --quick` and
+`evf ac run` take no slot. An `evf test` inside a full `evf verify` uses the slot of its parent and repeats no wait: the
+parent passes `EVF_CHECK_SLOT`, its ticket path, which counts only while the holder lives in this queue folder. An
+`evf test` inside `evf verify --quick` takes its own slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths, a blank `--ignore-load` reason)
 comes before the queue. The refusals run again when a slot is free, and the check list is read again, because main or
 the checkout can move during the wait.
 
