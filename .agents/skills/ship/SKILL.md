@@ -60,7 +60,8 @@ fix joins the class when its exact-head diff (merge base to head, all commits) t
 `mergePolicy.documentTemplates` in `evf.config.json` (the built-in default in `tools/evf/policy.ts` applies when the key is absent). `evf ship` verifies it, posts the verified
 status, prints the `evf approve` command and exits 0 without merging. After he approves in chat,
 `evf approve <PR> --owner-approval "<his words>"` merges the exact head once an independent review
-and the verified status hold. It then writes the shipped record and unlocks dependents as `evf ship` does.
+and the verified status hold. A held PR behind main first takes a clean merge of main with no path overlap, which his
+words cover (OPS-146); an overlap or conflict refuses. It then writes the shipped record and unlocks dependents as `evf ship` does.
 Landing and marketing PRs (OPS-111) join the same wait in their own owner-path class: the exact-head diff touches a
 path in `mergePolicy.ownerPaths` (built-in default in `tools/evf/policy.ts`: the landing page, the access, oversight, privacy and terms pages,
 `apps/web/src/marketing/` and `apps/web/src/styles/marketing.css`). It is classified like the document-template
