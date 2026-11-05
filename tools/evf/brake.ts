@@ -138,13 +138,20 @@ function trip(db: DatabaseSync, k: TestKey, branches: string[]): { brake: number
 	}
 }
 
-/** The coordinator overruled this brake for this task. The exemption ends with the brake: a later brake can hold it. */
-const reopenedSince = (db: DatabaseSync, taskId: number, brake: number): boolean =>
-	!!db.prepare("SELECT 1 FROM events WHERE task_id = ? AND type = 'reopen' AND id > ?").get(taskId, brake);
+/**
+ * The coordinator overruled this brake for this task: a reopen of the hold this brake placed. A reopen for another reason
+ * exempts nothing. The exemption ends with the brake: a later brake can hold the task.
+ */
+const reopenedFrom = (db: DatabaseSync, taskId: number, brake: number): boolean =>
+	!!db
+		.prepare(
+			"SELECT 1 FROM events r WHERE r.task_id = ? AND r.type = 'reopen' AND json_extract(r.payload, '$.from') = 'held_external' AND (SELECT json_extract(h.payload, '$.brake') FROM events h WHERE h.task_id = r.task_id AND h.type = 'held_external' AND h.id < r.id ORDER BY h.id DESC LIMIT 1) = ?",
+		)
+		.get(taskId, brake);
 
 /**
  * The brake that holds this task, or null. A failure that reaches the threshold starts its brake here. A task reopened
- * after a brake started is exempt from it, so its next failure goes to a seat.
+ * from this brake's hold is exempt from it, so its next failure goes to a seat.
  */
 export function brakeOn(db: DatabaseSync, taskId: number, at = Date.now()): BrakeHit | null {
 	const tripped: BrakeHit["tripped"] = [];
@@ -159,7 +166,7 @@ export function brakeOn(db: DatabaseSync, taskId: number, at = Date.now()): Brak
 			brake = result.brake;
 			if (result.started) tripped.push({ test: f.test, file: f.file, brake, branches });
 		}
-		if (!reopenedSince(db, taskId, brake)) hit ??= { brake, test: f.test, file: f.file, head: f.head };
+		if (!reopenedFrom(db, taskId, brake)) hit ??= { brake, test: f.test, file: f.file, head: f.head };
 	}
 	return hit && { ...hit, tripped };
 }

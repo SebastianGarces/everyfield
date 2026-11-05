@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { cli, fakeClock, fixture, sessionStartJs, source } from "./fixtures.ts";
-import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
+import { ensureTask, openWorkDb, record, syncGoals, workDbPath } from "../db.ts";
 import { drive, driveOnce, taskReopen } from "../drive.ts";
 import { evfDataDir, evidenceDir, git, parseTask, runtimeDir } from "../lib.ts";
 import { hasVerifiedHead } from "../verify.ts";
@@ -516,6 +516,45 @@ test("AC:OPS-141-4 evf task reopen exempts one task from the open brake: its nex
 		f.pass("OPS-2");
 		assert.equal(f.types("brake_tripped").length, 2);
 		assert.equal(f.row("OPS-2").status, "held_external");
+	} finally {
+		console.log = log;
+		if (saved !== undefined) process.env.EVF_RUN = saved;
+		f.close();
+	}
+});
+
+test("AC:OPS-141-1 a reopen for another reason during an open brake exempts nothing: the task holds at its next failure and spends no seat", () => {
+	const f = brakeFixture(["OPS-1", "OPS-2", "OPS-3", "OPS-4"]);
+	const saved = process.env.EVF_RUN;
+	delete process.env.EVF_RUN;
+	const { log } = console;
+	try {
+		f.pass("OPS-1");
+		f.pass("OPS-2");
+		const reopen = (ref: string, status: string) => {
+			f.db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, f.tasks[ref]!.id);
+			console.log = () => {};
+			taskReopen(f.root, f.tasks[ref]!.task, "unrelated to the brake");
+			console.log = log;
+		};
+		reopen("OPS-3", "escalated");
+		// A hold with another cause, placed while this brake is open.
+		record(f.db, f.tasks["OPS-4"]!.id, null, "held_external", {
+			cause: "main",
+			checks: ["ci"],
+			head: null,
+			summary: "held",
+		});
+		reopen("OPS-4", "held_external");
+		for (const ref of ["OPS-3", "OPS-4"]) {
+			assert.equal(f.row(ref).status, "active");
+			f.pass(ref);
+			assert.equal(f.row(ref).status, "held_external", ref);
+			assert.deepEqual(f.runs(ref).at(-1), { stage: "pr", status: "aborted" }, ref);
+			assert.equal(f.pass(ref).stage, "held", ref);
+		}
+		assert.equal(f.herdrCalls().filter((c) => c[0] === "agent" && c[1] === "start").length, 0, "no seat");
+		assert.equal(f.types("brake_tripped").length, 1);
 	} finally {
 		console.log = log;
 		if (saved !== undefined) process.env.EVF_RUN = saved;
