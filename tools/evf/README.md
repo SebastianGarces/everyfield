@@ -36,7 +36,9 @@ Approve merges a clean main (OPS-146): Sebastian's words on a held PR cover a me
 before any write on a path overlap (the carry rule above) or a `git merge-tree` conflict. Otherwise it posts his
 `EVF-Owner` line and, in the ship queue, runs `gh pr update-branch`, posts `EVF-Owner-Merge: {"quote","approved_head","merged_head","at"}`
 and the `evf/verify` status on the new head, waits for required CI there and merges that head. It reads main again
-before each update, so a main that moved during the queue or CI wait gets the same stale-code, overlap and conflict checks. Only that line lets a
+before each update, so a main that moved during the queue or CI wait gets the same stale-code, overlap and conflict checks.
+It follows ship's red-main rule below, before any write and before each update: while main's latest finished CI run is
+red, it merges main only into a PR whose body says `Fixes #<n>` for the open P0 issue. Only that line lets a
 held PR merge a head other than the approved one, and the head must still pass `carryProof`. A merge of main by anyone
 else has no line, so it still needs his approval of the new head. A CI wait that runs out names
 `bin/evf approve <PR> --owner-approval "<his words>" --head <approved head>`; that rerun finishes on his recorded words.

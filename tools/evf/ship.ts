@@ -857,7 +857,7 @@ const MAIN_CI_WORKFLOW = "ci.yml",
  * Main's latest finished CI run decides, not the issue state: a red main merges only the PR whose body says
  * Fixes #N for the open fail-forward issue. Cancelled and skipped runs prove nothing either way.
  */
-function requireGreenMain(cwd: string, cfg: Config, body: string): void {
+export function requireGreenMain(cwd: string, cfg: Config, body: string): void {
 	const runs = JSON.parse(
 		gh(cwd, [
 			"run",

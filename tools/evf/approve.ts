@@ -38,6 +38,7 @@ import {
 	mainMergeRefusal,
 	requiredCheckNames,
 	requiredCi,
+	requireGreenMain,
 	ship,
 	SHIP_TIMING,
 	waitForRequiredCi,
@@ -73,6 +74,7 @@ type Pr = {
 	headRefName: string;
 	headRefOid: string;
 	mergeStateStatus: string;
+	body: string;
 	files: Array<{ path: string }>;
 };
 /**
@@ -99,7 +101,7 @@ const readPr = (n: number): Pr =>
 			"view",
 			String(n),
 			"--json",
-			"number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,files",
+			"number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,body,files",
 		]),
 	) as Pr;
 
@@ -246,6 +248,8 @@ function mergeMain(
 		// main and refuses if it landed evf code. The checks below then judge the main GitHub is about to merge, so stale
 		// code or an overlap refuses before the branch changes.
 		requireCurrentCode(root, cfg, `evf approve does not merge PR #${n}`);
+		// As in evf ship: a red main stays out of the branch, because the failure would strand his approval on that head.
+		requireGreenMain(root, cfg, gh(["pr", "view", String(n), "--json", "body", "--jq", ".body"]));
 		const main = git(root, "rev-parse", baseRef(root, cfg)),
 			refusal = mainMergeRefusal(root, approved, sha, main);
 		if (refusal)
@@ -353,6 +357,7 @@ export function approve(
 	const needsMain = pr.mergeStateStatus === "BEHIND" || pr.mergeStateStatus === "DIRTY";
 	if (needsMain) {
 		requireCurrentCode(root, cfg, `evf approve does not merge PR #${n}`);
+		requireGreenMain(root, cfg, pr.body);
 		let why: string | undefined;
 		try {
 			fetchHead(root, cfg, pr);

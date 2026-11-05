@@ -1511,11 +1511,16 @@ function nextMain(f: Fx, files: Record<string, string>) {
 /** The command that moves the remote's main to the commit nextMain holds. */
 const moveMain = (f: Fx) => ["git", "--git-dir", origin(f), "update-ref", "refs/heads/main", "refs/heads/held-main"];
 
+const RED_MAIN = [
+	{ conclusion: "failure", headSha: "e".repeat(40), url: "https://github.com/test/private/actions/runs/9" },
+];
+const P0_ISSUE = { number: 900, state: "open", title: "P0: CI failed on main" };
+
 /**
  * Another ship holds the queue while approve waits. Once approve has reached the queue, the holder moves main and
  * leaves, as a ship ahead in the queue does.
  */
-function shipAheadMovesMain(f: Fx) {
+function shipAheadMovesMain(f: Fx, { redMain = false } = {}) {
 	const lock = join(evfDataDir(f.root), "ship-queue/lock.json");
 	mkdirSync(join(lock, ".."), { recursive: true });
 	const script = `
@@ -1527,10 +1532,19 @@ function shipAheadMovesMain(f: Fx) {
 		const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 		for (let i = 0; i < 3000 && !(fs.existsSync(tickets) && fs.readdirSync(tickets).length); i++) sleep(10);
 		cp.execFileSync(move[0], move.slice(1));
+		// Approve makes no gh call while it waits in the queue, so this write has no other writer.
+		if (process.env.OPS146_RED_MAIN) {
+			const path = process.env.EVF_FAKE_GH_STATE, state = JSON.parse(fs.readFileSync(path, "utf8"));
+			state.mainRuns = JSON.parse(process.env.OPS146_RED_MAIN);
+			fs.writeFileSync(path, JSON.stringify(state));
+		}
 		fs.rmSync(lock, { force: true });
 	`;
 	const signal = join(f.root, "fake-bin/ship-ahead-held");
-	const child = spawn(process.execPath, ["-e", script, lock, signal, ...moveMain(f)], { stdio: "ignore" });
+	const child = spawn(process.execPath, ["-e", script, lock, signal, ...moveMain(f)], {
+		stdio: "ignore",
+		env: { ...process.env, OPS146_RED_MAIN: redMain ? JSON.stringify(RED_MAIN) : "" },
+	});
 	for (let i = 0; i < 1000 && !existsSync(signal); i++)
 		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
 	assert.ok(existsSync(signal), "the ship ahead holds the queue");
@@ -1683,6 +1697,83 @@ test("AC:OPS-146-1 a ship ahead lands evf code during the queue wait: approve re
 		assert.deepEqual([f.calls("update-branch"), f.merges(), ownerMerges(f)], [[], [], []]);
 
 		// The rerun, on the code main now holds: his approval was not lost.
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.notEqual(final, a);
+		assert.deepEqual(f.merges(), [final]);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-3 a red main stays out of a behind held PR: approve refuses before any write, and merges once main is green", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => (s.mainRuns = RED_MAIN)),
+		);
+		assert.match(
+			f.refusal(() => approveBehind(f, a)),
+			/Main CI is red \(failure at e{10}, .*Only a PR whose body says Fixes #<n>/,
+		);
+		assert.deepEqual(writes(f), []);
+		assert.equal(remoteHead(f), a);
+		assert.deepEqual(f.ownerRows(), []);
+
+		// Main is fixed: the same words on the same head merge, with no new verifier pass.
+		const s = f.getState();
+		s.mainRuns = undefined;
+		f.setState(s);
+		f.quietly(() => approveBehind(f, a));
+		const final = remoteHead(f);
+		assert.notEqual(final, a);
+		assert.deepEqual(f.merges(), [final]);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-3 main turns red during the queue wait: approve refuses with no update and the branch unchanged, and a rerun merges", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		nextMain(f, { "docs/moved.md": "Moved.\n" });
+		f.publish([f.review(a)], behindReady(a));
+		shipAheadMovesMain(f, { redMain: true });
+		assert.match(
+			f.refusal(() => approveBehind(f, a)),
+			/Main CI is red/,
+		);
+		assert.equal(remoteHead(f), a);
+		assert.deepEqual([f.calls("update-branch"), f.merges(), ownerMerges(f)], [[], [], []]);
+
+		const s = f.getState();
+		s.mainRuns = undefined;
+		f.setState(s);
+		f.quietly(() => approveBehind(f, a));
+		assert.deepEqual(f.merges(), [remoteHead(f)]);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-146-1 a red main still merges into the PR that fixes it, as in evf ship", () => {
+	const f = heldFixture();
+	try {
+		const a = f.commit("Held work", TEMPLATE_FILE);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.publish(
+			[f.review(a)],
+			behindReady(a, (s) => {
+				s.mainRuns = RED_MAIN;
+				s.pr.body = s.pr.body.replace("EVF-Author:", `Fixes #${P0_ISSUE.number}\n\nEVF-Author:`);
+				s.issues = [P0_ISSUE];
+			}),
+		);
 		f.quietly(() => approveBehind(f, a));
 		const final = remoteHead(f);
 		assert.notEqual(final, a);
