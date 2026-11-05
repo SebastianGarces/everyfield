@@ -353,8 +353,28 @@ function openItems(root: string, db: DatabaseSync, q: OwnerQueueConfig, now: num
 	return items.sort((a, b) => Number(b.urgent) - Number(a.urgent) || Date.parse(a.askedAt) - Date.parse(b.askedAt));
 }
 
+export const prList = (prs: number[]) => prs.map((pr) => `#${pr}`).join(", ");
+const ageText = (minutes: number) => `age ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+type NewCheckAlarm = { check: string; prs: number[]; ageMinutes: number };
+
+/** New check alarms raised in the last 24 h. Any 24 h holds each of the three daily digest times. They block nothing. */
+function recentNewChecks(db: DatabaseSync, now: number): NewCheckAlarm[] {
+	const rows = db
+		.prepare("SELECT ts, payload FROM events WHERE type = 'ci_new_check_alarm' ORDER BY id")
+		.all() as Array<{
+		ts: string;
+		payload: string;
+	}>;
+	return rows.flatMap(({ ts, payload }) => {
+		const { check, prs } = JSON.parse(payload) as { check: string; prs: number[] };
+		const age = now - Date.parse(ts);
+		return age <= DAY ? [{ check, prs, ageMinutes: Math.floor(age / MINUTE) }] : [];
+	});
+}
+
 function itemLine(i: OwnerItem): string {
-	const age = `age ${Math.floor(i.ageMinutes / 60)}h ${i.ageMinutes % 60}m`;
+	const age = ageText(i.ageMinutes);
 	return [
 		...(i.urgent ? ["URGENT"] : []),
 		i.pr ? `PR #${i.pr}` : "no PR",
@@ -374,7 +394,8 @@ export function ownerQueue(root: string, json: boolean): number {
 	const q = parseOwnerQueue(loadConfig(root).ownerQueue),
 		now = Date.now(),
 		next = nextDigest(now, q);
-	let items: OwnerItem[] = [];
+	let items: OwnerItem[] = [],
+		newChecks: NewCheckAlarm[] = [];
 	if (existsSync(workDbPath(root))) {
 		const db = openWorkDb(root, { readOnly: true });
 		try {
@@ -382,16 +403,26 @@ export function ownerQueue(root: string, json: boolean): number {
 			if (!db.prepare("SELECT 1 FROM schema_version WHERE name = 'owner-queue'").get())
 				fail("The work store has no owner queue yet. Run evf db migrate, then run evf owner-queue again.");
 			items = openItems(root, db, q, now);
+			newChecks = recentNewChecks(db, now);
 		} finally {
 			db.close();
 		}
 	}
 	if (json) {
-		console.log(JSON.stringify({ nextDigest: next, ...(q.ownerHours ? {} : { note: HOURS_NOT_SET }), items }, null, 2));
+		console.log(
+			JSON.stringify(
+				{ nextDigest: next, ...(q.ownerHours ? {} : { note: HOURS_NOT_SET }), items, newCheckAlarms: newChecks },
+				null,
+				2,
+			),
+		);
 		return 0;
 	}
 	console.log(items.length ? `${items.length} waiting for Sebastian.` : "Nothing waits for Sebastian.");
 	for (const item of items) console.log(itemLine(item));
+	if (newChecks.length) console.log("New check alarms, for information. These are not waiting items:");
+	for (const { check, prs, ageMinutes } of newChecks)
+		console.log(`${check} | PRs ${prList(prs)} | ${ageText(ageMinutes)}`);
 	console.log(`Next digest: ${next} (${q.timeZone}).`);
 	if (!q.ownerHours) console.log(HOURS_NOT_SET);
 	return 0;
@@ -427,4 +458,20 @@ export function ownerQueueAnswer(root: string, task: TaskRef): number {
 	} finally {
 		db.close();
 	}
+}
+
+/** `evf outside-setting approved`: Sebastian's words for a Vercel project, repo setting or integration, unchanged. */
+export function outsideSettingApproved(root: string, what: string | undefined, words: string | undefined): number {
+	if (process.env.EVF_RUN)
+		fail("A seat cannot record an approval: the coordinator runs evf outside-setting approved from a human shell.");
+	if (!what?.trim()) fail('Say what was approved: --what "<what>".');
+	if (!words?.trim()) fail('Give Sebastian\'s words: --words "<his words>".');
+	const db = openWorkDb(root);
+	try {
+		record(db, null, null, "outside_setting_approved", { what, words, at: new Date(Date.now()).toISOString() });
+	} finally {
+		db.close();
+	}
+	console.log(`outside-setting: recorded Sebastian's words for ${what}.`);
+	return 0;
 }

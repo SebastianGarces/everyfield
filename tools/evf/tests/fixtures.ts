@@ -48,6 +48,8 @@ process.env.NODE_OPTIONS =
 
 // A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
 process.env.EVF_NO_SAMPLER = "1";
+// A real sampler that a test starts starts no real check poll: a detached poll could write while the fixture is removed.
+process.env.EVF_NO_CHECK_POLL = "1";
 
 /** The environment of a real evf process that a test starts: it carries no seat identity. */
 export const noSeatEnv = () => ({
