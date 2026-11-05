@@ -1,0 +1,28 @@
+# evf v2 project rules for Everyfield (GitHub trial, Nov 5 2026).
+# Roles, checks and policy are read from the base branch, so a branch cannot weaken them.
+# Changing this file is always an owner decision. The base branch, remote and forge are in local.toml.
+# Trial path approved by Sebastian (chat t537u / widget Retire pr-body…).
+
+# No heavy evf checks for this trial — GitHub required check `ci` still runs on the PR.
+# A later owner decision can add format/typecheck checks when ready.
+
+[[policy.class]]
+name = "document-templates"
+paths = ["docs/templates/"]
+outcome = "owner"
+quote = "I want to approve them one by one"
+quoted_at = "2026-10-30T15:51:00Z"
+
+[role.planner]
+model = "claude-haiku-5-5"
+effort = "low"
+[role.implementer]
+model = "claude-haiku-5-5"
+effort = "low"
+[role.simplifier]
+model = "claude-haiku-5-5"
+effort = "low"
+[role.verifier]
+model = "claude-opus-5-5"
+effort = "low"
+read_only = true
