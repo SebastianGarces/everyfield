@@ -693,11 +693,41 @@ test("the checks that run are the list of the commit they check, also when it la
 		assert.equal(report.sha, head);
 		assert.deepEqual(
 			report.checks.map((c) => c.name),
-			["later", "format", "package-unit-tests"],
+			["format", "later", "package-unit-tests"],
 		);
 		assert.equal(existsSync(f.ran), false, "the list from before the commit did not run");
 	} finally {
 		await f.finish();
+	}
+});
+
+test("OPS-144-1: a format error refuses at once with the queue full and the load high, and holds no ticket", () => {
+	const f = queueFixture([{ name: "long", run: node("") }]);
+	try {
+		f.cfg.checks = f.cfg.checks.map((c: { name: string }) =>
+			c.name === "format" ? { ...c, run: node("process.exit(1)") } : c,
+		);
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.git("-C", f.root, "add", "evf.config.json");
+		f.git("-C", f.root, "commit", "-qm", "red format");
+		f.git("-C", f.wt, "merge", "-q", "--no-edit", "main");
+		tickets(f.dir, [1, 2, 3]);
+		const held = f.tickets().length;
+		// Any wait for the load gate would throw here: this limit is below every real load, and it allows no wait.
+		f.setLoad({ maxPerCore: 0.000001, maxWaitMinutes: 0 });
+		const { value: report, err, thrown } = quiet(() => verify(f.root, task, "author", "full"));
+		assert.equal(thrown, undefined);
+		assert.equal(report?.passed, false);
+		assert.deepEqual(
+			report?.checks.map((c) => c.name),
+			["format"],
+		);
+		assert.equal(report?.stoppedAfter, "format");
+		assert.deepEqual(report?.notRun, ["long", "package-unit-tests", "ui-escaped"]);
+		assert.doesNotMatch(err, /waits in the full check queue/);
+		assert.equal(f.tickets().length, held);
+	} finally {
+		f.close();
 	}
 });
 
@@ -714,17 +744,15 @@ test("through the queue the same named checks run in the same order per mode wit
 			const report = quiet(() => verify(f.root, task, "author", mode)).value!;
 			return { passed: report.passed, checks: report.checks.map((c) => [c.name, c.passed, c.exitCode]) };
 		};
-		const parity = [
-			["format", true, 0],
-			["package-unit-tests", true, 0],
-		];
+		// OPS-144: format goes first, and an author run stops at its first failure.
+		const format = ["format", true, 0];
 		assert.deepEqual(shape("full"), {
 			passed: false,
-			checks: [["both", true, 0], ["full-only", true, 0], ["red", false, 3], ...parity],
+			checks: [format, ["both", true, 0], ["full-only", true, 0], ["red", false, 3]],
 		});
 		assert.deepEqual(shape("quick"), {
 			passed: false,
-			checks: [["both", true, 0], ["quick-only", true, 0], ["red", false, 3], ...parity],
+			checks: [format, ["both", true, 0], ["quick-only", true, 0], ["red", false, 3]],
 		});
 
 		tickets(f.dir, [1, 2, 3]);
