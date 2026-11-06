@@ -82,6 +82,20 @@ test("AC:OPS-148-6 two OPS PRs that each add their own entry have no path overla
 		const head = inWt("rev-parse", "HEAD");
 		assert.deepEqual(inWt("diff", "--name-only", approved, head).split("\n"), ["tools/evf/tasks/OPS-2.json"]);
 		assert.equal(readTask(f.wt, "OPS-1").title, entry.title);
+
+		// The check does see an overlap: main changes this task's own entry, so the same approved head refuses.
+		inWt("reset", "-q", "--hard", approved);
+		inWt("push", "-q", "origin", `+${approved}:refs/heads/${f.taskRef.branch}`);
+		writeTask(f.root, "OPS-1", { ...entry, title: "Changed on main" });
+		landOnMain("Main changes OPS-1's entry");
+		const again = f.getState();
+		again.pr.headRefOid = approved;
+		again.checksQueue = [[pass], [pass]];
+		f.setState(again);
+		assert.throws(
+			() => ship(f.root, f.taskRef, fastShip),
+			/Fresh gate needed: main changed paths this PR also changes: tools\/evf\/tasks\/OPS-1\.json\./,
+		);
 	} finally {
 		console.log = log;
 		f.close();

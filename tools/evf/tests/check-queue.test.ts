@@ -302,10 +302,11 @@ test("SIGKILL of a holder frees its slot and SIGKILL of a waiter removes its pla
 		// A pass, a failed report and a throw each end with no ticket.
 		assert.equal(quiet(() => withCheckQueue(f.root, "OPS-1", () => "passed")).value, "passed");
 		assert.deepEqual(f.tickets(), []);
-		const failed = f.tasks["OPS-1"];
-		failed.checks = [{ name: "red", run: node("process.exit(1)") }];
-		setTasks(f.root, f.tasks);
-		f.git("-C", f.root, "add", "evf.config.json");
+		writeTask(f.root, "OPS-1", {
+			...readTask(f.root, "OPS-1"),
+			checks: [{ name: "red", run: node("process.exit(1)") }],
+		});
+		f.git("-C", f.root, "add", "tools/evf/tasks");
 		f.git("-C", f.root, "commit", "-qm", "red");
 		f.git("-C", f.wt, "merge", "-q", "--no-edit", "main");
 		assert.equal(quiet(() => verify(f.root, task, "author", "full")).value?.passed, false);
