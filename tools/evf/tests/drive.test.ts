@@ -5156,6 +5156,7 @@ test("the head lint refuses each form of an old-head claim and passes history, m
 			`| Verified head | ${old} |`,
 			`Verified head (${old})`,
 			`**Head:** ${old}`,
+			`**Verified** at \`${short}\`.`,
 			`Verified at head ${short}: before (main) and after (branch) videos.`,
 			`Verified head ${short}, with before and after screenshots.`,
 			`All checks ran on head ${short} before I pushed.`,
