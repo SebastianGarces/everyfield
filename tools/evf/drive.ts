@@ -66,7 +66,17 @@ import {
 	requiredCi,
 	ship,
 } from "./ship.ts";
-import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
+import {
+	checkGithubBody,
+	checkPrBody,
+	describeBodyItem,
+	fillHead,
+	HEAD_PLACEHOLDER,
+	staleHeadFault,
+	unmetBodyItem,
+	withBodyFile,
+	type BodyItem,
+} from "./pr-body.ts";
 import { isPrototype } from "./feedback.ts";
 import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
@@ -873,11 +883,37 @@ function implementBodyFault(root: string, task: TaskRef, wt: string | null): str
 			followUpsOfTask(root, task),
 			acVideoMarkers(root, task),
 		);
-		return null;
+		if (!wt || !existsSync(wt)) return null;
+		const head = git(wt, "rev-parse", "HEAD"),
+			stale = staleHeadFault(wt, fillHead(readFileSync(file, "utf8"), head), head, baseRef(root, loadConfig(root)));
+		return stale && `the PR body at ${file} fails the head check: ${stale}`;
 	} catch (e) {
 		if (e instanceof EvfError) return `the PR body at ${file} fails the evf pr body check: ${e.message}`;
 		throw e;
 	}
+}
+
+/**
+ * The head check before a verifier launches (OPS-147). The head can move after the pr stage: the overlap check merges
+ * main. A body file with the placeholder holds no head, so evf fills the GitHub body again. Any other body that names
+ * another head as verified stops the launch. Returns why, or null.
+ */
+export function bodyHeadGate(root: string, task: TaskRef, wt: string, pr: number | null): string | null {
+	if (!pr) return null;
+	const head = git(wt, "rev-parse", "HEAD"),
+		read = run("gh", ["pr", "view", String(pr), "--json", "body"], { cwd: wt });
+	if (read.code !== 0) fail(`Cannot read the body of PR #${pr} before the verifier starts.`);
+	let body = String((JSON.parse(read.stdout) as { body?: unknown }).body ?? "");
+	const file = prBodyPath(root, task),
+		source = existsSync(file) ? readFileSync(file, "utf8") : "";
+	if (source.includes(HEAD_PLACEHOLDER) && fillHead(source, head) !== body) {
+		body = fillHead(source, head);
+		const edit = withBodyFile(body, (filled) =>
+			run("gh", ["pr", "edit", String(pr), "--body-file", filled], { cwd: wt }),
+		);
+		if (edit.code !== 0) fail(`Cannot update the head in the body of PR #${pr}: ${edit.stderr.trim().slice(0, 300)}`);
+	}
+	return staleHeadFault(wt, body, head, baseRef(root, loadConfig(root)));
 }
 
 /**
@@ -930,7 +966,7 @@ export function runDone(
 		const head = r.worktree && existsSync(r.worktree) ? git(r.worktree, "rev-parse", "HEAD") : null;
 		// The answer key (OPS-112): evf runs the marked tests at this head itself; an earlier run does not count.
 		if ((r.stage === "implement" || r.stage === "verify") && opts.status !== "failed" && acCriteria(r.spec).length) {
-			const unmet = acRun(root, parseTask(r.ref), { runId }).filter((row) => row.status !== "met");
+			const unmet = acRun(root, parseTask(r.ref), { runId, startPreview: true }).filter((row) => row.status !== "met");
 			if (unmet.length)
 				fail(
 					`${r.stage} cannot close ${opts.status}: evf ac run found AC: criteria not met at ${head?.slice(0, 10)}:\n${unmet.map((row) => `  criterion ${row.criterion} (${row.marker}): ${row.notes}`).join("\n")}\nWrite or fix the test that carries each marker, commit, and close again; or close this run as failed.`,
@@ -2587,7 +2623,9 @@ export function driveOnce(
 		}
 		let delta: VerifyDelta | undefined;
 		if (n.stage === "verify") {
-			const stopped = overlapGate(db, root, task, t.id, t.pr_number, timing);
+			const stopped =
+				overlapGate(db, root, task, t.id, t.pr_number, timing) ??
+				bodyHeadGate(root, task, worktreePath(root, loadConfig(root), task), t.pr_number);
 			if (stopped) {
 				// A verifier cannot review this head: a failed pr run sends the task to the implementer at no round.
 				const runId = Number(

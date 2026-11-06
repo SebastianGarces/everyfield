@@ -864,6 +864,12 @@ video (`https://…/index.html#criterion-3/chromium/<file>.webm`). `evf pr body`
 refuse an `AC:` row with no video link and name it. A row that only `tools/evf/tests` tests prove names
 `tools/evf/tests` instead, and that waiver holds only while evf's latest row for the marker stores no video.
 
+The close gate and old previews (OPS-147): when the worktree's ready preview serves an old head, `evf ac run` refuses,
+and the gate in `evf run done` previews HEAD itself. Portless refuses a second preview of one project at another head,
+so the gate adds a detached worktree `.worktrees/gate-<slug>-<sha>-<pid>`, copies a seed's `apps/web/.env.local` there,
+starts `preview.mjs` on it, checks that the preview is ready at HEAD, runs the tests and stops only the previews of
+that path. It never stops the old preview. With no ready preview at all, the gate still refuses.
+
 All of this runs on this Mac only. No CI job runs `evf ac run` or `tests/ui`, nothing under `.github/` changes, and no
 step calls a paid API or e2e.tester.army.
 
@@ -1046,6 +1052,20 @@ approval through `evf approve`. Neither body check needs CI or a review, so the 
 PR-open/edit/label CI job can use it. The template comes from the current checkout; missing
 or empty templates fail. `evf pr open --body-file` resolves relative paths from the caller's
 working directory before invoking GitHub in the task worktree.
+
+A body names the current head with `{{EVF_HEAD}}` (OPS-147). `evf pr open` fills it with the head it pushes, and the
+body file keeps the placeholder, so the next head fills it again and the verifier's body hash does not move. A lint,
+`staleHeadFault`, refuses a verification section that names an old head of this branch as verified or as the head. An
+old head is an ancestor of the head that is not on the base branch, so main's commits and another PR's head pass. It runs in
+`evf pr open` before the push, in `evf pr body --body-file`, at the implement close and before a verifier launches.
+Before a verifier launches evf also fills the GitHub body again, because the overlap check can merge main. A claim is
+history, and passes, only when a history word (`round <n>`, `earlier`, `old`, `previous`, `prior`, `former`, `before`)
+stands next to the head word in its sentence, or `round <n>` follows the SHA. A sentence that describes a commit also
+passes: `reviewed`, `since`, `past`, `moved` or `moved from` directly before the head word, `not verified at <sha>`,
+`verified that <sha> fixes it`, `Head <sha> is a plain merge`, `Head <sha> changes` or `merges`. `Test results from head
+<sha>`, `Head <sha> is passing` and `Verified that all tests pass at <sha>` are claims. An honest statement that the current verification ran on
+an old head, such as `Author, on head <sha> plus merged main`, is refused by design: use the placeholder. "Verified head <sha>, with before and
+after screenshots" is a claim. CI's `pr-body` check does not run the lint: a push reaches GitHub before the body edit, so it would fail each new head for a moment.
 
 ## Stable verification, pushes and cleanup
 

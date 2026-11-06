@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { followUpsOfTask } from "./db.ts";
 import { partialLine, type FollowUp } from "./followups.ts";
 import { acVideoMarkers } from "./ac.ts";
@@ -114,6 +115,84 @@ function requireAcVideos(lines: string[], videoMarkers: Set<string>): void {
 		);
 }
 
+/** The text a PR body writes for the head. `evf pr open` replaces it, so the source file never goes stale (OPS-147). */
+export const HEAD_PLACEHOLDER = "{{EVF_HEAD}}";
+export const fillHead = (body: string, head: string) => body.replaceAll(HEAD_PLACEHOLDER, head);
+
+/** Runs `use` with a temporary file that holds a filled body, for `gh --body-file`. */
+export function withBodyFile<T>(body: string, use: (file: string) => T): T {
+	const file = join(mkdtempSync(join(tmpdir(), "evf-pr-body-")), "pr-body.md");
+	try {
+		writeFileSync(file, body);
+		return use(file);
+	} finally {
+		rmSync(dirname(file), { recursive: true, force: true });
+	}
+}
+
+/**
+ * A commit a verification section claims: `Verified head: <sha>`, `**Head:** <sha>`, `| Verified head | <sha> |`,
+ * `Verified head: [<sha>](<url>)`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`. `Verified that <sha> fixes
+ * it` and `Verified the test fails at <sha>` say what a commit does. `Verified that all tests pass at <sha>` is a claim.
+ */
+const NAMED_HEAD =
+	/\b(?:verified\b(?![\s:*`]+that[\s:*`]+[0-9a-f]{7,40}\b(?![\s:*`]+(?:pass|passes|passed|is|was|works|worked|ran)\b))(?:[\s:*`]+(?!fails?\b|failed\b)[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
+/**
+ * Words before the head word, in its sentence, that make the head history: `earlier head <sha>`, `Round 1, at head <sha>`,
+ * `#388's head <sha>`. These words count only directly before it, so `After the fix, verified at head <sha>` stays a
+ * claim: `reviewed head <sha>`, `since head <sha>`, `moved from the head <sha>`, `not verified at <sha>`. A bare `from` does not
+ * count, so `Test results from head <sha>` stays a claim.
+ */
+const EARLIER_BEFORE =
+	/(?:\b(?:round \d|old|older|previous|prior|earlier|former|before)\b(?:\W+\w+){0,3}\W*|#\d+.s\s*|\b(?:reviewed|since|moved|past)\s+(?:the\s+)?|\bmoved\s+from\s+(?:the\s+)?|\bnot\W*)$/i;
+/** The history words inside the claim (`verified round 1 head <sha>`), and a round right after the SHA (`head <sha> in round 0`). */
+const EARLIER_INSIDE = /\b(?:round \d|old|previous|prior|earlier|former)\b/i;
+const ROUND_AFTER = /^[`*\s,(]*(?:\w+\s+)?round \d/i;
+/** A closed list: `Head <sha> is a plain merge` describes a commit. `Head <sha> is passing` still claims it. */
+const DESCRIBED_AFTER = /^[`*\s]*(?:is\s+(?:a|an)\b|changes\b|merges\b)/i;
+
+/** Whether the claim at `match` calls its head history. A `before` elsewhere on the line, as in "before and after", does not. */
+function namesEarlierHead(text: string, match: RegExpExecArray | RegExpMatchArray): boolean {
+	const at = match.index ?? 0,
+		sentence =
+			text
+				.slice(0, at)
+				.split(/[.;!?]\s/)
+				.at(-1) ?? "";
+	const after = text.slice(at + match[0].length);
+	return (
+		EARLIER_BEFORE.test(sentence) ||
+		EARLIER_INSIDE.test(match[0]) ||
+		ROUND_AFTER.test(after) ||
+		(/^head/i.test(match[0]) && DESCRIBED_AFTER.test(after))
+	);
+}
+
+/**
+ * Why a body names an old head of this branch as verified, or null (OPS-147). It reads the verification sections and
+ * skips code fences. An old head is an ancestor of `head` that is not on `base`, so main's commits and another PR's head
+ * pass. `cwd` is a checkout with the commits.
+ */
+export function staleHeadFault(cwd: string, body: string, head: string, base: string): string | null {
+	const ancestorOf = (sha: string, of: string) =>
+		run("git", ["merge-base", "--is-ancestor", sha, of], { cwd }).code === 0;
+	let verification = false;
+	const named: string[] = [];
+	for (const { text } of plainLines(withoutComments(body).split("\n"))) {
+		if (text.startsWith("## ")) verification = /verif/i.test(text);
+		if (!verification) continue;
+		if (text.includes(HEAD_PLACEHOLDER)) return `the PR body still holds ${HEAD_PLACEHOLDER}; evf pr open fills it`;
+		for (const match of text.matchAll(NAMED_HEAD)) {
+			const lower = match[1].toLowerCase();
+			if (head.startsWith(lower) || named.includes(lower) || namesEarlierHead(text, match)) continue;
+			if (ancestorOf(lower, head) && !ancestorOf(lower, base)) named.push(lower);
+		}
+	}
+	return named.length
+		? `the PR body names ${named.join(", ")} as verified, but the head is ${head.slice(0, 10)}. Write ${HEAD_PLACEHOLDER} for the current head. For an older head of this branch, write "earlier head <sha>" or "round <n>, head <sha>"`
+		: null;
+}
+
 /** Each class template owns its required sections. This check has no CI or review dependency. */
 export function checkPrBody(
 	root: string,
@@ -162,7 +241,7 @@ export function checkPrBody(
 		const end = headings.find((l) => l.index > heading.index)?.index ?? author.index;
 		const content = lines
 			.slice(heading.index + 1, Math.min(end, author.index))
-			.filter((line) => !/^\s*(?:#{1,6}\s|`{3,}|~{3,})/.test(line))
+			.filter((line) => !/^\s*(?:#{1,6}\s|`{3,}|~{3,}|Verified head:)/.test(line))
 			.join("\n")
 			.trim();
 		if (!content) fail(`PR body section has no content: ${heading.text}.`);

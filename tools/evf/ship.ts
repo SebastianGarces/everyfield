@@ -28,6 +28,9 @@ import { acVideoMarkers } from "./ac.ts";
 import {
 	acVideoMarkersOfBranch,
 	checkPrBody,
+	fillHead,
+	staleHeadFault,
+	withBodyFile,
 	describeBodyItem,
 	followUpsOfBranch,
 	readBodyItems,
@@ -138,16 +141,19 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 
 	if (!bodyFile || !existsSync(bodyFile))
 		fail("Write the PR body following the PR standard, then pass --body-file <file>.");
-	const body = readFileSync(bodyFile, "utf8");
+	// The source file keeps the placeholder, so the next head fills it again and the verifier's input hash holds.
+	const body = fillHead(readFileSync(bodyFile, "utf8"), sha);
 	const proto = isPrototype(root, task);
 	checkPrBody(wt, body, proto ? "prototype" : "ordinary", followUpsOfTask(root, task), acVideoMarkers(root, task));
 	const internal = internalIssueOf(root, task);
 	if (internal && !body.includes(`Closes #${internal}`))
 		fail(`Include Closes #${internal} in the PR body for this feedback task.`);
+	const stale = staleHeadFault(wt, body, sha, baseRef(root, cfg));
+	if (stale) fail(`${stale}.`);
 	pushBranch(wt, cfg, task);
 	const existing = prFor(wt, task);
 	if (existing && existing.state === "OPEN") {
-		gh(wt, ["pr", "edit", String(existing.number), "--body-file", bodyFile]);
+		withBodyFile(body, (filled) => gh(wt, ["pr", "edit", String(existing.number), "--body-file", filled]));
 		console.log(`pr: updated ${existing.url}`);
 	} else {
 		const extra = proto ? ["--draft", "--label", "prototype"] : [];
@@ -160,19 +166,21 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 				"--description",
 				"Prototype from feedback; waits for product review",
 			]);
-		const url = gh(wt, [
-			"pr",
-			"create",
-			"--base",
-			cfg.baseBranch,
-			"--head",
-			task.branch,
-			"--title",
-			`${task.id}: ${taskTitle(root, wt, task)}`,
-			"--body-file",
-			bodyFile,
-			...extra,
-		]);
+		const url = withBodyFile(body, (filled) =>
+			gh(wt, [
+				"pr",
+				"create",
+				"--base",
+				cfg.baseBranch,
+				"--head",
+				task.branch,
+				"--title",
+				`${task.id}: ${taskTitle(root, wt, task)}`,
+				"--body-file",
+				filled,
+				...extra,
+			]),
+		);
 		console.log(`pr: opened ${url}`);
 	}
 	if (proto) {

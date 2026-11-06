@@ -2,13 +2,13 @@ import { requireForeground } from "./foreground.ts";
 import { checkBranchDiffTests } from "./branch-diff-lint.ts";
 import { checkCiTests } from "./ci-tests.ts";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { checkGithubBody, checkPrBody, taskOfBranch } from "./pr-body.ts";
+import { checkGithubBody, checkPrBody, fillHead, staleHeadFault, taskOfBranch } from "./pr-body.ts";
 import type { FollowUp } from "./followups.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { browserRun } from "./browser.ts";
 import { acRun, acVideoMarkers } from "./ac.ts";
 import { doctor, gc } from "./doctor.ts";
-import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
+import { baseRef, EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
 import { evfTestSkip } from "./test-scope.ts";
 import { recordFastTrack } from "./progress.ts";
 import { join } from "node:path";
@@ -89,7 +89,7 @@ Task loop (implementor, ui-designer)
   evf traces <task> [args...]        evf logs <task> [args...]
   evf verify <task> [--head <sha>] [--quick] [--ignore-load "<reason>"]   local checks
   evf migrations renumber <task>                              move new migrations after main's last number
-  evf pr open <task> --body-file <file>                       push and open/update the PR
+  evf pr open <task> --body-file <file>                       push and open/update the PR; fills {{EVF_HEAD}} with the head
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
   evf pr body <PR> | --body-file <file> [--task <ref>]        body-only standard check
         [--class ordinary|wiki|prototype]                    local body files only
@@ -615,6 +615,14 @@ function main(argv: string[]): number | Promise<number> {
 						followUps,
 						task ? acVideoMarkers(root, task) : new Set(),
 					);
+					const head = git(here, "rev-parse", "HEAD"),
+						stale = staleHeadFault(
+							here,
+							fillHead(readFileSync(file, "utf8"), head),
+							head,
+							baseRef(root, loadConfig(root)),
+						);
+					if (stale) throw new EvfError(`${stale}.`);
 				} else {
 					if (selected !== undefined)
 						throw new EvfError(
