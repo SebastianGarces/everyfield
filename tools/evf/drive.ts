@@ -706,7 +706,7 @@ function closedInputs(db: DatabaseSync, runId: number, head: string | null) {
  * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
  * Anything else that moved keeps the head on record, but the approval no longer covers it: a full review.
  */
-function deltaSinceApproval(
+export function deltaSinceApproval(
 	db: DatabaseSync,
 	root: string,
 	task: TaskRef,
