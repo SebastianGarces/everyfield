@@ -13,4 +13,10 @@ if ! "$node_bin" -e 'process.exit(+process.versions.node.split(".")[0] >= 24 ? 0
     exit 1
   fi
 fi
+# One compile cache for every worktree. A caller's value stands, and GitHub runners start empty, so they go without.
+if [ -z "${NODE_COMPILE_CACHE+set}" ] && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+  if common=$(git -C "$here" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+    export NODE_COMPILE_CACHE="$common/evf/node-compile-cache"
+  fi
+fi
 exec "$node_bin" --disable-warning=ExperimentalWarning "$here/tools/evf/main.ts" "$@"
