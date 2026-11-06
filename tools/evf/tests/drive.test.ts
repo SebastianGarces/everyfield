@@ -56,12 +56,24 @@ import {
 	taskLink,
 	taskNew,
 	taskSpec,
+	bodyHeadGate,
 } from "../drive.ts";
+import { checkPrBody, fillHead, staleHeadFault } from "../pr-body.ts";
+import { prOpen } from "../ship.ts";
 import { pollChecks } from "../check-alarm.ts";
 import { LAUNCH_TIMING } from "../launch.ts";
 import { changedInputs, contractOf, reviewInputs, textsOf, verifyDelta } from "../verify-delta.ts";
 import { doneCriteria } from "../spec.ts";
-import { evfDataDir, evidenceDir, packageContext, parseTask, runtimeDir, sleep } from "../lib.ts";
+import {
+	evfDataDir,
+	evidenceDir,
+	loadConfig,
+	packageContext,
+	parseTask,
+	runtimeDir,
+	sleep,
+	worktreePath,
+} from "../lib.ts";
 import { hasVerifiedHead, verify } from "../verify.ts";
 
 const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150, holdPollMs: 10 };
@@ -5028,4 +5040,146 @@ test("round routing (AC:OPS-135-12): the migration leaves existing rows and stat
 	} finally {
 		db.close();
 	}
+});
+
+const TEMPLATE = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8");
+const verifiedLine = (body: string) => /^Verified head: (.*)$/m.exec(body)?.[1];
+/** A valid PR body with `line` under How it was verified. */
+const bodyVerifying = (line: string) =>
+	prBody().replace(
+		"## How it was verified\nConcrete task evidence.",
+		`## How it was verified\n${line}\n\nConcrete task evidence.`,
+	);
+const headOf = (f: ReturnType<typeof driveFixture>, remote: string) =>
+	sh(f.root, "--git-dir", remote, "rev-parse", "refs/heads/task/ops-1");
+
+test("evf pr open fills the placeholder with the exact pushed head, and a new head updates the value; the source file keeps the placeholder (OPS-147-1,2)", () => {
+	const f = driveFixture();
+	try {
+		const remote = withPr(f);
+		const file = join(runtimeDir(f.root, f.task), "pr-body.md"),
+			source = bodyVerifying("Verified head: {{EVF_HEAD}}");
+		writeFileSync(file, source);
+		const a = commitFile(f, "first.txt");
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true);
+		quiet(() => prOpen(f.root, f.task, file));
+		assert.equal(headOf(f, remote), a);
+		assert.equal(verifiedLine(f.getState().pr.body), a);
+		assert.equal(readFileSync(file, "utf8"), source);
+
+		const b = commitFile(f, "second.txt");
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true);
+		quiet(() => prOpen(f.root, f.task, file));
+		assert.equal(headOf(f, remote), b);
+		assert.equal(verifiedLine(f.getState().pr.body), b);
+		assert.ok(!f.getState().pr.body.includes(a));
+	} finally {
+		f.close();
+	}
+});
+
+test("the head lint refuses an old head named as verified in evf pr open and before the verifier launches, and fills again when the overlap check moved the head (OPS-147-2,3)", () => {
+	const f = driveFixture();
+	try {
+		const remote = withPr(f);
+		const file = join(runtimeDir(f.root, f.task), "pr-body.md");
+		const old = commitFile(f, "old.txt");
+		const current = commitFile(f, "current.txt");
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+
+		writeFileSync(file, bodyVerifying(`All checks ran on head ${old.slice(0, 8)}.`));
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true);
+		assert.throws(() => prOpen(f.root, f.task, file), new RegExp(`names ${old.slice(0, 8)} as verified`));
+		assert.notEqual(headOf(f, remote), current, "a refused body pushes nothing");
+
+		// The implement close refuses the same body, before the simplify and pr stages spend time on it.
+		const implement = f.insertRun("implement", "implementer", "started");
+		assert.throws(
+			() => runDone(f.root, implement, { status: "passed", summary: "built" }),
+			new RegExp(`fails the head check: the PR body names ${old.slice(0, 8)}`),
+		);
+
+		writeFileSync(file, bodyVerifying("Verified head: {{EVF_HEAD}}"));
+		runDone(f.root, implement, { status: "passed", summary: "built" });
+		close(f, "simplify", "simplifier", "passed", "Simplified.");
+		assert.equal(quiet(() => driveOnce(f.root, f.task, TIMING)).stage, "pr");
+		assert.equal(nextOf(f).stage, "verify");
+		assert.equal(verifiedLine(f.getState().pr.body), current);
+
+		// Someone pushed a body with an old head by hand: no verifier launches, and the task goes back at no round.
+		writeFileSync(file, prBody());
+		const edited = f.getState();
+		edited.pr.body = bodyVerifying(`Verified head: ${old}`);
+		edited.pr.headRefOid = current;
+		f.setState(edited);
+		const stopped = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(stopped.stage, "pr");
+		assert.match(stopped.reason, new RegExp(`names ${old.slice(0, 10)}`));
+		assert.ok(!f.runs().some((r) => r.stage === "verify"), "no verifier launched");
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "failed"]);
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(nextOf(f).stage, "implement");
+
+		// A placeholder source file with a stale GitHub value: evf fills the GitHub body and the lint passes.
+		writeFileSync(file, bodyVerifying("Verified head: {{EVF_HEAD}}"));
+		const moved = f.getState();
+		moved.pr.body = fillHead(readFileSync(file, "utf8"), old);
+		f.setState(moved);
+		assert.equal(bodyHeadGate(f.root, f.task, worktreePath(f.root, loadConfig(f.root), f.task), 77), null);
+		assert.equal(verifiedLine(f.getState().pr.body), current);
+	} finally {
+		f.close();
+	}
+});
+
+test("the head lint reads only claims: earlier heads, code fences and hex words that are no commit pass, and an unfilled placeholder does not (OPS-147-3)", () => {
+	const f = driveFixture();
+	try {
+		const old = commitFile(f, "old.txt"),
+			current = commitFile(f, "current.txt"),
+			short = old.slice(0, 8),
+			wt = f.root;
+		const lint = (line: string) => staleHeadFault(wt, bodyVerifying(line), current);
+		for (const claim of [
+			`Verified head: ${old}`,
+			`Verified by the author at \`${short}\`.`,
+			`The PR head is \`${short}\`.`,
+			`All checks ran on head ${short}.`,
+		])
+			assert.match(lint(claim) ?? "", new RegExp(`names ${short}`), claim);
+		for (const fine of [
+			`Verified head: ${current}`,
+			`Verified head: ${current.slice(0, 8)}`,
+			`Round 1, at head \`${short}\`: the first run.`,
+			`The earlier head ${short} failed.`,
+			`The first commit is ${short}.`,
+			"Verified head: deadbee0",
+			["```", `Verified head: ${old}`, "```"].join("\n"),
+			`<!-- Verified head: ${old} -->`,
+		])
+			assert.equal(lint(fine), null, fine);
+		assert.match(lint("Verified head: {{EVF_HEAD}}") ?? "", /still holds \{\{EVF_HEAD\}\}/);
+		const elsewhere = prBody().replace("## Summary\nConcrete task evidence.", `## Summary\nHead ${old}.`);
+		assert.equal(staleHeadFault(wt, elsewhere, current), null, "only a verification section makes the claim");
+	} finally {
+		f.close();
+	}
+});
+
+test("the template and the PR skill describe the placeholder, and the filled line alone does not fill a section (OPS-147-4)", () => {
+	assert.match(TEMPLATE.replace(/<!--[^]*?-->/g, ""), /## How it was verified\n\nVerified head: \{\{EVF_HEAD\}\}\n/);
+	const skill = readFileSync(join(source, ".agents/skills/everyfield-pr/SKILL.md"), "utf8");
+	assert.match(skill, /`\{\{EVF_HEAD\}\}`/);
+	assert.match(skill, /`evf pr open` pushes the branch and puts the\s+exact pushed SHA/);
+	assert.throws(
+		() =>
+			checkPrBody(
+				source,
+				prBody().replace(
+					"## How it was verified\nConcrete task evidence.",
+					"## How it was verified\nVerified head: {{EVF_HEAD}}",
+				),
+			),
+		/section has no content: ## How it was verified/,
+	);
 });

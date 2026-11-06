@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, existsSync } from "node:fs";
+import {
+	copyFileSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,6 +17,7 @@ import {
 	evidenceDir,
 	fail,
 	git,
+	gitOk,
 	isClean,
 	loadConfig,
 	readJson,
@@ -73,20 +83,58 @@ const real = (path: string) => {
 	}
 };
 
-/** The newest ready portless preview of the worktree. It must serve HEAD, or a passing test proves another commit. */
-function readyPreview(wt: string, head: string): string {
+/** The ready portless preview of HEAD in the worktree, else its newest ready one. The caller checks the head it serves. */
+function readyPreview(wt: string, head: string): Preview {
 	const r = run("portless", ["preview", "status", "--json"], { cwd: wt });
 	if (r.code !== 0) fail(`Cannot read the portless preview status: ${(r.stderr || r.stdout).trim().slice(0, 300)}`);
 	const own = (JSON.parse(r.stdout) as Preview[])
 		.filter((p) => p.state === "ready" && real(p.project) === real(wt))
-		.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
-	const start = `node .agents/skills/verify-preview/scripts/preview.mjs ${wt}`;
-	if (!own) fail(`No ready portless preview of ${wt}; browser tests need one. Start it with ${start}.`);
-	if (own.head !== head)
-		fail(
-			`The preview ${own.url} serves ${own.head?.slice(0, 10) ?? "an unknown head"}, not the worktree HEAD ${head.slice(0, 10)}. Start a preview of HEAD with ${start}.`,
-		);
-	return own.url;
+		.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+	const best = own.find((p) => p.head === head) ?? own[0];
+	if (!best) fail(`No ready portless preview of ${wt}; browser tests need one. Start it with ${startCommand(wt)}.`);
+	return best;
+}
+
+const startCommand = (wt: string) => `node .agents/skills/verify-preview/scripts/preview.mjs ${wt}`;
+
+/**
+ * The close gate's own preview of HEAD (OPS-147). Portless refuses a second preview of one project at another head, and
+ * the running preview may belong to another seat. So the gate previews a new detached worktree of HEAD, and stops only
+ * the previews of that path, which no other seat knows. A seed's env in the task worktree goes with it.
+ */
+function startGatePreview(root: string, wt: string, task: TaskRef, head: string): { url: string; stop: () => void } {
+	const dir = join(root, ".worktrees", `gate-${task.slug}-${head.slice(0, 7)}-${process.pid}`);
+	git(root, "worktree", "add", "--quiet", "--detach", dir, head);
+	const stop = () => {
+		const status = run("portless", ["preview", "status", "--json"], { cwd: wt });
+		const mine = status.code === 0 ? (JSON.parse(status.stdout) as Array<Preview & { id: string }>) : [];
+		const failed = mine
+			.filter((p) => real(p.project) === real(dir) && p.state !== "removed")
+			.filter((p) => run("portless", ["preview", "down", p.id], { cwd: wt }).code !== 0);
+		if (status.code !== 0 || failed.length)
+			console.error(`ac: could not stop the gate preview of ${dir}. Its lease ends it, and the worktree stays.`);
+		else gitOk(root, "worktree", "remove", "--force", dir);
+	};
+	try {
+		const env = join(wt, "apps/web/.env.local");
+		if (existsSync(env)) {
+			mkdirSync(join(dir, "apps/web"), { recursive: true });
+			copyFileSync(env, join(dir, "apps/web/.env.local"));
+		}
+		console.log(`ac: the running preview serves an old head; starting a preview of ${head.slice(0, 10)} at ${dir}`);
+		const script = join(import.meta.dirname, "../../.agents/skills/verify-preview/scripts/preview.mjs");
+		const up = run(process.execPath, [script, dir], { cwd: wt, timeoutMs: BROWSER_TIMEOUT_SECONDS * 1000 });
+		if (up.code !== 0) fail(`Cannot start a preview of HEAD ${head.slice(0, 10)}: ${up.stderr.trim().slice(-300)}`);
+		const started = JSON.parse(up.stdout) as { url?: string; head?: string; state?: string };
+		if (started.head !== head || started.state !== "ready" || !started.url)
+			fail(
+				`The gate's preview is ${started.state ?? "in an unknown state"} at ${started.head?.slice(0, 10) ?? "an unknown head"}, not ready at HEAD ${head.slice(0, 10)}.`,
+			);
+		return { url: started.url, stop };
+	} catch (e) {
+		stop();
+		throw e;
+	}
 }
 
 type Result = "passed" | "failed" | "skipped";
@@ -163,8 +211,13 @@ function rowOf(criterion: string, marker: string, head: string, runs: Outcome[],
 /**
  * Run the answer key of a task at its worktree HEAD and write one evf proof row per `AC:` criterion. The worktree must
  * be clean, so the tests run the committed HEAD. Returns the rows; a task whose spec has no `AC:` line returns none.
+ * A preview of an old head refuses the run, unless `startPreview` (the `evf run done` gate) lets it start one of HEAD.
  */
-export function acRun(root: string, task: TaskRef, opts: { runId?: number | null } = {}): AcRow[] {
+export function acRun(
+	root: string,
+	task: TaskRef,
+	opts: { runId?: number | null; startPreview?: boolean } = {},
+): AcRow[] {
 	const db = openWorkDb(root);
 	let spec: string | null;
 	try {
@@ -188,32 +241,43 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 		return files.filter((f) => pattern.test(readFileSync(join(wt, f), "utf8")));
 	};
 	const plan = criteria.map((c) => ({ ...c, ui: carrying(ui, c.marker), tools: carrying(tools, c.marker) }));
-	const url = plan.some((p) => p.ui.length) ? readyPreview(wt, head) : null;
-	const rows = plan.map(({ criterion, marker, ui: uiFiles, tools: toolFiles }) => {
-		console.log(`ac: ${marker}: ${uiFiles.length + toolFiles.length} file(s) carry it`);
-		const runs: Outcome[] = [],
-			videos: string[] = [];
-		if (toolFiles.length) runs.push(nodeTest(wt, toolFiles, marker, "node", process.env));
-		for (const engine of uiFiles.length ? AC_ENGINES : []) {
-			const dir = join(evidenceDir(root, task, head, "ac"), `criterion-${criterion}`, engine);
-			rmSync(dir, { recursive: true, force: true });
-			mkdirSync(dir, { recursive: true });
-			runs.push(
-				nodeTest(wt, uiFiles, marker, engine, {
-					...process.env,
-					UI_ENGINE: engine,
-					UI_BASE_URL: url!,
-					EVF_AC_VIDEO_DIR: dir,
-				}),
-			);
-			videos.push(...videosIn(dir));
-		}
-		for (const r of runs.filter((r) => r.code !== 0))
-			console.error(
-				`ac: ${marker} on ${r.engine} exited ${r.code}:\n${r.output.trim().split("\n").slice(-40).join("\n")}`,
-			);
-		return rowOf(criterion, marker, head, runs, videos.length ? videos : [...uiFiles, ...toolFiles]);
-	});
+	const running = plan.some((p) => p.ui.length) ? readyPreview(wt, head) : null;
+	if (running && running.head !== head && !opts.startPreview)
+		fail(
+			`The preview ${running.url} serves ${running.head?.slice(0, 10) ?? "an unknown head"}, not the worktree HEAD ${head.slice(0, 10)}. Start a preview of HEAD with ${startCommand(wt)}.`,
+		);
+	const gate = running && running.head !== head ? startGatePreview(root, wt, task, head) : null;
+	const url = gate?.url ?? running?.url ?? null;
+	let rows: AcRow[];
+	try {
+		rows = plan.map(({ criterion, marker, ui: uiFiles, tools: toolFiles }) => {
+			console.log(`ac: ${marker}: ${uiFiles.length + toolFiles.length} file(s) carry it`);
+			const runs: Outcome[] = [],
+				videos: string[] = [];
+			if (toolFiles.length) runs.push(nodeTest(wt, toolFiles, marker, "node", process.env));
+			for (const engine of uiFiles.length ? AC_ENGINES : []) {
+				const dir = join(evidenceDir(root, task, head, "ac"), `criterion-${criterion}`, engine);
+				rmSync(dir, { recursive: true, force: true });
+				mkdirSync(dir, { recursive: true });
+				runs.push(
+					nodeTest(wt, uiFiles, marker, engine, {
+						...process.env,
+						UI_ENGINE: engine,
+						UI_BASE_URL: url!,
+						EVF_AC_VIDEO_DIR: dir,
+					}),
+				);
+				videos.push(...videosIn(dir));
+			}
+			for (const r of runs.filter((r) => r.code !== 0))
+				console.error(
+					`ac: ${marker} on ${r.engine} exited ${r.code}:\n${r.output.trim().split("\n").slice(-40).join("\n")}`,
+				);
+			return rowOf(criterion, marker, head, runs, videos.length ? videos : [...uiFiles, ...toolFiles]);
+		});
+	} finally {
+		gate?.stop();
+	}
 	const store = openWorkDb(root);
 	try {
 		const t = findTask(store, task)!;

@@ -860,6 +860,12 @@ video (`https://…/index.html#criterion-3/chromium/<file>.webm`). `evf pr body`
 refuse an `AC:` row with no video link and name it. A row that only `tools/evf/tests` tests prove names
 `tools/evf/tests` instead, and that waiver holds only while evf's latest row for the marker stores no video.
 
+The close gate and old previews (OPS-147): when the worktree's ready preview serves an old head, `evf ac run` refuses,
+and the gate in `evf run done` previews HEAD itself. Portless refuses a second preview of one project at another head,
+so the gate adds a detached worktree `.worktrees/gate-<slug>-<sha>-<pid>`, copies a seed's `apps/web/.env.local` there,
+starts `preview.mjs` on it, checks that the preview is ready at HEAD, runs the tests and stops only the previews of
+that path. It never stops the old preview. With no ready preview at all, the gate still refuses.
+
 All of this runs on this Mac only. No CI job runs `evf ac run` or `tests/ui`, nothing under `.github/` changes, and no
 step calls a paid API or e2e.tester.army.
 
@@ -1042,6 +1048,14 @@ approval through `evf approve`. Neither body check needs CI or a review, so the 
 PR-open/edit/label CI job can use it. The template comes from the current checkout; missing
 or empty templates fail. `evf pr open --body-file` resolves relative paths from the caller's
 working directory before invoking GitHub in the task worktree.
+
+A body names the current head with `{{EVF_HEAD}}` (OPS-147). `evf pr open` fills it with the head it pushes, and the
+body file keeps the placeholder, so the next head fills it again and the verifier's body hash does not move. A lint,
+`staleHeadFault`, refuses a verification section that names another commit as verified or as the head. It runs in
+`evf pr open` before the push, in `evf pr body --body-file`, at the implement close and before a verifier launches.
+Before a verifier launches evf also fills the GitHub body again, because the overlap check can merge main. A line that
+says `round <n>`, `earlier`, `old`, `previous`, `prior` or `before` is history and passes. CI's `pr-body` check does
+not run the lint: a push reaches GitHub before the body edit, so it would fail each new head for a moment.
 
 ## Stable verification, pushes and cleanup
 

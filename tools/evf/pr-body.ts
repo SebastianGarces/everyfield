@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { followUpsOfTask } from "./db.ts";
 import { partialLine, type FollowUp } from "./followups.ts";
 import { acVideoMarkers } from "./ac.ts";
@@ -114,6 +115,50 @@ function requireAcVideos(lines: string[], videoMarkers: Set<string>): void {
 		);
 }
 
+/** The text a PR body writes for the head. `evf pr open` replaces it, so the source file never goes stale (OPS-147). */
+export const HEAD_PLACEHOLDER = "{{EVF_HEAD}}";
+export const fillHead = (body: string, head: string) => body.replaceAll(HEAD_PLACEHOLDER, head);
+
+/** Runs `use` with a temporary file that holds a filled body, for `gh --body-file`. */
+export function withBodyFile<T>(body: string, use: (file: string) => T): T {
+	const file = join(mkdtempSync(join(tmpdir(), "evf-pr-body-")), "pr-body.md");
+	try {
+		writeFileSync(file, body);
+		return use(file);
+	} finally {
+		rmSync(dirname(file), { recursive: true, force: true });
+	}
+}
+
+/** A commit a verification section claims: `Verified head: <sha>`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`. */
+const NAMED_HEAD =
+	/\b(?:verified\b(?:[\s:]+[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:]*[`*]*([0-9a-f]{7,40})\b/gi;
+/** A line that says its head is history makes no claim about the current one. */
+const EARLIER_HEAD = /\bround \d|\b(?:old|older|previous|prior|earlier|former|before)\b|#\d+.s head/i;
+
+/**
+ * Why a body names a head other than `head` as verified, or null (OPS-147). It reads the verification sections and skips
+ * code fences. A hex word that is no commit in this repository is not a head. `cwd` is a checkout with the commits.
+ */
+export function staleHeadFault(cwd: string, body: string, head: string): string | null {
+	let verification = false;
+	const named: string[] = [];
+	for (const { text } of plainLines(withoutComments(body).split("\n"))) {
+		if (text.startsWith("## ")) verification = /verif/i.test(text);
+		if (!verification) continue;
+		if (text.includes(HEAD_PLACEHOLDER)) return `the PR body still holds ${HEAD_PLACEHOLDER}; evf pr open fills it`;
+		if (EARLIER_HEAD.test(text)) continue;
+		for (const [, sha] of text.matchAll(NAMED_HEAD)) {
+			const lower = sha.toLowerCase();
+			if (head.startsWith(lower) || named.includes(lower)) continue;
+			if (run("git", ["rev-parse", "--verify", "--quiet", `${lower}^{commit}`], { cwd }).code === 0) named.push(lower);
+		}
+	}
+	return named.length
+		? `the PR body names ${named.join(", ")} as verified, but the head is ${head.slice(0, 10)}. Write ${HEAD_PLACEHOLDER} for the current head, and say "round <n>" or "earlier" on a line about an older head`
+		: null;
+}
+
 /** Each class template owns its required sections. This check has no CI or review dependency. */
 export function checkPrBody(
 	root: string,
@@ -162,7 +207,7 @@ export function checkPrBody(
 		const end = headings.find((l) => l.index > heading.index)?.index ?? author.index;
 		const content = lines
 			.slice(heading.index + 1, Math.min(end, author.index))
-			.filter((line) => !/^\s*(?:#{1,6}\s|`{3,}|~{3,})/.test(line))
+			.filter((line) => !/^\s*(?:#{1,6}\s|`{3,}|~{3,}|Verified head:)/.test(line))
 			.join("\n")
 			.trim();
 		if (!content) fail(`PR body section has no content: ${heading.text}.`);

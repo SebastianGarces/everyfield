@@ -622,3 +622,155 @@ test("this task's answer key: every test in this file carries an OPS-112 marker 
 	);
 	assert.ok(existsSync(join(source, "tools/evf/ac-reporter.mjs")));
 });
+
+/**
+ * OPS-147: the real preview.mjs against a fake portless that keeps state and, like the real one, refuses a second
+ * preview of one project at another head. `upHead` makes `preview up` serve that head instead of the project's HEAD.
+ */
+function gateFixture() {
+	const f = acFixture("WP-005/ui");
+	const remote = f.bare(join(f.root, "fake-bin/origin.git"));
+	mkdirSync(join(f.root, "packages/db/scripts"), { recursive: true });
+	writeFileSync(
+		join(f.root, "packages/db/scripts/reset-dev.ts"),
+		'const developmentHosts = new Set(["dev.invalid"]);\n',
+	);
+	f.git("add", "packages");
+	f.git("commit", "-qm", "reset script");
+	f.git("remote", "add", "origin", remote);
+	f.git("push", "-q", "origin", "main");
+	writeFileSync(join(f.root, ".git/info/exclude"), ".env*\n");
+	mkdirSync(join(f.root, "apps/web"), { recursive: true });
+	writeFileSync(join(f.root, "apps/web/.env.local"), "DATABASE_URL=postgres://u:p@dev.invalid/db\n");
+	const statePath = join(f.root, "fake-bin/portless-state.json");
+	writeFileSync(
+		join(f.root, "fake-bin/portless"),
+		`#!${process.execPath}
+const fs=require("node:fs"),cp=require("node:child_process"),a=process.argv.slice(2),p=${JSON.stringify(statePath)};
+const s=JSON.parse(fs.readFileSync(p,"utf8"));s.calls.push(a);const save=()=>fs.writeFileSync(p,JSON.stringify(s));let out="";
+if(a[1]==="status")out=JSON.stringify(s.previews);
+else if(a[1]==="down")s.previews=s.previews.map(x=>x.id===a[2]?{...x,state:"removed"}:x);
+else if(a[1]==="up"){
+ const project=a[a.indexOf("--project")+1],mode=a[a.indexOf("--mode")+1];
+ const head=s.upHead??cp.execFileSync("git",["-C",project,"rev-parse","HEAD"],{encoding:"utf8"}).trim();
+ const clash=s.previews.find(x=>x.project===project&&x.mode===mode&&x.state==="ready"&&x.head!==head);
+ if(clash){process.stderr.write("Preview "+clash.id+" has different inputs; stop it first");save();process.exit(1)}
+ s.seedEnv=fs.existsSync(project+"/apps/web/.env.local");
+ const up={id:"gate-preview",project,head,mode,state:"ready",url:"https://gate.localhost:1355",createdAt:9};s.previews.push(up);out=JSON.stringify(up)}
+save();process.stdout.write(out);\n`,
+	);
+	const log = join(f.root, "fake-bin/stub-log.jsonl");
+	process.env.AC_STUB_LOG = log;
+	f.setSpec(["Goal: g.", "Done criteria:", "1. One.", "   Check: AC:WP-005/ui-1", "Non-goals: none."].join("\n"));
+	f.writeBody([]);
+	type Preview = { id: string; project: string; state: string; head: string; mode: string; url: string };
+	const seat: Preview[] = [
+		{
+			id: "old-head",
+			project: f.wt,
+			state: "ready",
+			head: "0".repeat(40),
+			mode: "production",
+			url: "https://old.localhost:1355",
+		},
+		{
+			id: "other-seat",
+			project: join(f.root, ".worktrees/verify-other"),
+			state: "ready",
+			head: "1".repeat(40),
+			mode: "production",
+			url: "https://other.localhost:1355",
+		},
+	];
+	const setState = (extra: object = {}) =>
+		writeFileSync(statePath, JSON.stringify({ previews: seat, calls: [], ...extra }));
+	const state = () =>
+		JSON.parse(readFileSync(statePath, "utf8")) as { previews: Preview[]; calls: string[][]; seedEnv?: boolean };
+	const previewByTest = (name: string) =>
+		`import test from "node:test";\nimport { appendFileSync, writeFileSync } from "node:fs";\nimport { join } from "node:path";\ntest("${name} AC:WP-005/ui-1", () => {\n\tappendFileSync(process.env.AC_STUB_LOG, process.env.UI_BASE_URL + "\\n");\n\twriteFileSync(join(process.env.EVF_AC_VIDEO_DIR, "flow.webm"), "video");\n${name === "fails" ? '\tthrow new Error("no");\n' : ""}});\n`;
+	const seen = () => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : []);
+	const worktrees = () =>
+		f
+			.git("worktree", "list")
+			.split("\n")
+			.filter((l) => l.includes("/gate-"));
+	setState();
+	return { ...f, setState, state, previewByTest, seen, worktrees };
+}
+
+test("run done: with a preview of an old head running, the gate starts a preview of HEAD, closes and stops only its own (AC:OPS-112-4 OPS-147-5,6)", () => {
+	const f = gateFixture();
+	try {
+		mkdirSync(join(f.wt, "apps/web"), { recursive: true });
+		f.commitFiles({ "tests/ui/gate.test.mjs": f.previewByTest("passes") });
+		writeFileSync(join(f.wt, "apps/web/.env.local"), "IDENTITY_SECRET=seeded\n");
+		const run = f.insertRun("implement", "implementer");
+		const closed = f.close(run, "passed");
+		assert.equal(closed.status, 0, closed.stderr);
+		assert.equal(f.runStatus(run), "passed");
+		assert.deepEqual(f.seen(), Array(2).fill("https://gate.localhost:1355"), "both engines test the gate's preview");
+		assert.deepEqual(
+			f.proofs().map((p) => [p.criterion, p.status, p.head_sha]),
+			[["1", "met", f.head()]],
+		);
+		const { calls, previews, seedEnv } = f.state();
+		assert.equal(seedEnv, true, "a seed's env in the task worktree reaches the gate's preview");
+		assert.deepEqual(
+			calls.filter((c) => c[1] === "down"),
+			[["preview", "down", "gate-preview"]],
+		);
+		assert.deepEqual(
+			previews.filter((p) => p.state === "ready").map((p) => p.id),
+			["old-head", "other-seat"],
+		);
+		assert.deepEqual(f.worktrees(), [], "the gate's worktree is gone");
+
+		// `evf ac run` is no gate: it starts nothing and still refuses the old head.
+		f.setState();
+		const refused = cli(f.root, "ac", "run", "WP-005/ui");
+		assert.equal(refused.status, 1);
+		assert.match(refused.stderr, new RegExp(`serves 0000000000, not the worktree HEAD ${f.head().slice(0, 10)}`));
+		assert.ok(!f.state().calls.some((c) => c[1] === "up"));
+	} finally {
+		f.done();
+	}
+});
+
+test("run done: the gate refuses a started preview that does not serve HEAD and a marked test that fails, and stops its preview (AC:OPS-112-4 OPS-147-7)", () => {
+	const f = gateFixture();
+	try {
+		f.commitFiles({ "tests/ui/gate.test.mjs": f.previewByTest("passes") });
+		const run = f.insertRun("implement", "implementer");
+
+		f.setState({ upHead: "2".repeat(40) });
+		const wrongHead = f.close(run, "passed");
+		assert.equal(wrongHead.status, 1);
+		assert.match(
+			wrongHead.stderr,
+			new RegExp(`ready at 2222222222|at 2222222222, not ready at HEAD ${f.head().slice(0, 10)}`),
+		);
+		assert.equal(f.runStatus(run), "started");
+		assert.deepEqual(f.seen(), [], "no test ran against another commit");
+		assert.equal(f.proofs().length, 0);
+		assert.ok(f.state().calls.some((c) => c[1] === "down" && c[2] === "gate-preview"));
+		assert.deepEqual(f.worktrees(), []);
+
+		f.commitFiles({ "tests/ui/gate.test.mjs": f.previewByTest("fails") });
+		f.setState();
+		const unmet = f.close(run, "passed");
+		assert.equal(unmet.status, 1);
+		assert.match(unmet.stderr, /implement cannot close passed: evf ac run found AC: criteria not met/);
+		assert.equal(f.runStatus(run), "started");
+		assert.deepEqual(
+			f.proofs().map((p) => [p.status, p.head_sha]),
+			[["unmet", f.head()]],
+		);
+		assert.deepEqual(
+			f.state().calls.filter((c) => c[1] === "down"),
+			[["preview", "down", "gate-preview"]],
+		);
+		assert.deepEqual(f.worktrees(), []);
+	} finally {
+		f.done();
+	}
+});

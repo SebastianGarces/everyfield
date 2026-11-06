@@ -27,7 +27,12 @@ List any ruling you made yourself and why.
 
 ## How it was verified
 
+Verified head: {{EVF_HEAD}}
+
 <!--
+Keep the line above as it is. evf pr open replaces {{EVF_HEAD}} with the head it pushes, each time.
+Do not write the current head by hand.
+
 Show what you ran and what you saw. Give each check, its result and the commit it ran on.
 
 UI change: before (main) and after (branch) screenshot or video links, in Chromium and WebKit.
