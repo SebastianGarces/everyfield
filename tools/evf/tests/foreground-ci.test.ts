@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source, setTasks } from "./fixtures.ts";
@@ -83,9 +83,10 @@ test("bin/evf qa and bin/evf ci-tests reach the moved tools and report a refusal
 		const down = cli(f.root, ["qa", "down", "not-a-preview"]);
 		assert.equal(down.status, 1);
 		assert.match(down.stderr, /^evf: not-a-preview is not a QA preview id/);
+		writeFileSync(join(f.root, "package.json"), "{}");
 		const coverage = cli(f.root, ["ci-tests"]);
 		assert.equal(coverage.status, 1);
-		assert.match(coverage.stderr, /^evf: /);
+		assert.match(coverage.stderr, /^evf: package\.json needs a scripts object/);
 	} finally {
 		f.close();
 	}

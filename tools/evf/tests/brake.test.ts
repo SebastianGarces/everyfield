@@ -595,6 +595,10 @@ test("AC:OPS-141-1 a failure in the real scripts/test-workflow.mjs records its f
 			cpSync(join(source, "scripts/test-workflow.mjs"), join(root, "scripts/test-workflow.mjs"));
 			mkdirSync(join(root, "tests/workflow"), { recursive: true });
 			writeFileSync(
+				join(root, "tests/workflow/dev.test.mjs"),
+				`import test from "node:test";\ntest("green too", () => {});\n`,
+			);
+			writeFileSync(
 				join(root, "tests/workflow/stack.test.mjs"),
 				`import test from "node:test";\ntest("green", () => {});\ntest(${JSON.stringify(name)}, () => { throw new Error("broken"); });\n`,
 			);

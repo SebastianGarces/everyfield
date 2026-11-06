@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { fixture, source, setTasks } from "./fixtures.ts";
+import { copyMovedTools, fixture, source, setTasks } from "./fixtures.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { driveOnce, nextStage, runDone } from "../drive.ts";
 import { parseTask, runtimeDir } from "../lib.ts";
@@ -168,6 +168,7 @@ test("OPS-113-poster: post-review.mjs posts body_only with its items and refuses
 	try {
 		// A copy of the poster and the evf code it imports, so it reads this fixture, not the real store.
 		cpSync(join(source, "tools/evf"), join(f.root, "tools/evf"), { recursive: true });
+		copyMovedTools(f.root);
 		mkdirSync(join(f.root, ".agents/skills/verify-preview"), { recursive: true });
 		cpSync(
 			join(source, ".agents/skills/verify-preview/scripts"),

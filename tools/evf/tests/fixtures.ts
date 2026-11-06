@@ -6,6 +6,22 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
+/** What tools/evf imports from outside itself. A fixture that runs a copy of tools/evf needs these too. */
+export const MOVED_TOOLS = [
+	"tools/qa",
+	"tools/ci",
+	"tools/wiki/drafts.ts",
+	"tools/wiki/package.json",
+	"scripts/browser.ts",
+	"scripts/package.json",
+];
+export function copyMovedTools(root: string) {
+	for (const path of MOVED_TOOLS)
+		cpSync(join(source, path), join(root, path), {
+			recursive: true,
+			filter: (file) => !/[\\/](tests|node_modules)([\\/]|$)/.test(file),
+		});
+}
 /** The work store migration files in number order. A test that migrates a store reads them, so a new one edits no test. */
 export const STORE_MIGRATIONS = readdirSync(join(source, "tools/evf/db/migrations"))
 	.filter((f) => /^\d{3}-.*\.sql$/.test(f))

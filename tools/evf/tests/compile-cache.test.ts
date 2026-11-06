@@ -19,7 +19,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { fixture, source } from "./fixtures.ts";
+import { copyMovedTools, fixture, source } from "./fixtures.ts";
 
 /** bin/evf turns on Node's compile cache: the folder it picks, and what stays true with the cache on. */
 
@@ -47,6 +47,7 @@ function copyEvf(root: string, opts: { tests?: boolean } = {}) {
 		recursive: true,
 		filter: (path) => opts.tests || !/[\\/]tests([\\/]|$)/.test(relative(source, path)),
 	});
+	copyMovedTools(root);
 	mkdirSync(join(root, "bin"), { recursive: true });
 	cpSync(join(source, "bin/evf"), join(root, "bin/evf"));
 }
