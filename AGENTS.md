@@ -15,7 +15,7 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    actual verification, proof, risks and follow-ups. The evf stages are plan, implement, simplify,
    pr, verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
 5. An independent verifier (a fresh Opus 5.5 medium session that never shared context with the
-   author, D82) reads the full diff, spot-checks the proof with `verify-preview`, posts the exact-head
+   author, D82) reads the full diff (only the merge result when only main changed), spot-checks the proof with `verify-preview`, posts the exact-head
    review and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 

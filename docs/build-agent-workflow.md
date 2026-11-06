@@ -31,7 +31,7 @@ implementer proves its own work (tests, 390 and 1440 px screenshots of each UI s
 `bin/evf proof add` per Done criterion it built or changed); UI work runs in its seat unless the spec has the
 line `Seat: ui`. The pr stage reruns the author checks at the current head and opens or updates the PR, so a
 simplifier commit never costs a round. Proof carries forward to later heads of the branch. The verifier reads
-the full diff and spot-checks the proof, re-running a flow only where a proof is unmet, missing or looks wrong.
+the full diff, or only the merge result when only main changed (OPS-145), and spot-checks the proof, re-running a flow only where a proof is unmet, missing or looks wrong.
 `tools/evf/README.md` has the details.
 
 Keep media and traces outside the repository. Generate the explorer outside the checkout;

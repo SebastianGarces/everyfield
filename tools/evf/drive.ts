@@ -72,6 +72,14 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
+import {
+	changedInputs,
+	mergeOnlyPrompt,
+	proofsHash,
+	reviewInputs,
+	verifyDelta,
+	type VerifyDelta,
+} from "./verify-delta.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -668,6 +676,76 @@ const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
 		.get(taskId) as { head_sha: string | null; decision: string } | undefined;
 	return a?.decision === "body_only" && a.head_sha ? a.head_sha : null;
 };
+/** Ties the launch's `verify_start` to its run, so the close reads what this verifier read. An unlinked one never counts. */
+function linkVerifyStart(root: string, taskId: number) {
+	const db = openWorkDb(root);
+	try {
+		db.prepare(
+			"UPDATE events SET run_id = (SELECT MAX(id) FROM runs WHERE task_id = ? AND stage = 'verify') WHERE id = (SELECT MAX(id) FROM events WHERE task_id = ? AND type = 'verify_start')",
+		).run(taskId, taskId);
+	} finally {
+		db.close();
+	}
+}
+/**
+ * What a passed verify close stores for the next classifier: the inputs its launch read, and the proofs as they are now,
+ * because the verifier may add one. Nothing when the launch recorded none or the head moved during the run. The next
+ * classifier then has no record and gives the full review (OPS-145).
+ */
+function closedInputs(db: DatabaseSync, runId: number, head: string | null) {
+	const start = db
+		.prepare("SELECT task_id, payload FROM events WHERE run_id = ? AND type = 'verify_start' ORDER BY id DESC LIMIT 1")
+		.get(runId) as { task_id: number; payload: string } | undefined;
+	if (!start) return {};
+	const launched = JSON.parse(start.payload) as VerifyDelta;
+	if (!launched.reviewInputs || launched.head !== head) return {};
+	return { reviewInputs: { ...launched.reviewInputs, proofs: proofsHash(db, start.task_id) } };
+}
+/**
+ * What changed since the task's latest verify close, for the verifier about to start (OPS-145). A prior approval needs
+ * a `passed` close: changes requested, a reopen and a body_only review (OPS-113: a moved head runs a full verify) leave none.
+ * Anything else that moved keeps the head on record, but the approval no longer covers it: a full review.
+ */
+export function deltaSinceApproval(
+	db: DatabaseSync,
+	root: string,
+	task: TaskRef,
+	t: TaskRow,
+	wt: string,
+	main: string,
+): VerifyDelta {
+	const marker = reopenMarker(db, t.id),
+		runs = runsOf(db, t.id).filter((r) => r.id > marker),
+		at = runs.findLastIndex((r) => r.stage === "verify" && (r.status === "passed" || r.status === "failed")),
+		close = runs[at],
+		approved = close?.status === "passed" && !bodyOnlyHead(db, t.id) ? close.progress_head : null,
+		body = prBodyPath(root, task),
+		now = reviewInputs(db, root, t.id, task, wt, body);
+	const recorded = close
+		? (db
+				.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_end' ORDER BY id DESC LIMIT 1")
+				.get(close.id) as { payload: string } | undefined)
+		: undefined;
+	const changed = () => {
+		try {
+			return [
+				...changedInputs(
+					recorded ? JSON.parse(recorded.payload).reviewInputs : undefined,
+					now,
+					wt,
+					t.pr_number,
+					approved!,
+					body,
+				),
+				// The local checks CI does not run, such as ui-escaped. The overlap check moves a head with no pr stage.
+				...(hasVerifiedHead(root, task) ? [] : ["checks"]),
+			];
+		} catch {
+			return ["unreadable"];
+		}
+	};
+	return { ...verifyDelta(wt, main, approved, runs.slice(at + 1), approved ? changed() : []), reviewInputs: now };
+}
 function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
 	const head = bodyOnlyHead(db, taskId);
 	if (!head) return null;
@@ -920,6 +998,7 @@ export function runDone(
 			stage: r.stage,
 			status: opts.status === "body-only" ? "body_only" : status,
 			summary: headline(summary, 200),
+			...(r.stage === "verify" && status === "passed" ? closedInputs(db, runId, head) : {}),
 		});
 		// A second review of a head an earlier verify of this task already closed at costs no round (OPS-113).
 		const reviewedBefore =
@@ -1596,6 +1675,8 @@ type PromptContext = {
 	choice: CompareChoice | null;
 	/** Set for the body stage only (OPS-113): the reviewed head and the items of its body_only review, or why evf has none. */
 	body?: { head: string; items: BodyItem[] | string };
+	/** The verify prompt: what changed since the prior approval. */
+	delta?: VerifyDelta;
 };
 const notesOf = (ctx: PromptContext) =>
 	ctx.notes.length
@@ -1630,7 +1711,7 @@ export const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context. Write one Done criterion for each user action and expected result in the verbatim ask, and cover each Ask coverage deliverable (route, page, screen, command, file). Give each criterion one line under it: "Check: AC:${task.id}-<n>" when a test can prove it (a test whose name carries that marker), or "Check: owner — <reason>" for a taste call a person must judge. A UI spec cannot be stored without them. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify, ci or ship summary with bin/evf status --json ${task.id} and fix those findings first.` : ""}${!next.round && !ctx.reopen && next.reason.startsWith("pr failed: ") ? ` evf stopped at the pr stage (${next.reason}). Fix that first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify, ci or ship summary with bin/evf status --json ${task.id} and fix those findings first. If your only work in this round is a merge of main, keep the rest of the PR body as it is and change only your EVF-Author line: the next verifier then reviews only the merge result.` : ""}${!next.round && !ctx.reopen && next.reason.startsWith("pr failed: ") ? ` evf stopped at the pr stage (${next.reason}). Fix that first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	body: (task, next, ctx) => {
@@ -1642,8 +1723,10 @@ export const STAGE_PROMPTS: Record<string, Prompt> = {
 				: ` The items: ${items.map((item, i) => `${i + 1}. ${describeBodyItem(item)}`).join(" ")}`;
 		return `Fix the PR body of task ${task.id} at ${at}. The verifier approved the code and the experience there and posted a body_only review: only the PR body needs these fixes.${list}${next.reason.startsWith("body failed") ? ` evf checked the body after the last body run and it failed (${next.reason}). Fix that first.` : ""} Edit only the PR body file ${ctx.prBody}: each "present" text must appear in it exactly, each "absent" text must not appear, and the body must still pass bin/evf pr body --body-file ${ctx.prBody} --task ${task.id}. Keep the EVF-Author line. Make no commit and change no other file: a commit sends the task to a full verify. When you close passed, evf pushes the body with evf pr open --body-file at the same head, checks it with the evf pr body standard and checks every item. ${CLOSE}`;
 	},
-	verify: (task) =>
-		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code and its simplicity. You judge the owner rows. evf wrote the AC: rows by running the marked tests at the head, and run done reruns them, so you may rely on those rows; still read each marked test and request changes when it checks too little (a test that only sees the page load proves nothing). Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
+	verify: (task, _next, ctx) =>
+		ctx.delta?.deltaKind === "merge_only"
+			? mergeOnlyPrompt(task, ctx.delta)
+			: `Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code and its simplicity. You judge the owner rows. evf wrote the AC: rows by running the marked tests at the head, and run done reruns them, so you may rely on those rows; still read each marked test and request changes when it checks too little (a test that only sees the page load proves nothing). Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
 
 /** The items of the body_only review at `head` for the body prompt, or why GitHub has none. */
@@ -2307,6 +2390,7 @@ function launchOrLog(
 			driven: true,
 			taskId,
 		});
+		if (launching.role === "verifier") linkVerifyStart(root, taskId);
 	} catch (e) {
 		if (e instanceof LaunchLineTooLong) {
 			console.log(`${now()} drive ${task.id}: launch of ${launching.role} refused: ${e.message}`);
@@ -2501,6 +2585,7 @@ export function driveOnce(
 			waitOnSeat(db, root, task, t, n.run!, timing);
 			return n;
 		}
+		let delta: VerifyDelta | undefined;
 		if (n.stage === "verify") {
 			const stopped = overlapGate(db, root, task, t.id, t.pr_number, timing);
 			if (stopped) {
@@ -2515,6 +2600,13 @@ export function driveOnce(
 				runDone(root, runId, { status: "failed", summary: stopped });
 				return { stage: "pr", round: t.round, reason: stopped };
 			}
+			// After the overlap check, which can merge main: this reads the head the verifier reviews.
+			const cfg = loadConfig(root);
+			delta = deltaSinceApproval(db, root, task, t, worktreePath(root, cfg, task), baseRef(root, cfg));
+			record(db, t.id, null, "verify_start", {
+				...delta,
+				summary: `${task.id}: verifier starts at ${delta.head.slice(0, 10)}, ${delta.deltaKind}`,
+			});
 		}
 		if (n.role) {
 			const cfg = loadConfig(root);
@@ -2529,6 +2621,7 @@ export function driveOnce(
 				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : (extras.reopenReason ?? null),
 				previous: previousIdeaRun(runs, n.idea),
 				choice: extras.choice ?? null,
+				delta,
 				...(n.stage === "body" && extras.bodyOnly
 					? { body: { head: extras.bodyOnly.head, items: bodyItemsOf(root, t, extras.bodyOnly.head) } }
 					: {}),

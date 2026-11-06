@@ -102,38 +102,27 @@ export function fakeClock(onSleep: (elapsed: number) => void = () => {}) {
 	};
 }
 
-export function fixture() {
-	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
-	// close() removes it, so every git process this test starts runs with automatic background work off.
-	// A local push clears this environment for the receiving side, so bare receivers come from bare() below.
-	const n = Number(process.env.GIT_CONFIG_COUNT ?? 0),
-		noBackground = [
-			["maintenance.auto", "false"],
-			["gc.auto", "0"],
-			["receive.autogc", "false"],
-		];
-	const scoped: Record<string, string> = {
-		GIT_CONFIG_COUNT: String(n + noBackground.length),
-		...Object.fromEntries(
-			noBackground.flatMap(([k, v], i) => [
-				[`GIT_CONFIG_KEY_${n + i}`, k],
-				[`GIT_CONFIG_VALUE_${n + i}`, v],
-			]),
-		),
-	};
-	const saved = Object.fromEntries(
-		["PATH", "EVF_FAKE_GH_STATE", "EVF_MONITOR", ...Object.keys(scoped)].map((k) => [k, process.env[k]]),
-	);
-	Object.assign(process.env, scoped);
-	process.env.EVF_MONITOR = "disposable-test-runner";
-	const root = mkdtempSync(join(tmpdir(), "evf-regression-"));
-	cpSync(join(source, "docs"), join(root, "docs"), { recursive: true });
-	cpSync(join(source, "design/handoff"), join(root, "design/handoff"), { recursive: true });
+let template: string | undefined;
+/**
+ * The repo every fixture starts from: built once per test file and copied, because `git add` of docs is most of the cost
+ * of a fixture and 500 fixtures run in one `evf test`. The copy holds nothing a test can reach back to.
+ */
+function fixtureTemplate() {
+	if (template) return template;
+	const root = mkdtempSync(join(tmpdir(), "evf-template-"));
+	cpSync(join(source, "docs"), join(root, "docs"), { recursive: true, preserveTimestamps: true });
+	cpSync(join(source, "design/handoff"), join(root, "design/handoff"), { recursive: true, preserveTimestamps: true });
 	cpSync(join(source, "AGENTS.md"), join(root, "AGENTS.md"));
 	cpSync(join(source, "README.md"), join(root, "README.md"));
-	cpSync(join(source, ".agents/skills/everyfield-pr"), join(root, ".agents/skills/everyfield-pr"), { recursive: true });
-	cpSync(join(source, "tools/evf/templates"), join(root, "tools/evf/templates"), { recursive: true });
-	cpSync(join(source, ".claude/agents"), join(root, ".claude/agents"), { recursive: true });
+	cpSync(join(source, ".agents/skills/everyfield-pr"), join(root, ".agents/skills/everyfield-pr"), {
+		recursive: true,
+		preserveTimestamps: true,
+	});
+	cpSync(join(source, "tools/evf/templates"), join(root, "tools/evf/templates"), {
+		recursive: true,
+		preserveTimestamps: true,
+	});
+	cpSync(join(source, ".claude/agents"), join(root, ".claude/agents"), { recursive: true, preserveTimestamps: true });
 	const dag = JSON.parse(readFileSync(join(root, "docs/plan/dag.json"), "utf8"));
 	const progressPath = join(root, "docs/build-progress.json");
 	const progress = {
@@ -187,6 +176,9 @@ export function fixture() {
 	git("config", "user.name", "Fixture");
 	git("config", "user.email", "fixture@example.invalid");
 	git("config", "core.hooksPath", "/dev/null");
+	// A copy has new inodes and ctimes. These keep its first git status from reading all of docs again.
+	git("config", "core.trustctime", "false");
+	git("config", "core.checkStat", "minimal");
 	const bins = join(root, "fake-bin");
 	mkdirSync(bins);
 	const statePath = join(root, "gh-state.json");
@@ -289,6 +281,42 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 		".claude/agents",
 	);
 	git("commit", "-qm", "Disposable context");
+	process.once("exit", () => rmSync(root, { recursive: true, force: true }));
+	template = root;
+	return root;
+}
+
+export function fixture() {
+	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
+	// close() removes it, so every git process this test starts runs with automatic background work off.
+	// A local push clears this environment for the receiving side, so bare receivers come from bare() below.
+	const n = Number(process.env.GIT_CONFIG_COUNT ?? 0),
+		noBackground = [
+			["maintenance.auto", "false"],
+			["gc.auto", "0"],
+			["receive.autogc", "false"],
+		];
+	const scoped: Record<string, string> = {
+		GIT_CONFIG_COUNT: String(n + noBackground.length),
+		...Object.fromEntries(
+			noBackground.flatMap(([k, v], i) => [
+				[`GIT_CONFIG_KEY_${n + i}`, k],
+				[`GIT_CONFIG_VALUE_${n + i}`, v],
+			]),
+		),
+	};
+	const saved = Object.fromEntries(
+		["PATH", "EVF_FAKE_GH_STATE", "EVF_MONITOR", ...Object.keys(scoped)].map((k) => [k, process.env[k]]),
+	);
+	Object.assign(process.env, scoped);
+	process.env.EVF_MONITOR = "disposable-test-runner";
+	const root = mkdtempSync(join(tmpdir(), "evf-regression-"));
+	cpSync(fixtureTemplate(), root, { recursive: true, preserveTimestamps: true });
+	const cfg = JSON.parse(readFileSync(join(root, "evf.config.json"), "utf8"));
+	const progressPath = join(root, "docs/build-progress.json");
+	const git = (...args: string[]) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
+	const bins = join(root, "fake-bin");
+	const statePath = join(root, "gh-state.json");
 	process.env.PATH = bins + ":" + saved.PATH;
 	process.env.EVF_FAKE_GH_STATE = statePath;
 	return {
@@ -298,6 +326,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 		getState: () => JSON.parse(readFileSync(statePath, "utf8")),
 		setState: (s: unknown) => writeFileSync(statePath, JSON.stringify(s)),
 		authorize: (wp = "WP-001") => {
+			const dag = JSON.parse(readFileSync(join(root, "docs/plan/dag.json"), "utf8"));
 			const progress = JSON.parse(readFileSync(progressPath, "utf8"));
 			const prerequisites = new Set<string>();
 			const visit = (id: string) => {
