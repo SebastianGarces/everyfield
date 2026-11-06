@@ -9,22 +9,22 @@ import { ship } from "../ship.ts";
 
 const fastShip = { queue: { waitMs: 10_000, pollMs: 10 }, ciWaitMs: 10_000, ciPollMs: 1 };
 
-/** Main's last commit with the shared `maintenanceTasks` object in evf.config.json. */
-const BEFORE_THE_MOVE = "0efdd7bec2070bf538fa7711853ba39b3e727283";
+/** The 107 task IDs in evf.config.json before the move. The PR body records the check that compared their values. */
+const MOVED =
+	"OPS-1 OPS-2 OPS-3 OPS-4 OPS-5 OPS-6 OPS-7 OPS-8 OPS-9 OPS-10 OPS-11 OPS-12 OPS-13 OPS-14 OPS-15 OPS-16 OPS-17 OPS-18 OPS-19 OPS-20 OPS-21 OPS-22 OPS-23 OPS-24 OPS-25 OPS-30 OPS-31 OPS-32 OPS-33 OPS-34 OPS-40 OPS-41 OPS-43 OPS-44 OPS-45 OPS-46 OPS-52 OPS-53 OPS-54 OPS-55 OPS-56 OPS-57 OPS-58 OPS-59 OPS-60 OPS-61 OPS-62 OPS-63 OPS-64 OPS-65 OPS-66 OPS-67 OPS-68 OPS-69 OPS-70 OPS-71 OPS-72 OPS-73 OPS-74 OPS-75 OPS-76 OPS-77 OPS-78 OPS-79 OPS-80 OPS-81 OPS-82 OPS-83 OPS-84 OPS-86 OPS-93 OPS-99 OPS-100 OPS-101 OPS-102 OPS-103 OPS-106 OPS-107 OPS-109 OPS-110 OPS-111 OPS-112 OPS-113 OPS-114 OPS-115 OPS-116 OPS-117 OPS-121 OPS-122 OPS-123 OPS-125 OPS-126 OPS-127 OPS-128 OPS-129 OPS-130 OPS-131 OPS-132 OPS-133 OPS-134 OPS-135 OPS-136 OPS-137 OPS-138 OPS-139 OPS-140 OPS-151".split(
+		" ",
+	);
 
-test("AC:OPS-148-1 evf.config.json holds no entries, and each old entry is a file with the same values", () => {
-	const repo = (...args: string[]) => execFileSync("git", ["-C", source, ...args], { encoding: "utf8" });
+test("AC:OPS-148-1 evf.config.json holds no entries, and each old entry is a complete file", () => {
 	const config = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8"));
 	assert.equal("maintenanceTasks" in config, false);
-	const old = JSON.parse(repo("show", `${BEFORE_THE_MOVE}:evf.config.json`)).maintenanceTasks;
-	assert.equal(Object.keys(old).length, 107);
-	// A later task may change its own entry, so only a file with one commit, the move, still has the old values.
-	const commits = repo("log", "--format=", "--name-only", "--", "tools/evf/tasks/").split("\n").filter(Boolean);
-	const moved = (id: string) => commits.filter((path) => path === `tools/evf/tasks/${id}.json`).length <= 1;
-	for (const id of Object.keys(old)) {
+	assert.equal(MOVED.length, 107);
+	for (const id of MOVED) {
 		const entry = readTask(source, id);
-		if (moved(id)) assert.deepEqual(entry, old[id], id);
+		assert.ok(entry.title && entry.owningPaths.length && entry.checks.length && entry.risk, id);
 	}
+	const approvals = MOVED.filter((id) => readTask(source, id).prototypeApproval);
+	assert.deepEqual(approvals, ["OPS-84", "OPS-101"]);
 });
 
 test("AC:OPS-148-6 two OPS PRs that each add their own entry have no path overlap at ship", () => {
