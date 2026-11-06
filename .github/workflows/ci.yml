@@ -78,7 +78,9 @@ jobs:
     env:
       EVF_MONITOR: github-actions-evf
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # The whole job took 11-15 min on recent green runs and was cancelled, tests still passing, at the old 15 min limit.
+    # A slow runner takes about 1.5x the 12.4 min run, so about 19 min. 25 leaves room without hiding a hang.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
