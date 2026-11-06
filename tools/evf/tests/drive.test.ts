@@ -5161,6 +5161,9 @@ test("the head lint refuses each form of an old-head claim and passes history, m
 			`Verified head ${short}, with before and after screenshots.`,
 			`All checks ran on head ${short} before I pushed.`,
 			`Round 1 is done. Verified at head ${short}.`,
+			`After the fix, verified at head ${short}.`,
+			`Head ${short} is verified.`,
+			`Head ${short} is the current head.`,
 		])
 			assert.match(lint(claim) ?? "", new RegExp(`names ${short}`), claim);
 		for (const fine of [
@@ -5180,6 +5183,19 @@ test("the head lint refuses each form of an old-head claim and passes history, m
 			`Merged main head ${onBase} into this branch.`,
 			`Verified that ${onBase.slice(0, 8)} introduced the bug.`,
 			`PR #450 head ${otherPr} showed the same failure.`,
+			`The independent Opus verifier reviewed head ${short} and asked for the Sign out fix; this round fixes it.`,
+			`Head ${short} is a plain merge of main.`,
+			`Head ${short} changes one file.`,
+			`Head ${short} merges main.`,
+			`Only main changed since head ${short}.`,
+			`Moved from head ${short} to the merge result.`,
+			`The merge moved head ${short} forward.`,
+			`The code is past head ${short}.`,
+			`Not verified at head ${short}.`,
+			`Verified that ${short} fixes defect 1 from review 1.`,
+			`Verified the test fails at ${short} and passes at HEAD.`,
+			`Verified round 1 head ${short} failed.`,
+			`Verified old head ${short} failed.`,
 		])
 			assert.equal(lint(fine), null, fine);
 		assert.match(lint("Verified head: {{EVF_HEAD}}") ?? "", /still holds \{\{EVF_HEAD\}\}/);

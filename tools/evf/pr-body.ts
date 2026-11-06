@@ -132,16 +132,23 @@ export function withBodyFile<T>(body: string, use: (file: string) => T): T {
 
 /**
  * A commit a verification section claims: `Verified head: <sha>`, `**Head:** <sha>`, `| Verified head | <sha> |`,
- * `Verified head: [<sha>](<url>)`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`.
+ * `Verified head: [<sha>](<url>)`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`. `Verified that <sha> fixes
+ * it` and `Verified the test fails at <sha>` say what a commit does, not which head was verified.
  */
 const NAMED_HEAD =
-	/\b(?:verified\b(?:[\s:*`]+[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
-/** History words before the head word, in its sentence: `earlier head <sha>`, `Round 1, at head <sha>`, `#388's head <sha>`. */
+	/\b(?:verified\b(?:[\s:*`]+(?!that\b|fails?\b|failed\b)[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
+/**
+ * Words before the head word, in its sentence, that make the head history: `earlier head <sha>`, `Round 1, at head <sha>`,
+ * `#388's head <sha>`. These words count only directly before it, so `After the fix, verified at head <sha>` stays a
+ * claim: `reviewed head <sha>`, `since head <sha>`, `from the head <sha>`, `not verified at <sha>`.
+ */
 const EARLIER_BEFORE =
-	/(?:\b(?:round \d|old|older|previous|prior|earlier|former|before)\b(?:\W+\w+){0,3}\W*|#\d+.s\s*)$/i;
-/** The same words inside the claim (`verified earlier at <sha>`), and a round right after the SHA (`head <sha> in round 0`). */
-const EARLIER_INSIDE = /\b(?:previous|prior|earlier|former)\b/i;
+	/(?:\b(?:round \d|old|older|previous|prior|earlier|former|before)\b(?:\W+\w+){0,3}\W*|#\d+.s\s*|\b(?:reviewed|since|from|past|moved)\s+(?:the\s+)?|\bnot\W*)$/i;
+/** The history words inside the claim (`verified round 1 head <sha>`), and a round right after the SHA (`head <sha> in round 0`). */
+const EARLIER_INSIDE = /\b(?:round \d|old|before|previous|prior|earlier|former)\b/i;
 const ROUND_AFTER = /^[`*\s,(]*(?:\w+\s+)?round \d/i;
+/** `Head <sha> is a plain merge` describes a commit. `Head <sha> is verified` still claims it. */
+const DESCRIBED_AFTER = /^[`*\s]*(?:is(?!\s+(?:the\s+)?(?:verified|green|current|tested)\b)|changes|merges)\b/i;
 
 /** Whether the claim at `match` calls its head history. A `before` elsewhere on the line, as in "before and after", does not. */
 function namesEarlierHead(text: string, match: RegExpExecArray | RegExpMatchArray): boolean {
@@ -151,8 +158,12 @@ function namesEarlierHead(text: string, match: RegExpExecArray | RegExpMatchArra
 				.slice(0, at)
 				.split(/[.;!?]\s/)
 				.at(-1) ?? "";
+	const after = text.slice(at + match[0].length);
 	return (
-		EARLIER_BEFORE.test(sentence) || EARLIER_INSIDE.test(match[0]) || ROUND_AFTER.test(text.slice(at + match[0].length))
+		EARLIER_BEFORE.test(sentence) ||
+		EARLIER_INSIDE.test(match[0]) ||
+		ROUND_AFTER.test(after) ||
+		(/^head/i.test(match[0]) && DESCRIBED_AFTER.test(after))
 	);
 }
 
