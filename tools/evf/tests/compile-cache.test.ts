@@ -14,6 +14,7 @@ import {
 	realpathSync,
 	rmSync,
 	statSync,
+	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -78,6 +79,28 @@ function hitsAndMisses(stderr: string) {
 
 const entries = (folder: string): string[] =>
 	readdirSync(folder, { recursive: true, encoding: "utf8" }).filter((p) => statSync(join(folder, p)).isFile());
+
+const BOUND_KB = 262144;
+
+/** The folder's size as the launcher measures it. */
+const sizeKb = (folder: string) => Number(spawnSync("du", ["-sk", folder], { encoding: "utf8" }).stdout.split("\t")[0]);
+
+/** Writes real 1 MB entries that are a day old, oldest first, and returns their paths in that order. */
+function seedEntries(folder: string, megabytes: number) {
+	const dir = join(folder, "v0-seeded"),
+		content = Buffer.alloc(1024 * 1024, 1),
+		start = Date.now() - 86_400_000;
+	mkdirSync(dir, { recursive: true });
+	return Array.from({ length: megabytes }, (_, i) => {
+		const path = join(dir, `entry-${i}`),
+			when = new Date(start + i * 1000);
+		writeFileSync(path, content);
+		utimesSync(path, when, when);
+		return path;
+	});
+}
+
+const PAST_BOUND_MB = 270;
 
 /** A fixture repository that tracks a copy of evf and has an empty `.git/evf` cache. */
 function evfRepo() {
@@ -194,13 +217,13 @@ test("an unwritable cache folder gives a normal run with the usual output and no
 	}
 });
 
-test("processes that start together on one empty cache all pass and fill it", async () => {
-	const { f, cache } = evfRepo();
+/** Runs six launchers that all reach evf's main.ts before any goes on, and asserts each passes with no added text. */
+async function startTogether(root: string) {
 	const count = 6,
 		arrived = mkdtempSync(join(tmpdir(), "evf-arrived-")),
 		barrier = `${arrived}.mjs`;
 	// Each evf process waits here until all have started, so they compile and save at the same time, whatever the load.
-	// The launcher's own Node version probe also loads this file, and passes through.
+	// The launcher's own Node version probe and its prune also load this file, and pass through.
 	writeFileSync(
 		barrier,
 		`import { readdirSync, writeFileSync } from "node:fs";
@@ -215,14 +238,13 @@ if (process.argv[1]?.endsWith("main.ts")) {
 `,
 	);
 	try {
-		assert.equal(existsSync(cache), false);
 		const runs = await Promise.all(
 			Array.from(
 				{ length: count },
 				() =>
 					new Promise<{ code: number | null; out: string; err: string }>((resolve, reject) => {
-						const child = spawn(join(f.root, "bin/evf"), ["help"], {
-							cwd: f.root,
+						const child = spawn(join(root, "bin/evf"), ["help"], {
+							cwd: root,
 							env: cleanEnv({ NODE_OPTIONS: `--import=${barrier}` }),
 						});
 						let out = "",
@@ -240,10 +262,138 @@ if (process.argv[1]?.endsWith("main.ts")) {
 			assert.match(run.out, new RegExp(`^${HELP}`));
 			assert.equal(run.err, "");
 		}
-		assert.ok(entries(cache).length > 0);
 	} finally {
 		rmSync(arrived, { recursive: true, force: true });
 		rmSync(barrier, { force: true });
+	}
+}
+
+test("processes that start together on one empty cache all pass and fill it", async () => {
+	const { f, cache } = evfRepo();
+	try {
+		assert.equal(existsSync(cache), false);
+		await startTogether(f.root);
+		assert.ok(entries(cache).length > 0);
+	} finally {
+		f.close();
+	}
+});
+
+test("processes that start together on a folder past the bound all pass and leave it under the bound", async () => {
+	const { f, cache } = evfRepo();
+	try {
+		seedEntries(cache, PAST_BOUND_MB);
+		assert.ok(sizeKb(cache) > BOUND_KB);
+		await startTogether(f.root);
+		assert.ok(sizeKb(cache) <= BOUND_KB);
+		assert.ok(
+			entries(cache).some((p) => !p.startsWith("v0-seeded")),
+			"the cache filled again",
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("a folder past the bound loses its oldest entries, and the next commands run normally and fill and hit the cache", () => {
+	const { f, cache } = evfRepo();
+	try {
+		const seeded = seedEntries(cache, PAST_BOUND_MB);
+		assert.ok(sizeKb(cache) > BOUND_KB);
+
+		const r = launch(f.root);
+		assert.equal(r.status, 0, r.stderr);
+		assert.match(r.stdout, new RegExp(`^${HELP}`));
+		assert.equal(r.stderr, "");
+		assert.ok(sizeKb(cache) <= BOUND_KB);
+		const kept = seeded.findIndex((path) => existsSync(path));
+		assert.ok(kept > 0, "entries were removed");
+		assert.deepEqual(
+			seeded.filter((path) => existsSync(path)),
+			seeded.slice(kept),
+			"the oldest went first, and the newest stayed",
+		);
+		assert.ok(
+			entries(cache).some((p) => !p.startsWith("v0-seeded")),
+			"the run filled the cache again",
+		);
+
+		const next = launch(f.root, debug);
+		assert.equal(next.status, 0, next.stderr);
+		assert.match(next.stdout, new RegExp(`^${HELP}`));
+		assert.ok(hitsAndMisses(next.stderr).hits.some((file) => file.endsWith("tools/evf/main.ts")));
+	} finally {
+		f.close();
+	}
+});
+
+test("a folder under the bound keeps its entries and still gets hits", () => {
+	const { f, cache } = evfRepo();
+	try {
+		const seeded = seedEntries(cache, 100);
+		assert.equal(launch(f.root).status, 0);
+		const { hits, misses } = hitsAndMisses(launch(f.root, debug).stderr);
+		assert.ok(hits.length > 0);
+		assert.deepEqual(misses, []);
+		assert.ok(seeded.every((path) => existsSync(path)));
+	} finally {
+		f.close();
+	}
+});
+
+test("a folder the caller set, or a cache turned off, is not pruned", () => {
+	const { f, cache } = evfRepo();
+	try {
+		const mine = join(realpathSync(f.root), ".git/caller-cache");
+		const theirs = seedEntries(mine, PAST_BOUND_MB);
+		assert.equal(launch(f.root, { NODE_COMPILE_CACHE: mine }).status, 0);
+		assert.ok(theirs.every((path) => existsSync(path)));
+		assert.ok(
+			entries(mine).some((p) => !p.startsWith("v0-seeded")),
+			"Node still used the caller's folder",
+		);
+		assert.equal(existsSync(cache), false);
+
+		const ours = seedEntries(cache, PAST_BOUND_MB);
+		assert.equal(launch(f.root, { NODE_DISABLE_COMPILE_CACHE: "1" }).status, 0);
+		assert.ok(ours.every((path) => existsSync(path)));
+	} finally {
+		f.close();
+	}
+});
+
+test("an unwritable folder past the bound gives a normal run with the usual output", () => {
+	const { f, cache } = evfRepo();
+	const usual = launch(f.root, { NODE_DISABLE_COMPILE_CACHE: "1" });
+	const seeded = seedEntries(cache, PAST_BOUND_MB),
+		version = join(cache, "v0-seeded");
+	chmodSync(version, 0o555);
+	chmodSync(cache, 0o555);
+	try {
+		assert.throws(() => accessSync(version, constants.W_OK), /EACCES/, "the folder is really unwritable");
+		const r = launch(f.root);
+		assert.equal(r.status, 0, r.stderr);
+		assert.equal(r.stdout, usual.stdout);
+		assert.equal(r.stderr, usual.stderr);
+		assert.ok(seeded.every((path) => existsSync(path)));
+	} finally {
+		chmodSync(cache, 0o755);
+		chmodSync(version, 0o755);
+		f.close();
+	}
+});
+
+test("a prune that cannot run gives a normal run with the usual output", () => {
+	const { f, cache } = evfRepo();
+	const usual = launch(f.root, { NODE_DISABLE_COMPILE_CACHE: "1" });
+	seedEntries(cache, PAST_BOUND_MB);
+	rmSync(join(f.root, "tools/evf/compile-cache-prune.ts"));
+	try {
+		const r = launch(f.root);
+		assert.equal(r.status, 0, r.stderr);
+		assert.equal(r.stdout, usual.stdout);
+		assert.equal(r.stderr, usual.stderr);
+	} finally {
 		f.close();
 	}
 });

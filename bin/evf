@@ -17,6 +17,14 @@ fi
 if [ -z "${NODE_COMPILE_CACHE+set}" ] && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
   if common=$(git -C "$here" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
     export NODE_COMPILE_CACHE="$common/evf/node-compile-cache"
+    # Past 256 MB, drop the oldest entries down to 128 MB. This never fails the command or prints anything.
+    if [ -z "${NODE_DISABLE_COMPILE_CACHE:-}" ]; then
+      cache_kb=$({ du -sk "$NODE_COMPILE_CACHE" | cut -f1; } 2>/dev/null) || cache_kb=0
+      if [ "${cache_kb:-0}" -gt 262144 ] 2>/dev/null; then
+        NODE_DISABLE_COMPILE_CACHE=1 "$node_bin" --disable-warning=ExperimentalWarning \
+          "$here/tools/evf/compile-cache-prune.ts" "$NODE_COMPILE_CACHE" 131072 >/dev/null 2>&1 || true
+      fi
+    fi
   fi
 fi
 exec "$node_bin" --disable-warning=ExperimentalWarning "$here/tools/evf/main.ts" "$@"
