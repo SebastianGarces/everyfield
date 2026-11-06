@@ -6,7 +6,7 @@ import { mkdtempSync, cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve, join } from "node:path";
 import { loadDag } from "../lib.ts";
-import { fixture } from "./fixtures.ts";
+import { fixture, setTasks, readTask, writeTask } from "./fixtures.ts";
 import { parseTask, evfDataDir, loadConfig, runtimeDir } from "../lib.ts";
 import { feedbackTriage } from "../feedback.ts";
 import { verify } from "../verify.ts";
@@ -268,7 +268,7 @@ test("BUG-ops6-principles-target: principles --apply writes the task worktree an
 		};
 		f.setState(state);
 		(f.cfg as Record<string, unknown>).principles = { repo, path: "pstack/skills", prefix: "principle-", ref: "main" };
-		f.cfg.maintenanceTasks = {
+		f.tasks = {
 			"OPS-1": {
 				title: "Principle refresh",
 				owningPaths: [".agents/skills/", "skills-lock.json"],
@@ -277,6 +277,7 @@ test("BUG-ops6-principles-target: principles --apply writes the task worktree an
 		};
 		writeFileSync(join(f.root, "skills-lock.json"), '{"version":1,"skills":{}}\n');
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		setTasks(f.root, f.tasks);
 		f.git("add", "skills-lock.json");
 		f.commit();
 		const wt = f.task("ops-1"),
@@ -498,9 +499,7 @@ test("INV-design-route: a design task owns only design/, waits after the verifie
 	try {
 		// The registration under check is the one committed on the task branch.
 		const commitScope = (next: Record<string, unknown>) => {
-			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
-			cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
-			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+			writeTask(f.wt, f.taskRef.id, { ...readTask(f.wt, f.taskRef.id), ...next });
 			execFileSync("git", ["-C", f.wt, "commit", "-qam", "Change the registration"]);
 		};
 		commitScope({ owningPaths: ["design/"], route: undefined });
@@ -565,9 +564,7 @@ const PROTOTYPE_APPROVAL = { quote: "Evry is good to go", approvedAt: "2026-10-3
 /** A design task whose branch changes the prototype under the given registration, pushed with its PR at that head. */
 function prototypeFixture(next: Record<string, unknown>) {
 	const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
-	const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
-	cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
-	writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+	writeTask(f.wt, f.taskRef.id, { ...readTask(f.wt, f.taskRef.id), ...next });
 	mkdirSync(join(f.wt, "design"), { recursive: true });
 	writeFileSync(join(f.wt, "design/everyfield-ui.html"), "<!-- changed prototype -->\n");
 	execFileSync("git", ["-C", f.wt, "add", "-A"]);
@@ -585,9 +582,7 @@ test("INV-prototype-approval: maintenanceScope refuses a malformed prototypeAppr
 	const refuse = (next: Record<string, unknown>, message: RegExp) => {
 		const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
 		try {
-			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
-			cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
-			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+			writeTask(f.wt, f.taskRef.id, { ...readTask(f.wt, f.taskRef.id), ...next });
 			execFileSync("git", ["-C", f.wt, "commit", "-qam", "Change the registration"]);
 			assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), message);
 		} finally {
@@ -660,17 +655,35 @@ test("INV-prototype-approval: evf approve reads the entry at the PR head", () =>
 	}
 });
 
+test("AC:OPS-148-7 a design PR may change its own entry file, and no other task's or evf.config.json", () => {
+	const d = prototypeFixture({ owningPaths: ["design/everyfield-ui.html"], prototypeApproval: PROTOTYPE_APPROVAL });
+	const ask = () => approve(d.root, 77, { ownerApproval: "Approved for this PR" });
+	const files = (...paths: string[]) => {
+		const s = d.getState();
+		s.pr.files = paths.map((path) => ({ path }));
+		d.setState(s);
+	};
+	try {
+		const own = `tools/evf/tasks/${d.taskRef.id}.json`;
+		files("design/everyfield-ui.html", own);
+		assert.throws(ask, /Missing verifier approval for the exact PR head/);
+		for (const path of ["tools/evf/tasks/OPS-2.json", "evf.config.json"]) {
+			files("design/everyfield-ui.html", own, path);
+			assert.throws(ask, new RegExp(`outside its owning paths or design/everyfield-ui.html \\(${path}\\)`));
+		}
+	} finally {
+		d.close();
+	}
+});
+
 test("INV-prototype-approval: an approval only in the home checkout does not allow the change", () => {
 	const f = prototypeFixture({ owningPaths: ["design/everyfield-ui.html"] });
 	try {
-		const path = join(f.root, "evf.config.json");
-		const home = JSON.parse(readFileSync(path, "utf8"));
-		home.maintenanceTasks[f.taskRef.id] = {
-			...home.maintenanceTasks[f.taskRef.id],
+		writeTask(f.root, f.taskRef.id, {
+			...readTask(f.root, f.taskRef.id),
 			owningPaths: ["design/everyfield-ui.html"],
 			prototypeApproval: PROTOTYPE_APPROVAL,
-		};
-		writeFileSync(path, JSON.stringify(home));
+		});
 		assert.throws(() => verify(f.root, f.taskRef, "author", "full"), /keeps its approved bytes/);
 		assert.throws(
 			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, writeTask } from "./fixtures.ts";
 import { parseTask, runtimeDir } from "../lib.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { escape, soak, soakPath, uiEscapedGate, type PrRead } from "../escape.ts";
@@ -120,10 +120,10 @@ test("OPS-114-1: evf escape --task stores the words, PR, head and Done template 
 		// A row without an ask gets the block alone.
 		output(() => escape(f.root, { pr: 394, what: "words", task: "WP-038/ui" }, { readPr: () => open }));
 		assert.equal(f.rows().find((r) => r.ref === "WP-038/ui")!.ask, block(394, HEAD, "PR head", "words"));
-		// OPS-114-4: no OPS id is reserved, no OPS row is filed, no maintenanceTasks entry prints, evf.config.json is untouched.
+		// OPS-114-4: no OPS id is reserved, no OPS row is filed, no maintenance entry prints, evf.config.json is untouched.
 		assert.deepEqual(f.reservations(), []);
 		assert.equal(f.rows().filter((r) => r.ref.startsWith("OPS-")).length, 0);
-		assert.doesNotMatch(out, /maintenanceTasks|owningPaths|OPS-/);
+		assert.doesNotMatch(out, /tools\/evf\/tasks|owningPaths|OPS-/);
 		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);
 		assert.equal(out.trim().split("\n").at(-1), "WP-037/ui");
 	} finally {
@@ -219,17 +219,12 @@ function opsTask(f: ReturnType<typeof fixture>) {
 	f.commit();
 	const wt = f.task("ops-900"),
 		task = parseTask("OPS-900");
-	const cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-	cfg.maintenanceTasks = {
-		...cfg.maintenanceTasks,
-		"OPS-900": {
-			title: "Escape fixture",
-			owningPaths: ["tools/evf/"],
-			checks: [{ name: "own", run: [process.execPath, "-e", ""] }],
-		},
-	};
-	writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
-	f.git("-C", wt, "add", "evf.config.json");
+	writeTask(wt, "OPS-900", {
+		title: "Escape fixture",
+		owningPaths: ["tools/evf/"],
+		checks: [{ name: "own", run: [process.execPath, "-e", ""] }],
+	});
+	f.git("-C", wt, "add", "tools/evf/tasks");
 	f.git("-C", wt, "commit", "-qm", "Register OPS-900");
 	const commit = (path: string, text: string) => {
 		mkdirSync(join(wt, path, ".."), { recursive: true });

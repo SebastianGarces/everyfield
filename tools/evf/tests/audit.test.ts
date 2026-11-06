@@ -469,7 +469,7 @@ test("AC:OPS-116-5 four outcomes on stub tests: killed, survived, baseline-red, 
 	}
 });
 
-test("AC:OPS-116-6 a survivor files one new OPS task whose stored ask is exact, and prints its maintenanceTasks entry", () => {
+test("AC:OPS-116-6 AC:OPS-148-5 a survivor files one new OPS task whose stored ask is exact, and prints its entry file and path", () => {
 	const f = setup();
 	try {
 		const config = createHash("sha256")
@@ -516,11 +516,19 @@ Filed by \`evf audit\` (OPS-116). One planted bug survived every marked test of 
    Check: \`bin/evf audit --task OPS-901 --mutation ${drop}\` reports \`killed\`.
 `,
 		);
-		assert.ok(
-			r.out.includes(
-				`"${id}": {\n    "title": "Answer key for OPS-901 missed dropped-call in packages/calc/src/adult.mjs:6",\n    "owningPaths": [\n      "tests/"\n    ],`,
-			),
-		);
+		// AC:OPS-148-5 the entry and its path, and the command writes no entry file.
+		assert.ok(r.out.includes(`on ${id}'s branch as tools/evf/tasks/${id}.json (evf audit writes no file):\n{`), r.out);
+		const printed = r.out.slice(r.out.indexOf("{", r.out.indexOf(`tools/evf/tasks/${id}.json`)));
+		assert.deepEqual(JSON.parse(printed), {
+			title: "Answer key for OPS-901 missed dropped-call in packages/calc/src/adult.mjs:6",
+			owningPaths: ["tests/"],
+			checks: [
+				{ name: "documentation", run: ["python3", "docs/check-all.py"] },
+				{ name: "package-unit-tests", run: ["corepack", "pnpm", "-r", "--if-present", "test:unit"] },
+			],
+			risk: "ordinary",
+		});
+		assert.equal(existsSync(join(f.root, `tools/evf/tasks/${id}.json`)), false);
 		assert.equal(
 			createHash("sha256")
 				.update(readFileSync(join(f.root, "evf.config.json")))

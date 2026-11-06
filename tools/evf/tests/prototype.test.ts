@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, sessionStartJs, source } from "./fixtures.ts";
+import { fixture, sessionStartJs, source, setTasks } from "./fixtures.ts";
 import { openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { driveOnce, runDone } from "../drive.ts";
 import { parseTask } from "../lib.ts";
@@ -34,8 +34,8 @@ const HANDOFF =
 function protoFixture() {
 	const f = fixture(),
 		task = parseTask("OPS-1");
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Proto", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Proto", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const calls = join(f.root, "herdr-calls.json");
 	writeFileSync(calls, "[]");

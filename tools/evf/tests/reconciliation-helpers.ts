@@ -1,5 +1,5 @@
 import { dirname, resolve, join } from "node:path";
-import { fixture } from "./fixtures.ts";
+import { fixture, setTasks } from "./fixtures.ts";
 import { parseTask, evfDataDir } from "../lib.ts";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -79,10 +79,10 @@ export const approvedExperience = { verdict: "approved", budget: "met" };
 export function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/evf/"] }) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		[task.id]: { title: "Workflow upkeep", checks: f.cfg.checks, ...scope },
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const bare = f.bare(join(f.root, "fake-bin/origin.git"));
 	f.git("remote", "add", "origin", bare);

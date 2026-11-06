@@ -19,7 +19,7 @@ import {
 	hasRemote,
 	loadContexts,
 	loadConfig,
-tmaintenanceEntryPath,
+	maintenanceEntryPath,
 	parseTask,
 	run,
 	type Config,

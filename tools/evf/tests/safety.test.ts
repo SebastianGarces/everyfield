@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks, readTask, writeTask } from "./fixtures.ts";
 import { evfDataDir, git, parseTask } from "../lib.ts";
 import { verify } from "../verify.ts";
 import { prOpen } from "../ship.ts";
@@ -22,14 +22,14 @@ import { taskStart } from "../task.ts";
 
 function setup(script = "console.log(process.cwd())") {
 	const f = fixture();
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": {
 			title: "Safety",
 			owningPaths: ["tools/evf/", "evf.config.json"],
 			checks: [{ name: "check", run: [process.execPath, "-e", script] }],
 		},
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const wt = f.task("ops-1"),
 		task = parseTask("OPS-1");
@@ -157,11 +157,10 @@ console.log('built');`);
 		assert.equal(readFileSync(attempts, "utf8"), "2");
 		assert.match(readFileSync(report.checks[1].log, "utf8"), /Retry.*Next build lock/);
 		const run = (error: string) => {
-			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
-			cfg.maintenanceTasks["OPS-1"].checks[0].run[2] =
-				`const fs=require('node:fs');const p=${JSON.stringify(attempts)};fs.writeFileSync(p,String(Number(fs.readFileSync(p,'utf8'))+1));console.error(${JSON.stringify(error)});process.exit(1)`;
-			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
-			git(f.wt, "add", "evf.config.json");
+			const entry = readTask(f.wt, "OPS-1");
+			entry.checks[0].run[2] = `const fs=require('node:fs');const p=${JSON.stringify(attempts)};fs.writeFileSync(p,String(Number(fs.readFileSync(p,'utf8'))+1));console.error(${JSON.stringify(error)});process.exit(1)`;
+			writeTask(f.wt, "OPS-1", entry);
+			git(f.wt, "add", "tools/evf/tasks");
 			git(f.wt, "commit", "-qm", "Failing provider");
 			writeFileSync(attempts, "0");
 			return verify(f.root, f.task, "author", "full");
@@ -183,8 +182,8 @@ test("BUG-OPS9-node: checks launched from a Node 22 shell inherit evf's Node 24"
 		const node22 = join(f.root, "fake-bin/node");
 		writeFileSync(node22, '#!/bin/sh\nif [ "$1" = "-e" ]; then exit 1; fi\necho v22.16.0\n');
 		chmodSync(node22, 0o755);
-		f.cfg.maintenanceTasks["OPS-1"].checks[0].run = ["sh", "-c", "node --version"];
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.tasks["OPS-1"].checks[0].run = ["sh", "-c", "node --version"];
+		setTasks(f.root, f.tasks);
 		f.commit();
 		git(f.wt, "merge", "--ff-only", "main");
 		const home = join(f.root, "fake-bin/home");
@@ -273,7 +272,7 @@ test("BUG-OPS9-gc: dry run and apply preserve active tasks, open PRs and live pr
 	}
 });
 
-test("BUG-home-registration: an OPS task registers on its own branch and verifies without touching the home config", () => {
+test("BUG-home-registration AC:OPS-148-3 AC:OPS-148-4: an OPS task registers on its own branch and verifies without touching the home config", () => {
 	const f = fixture();
 	try {
 		const home = readFileSync(join(f.root, "evf.config.json")),
@@ -283,19 +282,15 @@ test("BUG-home-registration: an OPS task registers on its own branch and verifie
 			/Commit the reviewed OPS-900 entry .* on the task branch/,
 		);
 		const wt = join(f.root, ".worktrees/ops-900"),
-			cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-		cfg.maintenanceTasks = {
-			...cfg.maintenanceTasks,
-			"OPS-900": {
+			entry = {
 				title: "Branch registration",
 				owningPaths: ["tools/evf/"],
 				checks: [{ name: "check", run: [process.execPath, "-e", "console.log('branch check ran')"] }],
-			},
-		};
-		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+			};
+		writeTask(wt, "OPS-900", entry);
 		mkdirSync(join(wt, "tools/evf"), { recursive: true });
 		writeFileSync(join(wt, "tools/evf/change.ts"), "export {};\n");
-		git(wt, "add", "evf.config.json", "tools/evf/change.ts");
+		git(wt, "add", "tools/evf/tasks", "tools/evf/change.ts");
 		git(wt, "commit", "-qm", "Register OPS-900 and change tooling");
 		assert.match(
 			capture(() => taskStart(f.root, task, { allowUnready: false, noStack: true })),
@@ -304,20 +299,39 @@ test("BUG-home-registration: an OPS task registers on its own branch and verifie
 		const report = verify(f.root, task, "author", "full");
 		assert.equal(report.passed, true);
 		assert.match(readFileSync(report.checks[1].log, "utf8"), /branch check ran/);
-		// Owning evf.config.json never waives the rule: the branch still changes only its own entry.
-		cfg.maintenanceTasks["OPS-900"].owningPaths = ["tools/evf/", "evf.config.json"];
-		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+		// Owning the file or the folder waives no rule: the branch changes only its own entry.
+		writeTask(wt, "OPS-900", { ...entry, owningPaths: ["tools/evf/", "evf.config.json"] });
 		git(wt, "commit", "-qam", "Own the config file");
 		assert.equal(verify(f.root, task, "author", "full").passed, true);
-		for (const edit of [
-			(c: any) => (c.checks = []),
-			(c: any) => (c.maintenanceTasks["OPS-1"] = { ...c.maintenanceTasks["OPS-1"], owningPaths: ["tools/evf/"] }),
-		]) {
-			const other = structuredClone(cfg);
-			edit(other);
-			writeFileSync(join(wt, "evf.config.json"), JSON.stringify(other));
-			git(wt, "commit", "-qam", "Change another task's entry or another config key");
-			assert.throws(() => verify(f.root, task, "author", "full"), /outside its reviewed owning paths/);
+		const config = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
+		const refusals: Array<[string, RegExp, () => void]> = [
+			// AC:OPS-148-3 another task's entry file.
+			[
+				"changes another task's entry",
+				/outside its reviewed owning paths: tools\/evf\/tasks\/OPS-1\.json\./,
+				() => writeTask(wt, "OPS-1", { ...readTask(wt, "OPS-1"), owningPaths: ["tools/evf/"] }),
+			],
+			[
+				"adds another task's entry",
+				/outside its reviewed owning paths: tools\/evf\/tasks\/OPS-901\.json\./,
+				() => writeTask(wt, "OPS-901", entry),
+			],
+			// AC:OPS-148-4 a machineLoad key in evf.config.json.
+			[
+				"adds machineLoad",
+				/outside its reviewed owning paths: evf\.config\.json\./,
+				() =>
+					writeFileSync(
+						join(wt, "evf.config.json"),
+						JSON.stringify({ ...config, machineLoad: { maxPerCore: 99, maxWaitMinutes: 0 } }),
+					),
+			],
+		];
+		for (const [what, refusal, edit] of refusals) {
+			edit();
+			git(wt, "add", "-A");
+			git(wt, "commit", "-qm", what);
+			assert.throws(() => verify(f.root, task, "author", "full"), refusal, what);
 			git(wt, "reset", "-q", "--hard", "HEAD~1");
 		}
 		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);

@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join, isAbsolute } from "node:path";
 import { buildBlocks, renderBlocks } from "../plan.ts";
 import { loadDag, loadRegistry } from "../lib.ts";
-import { fixture } from "./fixtures.ts";
+import { fixture, setTasks } from "./fixtures.ts";
 import { nextStage } from "../drive.ts";
 import { parseTask, evfDataDir, evidenceDir, loadConfig, independentReview } from "../lib.ts";
 import {
@@ -774,8 +774,8 @@ test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledge
 		task = parseTask("OPS-1");
 	try {
 		for (const owningPaths of [["docs/plan/", "docs/build-progress.json"], ["docs/"]]) {
-			f.cfg.maintenanceTasks = { [task.id]: { title: "Plan review", owningPaths, checks: f.cfg.checks } };
-			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.tasks = { [task.id]: { title: "Plan review", owningPaths, checks: f.cfg.checks } };
+			setTasks(f.root, f.tasks);
 			f.commit();
 			assert.throws(
 				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
@@ -783,8 +783,8 @@ test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledge
 			);
 			assert.equal(f.git("branch", "--list", "task/*"), "");
 		}
-		f.cfg.maintenanceTasks![task.id].owningPaths = ["docs/build-progress.json"];
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.tasks[task.id].owningPaths = ["docs/build-progress.json"];
+		setTasks(f.root, f.tasks);
 		f.commit();
 		requireTaskScope(f.root, f.root, task);
 		const wt = f.task(task.slug),
@@ -802,18 +802,18 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 		task = parseTask("OPS-1");
 	try {
 		mkdirSync(join(f.root, "docs/tooling"));
-		f.cfg.maintenanceTasks = {
+		f.tasks = {
 			[task.id]: { title: "Workflow upkeep", owningPaths: ["docs/tooling"], checks: f.cfg.checks },
 		};
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		setTasks(f.root, f.tasks);
 		f.commit();
 		assert.throws(
 			() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
 			/docs\/tooling is a folder; use docs\/tooling\//,
 		);
 		assert.equal(f.git("branch", "--list", "task/*"), "");
-		f.cfg.maintenanceTasks[task.id].owningPaths = ["docs"];
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.tasks[task.id].owningPaths = ["docs"];
+		setTasks(f.root, f.tasks);
 		f.commit();
 		assert.throws(
 			() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
@@ -831,8 +831,8 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			"scripts/",
 			"tests/ui/",
 		]) {
-			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
-			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.tasks[task.id].owningPaths = [path];
+			setTasks(f.root, f.tasks);
 			f.commit();
 			assert.throws(
 				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
@@ -850,8 +850,8 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			"everyfield-feature-review.html",
 			"design/handoff/screens.md",
 		]) {
-			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
-			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.tasks[task.id].owningPaths = [path];
+			setTasks(f.root, f.tasks);
 			f.commit();
 			assert.equal(taskStart(f.root, task, { allowUnready: false, noStack: true }), 0);
 			assert.equal(f.git("branch", "--list", "--format=%(refname:short)", "task/*"), "task/ops-1");

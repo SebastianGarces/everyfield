@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import os from "node:os";
 import { syncBuiltinESMExports } from "node:module";
 import { DatabaseSync } from "node:sqlite";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, readTask, writeTask } from "./fixtures.ts";
 import { check } from "../drive.ts";
 import { ensureTask, openWorkDb, record, workDbPath } from "../db.ts";
 import { evidenceDir, parseTask } from "../lib.ts";
@@ -87,13 +87,8 @@ function withRun<T>(run: string | undefined, fn: () => T): T {
 function opsTask(f: Fixture, checks: Check[], opts: { known?: boolean; owning?: string[] } = {}) {
 	const wt = f.task("ops-900"),
 		task = parseTask("OPS-900");
-	const cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-	cfg.maintenanceTasks = {
-		...cfg.maintenanceTasks,
-		"OPS-900": { title: "Signals fixture", owningPaths: opts.owning ?? ["tools/evf/"], checks },
-	};
-	writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
-	f.git("-C", wt, "add", "evf.config.json");
+	writeTask(wt, "OPS-900", { title: "Signals fixture", owningPaths: opts.owning ?? ["tools/evf/"], checks });
+	f.git("-C", wt, "add", "tools/evf/tasks");
 	f.git("-C", wt, "commit", "-qm", "Register OPS-900");
 	const db = openWorkDb(f.root);
 	const taskId = opts.known === false ? -1 : ensureTask(db, task, "implement").id;
@@ -334,9 +329,7 @@ test("AC:OPS-132-2 result covers invalidated and a throw, and a suite's time inc
 		assert.equal(stored(f).at(-1)!.payload.result, "passed");
 
 		const setChecks = (checks: Check[]) => {
-			const cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-			cfg.maintenanceTasks["OPS-900"].checks = checks;
-			writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+			writeTask(wt, "OPS-900", { ...readTask(wt, "OPS-900"), checks });
 			f.git("-C", wt, "commit", "-qam", "Change checks");
 		};
 		setChecks([{ name: "dirties", run: node('require("node:fs").writeFileSync("stray","x")') }]);
@@ -679,16 +672,17 @@ test("AC:OPS-132-6 hasVerifiedHead and pre-push read only the current path", () 
 
 		// A real rerun: failing first, then passing, reads the newest.
 		const flip = join(f.root, "flip");
-		const cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-		cfg.maintenanceTasks["OPS-900"].checks = [
-			{
-				name: "flips",
-				run: node(
-					`const fs=require("node:fs");const p=${JSON.stringify(flip)};if(!fs.existsSync(p)){fs.writeFileSync(p,"");process.exit(1)}`,
-				),
-			},
-		];
-		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+		writeTask(wt, "OPS-900", {
+			...readTask(wt, "OPS-900"),
+			checks: [
+				{
+					name: "flips",
+					run: node(
+						`const fs=require("node:fs");const p=${JSON.stringify(flip)};if(!fs.existsSync(p)){fs.writeFileSync(p,"");process.exit(1)}`,
+					),
+				},
+			],
+		});
 		f.git("-C", wt, "commit", "-qam", "Flip check");
 		const run = () => withRun(undefined, () => quiet(() => verify(f.root, task, "author", "full"))).value;
 		assert.equal(run().passed, false);

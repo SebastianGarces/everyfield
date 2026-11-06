@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { cli, fakeClock, fixture, sessionStartJs, source } from "./fixtures.ts";
+import { cli, fakeClock, fixture, sessionStartJs, source, setTasks } from "./fixtures.ts";
 import { ensureTask, openWorkDb, record, syncGoals, workDbPath } from "../db.ts";
 import { drive, driveOnce, taskReopen } from "../drive.ts";
 import { evfDataDir, evidenceDir, git, parseTask, runtimeDir } from "../lib.ts";
@@ -36,13 +36,13 @@ function brakeFixture(
 		opts.prepare(f.root);
 		f.git("add", "-A", "scripts", "tests");
 	}
-	f.cfg.maintenanceTasks = Object.fromEntries(
+	f.tasks = Object.fromEntries(
 		refs.map((ref) => [
 			ref,
 			{ title: "Brake", owningPaths: ["tools/evf/", "tests/workflow/"], checks: [opts.check ?? brokenCheck()] },
 		]),
 	);
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const calls = join(f.root, "herdr-calls.json");
 	writeFileSync(calls, "[]");

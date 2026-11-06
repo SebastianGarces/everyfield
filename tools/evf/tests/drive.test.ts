@@ -31,6 +31,8 @@ import {
 	STORE_LATEST,
 	STORE_MIGRATIONS,
 	writeTranscript,
+	setTasks,
+	readTask,
 } from "./fixtures.ts";
 import {
 	ensureTask,
@@ -135,8 +137,8 @@ function driveFixture(opts: { failWhenFile?: string; failFullOnly?: boolean; nes
 				}
 			: undefined;
 	const checks = first ? [first, ...f.cfg.checks.slice(1)] : f.cfg.checks;
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const wt = f.task("ops-1");
 	const herdr = fakeHerdr(f.root);
@@ -1678,11 +1680,7 @@ const askFile = (f: ReturnType<typeof driveFixture>, text: string) => {
 	writeFileSync(file, text);
 	return { askFile: file };
 };
-const renamedEntry = (text: string, id: string) => {
-	const cfg = JSON.parse(text);
-	cfg.maintenanceTasks[id] = { title: "Changed by main", owningPaths: ["tools/evf/"], checks: [] };
-	return JSON.stringify(cfg);
-};
+const changedEntry = () => JSON.stringify({ title: "Changed by main", owningPaths: ["tools/evf/"], checks: [] });
 
 const storeSpec = (f: ReturnType<typeof driveFixture>, spec: string) => {
 	const file = join(f.root, "fake-bin/spec.md");
@@ -1772,14 +1770,14 @@ test(
 				["prBody"],
 				() => writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), `${prBody()}\nA new claim.`),
 			],
-			["the task's contract", ["contract"], merged("evf.config.json", (text) => renamedEntry(text, "OPS-1"))],
+			["the task's contract", ["contract"], merged("tools/evf/tasks/OPS-1.json", changedEntry)],
 			[
 				"the checks config",
 				["contract"],
 				merged("evf.config.json", (text) => JSON.stringify({ ...JSON.parse(text), checks: [] })),
 			],
 			// What no approval judged moves nothing.
-			["another task's entry", [], merged("evf.config.json", (text) => renamedEntry(text, "OPS-9"))],
+			["another task's entry", [], merged("tools/evf/tasks/OPS-9.json", changedEntry)],
 			[
 				"an AC row evf wrote",
 				[],
@@ -4782,8 +4780,7 @@ routed(
 		assert.notEqual(shipped.status, 0);
 		assert.match(shipped.stderr, /Required GitHub CI must be green on the exact PR head: ci failed/);
 		assert.equal(f.taskRow().status, "held_external");
-		const config = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8"));
-		const paths: string[] = config.maintenanceTasks["OPS-135"].owningPaths;
+		const paths: string[] = readTask(source, "OPS-135").owningPaths;
 		assert.deepEqual(
 			paths.filter((p) => "tools/evf/ship.ts".startsWith(p)),
 			[],

@@ -13,7 +13,7 @@ import {
 	git,
 	independentReview,
 	loadDag,
-tmaintenanceEntryPath,
+	maintenanceEntryPath,
 	packageContext,
 	readJson,
 	readParty,

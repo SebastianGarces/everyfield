@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks, readTask, writeTask } from "./fixtures.ts";
 import { approvedExperience, approvedQuality, mergeFixture, VERIFIER } from "./reconciliation-helpers.ts";
 import { liveFamily, type Process } from "../check-watch.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
@@ -29,10 +29,11 @@ const longCheck = (name: string, first: string, limitMs = 40_000): Check => ({
 function setup() {
 	const f = fixture();
 	f.cfg.checks = f.cfg.checks.map((c: Check) => (c.name === "format" ? { ...c, run: node("") } : c));
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": { title: "Checks", owningPaths: ["tools/evf/", "evf.config.json"], checks: [] },
 	};
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	writeFileSync(join(f.root, ".gitignore"), "node_modules/\n.env*\n");
 	f.git("add", ".gitignore");
 	f.commit();
@@ -43,11 +44,8 @@ function setup() {
 	ensureTask(db, task, "implement");
 	db.close();
 	const use = (checks: Check[]) => {
-		const config = join(wt, "evf.config.json"),
-			cfg = JSON.parse(readFileSync(config, "utf8"));
-		cfg.maintenanceTasks["OPS-1"].checks = checks;
-		writeFileSync(config, JSON.stringify(cfg));
-		f.git("-C", wt, "add", "evf.config.json");
+		writeTask(wt, "OPS-1", { ...readTask(wt, "OPS-1"), checks });
+		f.git("-C", wt, "add", "tools/evf/tasks");
 		f.git("-C", wt, "commit", "-qm", "Set the checks");
 		return f.git("-C", wt, "rev-parse", "HEAD");
 	};
@@ -392,12 +390,9 @@ function shipAfterMainMove(path: string) {
 		`const {execSync:x}=require("node:child_process"),r=${JSON.stringify(f.root)};` +
 		`require("node:fs").appendFileSync(r+"/"+${JSON.stringify(path)},"Main line.\\n");` +
 		`x("git add "+${JSON.stringify(path)}+" && git commit -qm Main && git push -q origin main",{cwd:r})`;
-	const config = join(f.wt, "evf.config.json"),
-		cfg = JSON.parse(readFileSync(config, "utf8"));
-	cfg.maintenanceTasks["OPS-1"].checks = [{ name: "move", run: node(move) }];
-	writeFileSync(config, JSON.stringify(cfg));
+	writeTask(f.wt, "OPS-1", { ...readTask(f.wt, "OPS-1"), checks: [{ name: "move", run: node(move) }] });
 	writeFileSync(join(f.wt, "README.md"), `PR line.\n${readFileSync(join(f.wt, "README.md"), "utf8")}`);
-	inWt("add", "evf.config.json", "README.md");
+	inWt("add", "tools/evf/tasks", "README.md");
 	inWt("commit", "-qm", "Work");
 	const head = inWt("rev-parse", "HEAD");
 	const verified = cli(f.wt, {}, "verify", "OPS-1");

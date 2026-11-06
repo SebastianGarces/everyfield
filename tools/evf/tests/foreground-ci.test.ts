@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 
 function cli(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}, detached = false) {
 	return spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
@@ -17,7 +17,7 @@ function cli(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}, detached 
 test("BUG-OPS10-foreground: detached checks refuse before work; explicit supervision waits for the result", () => {
 	const f = fixture();
 	try {
-		f.cfg.maintenanceTasks = {
+		f.tasks = {
 			"OPS-1": {
 				title: "Foreground",
 				owningPaths: ["evf.config.json"],
@@ -26,7 +26,7 @@ test("BUG-OPS10-foreground: detached checks refuse before work; explicit supervi
 				],
 			},
 		};
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		setTasks(f.root, f.tasks);
 		f.commit();
 		f.task("ops-1");
 		for (const args of [

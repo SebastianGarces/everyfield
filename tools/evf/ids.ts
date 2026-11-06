@@ -34,8 +34,7 @@ function usedNumbers(root: string, cfg: Config, kind: IdKind): number[] {
 	}
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const main = baseRef(root, cfg);
-	if (kind === "ops")
-		for (const id of committedMaintenanceIds(root, main)) used.push(Number(id.slice("OPS-".length)));
+	if (kind === "ops") for (const id of committedMaintenanceIds(root, main)) used.push(Number(id.slice("OPS-".length)));
 	else
 		for (const m of git(root, "show", `${main}:docs/architecture/decisions.md`).matchAll(/^## D(\d+)\b/gm))
 			used.push(Number(m[1]));

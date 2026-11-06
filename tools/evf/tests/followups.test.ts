@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, migrationsFrom, source } from "./fixtures.ts";
+import { fixture, migrationsFrom, source, setTasks } from "./fixtures.ts";
 import {
 	findTask,
 	followUpsOfTask,
@@ -263,11 +263,11 @@ test("OPS-86-plain: a spec without Later slices files nothing and is not gated",
 function withRemote() {
 	const f = fixture();
 	const check = [{ name: "check", run: [process.execPath, "-e", ""] }];
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-7": { title: "Seven", owningPaths: ["tools/evf/"], checks: check },
 		"OPS-12": { title: "Twelve", owningPaths: ["tools/evf/"], checks: check },
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	mkdirSync(join(f.root, "docs/architecture"), { recursive: true });
 	writeFileSync(join(f.root, "docs/architecture/decisions.md"), "# Architecture decisions\n");
 	f.git("add", "docs/architecture/decisions.md");
