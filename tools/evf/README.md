@@ -1123,6 +1123,52 @@ goes to `.git/evf/evidence/<task>/<sha>/timing-<set>/report.json` and holds no c
 evf removes the preview, the database and the worktree at the end; a crashed run's database goes at
 the next start. The verify-preview skill describes the set file.
 
+## Compile cache
+
+`bin/evf` sets `NODE_COMPILE_CACHE` to `<git common dir>/evf/node-compile-cache`, usually
+`.git/evf/node-compile-cache`, so every worktree uses one folder. `evf test` passes it to its test processes through the
+environment. Node keeps a version folder inside it, and a changed file misses the cache and compiles again. An unwritable
+folder only means no cache.
+
+Turn it off for a command with `NODE_DISABLE_COMPILE_CACHE=1 bin/evf <command>`. A `NODE_COMPILE_CACHE` you set yourself
+stays as it is. `bin/evf` sets nothing outside a Git repository or with `GITHUB_ACTIONS=true`, so GitHub CI runs as before.
+Nothing evicts entries. To reclaim the space, delete the folder.
+
+Comparison on 2026-11-06, head `f6546c76`, Node 24.22.1, 12 cores. Each run was
+`node --test --test-concurrency=4 tools/evf/tests/*.test.ts` with the `budgetEnv` values, in `/usr/bin/time -p`, from the
+task worktree, alternating and starting with no cache. The cache arm set `NODE_COMPILE_CACHE` to the folder above, which
+started empty and stayed warm between runs. The no-cache arm set `NODE_DISABLE_COMPILE_CACHE=1`. Load is the 1-minute
+average, and the limit is 24. All 6 runs qualified, so none was replaced. An earlier no-cache run was dropped and is not
+below: the worktree had no `node_modules`, so 41 tests that need `tsx` failed.
+
+| Order | Arm | Wall (s) | CPU, user + sys (s) | Load start | Load end | Passed | Failed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | no cache | 730.78 | 2257.57 | 7.48 | 14.89 | 803 | 0 |
+| 2 | cache | 573.67 | 1540.57 | 14.18 | 8.86 | 803 | 0 |
+| 3 | no cache | 797.99 | 2360.92 | 8.86 | 11.92 | 803 | 0 |
+| 4 | cache | 552.32 | 1525.54 | 11.92 | 7.24 | 803 | 0 |
+| 5 | no cache | 737.01 | 2292.54 | 7.24 | 9.41 | 803 | 0 |
+| 6 | cache | 552.39 | 1487.28 | 9.41 | 2.40 | 803 | 0 |
+| Mean | no cache | 755.26 | 2303.68 | | | | |
+| Mean | cache | 559.46 | 1517.80 | | | | |
+
+Mean CPU fell 34.1% and no test failed, which meets the keep rule of 10% or more lower CPU and no new failure. Mean wall
+fell 25.9%, on a shared machine whose load varied. The cache folder held 48,004 KB in 5,592 files after the last run. It
+grew by about 10.5 MB in each cache run (27,052 KB, then 37,528 KB, then 48,004 KB).
+
+Cache hits for `bin/evf help` in temporary copies of `tools/evf` that share one empty cache folder, counted from
+`NODE_DEBUG_NATIVE=COMPILE_CACHE`. To repeat this, read the diagnostics of `tools/evf/tests/compile-cache.test.ts`.
+
+| Process | Hits | Misses |
+| --- | --- | --- |
+| First, first copy | 0 | 60 |
+| Second, first copy | 60 | 0 |
+| First, second copy | 0 | 60 |
+
+Node keys entries by full path, so a new copy gains nothing from another copy's entries and adds its own. The temporary
+copies that tests make are why the folder grows on each run, and a linked worktree, at its own path, also fills its own
+entries in the shared folder.
+
 ## Task and ruling IDs
 
 Workspaces share the GitHub remote, not one checkout, so the remote holds ID reservations.
