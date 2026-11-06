@@ -87,15 +87,16 @@ function repoFile(wt: string, file: unknown): string | null {
 	}
 }
 
-/** The tests one check failed: its EVF_TEST_REPORT file and what `evf test` wrote, each name once. */
+/** The tests one check failed: its EVF_TEST_REPORT file and its EVF_FAILED_TESTS file, each name in each file once. */
 function failedNames(
 	wt: string,
 	testReport: string,
 	failedTests: string,
 ): Array<{ name: string; file: string | null }> {
-	const found = new Map<string, string | null>();
-	const add = (name: string, file: unknown) => {
-		if (!found.get(name)) found.set(name, repoFile(wt, file));
+	const found = new Map<string, { name: string; file: string | null }>();
+	const add = (name: string, reported: unknown) => {
+		const file = repoFile(wt, reported);
+		found.set(JSON.stringify([name, file]), { name, file });
 	};
 	if (existsSync(testReport)) {
 		const { tests } = JSON.parse(readFileSync(testReport, "utf8")) as {
@@ -109,7 +110,7 @@ function failedNames(
 				const { name, file } = JSON.parse(line) as { name: string; file?: unknown };
 				add(name, file);
 			}
-	return [...found].map(([name, file]) => ({ name, file }));
+	return [...found.values()];
 }
 
 /**
