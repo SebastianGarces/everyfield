@@ -307,7 +307,16 @@ test("qa carry-over copies the v1 previews, stops none of them, and never revive
 		mkdirSync(join(s.root, ".git/evf"));
 		const store = join(s.root, ".git/evf/work.sqlite");
 		const v1 = new DatabaseSync(store);
-		v1.exec(readFileSync(join(source, "tools/evf/db/migrations/007-qa-previews.sql"), "utf8"));
+		// The v1 table as stores already on disk have it. Inlined so this test outlives tools/evf.
+		v1.exec(`CREATE TABLE qa_previews (
+			id TEXT PRIMARY KEY,
+			branch TEXT NOT NULL,
+			head TEXT NOT NULL,
+			neon_branch TEXT NOT NULL,
+			url TEXT NOT NULL,
+			deployment TEXT,
+			created_at TEXT NOT NULL
+		);`);
 		const insert = v1.prepare("INSERT INTO qa_previews VALUES (?, ?, ?, ?, ?, ?, ?)");
 		for (const r of [row("qa-main-b24e", "https://d1.vercel.app"), row("qa-stale-aaaa", null)])
 			insert.run(r.id, r.branch, r.head, r.neon_branch, r.url, r.deployment, r.created_at);
