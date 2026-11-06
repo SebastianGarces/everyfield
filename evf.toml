@@ -7,12 +7,62 @@
 # No heavy evf checks for this trial — GitHub required check `ci` still runs on the PR.
 # A later owner decision can add format/typecheck checks when ready.
 
+# Owner gates. Sebastian, Nov 6 2026, 11:54 AM ET: "Yes, keep my OK on all five, including CI and agent settings".
+# A path ending in "/" is a prefix. Anything else is an exact path.
+
 [[policy.class]]
 name = "document-templates"
-paths = ["docs/templates/"]
+paths = [
+  "docs/reference/document-templates.ts",
+  "docs/catalog/document-templates.json",
+  "packages/domain/src/documents/",
+  "packages/domain/src/branding/theme.ts",
+]
 outcome = "owner"
 quote = "I want to approve them one by one"
 quoted_at = "2026-10-30T15:51:00Z"
+
+[[policy.class]]
+name = "landing-marketing"
+paths = [
+  "apps/web/src/app/page.tsx",
+  "apps/web/src/app/access/",
+  "apps/web/src/app/oversight/",
+  "apps/web/src/app/privacy/",
+  "apps/web/src/app/terms/",
+  "apps/web/src/marketing/",
+  "apps/web/src/styles/marketing.css",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "wiki"
+paths = [
+  "docs/reference/wiki/",
+  "docs/reference/bootstrap/",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "brand-prototype"
+paths = ["design/everyfield-ui.html"]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "workflow-gates"
+paths = [
+  ".github/",
+  ".claude/settings.json",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
 
 [role.planner]
 model = "claude-opus-5-5"
