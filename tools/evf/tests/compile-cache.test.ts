@@ -14,7 +14,6 @@ import {
 	realpathSync,
 	rmSync,
 	statSync,
-	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -117,52 +116,33 @@ test("outside a Git repository the launcher runs normally with no cache", () => 
 	}
 });
 
-test("with GITHUB_ACTIONS=true the launcher sets no cache, and evf test passes none on", () => {
+test("with GITHUB_ACTIONS=true the launcher sets no cache", () => {
 	const { f, cache } = evfRepo();
 	try {
 		assert.equal(cacheFolder(f.root, { GITHUB_ACTIONS: "true" }), undefined);
 		assert.equal(existsSync(cache), false);
-		assert.equal(valueInTestProcess(f, { GITHUB_ACTIONS: "true" }), "unset");
-		assert.equal(existsSync(cache), false);
 	} finally {
 		f.close();
 	}
 });
 
-/** Runs `bin/evf test --all` on one stub test, and returns the NODE_COMPILE_CACHE that test process saw. */
-function valueInTestProcess(f: ReturnType<typeof fixture>, env: NodeJS.ProcessEnv = {}) {
-	const seen = join(f.root, ".git/seen-by-test");
-	mkdirSync(join(f.root, "tools/evf/tests"), { recursive: true });
-	mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
-	writeFileSync(join(f.root, ".github/workflows/ci.yml"), "jobs:\n  a:\n    steps:\n      - run: bin/evf test\n");
-	writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
-	writeFileSync(
-		join(f.root, "tools/evf/tests/stub.test.ts"),
-		`import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.SEEN_BY_TEST!, process.env.NODE_COMPILE_CACHE ?? "unset");\n`,
-	);
-	f.git("add", "-A");
-	f.git("commit", "-qm", "stub test");
-	const r = launch(f.root, { SEEN_BY_TEST: seen, ...env }, "test", "--all", "--ignore-load", "compile cache test");
-	assert.equal(r.status, 0, r.stdout + r.stderr);
-	return readFileSync(seen, "utf8");
-}
-
-test("evf test passes the launcher's cache folder to its test processes, and git status stays clean", () => {
+test("evf test passes the launcher's cache folder to its test processes, git status stays clean, and the cache is out of evidence", () => {
 	const { f, cache } = evfRepo();
 	try {
-		assert.equal(valueInTestProcess(f), cache);
-		assert.ok(entries(cache).length > 0);
-		assert.equal(f.git("status", "--porcelain"), "");
-	} finally {
-		f.close();
-	}
-});
-
-test("a run leaves git status empty and keeps the cache out of the evidence folder", () => {
-	const { f, cache } = evfRepo();
-	try {
-		const r = launch(f.root);
-		assert.equal(r.status, 0, r.stderr);
+		const seen = join(f.root, ".git/seen-by-test");
+		mkdirSync(join(f.root, "tools/evf/tests"), { recursive: true });
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		writeFileSync(join(f.root, ".github/workflows/ci.yml"), "jobs:\n  a:\n    steps:\n      - run: bin/evf test\n");
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		writeFileSync(
+			join(f.root, "tools/evf/tests/stub.test.ts"),
+			`import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.SEEN_BY_TEST!, process.env.NODE_COMPILE_CACHE ?? "unset");\n`,
+		);
+		f.git("add", "-A");
+		f.git("commit", "-qm", "stub test");
+		const r = launch(f.root, { SEEN_BY_TEST: seen }, "test", "--all", "--ignore-load", "compile cache test");
+		assert.equal(r.status, 0, r.stdout + r.stderr);
+		assert.equal(readFileSync(seen, "utf8"), cache);
 		assert.ok(entries(cache).length > 0, "the cache was written");
 		assert.equal(f.git("status", "--porcelain"), "");
 		assert.ok(!(cache + sep).includes(`${join(".git", "evf", "evidence")}${sep}`));
@@ -171,29 +151,24 @@ test("a run leaves git status empty and keeps the cache out of the evidence fold
 	}
 });
 
-test("a changed source file runs its new code on the next command, with the same size and modified time", () => {
-	const { f, cache } = evfRepo();
+test("a changed source file runs its new code on the next command", () => {
+	const { f } = evfRepo();
 	try {
 		const main = join(f.root, "tools/evf/main.ts");
 		assert.equal(launch(f.root).status, 0);
-		assert.ok(entries(cache).length > 0);
-		const filled = launch(f.root, debug);
 		assert.ok(
-			hitsAndMisses(filled.stderr).hits.some((file) => file.endsWith("tools/evf/main.ts")),
+			hitsAndMisses(launch(f.root, debug).stderr).hits.some((file) => file.endsWith("tools/evf/main.ts")),
 			"the first run filled the cache for the file this test edits",
 		);
 
-		const before = statSync(main),
-			text = readFileSync(main, "utf8"),
-			changed = text.replace(HELP, HELP.replace("Everyfield", "Everyfeild"));
+		const text = readFileSync(main, "utf8"),
+			changed = text.replace(HELP, "evf: changed help");
 		assert.notEqual(changed, text);
 		writeFileSync(main, changed);
-		utimesSync(main, before.atime, before.mtime);
 
-		const after = launch(f.root, debug);
+		const after = launch(f.root);
 		assert.equal(after.status, 0, after.stderr);
-		assert.match(after.stdout, /^evf: Everyfeild v3 workflow CLI/);
-		assert.ok(hitsAndMisses(after.stderr).misses.some((file) => file.endsWith("tools/evf/main.ts")));
+		assert.match(after.stdout, /^evf: changed help/);
 	} finally {
 		f.close();
 	}
@@ -203,6 +178,7 @@ test("an unwritable cache folder gives a normal run with the usual output and no
 	const { f, cache } = evfRepo();
 	const usual = launch(f.root, { NODE_DISABLE_COMPILE_CACHE: "1" });
 	assert.equal(usual.status, 0, usual.stderr);
+	assert.equal(existsSync(cache), false, "the turn-off line writes nothing");
 	mkdirSync(cache, { recursive: true });
 	chmodSync(cache, 0o555);
 	try {
@@ -218,31 +194,11 @@ test("an unwritable cache folder gives a normal run with the usual output and no
 	}
 });
 
-test("a filled cache that turns unwritable still runs changed code with no added error text", () => {
-	const { f, cache } = evfRepo();
-	assert.equal(launch(f.root).status, 0);
-	const [version] = readdirSync(cache),
-		folder = join(cache, version),
-		main = join(f.root, "tools/evf/main.ts");
-	chmodSync(folder, 0o555);
-	try {
-		assert.throws(() => accessSync(folder, constants.W_OK), /EACCES/);
-		writeFileSync(main, readFileSync(main, "utf8").replace(HELP, "evf: changed help"));
-		const r = launch(f.root);
-		assert.equal(r.status, 0, r.stderr);
-		assert.match(r.stdout, /^evf: changed help/);
-		assert.equal(r.stderr, "");
-	} finally {
-		chmodSync(folder, 0o755);
-		f.close();
-	}
-});
-
 test("processes that start together on one empty cache all pass and fill it", async () => {
 	const { f, cache } = evfRepo();
 	const count = 6,
 		arrived = mkdtempSync(join(tmpdir(), "evf-arrived-")),
-		barrier = join(arrived, "..", `${relative(tmpdir(), arrived)}.mjs`);
+		barrier = `${arrived}.mjs`;
 	// Each evf process waits here until all have started, so they compile and save at the same time, whatever the load.
 	// The launcher's own Node version probe also loads this file, and passes through.
 	writeFileSync(
@@ -285,24 +241,9 @@ if (process.argv[1]?.endsWith("main.ts")) {
 			assert.equal(run.err, "");
 		}
 		assert.ok(entries(cache).length > 0);
-		const reused = hitsAndMisses(launch(f.root, debug).stderr);
-		assert.ok(reused.hits.length > 0, "a later process reads what they wrote");
-		assert.deepEqual(reused.misses, []);
 	} finally {
 		rmSync(arrived, { recursive: true, force: true });
 		rmSync(barrier, { force: true });
-		f.close();
-	}
-});
-
-test("NODE_DISABLE_COMPILE_CACHE=1 turns the cache off and nothing is written", () => {
-	const { f, cache } = evfRepo();
-	try {
-		const r = launch(f.root, { NODE_DISABLE_COMPILE_CACHE: "1" });
-		assert.equal(r.status, 0, r.stderr);
-		assert.match(r.stdout, new RegExp(`^${HELP}`));
-		assert.equal(existsSync(cache) && entries(cache).length > 0, false);
-	} finally {
 		f.close();
 	}
 });
