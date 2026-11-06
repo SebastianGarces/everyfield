@@ -1061,8 +1061,9 @@ old head is an ancestor of the head that is not on the base branch, so main's co
 Before a verifier launches evf also fills the GitHub body again, because the overlap check can merge main. A claim is
 history, and passes, only when a history word (`round <n>`, `earlier`, `old`, `previous`, `prior`, `former`, `before`)
 stands next to the head word in its sentence, or `round <n>` follows the SHA. A sentence that describes a commit also
-passes: `reviewed`, `since`, `from`, `past` or `moved` directly before the head word, `not verified at <sha>`,
-`verified that <sha> fixes it`, `Head <sha> is a plain merge`. An honest statement that the current verification ran on
+passes: `reviewed`, `since`, `past`, `moved` or `moved from` directly before the head word, `not verified at <sha>`,
+`verified that <sha> fixes it`, `Head <sha> is a plain merge`, `Head <sha> changes` or `merges`. `Test results from head
+<sha>`, `Head <sha> is passing` and `Verified that all tests pass at <sha>` are claims. An honest statement that the current verification ran on
 an old head, such as `Author, on head <sha> plus merged main`, is refused by design: use the placeholder. "Verified head <sha>, with before and
 after screenshots" is a claim. CI's `pr-body` check does not run the lint: a push reaches GitHub before the body edit, so it would fail each new head for a moment.
 
