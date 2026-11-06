@@ -1,0 +1,15 @@
+{
+	"title": "Drive heartbeat, stop details and dead drive watcher",
+	"owningPaths": ["tools/evf/", ".agents/roles/coordinator.md", "docs/architecture/decisions.md"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

@@ -260,8 +260,8 @@ the system time zone. `digestId` is the next digest slot at or after `askedAt`, 
 `2026-11-04T13:00`.
 
 Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. An OPS branch cannot add the key,
-because it may change only its own `maintenanceTasks` entry. He adds the key himself to `evf.config.json` in the home
-checkout, which is the file evf reads, near the top of the file and away from `maintenanceTasks`. `start` must come
+because it may not change that file. He adds the key himself to `evf.config.json` in the home
+checkout, which is the file evf reads. `start` must come
 before `end`, so a window that crosses midnight is refused. While it is unset, the queue says so and shows no split.
 With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
 `outsideMinutes` in `--json`).
@@ -1265,14 +1265,14 @@ A brief for a task that owns server paths (an api part or a single-part package)
 Performance rule from `docs/architecture/patterns.md` and asks for statement-count tests before
 the PR opens (test-standard), so budget findings no longer wait for the verifier.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
-owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
-evf reads that entry from the commit under check, never from the home checkout's file: the task
+owning paths and tooling checks in one entry file, `tools/evf/tasks/OPS-<n>.json`; they cannot
+authorize application code. evf reads that entry from the commit under check, never from the home checkout's file: the task
 branch for `task start`, `verify`, `pr open` and `ship`, and the PR head for the verifier and
 `evf approve`. A new task registers on its own branch. `task start` creates the worktree and
 names the missing entry; commit it there and run `task start` again for the brief. A start refuses
 an invalid entry that main or the task branch already carries before it creates the worktree.
-The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
-reviews that entry.
+The branch may change its own entry file, and no other task's, even when it owns `tools/evf/`. It may not
+change `evf.config.json`, even when it owns that file. The verifier reviews the entry.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
 An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and does not
 change `design/everyfield-ui.html`, the approved prototype that the app tokens come from, with one
@@ -1320,8 +1320,8 @@ checkout's branch diff, and timing tests pass a fake `Clock` (`timing.clock`, `f
 that machine load cannot fail them.
 
 `bin/evf test` runs the tooling tests only when the checkout changes evf work (OPS-172, `test-scope.ts`). The changes
-are the commits since the merge base with main, plus uncommitted and untracked files. Evf work is `tools/evf/`,
-`bin/evf`, any `evf.config.json` setting other than `maintenanceTasks`, and the listed files that evf runs or that its
+are the commits since the merge base with main, plus uncommitted and untracked files. Evf work is `tools/evf/` without its `tasks/` entry files,
+`bin/evf`, `evf.config.json`, and the listed files that evf runs or that its
 tests read, such as `.github/workflows/` and `.claude/agents/`. Otherwise the command prints why, starts nothing and
 exits 0, so `workflow-regressions` in `evf verify` and the `evf` job in CI pass at once. Under `evf verify` the
 command writes its reason to the `EVF_SKIP_REASON` file, and the check's `checks.json` entry holds it as `skipped`.
@@ -1383,8 +1383,8 @@ commits it on the detached HEAD and runs them again. The outcomes:
 - `killed`: a test failed on the mutant. Nothing is filed.
 - `survived`: no test failed. evf reserves an OPS id, files a `new` task titled
   `Answer key for <task> missed <operator> in <file>:<line>` with the diff, the tests and a Done
-  template, and prints the `maintenanceTasks` entry to commit on that task's branch. It does not edit
-  `evf.config.json`. The same task, candidate and main SHA files once; a repeat prints the first id.
+  template, and prints the entry to commit as `tools/evf/tasks/OPS-<n>.json` on that task's branch. It writes
+  no entry file. The same task, candidate and main SHA files once; a repeat prints the first id.
 - `invalid`: the mutant did not build or start (a test file failed to load, or its preview did not
   start). It proves nothing and files nothing.
 - `baseline-red`: a test failed on main before any mutation. evf names the tests, plants nothing,
@@ -1405,7 +1405,7 @@ Agents share one Mac. `evf task start`, `evf verify`, `evf test`, `evf ac run`, 
 command prints one line per minute with the load and the limit, and gives up after 30 minutes
 without starting work. An optional `"machineLoad": {"maxPerCore": 2, "maxWaitMinutes": 30}` in
 `evf.config.json` overrides the default in `tools/evf/load.ts`; an OPS branch cannot add it,
-because it may change only its own `maintenanceTasks` entry.
+because it may not change that file.
 `--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
 `load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
 current load and limit. A command inside one that passed this gate does not wait again: `evf verify`, `evf test` and
@@ -1613,7 +1613,7 @@ machine only. No CI workflow names `tests/ui/escaped` or `ui-escaped`, and no st
 
 `evf escape <PR> --what "<his words>" --task <WP-NNN/ui> [--head <sha>]` stores the escape on an existing
 WP /ui task that the coordinator names. OPS tasks do not own `tests/ui/escaped/`, so the command reserves no
-OPS id and prints no `maintenanceTasks` entry. It appends one escape block to the task's ask and records an
+OPS id and prints no maintenance entry. It appends one escape block to the task's ask and records an
 `escape_filed` event on that row. The block holds the `--what` text byte for byte, the PR number, the escaped
 head and the Done template: a test in `tests/ui/escaped/` fails on the escaped head and passes on the fix (or
 on main when main never had the bug), the test passes the 20-run soak, and one `evf proof add` records each of

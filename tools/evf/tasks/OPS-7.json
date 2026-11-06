@@ -1,0 +1,15 @@
+{
+	"title": "Transfer generated build progress",
+	"owningPaths": ["docs/build-progress.json"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

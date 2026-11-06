@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { renderAc } from "./brief.ts";
@@ -13,6 +13,7 @@ import {
 	git,
 	independentReview,
 	loadDag,
+tmaintenanceEntryPath,
 	packageContext,
 	readJson,
 	readParty,
@@ -53,8 +54,8 @@ export type ReviewInputs = Record<
 
 /**
  * The files that say how a verifier judges. A merge of main that changes one judges the branch by a new rule. The
- * manifest's shared_read_paths are added at the head. `evf.config.json` is in the contract, which leaves out other
- * tasks' entries because nearly every commit to it changes one.
+ * manifest's shared_read_paths are added at the head. `evf.config.json` and the task's own entry file are in the
+ * contract. Other tasks' entry files are in neither.
  */
 const REVIEW_RULES = [
 	"AGENTS.md",
@@ -138,13 +139,13 @@ export function textsOf(wt: string, context: Context): unknown {
 }
 
 /**
- * The task's contract in the repo at the worktree head: evf.config.json without other tasks' entries, then the package,
+ * The task's contract in the repo at the worktree head: evf.config.json and the task's own entry file, then the package,
  * its context, and the text of each name the context lists (textsOf).
  */
 export function contractOf(root: string, wt: string, task: TaskRef): string | null {
 	return hashed(() => {
-		const config = readJson<{ maintenanceTasks?: Record<string, unknown> }>(join(wt, "evf.config.json"));
-		const own = { ...config, maintenanceTasks: config.maintenanceTasks?.[task.id] ?? null };
+		const entry = join(wt, maintenanceEntryPath(task.id));
+		const own = [readJson(join(wt, "evf.config.json")), existsSync(entry) ? readJson(entry) : null];
 		const triage = task.kind === "fb" ? cachedTriage(root, task.issue!) : null;
 		const wp = task.kind === "fb" ? triage?.wp : task.kind === "wp" ? task.wp : null;
 		if (!wp) return [own, triage];

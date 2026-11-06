@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { baseRef, loadConfig, run } from "./lib.ts";
+import { baseRef, loadConfig, MAINTENANCE_TASKS_DIR, run } from "./lib.ts";
 
 /**
  * OPS-172: what counts as evf work. These are evf's code and the files outside it that evf runs or that its tests read
@@ -21,25 +19,12 @@ const EVF_PATHS = [
 	".agents/skills/verify-preview/",
 	"docs/package-context.py",
 	"docs/runbooks/qa-preview.md",
+	"evf.config.json",
 ];
-const CONFIG = "evf.config.json";
 
-const isEvfPath = (path: string) => EVF_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
-
-/** Every OPS task adds its own `maintenanceTasks` entry, so that key alone is no evf work. An unreadable file counts. */
-function configChanged(checkout: string, mergeBase: string): boolean {
-	const settings = (text: string) => {
-		const { maintenanceTasks: _, ...rest } = JSON.parse(text) as Record<string, unknown>;
-		return JSON.stringify(rest);
-	};
-	const before = run("git", ["show", `${mergeBase}:${CONFIG}`], { cwd: checkout });
-	if (before.code !== 0) return true;
-	try {
-		return settings(before.stdout) !== settings(readFileSync(join(checkout, CONFIG), "utf8"));
-	} catch {
-		return true;
-	}
-}
+/** Every OPS task adds its own entry file, so an entry file alone is no evf work. */
+const isEvfPath = (path: string) =>
+	!path.startsWith(MAINTENANCE_TASKS_DIR) && EVF_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 
 /**
  * Why `evf test` can skip this checkout, or undefined when the suite must run. The checkout's changes are its commits
@@ -66,6 +51,5 @@ export function evfTestSkip(checkout: string): string | undefined {
 	if (!changed || !untracked) return undefined;
 	const files = [...changed, ...untracked];
 	if (!files.length || files.some(isEvfPath)) return undefined;
-	if (files.includes(CONFIG) && configChanged(checkout, mergeBase)) return undefined;
 	return `${files.length} changed file(s) since ${mergeBase.slice(0, 12)} and none is evf work`;
 }

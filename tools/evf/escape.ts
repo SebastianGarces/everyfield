@@ -94,7 +94,7 @@ function filedEscape(root: string, pr: number, head: string): string | undefined
 
 /**
  * Store an escaped bug on the WP /ui task the coordinator names. OPS tasks do not own tests/ui/escaped/, so the
- * escape reserves no OPS id and prints no maintenanceTasks entry: it appends the escape block to the task's ask and
+ * escape reserves no OPS id and prints no maintenance entry: it appends the escape block to the task's ask and
  * records an escape_filed event. Every refusal comes before the write. A second call for the same PR and head stores
  * nothing and prints the task that already carries it.
  */

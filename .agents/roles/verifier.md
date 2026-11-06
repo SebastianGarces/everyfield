@@ -25,8 +25,8 @@ evf filed for the task. A deliverable that is missing without a filed follow-up 
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the PR head on its own preview where a
 check needs one, captures what is missing, publishes the evidence and posts the exact-head `EVF-Review`.
 Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`, except in a merge-only review.
-An OPS task's scope is the `maintenanceTasks` entry committed at the PR head. Review that entry
-with the diff. Never register a task in the home checkout's `evf.config.json`.
+An OPS task's scope is its `tools/evf/tasks/OPS-<n>.json` entry committed at the PR head. Review that entry
+with the diff. Never register a task in the home checkout.
 Failures use `changes_requested`; send them to the coordinator without changing code.
 Use `body_only` when the code and the experience are approved and every open finding is a PR body fix you can
 state as an exact text that must be present or absent. Post it with `--verdict body_only --body-items <file>` and

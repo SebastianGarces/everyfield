@@ -1,0 +1,15 @@
+{
+	"title": "Monthly mutation audit of the verifier",
+	"owningPaths": ["tools/evf/"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}
