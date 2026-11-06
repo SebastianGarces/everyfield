@@ -11,7 +11,7 @@ import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
 	baseRef,
 	command,
-	committedConfig,
+	committedMaintenanceEntry,
 	fail,
 	findPackage,
 	git,
@@ -129,7 +129,7 @@ export function taskStart(
 		const rev = gitOk(root, "show-ref", "--verify", "--quiet", `refs/heads/${task.branch}`)
 			? task.branch
 			: baseRef(root, cfg);
-		if (committedConfig(root, rev).maintenanceTasks?.[task.id]) maintenanceScope(root, task, rev);
+		if (committedMaintenanceEntry(root, task.id, rev)) maintenanceScope(root, task, rev);
 	} else {
 		const pkg = findPackage(loadDag(root), task.wp);
 		pathsForPart(pkg, task.part);
@@ -166,7 +166,7 @@ export function taskStart(
 		console.log(`worktree: ${wt} on existing branch ${task.branch}.`);
 	} else {
 		// A new OPS ID needs a reservation on the remote (OPS-52), unless main already registers it.
-		if (task.kind === "ops" && hasRemote(root, cfg) && !committedConfig(root, base).maintenanceTasks?.[task.id])
+		if (task.kind === "ops" && hasRemote(root, cfg) && !committedMaintenanceEntry(root, task.id, base))
 			requireOpsReservation(root, cfg, task);
 		git(root, "worktree", "add", "--quiet", "-b", task.branch, wt, base);
 		console.log(`worktree: ${wt} on new branch ${task.branch} from ${base}.`);

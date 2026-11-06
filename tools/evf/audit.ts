@@ -19,6 +19,7 @@ import {
 	hasRemote,
 	loadContexts,
 	loadConfig,
+	maintenanceEntryPath,
 	parseTask,
 	run,
 	type Config,
@@ -497,10 +498,10 @@ function renderAsk(
 	].join("\n");
 }
 
-/** The evf.config.json maintenanceTasks entry the coordinator commits on the new task's branch. */
-function maintenanceEntry(id: string, title: string): string {
-	const entry = {
-		[id]: {
+/** The entry file the coordinator commits on the new task's branch. */
+function maintenanceEntry(title: string): string {
+	return JSON.stringify(
+		{
 			title,
 			owningPaths: ["tests/"],
 			checks: [
@@ -509,8 +510,9 @@ function maintenanceEntry(id: string, title: string): string {
 			],
 			risk: "ordinary",
 		},
-	};
-	return JSON.stringify(entry, null, 2).slice(2, -2);
+		null,
+		"\t",
+	);
 }
 
 // ---- Processes, the throwaway tree and its preview -----------------------------------------------------------------
@@ -996,7 +998,7 @@ function fileSurvivor(
 	});
 	console.log(`evf audit: filed ${id} (status new): ${title}`);
 	console.log(
-		`evf audit: commit this maintenanceTasks entry on ${id}'s branch (evf audit does not edit evf.config.json):\n${maintenanceEntry(id, title)}`,
+		`evf audit: commit this entry on ${id}'s branch as ${maintenanceEntryPath(id)} (evf audit writes no file):\n${maintenanceEntry(title)}`,
 	);
 	return id;
 }

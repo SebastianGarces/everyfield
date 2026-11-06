@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 import { loadConfig, parseTask } from "../lib.ts";
 import { reserve } from "../ids.ts";
 import { taskStart } from "../task.ts";
@@ -11,11 +11,11 @@ import { taskStart } from "../task.ts";
 function withRemote() {
 	const f = fixture();
 	const check = [{ name: "check", run: [process.execPath, "-e", ""] }];
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-7": { title: "Seven", owningPaths: ["tools/evf/"], checks: check },
 		"OPS-12": { title: "Twelve", owningPaths: ["tools/evf/"], checks: check },
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	mkdirSync(join(f.root, "docs/architecture"), { recursive: true });
 	writeFileSync(
 		join(f.root, "docs/architecture/decisions.md"),
@@ -39,6 +39,17 @@ function nextId(cwd: string, kind: string): Promise<{ code: number | null; stdou
 	child.stderr.on("data", (d) => (stderr += d));
 	return new Promise((resolve) => child.on("close", (code) => resolve({ code, stdout: stdout.trim(), stderr })));
 }
+
+test("AC:OPS-148-2: evf id next ops goes above the entry files on main", async () => {
+	const f = withRemote();
+	try {
+		const r = await nextId(f.root, "ops");
+		assert.equal(r.code, 0, r.stderr);
+		assert.equal(r.stdout, "OPS-13");
+	} finally {
+		f.close();
+	}
+});
 
 test("OPS-52-P5: concurrent callers reserve different IDs above every one in use", async () => {
 	const f = withRemote();

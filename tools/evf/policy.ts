@@ -2,12 +2,14 @@ import { join } from "node:path";
 import { existsSync, statSync } from "node:fs";
 import {
 	baseRef,
-	committedConfig,
+	committedMaintenanceEntry,
 	git,
 	fail,
 	findPackage,
 	loadDag,
 	loadConfig,
+	MAINTENANCE_TASKS_DIR,
+	maintenanceEntryPath,
 	readJson,
 	prerequisitesForPart,
 	type Config,
@@ -82,14 +84,14 @@ export function requireSpend(root: string): void {
 }
 
 /**
- * An OPS task's registration is its maintenanceTasks entry committed at the checked commit: the task branch
+ * An OPS task's registration is its entry file committed at the checked commit: the task branch
  * for the author, the PR head for the verifier. evf never reads or edits the home checkout's file for it.
  */
 export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"): MaintenanceScope {
-	const scope = committedConfig(checkout, rev).maintenanceTasks?.[task.id];
+	const scope = committedMaintenanceEntry(checkout, task.id, rev);
 	if (!scope?.title || !scope.owningPaths?.length || !scope.checks?.length)
 		fail(
-			`Commit the reviewed ${task.id} entry (title, owning paths, tooling checks) to maintenanceTasks in evf.config.json on the task branch in ${checkout}. evf reads it from the checked commit, never from the home checkout.`,
+			`Commit the reviewed ${task.id} entry (title, owning paths, tooling checks) as ${maintenanceEntryPath(task.id)} on the task branch in ${checkout}. evf reads it from the checked commit, never from the home checkout.`,
 		);
 	for (const path of scope.owningPaths) {
 		if (!path.endsWith("/") && existsSync(join(checkout, path)) && statSync(join(checkout, path)).isDirectory())
@@ -158,31 +160,27 @@ export function requireTaskRisk(root: string, task: TaskRef): void {
 		fail(`${task.id} is ${risk}; get the owner's scoped approval in Intent before implementation or merge.`);
 }
 
-/** True when evf.config.json differs between `base` and `head` only in the task's own maintenanceTasks entry. */
-export function changesOnlyOwnRegistration(repo: string, task: TaskRef, base: string, head: string): boolean {
-	const withoutOwnEntry = (rev: string) => {
-		const cfg = committedConfig(repo, rev);
-		delete cfg.maintenanceTasks?.[task.id];
-		return JSON.stringify(cfg);
-	};
-	return withoutOwnEntry(base) === withoutOwnEntry(head);
+/**
+ * The registration rule for one changed path, or undefined when it does not apply to the path. An OPS branch may change
+ * its own entry file whether or not it owns the folder: that is how it registers, and the verifier reviews the entry.
+ * Owning a path never waives the rest: another task's entry and evf.config.json stay closed.
+ */
+export function registrationRule(task: TaskRef, path: string): boolean | undefined {
+	if (path === "evf.config.json") return false;
+	return path.startsWith(MAINTENANCE_TASKS_DIR) ? path === maintenanceEntryPath(task.id) : undefined;
 }
 
-/**
- * Check the task's changed paths. An OPS branch may change evf.config.json only in its own maintenanceTasks
- * entry, whether or not it owns the file: that is how it registers, and the verifier reviews the entry.
- */
+/** Check the task's changed paths against the registration rule and its owning paths. */
 export function requireMaintenancePaths(root: string, wt: string, task: TaskRef): void {
 	if (task.kind !== "ops") return;
 	const base = baseRef(root, loadConfig(root)),
 		scope = maintenanceScope(wt, task);
-	// evf.config.json holds every task's registration, so owning it never waives the own-entry rule.
 	const owns = (path: string) =>
-		path === "evf.config.json"
-			? changesOnlyOwnRegistration(wt, task, base, "HEAD")
-			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
+		registrationRule(task, path) ?? scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
-	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
+	const outside = changed.filter((p) => !owns(p));
+	if (outside.length)
+		fail(`Maintenance candidate changes paths outside its reviewed owning paths: ${outside.slice(0, 3).join(", ")}.`);
 	if (changed.includes(APPROVED_PROTOTYPE) && !mayChangePrototype(scope))
 		fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
 }
@@ -208,8 +206,8 @@ export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 
 /**
  * The built-in owner-path class (OPS-111): the landing and marketing site. It applies when `mergePolicy.ownerPaths`
- * is absent from evf.config.json; an explicit key replaces it. An OPS branch may change evf.config.json only in its own
- * registration, so the policy lives here, as DEFAULT_DOCUMENT_TEMPLATES does. evf reads it only through `heldClasses`
+ * is absent from evf.config.json; an explicit key replaces it. An OPS branch may not change evf.config.json, so the
+ * policy lives here, as DEFAULT_DOCUMENT_TEMPLATES does. evf reads it only through `heldClasses`
  * in merge.ts, from the base branch's config.
  */
 export const DEFAULT_OWNER_PATHS: DocumentTemplatePolicy = {

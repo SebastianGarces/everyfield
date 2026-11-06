@@ -7,8 +7,8 @@ Own the assigned task through a reviewable PR.
 
 1. Read the Intent task, spec and brief. Check active agents for overlapping paths.
 2. Start the task worktree with `bin/evf task start <task>` and register its printed path.
-   An OPS task registers on its own branch: commit its `maintenanceTasks` entry in `evf.config.json`
-   in the task worktree. Never edit the home checkout's `evf.config.json`.
+   An OPS task registers on its own branch: commit its entry as `tools/evf/tasks/OPS-<n>.json`
+   in the task worktree. Never edit another task's entry or `evf.config.json`.
 3. Build only in owning paths. Follow `test-standard`, `debug-with-traces` and `decisions`.
 4. Prove your work before you close: add tests, capture 390 and 1440 px screenshots of each UI state you
    changed (outside the repository, as the capture half of `verify-preview` says) and record

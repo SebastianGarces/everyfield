@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { STAGE_PROMPTS } from "../drive.ts";
 import { checkPrBody } from "../pr-body.ts";
@@ -46,8 +46,8 @@ const TABLE = ["| Criterion | Check | Status | Evidence |", "| --- | --- | --- |
 function acFixture(ref = "OPS-1") {
 	const f = fixture(),
 		task = parseTask(ref);
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Answer key", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Answer key", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const wt = f.task(task.slug);
 	const db = openWorkDb(f.root);

@@ -22,7 +22,7 @@ import {
 } from "../sampler.ts";
 import { alive } from "../ship-queue.ts";
 import { verify } from "../verify.ts";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 
 const T0 = Date.parse("2026-11-04T10:00:00.000Z");
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -247,10 +247,11 @@ test("fullChecks counts a live full verify, also one inside a drive's own proces
 		const marks = join(evfDataDir(f.root), "full-checks");
 		const record = `const fs=require("node:fs");const dir=${JSON.stringify(marks)};fs.appendFileSync(${JSON.stringify(seen)},(fs.existsSync(dir)?fs.readdirSync(dir).length:0)+"\\n")`;
 		f.cfg.checks = [{ name: "fixture-check", run: [process.execPath, "-e", record] }, ...f.cfg.checks.slice(1)];
-		f.cfg.maintenanceTasks = {
+		f.tasks = {
 			[task.id]: { title: "Upkeep", owningPaths: ["tools/evf/"], checks: f.cfg.checks },
 		};
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		setTasks(f.root, f.tasks);
 		f.commit();
 		f.task(task.slug);
 		quiet(() => verify(f.root, task, "author", "full"));
@@ -472,8 +473,8 @@ test("each awaitLoad caller that knows its task passes it, and evf browser run r
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	try {
-		f.cfg.maintenanceTasks = { [task.id]: { title: "Upkeep", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.tasks = { [task.id]: { title: "Upkeep", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+		setTasks(f.root, f.tasks);
 		f.commit();
 		const wt = f.task(task.slug);
 		f.cfg.machineLoad = { maxPerCore: 1e-9, maxWaitMinutes: 0 };

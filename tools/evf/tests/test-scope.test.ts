@@ -81,15 +81,12 @@ test("OPS-172: evf code, a file evf's tests read, and uncommitted or untracked e
 	}
 });
 
-test("OPS-172: a new maintenanceTasks entry alone is no evf work; any other evf.config.json change is", () => {
+test("OPS-172: a new entry file alone is no evf work; any evf.config.json change is", () => {
 	const { f, commit, write, run } = scoped();
 	try {
 		const config = JSON.parse(readFileSync(join(f.root, "evf.config.json"), "utf8"));
 		f.git("checkout", "-qb", "task");
-		write(
-			"evf.config.json",
-			JSON.stringify({ ...config, maintenanceTasks: { ...config.maintenanceTasks, "OPS-9": { title: "x" } } }),
-		);
+		write("tools/evf/tasks/OPS-9.json", JSON.stringify({ title: "x" }));
 		commit();
 		assert.equal(run().ran, false);
 		write("evf.config.json", JSON.stringify({ ...config, checks: [] }));

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { evfDataDir, parseTask, type Config } from "../lib.ts";
 
@@ -44,8 +44,8 @@ const LOADS = {
 export function queueFixture(checks?: Array<{ name: string; run: string[]; modes?: string[] }>) {
 	const f = fixture();
 	const own = checks ?? [{ name: "own", run: node('require("node:fs").writeFileSync(process.env.EVF_RAN_FILE,"")') }];
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Queue", owningPaths: ["tools/evf/"], checks: own } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Queue", owningPaths: ["tools/evf/"], checks: own } };
+	setTasks(f.root, f.tasks);
 	// `evf test` reads the package scripts and the CI workflow before it runs.
 	writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
 	mkdirSync(join(f.root, ".github/workflows"), { recursive: true });

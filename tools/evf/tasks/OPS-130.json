@@ -1,0 +1,15 @@
+{
+	"title": "Simplifier seat runs the quick check",
+	"owningPaths": [".claude/agents/simplifier.md", "tools/evf/tests/"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

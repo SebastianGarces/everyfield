@@ -1,4 +1,4 @@
-import { evfDataDir } from "../lib.ts";
+import { evfDataDir, MAINTENANCE_TASKS_DIR, maintenanceEntryPath } from "../lib.ts";
 import { setLoadedCode } from "../merge.ts";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -102,6 +102,20 @@ export function fakeClock(onSleep: (elapsed: number) => void = () => {}) {
 	};
 }
 
+/** Replace every maintenance task entry file under `dir`. */
+export function setTasks(dir: string, tasks: Record<string, unknown>) {
+	for (const name of readdirSync(join(dir, MAINTENANCE_TASKS_DIR)))
+		if (name.endsWith(".json")) rmSync(join(dir, MAINTENANCE_TASKS_DIR, name));
+	for (const [id, entry] of Object.entries(tasks)) writeTask(dir, id, entry);
+}
+export function writeTask(dir: string, id: string, entry: unknown) {
+	mkdirSync(join(dir, MAINTENANCE_TASKS_DIR), { recursive: true });
+	writeFileSync(join(dir, maintenanceEntryPath(id)), JSON.stringify(entry));
+}
+export function readTask(dir: string, id: string) {
+	return JSON.parse(readFileSync(join(dir, maintenanceEntryPath(id)), "utf8"));
+}
+
 let template: string | undefined;
 /**
  * The repo every fixture starts from: built once per test file and copied, because `git add` of docs is most of the cost
@@ -123,6 +137,9 @@ function fixtureTemplate() {
 		preserveTimestamps: true,
 	});
 	cpSync(join(source, ".claude/agents"), join(root, ".claude/agents"), { recursive: true, preserveTimestamps: true });
+	// No real entries: 100 more files in each of 500 fixtures and their worktrees would slow the suite for no test.
+	mkdirSync(join(root, MAINTENANCE_TASKS_DIR), { recursive: true });
+	writeFileSync(join(root, MAINTENANCE_TASKS_DIR, ".gitkeep"), "");
 	const dag = JSON.parse(readFileSync(join(root, "docs/plan/dag.json"), "utf8"));
 	const progressPath = join(root, "docs/build-progress.json");
 	const progress = {
@@ -278,6 +295,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 		".gitignore",
 		".agents/skills/everyfield-pr",
 		"tools/evf/templates",
+		MAINTENANCE_TASKS_DIR,
 		".claude/agents",
 	);
 	git("commit", "-qm", "Disposable context");
@@ -322,6 +340,8 @@ export function fixture() {
 	return {
 		root,
 		cfg,
+		/** The entries a test passes to setTasks. The fixture starts with no entry files. */
+		tasks: {} as Record<string, any>,
 		git,
 		getState: () => JSON.parse(readFileSync(statePath, "utf8")),
 		setState: (s: unknown) => writeFileSync(statePath, JSON.stringify(s)),
@@ -359,7 +379,7 @@ export function fixture() {
 			return path;
 		},
 		commit: () => {
-			git("add", "docs", "evf.config.json");
+			git("add", "docs", "evf.config.json", MAINTENANCE_TASKS_DIR);
 			git("commit", "-qm", "Reviewed fixture policy");
 		},
 		close: () => {

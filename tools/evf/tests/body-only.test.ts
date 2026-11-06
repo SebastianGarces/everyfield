@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { driveOnce, nextStage, runDone } from "../drive.ts";
 import { parseTask, runtimeDir } from "../lib.ts";
@@ -58,7 +58,7 @@ function bodyFixture(opts: { route?: string; author?: typeof AUTHOR; before?: st
 	const f = fixture(),
 		task = parseTask("OPS-1"),
 		author = opts.author ?? AUTHOR;
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": {
 			title: "Body",
 			owningPaths: opts.route === "design" ? ["design/"] : ["tools/evf/"],
@@ -66,7 +66,7 @@ function bodyFixture(opts: { route?: string; author?: typeof AUTHOR; before?: st
 			...(opts.route ? { route: opts.route } : {}),
 		},
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.commit();
 	f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
 	f.git("push", "-q", "origin", "main");

@@ -52,7 +52,7 @@ line per criterion; a tooling spec that has any must give every criterion one.
 Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). evf files each
 `## Later slices` item when the spec is stored: a queued follow-up task linked to its parent, with the slice
 text and the parent's verbatim ask. You do not file them. An OPS parent gets a newly reserved OPS id for each
-slice; add its `maintenanceTasks` entry before its first drive. A WP or FB slice keeps its parent's ref and
+slice; add its `tools/evf/tasks/OPS-<n>.json` entry before its first drive. A WP or FB slice keeps its parent's ref and
 becomes `new` when its parent merges. The drive refuses to start implement while a listed slice has no
 follow-up. Owner-review reports for a partial PR start with the `Partial:` line that names the deferred
 slices and their follow-up labels, as `evf ship` and `evf status` print it. An existing task covers a slice or

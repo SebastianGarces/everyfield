@@ -15,7 +15,7 @@ import { machineWatcher, watcherTick, type WatcherProbes } from "../drive-watche
 import { drive } from "../drive.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { applyRetention, runSampler, type SamplerProbes } from "../sampler.ts";
-import { cli, fixture, noSeatEnv, pidFileHolder, source } from "./fixtures.ts";
+import { cli, fixture, noSeatEnv, pidFileHolder, source, setTasks } from "./fixtures.ts";
 
 const T0 = Date.parse("2026-11-04T10:00:00.000Z");
 const MIN = 60_000;
@@ -26,8 +26,8 @@ const task = parseTask("OPS-1");
 /** One task row in the given status on a fixture repo, with a helper for each thing the tests read and write. */
 function store(status = "active") {
 	const f = fixture();
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Watch", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Watch", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const db = openWorkDb(f.root);
 	syncGoals(f.root, db);

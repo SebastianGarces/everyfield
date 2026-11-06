@@ -1,0 +1,15 @@
+{
+	"title": "Church and network copies of a Wiki article in the QA seed",
+	"owningPaths": ["tools/evf/", "docs/runbooks/"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

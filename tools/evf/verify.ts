@@ -416,7 +416,7 @@ function withCiParity(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
 
 /**
  * OPS-114: every task gets the escaped-bug check, so no task's own check list leaves it out. It is built in because an
- * OPS task may change only its own evf.config.json entry; a configured check of the same name replaces the command.
+ * OPS task may not change evf.config.json; a configured check of the same name replaces the command.
  * The gate in escape.ts decides per task whether it runs, skips with a reason or fails closed.
  */
 const UI_ESCAPED = "ui-escaped";

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fixture } from "./fixtures.ts";
+import { fixture, setTasks } from "./fixtures.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { approve } from "../approve.ts";
@@ -62,15 +62,16 @@ function ownerFixture(
 ) {
 	const f = fixture(),
 		task = parseTask(id);
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": { title: "Workflow upkeep", checks: f.cfg.checks, owningPaths, ...(route ? { route } : {}) },
 	};
 	if (ownerPaths) f.cfg.mergePolicy.ownerPaths = { ...DEFAULT_OWNER_PATHS, paths: ownerPaths };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg, null, "\t"));
+	setTasks(f.root, f.tasks);
 	mkdirSync(join(f.root, "tools/evf"), { recursive: true });
 	writeFileSync(join(f.root, "tools/evf/main.ts"), "export const main = 1;\n");
 	writeFileSync(join(f.root, "tools/evf/ship.ts"), "export const ship = 1;\n");
-	f.git("add", "evf.config.json", "tools/evf/main.ts", "tools/evf/ship.ts");
+	f.git("add", "evf.config.json", "tools/evf/tasks", "tools/evf/main.ts", "tools/evf/ship.ts");
 	f.git("commit", "-qm", "Fixture evf files");
 	f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
 	f.git("push", "-q", "origin", "main");
@@ -542,15 +543,16 @@ test("AC:OPS-121-8 the drive's ship stage records owner_approval_wait for a void
 	}
 });
 
+const SHARED = "tools/evf/shared.txt";
+
 /**
- * #430 (OPS-113): the PR registers a task at the end of maintenanceTasks and changes tools/evf/main.ts and ship.ts;
- * main later registers another task at the same place and changes the same lines.
+ * #430 (OPS-113): the PR adds a line at the end of a shared file and changes tools/evf/main.ts and ship.ts;
+ * main later adds another line at the same place and changes the same lines.
  */
 function replay430(f: Fx) {
-	const entry = (title: string) => ({ [title]: { title, checks: f.cfg.checks, owningPaths: ["tools/evf/"] } });
-	const config = (...extra: Array<Record<string, unknown>>) =>
-		JSON.stringify({ ...f.cfg, maintenanceTasks: Object.assign({}, f.cfg.maintenanceTasks, ...extra) }, null, "\t");
-	f.commit("OPS-113: register maintenance task", { "evf.config.json": config(entry("OPS-113")) });
+	const entry = (title: string) => `${title}\n`;
+	const config = (...extra: string[]) => extra.join("");
+	f.commit("OPS-113: add a shared line", { [SHARED]: config(entry("OPS-113")) });
 	const approved = f.commit("OPS-113: body-only verdict", {
 		"tools/evf/main.ts": "export const main = 'body-only';\n",
 		"tools/evf/ship.ts": "export const ship = 'body-only';\n",
@@ -562,11 +564,11 @@ test("AC:OPS-121-9 the #430 replay: two conflict merges of main and a simplifier
 	const f = ownerFixture();
 	try {
 		const { approved, config, entry } = replay430(f);
-		// 00bd568a: main registers another task in evf.config.json; the merge resolves the conflict by hand.
-		f.mainCommit("OPS-112: register maintenance task", { "evf.config.json": config(entry("OPS-112")) });
+		// 00bd568a: main adds another line to the shared file; the merge resolves the conflict by hand.
+		f.mainCommit("OPS-112: add a shared line", { [SHARED]: config(entry("OPS-112")) });
 		assert.throws(() => f.inWt("merge", "-q", "--no-edit", "origin/main"));
-		writeFileSync(join(f.wt, "evf.config.json"), config(entry("OPS-112"), entry("OPS-113")));
-		f.inWt("commit", "-qam", "Merge main into task/ops-113 (evf.config.json)");
+		writeFileSync(join(f.wt, SHARED), config(entry("OPS-112"), entry("OPS-113")));
+		f.inWt("commit", "-qam", "Merge main into task/ops-113 (shared file)");
 		const merge1 = f.inWt("rev-parse", "HEAD");
 		// 4d457248: main changes tools/evf/main.ts and ship.ts; the second merge resolves both.
 		f.mainCommit("OPS-114: escaped bug becomes a check", {
@@ -589,7 +591,7 @@ test("AC:OPS-121-9 the #430 replay: two conflict merges of main and a simplifier
 			message.includes(
 				[
 					"Commits after the approved head, oldest first:",
-					`- ${f.short(merge1)} Merge main into task/ops-113 (evf.config.json)`,
+					`- ${f.short(merge1)} Merge main into task/ops-113 (shared file)`,
 					`- ${f.short(merge2)} Merge main into task/ops-113 (tools/evf)`,
 					`- ${f.short(simplify)} drop the BodyOnly export and the conditional body spread`,
 				].join("\n"),

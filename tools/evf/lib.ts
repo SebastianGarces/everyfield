@@ -33,7 +33,6 @@ export type Config = {
 	ownerQueue?: unknown;
 	stack: StackDef | null;
 	checks: CheckDef[];
-	maintenanceTasks?: Record<string, MaintenanceScope>;
 	taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;
 	mergePolicy: MergePolicy;
 	/** OPS-69: model and effort per seat role; a role without an entry keeps the default in seats.ts. */
@@ -300,6 +299,29 @@ export function committedConfig(checkout: string, rev = "HEAD"): Config {
 	parseMergePolicy(cfg.mergePolicy);
 	validateSeats(cfg);
 	return cfg;
+}
+
+/** OPS-148: each maintenance task's reviewed entry is one file here, so two tasks never change one path. */
+export const MAINTENANCE_TASKS_DIR = "tools/evf/tasks/";
+export const maintenanceEntryPath = (id: string) => `${MAINTENANCE_TASKS_DIR}${id}.json`;
+
+/** The entry committed at `rev` in `checkout`, or undefined when that commit has no file for `id`. */
+export function committedMaintenanceEntry(checkout: string, id: string, rev = "HEAD"): MaintenanceScope | undefined {
+	const path = maintenanceEntryPath(id);
+	const shown = run("git", ["-C", checkout, "show", `${rev}:${path}`]);
+	if (shown.code !== 0) return undefined;
+	try {
+		return JSON.parse(shown.stdout) as MaintenanceScope;
+	} catch (e) {
+		fail(`${path} at ${rev} is not valid JSON: ${(e as Error).message}`);
+	}
+}
+
+/** The task IDs with an entry file committed at `rev`. */
+export function committedMaintenanceIds(checkout: string, rev = "HEAD"): string[] {
+	return git(checkout, "ls-tree", "--name-only", rev, MAINTENANCE_TASKS_DIR)
+		.split("\n")
+		.flatMap((path) => /\/(OPS-[1-9]\d*)\.json$/.exec(path)?.[1] ?? []);
 }
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;

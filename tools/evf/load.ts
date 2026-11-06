@@ -30,7 +30,7 @@ const machine: LoadProbe = { read: () => loadavg()[0], sleep, now: Date.now };
 
 /**
  * C51 and C81: two per core, 30 minutes of waiting. evf.config.json `machineLoad` may override it; an OPS branch
- * cannot add that key, because it may change only its own maintenanceTasks entry (OPS-22).
+ * cannot add that key, because it may not change that file (OPS-22, OPS-148).
  *
  * OPS-151: a full check also waits under 15% free memory or over 12 GB of swap used (0.75 × 16 GB; macOS frees swap
  * slowly, so a lower ceiling holds checks after the pressure ended). A `machineLoad` entry replaces this whole default,

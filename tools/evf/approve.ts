@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import {
 	baseRef,
-	committedConfig,
+	committedMaintenanceEntry,
 	EvfError,
 	fail,
 	git,
@@ -46,13 +46,13 @@ import {
 	type ShipTiming,
 } from "./ship.ts";
 import { withShipQueue } from "./ship-queue.ts";
-import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
+import { APPROVED_PROTOTYPE, mayChangePrototype, registrationRule } from "./policy.ts";
 import { recordOwnerAnswer } from "./owner-queue.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
  * the verifier-passed P2/P3 feedback fixes (mergePolicy.feedbackOwnerAfterVerifier) and design tasks
- * (maintenanceTasks route "design"), and the document-template PRs (mergePolicy.documentTemplates), landing and
+ * (entry route "design"), and the document-template PRs (mergePolicy.documentTemplates), landing and
  * marketing PRs (mergePolicy.ownerPaths, OPS-111; these need --head) and Wiki-content task PRs (OPS-109) that would
  * otherwise merge through evf ship. An ordinary task PR that evf ship merges gets his recorded approval of one exact head
  * (`--head`, OPS-121): an EVF-Owner line that every later merge must cover. Every other PR refuses before any write.
@@ -118,14 +118,12 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	const ops = /^task\/ops-(\d+)$/.exec(pr.headRefName)?.[1];
 	const task = ops ? parseTask(`OPS-${ops}`) : undefined;
 	if (task) fetchHead(root, cfg, pr);
-	const design = task && committedConfig(root, pr.headRefOid).maintenanceTasks?.[task.id];
+	const design = task && committedMaintenanceEntry(root, task.id, pr.headRefOid);
 	if (task && design?.route === "design") {
-		const base = git(root, "merge-base", baseRef(root, cfg), pr.headRefOid);
 		const owns = (path: string) =>
-			path === "evf.config.json"
-				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
-				: (path !== APPROVED_PROTOTYPE || mayChangePrototype(design)) &&
-					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
+			registrationRule(task, path) ??
+			((path !== APPROVED_PROTOTYPE || mayChangePrototype(design)) &&
+				design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p)));
 		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
 		if (other.length)
 			fail(

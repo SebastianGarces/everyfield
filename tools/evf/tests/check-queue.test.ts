@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import os from "node:os";
 import { syncBuiltinESMExports } from "node:module";
-import { source } from "./fixtures.ts";
+import { source, setTasks, readTask, writeTask } from "./fixtures.ts";
 import {
 	delay,
 	MAIN,
@@ -302,10 +302,11 @@ test("SIGKILL of a holder frees its slot and SIGKILL of a waiter removes its pla
 		// A pass, a failed report and a throw each end with no ticket.
 		assert.equal(quiet(() => withCheckQueue(f.root, "OPS-1", () => "passed")).value, "passed");
 		assert.deepEqual(f.tickets(), []);
-		const failed = f.cfg.maintenanceTasks["OPS-1"];
-		failed.checks = [{ name: "red", run: node("process.exit(1)") }];
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
-		f.git("-C", f.root, "add", "evf.config.json");
+		writeTask(f.root, "OPS-1", {
+			...readTask(f.root, "OPS-1"),
+			checks: [{ name: "red", run: node("process.exit(1)") }],
+		});
+		f.git("-C", f.root, "add", "tools/evf/tasks");
 		f.git("-C", f.root, "commit", "-qm", "red");
 		f.git("-C", f.wt, "merge", "-q", "--no-edit", "main");
 		assert.equal(quiet(() => verify(f.root, task, "author", "full")).value?.passed, false);
@@ -678,13 +679,13 @@ test("the checks that run are the list of the commit they check, also when it la
 		const holders = [f.holder(1), f.holder(2), f.holder(3)];
 		const waiting = f.cli(f.wt, ["verify", "OPS-1"]);
 		await until("the wait", () => /position 1/.test(waiting.err()));
-		const later = {
-			...f.cfg,
-			maintenanceTasks: {
-				"OPS-1": { title: "Queue", owningPaths: ["tools/evf/"], checks: [{ name: "later", run: node("") }] },
-			},
-		};
-		f.commitFiles({ "evf.config.json": JSON.stringify(later) });
+		f.commitFiles({
+			"tools/evf/tasks/OPS-1.json": JSON.stringify({
+				title: "Queue",
+				owningPaths: ["tools/evf/"],
+				checks: [{ name: "later", run: node("") }],
+			}),
+		});
 		const head = f.git("-C", f.wt, "rev-parse", "HEAD");
 		await f.stop(holders[0]!);
 		assert.equal(await waiting.done, 0, waiting.err());

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, setTasks } from "./fixtures.ts";
 import { evfDataDir, git, parseTask } from "../lib.ts";
 import { verify } from "../verify.ts";
 
@@ -15,10 +15,11 @@ const touch = (path: string) => `require("node:fs").writeFileSync(${JSON.stringi
 function setup(checks: Array<{ name: string; run: string[] }>, format = "") {
 	const f = fixture();
 	f.cfg.checks = f.cfg.checks.map((c: { name: string }) => (c.name === "format" ? { ...c, run: node(format) } : c));
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": { title: "Checks", owningPaths: ["tools/evf/", "evf.config.json", "docs/notes.md"], checks },
 	};
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const wt = f.task("ops-1");
 	return { ...f, wt };
@@ -117,7 +118,7 @@ function regressions(extraTest = "") {
 		join(f.root, "tools/evf/tests/one.test.ts"),
 		`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(started)}, "started");\n${extraTest}`,
 	);
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": {
 			title: "Checks",
 			owningPaths: ["tools/evf/", "evf.config.json", "docs/notes.md"],
@@ -129,7 +130,7 @@ function regressions(extraTest = "") {
 			],
 		},
 	};
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	setTasks(f.root, f.tasks);
 	f.git("add", "-A");
 	f.git("commit", "-qm", "Fixture");
 	return { f, wt: f.task("ops-1"), started };

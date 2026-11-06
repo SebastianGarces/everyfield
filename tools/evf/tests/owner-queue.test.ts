@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fixture } from "./fixtures.ts";
+import { fixture, setTasks } from "./fixtures.ts";
 import { parseTask } from "../lib.ts";
 import { ensureTask, migrate, newTaskRow, openWorkDb, record, workDbPath } from "../db.ts";
 import { approve } from "../approve.ts";
@@ -147,7 +147,7 @@ function prBody(): string {
 function prFixture(ref = "OPS-1", scope: Record<string, unknown> = {}) {
 	const f = fixture(),
 		task = parseTask(ref);
-	f.cfg.maintenanceTasks = {
+	f.tasks = {
 		"OPS-1": {
 			title: "Workflow upkeep",
 			checks: f.cfg.checks,
@@ -158,9 +158,10 @@ function prFixture(ref = "OPS-1", scope: Record<string, unknown> = {}) {
 	f.cfg.mergePolicy.documentTemplates = { ...DEFAULT_DOCUMENT_TEMPLATES, paths: [TEMPLATE] };
 	f.cfg.mergePolicy.ownerPaths = { ...DEFAULT_OWNER_PATHS, paths: [OWNER_PATH] };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg, null, "\t"));
+	setTasks(f.root, f.tasks);
 	mkdirSync(join(f.root, "tools/evf"), { recursive: true });
 	writeFileSync(join(f.root, "tools/evf/main.ts"), "export const main = 1;\n");
-	f.git("add", "evf.config.json", "tools/evf/main.ts");
+	f.git("add", "evf.config.json", "tools/evf/tasks", "tools/evf/main.ts");
 	f.git("commit", "-qm", "Fixture evf files");
 	f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
 	f.git("push", "-q", "origin", "main");

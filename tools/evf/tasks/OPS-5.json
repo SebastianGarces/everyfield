@@ -1,0 +1,15 @@
+{
+	"title": "Case checker counts",
+	"owningPaths": ["docs/acceptance/"],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

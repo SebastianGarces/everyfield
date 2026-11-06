@@ -1,0 +1,20 @@
+{
+	"title": "Tooling follow-ups",
+	"owningPaths": [
+		".agents/skills/everyfield-pr/SKILL.md",
+		"tools/evf/",
+		"docs/acceptance/",
+		".github/workflows/ci.yml"
+	],
+	"checks": [
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		}
+	],
+	"risk": "ordinary"
+}

@@ -15,6 +15,7 @@ import {
 	toolCallLine,
 	toolDoneLine,
 	writeTranscript,
+	setTasks,
 } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { driveOnce } from "../drive.ts";
@@ -43,8 +44,8 @@ function store() {
 		savedClaude = process.env.CLAUDE_CONFIG_DIR;
 	process.env.CLAUDE_CONFIG_DIR = claude;
 	const task = parseTask("OPS-1");
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Long run", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.tasks = { "OPS-1": { title: "Long run", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+	setTasks(f.root, f.tasks);
 	f.commit();
 	const wt = f.task("ops-1");
 	const db = openWorkDb(f.root);
