@@ -921,7 +921,7 @@ test("green one", () => {});
 test("parent", async (t) => { await t.test("red child", () => { throw new Error("boom"); }); });
 `);
 
-test("T-2 a package script in package-unit-tests names each failed test, across two commands, and turns on no case coverage", () => {
+test("T-2 a package script in package-unit-tests names each failed test, across two commands and in each file with one name, and turns on no case coverage", () => {
 	const f = fixture();
 	try {
 		f.cfg.checks = [
@@ -941,7 +941,7 @@ test("T-2 a package script in package-unit-tests names each failed test, across 
 			["a.test.mjs", redAndGreen],
 			[
 				"b.test.mjs",
-				sampleTests('test("green one", () => {});\ntest("red in b", () => { throw new Error("boom"); });'),
+				sampleTests('test("green one", () => {});\ntest("red child", () => { throw new Error("boom"); });'),
 			],
 		]) {
 			writeFileSync(join(wt, path), text);
@@ -961,7 +961,7 @@ test("T-2 a package script in package-unit-tests names each failed test, across 
 			[
 				["package-unit-tests", "AC:OPS-1-3 red one", "a.test.mjs"],
 				["package-unit-tests", "red child", "a.test.mjs"],
-				["package-unit-tests", "red in b", "b.test.mjs"],
+				["package-unit-tests", "red child", "b.test.mjs"],
 			],
 		);
 		const log = readFileSync(report.checks[0].log, "utf8");
@@ -995,27 +995,6 @@ test("T-2 a failed step that is no test and a check outside the two record no na
 		} finally {
 			f.close();
 		}
-	}
-});
-
-test("T-2 two tests with one name in two files record two events", () => {
-	const f = fixture();
-	try {
-		const { task, commit } = opsTask(f, [
-			shellCheck("package-unit-tests", `${NODE_TEST} tools/evf/a.test.mjs tools/evf/b.test.mjs`),
-		]);
-		const red = sampleTests('test("same name", () => { throw new Error("boom"); });');
-		commit("tools/evf/a.test.mjs", red);
-		commit("tools/evf/b.test.mjs", red);
-		withRun(undefined, () => quiet(() => verify(f.root, task, "author", "quick")));
-		assert.deepEqual(
-			ofType(stored(f), "test_failed")
-				.map((e) => e.payload.file)
-				.sort(),
-			["tools/evf/a.test.mjs", "tools/evf/b.test.mjs"],
-		);
-	} finally {
-		f.close();
 	}
 });
 
