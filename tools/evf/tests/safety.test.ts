@@ -275,6 +275,8 @@ test("BUG-OPS9-gc: dry run and apply preserve active tasks, open PRs and live pr
 test("BUG-home-registration AC:OPS-148-3 AC:OPS-148-4: an OPS task registers on its own branch and verifies without touching the home config", () => {
 	const f = fixture();
 	try {
+		writeTask(f.root, "OPS-1", { title: "Another task", owningPaths: ["docs/"], checks: f.cfg.checks });
+		f.commit();
 		const home = readFileSync(join(f.root, "evf.config.json")),
 			task = parseTask("OPS-900");
 		assert.throws(

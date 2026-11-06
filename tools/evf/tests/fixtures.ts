@@ -104,7 +104,8 @@ export function fakeClock(onSleep: (elapsed: number) => void = () => {}) {
 
 /** Replace every maintenance task entry file under `dir`. */
 export function setTasks(dir: string, tasks: Record<string, unknown>) {
-	rmSync(join(dir, MAINTENANCE_TASKS_DIR), { recursive: true, force: true });
+	for (const name of readdirSync(join(dir, MAINTENANCE_TASKS_DIR)))
+		if (name.endsWith(".json")) rmSync(join(dir, MAINTENANCE_TASKS_DIR, name));
 	for (const [id, entry] of Object.entries(tasks)) writeTask(dir, id, entry);
 }
 export function writeTask(dir: string, id: string, entry: unknown) {
@@ -136,10 +137,9 @@ function fixtureTemplate() {
 		preserveTimestamps: true,
 	});
 	cpSync(join(source, ".claude/agents"), join(root, ".claude/agents"), { recursive: true, preserveTimestamps: true });
-	cpSync(join(source, MAINTENANCE_TASKS_DIR), join(root, MAINTENANCE_TASKS_DIR), {
-		recursive: true,
-		preserveTimestamps: true,
-	});
+	// No real entries: 100 more files in each of 500 fixtures and their worktrees would slow the suite for no test.
+	mkdirSync(join(root, MAINTENANCE_TASKS_DIR), { recursive: true });
+	writeFileSync(join(root, MAINTENANCE_TASKS_DIR, ".gitkeep"), "");
 	const dag = JSON.parse(readFileSync(join(root, "docs/plan/dag.json"), "utf8"));
 	const progressPath = join(root, "docs/build-progress.json");
 	const progress = {
@@ -340,7 +340,7 @@ export function fixture() {
 	return {
 		root,
 		cfg,
-		/** The entries a test passes to setTasks. The fixture starts with the repo's entry files. */
+		/** The entries a test passes to setTasks. The fixture starts with no entry files. */
 		tasks: {} as Record<string, any>,
 		git,
 		getState: () => JSON.parse(readFileSync(statePath, "utf8")),
