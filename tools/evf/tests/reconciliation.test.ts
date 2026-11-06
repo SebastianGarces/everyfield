@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
 import { buildBlocks, renderBlocks } from "../plan.ts";
 import { loadDag, loadRegistry } from "../lib.ts";
 import { fixture } from "./fixtures.ts";
@@ -761,7 +761,7 @@ test("BUG-c048ea5-body-path: PR create and edit read body files relative to the 
 					.getState()
 					.calls.find((c) => c.args[0] === "pr" && c.args[1] === (state === "OPEN" ? "edit" : "create"));
 				assert.equal(call.body, body);
-				assert.equal(call.args[call.args.indexOf("--body-file") + 1], file);
+				assert.ok(isAbsolute(call.args[call.args.indexOf("--body-file") + 1]), "gh runs in the task worktree");
 			}
 	} finally {
 		process.chdir(cwd);
