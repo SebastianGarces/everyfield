@@ -8,7 +8,7 @@ import { renderAc, renderBrief } from "./brief.ts";
 import { browserRun } from "./browser.ts";
 import { acRun, acVideoMarkers } from "./ac.ts";
 import { doctor, gc } from "./doctor.ts";
-import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
+import { baseRef, EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
 import { evfTestSkip } from "./test-scope.ts";
 import { recordFastTrack } from "./progress.ts";
 import { join } from "node:path";
@@ -616,7 +616,12 @@ function main(argv: string[]): number | Promise<number> {
 						task ? acVideoMarkers(root, task) : new Set(),
 					);
 					const head = git(here, "rev-parse", "HEAD"),
-						stale = staleHeadFault(here, fillHead(readFileSync(file, "utf8"), head), head);
+						stale = staleHeadFault(
+							here,
+							fillHead(readFileSync(file, "utf8"), head),
+							head,
+							baseRef(root, loadConfig(root)),
+						);
 					if (stale) throw new EvfError(`${stale}.`);
 				} else {
 					if (selected !== undefined)

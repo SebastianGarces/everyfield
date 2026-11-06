@@ -47,9 +47,11 @@ Write `{{EVF_HEAD}}` wherever the body names the current head. The template's `V
 already has it. Keep the placeholder in your body file. `evf pr open` pushes the branch and puts the
 exact pushed SHA in the GitHub body, and the next push writes the new SHA. Your file does not change.
 
-A lint refuses a verification section that names another commit as verified or as the head, in `evf pr open`,
-at the implement close and before the verifier launches. Say `round <n>` or `earlier` on a line about an
-older head, because the lint skips those lines. CI's `pr-body` check does not run this lint.
+A lint refuses a verification section that names an old head of this branch as verified or as the head, in
+`evf pr open`, at the implement close and before the verifier launches. An old head is an ancestor of the head
+that is not on main, so main's commits and another PR's head pass. For an older head of this branch, write
+`earlier head <sha>` or `round <n>, head <sha>`: the history word goes next to the head word, in the same sentence.
+CI's `pr-body` check does not run this lint.
 
 ## Rules
 

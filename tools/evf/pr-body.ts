@@ -130,32 +130,54 @@ export function withBodyFile<T>(body: string, use: (file: string) => T): T {
 	}
 }
 
-/** A commit a verification section claims: `Verified head: <sha>`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`. */
+/**
+ * A commit a verification section claims: `Verified head: <sha>`, `**Head:** <sha>`, `| Verified head | <sha> |`,
+ * `Verified head: [<sha>](<url>)`, `verified at <sha>`, `ran on head <sha>`, `head is <sha>`.
+ */
 const NAMED_HEAD =
-	/\b(?:verified\b(?:[\s:]+[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:]*[`*]*([0-9a-f]{7,40})\b/gi;
-/** A line that says its head is history makes no claim about the current one. */
-const EARLIER_HEAD = /\bround \d|\b(?:old|older|previous|prior|earlier|former|before)\b|#\d+.s head/i;
+	/\b(?:verified\b(?:[\s:*`]+[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
+/** History words before the head word, in its sentence: `earlier head <sha>`, `Round 1, at head <sha>`, `#388's head <sha>`. */
+const EARLIER_BEFORE =
+	/(?:\b(?:round \d|old|older|previous|prior|earlier|former|before)\b(?:\W+\w+){0,3}\W*|#\d+.s\s*)$/i;
+/** The same words inside the claim (`verified earlier at <sha>`), and a round right after the SHA (`head <sha> in round 0`). */
+const EARLIER_INSIDE = /\b(?:previous|prior|earlier|former)\b/i;
+const ROUND_AFTER = /^[`*\s,(]*(?:\w+\s+)?round \d/i;
+
+/** Whether the claim at `match` calls its head history. A `before` elsewhere on the line, as in "before and after", does not. */
+function namesEarlierHead(text: string, match: RegExpExecArray | RegExpMatchArray): boolean {
+	const at = match.index ?? 0,
+		sentence =
+			text
+				.slice(0, at)
+				.split(/[.;!?]\s/)
+				.at(-1) ?? "";
+	return (
+		EARLIER_BEFORE.test(sentence) || EARLIER_INSIDE.test(match[0]) || ROUND_AFTER.test(text.slice(at + match[0].length))
+	);
+}
 
 /**
- * Why a body names a head other than `head` as verified, or null (OPS-147). It reads the verification sections and skips
- * code fences. A hex word that is no commit in this repository is not a head. `cwd` is a checkout with the commits.
+ * Why a body names an old head of this branch as verified, or null (OPS-147). It reads the verification sections and
+ * skips code fences. An old head is an ancestor of `head` that is not on `base`, so main's commits and another PR's head
+ * pass. `cwd` is a checkout with the commits.
  */
-export function staleHeadFault(cwd: string, body: string, head: string): string | null {
+export function staleHeadFault(cwd: string, body: string, head: string, base: string): string | null {
+	const ancestorOf = (sha: string, of: string) =>
+		run("git", ["merge-base", "--is-ancestor", sha, of], { cwd }).code === 0;
 	let verification = false;
 	const named: string[] = [];
 	for (const { text } of plainLines(withoutComments(body).split("\n"))) {
 		if (text.startsWith("## ")) verification = /verif/i.test(text);
 		if (!verification) continue;
 		if (text.includes(HEAD_PLACEHOLDER)) return `the PR body still holds ${HEAD_PLACEHOLDER}; evf pr open fills it`;
-		if (EARLIER_HEAD.test(text)) continue;
-		for (const [, sha] of text.matchAll(NAMED_HEAD)) {
-			const lower = sha.toLowerCase();
-			if (head.startsWith(lower) || named.includes(lower)) continue;
-			if (run("git", ["rev-parse", "--verify", "--quiet", `${lower}^{commit}`], { cwd }).code === 0) named.push(lower);
+		for (const match of text.matchAll(NAMED_HEAD)) {
+			const lower = match[1].toLowerCase();
+			if (head.startsWith(lower) || named.includes(lower) || namesEarlierHead(text, match)) continue;
+			if (ancestorOf(lower, head) && !ancestorOf(lower, base)) named.push(lower);
 		}
 	}
 	return named.length
-		? `the PR body names ${named.join(", ")} as verified, but the head is ${head.slice(0, 10)}. Write ${HEAD_PLACEHOLDER} for the current head, and say "round <n>" or "earlier" on a line about an older head`
+		? `the PR body names ${named.join(", ")} as verified, but the head is ${head.slice(0, 10)}. Write ${HEAD_PLACEHOLDER} for the current head. For an older head of this branch, write "earlier head <sha>" or "round <n>, head <sha>"`
 		: null;
 }
 

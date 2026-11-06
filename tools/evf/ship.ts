@@ -148,7 +148,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	const internal = internalIssueOf(root, task);
 	if (internal && !body.includes(`Closes #${internal}`))
 		fail(`Include Closes #${internal} in the PR body for this feedback task.`);
-	const stale = staleHeadFault(wt, body, sha);
+	const stale = staleHeadFault(wt, body, sha, baseRef(root, cfg));
 	if (stale) fail(`${stale}.`);
 	pushBranch(wt, cfg, task);
 	const existing = prFor(wt, task);

@@ -885,7 +885,7 @@ function implementBodyFault(root: string, task: TaskRef, wt: string | null): str
 		);
 		if (!wt || !existsSync(wt)) return null;
 		const head = git(wt, "rev-parse", "HEAD"),
-			stale = staleHeadFault(wt, fillHead(readFileSync(file, "utf8"), head), head);
+			stale = staleHeadFault(wt, fillHead(readFileSync(file, "utf8"), head), head, baseRef(root, loadConfig(root)));
 		return stale && `the PR body at ${file} fails the head check: ${stale}`;
 	} catch (e) {
 		if (e instanceof EvfError) return `the PR body at ${file} fails the evf pr body check: ${e.message}`;
@@ -913,7 +913,7 @@ export function bodyHeadGate(root: string, task: TaskRef, wt: string, pr: number
 		);
 		if (edit.code !== 0) fail(`Cannot update the head in the body of PR #${pr}: ${edit.stderr.trim().slice(0, 300)}`);
 	}
-	return staleHeadFault(wt, body, head);
+	return staleHeadFault(wt, body, head, baseRef(root, loadConfig(root)));
 }
 
 /**

@@ -1051,11 +1051,13 @@ working directory before invoking GitHub in the task worktree.
 
 A body names the current head with `{{EVF_HEAD}}` (OPS-147). `evf pr open` fills it with the head it pushes, and the
 body file keeps the placeholder, so the next head fills it again and the verifier's body hash does not move. A lint,
-`staleHeadFault`, refuses a verification section that names another commit as verified or as the head. It runs in
+`staleHeadFault`, refuses a verification section that names an old head of this branch as verified or as the head. An
+old head is an ancestor of the head that is not on the base branch, so main's commits and another PR's head pass. It runs in
 `evf pr open` before the push, in `evf pr body --body-file`, at the implement close and before a verifier launches.
-Before a verifier launches evf also fills the GitHub body again, because the overlap check can merge main. A line that
-says `round <n>`, `earlier`, `old`, `previous`, `prior` or `before` is history and passes. CI's `pr-body` check does
-not run the lint: a push reaches GitHub before the body edit, so it would fail each new head for a moment.
+Before a verifier launches evf also fills the GitHub body again, because the overlap check can merge main. A claim is
+history, and passes, only when a history word (`round <n>`, `earlier`, `old`, `previous`, `prior`, `former`, `before`)
+stands next to the head word in its sentence, or `round <n>` follows the SHA. "Verified head <sha>, with before and
+after screenshots" is a claim. CI's `pr-body` check does not run the lint: a push reaches GitHub before the body edit, so it would fail each new head for a moment.
 
 ## Stable verification, pushes and cleanup
 

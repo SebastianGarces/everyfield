@@ -5132,35 +5132,62 @@ test("the head lint refuses an old head named as verified in evf pr open and bef
 	}
 });
 
-test("the head lint reads only claims: earlier heads, code fences and hex words that are no commit pass, and an unfilled placeholder does not (OPS-147-3)", () => {
+test("the head lint refuses each form of an old-head claim and passes history, main's commits and other PRs' heads (OPS-147-3)", () => {
 	const f = driveFixture();
 	try {
-		const old = commitFile(f, "old.txt"),
+		const onBase = sh(f.root, "rev-parse", "main"),
+			old = commitFile(f, "old.txt"),
 			current = commitFile(f, "current.txt"),
-			short = old.slice(0, 8),
-			wt = f.root;
-		const lint = (line: string) => staleHeadFault(wt, bodyVerifying(line), current);
+			short = old.slice(0, 8);
+		// A commit on main that the branch does not hold, and another PR's head that no branch here holds.
+		const tree = sh(f.root, "rev-parse", "main^{tree}"),
+			mainHead = sh(f.root, "commit-tree", tree, "-p", onBase, "-m", "main moved");
+		sh(f.root, "update-ref", "refs/heads/main", mainHead);
+		const otherPr = sh(f.root, "commit-tree", tree, "-p", onBase, "-m", "another PR");
+		const lint = (line: string) => staleHeadFault(f.root, bodyVerifying(line), current, "main");
 		for (const claim of [
 			`Verified head: ${old}`,
 			`Verified by the author at \`${short}\`.`,
 			`The PR head is \`${short}\`.`,
 			`All checks ran on head ${short}.`,
+			`**Verified head:** ${old}`,
+			`**Verified head**: ${old}`,
+			`Verified head: [${short}](https://github.com/x/y/commit/${old})`,
+			`| Verified head | ${old} |`,
+			`Verified head (${old})`,
+			`**Head:** ${old}`,
+			`Verified at head ${short}: before (main) and after (branch) videos.`,
+			`Verified head ${short}, with before and after screenshots.`,
+			`All checks ran on head ${short} before I pushed.`,
+			`Round 1 is done. Verified at head ${short}.`,
 		])
 			assert.match(lint(claim) ?? "", new RegExp(`names ${short}`), claim);
 		for (const fine of [
 			`Verified head: ${current}`,
-			`Verified head: ${current.slice(0, 8)}`,
+			`**Verified head:** ${current.slice(0, 8)}`,
 			`Round 1, at head \`${short}\`: the first run.`,
 			`The earlier head ${short} failed.`,
+			`Before (main head ${short}).`,
+			`The author ran these at head ${short} in round 0.`,
+			`Verified earlier at ${short}.`,
 			`The first commit is ${short}.`,
 			"Verified head: deadbee0",
 			["```", `Verified head: ${old}`, "```"].join("\n"),
 			`<!-- Verified head: ${old} -->`,
+			`Main head is ${mainHead}.`,
+			`Verified the bug on main ${mainHead.slice(0, 8)}, then the fix on this branch.`,
+			`Merged main head ${onBase} into this branch.`,
+			`Verified that ${onBase.slice(0, 8)} introduced the bug.`,
+			`PR #450 head ${otherPr} showed the same failure.`,
 		])
 			assert.equal(lint(fine), null, fine);
 		assert.match(lint("Verified head: {{EVF_HEAD}}") ?? "", /still holds \{\{EVF_HEAD\}\}/);
 		const elsewhere = prBody().replace("## Summary\nConcrete task evidence.", `## Summary\nHead ${old}.`);
-		assert.equal(staleHeadFault(wt, elsewhere, current), null, "only a verification section makes the claim");
+		assert.equal(
+			staleHeadFault(f.root, elsewhere, current, "main"),
+			null,
+			"only a verification section makes the claim",
+		);
 	} finally {
 		f.close();
 	}
