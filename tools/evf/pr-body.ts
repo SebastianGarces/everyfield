@@ -136,7 +136,7 @@ export function withBodyFile<T>(body: string, use: (file: string) => T): T {
  * it` and `Verified the test fails at <sha>` say what a commit does. `Verified that all tests pass at <sha>` is a claim.
  */
 const NAMED_HEAD =
-	/\b(?:verified\b(?![\s:*`]+that[\s:*`]+[0-9a-f]{7,40}\b)(?:[\s:*`]+(?!fails?\b|failed\b)[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
+	/\b(?:verified\b(?![\s:*`]+that[\s:*`]+[0-9a-f]{7,40}\b(?![\s:*`]+(?:pass|passes|passed|is|was|works|worked|ran)\b))(?:[\s:*`]+(?!fails?\b|failed\b)[\w-]+){0,5}?|head\b(?:\s+(?:is|sha|commit))?)[\s:*_`[(|]*([0-9a-f]{7,40})\b/gi;
 /**
  * Words before the head word, in its sentence, that make the head history: `earlier head <sha>`, `Round 1, at head <sha>`,
  * `#388's head <sha>`. These words count only directly before it, so `After the fix, verified at head <sha>` stays a
