@@ -1135,10 +1135,11 @@ stays as it is. `bin/evf` sets nothing outside a Git repository or with `GITHUB_
 
 Node never removes entries, and fixture copies and new worktrees add ones that are not reused, so `bin/evf` bounds the
 folder it picks. Before each command it reads the folder's size with `du`. Past 256 MB it deletes the oldest files by
-modified time until the folder is at 128 MB, in `tools/evf/compile-cache-prune.ts`. A deleted entry only compiles again and
-returns. The full-suite run that follows a prune is partly cold, and one run can take the folder past 256 MB until the next
-command. `bin/evf` prunes nothing with `NODE_DISABLE_COMPILE_CACHE=1` or in a folder you set yourself. A failed prune
-changes nothing about the command. To reclaim the space sooner, delete the folder.
+modified time until the folder is at 128 MB, in `tools/evf/compile-cache-prune.ts`. Prunes that overlap walk the same order
+and stop at the same place. A deleted entry only compiles again and returns. The full-suite run that follows a prune is
+partly cold, and one run can take the folder past 256 MB until the next command. `bin/evf` prunes nothing with
+`NODE_DISABLE_COMPILE_CACHE=1` or in a folder you set yourself. A failed prune changes nothing about the command. To reclaim
+the space sooner, delete the folder.
 
 Comparison on 2026-11-06, head `f6546c76`, Node 24.22.1, 12 cores. Each run was
 `node --test --test-concurrency=4 tools/evf/tests/*.test.ts` with the `budgetEnv` values, in `/usr/bin/time -p`, from the

@@ -1,7 +1,8 @@
 /**
  * bin/evf runs this when its compile cache folder is past the bound: `compile-cache-prune.ts <folder> <keep KB>`.
- * It removes the oldest files until the folder is at the size to keep. A file another process just removed, or one this
- * process may not remove, is skipped: losing a cache entry only costs a compile. Sizes are disk blocks, as `du` counts.
+ * It removes the oldest files until the folder is at the size to keep. A file another process just removed counts as
+ * removed, so overlapping prunes walk one order and stop at the same place. A file this process may not remove is
+ * skipped: losing a cache entry only costs a compile. Sizes are disk blocks, as `du` counts.
  */
 import { readdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
@@ -19,11 +20,13 @@ for (const entry of readdirSync(folder, { recursive: true, withFileTypes: true }
 		excess += bytes;
 	} catch {}
 }
-files.sort((a, b) => a.mtimeMs - b.mtimeMs);
+files.sort((a, b) => a.mtimeMs - b.mtimeMs || (a.path < b.path ? -1 : 1));
 for (const { path, bytes } of files) {
 	if (excess <= 0) break;
 	try {
 		unlinkSync(path);
-		excess -= bytes;
-	} catch {}
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") continue;
+	}
+	excess -= bytes;
 }

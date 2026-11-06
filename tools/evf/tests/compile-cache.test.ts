@@ -101,6 +101,14 @@ function seedEntries(folder: string, megabytes: number) {
 }
 
 const PAST_BOUND_MB = 270;
+const TARGET_MB = 128;
+
+/** A prune kept the newest seeded entries, about the target's worth: it neither stopped early nor deleted past it. */
+function assertPrunedToTarget(seeded: string[]) {
+	const kept = seeded.filter((path) => existsSync(path));
+	assert.ok(Math.abs(kept.length - TARGET_MB) <= 2, `${kept.length} MB of seeded entries kept, not about ${TARGET_MB}`);
+	assert.deepEqual(kept, seeded.slice(-kept.length), "the oldest went first, and the newest stayed");
+}
 
 /** A fixture repository that tracks a copy of evf and has an empty `.git/evf` cache. */
 function evfRepo() {
@@ -282,16 +290,43 @@ test("processes that start together on one empty cache all pass and fill it", as
 test("processes that start together on a folder past the bound all pass and leave it under the bound", async () => {
 	const { f, cache } = evfRepo();
 	try {
-		seedEntries(cache, PAST_BOUND_MB);
+		const seeded = seedEntries(cache, PAST_BOUND_MB);
 		assert.ok(sizeKb(cache) > BOUND_KB);
 		await startTogether(f.root);
 		assert.ok(sizeKb(cache) <= BOUND_KB);
+		assertPrunedToTarget(seeded);
 		assert.ok(
 			entries(cache).some((p) => !p.startsWith("v0-seeded")),
 			"the cache filled again",
 		);
 	} finally {
 		f.close();
+	}
+});
+
+test("prunes that overlap on one folder stop at the size to keep", async () => {
+	const folder = mkdtempSync(join(tmpdir(), "evf-prunes-"));
+	try {
+		const seeded = seedEntries(folder, PAST_BOUND_MB);
+		const codes = await Promise.all(
+			Array.from(
+				{ length: 6 },
+				() =>
+					new Promise<number | null>((resolve, reject) => {
+						const prune = join(source, "tools/evf/compile-cache-prune.ts");
+						const child = spawn(process.execPath, [prune, folder, String(TARGET_MB * 1024)], {
+							env: cleanEnv({ NODE_DISABLE_COMPILE_CACHE: "1" }),
+							stdio: "ignore",
+						});
+						child.once("error", reject);
+						child.once("close", resolve);
+					}),
+			),
+		);
+		assert.deepEqual(codes, [0, 0, 0, 0, 0, 0]);
+		assertPrunedToTarget(seeded);
+	} finally {
+		rmSync(folder, { recursive: true, force: true });
 	}
 });
 
