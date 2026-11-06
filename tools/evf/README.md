@@ -186,10 +186,14 @@ the run spent. It has `reason` `base_moved` with `wastedMs` 0 for a run that sta
 
 `test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
 `EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
-WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. `local-app` does so through
-`scripts/test-workflow.mjs`, which `pnpm check` runs after typecheck and lint, so a failure in any other step of that check
-records no name. Any other failed check, at present `package-unit-tests`, records no `test_failed`, and its `check_suite_end` has `passed`
-false. One check records each test name once. `postgres://` and `npg_` values in a name are stored redacted.
+WP task (D19). `package-unit-tests` and `local-app` get the reporter through `EVF_NODE_TEST_FLAGS`, and it appends to the
+same file, because Node truncates a reporter's destination at each start and one check runs many commands. Their `spec`
+output stays in the check's log. `local-app` also gives the names of `scripts/test-workflow.mjs` through `EVF_TEST_REPORT`.
+A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. A step that is not a test, such as typecheck,
+lint, build or `schema:check`, records no name, and a command that never ran after an earlier failure records none. Any
+other failed check records no `test_failed`, and its `check_suite_end` has `passed` false. A checkout path that holds a
+space or a shell character gives these two checks no reporter, so they record no name. One check records each test name
+in each file once. `postgres://` and `npg_` values in a name are stored redacted.
 `file` is the test's path in the checkout, and `touchesOwnPaths` says whether the branch changed the test's paths (see
 "Broken-main brake"). Both are null when the reporter gave no file.
 
@@ -1341,6 +1345,8 @@ check cores / 3, the cap of the full check queue: on 12 cores, 4 test processes,
 Next workers. Each package runs 1 test process, because `pnpm -r` multiplies by it. `evf test` and the node tests of
 `evf ac run` pass `--test-concurrency`; an explicit `--test-concurrency=<n>` on a direct `evf test` comes later and wins.
 `evf verify` gives its check children `npm_config_workspace_concurrency`, `EVF_NODE_TEST_FLAGS` and `EVF_NEXT_WORKERS`.
+For `package-unit-tests` and `local-app`, `EVF_NODE_TEST_FLAGS` also adds the `spec` reporter and the failed-test reporter
+(see "`test_failed`" above).
 Package scripts carry `${EVF_NODE_TEST_FLAGS:-}` or their own `--test-concurrency=1`, and `apps/web/next.config.ts` reads
 the worker count. With these unset, each command behaves as it did before.
 

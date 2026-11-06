@@ -30,7 +30,7 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
-import { budgetEnv, machineBudget } from "./budget.ts";
+import { budgetEnv, failedTestFlags, machineBudget, NAMED_PACKAGE_CHECKS } from "./budget.ts";
 import { withCheckQueue } from "./check-queue.ts";
 import { machineProbes } from "./sampler.ts";
 import { uiEscapedGate } from "./escape.ts";
@@ -240,6 +240,9 @@ function runChecks({
 				EVF_TEST_REPORT: testReport,
 				EVF_FAILED_TESTS: failedTests,
 				EVF_SKIP_REASON: skipReason,
+				...(NAMED_PACKAGE_CHECKS.has(c.name)
+					? { EVF_NODE_TEST_FLAGS: `${env.EVF_NODE_TEST_FLAGS} ${failedTestFlags()}` }
+					: {}),
 			};
 			if (c.name === UI_ESCAPED) {
 				const escaped = uiEscapedGate(root, wt, task, baseSha);
