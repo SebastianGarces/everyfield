@@ -4,7 +4,9 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const tests = [];
-const stream = run({ files: [fileURLToPath(new URL("../tests/workflow/stack.test.mjs", import.meta.url))] });
+const stream = run({
+	files: ["stack", "dev"].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}.test.mjs`, import.meta.url))),
+});
 stream.on("test:pass", ({ name, file }) => tests.push({ name, file, status: "passed" }));
 stream.on("test:fail", ({ name, file }) => {
 	tests.push({ name, file, status: "failed" });

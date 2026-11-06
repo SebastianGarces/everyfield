@@ -746,19 +746,19 @@ test("AC:WP-029-13 only the guarded senders can reach Resend, and the scan fails
 	};
 	plant("apps/web/src/server/jobs/worker.ts", 'await fetch("https://api.resend.com/emails");');
 	plant("packages/domain/src/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/evf/send.mjs", 'const { Resend } = await import("resend");');
+	plant("tools/qa/send.mjs", 'const { Resend } = await import("resend");');
 	plant("apps/web/src/server/jobs/required.cjs", 'const r = require("resend/emails");');
 	plant("apps/web/src/features/communication/mail.ts", 'fetch("https://api.resend.com/emails");');
 	plant("apps/web/src/server/jobs/worker.test.ts", 'fetch("https://api.resend.com/emails");');
 	plant("packages/domain/test/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/evf/send.sh", "curl https://api.resend.com/emails");
+	plant("tools/qa/send.sh", "curl https://api.resend.com/emails");
 	plant("packages/domain/src/local.ts", 'import { createResendTransport } from "./resend.ts";');
 	assert.deepEqual(unguardedSenders(planted), [
 		"apps/web/src/server/jobs/required.cjs",
 		"apps/web/src/server/jobs/worker.ts",
 		"packages/domain/src/mailer.ts",
-		"tools/evf/send.mjs",
-		"tools/evf/send.sh",
+		"tools/qa/send.mjs",
+		"tools/qa/send.sh",
 	]);
 });
 
@@ -817,8 +817,8 @@ test("AC:WP-029-15 the texts state the new behavior and no CI workflow or script
 		/Rebuild an open preview/,
 	])
 		assert.match(section, text);
-	assert.doesNotMatch(read("tools/evf/qa-seed.ts"), /so a real send reaches no real person/);
-	assert.match(read("tools/evf/qa-seed.ts"), /mailRecipientAllowed/);
+	assert.doesNotMatch(read("tools/qa/qa-seed.ts"), /so a real send reaches no real person/);
+	assert.match(read("tools/qa/qa-seed.ts"), /mailRecipientAllowed/);
 	const capture = read("apps/web/src/features/communication/capture.ts");
 	assert.doesNotMatch(capture, /with no provider key and a Vercel environment/i);
 	assert.doesNotMatch(capture, /^\/\/ Dev-only mail capture \(criterion 35\)\. With no provider key/m);

@@ -109,10 +109,37 @@ jobs:
       - name: Failure reporting and internal queue invariants
         run: node --test .github/scripts/*.test.cjs
 
+  tools:
+    # The product tools that live outside tools/evf. The QA seed tests migrate a Docker Postgres with db:migrate.
+    name: tools (CI test coverage, QA previews)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: pnpm in the corepack cache (retries registry errors)
+        run: .github/scripts/corepack-install.sh
+      - run: pnpm install --frozen-lockfile
+      - name: Git identity for test fixtures
+        run: |
+          git config --global user.name "evf ci"
+          git config --global user.email "ci@everyfield.invalid"
+          git config --global init.defaultBranch main
+      - name: Every integration test runs in CI
+        run: node tools/ci/ci-tests.ts
+      - name: CI test coverage tool
+        run: node --test tools/ci/tests/*.test.ts
+      - name: QA preview tool
+        run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
+
   db:
     # One job per package with a test:db script, each with its own Postgres service, so the
     # longest package suite sets the critical path instead of the sum of all suites.
-    # `evf ci-tests` fails when a package with test:db is missing from this matrix.
+    # `node tools/ci/ci-tests.ts` fails when a package with test:db is missing from this matrix.
     # @everyfield/domain runs only the statement census, split into parts so they run side by side.
     name: db (${{ matrix.package }}${{ matrix.part && format(' part {0}', matrix.part) || '' }})
     runs-on: ubuntu-24.04
@@ -245,7 +272,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [app, census, db, docs, evf, wiki]
+    needs: [app, census, db, docs, evf, tools, wiki]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

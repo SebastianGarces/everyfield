@@ -2,14 +2,24 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
-import { runSeed, source, tsxRun } from "./fixtures.ts";
+import { delimiter, dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
-import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
 
-// Sentinels the stubbed CLIs emit or receive. None may reach evf's output, its store or any file it leaves behind.
+// Sentinels the stubbed CLIs emit or receive. None may reach qa's output, its store or any file it leaves behind.
 const NEON_PASSWORD = "npg_SentinelNeonPassword01";
 const BYPASS = "sentinel-bypass-secret-0f1e2d3c";
 const API_KEY = "re_sentinel_resend_key_99";
@@ -22,8 +32,8 @@ const BRANCHES = [
 ];
 
 /** A git repo with one feature branch, stub neonctl, vercel and corepack first on PATH, and a private TMPDIR. */
-function setup(endpoints = [DEV, PROD]) {
-	const dir = mkdtempSync(join(tmpdir(), "evf-qa-")),
+function setup(endpoints = [DEV, PROD], seedPath = "tools/qa/qa-seed.ts") {
+	const dir = mkdtempSync(join(tmpdir(), "qa-test-")),
 		root = join(dir, "repo"),
 		bin = join(dir, "bin"),
 		state = join(dir, "stub-state"),
@@ -31,8 +41,8 @@ function setup(endpoints = [DEV, PROD]) {
 	for (const d of [root, bin, state, temp]) mkdirSync(d);
 	const git = (...args: string[]) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
 	git("init", "--quiet", "-b", "main");
-	mkdirSync(join(root, "tools/evf"), { recursive: true });
-	writeFileSync(join(root, "tools/evf/qa-seed.ts"), "// placeholder\n");
+	mkdirSync(dirname(join(root, seedPath)), { recursive: true });
+	writeFileSync(join(root, seedPath), "// placeholder\n");
 	git("add", ".");
 	git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "init");
 	git("branch", "feature/nora-qa");
@@ -96,8 +106,8 @@ else if (a[0] === "alias" && a[1] === "rm") {
 	fs.writeFileSync(path.join(S, "removed"), a[1]);
 }`,
 	);
-	const evf = (...args: string[]) =>
-		spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "qa", ...args], {
+	const qa = (...args: string[]) =>
+		spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", join(source, "tools/qa/main.ts"), ...args], {
 			cwd: root,
 			encoding: "utf8",
 			env: {
@@ -119,7 +129,7 @@ else if (a[0] === "alias" && a[1] === "rm") {
 		}
 	};
 	const stubState = <T>(f: string): T => JSON.parse(readFileSync(join(state, f), "utf8"));
-	return { dir, root, temp, state, evf, calls, stubState, done: () => rmSync(dir, { recursive: true, force: true }) };
+	return { dir, root, temp, state, qa, calls, stubState, done: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 /** Every file under `dir`, with its bytes as text. */
@@ -130,14 +140,14 @@ function files(dir: string): Array<[string, string]> {
 		.map((p) => [p, readFileSync(p).toString("latin1")]);
 }
 
-test("OPS-106: evf qa up refuses before it creates anything when the parent is missing or production", () => {
+test("OPS-106: qa up refuses before it creates anything when the parent is missing or production", () => {
 	for (const [endpoints, reason] of [
 		[[PROD], /No single ep-autumn-dew endpoint/],
 		[[DEV, { ...PROD, branch_id: "br-dev" }], /production database/],
 	] as const) {
 		const s = setup([...endpoints]);
 		try {
-			const r = s.evf("up", "feature/nora-qa");
+			const r = s.qa("up", "feature/nora-qa");
 			assert.equal(r.status, 1, r.stdout);
 			assert.match(r.stderr, /refused before creating anything/);
 			assert.match(r.stderr, reason);
@@ -151,7 +161,7 @@ test("OPS-106: evf qa up refuses before it creates anything when the parent is m
 			);
 			assert.deepEqual(s.calls("corepack"), []);
 			assert.deepEqual(s.calls("vercel"), []);
-			assert.equal(s.evf("list").stdout.trim(), "No open QA previews.");
+			assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
 		} finally {
 			s.done();
 		}
@@ -161,7 +171,7 @@ test("OPS-106: evf qa up refuses before it creates anything when the parent is m
 test("OPS-106: qa up, list and down keep every secret out of output, the store and files; down twice is a no-op", () => {
 	const s = setup();
 	try {
-		const up = s.evf("up", "feature/nora-qa");
+		const up = s.qa("up", "feature/nora-qa");
 		assert.equal(up.status, 0, up.stderr);
 		const [idLine, url] = up.stdout.trim().split("\n");
 		const id = /^QA preview (qa-feature-nora-qa-[0-9a-f]{4})$/.exec(idLine!)?.[1];
@@ -199,20 +209,20 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 			[`everyfield-${id}.vercel.app`]: "https://everyfield-abc123-team.vercel.app",
 		});
 
-		const list = s.evf("list");
+		const list = s.qa("list");
 		assert.equal(list.status, 0, list.stderr);
 		assert.match(list.stdout.trim(), new RegExp(`^${id}  feature/nora-qa  ${url}  neon:${id}  age 0m  [0-9a-f]{12}$`));
 
-		const down = s.evf("down", id);
+		const down = s.qa("down", id);
 		assert.equal(down.status, 0, down.stderr);
 		assert.equal(down.stdout.trim(), `Removed QA preview ${id}: alias, deployment, Neon branch ${id}.`);
 		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
 		assert.deepEqual(s.stubState("alias.json"), {});
-		const again = s.evf("down", id);
+		const again = s.qa("down", id);
 		assert.equal(again.status, 0, again.stderr);
 		assert.equal(again.stdout.trim(), `No QA preview ${id}. Nothing to remove.`);
 		assert.equal(s.calls("neonctl").filter((c) => c[1] === "delete").length, 1);
-		assert.equal(s.evf("list").stdout.trim(), "No open QA previews.");
+		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
 
 		// Every secret that passed through: Neon, the generated role password and identity keys, bypass, API key.
 		const secrets = [
@@ -231,9 +241,10 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 			...files(s.temp),
 		];
 		assert.ok(
-			seen.some(([p]) => p.endsWith("work.sqlite")),
+			seen.some(([p]) => p.endsWith(join(".git", "qa", "previews.json"))),
 			"the store was scanned",
 		);
+		assert.ok(!existsSync(join(s.root, ".git/evf/work.sqlite")), "qa makes no v1 store");
 		for (const [where, text] of seen)
 			for (const secret of secrets) assert.ok(!text.includes(secret), `a secret reached ${where}`);
 		assert.deepEqual(readdirSync(s.temp), [], "the deploy checkout is removed");
@@ -246,12 +257,119 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 	const s = setup();
 	try {
 		writeFileSync(join(s.state, "FAIL_MIGRATE"), "");
-		const r = s.evf("up", "feature/nora-qa");
+		const r = s.qa("up", "feature/nora-qa");
 		assert.equal(r.status, 1);
 		assert.match(r.stderr, /corepack pnpm failed \(exit 1\):\nusing <redacted>\n/);
 		assert.ok(!(r.stdout + r.stderr).includes(NEON_PASSWORD));
 		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
-		assert.equal(s.evf("list").stdout.trim(), "No open QA previews.");
+		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
+	} finally {
+		s.done();
+	}
+});
+
+test("a branch made before the move seeds from its own tools/evf/qa-seed.ts; a branch with neither seed refuses", () => {
+	const old = setup([DEV, PROD], "tools/evf/qa-seed.ts");
+	try {
+		const up = old.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		assert.ok(
+			old.calls("corepack").some((c) => c.at(-1) === "../../tools/evf/qa-seed.ts"),
+			"the seed ran from the old path",
+		);
+	} finally {
+		old.done();
+	}
+	const none = setup([DEV, PROD], "docs/no-seed.txt");
+	try {
+		const up = none.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 1);
+		assert.match(up.stderr, /This branch has no QA seed \(tools\/qa\/qa-seed\.ts\)/);
+		assert.equal(none.qa("list").stdout.trim(), "No open QA previews.", "the failed run removed its record");
+	} finally {
+		none.done();
+	}
+});
+
+test("qa carry-over copies the v1 previews, stops none of them, and never revives one that qa down removed", () => {
+	const s = setup();
+	const row = (id: string, deployment: string | null) => ({
+		id,
+		branch: `task/${id}`,
+		head: "a".repeat(40),
+		neon_branch: id,
+		url: `https://everyfield-${id}.vercel.app`,
+		deployment,
+		created_at: "2026-11-05T12:00:00.000Z",
+	});
+	try {
+		assert.equal(s.qa("carry-over").status, 1, "no v1 store is an error");
+		mkdirSync(join(s.root, ".git/evf"));
+		const store = join(s.root, ".git/evf/work.sqlite");
+		const v1 = new DatabaseSync(store);
+		v1.exec(readFileSync(join(source, "tools/evf/db/migrations/007-qa-previews.sql"), "utf8"));
+		const insert = v1.prepare("INSERT INTO qa_previews VALUES (?, ?, ?, ?, ?, ?, ?)");
+		for (const r of [row("qa-main-b24e", "https://d1.vercel.app"), row("qa-stale-aaaa", null)])
+			insert.run(r.id, r.branch, r.head, r.neon_branch, r.url, r.deployment, r.created_at);
+		v1.close();
+		const before = readFileSync(store);
+
+		const carried = s.qa("carry-over");
+		assert.equal(carried.status, 0, carried.stderr);
+		assert.match(carried.stdout, /Carried 2 of 2 v1 previews into .*previews\.json\. Nothing was torn down\./);
+		assert.deepEqual(readFileSync(store), before, "the v1 store is read, not written");
+		assert.deepEqual(s.calls("vercel"), [], "nothing is torn down");
+		assert.deepEqual(s.calls("neonctl"), [], "nothing is torn down");
+		const listed = s.qa("list").stdout.trim().split("\n");
+		assert.deepEqual(
+			listed.map((line) => line.split("  ")[0]),
+			["qa-main-b24e", "qa-stale-aaaa"],
+		);
+		const file = JSON.parse(readFileSync(join(s.root, ".git/qa/previews.json"), "utf8"));
+		assert.deepEqual(file.previews[0], row("qa-main-b24e", "https://d1.vercel.app"));
+		assert.equal(statSync(join(s.root, ".git/qa/previews.json")).mode & 0o777, 0o600);
+
+		const again = s.qa("carry-over");
+		assert.match(again.stdout, /Carried 0 of 2 v1 previews/);
+		assert.equal(s.qa("list").stdout.trim().split("\n").length, 2, "a second run adds nothing");
+
+		// A carried preview goes down like any other, and a later carry-over does not bring it back.
+		const down = s.qa("down", "qa-main-b24e");
+		assert.equal(down.status, 0, down.stderr);
+		assert.ok(
+			s.calls("vercel").some((c) => c[0] === "remove" && c[1] === "https://d1.vercel.app"),
+			"its deployment record survived the carry",
+		);
+		s.qa("carry-over");
+		assert.deepEqual(
+			s
+				.qa("list")
+				.stdout.trim()
+				.split("\n")
+				.map((line) => line.split("  ")[0]),
+			["qa-stale-aaaa"],
+		);
+	} finally {
+		s.done();
+	}
+});
+
+test("every worktree of a repository shares one preview file, and bad usage exits 2", () => {
+	const s = setup();
+	const linked = join(s.dir, "linked");
+	try {
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const id = up.stdout.split("\n")[0]!.replace("QA preview ", "");
+		assert.equal(spawnSync("git", ["-C", s.root, "worktree", "add", "-q", "--detach", linked]).status, 0);
+		const seen = spawnSync(
+			process.execPath,
+			["--disable-warning=ExperimentalWarning", join(source, "tools/qa/main.ts"), "list"],
+			{ cwd: linked, encoding: "utf8" },
+		);
+		assert.match(seen.stdout, new RegExp(`^${id}  `));
+		assert.equal(s.qa("list", "extra").status, 2);
+		assert.match(s.qa("down", "not-a-preview").stderr, /is not a QA preview id/);
 	} finally {
 		s.done();
 	}
@@ -314,7 +432,7 @@ function quiet(tag: string) {
 
 /** What each QA login sees through the domain reads the screens use (fixtures/qa-probe.ts). */
 function probe(env: Record<string, string>) {
-	const r = tsxRun(["tools/evf/tests/fixtures/qa-probe.ts"], env);
+	const r = tsxRun(["tools/qa/tests/fixtures/qa-probe.ts"], env);
 	assert.equal(r.status, 0, r.stderr);
 	return JSON.parse(r.stdout) as Record<string, any>;
 }
@@ -565,14 +683,14 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 
 	// A branch seeded by the OPS-106 seed, the version before this task, then seeded again by this one.
 	const old = quiet("qa-seed-old");
-	const dir = mkdtempSync(join(tmpdir(), "evf-qa-old-")),
+	const dir = mkdtempSync(join(tmpdir(), "qa-test-old-")),
 		script = join(dir, "qa-seed.mts");
 	try {
 		// The OPS-106 seed as commit 1e5fa559 left it. A file, not `git show`: CI checks out one commit.
-		const shown = readFileSync(join(source, "tools/evf/tests/fixtures/qa-seed-ops106.ts.txt"), "utf8");
+		const shown = readFileSync(join(source, "tools/qa/tests/fixtures/qa-seed-ops106.ts.txt"), "utf8");
 		writeFileSync(
 			script,
-			shown.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/evf/qa-guard.ts"`),
+			shown.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/qa/qa-guard.ts"`),
 		);
 		const r = tsxRun([script], old.env);
 		assert.equal(r.status, 0, r.stderr);

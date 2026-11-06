@@ -1,6 +1,6 @@
 import { requireForeground } from "./foreground.ts";
 import { checkBranchDiffTests } from "./branch-diff-lint.ts";
-import { checkCiTests } from "./ci-tests.ts";
+import { checkCiTests } from "../ci/ci-tests.ts";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { checkGithubBody, checkPrBody, fillHead, staleHeadFault, taskOfBranch } from "./pr-body.ts";
 import type { FollowUp } from "./followups.ts";
@@ -65,7 +65,7 @@ import {
 import { driveWithSignals, stopDrive } from "./drive-signal.ts";
 import { brakeFixed } from "./brake.ts";
 import { timing } from "./timing.ts";
-import { qaDown, qaList, qaUp } from "./qa.ts";
+import { qaDown, qaList, qaUp } from "../qa/qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
 import { checkAlarm, runSampledPoll } from "./check-alarm.ts";
 import { metricsWeek } from "./metrics.ts";
@@ -897,7 +897,8 @@ function main(argv: string[]): number | Promise<number> {
 try {
 	process.exitCode = await main(process.argv.slice(2));
 } catch (e) {
-	if (e instanceof EvfError) {
+	// A moved tool (tools/qa, tools/ci, tools/wiki) cannot import EvfError, so it marks its errors by name.
+	if (e instanceof EvfError || (e instanceof Error && e.name === "ToolError")) {
 		console.error(`evf: ${e.message}`);
 		process.exitCode = 1;
 	} else throw e;

@@ -5,8 +5,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { source } from "./fixtures.ts";
-import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
+import { source, startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "./fixtures.ts";
 
 // OPS-127: the QA seed's church and network copies of a Wiki article and its revised article. Each case seeds a quiet
 // local database (D81) and reads the result through the Wiki domain reader as the QA owner.
@@ -77,11 +76,11 @@ async function branch(tag: string, prepare: (query: Branch["query"]) => Promise<
 	const releasesBefore = Number((await query("SELECT count(*)::int AS n FROM reference_release"))[0]!.n);
 	const env = clean({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD });
 	const seed = () =>
-		spawnSync(tsx, ["--conditions=react-server", "tools/evf/qa-seed.ts"], { cwd: source, encoding: "utf8", env });
+		spawnSync(tsx, ["--conditions=react-server", "tools/qa/qa-seed.ts"], { cwd: source, encoding: "utf8", env });
 	const read = (requests: { articleId: string; source?: unknown }[]) => {
 		const r = spawnSync(
 			tsx,
-			["--conditions=react-server", "tools/evf/tests/qa-wiki-reader.ts", JSON.stringify(requests)],
+			["--conditions=react-server", "tools/qa/tests/qa-wiki-reader.ts", JSON.stringify(requests)],
 			{ cwd: source, encoding: "utf8", env },
 		);
 		assert.equal(r.status, 0, r.stderr);
@@ -413,7 +412,7 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 			"--test",
 			"--test-reporter=spec",
 			"--test-name-pattern=OPS-106: the QA seed fills a fresh database",
-			"tools/evf/tests/qa.test.ts",
+			"tools/qa/tests/qa.test.ts",
 		],
 		{ cwd: source, encoding: "utf8", env: clean({}) },
 	);

@@ -3,7 +3,7 @@
 // react-server condition:
 //
 //   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<seed password> \
-//     node --conditions=react-server --import tsx tools/evf/tests/qa-wiki-reader.ts '<requests JSON>'
+//     node --conditions=react-server --import tsx tools/qa/tests/qa-wiki-reader.ts '<requests JSON>'
 //
 // Each request is { articleId, source? }. The helper opens a session for the owner, reads as the seed's runtime login
 // and removes the session again. It never prints a connection string.
