@@ -1,4 +1,5 @@
-import { availableParallelism } from "node:os";
+import { availableParallelism, devNull } from "node:os";
+import { join } from "node:path";
 import { CHECK_CAP } from "./check-queue.ts";
 
 export type TestBudget = {
@@ -30,4 +31,16 @@ export function budgetEnv(budget: TestBudget): NodeJS.ProcessEnv {
 		EVF_NODE_TEST_FLAGS: `--test-concurrency=${budget.packageTestProcesses}`,
 		EVF_NEXT_WORKERS: String(budget.nextWorkers),
 	};
+}
+
+/** The checks whose package scripts report failed test names. Any other check keeps the budget flag alone. */
+export const NAMED_PACKAGE_CHECKS = new Set(["package-unit-tests", "local-app"]);
+
+/**
+ * What a named check adds to EVF_NODE_TEST_FLAGS. Package scripts expand the variable unquoted, so a checkout path that
+ * the shell would split or expand gives no flags: that check then records no names, and its tests run as before.
+ */
+export function failedTestFlags(reporter = join(import.meta.dirname, "failed-tests-reporter.mjs")): string {
+	if (!/^[\w./@:+-]+$/.test(reporter)) return "";
+	return `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=${reporter} --test-reporter-destination=${devNull}`;
 }

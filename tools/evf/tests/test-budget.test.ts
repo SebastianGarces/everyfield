@@ -19,7 +19,7 @@ import {
 	until,
 	watch,
 } from "./queue-fixture.ts";
-import { budgetEnv, testBudget } from "../budget.ts";
+import { budgetEnv, testBudget, failedTestFlags } from "../budget.ts";
 import { CHECK_CAP, withCheckQueue } from "../check-queue.ts";
 import { checkCiTests } from "../ci-tests.ts";
 import { WaitGaveUp } from "../lib.ts";
@@ -188,6 +188,14 @@ test("evf verify gives its check children the budget through the three variables
 	} finally {
 		await f.finish();
 	}
+});
+
+test("a checkout path the shell would split gives no reporter flags, so a package script still runs (T-2)", () => {
+	assert.match(
+		failedTestFlags("/repo/tools/evf/r.mjs"),
+		/--test-reporter=spec .*--test-reporter=\/repo\/tools\/evf\/r\.mjs /,
+	);
+	for (const path of ["/my repo/r.mjs", "/repo*/r.mjs", "/repo$x/r.mjs"]) assert.equal(failedTestFlags(path), "");
 });
 
 /** Every package script of the files `evf ci-tests` reads, with the one `evf verify` never runs. */

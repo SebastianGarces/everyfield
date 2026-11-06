@@ -909,6 +909,116 @@ test("AC:OPS-132-9 failed names from bin/evf test stay out of EVF_TEST_REPORT, s
 	}
 });
 
+/** A check that runs its shell script the way a package script runs: the flags expand unquoted. */
+const shellCheck = (name: string, script: string): Check => ({
+	name,
+	run: ["env", "-u", "NODE_TEST_CONTEXT", "sh", "-c", script],
+});
+const NODE_TEST = `"${process.execPath}" --test \${EVF_NODE_TEST_FLAGS:-}`;
+const redAndGreen = sampleTests(`
+test("AC:OPS-1-3 red one", () => { throw new Error("boom"); });
+test("green one", () => {});
+test("parent", async (t) => { await t.test("red child", () => { throw new Error("boom"); }); });
+`);
+
+test("T-2 a package script in package-unit-tests names each failed test, across two commands, and turns on no case coverage", () => {
+	const f = fixture();
+	try {
+		f.cfg.checks = [
+			shellCheck(
+				"package-unit-tests",
+				`${NODE_TEST} a.test.mjs; first=$?; ${NODE_TEST} b.test.mjs; exit $(($first + $?))`,
+			),
+		];
+		f.authorize("WP-002");
+		f.commit();
+		const wt = f.task("wp-002"),
+			task = parseTask("WP-002"),
+			db = openWorkDb(f.root);
+		ensureTask(db, task, "implement");
+		db.close();
+		for (const [path, text] of [
+			["a.test.mjs", redAndGreen],
+			[
+				"b.test.mjs",
+				sampleTests('test("green one", () => {});\ntest("red in b", () => { throw new Error("boom"); });'),
+			],
+		]) {
+			writeFileSync(join(wt, path), text);
+			f.git("-C", wt, "add", path);
+		}
+		f.git("-C", wt, "commit", "-qm", "Tests");
+		const report = withRun(undefined, () => quiet(() => verify(f.root, task, "author", "quick"))).value;
+		assert.deepEqual(
+			report.checks.map((c) => [c.name, c.passed]),
+			[["package-unit-tests", false]],
+			"no case-coverage entry",
+		);
+		assert.deepEqual(
+			ofType(stored(f), "test_failed")
+				.map((e) => [e.payload.suite, e.payload.test, e.payload.file])
+				.sort(),
+			[
+				["package-unit-tests", "AC:OPS-1-3 red one", "a.test.mjs"],
+				["package-unit-tests", "red child", "a.test.mjs"],
+				["package-unit-tests", "red in b", "b.test.mjs"],
+			],
+		);
+		const log = readFileSync(report.checks[0].log, "utf8");
+		assert.match(log, /✖ AC:OPS-1-3 red one/);
+		assert.match(log, /✔ green one/);
+		assert.doesNotMatch(log, /"name":/, "names go to their file only");
+	} finally {
+		f.close();
+	}
+});
+
+test("T-2 a failed step that is no test and a check outside the two record no name", () => {
+	const typecheck: Check = { name: "local-app", run: ["sh", "-c", "echo typecheck failed; exit 2"] };
+	for (const check of [typecheck, shellCheck("other", `${NODE_TEST} tools/evf/a.test.mjs`)]) {
+		const f = fixture();
+		try {
+			const { task, commit } = opsTask(f, [check]);
+			commit("tools/evf/a.test.mjs", redAndGreen);
+			const report = withRun(undefined, () => quiet(() => verify(f.root, task, "author", "quick"))).value;
+			assert.deepEqual(
+				report.checks.filter((c) => !c.passed).map((c) => c.name),
+				[check.name],
+			);
+			assert.deepEqual(ofType(stored(f), "test_failed"), []);
+			assert.deepEqual(
+				ofType(stored(f), "check_suite_end")
+					.filter((e) => !e.payload.passed)
+					.map((e) => e.payload.suite),
+				[check.name],
+			);
+		} finally {
+			f.close();
+		}
+	}
+});
+
+test("T-2 two tests with one name in two files record two events", () => {
+	const f = fixture();
+	try {
+		const { task, commit } = opsTask(f, [
+			shellCheck("package-unit-tests", `${NODE_TEST} tools/evf/a.test.mjs tools/evf/b.test.mjs`),
+		]);
+		const red = sampleTests('test("same name", () => { throw new Error("boom"); });');
+		commit("tools/evf/a.test.mjs", red);
+		commit("tools/evf/b.test.mjs", red);
+		withRun(undefined, () => quiet(() => verify(f.root, task, "author", "quick")));
+		assert.deepEqual(
+			ofType(stored(f), "test_failed")
+				.map((e) => e.payload.file)
+				.sort(),
+			["tools/evf/a.test.mjs", "tools/evf/b.test.mjs"],
+		);
+	} finally {
+		f.close();
+	}
+});
+
 test("AC:OPS-132-10 evf status recent leaves out the four new events and keeps its limit of 50", () => {
 	const f = fixture();
 	try {
