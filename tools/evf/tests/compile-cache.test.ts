@@ -341,13 +341,7 @@ test("a folder past the bound loses its oldest entries, and the next commands ru
 		assert.match(r.stdout, new RegExp(`^${HELP}`));
 		assert.equal(r.stderr, "");
 		assert.ok(sizeKb(cache) <= BOUND_KB);
-		const kept = seeded.findIndex((path) => existsSync(path));
-		assert.ok(kept > 0, "entries were removed");
-		assert.deepEqual(
-			seeded.filter((path) => existsSync(path)),
-			seeded.slice(kept),
-			"the oldest went first, and the newest stayed",
-		);
+		assertPrunedToTarget(seeded);
 		assert.ok(
 			entries(cache).some((p) => !p.startsWith("v0-seeded")),
 			"the run filled the cache again",
