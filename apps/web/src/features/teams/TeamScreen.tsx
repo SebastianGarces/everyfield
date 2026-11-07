@@ -520,7 +520,14 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						/>
 					</TabsPanel>
 					<TabsPanel value="history">
-						<HistoryCard teamId={t.id} revision={t.revision} />
+						<HistoryCard
+							teamId={t.id}
+							revision={[
+								t.revision,
+								// Role changes are filed under the role, so a settled role change reads the history again too.
+								...(data.roles ?? []).map((r) => `${r.id}.${r.revision}.${r.occupantPersonId ?? ""}`),
+							].join(":")}
+						/>
 					</TabsPanel>
 				</Tabs>
 
