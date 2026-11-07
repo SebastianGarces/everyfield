@@ -78,8 +78,8 @@ export function MeetingsCard({
 				</EmptyState>
 			) : (
 				<div className="flex flex-col gap-4">
-					<Group title="Upcoming" meetings={upcoming} thisYear={thisYear} empty="None planned." />
-					<Group title="Past" meetings={past} thisYear={thisYear} empty="None yet." />
+					<Group title="Upcoming" meetings={upcoming} now={now} thisYear={thisYear} empty="None planned." />
+					<Group title="Past" meetings={past} now={now} thisYear={thisYear} empty="None yet." />
 				</div>
 			)}
 			{canPlan ? <PlanMeetingDialog open={planning} onOpenChange={setPlanning} lane={lane} ministry={team} /> : null}
@@ -90,11 +90,13 @@ export function MeetingsCard({
 function Group({
 	title,
 	meetings,
+	now,
 	thisYear,
 	empty,
 }: {
 	title: string;
 	meetings: Summary[];
+	now: string;
 	thisYear: number;
 	empty: string;
 }) {
@@ -115,7 +117,7 @@ function Group({
 									<span className="truncate font-medium text-ink">{m.displayTitle}</span>
 									<span className="text-sm text-text-2">{whenText(m, thisYear)}</span>
 								</span>
-								<MeetingStatusBadge status={m.status} />
+								<MeetingStatusBadge meeting={m} now={now} />
 							</IntentLink>
 						</li>
 					))}

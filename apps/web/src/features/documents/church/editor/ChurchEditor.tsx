@@ -23,7 +23,8 @@ import { ChurchPdf } from "../ChurchPdf.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
-import { editorExtensions, type FieldValues } from "./extensions.ts";
+import { editorExtensions } from "./extensions.ts";
+import { fieldValues } from "./field-values.ts";
 import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
@@ -38,16 +39,6 @@ export type SaveStatus =
 
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
-
-function fieldValues(doc: DocDocument): FieldValues {
-	const values: FieldValues = {};
-	for (const field of doc.fields) {
-		const raw = doc.data?.[field.key];
-		const text = Array.isArray(raw) ? raw.join(", ") : raw === undefined || raw === null ? "" : String(raw);
-		values[field.key] = text || field.fallback || `[${field.label}]`;
-	}
-	return values;
-}
 
 /** Block shortcuts that need no toolbar: Move block up and down, Delete block. */
 const BlockShortcuts = Extension.create({

@@ -163,8 +163,15 @@ export function historyTitle(e: HistoryEntry) {
 	if (e.kind === "correct" && e.about) return "Role dates corrected";
 	// A leader change with no new leader is a leader who left, for example with a removed seat.
 	if (e.kind === "leader_change" && !e.after?.leaderPersonId) return "Leader removed";
+	if (e.subject === "role") return ROLE_KIND[e.kind] ?? "Role changed";
 	return HISTORY_KIND[e.kind] ?? "Changed";
 }
+/** A change filed under one of the ministry's roles. */
+const ROLE_KIND: Record<string, string> = {
+	create: "Role added",
+	edit: "Role edited",
+	retire: "Role retired",
+};
 const HISTORY_KIND: Record<string, string> = {
 	create: "Created",
 	edit: "Edited",
@@ -195,6 +202,26 @@ export function changedFields(entry: HistoryEntry): string {
 		.map((k) => FIELD_LABEL[k])
 		.filter(Boolean)
 		.join(", ");
+}
+
+/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
+const FIELD_ORDER = Object.keys(FIELD_LABEL);
+const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
+/**
+ * The "Field: before → after" lines of an entry, for fields shown as text. A field that reads the same before and
+ * after is no change, so it has no line: a ministry made with no description has no "Description: None → None".
+ */
+export function diffLines(e: HistoryEntry): { label: string; from: string; to: string }[] {
+	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
+		(a, b) => fieldRank(a) - fieldRank(b),
+	);
+	return keys.flatMap((k) => {
+		const from = shownValue(k, e.before?.[k]);
+		const to = shownValue(k, e.after?.[k]);
+		if (from === null && to === null) return [];
+		const line = { label: FIELD_LABEL[k] ?? k, from: from ?? "None", to: to ?? "None" };
+		return line.from === line.to ? [] : [line];
+	});
 }
 
 /** A value of a changed text field for the history list, or null when it is an identifier or not text. */

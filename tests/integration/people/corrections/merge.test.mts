@@ -978,7 +978,7 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PER
 	assert.equal((await attestationOf(p2.id)).revision, home.revision);
 });
 
-test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person removes it from the candidate list and keeps its history", async () => {
+test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person keeps its candidate row, marked retired, and its history", async () => {
 	const p3 = await person("Riley Stone");
 	await attestCandidate(p3.id);
 	assert.equal(
@@ -1006,9 +1006,9 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person removes
 		),
 	);
 	assert.equal((await personRow(p3.id)).state, "retired");
-	assert.equal(
-		(await candidates()).some((x) => x.personId === p3.id),
-		false,
+	assert.deepEqual(
+		(await candidates()).filter((x) => x.personId === p3.id).map((x) => [x.personName, x.personState, x.state]),
+		[["Riley Stone", "retired", "answered"]],
 	);
 	const page = ok(await signals.readAttestations(db, await authority(), {}));
 	assert.equal(page.history.filter((x) => x.personId === p3.id).length, 1);

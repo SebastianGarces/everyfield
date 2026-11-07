@@ -158,6 +158,8 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 **REQ-TSK-009.** Keep canonical phase/category template keys, descriptions, priorities and relative LocalDate offsets through immutable versioned reference. Preview exact selected count and normalized safe markdown; import ordinary top-level tasks assigned current importer unless explicit reviewed eligible assignee. Reviewed operation ID makes transport retry idempotent; deliberate new import ID intentionally creates another set. Existing task text/dates never change from reference update. Reject stale version/invalid keys whole import; no source-row count substitute for reference content fidelity.
 
+**Lost connection on Add.** When an Admin has a checklist preview open and the network drops before they click Add, clicking Add shows "We did not hear back from the server. Try again; it will not save twice." and adds no tasks. When they are back online and click Add again, the tasks are added once. The failed attempt leaves no duplicate set.
+
 **Target operations:** `tasks.listTemplates`, `tasks.previewTemplate`, `tasks.importTemplate`.
 
 **Acceptance:** AC-TSK-009--TSK-009. **Named cases:** TARGET-TSK-009.
@@ -170,6 +172,8 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 ### TSK-010 — One durable phase-transition offer answer
 
 **REQ-TSK-010.** Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Allow only one answer to each transition; selected tasks+answer/history and recorded outcome commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.
+
+**Offer after any move.** When an Owner or Admin moves the church to a different phase, whether forward, skipping forward or backward, /tasks shows one "Checklists for …" offer for the phase the church landed in. Nothing is added until they accept or decline it. A phase whose offer was already answered, accepted or declined, is not offered again when the church later moves back into it. Those checklists can still be added by hand from Phase checklists.
 
 **Target operations:** `tasks.readPhaseOffer`, `tasks.answerPhaseOffer`.
 
@@ -247,7 +251,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-016 — Safe Markdown descriptions and previews
 
-**REQ-TSK-016.** Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.
+**REQ-TSK-016.** Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; raw HTML and script are kept as inert literal text and shown as plain text, never rendered as HTML; links with dangerous URL schemes are reduced to their label, so dangerous URL schemes are removed. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.
 
 **Target operations:** `tasks.normalizeDescription`, `tasks.previewDescription`.
 

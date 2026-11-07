@@ -558,3 +558,98 @@ test("AC:TARGET-TEAM-002 the old correction path is gone and Edit details change
 	);
 	assert.equal(edited.team.name, "Edit only now");
 });
+
+// T-45 (Nora QA 2026-11-04): a ministry's history shows its roles being added, edited, filled, refilled and retired.
+// The commands file those changes under the role or the person's time in it, so the read finds them there: events
+// written before the read changed appear too, and no stored audit row is rewritten.
+test("a ministry's history shows its own role changes, and no other ministry's or church's", async () => {
+	const team = await makeTeam("Role history");
+	const role = await makeRole(team.id, "Greeter");
+	const alex = await person("Alex Roles");
+	const casey = await person("Casey Roles");
+	await assign(team, role, alex);
+	ok(
+		await run(teamsWriter.editRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, name: "Lead greeter" },
+		}),
+	);
+	await leave(team, alex);
+	ok(
+		await run(teamsWriter.reactivateMembership, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, personId: alex },
+		}),
+	);
+	await leave(team, alex);
+	await assign(team, role, casey);
+	ok(
+		await run(teamsWriter.retireRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id },
+		}),
+	);
+
+	// Another ministry in the same church, and a ministry in another church, change their own roles.
+	const other = await makeTeam("Role history elsewhere");
+	const door = await makeRole(other.id, "Door");
+	await assign(other, door, await person("Drew Elsewhere"));
+	ok(
+		await run(teamsWriter.retireRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", door.id),
+			input: { roleId: door.id },
+		}),
+	);
+	const away = await makeTeam("Role history away", 3);
+	ok(await run(teamsWriter.createRole, { requestKey: key(), input: { teamId: away.id, name: "Away seat" } }, 3));
+
+	const stored = sql`SELECT id, kind, subject_type, subject_id, before_value, after_value, metadata FROM audit_event
+		WHERE tenant_id IN (${P}, ${Q}) ORDER BY id`;
+	const rows = (await admin.execute(stored)).rows;
+	const entries = ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
+	assert.deepEqual(
+		entries.map((e) => [e.kind, e.subject, e.about, e.actorName]),
+		[
+			["retire", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
+			["assign", "tenure", { personName: "Casey Roles", roleName: "Lead greeter" }, "Synthetic"],
+			["remove", "ministry", null, "Synthetic"],
+			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
+			["remove", "ministry", null, "Synthetic"],
+			["edit", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
+			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
+			["create", "role", { personName: null, roleName: "Greeter" }, "Synthetic"],
+			["create", "ministry", null, "Synthetic"],
+		],
+	);
+	const [retired, , , , , edited, , added] = entries;
+	assert.deepEqual([edited.before, edited.after], [{ name: "Greeter" }, { name: "Lead greeter" }]);
+	assert.deepEqual(added.after, { name: "Greeter", desiredSkills: null, leadership: false });
+	assert.deepEqual(retired.after, { retired: true, occupantPersonId: null });
+	for (const e of entries) assert.equal(Number.isNaN(Date.parse(e.occurredAt)), false);
+	// The other ministries' role changes stay in their own histories.
+	const elsewhere = ok(await teamsReader.listHistory(db, await viewer(), { teamId: other.id })).entries;
+	assert.deepEqual(
+		elsewhere.map((e) => [e.kind, e.about?.roleName ?? null]),
+		[
+			["retire", "Door"],
+			["assign", "Door"],
+			["create", "Door"],
+			["create", null],
+		],
+	);
+	const awayEntries = ok(await teamsReader.listHistory(db, await viewer(3), { teamId: away.id })).entries;
+	assert.deepEqual(
+		awayEntries.map((e) => [e.kind, e.about?.roleName ?? null]),
+		[
+			["create", "Away seat"],
+			["create", null],
+		],
+	);
+	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "access_denied");
+	// Reading the history rewrites no stored audit row.
+	assert.deepEqual((await admin.execute(stored)).rows, rows);
+});

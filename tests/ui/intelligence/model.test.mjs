@@ -3,6 +3,7 @@
 //   criterion 10: Evry is off on /me/check-in and nowhere else.
 //   criterion 12: a save shows at once in the strip and the confirmed week replaces it; a refusal says why.
 //   criterion 5: the strip names what a correction changed.
+//   T-64: the primary button says whether it saves, changes or corrects a week.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { evryOff } from "../../../apps/web/src/features/intelligence/path.ts";
@@ -11,7 +12,9 @@ import {
 	draftOf,
 	missingAreas,
 	refusalText,
+	submitLabel,
 	weekNote,
+	weekStartIn,
 	withAnswer,
 	withResult,
 } from "../../../apps/web/src/features/intelligence/model.ts";
@@ -84,4 +87,30 @@ test("criterion 5: a corrected week says when and what changed; this week and sk
 		tone: "plain",
 	});
 	assert.equal(weekNote(week(1, "2026-09-21", STEADY, [rev(1, "save", STEADY)]), "America/Chicago"), null);
+});
+
+test("T-64: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
+	const open = week(2, "2026-10-12", null, [], true);
+	assert.equal(submitLabel(open, false), "Save check-in");
+	// While the first save is in flight the strip shows the answer, but the server has no row yet.
+	const optimistic = withAnswer(page([open]), open, STEADY, "").weeks[0];
+	assert.equal(submitLabel(optimistic, false), "Save check-in");
+	const saved = week(2, "2026-10-12", STEADY, [rev(1, "save", STEADY)], true);
+	assert.equal(submitLabel(saved, false), "Save changes");
+	const past = week(1, "2026-10-05", STEADY, [rev(1, "save", STEADY)]);
+	assert.equal(submitLabel(past, true), "Save correction");
+	assert.equal(submitLabel(week(1, "2026-10-05", null), true), "Save correction");
+});
+
+// T-66: the zone step previews the week the check-in opens on: the Monday of the week that holds now in the chosen zone.
+test("T-66: weekStartIn is the Monday of the week that holds the instant in the chosen zone", () => {
+	// Sunday 23:30 in Chicago is already Monday in UTC and in Tokyo.
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "America/Chicago"), "2026-11-02");
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "UTC"), "2026-11-09");
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "Asia/Tokyo"), "2026-11-09");
+	// A Monday at local midnight is its own week; the instant before it is the week before.
+	assert.equal(weekStartIn("2026-11-09T06:00:00.000Z", "America/Chicago"), "2026-11-09");
+	assert.equal(weekStartIn("2026-11-09T05:59:59.999Z", "America/Chicago"), "2026-11-02");
+	// Across a month and year end.
+	assert.equal(weekStartIn("2027-01-01T12:00:00.000Z", "Europe/London"), "2026-12-28");
 });

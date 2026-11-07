@@ -150,9 +150,11 @@ after(() => f?.close());
 
 test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by item under one version", () => {
 	const reference = referenceCatalog();
-	assert.equal(typeof CATALOG.version, "number");
+	// Version 2 added the descriptions the reference lacks (decisions.md D87).
+	assert.equal(CATALOG.version, 2);
+	// Every field but an item's description is the reference's own.
 	assert.deepEqual(
-		CATALOG.checklists,
+		CATALOG.checklists.map((k) => ({ ...k, items: k.items.map(({ description: _, ...i }) => i) })),
 		reference.map((k) => ({
 			key: k.key,
 			name: k.name,
@@ -163,7 +165,6 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 				key: i.key,
 				// The 2026-10-23 brand ruling: app copy spells Everyfield; the frozen reference keeps its legacy spelling.
 				title: i.title.replace(/everyfield/gi, "Everyfield"),
-				description: i.description ?? null,
 				priority: i.priority ?? k.defaultPriority,
 				offsetDays: i.offsetDays,
 			})),
@@ -171,6 +172,24 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 	);
 	assert.equal(CATALOG.checklists.length, 20);
 	assert.deepEqual([...new Set(CATALOG.checklists.map((k) => k.phase))], [0, 1, 2, 3, 4, 5, 6]);
+	// The 4 item descriptions the reference holds are kept word for word.
+	const described = reference.flatMap((k) =>
+		k.items.filter((i) => i.description).map((i) => [k.key, i.key, i.description]),
+	);
+	assert.equal(described.length, 4);
+	for (const [list, item, text] of described)
+		assert.equal(CATALOG.checklists.find((k) => k.key === list).items.find((i) => i.key === item).description, text);
+	// Every one of the 143 items has its own short plain-text description, with the brand spelled Everyfield.
+	const items = CATALOG.checklists.flatMap((k) =>
+		k.items.map((i) => ({ at: `${k.key}/${i.key}`, text: i.description })),
+	);
+	assert.equal(items.length, 143);
+	for (const { at, text } of items) {
+		assert.equal(typeof text, "string", at);
+		assert.ok(text.trim().length > 0 && text.length <= 240, `${at}: ${text.length} characters`);
+		assert.doesNotMatch(text, /[<>[\]()*_#`]|https?:|www\./, `${at} is plain text`);
+		assert.doesNotMatch(text.replace(/Everyfield/g, ""), /everyfield/i, at);
+	}
 });
 
 test("AC:TARGET-TSK-009 an Owner or Admin browses all 20 checklists with the current phase; a Member is refused", async () => {
@@ -201,7 +220,7 @@ test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date 
 	assert.equal(preview.checklist.taskCount, 10);
 	assert.deepEqual(
 		preview.checklist.tasks.map((t) => [t.key, t.title, t.description, t.priority, t.due]),
-		reference.items.map((i) => [i.key, i.title, i.description ?? "", i.priority, plus(today, i.offsetDays)]),
+		reference.items.map((i) => [i.key, i.title, i.description, i.priority, plus(today, i.offsetDays)]),
 	);
 	assert.equal(preview.checklist.tasks[0].due, today);
 	assert.equal(preview.checklist.tasks.find((t) => t.key === "confirm-attendance").priority, "high");
@@ -235,6 +254,15 @@ test("AC:TARGET-TSK-009 an import adds exactly the previewed tasks; a retry repl
 	// The list shows exactly that set as top-level tasks.
 	const listed = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, { limit: 100 })));
 	assert.deepEqual(listed.items.map((t) => t.id).sort(), first.tasks.map((t) => t.id).sort());
+	// The stored text is the catalog's own, item for item.
+	const stored = await rows(sql`SELECT title, description FROM task WHERE plant_id=${c.w.id}`);
+	assert.deepEqual(
+		stored.map((t) => [t.title, t.description]).sort(),
+		CATALOG.checklists
+			.find((k) => k.key === "vision-meeting-preparation")
+			.items.map((i) => [i.title, i.description])
+			.sort(),
+	);
 	const once = await footprint(c.w);
 	assert.equal(once.tasks, 10);
 	assert.equal(once.assignees, 10);
@@ -283,6 +311,8 @@ test("AC:TARGET-TSK-009 a stale version, an unknown key or an actor without Owne
 		await importing(c.admin, "vision-meeting-preparation", randomUUID(), { catalogVersion: CATALOG.version + 1 }),
 		"stale_catalog",
 	);
+	// An import that names version 1, the catalog before descriptions, is refused whole.
+	refused(await importing(c.admin, "vision-meeting-preparation", randomUUID(), { catalogVersion: 1 }), "stale_catalog");
 	refused(await importing(c.member, "vision-meeting-preparation"), "unavailable");
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${c.admin.seatId}`);
 	refused(await importing(c.admin, "vision-meeting-preparation"), "unavailable");
@@ -467,6 +497,14 @@ test("AC:TARGET-TSK-010 a stale move, a forged key, a lost seat or a failed inse
 		}),
 		"stale_catalog",
 	);
+	// An answer that names version 1, the catalog before descriptions.
+	refused(
+		await write(c.owner, "acceptPhaseOffer", {
+			requestKey: randomUUID(),
+			input: { transitionId: latest.id, catalogVersion: 1, checklistKeys: ["peak-performance-classes"] },
+		}),
+		"stale_catalog",
+	);
 	// No Owner or Admin authority: a Member, and an Admin whose seat ended.
 	refused(await accept(c.member, latest.id, ["peak-performance-classes"]), "unavailable");
 	refused(await decline(c.member, latest.id), "unavailable");
@@ -554,9 +592,11 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 	);
 });
 
-test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and clear an empty description", async () => {
-	const fixtureText = "Hello\n<script>alert(1)</script>\n[click](javascript:alert(1))";
-	assert.equal(normalizeDescription(fixtureText), "Hello\n\nclick");
+test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe links and clear an empty description", async () => {
+	// D88: raw HTML, script and comments are kept as literal text; the screens draw them as text, never as HTML.
+	const fixtureText = "Hello\n<script>alert('x')</script>\n[click](javascript:alert(1))\nBye";
+	const kept = "Hello\n<script>alert('x')</script>\nclick\nBye";
+	assert.equal(normalizeDescription(fixtureText), kept);
 	assert.equal(normalizeDescription("   \n\t "), "");
 	assert.equal(
 		normalizeDescription(
@@ -564,7 +604,10 @@ test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and c
 		),
 		"First line\nsecond line\n\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.co)",
 	);
-	assert.equal(normalizeDescription('<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>'), "Hi there");
+	assert.equal(
+		normalizeDescription('<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>'),
+		'<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>',
+	);
 	assert.equal(
 		normalizeDescription("[a](data:text/html;base64,PHNjcmlwdD4=) [b](JaVaScRiPt:alert(1)) [c](/relative)"),
 		"a b c",
@@ -574,14 +617,27 @@ test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and c
 	const created = ok(
 		await write(owner, "create", { requestKey: randomUUID(), input: { title: "Described", description: fixtureText } }),
 	).task;
-	assert.equal(created.description, "Hello\n\nclick");
+	assert.equal(created.description, kept);
 	const stored = await rows(sql`SELECT description FROM task WHERE id=${created.id}`);
-	assert.equal(stored[0].description, "Hello\n\nclick");
-	assert.equal(created.excerpt, "Hello\n\nclick");
-	const edited = ok(
+	assert.equal(stored[0].description, kept);
+	assert.equal(created.excerpt, kept);
+	// The edit path keeps an image tag with a handler and an HTML comment exactly as typed, and a task read returns them.
+	const pastedHtml = 'See <img src=x onerror="alert(2)">\n<!-- note -->';
+	const withHtml = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
 			expectedRevision: created.revision,
+			input: { taskId: created.id, patch: { description: pastedHtml } },
+		}),
+	).task;
+	assert.equal(withHtml.description, pastedHtml);
+	const reread = ok(await f.db.transaction((tx) => taskReader.get(tx, owner.actor, { taskId: created.id }))).task;
+	assert.equal(reread.description, pastedHtml);
+	assert.equal(reread.excerpt, pastedHtml);
+	const edited = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: withHtml.revision,
 			input: { taskId: created.id, patch: { description: "  \n " } },
 		}),
 	).task;

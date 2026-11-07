@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
+	addressStep,
 	begin,
 	editDrafts,
 	initialState,
@@ -56,10 +57,12 @@ export type Actions = {
 const Context = createContext<{ store: Store; actions: Actions } | null>(null);
 
 const STEP_PARAM = "step";
-function writeStep(view: StepKey, mode: "push" | "replace") {
+function writeStep(state: State, mode: "push" | "replace") {
 	const url = new URL(window.location.href);
-	if (url.searchParams.get(STEP_PARAM) === view) return;
-	url.searchParams.set(STEP_PARAM, view);
+	const step = addressStep(state);
+	if (url.searchParams.get(STEP_PARAM) === step) return;
+	if (step) url.searchParams.set(STEP_PARAM, step);
+	else url.searchParams.delete(STEP_PARAM);
 	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
 }
 
@@ -92,7 +95,7 @@ export function OnboardingProvider({
 		return {
 			go(view) {
 				store.set(setView(store.get(), view));
-				writeStep(store.get().view, "push");
+				writeStep(store.get(), "push");
 			},
 			edit(patch) {
 				store.set(editDrafts(store.get(), patch));
@@ -105,7 +108,7 @@ export function OnboardingProvider({
 				const settled = { op, reply } as Settled;
 				const entry = needsReload(settled) ? await fresh() : null;
 				store.set(settle(store.get(), settled, entry));
-				writeStep(store.get().view, "replace");
+				writeStep(store.get(), "replace");
 				return reply.status;
 			},
 			async refresh() {
@@ -116,7 +119,7 @@ export function OnboardingProvider({
 	}, [port, signIn, store]);
 
 	useEffect(() => {
-		writeStep(store.get().view, "replace");
+		writeStep(store.get(), "replace");
 		const back = () =>
 			store.set(
 				setView(store.get(), parseStep(new URL(window.location.href).searchParams.get(STEP_PARAM)) ?? "church"),

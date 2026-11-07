@@ -124,6 +124,9 @@ const EMPTY_ADD: AddDraft = {
  * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
  * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
+/** Room the Email column adds to the table, so "No open recorded" and an open's time stay on one line each. */
+const EMAIL_COLUMN_WIDTH = 140;
+
 /** The open time on the meeting's clock, as the rest of the meeting page shows times. */
 function openedText(iso: string, zone: string | undefined): string {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(
@@ -178,6 +181,8 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
+	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
+	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const table = useRef<HTMLDivElement>(null);
 	const seen = useRef(request?.n);
 	useEffect(() => {
@@ -451,8 +456,9 @@ export function GuestList({
 				</div>
 			),
 		},
-		// Opens sit in their own column: an open is not an answer and not attendance, and no open claims nothing.
-		...(openedOf.size > 0
+		// Opens sit in their own column for Owners and Admins, the only viewers who get opens: an open is not an answer
+		// and not attendance. No open claims nothing about delivery, so the row says only that none is recorded.
+		...(canWrite
 			? [
 					{
 						key: "email",
@@ -466,7 +472,9 @@ export function GuestList({
 										{openedText(at, meeting.zone ?? undefined)}
 									</time>
 								</div>
-							) : null;
+							) : (
+								<span className="text-sm text-text-3">No open recorded</span>
+							);
 						},
 					},
 				]
@@ -653,7 +661,7 @@ export function GuestList({
 						state={{ status: "ready", data: rows }}
 						rowId={(g) => g.id}
 						rowLabel={(g) => g.person.displayName}
-						minWidth={vision ? 760 : 640}
+						minWidth={(vision ? 760 : 640) + (canWrite ? EMAIL_COLUMN_WIDTH : 0)}
 						empty={{
 							icon: UserMultipleIcon,
 							title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
@@ -665,6 +673,11 @@ export function GuestList({
 									: "Choose All to see everyone.",
 						}}
 					/>
+					{noOpensYet ? (
+						<p className="mt-3 text-sm text-text-3">
+							Email opens show here after a message from this meeting is sent and opened.
+						</p>
+					) : null}
 				</div>
 			)}
 			{canWrite && guests ? (

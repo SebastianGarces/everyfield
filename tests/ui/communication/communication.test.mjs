@@ -340,6 +340,26 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`BUG-T44 (${name}): the message header shows only its true state, never the stored "Record:" state`, async () => {
+		const { held } = fixture("communication");
+		const cases = [
+			[held.cancelled, "Cancelled held seed", "Cancelled"],
+			[held.sent, "Sent held seed", "Sent"],
+			[held.scheduled, "Scheduled held seed", "Scheduled"],
+			[held.cancelUnconfirmed, "Cancel unconfirmed held seed", "Cancel not confirmed"],
+		];
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			for (const [id, subject, badge] of cases) {
+				await open(page, `/communication?message=${id}`);
+				const header = heading(page, subject).locator("xpath=..");
+				await header.waitFor();
+				assert.equal((await header.innerText()).split("\n")[0].trim(), badge, subject);
+				assert.equal(await page.getByText("Record:").count(), 0, subject);
+			}
+		});
+	});
+
 	test(`AC:CASE-COM-003 AC:CASE-COM-012 (${name}): a Reviewed row opens Review with the subject and body locked`, async () => {
 		const { reviewed } = fixture("communication");
 		await withPage(engine, async (page, context) => {
