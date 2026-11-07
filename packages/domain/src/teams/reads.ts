@@ -73,24 +73,45 @@ export const teamsReader = {
 			});
 		});
 	},
+	/**
+	 * A ministry's history: changes filed under the ministry, under any of its roles (added, edited, retired) and
+	 * under any person's time in one of its roles (filled, refilled). Roles a setup template added stay in the
+	 * ministry's own Created entry. A role entry names the role as that change recorded it, else as it is named now.
+	 */
 	async listHistory(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.teamHistoryRequest, raw);
+			const plant = sql`${viewer.plantId}::uuid`;
+			const team = sql`${input.teamId}::uuid`;
 			const found = await row(
 				db,
 				viewer,
-				sql`SELECT (SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS owner,
-					coalesce((SELECT json_agg(json_build_object(
+				sql`SELECT (SELECT plant_id FROM team WHERE id = ${team}) AS owner,
+					coalesce((WITH subjects(id, subject, stored) AS (
+						SELECT ${team}, 'ministry', NULL::text
+						UNION ALL SELECT r.id, 'role', 'team_role' FROM team_role r
+							WHERE r.team_id = ${team} AND r.plant_id = ${plant}
+						UNION ALL SELECT tn.id, 'tenure', 'team_tenure' FROM team_tenure tn
+							JOIN team_role r ON r.id = tn.role_id AND r.plant_id = tn.plant_id
+							WHERE r.team_id = ${team} AND tn.plant_id = ${plant})
+					SELECT json_agg(json_build_object(
 						'id', a.id, 'kind', a.kind, 'occurredAt', a.occurred_at, 'reason', a.reason,
-						'before', a.before_value, 'after', a.after_value,
-						'about', (SELECT json_build_object('personName', p.display_name, 'roleName', r.name) FROM team_tenure tn
-							JOIN team_role r ON r.id = tn.role_id JOIN person p ON p.id = tn.person_id
-							WHERE tn.id = (a.metadata->>'tenureId')::uuid AND tn.plant_id = a.tenant_id),
+						'before', a.before_value, 'after', a.after_value, 'subject', a.subject,
+						'about', CASE WHEN a.subject = 'role' THEN
+								(SELECT json_build_object('personName', NULL, 'roleName', coalesce(a.after_value->>'name', r.name)) FROM team_role r
+									WHERE r.id = a.subject_id AND r.plant_id = a.tenant_id)
+							ELSE (SELECT json_build_object('personName', p.display_name, 'roleName', r.name) FROM team_tenure tn
+								JOIN team_role r ON r.id = tn.role_id JOIN person p ON p.id = tn.person_id
+								WHERE tn.id = CASE WHEN a.subject = 'tenure' THEN a.subject_id
+										ELSE (a.metadata->>'tenureId')::uuid END
+									AND tn.plant_id = a.tenant_id) END,
 						'actorName', (SELECT display_name FROM seat_identity(a.actor_id))
 					) ORDER BY a.occurred_at DESC, a.id DESC)
-					FROM (SELECT * FROM audit_event WHERE tenant_id = ${viewer.plantId}::uuid AND subject_id = ${input.teamId}::uuid
-							AND kind <> 'noop'
-						ORDER BY occurred_at DESC, id DESC LIMIT 200) a), '[]'::json) AS entries`,
+					FROM (SELECT e.*, s.subject FROM audit_event e
+						JOIN subjects s ON s.id = e.subject_id AND (s.stored IS NULL OR e.subject_type = s.stored)
+						WHERE e.tenant_id = ${plant} AND e.kind <> 'noop'
+							AND NOT (s.subject = 'role' AND e.request_identity->>'operation' IS NOT DISTINCT FROM 'teams.initialize')
+						ORDER BY e.occurred_at DESC, e.id DESC LIMIT 200) a), '[]'::json) AS entries`,
 			);
 			owner(viewer.plantId, found.owner);
 			const entries = z
@@ -103,7 +124,8 @@ export const teamsReader = {
 						before: z.record(z.string(), z.unknown()).nullable(),
 						after: z.record(z.string(), z.unknown()).nullable(),
 						actorName: z.string().nullable(),
-						about: z.object({ personName: z.string(), roleName: z.string() }).nullable(),
+						subject: z.enum(["ministry", "role", "tenure"]),
+						about: z.object({ personName: z.string().nullable(), roleName: z.string() }).nullable(),
 					}),
 				)
 				.parse(found.entries);
