@@ -58,7 +58,47 @@ async function up() {
 		VALUES (${legacy}::uuid, ${people.plant}::uuid, 1, 'draft', 'Legacy thank you seed',
 		'Thank you for coming on Sunday.' || chr(10) || 'We hope to see you again.',
 		${JSON.stringify({ groups: [], teamIds: [], personIds: [people.people["Sara Nunez"]] })}::jsonb)`);
-	const fixture = writeFixture("communication", env.schema, { orientation, practice, team, retired, reviewed, legacy });
+	// One handed-off message per hub state the detail header shows. The stored record state stays "scheduled" for each,
+	// as it does after a real send, cancel or failed cancel; the state shown comes from its one mail row.
+	const sara = people.people["Sara Nunez"];
+	const held = async (
+		subject: string,
+		mail: { state: string; at: string; cancelRequested?: boolean; sent?: boolean },
+	) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO communication (id, plant_id, revision, state, subject, body_html, body_text, audience, scheduled_at)
+			VALUES (${id}::uuid, ${people.plant}::uuid, 1, 'scheduled', ${subject}, '<p>Hello {{name}}.</p>', 'Hello {{name}}.',
+			${JSON.stringify({ groups: [], teamIds: [], personIds: [sara] })}::jsonb, ${mail.at}::timestamptz)`);
+		await admin.execute(sql`INSERT INTO mail (tenant_id, recipient_person_id, purpose, logical_key, payload_hash, audience_hash,
+			scheduled_at, state, provider_message_id, accepted_at, sent_at, cancel_requested_at, cancel_confirmed_at, created_at)
+			VALUES (${people.plant}::uuid, ${sara}::uuid, 'communication', ${`communication/${id}/${sara}`}, 'seed', 'seed',
+			${mail.at}::timestamptz, ${mail.state}, ${`seed-${id}`}, clock_timestamp(),
+			${mail.sent ? mail.at : null}::timestamptz,
+			${mail.cancelRequested ? sql`clock_timestamp()` : null},
+			${mail.state === "cancelled" ? sql`clock_timestamp()` : null}, clock_timestamp())`);
+		return id;
+	};
+	const later = new Date(Date.now() + 3 * 86_400_000).toISOString();
+	const earlier = new Date(Date.now() - 86_400_000).toISOString();
+	const states = {
+		cancelled: await held("Cancelled held seed", { state: "cancelled", at: later, cancelRequested: true }),
+		scheduled: await held("Scheduled held seed", { state: "accepted", at: later }),
+		sent: await held("Sent held seed", { state: "sent", at: earlier, sent: true }),
+		cancelUnconfirmed: await held("Cancel unconfirmed held seed", {
+			state: "accepted",
+			at: later,
+			cancelRequested: true,
+		}),
+	};
+	const fixture = writeFixture("communication", env.schema, {
+		orientation,
+		practice,
+		team,
+		retired,
+		reviewed,
+		legacy,
+		held: states,
+	});
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));
 }
