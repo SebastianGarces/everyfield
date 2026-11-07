@@ -14,6 +14,7 @@ import {
 	refusalText,
 	submitLabel,
 	weekNote,
+	weekStartIn,
 	withAnswer,
 	withResult,
 } from "../../../apps/web/src/features/intelligence/model.ts";
@@ -99,4 +100,17 @@ test("T-64: the button saves an unsaved week, changes a saved one and corrects a
 	const past = week(1, "2026-10-05", STEADY, [rev(1, "save", STEADY)]);
 	assert.equal(submitLabel(past, true), "Save correction");
 	assert.equal(submitLabel(week(1, "2026-10-05", null), true), "Save correction");
+});
+
+// T-66: the zone step previews the week the check-in opens on: the Monday of the week that holds now in the chosen zone.
+test("T-66: weekStartIn is the Monday of the week that holds the instant in the chosen zone", () => {
+	// Sunday 23:30 in Chicago is already Monday in UTC and in Tokyo.
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "America/Chicago"), "2026-11-02");
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "UTC"), "2026-11-09");
+	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "Asia/Tokyo"), "2026-11-09");
+	// A Monday at local midnight is its own week; the instant before it is the week before.
+	assert.equal(weekStartIn("2026-11-09T06:00:00.000Z", "America/Chicago"), "2026-11-09");
+	assert.equal(weekStartIn("2026-11-09T05:59:59.999Z", "America/Chicago"), "2026-11-02");
+	// Across a month and year end.
+	assert.equal(weekStartIn("2027-01-01T12:00:00.000Z", "Europe/London"), "2026-12-28");
 });

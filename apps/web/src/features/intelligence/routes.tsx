@@ -1,16 +1,15 @@
 import { getViewer } from "@/server/request-context";
-import { Clock01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
-import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { LockKeyIcon } from "@hugeicons/core-free-icons";
+import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
-import { CheckInHeader } from "./Header.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
 import { careViewer, loadCheckIn } from "./server.ts";
 import { loadAttestations } from "./signals-server.ts";
+import { ZoneStep } from "./ZoneStep.tsx";
 
 // The /me/check-in route (WP-039): the private weekly check-in of a church plant's Owner or Admin.
 // apps/web/src/app/(product)/(frame)/me/check-in/ only re-exports these. The page takes no address parameters: the
@@ -30,7 +29,7 @@ export async function CheckInPage() {
 		return <Blocked title="The weekly check-in is for Owners and Admins">{SEAT_TEXT}</Blocked>;
 	const loaded = await loadCheckIn(viewer);
 	if (loaded.status === "refused" && loaded.error.code === "personal_timezone_confirmation_required")
-		return <ConfirmZone name={viewer.displayName} />;
+		return <ZoneStep name={viewer.displayName} />;
 	if (loaded.status !== "ok")
 		return (
 			<Blocked title="We could not load your check-in" tone="error">
@@ -42,34 +41,6 @@ export async function CheckInPage() {
 
 const SEAT_TEXT =
 	"Only an Owner or Admin of a church plant has a weekly check-in. There is nothing to show for your seat.";
-
-/** No personal time zone yet: the week starts on the author's own Monday, so the zone comes first (REQ-IDN-033). */
-function ConfirmZone({ name }: { name: string }) {
-	return (
-		<>
-			<CheckInHeader name={name} subtitle="A short check-in for you, not for the church." />
-			<Card className="max-w-[720px]">
-				<StatePanel
-					tone="lock"
-					icon={Clock01Icon}
-					title="First, choose your time zone"
-					headingLevel="h2"
-					actions={
-						<Link
-							href="/settings/account"
-							className={buttonVariants({ variant: "primary", className: "cursor-pointer" })}
-						>
-							Choose your time zone
-						</Link>
-					}
-				>
-					Your check-in week starts on Monday at midnight where you are. Everyfield does not guess your time zone from
-					your church or your device. Choose it once in Settings, then come back here.
-				</StatePanel>
-			</Card>
-		</>
-	);
-}
 
 function Blocked({
 	title,

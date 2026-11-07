@@ -70,6 +70,23 @@ export function mondayDate(day: string) {
 	const [, m, d] = day.split("-").map(Number);
 	return `Monday, ${LONG_MONTH[m! - 1]} ${d}`;
 }
+/**
+ * The Monday (a LocalDate) of the week that holds `asOf` in `zone`. A new author's first check-in week is this one in
+ * the zone they confirm (privateCare readWeeks), so the zone step previews it before the save.
+ */
+export function weekStartIn(asOf: string, zone: string) {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: zone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		weekday: "short",
+	}).formatToParts(new Date(asOf));
+	const get = (type: string) => parts.find((p) => p.type === type)!.value;
+	const back = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(get("weekday")) + 7) % 7;
+	const local = Date.UTC(Number(get("year")), Number(get("month")) - 1, Number(get("day")));
+	return new Date(local - back * 86_400_000).toISOString().slice(0, 10);
+}
 /** "Oct 6, 9:12 pm" for an instant, in the author's zone. */
 export function savedAt(instant: string, zone: string) {
 	const parts = new Intl.DateTimeFormat("en-US", {
