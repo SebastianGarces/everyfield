@@ -3,6 +3,7 @@
 //   criterion 10: Evry is off on /me/check-in and nowhere else.
 //   criterion 12: a save shows at once in the strip and the confirmed week replaces it; a refusal says why.
 //   criterion 5: the strip names what a correction changed.
+//   T-64: the primary button says whether it saves, changes or corrects a week.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { evryOff } from "../../../apps/web/src/features/intelligence/path.ts";
@@ -11,6 +12,7 @@ import {
 	draftOf,
 	missingAreas,
 	refusalText,
+	submitLabel,
 	weekNote,
 	withAnswer,
 	withResult,
@@ -84,4 +86,17 @@ test("criterion 5: a corrected week says when and what changed; this week and sk
 		tone: "plain",
 	});
 	assert.equal(weekNote(week(1, "2026-09-21", STEADY, [rev(1, "save", STEADY)]), "America/Chicago"), null);
+});
+
+test("T-64: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
+	const open = week(2, "2026-10-12", null, [], true);
+	assert.equal(submitLabel(open, false), "Save check-in");
+	// While the first save is in flight the strip shows the answer, but the server has no row yet.
+	const optimistic = withAnswer(page([open]), open, STEADY, "").weeks[0];
+	assert.equal(submitLabel(optimistic, false), "Save check-in");
+	const saved = week(2, "2026-10-12", STEADY, [rev(1, "save", STEADY)], true);
+	assert.equal(submitLabel(saved, false), "Save changes");
+	const past = week(1, "2026-10-05", STEADY, [rev(1, "save", STEADY)]);
+	assert.equal(submitLabel(past, true), "Save correction");
+	assert.equal(submitLabel(week(1, "2026-10-05", null), true), "Save correction");
 });
