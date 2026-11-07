@@ -61,7 +61,6 @@ test("AC:TARGET-TSK-016 INV-same-text: the panel and the list preview read the s
 		for (const tag of elements) {
 			assert.doesNotMatch(tag, /^<\/?(script|img|iframe|style|object|embed)\b/i, tag);
 			assert.doesNotMatch(tag, /\son[a-z]+\s*=/i, tag);
-			assert.doesNotMatch(tag, /href="\s*(javascript|data):/i, tag);
 		}
 		assert.doesNotMatch(markup, /javascript:|data:/i);
 		// The tags a person typed are escaped text, character for character.
