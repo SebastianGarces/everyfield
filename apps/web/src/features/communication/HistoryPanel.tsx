@@ -95,12 +95,6 @@ function deliveryName(status: string): string {
 	return labels[status] ?? status;
 }
 
-function recordLabel(state: Draft["state"]): string {
-	if (state === "draft") return "Draft";
-	if (state === "reviewed") return "Reviewed";
-	return "Scheduled";
-}
-
 function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage>>) {
 	const [items, setItems] = useState<HistoryItem[]>([]);
 	const [page, setPage] = useState<HistoryPage | null>(null);
@@ -552,7 +546,6 @@ function Detail({
 			<div className="flex flex-col gap-3">
 				<div className="flex flex-wrap items-center gap-3">
 					<StateBadge state={totals.state} />
-					<span className="text-sm text-text-3">Record: {recordLabel(detail.state)}</span>
 				</div>
 				<h2 className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-balance text-ink">
 					{detail.subject?.trim() || "No subject"}
