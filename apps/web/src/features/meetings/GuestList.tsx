@@ -125,7 +125,7 @@ const EMPTY_ADD: AddDraft = {
  * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
 /** Room the Email column adds to the table, so "No open recorded" and an open's time stay on one line each. */
-const EMAIL_COLUMN_WIDTH = 160;
+const EMAIL_COLUMN_WIDTH = 140;
 
 /** The open time on the meeting's clock, as the rest of the meeting page shows times. */
 function openedText(iso: string, zone: string | undefined): string {
