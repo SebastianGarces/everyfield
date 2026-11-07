@@ -39,6 +39,7 @@ import {
 	refusalText,
 	savedAt,
 	shortDate,
+	submitLabel,
 	weekNote,
 	withAnswer,
 	withResult,
@@ -258,7 +259,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 								: "You can change this week until Sunday. After that, a correction keeps the earlier answer."}
 						</span>
 						<Button variant="primary" loading={pending} onClick={() => void submit()}>
-							{correcting ? "Save correction" : "Save check-in"}
+							{submitLabel(editing, correcting)}
 						</Button>
 					</div>
 					<p role="status" className="mt-2 min-h-5 text-right text-sm text-text-3">
