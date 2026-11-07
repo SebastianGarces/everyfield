@@ -1,17 +1,19 @@
 // WP-036 slice 2: the editor's free parts and its schema. No browser, no database.
 //   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package; no private registry.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
+//   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
+import { docDocument, FORMAT_SCHEMA, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { DOC_TEMPLATES } from "../../../packages/domain/src/documents/doc-templates.ts";
 import {
 	clean,
 	documentFrom,
 	editorContent,
 } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
+import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { fieldValues } from "../../../apps/web/src/features/documents/church/editor/field-values.ts";
 import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
@@ -86,6 +88,15 @@ test("AC:DOC-EDIT-SCHEMA: nodes of later slices keep every attribute and child",
 		],
 	};
 	assert.deepStrictEqual(clean(schema.nodeFromJSON(slot).toJSON()), slot);
+});
+
+test("BUG-T50: each color token of the format has a swatch with its own readable name, never the raw token", () => {
+	const tokens = FORMAT_SCHEMA.tokens.color;
+	assert.deepEqual([...TOKENS], [...tokens], "one swatch for each color token, in the format's order");
+	assert.deepEqual(
+		tokens.map((token) => TOKEN_NAMES[token as keyof typeof TOKEN_NAMES]),
+		["None", "Text", "Muted text", "Primary", "Accent", "Light shade", "Border"],
+	);
 });
 
 test("BUG-T49: a commitment card with a stored empty contact_line shows nothing in the editor, not [Contact line]", async () => {
