@@ -127,7 +127,9 @@ function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.Si
 }
 
 /** A candidate from its latest revision. Established only when both behaviors are attested over 60 inclusive days. */
-function candidateFrom(row: StateRow & { personId: string; personName: string }): c.CandidateEntry {
+function candidateFrom(
+	row: StateRow & { personId: string; personName: string; personState: c.CandidateEntry["personState"] },
+): c.CandidateEntry {
 	const answered = row.kind !== "retracted";
 	const days = c.daysBetween(row.periodStart!, row.periodEnd!) + 1;
 	const reasons: c.CandidateReason[] = [];
@@ -139,6 +141,7 @@ function candidateFrom(row: StateRow & { personId: string; personName: string })
 	return c.candidateEntry.parse({
 		personId: row.personId,
 		personName: row.personName,
+		personState: row.personState,
 		state: answered ? "answered" : "retracted",
 		attended: row.attended,
 		volunteered: row.volunteered,
@@ -192,7 +195,9 @@ const pageRow = z.object({
 	zone: z.string().nullable(),
 	today: z.string().nullable(),
 	signals: z.array(stateRow),
-	candidates: z.array(stateRow.extend({ personId: z.uuid(), personName: z.string() })),
+	candidates: z.array(
+		stateRow.extend({ personId: z.uuid(), personName: z.string(), personState: z.enum(["live", "retired"]) }),
+	),
 	people: z.array(z.object({ id: z.uuid(), displayName: z.string(), candidateRevision: z.string() })),
 	history: z.array(historyRow),
 });
@@ -299,7 +304,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		const named = (state: StateRow, name: string) =>
 			c.candidateWriteResult.parse({
 				outcome: "saved",
-				candidate: candidateFrom({ ...state, personId, personName: name }),
+				candidate: candidateFrom({ ...state, personId, personName: name, personState: "live" }),
 			});
 		if (replay) {
 			// The Person's name is not part of the first result's state: read it back from the candidate fields only.
@@ -338,7 +343,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		},
 
 		/**
-		 * The Attestations page (PI-014, PI-015): the seven signals, the counts, the live candidates, the Persons a
+		 * The Attestations page (PI-014, PI-015): the seven signals, the counts, the live and retired Persons' candidates, the live Persons a
 		 * candidate can be recorded for and the newest history. One statement, whatever the data size.
 		 */
 		async readAttestations(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
@@ -351,9 +356,9 @@ export function createSignals(config: { clock?: Clock } = {}) {
  sig AS (SELECT r.*,a.revision AS cur_rev FROM attestation a
   JOIN LATERAL (SELECT x.* FROM attestation_revision x WHERE x.attestation_id=a.id ORDER BY x.revision DESC LIMIT 1) r ON true
   WHERE a.plant_id=${s.plant}::uuid AND a.person_id IS NULL AND a.key IN (${MANUAL}) AND (SELECT ok FROM gate)),
- cand AS (SELECT r.*,a.revision AS cur_rev,pe.id AS pid,pe.display_name AS pname FROM attestation a
+ cand AS (SELECT r.*,a.revision AS cur_rev,pe.id AS pid,pe.display_name AS pname,pe.state AS pstate FROM attestation a
   JOIN LATERAL (SELECT x.* FROM attestation_revision x WHERE x.attestation_id=a.id ORDER BY x.revision DESC LIMIT 1) r ON true
-  JOIN person pe ON pe.id=a.person_id AND pe.tenant_id=a.plant_id AND pe.state='live'
+  JOIN person pe ON pe.id=a.person_id AND pe.tenant_id=a.plant_id AND pe.state IN ('live','retired')
   WHERE a.plant_id=${s.plant}::uuid AND a.key='leadership_candidate' AND (SELECT ok FROM gate)),
  ppl AS (SELECT pe.id,pe.display_name,coalesce(a.revision,0) AS rev FROM person pe
   LEFT JOIN attestation a ON a.person_id=pe.id AND a.plant_id=pe.tenant_id AND a.key='leadership_candidate'
@@ -363,7 +368,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${PAGE_HISTORY})
  SELECT (SELECT ok FROM gate) AS ok,(SELECT zone FROM ctx) AS zone,(SELECT today FROM ctx)::text AS today,
  coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}) FROM sig x),'[]'::jsonb) AS signals,
- coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}||jsonb_build_object('personId',x.pid,'personName',x.pname)
+ coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}||jsonb_build_object('personId',x.pid,'personName',x.pname,'personState',x.pstate)
   ORDER BY x.recorded_at DESC) FROM cand x),'[]'::jsonb) AS candidates,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'candidateRevision',p.rev::text)
   ORDER BY p.display_name,p.id) FROM ppl p),'[]'::jsonb) AS people,

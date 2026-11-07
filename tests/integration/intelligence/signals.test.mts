@@ -614,7 +614,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 	);
 });
 
-test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and a retired Person leaves the list but keeps its history", async () => {
+test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and a retired Person keeps its row and history", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -691,15 +691,79 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 	);
 	assert.equal(trail[0].personName, "Mo Hart");
 	assert.equal(trail[0].questionVersion, "leadership-candidate/1");
-	// Retiring the Person removes it from the list and keeps its history on that Person.
+	// Retiring the Person keeps its row, marked retired, and its history on that Person; the picker drops it.
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${mo.id}`);
 	const view = await page(a);
-	assert.deepEqual(view.candidates, []);
+	assert.deepEqual(view.candidates, [{ ...back, personState: "retired" }]);
 	assert.equal(view.history.filter((r) => r.personId === mo.id).length, 4);
 	assert.equal(
 		view.people.some((x) => x.id === mo.id),
 		false,
 	);
+});
+
+test("WP-039 C2: a retired Person's candidate keeps its row and statement, marked retired, until a restore clears the mark", async () => {
+	now = at(0);
+	const w = await f.workspace();
+	const a = await seated(w);
+	const quinn = await person(a, "Quinn Keeper");
+	const others = await person(a, "Robin Stay");
+	const input = {
+		personId: quinn.id,
+		periodStart: "2026-08-01",
+		periodEnd: "2026-10-13",
+		attended: true,
+		volunteered: true,
+		statement: "Set up chairs every Sunday since August.",
+	};
+	const made = ok(
+		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: "0", input }),
+	).candidate;
+	assert.equal(made.personState, "live");
+	const before_ = (await page(a)).candidates;
+	assert.deepEqual(before_, [made]);
+
+	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${quinn.id}`);
+	const retired = await page(a);
+	// Only the person's state changes: name, statement, period, status, author and date stay as they were.
+	assert.deepEqual(retired.candidates, [{ ...made, personState: "retired" }]);
+	assert.equal(retired.candidates[0].statement, "Set up chairs every Sunday since August.");
+	// The picker still offers only live Persons, and a write for the retired Person still refuses.
+	assert.equal(
+		retired.people.some((x) => x.id === quinn.id),
+		false,
+	);
+	assert.equal(
+		retired.people.some((x) => x.id === others.id),
+		true,
+	);
+	const untouched = await counts(w);
+	refused(
+		await signals.correctCandidate(f.db, a.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: made.revision,
+			input: { action: "correct", ...input, volunteered: false },
+		}),
+		"not_found",
+	);
+	assert.deepEqual(await counts(w), untouched);
+
+	await f.admin.execute(sql`UPDATE person SET state='live', retired_at=NULL WHERE id=${quinn.id}`);
+	const restored = await page(a);
+	assert.deepEqual(restored.candidates, [made]);
+	assert.equal(
+		restored.people.some((x) => x.id === quinn.id),
+		true,
+	);
+	const fixed = ok(
+		await signals.correctCandidate(f.db, a.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: made.revision,
+			input: { action: "correct", ...input, volunteered: false },
+		}),
+	).candidate;
+	assert.equal(fixed.personState, "live");
+	assert.equal(fixed.statement, "Set up chairs every Sunday since August.");
 });
 
 test("AC:REQ-TEAM-017 criterion 10: recording, correcting and retracting a candidate changes no team, task, phase, notice or job", async () => {
