@@ -102,6 +102,16 @@ export const STATUS_TONE: Record<MeetingStatus, Status> = {
 	completed: "unknown",
 	cancelled: "risk",
 };
+/**
+ * What a meeting's status reads as on screen. Status changes stay explicit (REQ-MTG-002), so a meeting whose start has
+ * passed while it is still planning or ready reads "Not closed": its organizer has yet to set what happened. Every
+ * other meeting reads its stored status. The stored status, the API and the Status filter are unchanged.
+ */
+export function statusView(status: MeetingStatus, startsAt: string, now: string): { label: string; tone: Status } {
+	if ((status === "planning" || status === "ready") && Date.parse(startsAt) < Date.parse(now))
+		return { label: "Not closed", tone: "attention" };
+	return { label: STATUS_LABEL[status], tone: STATUS_TONE[status] };
+}
 /** The menu words for moving to each status. */
 export const STATUS_ACTION: Record<MeetingStatus, string> = {
 	planning: "Back to planning",
