@@ -817,7 +817,14 @@ function CandidateSection({
 								className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_104px] items-center gap-4 border-t border-line px-[18px] py-4 max-app-md:grid-cols-[minmax(0,1fr)_auto] max-app-md:gap-y-2"
 							>
 								<div className="min-w-0 max-app-md:col-span-2">
-									<div className="font-semibold text-ink">{c.personName}</div>
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+										<span className="font-semibold text-ink">{c.personName}</span>
+										{c.personState === "retired" ? (
+											<StatusBadge status="unknown" size="sm" plain>
+												Retired
+											</StatusBadge>
+										) : null}
+									</div>
 									<div className="mt-[3px] text-sm text-text-2">{periodText(c)}</div>
 									{c.statement ? <div className="mt-1 text-sm text-text-2">{c.statement}</div> : null}
 								</div>
@@ -832,14 +839,17 @@ function CandidateSection({
 										<b className="font-medium text-ink">{c.authorName ?? "A church admin"}</b> · {shortDate(c.asOf)}
 									</div>
 								</div>
-								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => onOpen(c.personId)}
-									aria-label={`Update: ${c.personName}`}
-								>
-									{c.state === "retracted" ? "Record again" : "Update"}
-								</Button>
+								{/* A retired Person takes no candidate write: restore them to update the row. */}
+								{c.personState === "live" ? (
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={() => onOpen(c.personId)}
+										aria-label={`Update: ${c.personName}`}
+									>
+										{c.state === "retracted" ? "Record again" : "Update"}
+									</Button>
+								) : null}
 							</li>
 						))}
 					</ul>
@@ -915,6 +925,7 @@ function CandidateDialog({
 				: {
 						personId: person.id as CandidateEntry["personId"],
 						personName: person.displayName,
+						personState: "live",
 						state: stateNow,
 						attended,
 						volunteered,

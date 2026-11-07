@@ -241,10 +241,14 @@ export const humanRevision = z.strictObject({
 export type HumanRevision = z.infer<typeof humanRevision>;
 export const historyResult = z.strictObject({ revisions: z.array(humanRevision) });
 
-/** One leadership candidate: a live Person with a dated attestation. Established only when every part holds. */
+/**
+ * One leadership candidate: a live or retired Person with a dated attestation. Established only when every part holds.
+ * A retired Person's row stays readable but takes no write: every candidate write for a retired Person refuses.
+ */
 export const candidateEntry = z.strictObject({
 	personId: recordId,
 	personName: z.string().min(1),
+	personState: z.enum(["live", "retired"]),
 	state: z.enum(["answered", "retracted"]),
 	attended: z.boolean(),
 	volunteered: z.boolean(),
