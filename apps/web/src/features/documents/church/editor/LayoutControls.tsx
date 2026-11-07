@@ -5,7 +5,16 @@ import { cn } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, TOKENS, WEIGHTS, type Target } from "./layout.ts";
+import {
+	ALIGNS,
+	layoutTargets,
+	setBlockAttrs,
+	setColumnCount,
+	TOKEN_NAMES,
+	TOKENS,
+	WEIGHTS,
+	type Target,
+} from "./layout.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tiptap/primitives/tooltip.tsx";
 import { TOOLBAR } from "./tiptap/styles.ts";
@@ -91,7 +100,7 @@ export function Segmented<T extends string | number>({
 	);
 }
 
-/** A row of swatches, one for each token, each named by its token. */
+/** A row of swatches, one for each token, each named by the token's readable name. */
 function Swatches({
 	label,
 	value,
@@ -114,8 +123,8 @@ function Swatches({
 						type="button"
 						role="radio"
 						aria-checked={on}
-						aria-label={token}
-						tooltip={token}
+						aria-label={TOKEN_NAMES[token]}
+						tooltip={TOKEN_NAMES[token]}
 						tabIndex={on ? 0 : -1}
 						data-token={token}
 						data-active-state={on ? "on" : "off"}

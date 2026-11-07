@@ -367,7 +367,7 @@ async function paperColors(page) {
 	await cursorIn(page, "The board makes decisions");
 	await insert(page, "Colored box");
 	await type(page, "Boxed text");
-	await page.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "primary", exact: true }).click();
+	await page.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "Primary", exact: true }).click();
 	await cursorIn(page, "The secretary writes");
 	await insert(page, "Accent bar");
 	return page.locator(PAPER).evaluate((el) => {
@@ -519,20 +519,21 @@ test("AC:DOC-LAYOUT-ACTIONS: every layout and page setup action is checked with 
 			});
 			await cursorInside(page, "box", 0);
 			await type(page, "Boxed text");
-			for (const token of ["primary", "accent", "muted"]) {
+			for (const [token, name] of [
+				["primary", "Primary"],
+				["accent", "Accent"],
+				["muted", "Light shade"],
+			]) {
 				await checked(page, `box fill ${token}`, async () => {
 					await cursorInside(page, "box", 0);
-					await page
-						.getByRole("radiogroup", { name: "Box fill" })
-						.getByRole("radio", { name: token, exact: true })
-						.click();
+					await page.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name, exact: true }).click();
 				});
 			}
 			await checked(page, "box border ink", async () => {
 				await cursorInside(page, "box", 0);
 				await page
 					.getByRole("radiogroup", { name: "Box border" })
-					.getByRole("radio", { name: "ink", exact: true })
+					.getByRole("radio", { name: "Text", exact: true })
 					.click();
 			});
 			const box = nodesOf(await snapshot(page), "box")[0];
@@ -572,7 +573,7 @@ test("AC:DOC-LAYOUT-ACTIONS: every layout and page setup action is checked with 
 				await selectNode(page, "divider", await dividerIndexOf(page, { weight: "rule", color: "accent" }));
 				await page
 					.getByRole("radiogroup", { name: "Divider color" })
-					.getByRole("radio", { name: "primary", exact: true })
+					.getByRole("radio", { name: "Primary", exact: true })
 					.click();
 			});
 		});
@@ -793,12 +794,12 @@ test("AC:DOC-LAYOUT-COLORS: the paper paints each token as the renderer's palett
 				);
 			assert.deepEqual(
 				swatches.map(([name]) => name),
-				["none", "ink", "muted-text", "primary", "accent", "muted", "border"],
+				["None", "Text", "Muted text", "Primary", "Accent", "Light shade", "Border"],
 			);
 			assert.equal(await page.locator('input[type="color"]').count(), 0, "no color picker");
 			assert.equal(await page.getByRole("textbox", { name: /hex|color/i }).count(), 0, "no hex field");
 			const primary = swatches
-				.find(([name]) => name === "primary")[1]
+				.find(([name]) => name === "Primary")[1]
 				.match(/\d+/g)
 				.slice(0, 3)
 				.map(Number);
@@ -882,7 +883,7 @@ test("AC:DOC-LAYOUT-FILES: one document with everything of this slice, in its PD
 		await type(page, "Primary box text");
 		await page
 			.getByRole("radiogroup", { name: "Box fill" })
-			.getByRole("radio", { name: "primary", exact: true })
+			.getByRole("radio", { name: "Primary", exact: true })
 			.click();
 		await cursorIn(page, "The secretary writes");
 		await insert(page, "Accent bar");
@@ -1142,14 +1143,14 @@ test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its curs
 			const probes = [
 				[settings.getByRole("radio", { name: "3 columns" }), "3 columns"],
 				[
-					settings.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "accent", exact: true }),
-					"accent",
+					settings.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "Accent", exact: true }),
+					"Accent",
 				],
 				[
 					settings
 						.getByRole("radiogroup", { name: "Box border" })
-						.getByRole("radio", { name: "muted-text", exact: true }),
-					"muted-text",
+						.getByRole("radio", { name: "Muted text", exact: true }),
+					"Muted text",
 				],
 				[button(page, "Page setup"), "Page setup"],
 				[radio(page, "Landscape"), "Landscape"],
