@@ -82,6 +82,32 @@ test(`T-66 (${firstName}): an Admin with no zone picks one on the check-in, sees
 		await hydrated(page);
 		await page.getByRole("heading", { name: "This week" }).waitFor();
 		assert.equal(await page.getByRole("combobox", { name: "Your time zone" }).count(), 0);
+
+		// Settings shares the same choice and save (usePersonalZoneChoice): the saved zone asks the server nothing, and a
+		// new zone is previewed, saved and shown in the row.
+		await page.goto(`${BASE}/settings/account`);
+		await hydrated(page);
+		const row = page.locator("[data-personal-zone]").locator("xpath=..");
+		await row.getByRole("button", { name: "Change" }).click();
+		const dialog = page.getByRole("dialog");
+		const choose = async (city) => {
+			await dialog.getByRole("combobox", { name: "Your time zone" }).click();
+			await page.getByPlaceholder("Search time zones").fill(city);
+			await page
+				.getByRole("option", { name: new RegExp(city) })
+				.first()
+				.click();
+		};
+		await choose("Tokyo");
+		await dialog.getByText("This is already your time zone.").waitFor();
+		assert.ok(await dialog.getByRole("button", { name: /^Use .* time( zone)?$/ }).isDisabled());
+		await choose("Lisbon");
+		await dialog.getByText(/Your week will start on Monday at midnight in Lisbon/).waitFor();
+		await dialog.getByRole("button", { name: "Use Lisbon time" }).click();
+		await row
+			.locator("[data-personal-zone]")
+			.filter({ hasText: /Lisbon/ })
+			.waitFor();
 	});
 });
 

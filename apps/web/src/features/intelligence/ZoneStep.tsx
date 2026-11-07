@@ -17,8 +17,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { previewPersonalTimezone, setPersonalTimezone } from "../settings/actions";
 import { ZonePicker } from "../settings/flows/ZonePicker";
-import type { PersonalTimezonePreview } from "../settings/port";
-import { OFFLINE_REFERENCE, useWrite, type Refusal } from "../settings/save";
+import { usePersonalZoneChoice } from "../settings/flows/usePersonalZoneChoice";
+import { OFFLINE_REFERENCE, type Refusal } from "../settings/save";
 import { SaveError } from "../settings/SettingsDialog";
 import { zoneLabel } from "../settings/time";
 import { CheckInHeader } from "./Header.tsx";
@@ -34,38 +34,29 @@ import { mondayDate, weekStartIn } from "./model.ts";
  */
 export function ZoneStep({ name }: { name: string }) {
 	const router = useRouter();
-	const [zone, setZone] = useState<string | null>(null);
-	const [preview, setPreview] = useState<PersonalTimezonePreview | null>(null);
 	const [opening, startOpening] = useTransition();
 	const [saved, setSaved] = useState(false);
-	const previewing = useWrite("personal-timezone-preview");
-	const saving = useWrite("personal-timezone");
-
-	const choose = async (next: string) => {
-		setZone(next);
-		setPreview(null);
-		saving.setRefusal(null);
-		const result = await previewing.run({ next, at: Date.now() }, () => previewPersonalTimezone({ timeZone: next }));
-		if (result.ok) setPreview(result.value);
-	};
+	const {
+		zone,
+		preview,
+		previewing,
+		saving,
+		choose,
+		save: send,
+		stale,
+		city,
+	} = usePersonalZoneChoice({
+		previewPersonalTimezone,
+		setPersonalTimezone,
+	});
 
 	const save = async () => {
-		if (!preview) return;
-		const input = { timeZone: preview.newZone, previewId: preview.previewId, confirmed: true as const };
-		const send = () =>
-			saving.run(input, (requestKey) =>
-				setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
-			);
-		// A lost reply may hide a saved zone. The same request key asks again, and the server answers from its record.
-		let result = await send();
-		if (!result.ok && result.refusal.reference === OFFLINE_REFERENCE) result = await send();
-		if (!result.ok) return;
+		const result = await send();
+		if (!result?.ok) return;
 		setSaved(true);
 		startOpening(() => router.refresh());
 	};
 
-	const stale = saving.refusal?.code === "stale_preview" || saving.refusal?.code === "conflict";
-	const city = zone ? zoneLabel(zone).split(" · ")[0] : "";
 	const week = preview ? mondayDate(weekStartIn(preview.asOf, preview.newZone)) : null;
 	const busy = saving.pending || opening || saved;
 
