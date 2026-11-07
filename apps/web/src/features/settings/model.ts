@@ -22,7 +22,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 	account: "Your account",
 };
 
-/** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /sharing). */
+/** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
 export const DIALOG_SECTIONS = [
 	"church",
 	"brand",

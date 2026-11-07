@@ -14,6 +14,9 @@
 //     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
 //   INV-settings-seats-link: Settings links to Seats for an Owner, a Member and an organization Owner: the real link
 //     closes the dialog and opens the page, a Member's page has no invitation form, and unsaved changes ask first.
+//   INV-settings-sharing-link: Settings links to Sharing for a plant Owner and Member, after Notifications: the real
+//     link closes the dialog and opens the page, a Member's page says who manages connections, an organization Owner
+//     gets no link, and unsaved changes ask first.
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
@@ -149,6 +152,68 @@ for (const [name, engine] of ENGINES) {
 	});
 }
 
+const SHARING_LINK = { name: "Sharing and privacy" };
+const sharingHeading = (page) => page.getByRole("heading", { level: 1, name: "Sharing and privacy" });
+
+for (const [name, engine] of ENGINES) {
+	for (const [who, manages] of [
+		["owner", true],
+		["member", false],
+	]) {
+		test(`INV-settings-sharing-link (${name}, ${who}): Settings links to the Sharing page`, async () => {
+			await withPage(engine, who, async (page) => {
+				await page.goto(`${BASE}/settings/account`, { waitUntil: "networkidle" });
+				await hydrated(page);
+				const dialog = page.getByRole("dialog").first();
+				const link = dialog.getByRole("navigation").getByRole("link", SHARING_LINK);
+				assert.equal(await link.getAttribute("href"), "/settings/sharing");
+
+				await link.click();
+				await sharingHeading(page).waitFor({ timeout: 60_000 });
+				assert.equal(new URL(page.url()).pathname, "/settings/sharing");
+				assert.equal(await page.getByRole("dialog").count(), 0);
+				assert.equal(await page.getByText("Owners and Admins manage connections.").count(), manages ? 0 : 1);
+			});
+		});
+	}
+
+	test(`INV-settings-sharing-link (${name}, organization): an organization Owner gets no Sharing link`, async () => {
+		await withPage(engine, "organization", async (page) => {
+			await page.goto(`${BASE}/settings/organization`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			const nav = page.getByRole("dialog").first().getByRole("navigation");
+			await nav.getByRole("link", SEATS_LINK).waitFor();
+			assert.equal(await nav.getByRole("link", SHARING_LINK).count(), 0);
+		});
+	});
+
+	test(`INV-settings-sharing-link (${name}): unsaved changes ask before the link leaves Settings`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/settings/account`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			const dialog = page.getByRole("dialog", { name: "Your account" });
+			const field = dialog.getByLabel("Your name");
+			const draft = `${await field.inputValue()} draft`;
+			await field.fill(draft);
+			const link = dialog.getByRole("navigation").getByRole("link", SHARING_LINK);
+			const question = page.getByRole("alertdialog", { name: "Discard unsaved changes?" });
+
+			await link.click();
+			await question.getByRole("button", { name: "Keep editing" }).click();
+			await question.waitFor({ state: "detached" });
+			assert.equal(new URL(page.url()).pathname, "/settings/account");
+			assert.equal(await field.inputValue(), draft);
+
+			await link.click();
+			await question.getByRole("button", { name: "Discard changes" }).click();
+			await sharingHeading(page).waitFor({ timeout: 60_000 });
+			assert.equal(new URL(page.url()).pathname, "/settings/sharing");
+			assert.equal(await page.getByRole("dialog").count(), 0);
+			assert.equal(await page.getByRole("alertdialog").count(), 0);
+		});
+	});
+}
+
 /**
  * What each seat may change, and how to change it inside the open Settings dialog: `fields` maps a label to its new
  * value for one run. The Owner's church save changes the profile and the inactivity days together, two contract
@@ -157,7 +222,14 @@ for (const [name, engine] of ENGINES) {
 const ROLES = [
 	{
 		who: "owner",
-		sections: ["Church profile", "Brand kit", "Seats and invitations", "Notifications", "Your account"],
+		sections: [
+			"Church profile",
+			"Brand kit",
+			"Seats and invitations",
+			"Notifications",
+			"Sharing and privacy",
+			"Your account",
+		],
 		edits: [
 			{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Daniel Reyes ${t}` } },
 			{
@@ -169,7 +241,7 @@ const ROLES = [
 	},
 	{
 		who: "member",
-		sections: ["Seats and invitations", "Notifications", "Your account"],
+		sections: ["Seats and invitations", "Notifications", "Sharing and privacy", "Your account"],
 		locked: "/settings/church",
 		edits: [{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Ruth Allen ${t}` } }],
 	},

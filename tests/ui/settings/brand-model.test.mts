@@ -21,6 +21,7 @@ import {
 	type BrandForm,
 } from "../../../apps/web/src/features/settings/brand/model.ts";
 import {
+	firstSection,
 	offeredSections,
 	sectionAt,
 	sectionRequest,
@@ -80,6 +81,26 @@ test("INV-settings-seats-link: a viewer with a workspace is offered Seats; an ac
 	assert.deepEqual(offeredSections(member, ["seats"]), ["seats", "notifications", "account"]);
 	const account = { context: "account", accountId: "a" } as const;
 	assert.deepEqual(offeredSections(account, ["seats"]), ["notifications", "account"]);
+});
+
+test("INV-settings-sharing-link: a plant viewer is offered Sharing after Notifications; nobody else is", () => {
+	const pages = ["seats", "sharing"] as const;
+	const owner = { context: "plant", accountId: "a", plant: PLANT, role: "owner" } as const;
+	assert.deepEqual(offeredSections(owner, pages), ["church", "brand", "seats", "notifications", "sharing", "account"]);
+	const member = { context: "plant", accountId: "a", plant: PLANT, role: "member" } as const;
+	assert.deepEqual(offeredSections(member, pages), ["seats", "notifications", "sharing", "account"]);
+	const organization = { context: "organization", accountId: "a", organization: ORG, role: "owner" } as const;
+	assert.deepEqual(offeredSections(organization, pages), ["organization", "seats", "notifications", "account"]);
+	const account = { context: "account", accountId: "a" } as const;
+	assert.deepEqual(offeredSections(account, pages), ["notifications", "account"]);
+});
+
+test("INV-settings-sharing-link: /settings never opens on a page section", () => {
+	const plant = { context: "plant", accountId: "a", plant: PLANT } as const;
+	assert.equal(firstSection({ ...plant, role: "owner" }), "church");
+	assert.equal(firstSection({ ...plant, role: "member" }), "notifications");
+	assert.equal(sectionAt("/settings", { ...plant, role: "member" }), "notifications");
+	assert.equal(sectionAt("/settings/sharing", { ...plant, role: "member" }), null);
 });
 
 test("a /settings/brand address opens the brand section and makes no settings-section read", () => {
