@@ -63,8 +63,13 @@ export const historyEntry = z.strictObject({
 	reason: z.string().nullable(),
 	/** Who made the change, by their account name; null when the change has no account. */
 	actorName: z.string().nullable(),
-	/** The person and role a role-date correction names; other entries name none. */
-	about: z.strictObject({ personName: z.string(), roleName: z.string() }).nullable(),
+	/** What the change was filed under: the ministry itself, one of its roles, or one person's time in a role. */
+	subject: z.enum(["ministry", "role", "tenure"]),
+	/**
+	 * The role a role change names, and the person when it names one: a role filled or a role-date correction.
+	 * Ministry entries name none.
+	 */
+	about: z.strictObject({ personName: z.string().nullable(), roleName: z.string() }).nullable(),
 	before: z.record(z.string(), z.unknown()).nullable(),
 	after: z.record(z.string(), z.unknown()).nullable(),
 });

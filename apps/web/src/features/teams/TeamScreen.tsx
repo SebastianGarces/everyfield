@@ -74,7 +74,7 @@ import {
 	asPersonId,
 	asRecordId,
 	asRevision,
-	FIELD_LABEL,
+	diffLines,
 	historyTitle,
 	iconKey,
 	NEW_SETUP,
@@ -82,7 +82,6 @@ import {
 	planTeamEdit,
 	plural,
 	problemText,
-	shownValue,
 	stampText,
 	type HistoryEntry,
 	type Member,
@@ -521,7 +520,14 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						/>
 					</TabsPanel>
 					<TabsPanel value="history">
-						<HistoryCard teamId={t.id} revision={t.revision} />
+						<HistoryCard
+							teamId={t.id}
+							revision={[
+								t.revision,
+								// Role changes are filed under the role, so a settled role change reads the history again too.
+								...(data.roles ?? []).map((r) => `${r.id}.${r.revision}.${r.occupantPersonId ?? ""}`),
+							].join(":")}
+						/>
 					</TabsPanel>
 				</Tabs>
 
@@ -1145,7 +1151,7 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 							</p>
 							{e.about ? (
 								<p className="text-sm text-ink">
-									{e.about.personName} · {e.about.roleName}
+									{e.about.personName ? `${e.about.personName} · ${e.about.roleName}` : e.about.roleName}
 								</p>
 							) : null}
 							<Diff entry={e} />
@@ -1158,18 +1164,8 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 	);
 }
 
-/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
-const FIELD_ORDER = Object.keys(FIELD_LABEL);
-const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
 function Diff({ entry: e }: { entry: HistoryEntry }) {
-	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
-		(a, b) => fieldRank(a) - fieldRank(b),
-	);
-	const lines = keys.flatMap((k) => {
-		const from = shownValue(k, e.before?.[k]);
-		const to = shownValue(k, e.after?.[k]);
-		return from !== null || to !== null ? [{ k, from, to }] : [];
-	});
+	const lines = diffLines(e);
 	if (!lines.length) {
 		const fields = changedFields(e);
 		return fields ? <p className="text-sm text-text-2">{fields}</p> : null;
@@ -1177,8 +1173,8 @@ function Diff({ entry: e }: { entry: HistoryEntry }) {
 	return (
 		<ul className="flex flex-col gap-0.5 text-sm text-text-2">
 			{lines.map((l) => (
-				<li key={l.k} className="wrap-anywhere">
-					{FIELD_LABEL[l.k] ?? l.k}: {l.from ?? "None"} → {l.to ?? "None"}
+				<li key={l.label} className="wrap-anywhere">
+					{l.label}: {l.from} → {l.to}
 				</li>
 			))}
 		</ul>
