@@ -14,6 +14,8 @@
 //     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
 //   INV-settings-seats-link: Settings links to Seats for an Owner, a Member and an organization Owner: the real link
 //     closes the dialog and opens the page, a Member's page has no invitation form, and unsaved changes ask first.
+//   INV-settings-sharing-link: Settings links to Sharing for a plant Owner and Member: the real link closes the dialog
+//     and opens the page, and a Member's page says who manages connections.
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
@@ -149,6 +151,29 @@ for (const [name, engine] of ENGINES) {
 	});
 }
 
+for (const [name, engine] of ENGINES) {
+	for (const [who, manages] of [
+		["owner", true],
+		["member", false],
+	]) {
+		test(`INV-settings-sharing-link (${name}, ${who}): Settings links to the Sharing page`, async () => {
+			await withPage(engine, who, async (page) => {
+				await page.goto(`${BASE}/settings/account`, { waitUntil: "networkidle" });
+				await hydrated(page);
+				const dialog = page.getByRole("dialog").first();
+				const link = dialog.getByRole("navigation").getByRole("link", { name: "Sharing and privacy" });
+				assert.equal(await link.getAttribute("href"), "/settings/sharing");
+
+				await link.click();
+				await page.getByRole("heading", { level: 1, name: "Sharing and privacy" }).waitFor({ timeout: 60_000 });
+				assert.equal(new URL(page.url()).pathname, "/settings/sharing");
+				assert.equal(await page.getByRole("dialog").count(), 0);
+				assert.equal(await page.getByText("Owners and Admins manage connections.").count(), manages ? 0 : 1);
+			});
+		});
+	}
+}
+
 /**
  * What each seat may change, and how to change it inside the open Settings dialog: `fields` maps a label to its new
  * value for one run. The Owner's church save changes the profile and the inactivity days together, two contract
@@ -157,7 +182,14 @@ for (const [name, engine] of ENGINES) {
 const ROLES = [
 	{
 		who: "owner",
-		sections: ["Church profile", "Brand kit", "Seats and invitations", "Notifications", "Your account"],
+		sections: [
+			"Church profile",
+			"Brand kit",
+			"Seats and invitations",
+			"Notifications",
+			"Sharing and privacy",
+			"Your account",
+		],
 		edits: [
 			{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Daniel Reyes ${t}` } },
 			{
@@ -169,7 +201,7 @@ const ROLES = [
 	},
 	{
 		who: "member",
-		sections: ["Seats and invitations", "Notifications", "Your account"],
+		sections: ["Seats and invitations", "Notifications", "Sharing and privacy", "Your account"],
 		locked: "/settings/church",
 		edits: [{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Ruth Allen ${t}` } }],
 	},
