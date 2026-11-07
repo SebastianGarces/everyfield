@@ -69,6 +69,8 @@ async function up(origin: string) {
 	const owner = await account("Daniel Reyes", "owner@intelligence-preview.example.test");
 	const admin2 = await account("Priya Nair", "admin@intelligence-preview.example.test");
 	const member = await account("Ruth Allen", "member@intelligence-preview.example.test");
+	// An Admin with no personal time zone, kept for the check-in zone step (T-66): its test saves a zone once per seed.
+	const newcomer = await account("Noah Kim", "newcomer@intelligence-preview.example.test");
 	const organizer = await account("Grace Moreno", "church@intelligence-preview.example.test");
 	const organization = randomUUID();
 	await admin.execute(
@@ -96,6 +98,7 @@ async function up(origin: string) {
 	for (const [who, role] of [
 		[admin2, "admin"],
 		[member, "member"],
+		[newcomer, "admin"],
 	] as const) {
 		await admin.execute(
 			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${who.accountId},${plant.id},${role},clock_timestamp())`,
@@ -179,6 +182,7 @@ async function up(origin: string) {
 		owner: { cookie: owner.cookie, accountId: owner.accountId },
 		admin: { cookie: admin2.cookie, accountId: admin2.accountId },
 		member: { cookie: member.cookie, accountId: member.accountId },
+		newcomer: { cookie: newcomer.cookie, accountId: newcomer.accountId },
 		organization: { cookie: organizer.cookie },
 		password: PASSWORD,
 		people,

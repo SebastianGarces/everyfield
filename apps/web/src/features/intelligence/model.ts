@@ -10,6 +10,7 @@ import {
 	type CareWeek,
 	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
+import { nextMonday } from "../settings/time.ts";
 
 // The check-in screen's pure model: labels, dates, messages and the optimistic strip. No React and no server code, so
 // the UI tests call it directly.
@@ -70,6 +71,12 @@ export function mondayDate(day: string) {
 	const [, m, d] = day.split("-").map(Number);
 	return `Monday, ${LONG_MONTH[m! - 1]} ${d}`;
 }
+/**
+ * The Monday (a LocalDate) of the week that holds `asOf` in `zone`. A new author's first check-in week is this one in
+ * the zone they confirm (privateCare readWeeks), so the zone step previews it before the save.
+ */
+export const weekStartIn = (asOf: string, zone: string) =>
+	new Date(Date.parse(nextMonday(asOf, zone)) - 7 * 86_400_000).toISOString().slice(0, 10);
 /** "Oct 6, 9:12 pm" for an instant, in the author's zone. */
 export function savedAt(instant: string, zone: string) {
 	const parts = new Intl.DateTimeFormat("en-US", {
