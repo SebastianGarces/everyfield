@@ -804,7 +804,6 @@ function cutMarks(p: Palette, w: number, h: number, across: number, down: number
 	);
 }
 
-/** One tiled sheet: the header, body and footer repeat in each tile, each tile clips its content. */
 /**
  * How far a card's body clip reaches past the card's content box on each side, in points. A border is stroked on its
  * box's edge, so half the stroke lies outside a box that fills the content width; this keeps that half (borders here
@@ -812,6 +811,7 @@ function cutMarks(p: Palette, w: number, h: number, across: number, down: number
  */
 const STROKE_BLEED = 2;
 
+/** One tiled sheet: the header, body and footer repeat in each tile, each tile clips its content. */
 function tiledPage(r: R, size: { width: number; height: number }) {
 	const page = r.doc.page;
 	const tile = page.tile!;
