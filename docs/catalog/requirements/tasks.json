@@ -787,7 +787,7 @@
       "feature_ids": [
         "TSK-016"
       ],
-      "text": "Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
+      "text": "Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; raw HTML and script are kept as inert literal text and shown as plain text, never rendered as HTML; links with dangerous URL schemes are reduced to their label, so dangerous URL schemes are removed. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
       "spec": "docs/product/tasks.md#req-tsk-016",
       "operations": [
         "tasks.normalizeDescription",
