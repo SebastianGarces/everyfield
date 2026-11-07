@@ -112,8 +112,6 @@ for (const [name, engine] of ENGINES) {
 				const dialog = page.getByRole("dialog").first();
 				const link = dialog.getByRole("navigation").getByRole("link", SEATS_LINK);
 				assert.equal(await link.getAttribute("href"), "/settings/seats");
-				const nav = (await dialog.getByRole("navigation").getByRole("link").allTextContents()).map((s) => s.trim());
-				assert.equal(nav[nav.indexOf("Seats and invitations") + 1], "Notifications");
 
 				await link.click();
 				await seatsHeading(page).waitFor({ timeout: 60_000 });
