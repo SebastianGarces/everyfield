@@ -91,6 +91,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
+				pages={{ sections: ["seats"], open: (key) => router.push(hrefFor(key)) }}
 				// The dialog covers the frame's Guide button, so it carries its own (WP-034).
 				headerActions={<SettingsGuide />}
 				// The request ended every session, so the next page is a full load of the restricted deletion page.

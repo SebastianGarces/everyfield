@@ -75,6 +75,13 @@ test("INV-brand-offered: Owner and Admin of a plant see Brand kit after Church p
 	assert.deepEqual(SECTION_ORDER.slice(0, 2), ["church", "brand"]);
 });
 
+test("INV-settings-seats-link: a viewer with a workspace is offered Seats; an account-context viewer is not", () => {
+	const member = { context: "plant", accountId: "a", plant: PLANT, role: "member" } as const;
+	assert.deepEqual(offeredSections(member, ["seats"]), ["seats", "notifications", "account"]);
+	const account = { context: "account", accountId: "a" } as const;
+	assert.deepEqual(offeredSections(account, ["seats"]), ["notifications", "account"]);
+});
+
 test("a /settings/brand address opens the brand section and makes no settings-section read", () => {
 	const owner = { context: "plant", accountId: "a", plant: PLANT, role: "owner" } as const;
 	assert.equal(sectionAt("/settings/brand", owner), "brand");
