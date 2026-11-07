@@ -93,7 +93,7 @@ import {
 	rsvpCounts,
 	RSVP_LABEL,
 	STATUS_ACTION,
-	STATUS_LABEL,
+	statusView,
 	TYPE_LABEL,
 	whenText,
 	type Detail,
@@ -466,7 +466,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			<Menu>
 				<MenuTrigger asChild>
 					<Button variant="secondary">
-						Status <span className="font-normal text-text-2">{STATUS_LABEL[m.status]}</span>
+						Status <span className="font-normal text-text-2">{statusView(m.status, m.startsAt, data.now).label}</span>
 						<Icon icon={ArrowDown01Icon} size={16} />
 					</Button>
 				</MenuTrigger>
@@ -560,7 +560,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				title={
 					<span className="inline-flex flex-wrap items-center gap-3">
 						{m.displayTitle}
-						<MeetingStatusBadge status={m.status} className="font-sans tracking-normal" />
+						<MeetingStatusBadge meeting={m} now={data.now} className="font-sans tracking-normal" />
 						{checkInStarted ? (
 							<StatusBadge status="attention" fill="soft" className="font-sans tracking-normal">
 								Check-in started · {attendedCount} attended
