@@ -238,6 +238,7 @@ export function PreviewBody({
 	problem: string | null;
 	onRetry: () => void;
 }) {
+	const headingId = useId();
 	if (state.status === "failed")
 		return (
 			<StatePanel tone="error" title="This checklist did not load" headingLevel="h3">
@@ -258,11 +259,6 @@ export function PreviewBody({
 				))}
 			</div>
 		);
-	return <PreviewList shown={shown} year={year} problem={problem} />;
-}
-
-function PreviewList({ shown, year, problem }: { shown: TemplatePreview; year: number; problem: string | null }) {
-	const headingId = useId();
 	const k = shown.checklist;
 	return (
 		<div className="flex flex-col gap-4">
