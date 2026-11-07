@@ -592,9 +592,11 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 	);
 });
 
-test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and clear an empty description", async () => {
-	const fixtureText = "Hello\n<script>alert(1)</script>\n[click](javascript:alert(1))";
-	assert.equal(normalizeDescription(fixtureText), "Hello\n\nclick");
+test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe links and clear an empty description", async () => {
+	// D88: raw HTML, script and comments are kept as literal text; the screens draw them as text, never as HTML.
+	const fixtureText = "Hello\n<script>alert('x')</script>\n[click](javascript:alert(1))\nBye";
+	const kept = "Hello\n<script>alert('x')</script>\nclick\nBye";
+	assert.equal(normalizeDescription(fixtureText), kept);
 	assert.equal(normalizeDescription("   \n\t "), "");
 	assert.equal(
 		normalizeDescription(
@@ -602,7 +604,10 @@ test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and c
 		),
 		"First line\nsecond line\n\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.co)",
 	);
-	assert.equal(normalizeDescription('<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>'), "Hi there");
+	assert.equal(
+		normalizeDescription('<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>'),
+		'<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>',
+	);
 	assert.equal(
 		normalizeDescription("[a](data:text/html;base64,PHNjcmlwdD4=) [b](JaVaScRiPt:alert(1)) [c](/relative)"),
 		"a b c",
@@ -612,14 +617,27 @@ test("AC:TARGET-TSK-016 create, edit and import keep bounded safe Markdown and c
 	const created = ok(
 		await write(owner, "create", { requestKey: randomUUID(), input: { title: "Described", description: fixtureText } }),
 	).task;
-	assert.equal(created.description, "Hello\n\nclick");
+	assert.equal(created.description, kept);
 	const stored = await rows(sql`SELECT description FROM task WHERE id=${created.id}`);
-	assert.equal(stored[0].description, "Hello\n\nclick");
-	assert.equal(created.excerpt, "Hello\n\nclick");
-	const edited = ok(
+	assert.equal(stored[0].description, kept);
+	assert.equal(created.excerpt, kept);
+	// The edit path keeps an image tag with a handler and an HTML comment exactly as typed, and a task read returns them.
+	const pastedHtml = 'See <img src=x onerror="alert(2)">\n<!-- note -->';
+	const withHtml = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
 			expectedRevision: created.revision,
+			input: { taskId: created.id, patch: { description: pastedHtml } },
+		}),
+	).task;
+	assert.equal(withHtml.description, pastedHtml);
+	const reread = ok(await f.db.transaction((tx) => taskReader.get(tx, owner.actor, { taskId: created.id }))).task;
+	assert.equal(reread.description, pastedHtml);
+	assert.equal(reread.excerpt, pastedHtml);
+	const edited = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: withHtml.revision,
 			input: { taskId: created.id, patch: { description: "  \n " } },
 		}),
 	).task;

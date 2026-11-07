@@ -1,8 +1,9 @@
 // A task description in the task panel and in its list row (WP-026, REQ-TSK-016). They run in node against the
 // components the screens draw; no browser.
 //   AC:TARGET-TSK-016 INV-same-text: the panel and the row preview show the same readable text from one canonical value,
-//     with its line breaks, and no script, event handler or javascript: link reaches the DOM. A cleared description
-//     shows the empty state in the panel and no preview in the row.
+//     with its line breaks. Pasted HTML and script read as literal text (decisions.md D88): no script, image or frame element, event
+//     handler or javascript: link reaches the DOM. A cleared description shows the empty state in the panel and no
+//     preview in the row.
 //   INV-one-link-rule: the normalizer and the renderer accept the same outside link addresses (safeLinkAddress).
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -32,30 +33,52 @@ const readable = (markup) =>
 		.filter(Boolean)
 		.join("\n");
 
-// The TARGET-TSK-016 case input with more of what a person pastes: paragraphs, a list, a real link and an image's handler.
+// The TARGET-TSK-016 case input with more of what a person pastes: paragraphs, a list, a real link, an image's handler
+// and an HTML comment.
 const pasted = [
 	"Hello",
-	"<script>alert(1)</script>",
+	"<script>alert('x')</script>",
 	"[click](javascript:alert(1))",
 	"",
 	"Second paragraph,",
-	"with its own line break.",
+	"with its own line break. <!-- note -->",
 	"",
 	"- bring the **keys**",
-	'- see <img src=x onerror="alert(2)">[the map](https://example.org/map)',
+	'- see <img src=x onerror="alert(2)"> [the map](https://example.org/map)',
+	"",
+	"Bye",
 ].join("\n");
+/** Every element tag in the markup, opening or closing; text between tags is not here. */
+const tags = (markup) => markup.match(/<[^>]*>/g) ?? [];
 
-test("AC:TARGET-TSK-016 INV-same-text: the panel and the list preview read the same safe text", () => {
+test("AC:TARGET-TSK-016 INV-same-text: the panel and the list preview read the same text, HTML as inert literal text", () => {
 	const canonical = normalizeDescription(pasted);
 	const full = html(DescriptionView, canonical);
 	const preview = html(DescriptionPreview, canonical.slice(0, DESCRIPTION_EXCERPT));
 	for (const markup of [full, preview]) {
-		assert.doesNotMatch(markup, /<script|<img|<iframe/i);
-		assert.doesNotMatch(markup, /\son[a-z]+=/i);
+		const elements = tags(markup);
+		assert.ok(elements.length > 0);
+		for (const tag of elements) {
+			assert.doesNotMatch(tag, /^<\/?(script|img|iframe|style|object|embed)\b/i, tag);
+			assert.doesNotMatch(tag, /\son[a-z]+\s*=/i, tag);
+			assert.doesNotMatch(tag, /href="\s*(javascript|data):/i, tag);
+		}
 		assert.doesNotMatch(markup, /javascript:|data:/i);
-		assert.doesNotMatch(markup, /alert\(/);
+		// The tags a person typed are escaped text, character for character.
+		assert.ok(markup.includes("&lt;script&gt;alert(&#x27;x&#x27;)&lt;/script&gt;"), markup);
+		assert.ok(markup.includes("&lt;img src=x onerror=&quot;alert(2)&quot;&gt;"), markup);
+		assert.ok(markup.includes("&lt;!-- note --&gt;"), markup);
 	}
-	const expected = ["Hello", "click", "Second paragraph,", "with its own line break.", "bring the keys", "see the map"];
+	const expected = [
+		"Hello",
+		"<script>alert('x')</script>",
+		"click",
+		"Second paragraph,",
+		"with its own line break. <!-- note -->",
+		"bring the keys",
+		'see <img src=x onerror="alert(2)"> the map',
+		"Bye",
+	];
 	assert.deepEqual(readable(full).split("\n"), expected);
 	// The preview marks list items with a bullet; the words and their lines are the same.
 	assert.deepEqual(
@@ -109,9 +132,21 @@ test("AC:TARGET-TSK-016 storage and render share one outside-link rule", () => {
 	assert.equal(normalizeDescription("[tasks](/tasks)"), "tasks");
 });
 
-test("AC:TARGET-TSK-016 text shaped like a tag goes with the tags (accepted trade-off)", () => {
-	// The normalizer has no HTML parser, so a letter right after "<" reads as a tag. A comparison with spaces stays.
-	assert.equal(normalizeDescription("a<b and c>d"), "ad");
-	assert.equal(normalizeDescription("Use `<div>` here"), "Use `` here");
-	assert.equal(normalizeDescription("Keep 3 < 4 and a > b"), "Keep 3 < 4 and a > b");
+test("AC:TARGET-TSK-016 the normalizer keeps HTML and text shaped like tags exactly as typed (D88)", () => {
+	for (const typed of [
+		"a<b and c>d",
+		"Use `<div>` here",
+		"Keep 3 < 4 and a > b",
+		"<script>alert('x')</script>",
+		"<style>p{}</style> <iframe src=x></iframe>",
+		'<img src=x onerror="alert(2)">',
+		"<!-- note -->",
+		"<!-- unclosed",
+	])
+		assert.equal(normalizeDescription(typed), typed);
+	// What it still does: LF endings, unsafe links to their label, trailing spaces, blank-line runs, the outer trim.
+	assert.equal(
+		normalizeDescription("  Hello  \r\n<b>x</b>\r\n\r\n\r\n\r\n[click](javascript:alert(1)) [ok](https://a.org)\t\n\n "),
+		"Hello\n<b>x</b>\n\nclick [ok](https://a.org)",
+	);
 });

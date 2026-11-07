@@ -53,7 +53,8 @@ export type FollowUpOrigin = z.infer<typeof followUpOrigin>;
 export const obligationKind = z.enum(["first_vision_follow_up", "meeting_evaluation"]);
 // A bounded title. Whitespace-only titles are refused rather than saved empty.
 export const title = z.string().trim().min(1).max(500);
-// Bounded safe Markdown (tasks.normalizeDescription, REQ-TSK-016): the canonical value is at most 50,000 characters,
+// Bounded Markdown kept as typed (tasks.normalizeDescription, REQ-TSK-016, D88): raw HTML and script stay inert
+// literal text, links to unsafe schemes keep only their label. The canonical value is at most 50,000 characters,
 // and whitespace only clears it to "". The raw bound keeps the normalizer's work bounded too.
 export const description = z
 	.string()

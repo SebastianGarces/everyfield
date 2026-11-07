@@ -247,7 +247,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-016 — Safe Markdown descriptions and previews
 
-**REQ-TSK-016.** Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.
+**REQ-TSK-016.** Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; raw HTML and script are kept as inert literal text and shown as plain text, never rendered as HTML; links with dangerous URL schemes are reduced to their label, so dangerous URL schemes are removed. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.
 
 **Target operations:** `tasks.normalizeDescription`, `tasks.previewDescription`.
 
