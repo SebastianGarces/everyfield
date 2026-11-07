@@ -720,14 +720,12 @@ test("WP-039 C2: a retired Person's candidate keeps its row and statement, marke
 		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: "0", input }),
 	).candidate;
 	assert.equal(made.personState, "live");
-	const before_ = (await page(a)).candidates;
-	assert.deepEqual(before_, [made]);
+	assert.deepEqual((await page(a)).candidates, [made]);
 
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${quinn.id}`);
 	const retired = await page(a);
 	// Only the person's state changes: name, statement, period, status, author and date stay as they were.
 	assert.deepEqual(retired.candidates, [{ ...made, personState: "retired" }]);
-	assert.equal(retired.candidates[0].statement, "Set up chairs every Sunday since August.");
 	// The picker still offers only live Persons, and a write for the retired Person still refuses.
 	assert.equal(
 		retired.people.some((x) => x.id === quinn.id),

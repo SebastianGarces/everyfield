@@ -196,7 +196,7 @@ const pageRow = z.object({
 	today: z.string().nullable(),
 	signals: z.array(stateRow),
 	candidates: z.array(
-		stateRow.extend({ personId: z.uuid(), personName: z.string(), personState: z.enum(["live", "retired"]) }),
+		stateRow.extend({ personId: z.uuid(), personName: z.string(), personState: c.candidateEntry.shape.personState }),
 	),
 	people: z.array(z.object({ id: z.uuid(), displayName: z.string(), candidateRevision: z.string() })),
 	history: z.array(historyRow),
