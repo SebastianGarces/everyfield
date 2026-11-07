@@ -13,6 +13,8 @@ import {
 	editorContent,
 } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
+import { fieldValues } from "../../../apps/web/src/features/documents/church/editor/field-values.ts";
+import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;
@@ -84,4 +86,29 @@ test("AC:DOC-EDIT-SCHEMA: nodes of later slices keep every attribute and child",
 		],
 	};
 	assert.deepStrictEqual(clean(schema.nodeFromJSON(slot).toJSON()), slot);
+});
+
+test("BUG-T49: a commitment card with a stored empty contact_line shows nothing in the editor, not [Contact line]", async () => {
+	const card = DOC_TEMPLATES.find((t) => t.id === "commitment-card")!;
+	const sources = {
+		churchName: "Harbor City Church",
+		pastorName: null,
+		tagline: null,
+		legalName: null,
+		contactLine: null,
+		meetingDate: null,
+	};
+	const empty = await forkTemplate(card, { data: frozenData(card.fields, sources).data });
+	assert.equal(empty.data?.contact_line, "");
+	const values = fieldValues(empty);
+	assert.equal(values.contact_line, "");
+	assert.ok(!Object.values(values).some((v) => /\[contact line\]/i.test(v)));
+	// A brand kit with a contact line prints it; a field with no value and no fallback still shows its label in brackets.
+	const filled = await forkTemplate(card, {
+		data: frozenData(card.fields, { ...sources, contactLine: "harborcity.church  ·  (555) 010-0199" }).data,
+	});
+	assert.equal(fieldValues(filled).contact_line, "harborcity.church  ·  (555) 010-0199");
+	assert.equal(fieldValues(filled).church_name, "Harbor City Church");
+	const bare = await forkTemplate(card, { data: {} });
+	assert.equal(fieldValues(bare).church_name, "[church name]");
 });
