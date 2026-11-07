@@ -69,7 +69,7 @@ writeFileSync(config, JSON.stringify(composed, null, 2), { mode: 0o600 });
 chmodSync(config, 0o600);
 
 // A full pool makes the seat wait for a slot (and frees orphans first) instead of failing the proof step.
-await ensurePreviewSlot({ project, root, common });
+await ensurePreviewSlot({ project });
 const up = JSON.parse(execFileSync("portless", ["preview", "up", "--project", project, "--mode", mode, "--config", config, "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], env: { ...process.env, PATH: `${dirname(node24)}:${process.env.PATH}` } }));
 execFileSync("portless", ["preview", "renew", up.id, "--ttl", "7200"], { stdio: "ignore" });
 console.log(JSON.stringify({ id: up.id, url: up.url, head: up.head, mode: up.mode, state: up.state, project }, null, 2));

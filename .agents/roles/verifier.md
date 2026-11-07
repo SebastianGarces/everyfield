@@ -1,67 +1,41 @@
 # Verifier additions
 
-Verify a task in a fresh Opus 5.5 medium session that never shared context with the author (D82).
-Start with its task note and PR. Your EVF-Review line records your session id, model and the
-verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
-Read the full diff and current requirements and judge the code quality and simplicity in full (D66).
-A `merge_only` launch prompt (OPS-145) is the one exception. It names the prior approved head and the merge result.
-Limit that review to the merge result, with no flow or `bin/evf verify` rerun, then post the same exact-head review. Any other prompt gets the full review.
-You judge the `owner` rows. evf writes the `AC:` rows itself by running the marked tests at the head, and
-a passed verify close reruns them, so you may rely on them. Still read each marked test and request changes
-when it checks too little, such as a test that only sees the page load.
-Then spot-check the proof instead of redoing it: read `bin/evf proof show <task>` and open each
-proof's evidence. Re-run a flow only where a proof is unmet, missing or looks wrong. When only a
-screenshot is missing, capture it and record it with `bin/evf proof add`; do not request changes for that
-alone. Proof from an earlier head of the branch carries forward, so a later round re-proves only what it
-changed. You own the approve or `changes_requested` verdict.
-Before you judge an evf task, read its full ask and spec with `bin/evf task spec <task> --show`.
-The session-start context can shorten them. Judge every Done criterion and every Non-goal.
-Then judge the ask itself, not only the spec. Extract every deliverable the verbatim ask names (routes, pages,
-sections, screens, commands, files) and open the report with an "Ask coverage" table before any criterion or
-check table. Mark each deliverable `delivered` or `deferred <follow-up label>`, where the label is a follow-up
-evf filed for the task. A deliverable that is missing without a filed follow-up is a blocking finding: post
-`changes_requested` and close the verify as failed. `post-review.mjs` enforces the table.
+Verify a task in a fresh Opus 5.5 medium session that never shared context with the author (D82). evf starts you
+read-only and refuses a non-Opus model.
+Read the ask, the spec, the full diff and current requirements, and judge the code quality and simplicity in full (D66).
+Then spot-check the proof instead of redoing it: read `evf proof show` and open each proof's evidence. Re-run a flow only
+where a proof is unmet, missing or looks wrong. You own the verdict.
+Judge every Done criterion and every Non-goal. Then judge the ask itself, not only the spec. Extract every deliverable the
+verbatim ask names (routes, pages, sections, screens, commands, files) and open the report with an "Ask coverage" table
+before any criterion or check table. Mark each deliverable `delivered` or `deferred <task>`, where the task is one evf
+filed. A deliverable that is missing without a filed follow-up is a blocking finding: ask for changes.
 
-Follow `.agents/skills/verify-preview/SKILL.md`. It runs the PR head on its own preview where a
-check needs one, captures what is missing, publishes the evidence and posts the exact-head `EVF-Review`.
-Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`, except in a merge-only review.
-An OPS task's scope is its `tools/evf/tasks/OPS-<n>.json` entry committed at the PR head. Review that entry
-with the diff. Never register a task in the home checkout.
-Failures use `changes_requested`; send them to the coordinator without changing code.
-Use `body_only` when the code and the experience are approved and every open finding is a PR body fix you can
-state as an exact text that must be present or absent. Post it with `--verdict body_only --body-items <file>` and
-close verify with `--status body-only`. evf's body stage edits the body at the same head and checks each item
-with no new round and no new verify; ship checks the items again. Any code finding, or a body fix you cannot
-state as exact text, needs `changes_requested`. A later failed verify at a head already reviewed costs no round.
-`tools/evf/README.md` (Body-only fix path) has the rules and decisions D-a to D-e.
-Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
-A task PR that changes `docs/reference/wiki/` also goes through `bin/evf ship`: your approval becomes the claim
-check on its pending drafts, evf promotes them, and the PR waits for Sebastian's `evf approve --head`.
-Check sources, scripture and screenshots of each draft before you approve such a PR.
+Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
+what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
+A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
+For a task that changes `docs/reference/wiki/`, check sources, scripture and screenshots of each draft before you approve.
 
 Run long checks in the foreground, or keep your turn open until every background job ends.
 Never end a turn to wait for a background notice: the host stops the job when the turn ends.
 Follow the browser rules in `verify-preview`: one browser job at a time, agent-browser instead of
 the Playwright MCP, close what you open, and stop only processes you started, by PID or process
-group. Link flow videos in your PR comment.
+group.
 
 Include a "Code quality" section in every review. Judge laziness-protocol, minimize-reader-load,
 subtract-before-you-add, test-behavior-not-implementation and other principles the diff touches.
 Check the diff against `docs/architecture/patterns.md` and the durable rulings in
 `docs/architecture/decisions.md`.
 Name concrete simplifications, or explain why none are needed, and give a quality verdict.
-Needless layers, copied patterns or dead code require changes_requested even when behavior passes.
-The EVF-Review quality field records that verdict and the principles checked; ship enforces it.
+Needless layers, copied patterns or dead code require changes even when behavior passes.
 
 Include an "Experience" section. Use the author's recorded measurements and re-measure where they look
 wrong or missing. On the production preview, record end-to-end time for every
 changed read and write, optimistic updates and request counts for main actions. Simple actions
 must finish under one second with no needless refetch or refresh. Reports and analytics may
-exceed the budget only with the matching PR exception. Explain when checks do not apply.
-The required EVF-Review experience field records the verdict and budget; ship enforces it.
+exceed the budget only with a named exception. Explain when checks do not apply.
 
-Request changes on a PR that adds or changes an Evry adapter operation or catalog tool without matching eval
-cases (`test-standard`), and on a PR that adds an entry to `tests/workflow/evry-evals-baseline.json`.
+Request changes on a task that adds or changes an Evry adapter operation or catalog tool without matching eval
+cases (`test-standard`), and on one that adds an entry to `tests/workflow/evry-evals-baseline.json`.
 
 ## Principles to read in full at the start
 

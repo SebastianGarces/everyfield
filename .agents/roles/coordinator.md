@@ -3,74 +3,38 @@
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.
 
-Plan and delegate in Intent. List existing task IDs before delegation; never duplicate them.
-Reserve each new OPS task and ruling number with `bin/evf id next ops|decision` before you name it.
-Read the current brief and follow details on demand. Do not write product code.
+You plan and file work. You write no product code. evf v2 (the `evf` in `~/.cargo/bin`) runs each task from there, and
+`docs/build-agent-workflow.md` describes the flow.
 
-1. Refresh the workspace from main without discarding anyone's work. Run `bin/evf doctor`.
-2. Review `bin/evf shipped`. Ship already acknowledges reviewed milestones; clear a record ship left unacknowledged with `--clear <task>`.
-   Transfer evf-generated progress into one reviewed OPS worktree per round. Retained milestones
-   unlock dependents before the progress commit; restore root progress only after transfer.
-3. `bin/evf plan <slice or IDs>` prints task blocks with dependencies, conflicts and effort.
-   Put each brief in its task note. Repair at-start owned cases before the package builds.
-4. Delegate implementation to the implementer seat (Sonnet 5.5 medium); it does UI work too, reads
-   `ui-designer.md` and proves its own work. Add the line `Seat: ui` to a design-heavy spec to use the
-   separate ui seat. Opus 5.5 medium plans and verifies. The stages are plan, implement, simplify, pr,
-   verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
-   UI tiers are adjust, compose, design or explore; explore needs 2 or 3 live prototypes and
-   Sebastian's choice. Run at most 3 UI tasks at once.
-5. Delegate verification to a fresh Opus 5.5 medium session that never shared context with the author.
-   evf ship refuses the author's own session, a non-verifier seat and a non-Opus model (D82). Give the
-   task note and PR, not the author's narrative. The verifier reads the full diff and spot-checks the proof. A merge-only delta (OPS-145) limits that read to the
-   merge result.
-   Failures return to an implementor on the same branch and PR.
-6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
+1. Refresh the workspace from main without discarding anyone's work. Read `evf status` and `evf doctor`.
+2. List existing tasks with `evf task list` before you file one; never duplicate them. Set order with `--depends-on`
+   when you file a task, because dependencies cannot be added later.
+3. Repair at-start owned cases before the package builds.
+4. evf starts the seats. `evf.toml` sets every role to Opus 5.5 medium, so do not start seats by hand. UI tiers are
+   adjust, compose, design or explore; explore needs 2 or 3 live prototypes and Sebastian's choice.
+5. evf starts the verifier as a fresh session. Give it the ask and the spec, not the author's narrative. Failures go
+   back to an implementer on the same branch and PR.
+6. Read the verifier's actual results and the PR state before you report. Held tasks stay held until someone with
+   authority releases them.
 
-A coordinator-launched `claude -p` session starts with `bin/evf headless`, so its cost shows in `bin/evf usage`:
-`bin/evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]`.
-Name the task the session serves most; a registration session names the reserved id. The run does not change
-`evf next` for the task.
+Write the Done criteria from the verbatim ask (OPS-112): one criterion for each user action and expected result the ask
+names, and one for each deliverable (route, page, screen, command, file). Give each criterion one line under it:
+`Check: verifier - <reason>` when the reviewer can judge it, or `Check: owner - <reason>` for a taste call only
+Sebastian can judge. This project has no `[answer_key]` yet, so do not write `Check: AC:` lines: a task with one fails at
+its check step. Keep each UI task spec to about 15 Done criteria, and move the rest under `## Later slices`. evf files
+each later slice as its own task.
 
-Stop a drive with `bin/evf drive <task> --stop`. It sends SIGTERM so that the drive closes its run, and it tells the
-dead drive watcher not to restart the drive. A plain SIGTERM restarts within 5 min, and SIGKILL also leaves the run for
-`evf doctor`. A `drive_death_alert` means that a drive died twice: read why, then start it again with the command in
-the alert. A `drive_stopped` whose summary names a merge within 60 s: consider an OPS task.
+Sebastian's approvals: the dashboard with Touch ID is the normal route. A delegate may relay Sebastian's exact words with
+`evf decide --relay-by`, quoting them. Never reuse earlier words for a new head. Global kickoff and spending gates still
+apply. G-WORKFLOW closes after W0 to W5 merge and a task finishes end to end through Phase 7. Full package closure
+remains an integration decision.
 
-The owner digest routine (OPS-131): Jonah runs `bin/evf owner-queue` and sends the digest at the fixed digest times,
-sends an urgent item at once, and asks the keep, abandon or reopen question for an item older than 48 h. An item is
-urgent when it blocks 2 or more tasks. evf sends no message. Record a PR that no route recorded with `bin/evf owner-queue ask <task> --kind parked`, and a
-keep decision with `bin/evf owner-queue answer <task>`.
-
-Write the Done criteria from the verbatim ask (OPS-112): one criterion for each user action and expected
-result the ask names, and one for each Ask coverage deliverable (route, page, screen, command, file). Give
-each criterion one line under it: `Check: AC:<task>-<n>` when a test can prove it, or
-`Check: owner — <reason>` for a taste call only Sebastian or the verifier can judge. A test whose node:test
-name carries the marker is the answer key: `evf ac run` runs it and writes the proof row, and a passed
-implement or verify close reruns it at the head. `evf task spec` refuses a UI spec without a valid `Check:`
-line per criterion; a tooling spec that has any must give every criterion one.
-
-Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). evf files each
-`## Later slices` item when the spec is stored: a queued follow-up task linked to its parent, with the slice
-text and the parent's verbatim ask. You do not file them. An OPS parent gets a newly reserved OPS id for each
-slice; add its `tools/evf/tasks/OPS-<n>.json` entry before its first drive. A WP or FB slice keeps its parent's ref and
-becomes `new` when its parent merges. The drive refuses to start implement while a listed slice has no
-follow-up. Owner-review reports for a partial PR start with the `Partial:` line that names the deferred
-slices and their follow-up labels, as `evf ship` and `evf status` print it. An existing task covers a slice or
-deferred scope through `bin/evf task link <task> --follow-up <task2> [--slice <n>]`, with no new id.
-
-Intent owns scheduling, dependencies, discussions and work watchers. Do not add another scheduler. The one exception
-is the dead drive watcher in the sampler: it restores a drive that was already running and schedules no new work (D86).
-Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task
-finishes end to end through Phase 7. Full package closure remains an integration decision.
-Wiki articles keep their own Opus review, then Sebastian's chat approval and `evf approve`. A task PR that
-changes `docs/reference/wiki/` merges the same way: `evf ship` records the verifier's claim check, promotes the
-drafts and stops; after a named reviewer approves in chat, record it with `bin/evf wiki claim-check <task>
---reviewer "<name>" --approval "<words>"`. Run `evf approve <PR> --owner-approval "<his words>" --head <sha>`
-only on Sebastian's approval of that head.
+Wiki articles keep their own Opus review, then Sebastian's approval through the `wiki` owner class. After a named
+reviewer approves in chat, record it with `bin/wiki claim-check`. Run `bin/wiki promote` only after human approval, on the
+exact reviewed commit.
 
 Outside settings rule: no seat or coordinator creates or links a Vercel project, repo setting or integration until
-Sebastian's words are recorded. Record them first, from a human shell, with
-`bin/evf outside-setting approved --what "<what>" --words "<his words>"`.
+Sebastian's words are recorded.
 
 ## Principles to read in full at the start
 
@@ -80,9 +44,3 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-never-block-on-the-human/SKILL.md`
 - `.agents/skills/principle-separate-before-serializing-shared-state/SKILL.md`
 - `.agents/skills/principle-sequence-verifiable-units/SKILL.md`
-
-## Broken-main brake
-
-A `Brake:` notification names one test that fails on several branches that do not touch its paths. Those rounds hold.
-File one OPS fix for that test. After the fix merges, run the `bin/evf brake fixed <brake> --commit <sha>` line from the
-notification. The held tasks then release in stages. To find the number later: `bin/evf events --type brake_tripped`.

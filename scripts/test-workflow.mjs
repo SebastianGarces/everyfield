@@ -5,7 +5,14 @@ import { fileURLToPath } from "node:url";
 
 const tests = [];
 const stream = run({
-	files: ["stack", "dev"].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}.test.mjs`, import.meta.url))),
+	files: [
+		"stack.test.mjs",
+		"dev.test.mjs",
+		"role-prompts.test.mjs",
+		"preview-slots.test.mjs",
+		"preview-env.test.ts",
+		"publish.test.ts",
+	].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}`, import.meta.url))),
 });
 stream.on("test:pass", ({ name, file }) => tests.push({ name, file, status: "passed" }));
 stream.on("test:fail", ({ name, file }) => {

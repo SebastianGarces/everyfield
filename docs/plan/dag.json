@@ -1,7 +1,7 @@
 {
   "version": 2,
   "as_of": "2026-10-17",
-  "scope": "Documentation-only full approved target including ADR-001 stages 1 and 2. Stages 3 and 4 are deferred. Implementation state is owned solely by docs/build-progress.json.",
+  "scope": "Documentation-only full approved target including ADR-001 stages 1 and 2. Stages 3 and 4 are deferred. docs/build-progress.json stopped updating at the evf v2 cutover; evf v2's task records are the live state.",
   "resource_assumptions": {
     "engineers": 4,
     "qa_engineers": 1,
@@ -7978,8 +7978,8 @@
       "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
-        "tools/evf/README.md",
-        "evf.config.json",
+        "docs/build-agent-workflow.md",
+        "evf.toml",
         "docs/architecture/core.md"
       ],
       "specialist": "implementor",

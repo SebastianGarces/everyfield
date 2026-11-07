@@ -2,7 +2,7 @@ import { existsSync, globSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 
-/** bin/evf reports this name the same way as its own errors. */
+/** A refusal to show as one line, with no stack trace. */
 class CiTestsError extends Error {
 	name = "ToolError";
 }

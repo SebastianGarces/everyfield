@@ -16,7 +16,7 @@
       "id": "G-AUTH",
       "title": "Implementation kickoff",
       "owner": "Owner",
-      "closure": "Separate explicit implementation authorization for the reviewed frozen version. Package state is recorded only in docs/build-progress.json.",
+      "closure": "Separate explicit implementation authorization for the reviewed frozen version. docs/build-progress.json stopped updating at the evf v2 cutover; evf v2's task records are the live state.",
       "status": "authorized",
       "work_packages": [],
       "authorization": {
@@ -95,12 +95,9 @@
         "end_to_end_task": "OPS-1",
         "end_to_end_evidence": "This status takes effect when evf ship merges OPS-1: the merge requires green required CI on the exact head, an EVF-Review approval from the other model family after verify-preview, and a PR body meeting the standard. The OPS-1 PR and its review comment are the record.",
         "entrypoints": [
-          "bin/evf",
-          "tools/evf/main.ts",
+          "evf.toml",
           ".github/workflows/ci.yml",
-          ".agents/skills/ship/SKILL.md",
           ".agents/skills/verify-preview/SKILL.md",
-          ".agents/skills/everyfield-pr/template.md",
           ".agents/roles/coordinator.md",
           ".agents/roles/feedback-desk.md"
         ]

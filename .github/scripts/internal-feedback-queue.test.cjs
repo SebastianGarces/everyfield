@@ -29,3 +29,9 @@ test('INV-internal-feedback: only trusted authors and the Actions reporter reach
   assert.deepEqual(result.issues.map(i => i.number), [1, 2, 3, 4]);
   assert.equal(result.count, 4);
 });
+
+test('INV-internal-feedback: the checked-in route is one the queue accepts', () => {
+  const config = require('../internal-feedback.json');
+  assert.equal(queue(config, () => []).repo, 'SebastianGarces/everyfield');
+  assert.match(config.internalFeedback.triageCron, /^\S+( \S+){4}$/);
+});

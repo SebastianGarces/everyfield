@@ -6,7 +6,7 @@ Apply the shared patterns and durable rulings to the assigned scope.
 UI work runs in the implementer seat by default. The implementer reads this file for UI work. This seat runs
 only when the stored spec has the line `Seat: ui`, for design-heavy tasks. Follow `implementor.md` for the
 task loop; these rules add to it, including the proof the implementor records.
-Push through `bin/evf pr open` (implementor step 7).
+Do not push: evf opens the PR (implementor step 6).
 
 - Read the tier in your brief. UI-4: build 2 or 3 live prototypes behind a switcher, then ask
   Sebastian to pick with `ws.agent.requestDiscussion`. Continue polishing shared parts while you wait.
