@@ -10,6 +10,16 @@ import { documentFrom, REGION_NODE } from "./document-json.ts";
 // format stores: the file stays everyfield.doc/1 with no extra keys.
 
 export const TOKENS: readonly Token[] = ["none", "ink", "muted-text", "primary", "accent", "muted", "border"];
+/** The name a planter reads for each token: a swatch's accessible name and its tooltip. Primary and Accent match the brand kit. */
+export const TOKEN_NAMES: Readonly<Record<Token, string>> = {
+	none: "None",
+	ink: "Text",
+	"muted-text": "Muted text",
+	primary: "Primary",
+	accent: "Accent",
+	muted: "Light shade",
+	border: "Border",
+};
 export const WEIGHTS = ["hairline", "rule", "bar"] as const;
 export const ALIGNS = ["left", "center", "right"] as const;
 
