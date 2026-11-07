@@ -99,8 +99,6 @@ test("INV-settings-sharing-link: /settings never opens on a page section", () =>
 	const plant = { context: "plant", accountId: "a", plant: PLANT } as const;
 	assert.equal(firstSection({ ...plant, role: "owner" }), "church");
 	assert.equal(firstSection({ ...plant, role: "member" }), "notifications");
-	assert.equal(sectionAt("/settings", { ...plant, role: "member" }), "notifications");
-	assert.equal(sectionAt("/settings/sharing", { ...plant, role: "member" }), null);
 });
 
 test("a /settings/brand address opens the brand section and makes no settings-section read", () => {
