@@ -4,7 +4,7 @@ import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Button, Sheet, Skeleton, StatePanel, useToast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { SHORT_NAME } from "../phases/model.ts";
 import { importTemplate } from "./actions.ts";
 import { DescriptionView } from "./description.ts";
@@ -224,7 +224,8 @@ function CatalogBody({
 	);
 }
 
-function PreviewBody({
+/** The chosen checklist's body: its description, what adding it does and its tasks under a heading that names it. */
+export function PreviewBody({
 	state,
 	shown,
 	year,
@@ -257,6 +258,11 @@ function PreviewBody({
 				))}
 			</div>
 		);
+	return <PreviewList shown={shown} year={year} problem={problem} />;
+}
+
+function PreviewList({ shown, year, problem }: { shown: TemplatePreview; year: number; problem: string | null }) {
+	const headingId = useId();
 	const k = shown.checklist;
 	return (
 		<div className="flex flex-col gap-4">
@@ -270,19 +276,24 @@ function PreviewBody({
 					{problem}
 				</p>
 			) : null}
-			<ol aria-label={`Tasks in ${k.name}`} className="flex flex-col">
-				{k.tasks.map((t) => (
-					<li key={t.key} className="flex flex-col gap-1 border-t border-line py-3 first:border-t-0">
-						<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-							<span className="font-medium text-ink">{t.title}</span>
-							<span className="text-sm whitespace-nowrap text-text-2">
-								{PRIORITY_LABEL[t.priority]} · Due {dayText(t.due, year)}
-							</span>
-						</div>
-						{t.description ? <DescriptionView value={t.description} /> : null}
-					</li>
-				))}
-			</ol>
+			<div className="flex flex-col gap-1">
+				<h3 id={headingId} className="font-sans text-sm font-semibold tracking-normal text-ink">
+					Tasks in {k.name}
+				</h3>
+				<ol aria-labelledby={headingId} className="flex flex-col">
+					{k.tasks.map((t) => (
+						<li key={t.key} className="flex flex-col gap-1 border-t border-line py-3 first:border-t-0">
+							<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+								<span className="font-medium text-ink">{t.title}</span>
+								<span className="text-sm whitespace-nowrap text-text-2">
+									{PRIORITY_LABEL[t.priority]} · Due {dayText(t.due, year)}
+								</span>
+							</div>
+							{t.description ? <DescriptionView value={t.description} /> : null}
+						</li>
+					))}
+				</ol>
+			</div>
 		</div>
 	);
 }
