@@ -153,6 +153,14 @@ export function clampView(state: Pick<State, "entry" | "drafts">, requested: Ste
 	return view;
 }
 
+/**
+ * The ?step= the address bar carries. A screen with no steps (confirm email, or an account onboarding has nothing for,
+ * such as an organization's) carries none, so an organization login never sits on /onboarding?step=church (T-65).
+ */
+export function addressStep(state: Pick<State, "entry" | "view">): StepKey | null {
+	return state.entry.kind === "confirm_email" || state.entry.kind === "elsewhere" ? null : state.view;
+}
+
 export function nextStep(view: StepKey): StepKey {
 	return ORDER[Math.min(ORDER.indexOf(view) + 1, ORDER.length - 1)]!;
 }

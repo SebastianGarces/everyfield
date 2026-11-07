@@ -1409,3 +1409,35 @@ test("INV-reads: a pending account's onboarding entry reads only its account row
 	);
 	assert.deepEqual(await readOnboardingEntry(db, api, session, null, false), { kind: "confirm_email" });
 });
+
+// Nora QA 2026-11-05 Ask C (T-65): a network Admin and a sending-church Owner who already hold an organization seat
+// sign in and reach the organization outcome, never the church-plant start.
+for (const [registration, kind, seatRole] of [
+	["network", "sending_network", "admin"],
+	["sending_church", "sending_church", "owner"],
+] as const) {
+	test(`T-65 an active ${registration} account with an organization ${seatRole} seat gets the organization entry`, async () => {
+		const a = await actor(registration, "active"),
+			org = randomUUID();
+		await admin
+			.insert(t.organization)
+			.values({ id: org, kind, name: "Overseeing organization", timezone: "UTC", material_revision: "1" });
+		await admin
+			.insert(t.seat)
+			.values({ account_id: a.id, organization_id: org, role: seatRole, accepted_at: new Date(Date.now() - 1000) });
+		const viewer = await readViewer(db, writeSessionId.parse(a.session));
+		const entry = await readOnboardingEntry(
+			db,
+			api,
+			{
+				status: "active",
+				accountId: a.id,
+				sessionId: a.session,
+				expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			},
+			viewer.authority,
+			true,
+		);
+		assert.deepEqual(entry, { kind: "elsewhere", reason: "organization" });
+	});
+}
