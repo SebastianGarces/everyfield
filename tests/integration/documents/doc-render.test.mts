@@ -184,23 +184,27 @@ test("T-48 every box on the 4-per-sheet card sheet draws its whole border inside
 		{ x0: 306, y0: 0, x1: 612, y1: 396 },
 	];
 	const at = (n: number) => n.toFixed(2);
+	const clipped: string[] = [];
 	for (const [i, card] of cards.entries()) {
 		const inCard = boxes.filter((b) => b.x0 >= card.x0 && b.x1 <= card.x1 && b.y0 >= card.y0 && b.y1 <= card.y1);
 		// Name, Email or phone, Signature and Date, plus the three checkboxes (each drawn as an outer and inner square).
 		const fields = inCard.filter((b) => b.y1 - b.y0 >= 17 && b.x1 - b.x0 >= 90);
 		assert.equal(fields.length, 4, `card ${i + 1} draws its four field boxes`);
-		const date = fields.find((b) => b.x1 - b.x0 === 90 && b.y1 - b.y0 === 17);
-		assert.ok(date, `card ${i + 1} draws its Date box`);
+		assert.ok(
+			fields.some((b) => b.x1 - b.x0 === 90 && b.y1 - b.y0 === 17),
+			`card ${i + 1} draws its Date box`,
+		);
 		assert.equal(inCard.length, 10, `card ${i + 1} draws 4 field boxes and 3 double-square checkboxes`);
 		for (const b of inCard) {
 			const half = b.width / 2;
-			const label = `card ${i + 1}: the box at x ${at(b.x0)} to ${at(b.x1)}, y ${at(b.y0)} with a ${b.width} pt border`;
-			assert.ok(b.clip.x0 >= card.x0 && b.clip.x1 <= card.x1, `${label} is clipped to its card`);
-			assert.ok(b.x1 + half <= b.clip.x1, `${label} keeps its right border (clip ends at ${at(b.clip.x1)})`);
-			assert.ok(b.x0 - half >= b.clip.x0, `${label} keeps its left border (clip starts at ${at(b.clip.x0)})`);
-			assert.ok(b.y1 + half <= b.clip.y1 && b.y0 - half >= b.clip.y0, `${label} keeps its top and bottom borders`);
+			const box = `card ${i + 1} box x ${at(b.x0)} to ${at(b.x1)}, y ${at(b.y0)} (${b.width} pt border)`;
+			assert.ok(b.clip.x0 >= card.x0 && b.clip.x1 <= card.x1, `${box} is clipped to its card`);
+			if (b.x1 + half > b.clip.x1) clipped.push(`${box}: right border cut at ${at(b.clip.x1)}`);
+			if (b.x0 - half < b.clip.x0) clipped.push(`${box}: left border cut at ${at(b.clip.x0)}`);
+			if (b.y1 + half > b.clip.y1 || b.y0 - half < b.clip.y0) clipped.push(`${box}: top or bottom border cut`);
 		}
 	}
+	assert.deepEqual(clipped, [], "no border is cut by its card's clip");
 });
 
 test("WP-036 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {
