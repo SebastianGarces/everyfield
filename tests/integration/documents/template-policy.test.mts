@@ -1,15 +1,25 @@
-// WP-036 criterion 13: every built-in everyfield.doc/1 template file is in the document-template merge class, so a
-// change to one routes to `evf approve` (Sebastian's approval) and never merges through `evf ship`.
+// WP-036 criterion 13: every built-in everyfield.doc/1 template file is in the document-templates owner class of
+// evf.toml, so a change to one waits for Sebastian's approval and never lands on its own.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { DEFAULT_DOCUMENT_TEMPLATES } from "../../../tools/evf/policy.ts";
 
 const root = new URL("../../../", import.meta.url);
 
-test("WP-036 each templates/*.json file matches mergePolicy.documentTemplates or its OPS-80 default", () => {
-	const config = JSON.parse(readFileSync(new URL("evf.config.json", root), "utf8"));
-	const entries: string[] = (config.mergePolicy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES).paths;
+/** The paths of one [[policy.class]] in evf.toml. */
+function ownerClassPaths(name: string): string[] {
+	const block = readFileSync(new URL("evf.toml", root), "utf8")
+		.split("[[policy.class]]")
+		.find((text) => text.includes(`name = "${name}"`));
+	assert.ok(block, `evf.toml has the ${name} class`);
+	assert.match(block, /^outcome = "owner"$/m);
+	const paths = /^paths = \[(.*?)\]/ms.exec(block);
+	assert.ok(paths, `the ${name} class lists paths`);
+	return [...paths[1]!.matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
+}
+
+test("WP-036 each templates/*.json file matches the document-templates owner class in evf.toml", () => {
+	const entries = ownerClassPaths("document-templates");
 	const files = readdirSync(new URL("packages/domain/src/documents/templates/", root))
 		.filter((name) => name.endsWith(".json"))
 		.map((name) => `packages/domain/src/documents/templates/${name}`);

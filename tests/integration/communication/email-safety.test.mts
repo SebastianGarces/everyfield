@@ -1,6 +1,6 @@
 // WP-029: outside production, email reaches approved test recipients only. Every other address goes to the capture
 // outbox and never appears in a request to Resend, with or without a key. The real writers and transports run here
-// against the recording fake of Resend. Nothing calls Resend. tools/evf/tests/wp-029-email-safety.test.ts runs each marker.
+// against the recording fake of Resend. Nothing calls Resend. The CI db job runs this file.
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";

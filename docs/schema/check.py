@@ -253,7 +253,7 @@ def coverage(capability_files, features, schema):
     capability_ids = [c['id'] for c in capabilities]
     if len(capability_ids) != len(set(capability_ids)):
         errors.append('duplicate capability IDs')
-    # Catalog membership defines coverage; implementation progress lives in build-progress.json.
+    # Catalog membership defines coverage; implementation progress lives in evf v2's task records; build-progress.json is frozen.
     active_ids = {f['id'] for f in features if f.get('active', True)}
     feature_ids = {f['id'] for f in features}
     covered_features = {f for c in capabilities for f in c['feature_ids']}

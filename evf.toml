@@ -64,16 +64,37 @@ outcome = "owner"
 quote = "Yes, keep my OK on all five, including CI and agent settings"
 quoted_at = "2026-11-06T16:54:00Z"
 
+# Each prompt file replaces evf's built-in prompt for that role, so it carries that text plus this repo's rules.
 [role.planner]
 model = "claude-opus-5-5"
 effort = "medium"
+prompt_file = ".agents/role-prompts/planner.md"
 [role.implementer]
 model = "claude-opus-5-5"
 effort = "medium"
+prompt_file = ".agents/role-prompts/implementer.md"
+[role.ui]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/ui.md"
 [role.simplifier]
 model = "claude-opus-5-5"
 effort = "medium"
+prompt_file = ".agents/role-prompts/simplifier.md"
+[role.ideator]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/ideator.md"
+[role.comparer]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/comparer.md"
+[role.prototype-merger]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/prototype-merger.md"
 [role.verifier]
 model = "claude-opus-5-5"
 effort = "medium"
+prompt_file = ".agents/role-prompts/verifier.md"
 read_only = true

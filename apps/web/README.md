@@ -85,15 +85,11 @@ Production mode builds a disposable local snapshot, not a deployment. It refuses
 worktree. Status prints the preview ID, URL, mode and commit as JSON. Check additionally
 asserts readiness, the current commit, and HTTP 200 at the preview URL. It does not prove
 application acceptance. Open the returned URL in a browser and exercise the task behavior.
-Use `portless preview logs ID` to investigate a failed start. When called by evf, the
-commands also keep its `EVF_RUNTIME_DIR/stack.json` receipt current and clear it on down.
+Use `portless preview logs ID` to investigate a failed start. With `EVF_RUNTIME_DIR` set, the
+commands also keep a `stack.json` receipt there and clear it on down.
 
-The configuration lives in `scripts/preview.json`, so no `evf.config.json` change is
-needed to run these commands. A separate reviewed OPS task wires the up/status/down
-commands and checks into evf after this producer ships. Its stack commands are
-`["node", "scripts/stack.mjs", "up"]`, with `status` and `down` in place of `up`.
-These commands do not call paid providers, so that stack declares `usesPaidProviders: false`.
-The additional local regression check is `["node", "scripts/test-workflow.mjs"]`.
+The configuration lives in `scripts/preview.json`. `bin/dev stack` wraps these commands, and
+they call no paid providers.
 
 Portless uses HTTPS by default. Trust its CA explicitly before browser review. For a
 disposable HTTP test supervisor, set these variables consistently on every preview command:
@@ -122,5 +118,5 @@ processes and dependencies, not the shared database.
 Run the existing lint, TypeScript and build checks with `corepack pnpm check`. Run the
 small workflow suite with `corepack pnpm test:workflow`; it uses Node's built-in runner
 and a local fake Portless executable, with no database or provider calls. If
-`EVF_TEST_REPORT` is set, it writes test names and results there for evf. CI retains the
+`EVF_TEST_REPORT` is set, it writes test names and results to that file. CI retains the
 existing app, domain, documentation, Wiki and cross-model checks, and adds this suite.

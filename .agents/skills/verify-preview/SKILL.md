@@ -1,18 +1,14 @@
 ---
 name: verify-preview
-description: "Apply when you verify a PR as the independent Opus verifier. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
+description: "Apply when you verify a change as the independent Opus verifier. Run the head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then record the review with evf review submit."
 ---
 
 # Verify on a preview
 
 You prove the change works. The author's summary is not evidence, but the author's proof is: read the
-diff in full and judge the code (D66), read `bin/evf proof show <task>` and open each proof's evidence.
-Spot-check. Re-run a flow on a preview of the exact PR head only where a proof is unmet, missing or looks
-wrong. When only a screenshot is missing, capture it (step 3) and record it with `bin/evf proof add`
-instead of requesting changes. Proof from an earlier head of the branch carries forward. A merge-only launch
-prompt (OPS-145) overrides this paragraph: it limits the review to the merge result, with no flow or
-`bin/evf verify` rerun, and still needs the exact-head review. You own the
-approve or `changes_requested` verdict. The Experience section may use the author's recorded
+diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
+Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
+wrong. You own the verdict. The Experience section may use the author's recorded
 measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
 local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
@@ -29,11 +25,10 @@ Keep scripts, logs, screenshots and videos in `$E`, never in the repository.
 The machine has little CPU and memory. Run one browser job at a time and close every browser you
 start (D35). These rules apply to every role that opens a browser.
 
-- Scripted checks run through `bin/evf browser run [--timeout <s>] -- <command>`. It runs the
+- Scripted checks run through `bin/dev browser run [--timeout <s>] -- <command>`. It runs the
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
-  times out or evf gets a signal, it closes the run's agent-browser session, stops every process
+  times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-  It first waits while the machine is above its load limit (see `tools/evf/README.md`).
 - Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
   session and a short idle timeout, and close it when you finish, also after a failure:
 
@@ -47,8 +42,7 @@ start (D35). These rules apply to every role that opens a browser.
   Run `agent-browser skills get core` once for the full command guide.
 - Stop only processes you started, by PID or process group. Never stop processes by a name
   pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
-- `bin/evf doctor` lists headless browsers and agent-browser daemons older than 15 minutes, with
-  PID, age and memory. It never stops them. Before you end, it must list none of yours.
+- Before you end, none of your browsers or agent-browser sessions may still be running.
 
 Install the pinned tools once per machine. Video needs `ffmpeg` on `PATH`.
 
@@ -63,9 +57,9 @@ cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `c
 
 ## 1. Read
 
-Read the task note, the PR body (`gh pr view <n>`) and the diff (`gh pr diff <n>`). Read the
+Read your brief (the ask and the spec) and the full diff against the merge base. Read the
 requirements the task names. Write down the behavior you will check before you run anything.
-You are a fresh Opus 5.5 medium session that never shared context with the author (D82). Your session id must differ from the one in the PR's `EVF-Author` line; `post-review.mjs` and `bin/evf ship` refuse the author's session, a non-verifier role and a non-Opus model. Find your session id with `herdr agent get <your agent name>` (field `agent_session.value`).
+You are a fresh Opus 5.5 medium session that never shared context with the author (D82).
 
 ## 2. Start the previews
 
@@ -102,7 +96,7 @@ export default async ({ page, side, engine, width, path }) => [
 Return `[]` for paths the flow does not cover. Then capture before and after:
 
 ```bash
-bin/evf browser run --timeout 900 -- \
+bin/dev browser run --timeout 900 -- \
   node $S/capture.mjs --before <main url> --after <branch url> --paths /,/access --flow "$E/flow.mjs" --out "$E"
 ```
 
@@ -112,37 +106,12 @@ difference into `$E/ui-results.json`. The flow runs on both sides with a video. 
 a non-200 status, a page or console error, an axe violation that main does not have, or a failed
 flow check on the branch.
 
-Measure end-to-end time for every changed read and write, from the user action until its
-confirmed result, with `bin/evf timing` (D81). Simple actions must finish in under 1 second.
-Do not time a head that already has blocking behavior findings (C119). Write one timing set per
-action in `$E`, then run it on the exact head:
-
-```js
-// $E/timing-add-person.mjs: ctx = { url, databaseUrl, env, require, out, index, replacementFor }
-export default {
-  name: "add a person", budgetMs: 1000, samples: 40, write: true, // write: saves add the write probe
-  async setup(ctx) {}, // seed synthetic data in ctx.databaseUrl; sign a session with ctx.env.IDENTITY_SECRET;
-                       // open a browser with ctx.require("playwright")
-  async sample(ctx) {  // untimed steps first, then the timed action until its confirmed result
-    const startedAt = Date.now();
-    return { startedAt, endedAt: Date.now() }; // add interference: "<what>" when the set wrote in parallel
-  },
-  async teardown(ctx) {}, // close the browser
-};
-```
-
-```bash
-bin/evf timing <task> --set "$E/timing-add-person.mjs" --head <40-char sha>
-```
-
-It builds a production preview of that head on its own quiet local database, never the shared
-one, and runs an independent SELECT 1 probe (and a write probe for saves) every 100 ms. Each sample
-is qualifying or labeled non-qualifying: load above the machine limit, a probe round trip above
-150 ms in its window (database spike or write stall), or self-interference. Each non-qualifying
-sample gets exactly one labeled replacement. The set passes only when every declared sample has a
-qualifying result under budget; a qualifying miss is never rerun away. Copy its PASSED or FAILED
-line and `report.json` into the evidence. Record whether writes update the UI optimistically and
-roll back clearly on failure. Count requests for main actions and inspect them for needless
+Measure end-to-end time for every changed read and write on the production preview, from the user
+action until its confirmed result. Simple actions must finish in under 1 second. Do not time a head
+that already has blocking behavior findings (C119). The quiet timing runner of D81 retired with evf v1,
+so say what else shared the machine and the database, and do not call a miss proven or a pass
+qualifying on one sample. Keep the measurements in `$E`. Record whether writes update the UI
+optimistically and roll back clearly on failure. Count requests for main actions and inspect them for needless
 refetches or refreshes. Keep request logs in `$E` and summarize them in the Experience section.
 Reports and analytics may exceed the time budget only when the PR names that approved category
 and explains the slower action.
@@ -248,15 +217,13 @@ The command prints how many objects it deleted. Then check that the old index li
 Write `$E/report.md` in this shape. Name what you did not check.
 
 Start with the Ask coverage table, before any criterion or check table. Read the verbatim ask
-(`bin/evf task spec <task> --show`) and list every deliverable it names: routes, pages, sections,
+in your brief and list every deliverable it names: routes, pages, sections,
 screens, commands, files and similar named outputs. One row for each. A deliverable is `delivered`
-(you saw it work), `deferred <follow-up label>` (the label is one `evf task spec` printed, such as
-`OPS-123` or `WP-097 slice 2`, and the task has it in the work store) or `missing`. A `missing` row
-is a blocking finding: post `changes_requested`. `post-review.mjs` refuses a report without the
-section, an approval with a `missing` row and a `deferred` label that is not a follow-up of the task.
+(you saw it work), `deferred <T-n>` (a task evf filed for it) or `missing`. A `missing` row
+is a blocking finding: ask for changes.
 
 ```markdown
-## Verification of <task> at <sha7> (Opus verifier, session <first 8 characters of your session id>)
+## Verification of <task> at <sha7>
 
 **Verdict:** approved | changes requested
 **Evidence:** <index link>
@@ -265,7 +232,7 @@ section, an approval with a `missing` row and a `deferred` label that is not a f
 
 | Deliverable in the verbatim ask | Status |
 |---|---|
-| <route, page, section, screen, command or file> | delivered / deferred <follow-up label> / missing |
+| <route, page, section, screen, command or file> | delivered / deferred <T-n> / missing |
 
 ## Checks
 
@@ -299,53 +266,17 @@ test-behavior-not-implementation, <other applicable principles>.
 ```
 
 Read the diff against those principles. Needless layers, copied patterns or dead code require
-changes_requested even when behavior passes. Post it once:
+changes even when behavior passes. A timing exception covers only reports and analytics: name the
+action and the reason in the report. It never waives failed smoothness or code quality.
+
+Record the review once:
 
 ```bash
-node $S/post-review.mjs --pr <n> --report "$E/report.md" --session <your session UUID> --model claude-opus-5-5 \
-  --verdict approved --head <40-char sha> --quality-verdict approved \
-  --experience-verdict approved --budget met \
-  --principles laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation \
-  --results "$E/ui-results.json" --results "$E/backend-results.json"
+evf review submit --verdict approved --report-file "$E/report.md"   # or --verdict changes
 ```
 
-Pass only the results files you produced. Include every applicable principle in --principles.
-
-Use `--budget not_applicable` only when there is no UI experience to measure, and explain why.
-For an approved reports or analytics timing exception, pass `--budget exceeded
---experience-exception reports` (or `analytics`); the PR body must contain the matching standalone
-line `EVF-Experience-Exception: reports` (or `analytics`) and explain the action and reason.
-These categories are the approved timing exceptions in Everyfield patterns. They never waive
-failed smoothness or code quality; use `--experience-verdict changes_requested` for those failures.
-
-The script appends `EVF-Review: {"head":...,"verifier":{"session":...,"model":...,"role":"verifier"},"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one
-comment. It refuses a head that is not the PR's current head, a verifier ship refuses (the author's session, a non-verifier seat, a non-Opus model), results captured on
-another head, and an approval when any results file or the report shows a failure. Use
-`--verdict changes_requested` when anything fails, then send the failures to the coordinator.
-
-**Body-only findings (OPS-113).** When the code and the experience are approved and every open finding is a PR
-body fix you can state as an exact text, post `--verdict body_only --body-items "$E/body-items.json"` with the
-approved quality and experience verdicts, and close verify with `bin/evf run done <run> --status body-only`. The
-file is a JSON list; each item has exactly one non-empty `present` (text the body must contain) or `absent` (text
-it must not contain) and a non-empty `why`:
-
-```json
-[{ "present": "Current head `6b97c92`", "why": "How it was verified names an old head." },
- { "absent": "offers \"Clear search\"", "why": "Owner item 2 describes a removed button." }]
-```
-
-The poster refuses an empty list, a malformed item and an unapproved quality or experience verdict, and runs
-every approval check. The EVF-Review line adds `"verdict":"body_only"` and a `"body"` array. evf's body stage
-(the implementer seat) then edits only the body file at the same head; evf pushes it, checks it with the
-`evf pr body` code and checks each item. A pass goes to ci with no round and no second verify; a commit after
-your review needs a full verify. Ship takes your review as the code approval only while the GitHub body meets
-every item. Any code finding, or a body fix that is not exact text, needs `changes_requested`. A second failed
-review of a head a verify already closed at costs no round. `tools/evf/README.md` (Body-only fix path) lists
-decisions D-a to D-e.
-A new head needs a new verification and a new comment. One exception: do not re-review a head that
-only merges main after your approval. Run `bin/evf ship <task>` once required CI is green on it.
-Ship carries your approval when the merges are clean and touch no PR path, and refuses otherwise.
-Then verify the new head as usual. `ship` describes the merge.
+Then close your step: `evf run done --status passed` when you approved, and `--status failed --cause change`
+when you asked for changes. A new head needs a new verification.
 
 ## 7. Clean up
 
@@ -353,5 +284,4 @@ Then verify the new head as usual. `ship` describes the merge.
 agent-browser --session <task>-verify close
 portless preview down <id>          # both previews
 git worktree remove <project>       # both verify worktrees, paths printed by preview.mjs
-bin/evf doctor                      # lists no browser of yours
 ```

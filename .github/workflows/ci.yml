@@ -73,18 +73,12 @@ jobs:
       - name: Documentation, catalog and acceptance case checks
         run: python3 docs/check-all.py
 
-  evf:
-    name: evf (tooling tests)
-    env:
-      EVF_MONITOR: github-actions-evf
+  workflow:
+    name: workflow (local stack, eval coverage, CI scripts)
     runs-on: ubuntu-24.04
-    # The whole job took 11-15 min on recent green runs and was cancelled, tests still passing, at the old 15 min limit.
-    # A slow runner takes about 1.5x the 12.4 min run, so about 19 min. 25 leaves room without hiding a hang.
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0 # evf test compares the PR with main and skips the tooling tests when it changes no evf path
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -92,16 +86,12 @@ jobs:
           cache: pnpm
       - name: pnpm in the corepack cache (retries registry errors)
         run: .github/scripts/corepack-install.sh
-      # The quiet timing database test (OPS-52) migrates a Docker Postgres with the repository's own db:migrate.
       - run: pnpm install --frozen-lockfile
       - name: Git identity for test fixtures
         run: |
           git config --global user.name "evf ci"
           git config --global user.email "ci@everyfield.invalid"
           git config --global init.defaultBranch main
-      # Every push to main runs the whole suite. A pull request with no evf path skips it (tools/evf/test-scope.ts):
-      # this step still exits 0, so this job and the required `ci` check report success.
-      - run: bin/evf test ${{ github.event_name == 'push' && '--all' || '' }}
       - name: Local stack isolation and reporting
         run: corepack pnpm test:workflow
       - name: Evry eval coverage
@@ -110,7 +100,7 @@ jobs:
         run: node --test .github/scripts/*.test.cjs
 
   tools:
-    # The product tools that live outside tools/evf. The QA seed tests migrate a Docker Postgres with db:migrate.
+    # The product tools. The QA seed tests migrate a Docker Postgres with db:migrate.
     name: tools (CI test coverage, QA previews)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -272,7 +262,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [app, census, db, docs, evf, tools, wiki]
+    needs: [app, census, db, docs, tools, wiki, workflow]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

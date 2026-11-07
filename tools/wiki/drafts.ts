@@ -17,7 +17,7 @@ type ClaimCheck = { status: string; reviewer: string; notes: string };
 type Json = Record<string, unknown>;
 export type DraftRow = Json & { id: string; draft: Json & { approver: unknown; claim_check: ClaimCheck } };
 
-/** A refusal to show as one message. bin/evf reports this name the same way as its own errors. */
+/** A refusal to show as one message. */
 export class DraftError extends Error {
 	name = "ToolError";
 }

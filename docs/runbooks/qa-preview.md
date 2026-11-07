@@ -21,7 +21,7 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
 
 1. Make sure the branch is pushed and contains current main. The QA seed (`tools/qa/qa-seed.ts`) runs from the
    branch's own code, so a branch made before OPS-106 merged must merge main first. A branch made before the seed moved
-   still works: `bin/qa` runs its `tools/evf/qa-seed.ts`.
+   still works: `bin/qa` runs the older seed path that branch still carries.
 2. Run `bin/qa up <branch>`. It takes 5 to 10 minutes. It does these steps in order:
    1. Finds the development Neon branch (endpoint ep-autumn-dew). It stops before it creates anything if that branch
       is missing or also serves production (ep-gentle-dust).
@@ -158,6 +158,5 @@ which is why `qa list` exists.
 never a connection string, key or password.
 
 Previews made before this file existed are recorded in the v1 work store. `bin/qa carry-over` copies them into the file.
-It reads the v1 store and stops nothing. Run it again if someone made a preview with an older `bin/evf qa up`: it adds
-only ids it has not seen, so it never brings back a preview that `qa down` removed. `bin/evf qa` uses the same file until
-`bin/evf` goes away.
+It reads the v1 store and stops nothing. It adds only ids it has not seen, so it never brings back a preview that
+`qa down` removed.

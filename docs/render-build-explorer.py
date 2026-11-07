@@ -29,7 +29,7 @@ def render(root):
     retired = {p['id'] for p in plan.load(root, 'docs/plan/dag.json').get('retired_packages', [])}
     recorded = set(progress['packages'])
     if recorded - (active | retired) or retired - recorded:
-        raise ValueError('Progress IDs differ from active/retired DAG IDs; reconcile through tools/evf/progress.ts --reconcile')
+        raise ValueError('Progress IDs differ from active/retired DAG IDs; the frozen docs/build-progress.json must still list every DAG ID, so edit it by reviewed PR')
     # Plan PRs precede home-ledger reconciliation. Fill the read-only view, never the ledger.
     for pid in sorted(active - recorded):
         progress['packages'][pid] = dict(status='not_started', evidence=[],

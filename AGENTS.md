@@ -5,40 +5,36 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
 
 ## Task flow
 
-1. Read your Intent task note and role below. The coordinator plans and delegates.
-2. `bin/evf task start <task>` creates the isolated worktree and prints its brief.
-   Register that path with Intent. Edit and commit there, never in the workspace root.
-3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
-4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
-   Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
-   `bin/evf proof add` per Done criterion you built or changed. Open a PR explaining the change,
-   actual verification, proof, risks and follow-ups. The evf stages are plan, implement, simplify,
-   pr, verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
-5. An independent verifier (a fresh Opus 5.5 medium session that never shared context with the
-   author, D82) reads the full diff (only the merge result when only main changed), spot-checks the proof with `verify-preview`, posts the exact-head
-   review and runs `bin/evf ship <task>`.
-   Ship requires green required GitHub CI, independent approval and a valid PR body.
+evf v2 (the `evf` in `~/.cargo/bin`) runs the work: `evf.toml` holds this repo's roles and owner classes, and the store and
+dashboard live outside the checkout. `bin/` here holds product tools only.
 
-A PR that changes a path in `mergePolicy.documentTemplates` waits for Sebastian: `evf ship` stops after the verifier, `evf approve` merges.
+1. A seat starts in its own worktree with a brief that holds the full ask and spec. Your role's prompt comes from
+   `.agents/role-prompts/`. Use the brief and linked current clauses as the contract.
+2. Build inside the scope. Commit. Do not push or open a PR: evf runs the checks, the PR, the review and the landing.
+3. Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
+   `evf proof add <n> --status met --evidence <path>` per `verifier` criterion, after your last commit.
+4. Close with `evf run done --status passed --summary-file <file>`. Your summary becomes the what and why of the PR.
+5. A fresh Opus 5.5 medium session that never shared context with the author (D82) reads the full diff, spot-checks the
+   proof with `verify-preview` and records `evf review submit --verdict approved|changes --report-file <file>`.
+6. evf lands the exact head once required GitHub CI is green and the review approved it.
 
-Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
-FB-<n> for feedback and OPS-<n> for tooling maintenance. Reserve a new OPS-<n> or ruling
-number D<n> with `bin/evf id next ops|decision`; never take the next number from main.
+A path in an `evf.toml` owner class also waits for Sebastian. The classes are `document-templates`, `landing-marketing`,
+`wiki`, `brand-prototype` and `workflow-gates`. Decide reversible things yourself and record them with
+`evf rule "<what>" --why "<why>" --revert "<how>"`. Ask with `evf ask owner` when only Sebastian can settle it.
+
+evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in history.
 
 ## Rules
 
 - Three guards hold. Everything else is your judgment.
   1. Never use the production database. Tests and checks use the shared development database.
-  2. Merge only through `bin/evf ship` or `bin/evf approve`. Never push to main or force-push.
+  2. Only evf lands work. Never push to main, force-push or merge by hand.
   3. Never read or print secrets: `.env*` files, credentials or connection strings.
-- Follow `.agents/skills/ship/SKILL.md` for merge authority. Preserve the owner approval routes from PR #13.
-- UI work runs in the implementer seat (Sonnet 5.5 medium), which reads `.agents/roles/ui-designer.md`
-  and uses the better-* skills. A design-heavy spec opts into the separate `ui` seat with the line
-  `Seat: ui`. Opus 5.5 medium plans and verifies.
-- Use one portless preview per worktree. No Vercel preview deployments, except `bin/qa` for Nora's QA
-  previews (`docs/runbooks/qa-preview.md`).
+- UI work runs in the implementer seat and reads `.agents/roles/ui-designer.md` and the better-* skills. Opus 5.5 medium
+  plans and verifies.
+- Use one portless preview per worktree (`bin/dev stack up`). No Vercel preview deployments, except `bin/qa` for Nora's
+  QA previews (`docs/runbooks/qa-preview.md`).
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
-  Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
@@ -50,10 +46,9 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
   Disabled controls keep `cursor-not-allowed`.
 - Every Evry adapter operation or catalog tool you add or change ships with recorded eval cases in
   `tests/evry/evals/`; the rule is in `.agents/skills/test-standard/SKILL.md`.
-- Put shared workflow enforcement in evf or a skill, never a second host-specific hook.
+- Put shared workflow rules in `evf.toml`, a role prompt or a skill, never a second host-specific hook.
 - Preserve original reference bytes, unrelated assets and design/everyfield-ui.html (the approved brand prototype).
-  The prototype changes only through an owner-approved design task whose `tools/evf/tasks/OPS-<n>.json` entry carries
-  Sebastian's verbatim quote and time in `prototypeApproval`. `evf ship` never merges it; `evf approve` does.
+  The prototype changes only through a task Sebastian approves through its owner class.
 
 ## Roles and skills
 
@@ -72,14 +67,14 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks | `.agents/skills/verify/SKILL.md` |
 | Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
-| Merge rules | `.agents/skills/ship/SKILL.md` |
-| PR body standard | `.agents/skills/everyfield-pr/SKILL.md` and its template |
+| Workflow, progress and merge rules | `docs/build-agent-workflow.md` |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md` |
 | UI quality | better-interface and the better-* suite |
-| Tooling and recovery | `tools/evf/README.md` |
+| Browser runs, preview stack, logs | `bin/dev help` |
+| QA previews | `docs/runbooks/qa-preview.md` |
 
 ## Principles
 
@@ -115,9 +110,7 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-Only evf writes `docs/build-progress.json`. Ship acknowledges a milestone that passes the
-reviewed-milestone checks. Coordinators clear only records ship left unacknowledged, with
-`bin/evf shipped --clear <task>`. Owners update task notes, not progress patches.
+`docs/build-progress.json` stopped updating at the evf v2 cutover. evf v2's task records are the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.

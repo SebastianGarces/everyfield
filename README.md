@@ -1,6 +1,6 @@
 # Everyfield rebuild specification
 
-This repository specifies a fresh Everyfield application. It contains documentation, approved reference content and an on-demand plan explorer. [Canonical build progress](docs/build-progress.json) records implementation milestones and completion. There are no customer imports or data migration.
+This repository specifies a fresh Everyfield application. It contains documentation, approved reference content and an on-demand plan explorer. [Frozen build progress](docs/build-progress.json) records implementation milestones up to the evf v2 cutover (Nov 2026). It stopped updating there; evf v2's task records are the live state. There are no customer imports or data migration.
 
 Start with [current orientation](docs/START-HERE.md), then generate only the assigned [package context](docs/plan/context.md). Requirement JSON in `docs/catalog/requirements/` is the behavior authority. Product chapters are readable summaries; when they differ, the requirement wins and the summary must be corrected. The catalogs provide stable feature, operation, requirement and acceptance identifiers. The target schema is the proposed v3 design, not the v2 source-table inventory. Builders do not need v2 or the former decision chronology.
 
@@ -15,7 +15,7 @@ Start with [current orientation](docs/START-HERE.md), then generate only the ass
 - [Explorer renderer](docs/render-build-explorer.py), generated outside the repository
 - [Feature review](everyfield-feature-review.html), checked against the feature catalog
 - [Evidence-backed progress workflow](docs/build-agent-workflow.md)
-- [Intent workflow preparation, approved merge policy and setup placeholders](tools/evf/README.md)
+- [Build workflow, progress and merge rules](docs/build-agent-workflow.md)
 
 The fix wave changed the schema, catalogs, cases, package plan and design handoff. G-DESIGN requires a new independent review; [verification](docs/verification.json) retains prior review provenance and proof limits. Implementation kickoff requires separate authorization. Later compatibility, SQL/security, UI/model, provider configuration, purge and restore tests remain explicit future acceptance gates. Documentation checks do not establish those results. Intent is the future implementation harness. Its merged local helpers are reviewed; actual spending and concrete Intent review/identity/approval receipt and environment setup remain gated external inputs. Ordinary build PR automatic merge is owner-approved after final-head tests and independent approved review; feedback PR human review remains required. Existing external source backups are preserved; superseded material is removed only after requirement preservation checks, without an archive folder in this repository.
 

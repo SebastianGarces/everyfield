@@ -41,7 +41,7 @@ message or partial receipt. Generic input validation gets no regression test.
 
 ## Pick the layer
 
-- Use integration tests against real Postgres from `evf stack`, through the public operation.
+- Use integration tests against real Postgres from `bin/dev stack`, through the public operation.
 - Use browser tests only for critical flows: sign-in, one meeting end to end, Evry review and approve.
   Prove other UI behavior broadly now; protect its domain behavior with integration tests.
 - Use contract tests only when something outside our code consumes the shape: Evry tool schemas,

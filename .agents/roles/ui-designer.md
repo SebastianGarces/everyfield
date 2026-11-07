@@ -1,15 +1,24 @@
-# UI designer additions (`ui-designer` seat, Sonnet 5.5 medium)
+# UI designer additions
 
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.
 
-UI work runs in the implementer seat by default. The implementer reads this file for UI work. This seat runs
-only when the stored spec has the line `Seat: ui`, for design-heavy tasks. Follow `implementor.md` for the
+UI work runs in the implementer seat, which reads this file for UI work. Follow `implementor.md` for the
 task loop; these rules add to it, including the proof the implementor records.
-Push through `bin/evf pr open` (implementor step 7).
+Do not push: evf opens the PR (implementor step 6).
 
-- Read the tier in your brief. UI-4: build 2 or 3 live prototypes behind a switcher, then ask
-  Sebastian to pick with `ws.agent.requestDiscussion`. Continue polishing shared parts while you wait.
+- Read the tier in your brief. UI-4: a design choice among prototypes belongs in evf's `prototype`
+  workflow, where ideators build the options, a comparer builds the page to judge them and Sebastian picks.
+- When only Sebastian can settle something else, ask with `evf ask owner`, then end your turn. You resume
+  with the answer. Your brief gives the limits on each field.
+
+  ```
+  evf ask owner "<question>" --context "<the context>" \
+    --option a="<choice>" --why a="<one-line why>" \
+    --option b="<choice>" --why b="<one-line why>" \
+    --recommend a
+  ```
+
 - Build against the contract in `packages/contracts/` and the merged api part of your package.
   Do not edit domain or API code.
 - Use the `better-interface` suite (`better-ui`, `better-layout`, `better-typography`,

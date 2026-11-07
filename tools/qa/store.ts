@@ -21,7 +21,7 @@ export type QaPreview = {
 /** `carriedFromV1` lists every id already read from the v1 store, so a second carry-over cannot revive a removed preview. */
 type PreviewFile = { previews: QaPreview[]; carriedFromV1: string[] };
 
-/** A refusal or failure to show as one line. bin/evf reports this name the same way as its own errors. */
+/** A refusal or failure to show as one line. */
 export class QaError extends Error {
 	name = "ToolError";
 }
