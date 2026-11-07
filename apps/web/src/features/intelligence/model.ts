@@ -37,6 +37,15 @@ export const missingAreas = (draft: Draft) => CARE_AREAS.filter((a) => !draft.an
 export const complete = (draft: Draft): draft is { answers: CareAnswers; note: string } =>
 	missingAreas(draft).length === 0;
 
+/**
+ * The form's primary button. A past week is corrected; this week is saved once, then changed. A week counts as saved
+ * only once the server has its row, so the optimistic strip during a first save still reads "Save check-in".
+ */
+export function submitLabel(week: CareWeek, correcting: boolean) {
+	if (correcting) return "Save correction";
+	return week.id !== null && week.answer !== null ? "Save changes" : "Save check-in";
+}
+
 const LONG_MONTH = [
 	"January",
 	"February",
