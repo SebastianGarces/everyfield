@@ -12,7 +12,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
-import { STATUS_LABEL, STATUS_TONE, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
+import { statusView, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
 
 /** A link that prefetches on intent (pointer, touch, keyboard focus), never because it scrolled into view. */
 export { PersonLink as IntentLink };
@@ -28,18 +28,22 @@ export function MeetingIcon({ type, size = 36 }: { type: MeetingType; size?: 36 
 	return <CardIcon icon={TYPE_ICON[type]} tone={TYPE_TONE[type]} size={size} />;
 }
 
+/** A meeting's status as `statusView` reads it at `now`: a past meeting still planning or ready reads "Not closed". */
 export function MeetingStatusBadge({
-	status,
+	meeting,
+	now,
 	size,
 	className,
 }: {
-	status: MeetingStatus;
+	meeting: { status: MeetingStatus; startsAt: string };
+	now: string;
 	size?: "sm" | "md";
 	className?: string;
 }) {
+	const { label, tone } = statusView(meeting.status, meeting.startsAt, now);
 	return (
-		<StatusBadge status={STATUS_TONE[status]} size={size} className={className}>
-			{STATUS_LABEL[status]}
+		<StatusBadge status={tone} size={size} className={className}>
+			{label}
 		</StatusBadge>
 	);
 }
