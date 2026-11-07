@@ -146,7 +146,9 @@ test("AC:TARGET-TSK-016 the normalizer keeps HTML and text shaped like tags exac
 		assert.equal(normalizeDescription(typed), typed);
 	// What it still does: LF endings, unsafe links to their label, trailing spaces, blank-line runs, the outer trim.
 	assert.equal(
-		normalizeDescription("  Hello  \r\n<b>x</b>\r\n\r\n\r\n\r\n[click](javascript:alert(1)) [ok](https://a.org)\t\n\n "),
+		normalizeDescription(
+			"  Hello  \r\n<b>x</b>\r\n\r\n\r\n\r\n[click](javascript:alert(1)) [ok](https://a.org)\t\n\n ",
+		),
 		"Hello\n<b>x</b>\n\nclick [ok](https://a.org)",
 	);
 });
