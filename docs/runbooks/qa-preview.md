@@ -4,7 +4,7 @@ A QA preview is a Vercel preview of one branch with its own database. It gives N
 with seeded data, five known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
-`bin/evf qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md).
+`bin/qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md). The code is in `tools/qa/`.
 
 ## 1. Nora asks for a QA preview
 
@@ -19,9 +19,10 @@ and the preview id.
 
 Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must already be logged in.
 
-1. Make sure the branch is pushed and contains current main. The QA seed (`tools/evf/qa-seed.ts`) runs from the
-   branch's own code, so a branch made before OPS-106 merged must merge main first.
-2. Run `bin/evf qa up <branch>`. It takes 5 to 10 minutes. It does these steps in order:
+1. Make sure the branch is pushed and contains current main. The QA seed (`tools/qa/qa-seed.ts`) runs from the
+   branch's own code, so a branch made before OPS-106 merged must merge main first. A branch made before the seed moved
+   still works: `bin/qa` runs its `tools/evf/qa-seed.ts`.
+2. Run `bin/qa up <branch>`. It takes 5 to 10 minutes. It does these steps in order:
    1. Finds the development Neon branch (endpoint ep-autumn-dew). It stops before it creates anything if that branch
       is missing or also serves production (ep-gentle-dust).
    2. Creates a Neon branch named `qa-<branch>-<4 hex>` off development.
@@ -115,7 +116,7 @@ Use "Send now" in Messages to test a send: the app hands the mail to Resend or t
 job is needed, and Vercel does not run cron on previews. Evry turns also run in the request.
 
 A preview built before WP-029 merged keeps the old code and can send to any address. Rebuild an open preview from that
-time with `evf qa up` before you test mail on it.
+time with `bin/qa up` before you test mail on it.
 
 ## 3. How a bot gets in: Protection Bypass for Automation
 
@@ -143,10 +144,20 @@ open the URL in a browser that is signed in to Vercel.
 
 When Nora finishes, or once a week:
 
-1. Run `bin/evf qa list`. It shows each open preview with its id, branch, URL, Neon branch and age.
-2. Run `bin/evf qa down <id>` for each preview that is done. It removes the alias, the Vercel deployment and the Neon
+1. Run `bin/qa list`. It shows each open preview with its id, branch, URL, Neon branch and age.
+2. Run `bin/qa down <id>` for each preview that is done. It removes the alias, the Vercel deployment and the Neon
    branch, then its record. A second run for the same id does nothing and succeeds.
 3. Check with `neonctl branches list --project-id cool-math-76767811` that no `qa-` branch is left for that id.
 
 Files that Nora uploads go to the shared development bucket and stay there. QA previews do not expire on their own,
 which is why `qa list` exists.
+
+## 5. Where the records are
+
+`bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names and URLs,
+never a connection string, key or password.
+
+Previews made before this file existed are recorded in the v1 work store. `bin/qa carry-over` copies them into the file.
+It reads the v1 store and stops nothing. Run it again if someone made a preview with an older `bin/evf qa up`: it adds
+only ids it has not seen, so it never brings back a preview that `qa down` removed. `bin/evf qa` uses the same file until
+`bin/evf` goes away.

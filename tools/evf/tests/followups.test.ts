@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, migrationsFrom, source, setTasks } from "./fixtures.ts";
+import { copyMovedTools, fixture, migrationsFrom, source, setTasks } from "./fixtures.ts";
 import {
 	findTask,
 	followUpsOfTask,
@@ -391,6 +391,7 @@ test("OPS-86-poster: post-review.mjs refuses a report without coverage, a missin
 	try {
 		// A copy of the poster and the evf code it imports, so it reads this fixture's store, not the real one.
 		cpSync(join(source, "tools/evf"), join(f.root, "tools/evf"), { recursive: true });
+		copyMovedTools(f.root);
 		mkdirSync(join(f.root, ".agents/skills/verify-preview"), { recursive: true });
 		cpSync(
 			join(source, ".agents/skills/verify-preview/scripts"),

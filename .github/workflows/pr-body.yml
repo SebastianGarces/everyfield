@@ -28,6 +28,10 @@ jobs:
           sparse-checkout: |
             bin
             tools/evf
+            tools/ci
+            tools/qa
+            tools/wiki
+            scripts
             .agents/skills/everyfield-pr
       - uses: actions/setup-node@v7
         with:

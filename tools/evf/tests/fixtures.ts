@@ -6,14 +6,22 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
-/** Runs a repo TypeScript file with tsx, as the QA seed runs, with `env` over a clean NODE_ENV and DATABASE_URL. */
-export function tsxRun(args: string[], env: Record<string, string | undefined>) {
-	const clean: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: undefined, DATABASE_URL: undefined, ...env };
-	for (const k of Object.keys(clean)) if (clean[k] === undefined) delete clean[k];
-	const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
-	return spawnSync(tsx, ["--conditions=react-server", ...args], { cwd: source, encoding: "utf8", env: clean });
+/** What tools/evf imports from outside itself. A fixture that runs a copy of tools/evf needs these too. */
+export const MOVED_TOOLS = [
+	"tools/qa",
+	"tools/ci",
+	"tools/wiki/drafts.ts",
+	"tools/wiki/package.json",
+	"scripts/browser.ts",
+	"scripts/package.json",
+];
+export function copyMovedTools(root: string) {
+	for (const path of MOVED_TOOLS)
+		cpSync(join(source, path), join(root, path), {
+			recursive: true,
+			filter: (file) => !/[\\/](tests|node_modules)([\\/]|$)/.test(file),
+		});
 }
-export const runSeed = (env: Record<string, string | undefined>) => tsxRun(["tools/evf/qa-seed.ts"], env);
 /** The work store migration files in number order. A test that migrates a store reads them, so a new one edits no test. */
 export const STORE_MIGRATIONS = readdirSync(join(source, "tools/evf/db/migrations"))
 	.filter((f) => /^\d{3}-.*\.sql$/.test(f))

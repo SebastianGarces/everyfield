@@ -1,7 +1,7 @@
 /**
  * OPS-106: the database rules every QA preview step obeys. A QA preview owns a Neon branch made off the shared
  * development branch (endpoint ep-autumn-dew). It must never write to that branch itself, nor to production
- * (endpoint ep-gentle-dust). Pure functions, so `evf qa`, the QA seed and the tests share one rule.
+ * (endpoint ep-gentle-dust). Pure functions, so `qa`, the QA seed and the tests share one rule.
  */
 export const NEON_PROJECT = "cool-math-76767811";
 export const DEV_ENDPOINT = "ep-autumn-dew";

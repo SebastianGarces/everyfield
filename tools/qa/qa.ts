@@ -3,8 +3,6 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openWorkDb } from "./db.ts";
-import { fail, redactConnections } from "./lib.ts";
 import {
 	devParent,
 	NEON_PROJECT,
@@ -14,22 +12,29 @@ import {
 	type NeonBranch,
 	type NeonEndpoint,
 } from "./qa-guard.ts";
+import { addPreview, carryOverV1, fail, previewsPath, readPreviews, removePreview, setDeployment } from "./store.ts";
 
 /**
- * OPS-106: on-demand QA previews. `evf qa up <branch>` makes a Neon branch off the development branch, migrates and
+ * OPS-106: on-demand QA previews. `qa up <branch>` makes a Neon branch off the development branch, migrates and
  * seeds it with the branch's own code, deploys that head to a Vercel preview with per-deployment database and identity
  * settings, and gives it a stable alias, the one origin the deployment trusts. `qa list` shows open previews; `qa down`
  * removes the alias, the deployment and the Neon branch.
  *
- * Secrets pass from neonctl to child processes in memory only. evf prints, logs and stores names, never a connection
+ * Secrets pass from neonctl to child processes in memory only. qa prints, logs and stores names, never a connection
  * string, key or password: child output reaches the screen only on failure, through `redact`.
  */
 
 const VERCEL = { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" };
 const QA_ID = /^qa-[a-z0-9]+(-[a-z0-9]+)*$/;
 const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
+/** The seed runs from the branch's own code. A branch made before the move still has it at the old path. */
+const SEED_PATHS = ["tools/qa/qa-seed.ts", "tools/evf/qa-seed.ts"];
 
-/** Masks every value evf handed to a child, connection URLs and Neon passwords, in text bound for the screen. */
+/** Hides connection strings and Neon passwords in text that leaves a process. */
+const redactConnections = (text: string) =>
+	text.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>").replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
+
+/** Masks every value qa handed to a child, connection URLs and Neon passwords, in text bound for the screen. */
 class Redactor {
 	private values: string[] = [];
 	add(...values: string[]): void {
@@ -81,34 +86,6 @@ function neonBranches(redactor: Redactor): NeonBranch[] {
 	return json<NeonBranch[]>(neon(redactor, "branches", "list", "--output", "json"));
 }
 
-type QaPreview = {
-	id: string;
-	branch: string;
-	head: string;
-	neon_branch: string;
-	url: string;
-	deployment: string | null;
-	created_at: string;
-};
-
-function rows(root: string): QaPreview[] {
-	const db = openWorkDb(root);
-	try {
-		return db.prepare("SELECT * FROM qa_previews ORDER BY created_at").all() as QaPreview[];
-	} finally {
-		db.close();
-	}
-}
-
-function store(root: string, sql: string, ...params: Array<string | null>): void {
-	const db = openWorkDb(root);
-	try {
-		db.prepare(sql).run(...params);
-	} finally {
-		db.close();
-	}
-}
-
 const slug = (branch: string) =>
 	branch
 		.toLowerCase()
@@ -138,22 +115,21 @@ export function qaUp(root: string, branch: string): number {
 		tool(redactor, "neonctl", ["api", `/projects/${NEON_PROJECT}/endpoints`]),
 	).endpoints;
 	const parent = devParent(endpoints, neonBranches(redactor));
-	if (typeof parent === "string") fail(`evf qa up refused before creating anything. ${parent}`);
+	if (typeof parent === "string") fail(`qa up refused before creating anything. ${parent}`);
 
 	const id = `qa-${slug(branch)}-${randomBytes(2).toString("hex")}`,
 		url = `https://${aliasHost(id)}`;
-	// The row comes first, so a crash at any later step leaves what `qa down` needs.
-	store(
-		root,
-		"INSERT INTO qa_previews (id, branch, head, neon_branch, url, deployment, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)",
+	// The record comes first, so a crash at any later step leaves what `qa down` needs.
+	addPreview(root, {
 		id,
 		branch,
 		head,
-		id,
+		neon_branch: id,
 		url,
-		new Date().toISOString(),
-	);
-	console.error(`evf qa up: ${id} for ${branch} at ${head.slice(0, 12)}, Neon branch off ${parent.name}.`);
+		deployment: null,
+		created_at: new Date().toISOString(),
+	});
+	console.error(`qa up: ${id} for ${branch} at ${head.slice(0, 12)}, Neon branch off ${parent.name}.`);
 	try {
 		const created = json<{ branch: NeonBranch }>(
 			neon(redactor, "branches", "create", "--name", id, "--parent", parent.id, "--output", "json"),
@@ -176,17 +152,17 @@ export function qaUp(root: string, branch: string): number {
 			pooled = cs("--pooled");
 		deployCheckout(root, redactor, { id, head, url, direct, pooled });
 	} catch (error) {
-		console.error(`evf qa up: ${id} failed; removing what it made.`);
+		console.error(`qa up: ${id} failed; removing what it made.`);
 		try {
 			qaDown(root, id);
 		} catch (cleanup) {
-			console.error(`evf qa up: cleanup failed (${(cleanup as Error).message}). Run: bin/evf qa down ${id}`);
+			console.error(`qa up: cleanup failed (${(cleanup as Error).message}). Run: bin/qa down ${id}`);
 		}
 		throw error;
 	}
 	console.log(`QA preview ${id}\n${url}`);
 	console.error(
-		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member). Remove it with: bin/evf qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
 	);
 	return 0;
 }
@@ -199,28 +175,20 @@ function deployCheckout(
 	const checkout = mkdtempSync(join(tmpdir(), "evf-qa-"));
 	tool(redactor, "git", ["-C", root, "worktree", "add", "--quiet", "--detach", checkout, p.head]);
 	try {
-		if (!existsSync(join(checkout, "tools/evf/qa-seed.ts")))
-			fail("This branch has no QA seed (tools/evf/qa-seed.ts). Merge main into it and push, then retry.");
+		const seed = SEED_PATHS.find((path) => existsSync(join(checkout, path)));
+		if (!seed) fail(`This branch has no QA seed (${SEED_PATHS[0]}). Merge main into it and push, then retry.`);
 		const dbEnv = { DATABASE_URL: p.direct, DATABASE_URL_UNPOOLED: p.direct, NODE_ENV: undefined };
-		console.error("evf qa up: installing the branch's dependencies.");
+		console.error("qa up: installing the branch's dependencies.");
 		tool(redactor, "corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: checkout });
-		console.error("evf qa up: migrating the Neon branch with the branch's db:migrate.");
+		console.error("qa up: migrating the Neon branch with the branch's db:migrate.");
 		tool(redactor, "corepack", ["pnpm", "db:migrate"], { cwd: checkout, env: dbEnv });
 		const rolePassword = randomBytes(24).toString("hex");
 		redactor.add(rolePassword);
-		console.error("evf qa up: seeding the test church.");
+		console.error("qa up: seeding the test church.");
 		tool(
 			redactor,
 			"corepack",
-			[
-				"pnpm",
-				"--filter",
-				"@everyfield/domain",
-				"exec",
-				"tsx",
-				"--conditions=react-server",
-				"../../tools/evf/qa-seed.ts",
-			],
+			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
 			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword } },
 		);
 		const key = () => randomBytes(32).toString("hex");
@@ -241,7 +209,7 @@ function deployCheckout(
 		mkdirSync(join(checkout, ".vercel"));
 		writeFileSync(join(checkout, ".vercel/project.json"), JSON.stringify(VERCEL));
 		const flags = Object.entries(settings).flatMap(([k, v]) => ["-e", `${k}=${v}`, "-b", `${k}=${v}`]);
-		console.error("evf qa up: deploying to a Vercel preview (several minutes).");
+		console.error("qa up: deploying to a Vercel preview (several minutes).");
 		const deployed = tool(redactor, "vercel", ["deploy", "--yes", "--target", "preview", ...flags], { cwd: checkout });
 		const deployment = deployed.stdout
 			.trim()
@@ -250,7 +218,7 @@ function deployCheckout(
 			.filter((line) => /^https:\/\/\S+\.vercel\.app$/.test(line))
 			.pop();
 		if (!deployment) fail("vercel deploy printed no deployment URL.");
-		store(root, "UPDATE qa_previews SET deployment = ? WHERE id = ?", deployment, p.id);
+		setDeployment(root, p.id, deployment);
 		tool(redactor, "vercel", ["alias", "set", deployment, aliasHost(p.id), "--scope", VERCEL.orgId], { cwd: checkout });
 	} finally {
 		spawnSync("git", ["-C", root, "worktree", "remove", "--force", checkout], { encoding: "utf8" });
@@ -266,7 +234,7 @@ const age = (from: string) => {
 };
 
 export function qaList(root: string): number {
-	const open = rows(root);
+	const open = readPreviews(root);
 	if (!open.length) {
 		console.log("No open QA previews.");
 		return 0;
@@ -280,11 +248,11 @@ export function qaList(root: string): number {
 
 const NOT_FOUND = /not found|doesn't exist|does not exist|no such|couldn't find|could not find/i;
 
-/** Removes the alias, the deployment and the Neon branch of one QA preview, then its row. A second call is a no-op. */
+/** Removes the alias, the deployment and the Neon branch of one QA preview, then its record. A second call is a no-op. */
 export function qaDown(root: string, id: string): number {
-	if (!QA_ID.test(id)) fail(`${id} is not a QA preview id (qa-...). See bin/evf qa list.`);
+	if (!QA_ID.test(id)) fail(`${id} is not a QA preview id (qa-...). See bin/qa list.`);
 	const redactor = new Redactor();
-	const row = rows(root).find((r) => r.id === id);
+	const row = readPreviews(root).find((r) => r.id === id);
 	const removed: string[] = [];
 	if (row?.deployment) {
 		tool(redactor, "vercel", ["alias", "rm", aliasHost(id), "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
@@ -296,11 +264,19 @@ export function qaDown(root: string, id: string): number {
 		neon(redactor, "branches", "delete", branch.id);
 		removed.push(`Neon branch ${branch.name}`);
 	}
-	if (row) store(root, "DELETE FROM qa_previews WHERE id = ?", id);
+	if (row) removePreview(root, id);
 	console.log(
 		row || branch
 			? `Removed QA preview ${id}: ${removed.join(", ") || "its record"}.`
 			: `No QA preview ${id}. Nothing to remove.`,
 	);
+	return 0;
+}
+
+/** Brings the previews recorded in the v1 store into the preview file. Every preview keeps running. */
+export function qaCarryOver(root: string): number {
+	const { added, seen } = carryOverV1(root);
+	for (const preview of added) console.log(`carried ${preview.id}  ${preview.branch}  ${preview.url}`);
+	console.log(`Carried ${added.length} of ${seen} v1 previews into ${previewsPath(root)}. Nothing was torn down.`);
 	return 0;
 }

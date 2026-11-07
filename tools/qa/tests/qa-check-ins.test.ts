@@ -6,8 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { runSeed, source, tsxRun } from "./fixtures.ts";
-import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
+import { runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
 
 // OPS-125: the QA seed gives the QA owner 13 answered past check-in weeks. Each test reads the seeded quiet database
 // through the private-care writer as the owner (qa-care-probe.ts), the way the check-in screen reads it.
@@ -74,7 +73,7 @@ after(async () => {
 
 async function probe(call: unknown) {
 	const { db } = await seeded();
-	const r = tsxRun(["tools/evf/tests/qa-care-probe.ts", JSON.stringify(call)], { DATABASE_URL: db.adminUrl });
+	const r = tsxRun(["tools/qa/tests/qa-care-probe.ts", JSON.stringify(call)], { DATABASE_URL: db.adminUrl });
 	assert.equal(r.status, 0, r.stderr);
 	return JSON.parse(r.stdout) as { status: string; value: unknown };
 }
@@ -240,7 +239,7 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 
 /** The task branch whose own diff is the OPS-125 change before it merges. */
 const OPS_BRANCH = "task/ops-125";
-/** No app or package file in `repo` imports tools/evf/. */
+/** No app or package file in `repo` imports tools/qa/ or tools/evf/. */
 function checkNoToolingImports(repo: string) {
 	const importers: string[] = [];
 	const walk = (dir: string) => {
@@ -249,7 +248,7 @@ function checkNoToolingImports(repo: string) {
 			if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
 			const path = join(dir, entry.name);
 			if (entry.isDirectory()) walk(path);
-			else if (/\.(c|m)?[jt]sx?$/.test(entry.name) && /tools\/evf\//.test(readFileSync(path, "utf8")))
+			else if (/\.(c|m)?[jt]sx?$/.test(entry.name) && /tools\/(?:qa|evf)\//.test(readFileSync(path, "utf8")))
 				importers.push(relative(repo, path));
 		}
 	};

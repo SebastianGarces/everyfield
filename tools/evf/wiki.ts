@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import * as drafts from "../wiki/drafts.ts";
 import {
 	baseRef,
 	fail,
@@ -19,100 +20,42 @@ import {
  * Wiki content on task branches (OPS-109). A task PR that changes a path under docs/reference/wiki/ merges only on
  * Sebastian's approval (merge.ts). Before that, evf records the claim check on the task's pending drafts (the verifier
  * through `evf ship`, or a named reviewer through `evf wiki claim-check`) and runs `bin/wiki promote` on each draft
- * whose claim check passed. The verifier's pass carries over those commits only (wikiCarryProof).
+ * whose claim check passed. The verifier's pass carries over those commits only (wikiCarryProof). The claim check and
+ * promotion themselves moved to tools/wiki/drafts.ts behind `bin/wiki`; what stays here is v1's task and gate wrapping.
  */
 
-export const WIKI_PREFIX = "docs/reference/wiki/";
-const DRAFTS = `${WIKI_PREFIX}drafts/`,
-	SEED = `${WIKI_PREFIX}seed.json`,
+export const WIKI_PREFIX = drafts.WIKI_PREFIX;
+const SEED = `${WIKI_PREFIX}seed.json`,
 	MANIFEST = `${WIKI_PREFIX}manifest.json`;
 
-type ClaimCheck = { status: string; reviewer: string; notes: string };
 type Json = Record<string, unknown>;
-type DraftRow = Json & { id: string; draft: Json & { approver: unknown; claim_check: ClaimCheck } };
+type DraftRow = drafts.DraftRow;
 
-/** The drafts a branch adds or changes against its merge base with `base`, as they exist at `head`. */
-export function taskDrafts(repo: string, base: string, head: string): string[] {
-	const from = git(repo, "merge-base", base, head);
-	return git(repo, "diff", "--name-only", "--no-renames", "--diff-filter=AM", from, head, "--", DRAFTS)
-		.split("\n")
-		.filter((path) => path.endsWith(".json"));
-}
-
-function parseDraft(path: string, text: string): DraftRow {
-	let row: unknown;
+/** Runs moved code, so a refusal from it stays an EvfError for every v1 caller. */
+function asEvf<T>(work: () => T): T {
 	try {
-		row = JSON.parse(text);
+		return work();
 	} catch (e) {
-		fail(`${path} is not valid JSON: ${(e as Error).message}`);
+		if (e instanceof drafts.DraftError) fail(e.message);
+		throw e;
 	}
-	const draft = (row as { draft?: { claim_check?: Json } } | null)?.draft;
-	const cc = draft?.claim_check;
-	if (!cc || !["status", "reviewer", "notes"].every((k) => typeof cc[k] === "string"))
-		fail(`${path} has no draft.claim_check with string status, reviewer and notes. Run bin/wiki lint ${path}.`);
-	return row as DraftRow;
 }
+
+export const taskDrafts = (repo: string, base: string, head: string): string[] =>
+	asEvf(() => drafts.taskDrafts(repo, base, head));
+
+const parseDraft = (path: string, text: string): DraftRow => asEvf(() => drafts.parseDraft(path, text));
 
 /** The draft at `path` as committed at `rev`. */
 const draftAt = (repo: string, rev: string, path: string): DraftRow =>
 	parseDraft(path, git(repo, "show", `${rev}:${path}`));
 
-/**
- * `text` with its draft.claim_check values replaced in place, so every other byte of the draft stays. The result
- * must parse to the same draft with only the claim check changed; anything else refuses.
- */
-function withClaimCheck(path: string, text: string, cc: ClaimCheck): string {
-	const start = [...text.matchAll(/(?<!\\)"claim_check"\s*:\s*\{/g)].at(-1);
-	if (!start) fail(`${path} has no claim_check object to edit.`);
-	const open = start.index + start[0].length - 1;
-	let end = open;
-	for (let depth = 0, inString = false; end < text.length; end++) {
-		const c = text[end];
-		if (inString) {
-			if (c === "\\") end++;
-			else if (c === '"') inString = false;
-		} else if (c === '"') inString = true;
-		else if (c === "{") depth++;
-		else if (c === "}" && --depth === 0) break;
-	}
-	let object = text.slice(open, end + 1);
-	for (const key of ["status", "reviewer", "notes"] as const)
-		object = object.replace(
-			new RegExp(`("${key}"\\s*:\\s*)"(?:[^"\\\\]|\\\\.)*"`),
-			(_, lead: string) => `${lead}${JSON.stringify(cc[key])}`,
-		);
-	const out = text.slice(0, open) + object + text.slice(end + 1);
-	const expected = parseDraft(path, text);
-	expected.draft.claim_check = cc;
-	if (!isDeepStrictEqual(parseDraft(path, out), expected))
-		fail(`evf cannot edit the claim check of ${path} in place; edit it by hand and commit it.`);
-	return out;
-}
-
-/**
- * Set every pending draft of the branch to passed with `reviewer` and the D-b notes form
- * `Approved <UTC time>: "<verbatim words>"`, in the worktree. Drafts with status passed or failed stay unchanged.
- * Returns the drafts it changed.
- */
-export function recordClaimCheck(wt: string, base: string, reviewer: string, words: string): string[] {
-	const notes = `Approved ${new Date().toISOString().replace(/\.\d{3}Z$/, "Z")}: "${words}"`;
-	const changed: string[] = [];
-	for (const path of taskDrafts(wt, base, "HEAD")) {
-		const file = join(wt, path),
-			text = readFileSync(file, "utf8");
-		if (parseDraft(path, text).draft.claim_check.status !== "pending") continue;
-		writeFileSync(file, withClaimCheck(path, text, { status: "passed", reviewer, notes }));
-		changed.push(path);
-	}
-	return changed;
-}
+export const recordClaimCheck = (wt: string, base: string, reviewer: string, words: string): string[] =>
+	asEvf(() => drafts.recordClaimCheck(wt, base, reviewer, words));
 
 /** Commit the claim check of `paths` as one commit on the task branch and return the new head. */
-export function commitClaimCheck(wt: string, task: TaskRef, reviewer: string, paths: string[]): string {
-	git(wt, "add", "--", ...paths);
-	git(wt, "commit", "--quiet", "-m", `${task.id}: Wiki claim check by ${reviewer} (${paths.length} drafts)`);
-	return git(wt, "rev-parse", "HEAD");
-}
+export const commitClaimCheck = (wt: string, task: TaskRef, reviewer: string, paths: string[]): string =>
+	asEvf(() => drafts.commitClaimCheck(wt, `${task.id}: `, reviewer, paths));
 
 /**
  * `evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"`: a named human or bot reviewer's claim check
@@ -147,53 +90,16 @@ function wikiTool(root: string): string {
 	return join(root, "bin/wiki");
 }
 
-/** The bytes of `paths` under `wt` as one string (latin1 keeps every byte); a missing path reads as null. */
-const snapshot = (wt: string, paths: string[]) =>
-	JSON.stringify(paths.map((path) => (existsSync(join(wt, path)) ? readFileSync(join(wt, path), "latin1") : null)));
-const output = (r: { stdout: string; stderr: string }) => [r.stdout.trim(), r.stderr.trim()].filter(Boolean).join("\n");
-
-/**
- * Run `bin/wiki promote` for each draft of the branch whose claim check passed, with the claim-check commit as the
- * reviewed sha and the draft's own approver (D-d), then `bin/wiki check-seed`. Lint checks a draft's links against the
- * published seed only, so a draft that links to another draft of this PR passes once that draft is promoted. evf
- * therefore promotes in passes: each pass tries the remaining drafts in path order, and a failed draft gets another
- * try only when the pass promoted some other draft and the failed attempt wrote nothing. A pass that promotes nothing
- * stops with each remaining draft's own `bin/wiki promote` output. Returns the promoted drafts in promotion order; a
- * wiki tool failure throws its error.
- */
+/** The home checkout's bin/wiki promotes the worktree's drafts. A stop names `evf ship`, which has pushed nothing yet. */
 export function promoteDrafts(root: string, wt: string, base: string, number: number, reviewed: string): string[] {
-	const wiki = wikiTool(root),
-		seedDir = ["--seed-dir", join(wt, WIKI_PREFIX)];
-	const stopped = (what: string, detail: string) =>
-		fail(`evf ship stopped before pushing anything: ${what} failed: ${detail}`);
-	let remaining = taskDrafts(wt, base, "HEAD")
-		.map((path) => ({ path, draft: parseDraft(path, readFileSync(join(wt, path), "utf8")).draft }))
-		.filter(({ draft }) => draft.claim_check.status === "passed");
-	const promoted: string[] = [];
-	while (remaining.length) {
-		const failed: ((typeof remaining)[number] & { detail: string })[] = [];
-		for (const { path, draft } of remaining) {
-			const args = ["promote", join(wt, path), "--approved-by", String(draft.approver), "--pr", String(number)];
-			const watched = [SEED, MANIFEST, path],
-				before = snapshot(wt, watched);
-			const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
-			if (r.code === 0) promoted.push(path);
-			else if (before !== snapshot(wt, watched))
-				stopped(`bin/wiki promote ${path}`, `${output(r)}\nIt changed the seed, manifest or draft before it failed.`);
-			else failed.push({ path, draft, detail: output(r) });
-		}
-		if (failed.length === remaining.length)
-			stopped(
-				failed.map((d) => `bin/wiki promote ${d.path}`).join(", "),
-				failed.map((d) => `\n${d.path}:\n${d.detail}`).join(""),
-			);
-		remaining = failed;
+	const wiki = wikiTool(root);
+	try {
+		return drafts.promoteDrafts(wiki, wt, base, number, reviewed);
+	} catch (e) {
+		if (e instanceof drafts.PromotionStopped) fail(`evf ship stopped before pushing anything: ${e.message}`);
+		if (e instanceof drafts.DraftError) fail(e.message);
+		throw e;
 	}
-	if (promoted.length) {
-		const r = run(wiki, ["check-seed", ...seedDir], { cwd: wt });
-		if (r.code !== 0) stopped("bin/wiki check-seed after promotion", (r.stderr || r.stdout).trim());
-	}
-	return promoted;
 }
 
 /** Why the drafts at `head` still need a step before Sebastian's approval can merge it, or null when none is left. */

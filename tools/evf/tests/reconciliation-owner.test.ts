@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, rmSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
-import { fixture } from "./fixtures.ts";
+import { copyMovedTools, fixture, MOVED_TOOLS } from "./fixtures.ts";
 import { parseTask, evfDataDir, loadConfig } from "../lib.ts";
 import { feedbackTriage } from "../feedback.ts";
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
@@ -51,7 +51,8 @@ function publishEvfCode(f: ReturnType<typeof mergeFixture>) {
 	});
 	mkdirSync(join(f.root, "bin"), { recursive: true });
 	cpSync(join(source, "bin/evf"), join(f.root, "bin/evf"));
-	f.git("add", "tools/evf", "bin/evf");
+	copyMovedTools(f.root);
+	f.git("add", "tools/evf", "bin/evf", ...MOVED_TOOLS);
 	f.git("commit", "-qm", "Publish evf code");
 	f.git("push", "-q", "origin", "main");
 }
@@ -100,7 +101,7 @@ test("OPS-83-375-drive: the drive records owner_approval_wait for the template P
 function withWikiTool(f: { root: string }) {
 	mkdirSync(join(f.root, "tools/wiki"), { recursive: true });
 	mkdirSync(join(f.root, "bin"), { recursive: true });
-	for (const file of ["main.ts", "rows.ts", "seed.py", "pr-images.ts", "ascii-allowlist.json"])
+	for (const file of ["main.ts", "drafts.ts", "rows.ts", "seed.py", "pr-images.ts", "ascii-allowlist.json"])
 		cpSync(join(source, "tools/wiki", file), join(f.root, "tools/wiki", file));
 	writeFileSync(
 		join(f.root, "tools/wiki/mdx.ts"),

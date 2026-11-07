@@ -8,7 +8,11 @@ import { baseRef, loadConfig, MAINTENANCE_TASKS_DIR, run } from "./lib.ts";
 const EVF_PATHS = [
 	"tools/evf/",
 	"tools/evf-tui/",
+	"tools/qa/",
+	"tools/ci/",
 	"tools/wiki/pr-images.ts",
+	"tools/wiki/drafts.ts",
+	"scripts/browser.ts",
 	"bin/evf",
 	"bin/wiki",
 	".github/workflows/",

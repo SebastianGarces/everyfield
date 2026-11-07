@@ -21,7 +21,7 @@ import {
 } from "./queue-fixture.ts";
 import { budgetEnv, testBudget, failedTestFlags } from "../budget.ts";
 import { CHECK_CAP, withCheckQueue } from "../check-queue.ts";
-import { checkCiTests } from "../ci-tests.ts";
+import { checkCiTests } from "../../ci/ci-tests.ts";
 import { WaitGaveUp } from "../lib.ts";
 import { awaitLoad, DEFAULT_LOAD, type MemoryProbe } from "../load.ts";
 import { machineProbes } from "../sampler.ts";
@@ -267,7 +267,7 @@ test("every package test command carries the budget, next.config reads the worke
 		for (const path of [
 			"tests/integration/writes/suites.json",
 			".github/workflows/ci.yml",
-			"tools/evf/ci-test-exceptions.json",
+			"tools/ci/ci-test-exceptions.json",
 		])
 			if (existsSync(join(source, path))) put(path, readFileSync(join(source, path), "utf8"));
 		for (const file of packageFiles(source))

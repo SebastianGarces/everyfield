@@ -12,7 +12,7 @@
 // on a complete branch signs nobody in and writes nothing.
 //
 //   DATABASE_URL=<QA branch owner URL> QA_ROLE_PASSWORD=<new login password> \
-//     node --conditions=react-server --import tsx tools/evf/qa-seed.ts
+//     node --conditions=react-server --import tsx tools/qa/qa-seed.ts
 //
 // It refuses production, the shared development branch, NODE_ENV=production and a missing DATABASE_URL before it
 // opens any connection (qa-guard.ts). QA_ROLE_PASSWORD sets the password of the two app logins it creates on the

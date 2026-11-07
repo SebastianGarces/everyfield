@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { claimCheckBranch, promoteBranch } from "./drafts.ts";
 import { object, readJson, rows, shape } from "./rows.ts";
 import type { ObjectRow } from "./rows.ts";
 import { prImages } from "./pr-images.ts";
@@ -13,7 +14,11 @@ const help = `Wiki authoring tools (Node 24; install: cd tools/wiki && pnpm inst
   wiki render <draft.json | seed-slug> --out <dir>
   wiki shot <draft.json | seed-slug>... --out <dir> [--mobile]
   wiki pr-images <pr-number> <png>... [--update-body]
+  wiki claim-check --reviewer "<name>" --approval "<words>" [--base <ref>]
+      record a named reviewer's claim check on every pending draft of this branch, commit it and push it
   wiki promote <draft.json> --approved-by <Sebastian|Bryan> --pr <n> --reviewed-sha <sha>
+  wiki promote-all --pr <n> [--reviewed-sha <sha>] [--base <ref>]
+      promote every draft of this branch whose claim check passed, in one local commit, then check the seed
   wiki check-seed
   wiki roundtrip
 Seed commands also accept --seed-dir <dir> for disposable proof copies; lint also accepts --allowlist <file>.
@@ -35,7 +40,9 @@ async function main() {
 		render: ["--out", "--seed-dir"],
 		shot: ["--out", "--mobile", "--seed-dir"],
 		"pr-images": ["--update-body"],
+		"claim-check": ["--reviewer", "--approval", "--base"],
 		promote: ["--approved-by", "--pr", "--reviewed-sha", "--seed-dir"],
+		"promote-all": ["--pr", "--reviewed-sha", "--base"],
 		"check-seed": ["--seed-dir"],
 		roundtrip: ["--seed-dir"],
 	};
@@ -59,6 +66,35 @@ async function main() {
 		if (typeof value !== "string") throw new Error(`${key} is required`);
 		return value;
 	};
+	const optional = (key: string) => {
+		const value = flags.get(key);
+		return typeof value === "string" ? value : undefined;
+	};
+	if (command === "claim-check" || command === "promote-all") {
+		if (positionals.length) throw new Error("This command has no positional arguments");
+		if (command === "claim-check")
+			console.log(
+				claimCheckBranch(process.cwd(), {
+					reviewer: required("--reviewer"),
+					approval: required("--approval"),
+					base: optional("--base"),
+				}),
+			);
+		else {
+			const pr = required("--pr"),
+				reviewed = optional("--reviewed-sha");
+			if (!/^[1-9]\d*$/.test(pr)) throw new Error("Use a positive PR number");
+			if (reviewed && !/^[a-f0-9]{40,64}$/.test(reviewed)) throw new Error("Use a full reviewed commit SHA");
+			console.log(
+				promoteBranch(process.cwd(), resolve(root, "bin/wiki"), {
+					pr: Number(pr),
+					reviewed,
+					base: optional("--base"),
+				}),
+			);
+		}
+		return;
+	}
 	const seedDir = resolve(String(flags.get("--seed-dir") || resolve(root, "docs/reference/wiki")));
 	const python = (cmd: string, extra: string[] = []) =>
 		execFileSync(

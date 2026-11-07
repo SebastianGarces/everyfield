@@ -1,6 +1,15 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
-import { fail } from "./lib.ts";
+
+/** bin/evf reports this name the same way as its own errors. */
+class CiTestsError extends Error {
+	name = "ToolError";
+}
+
+function fail(message: string): never {
+	throw new CiTestsError(message);
+}
 
 type Package = { dir: string; name: string; scripts: Record<string, string> };
 
@@ -115,7 +124,7 @@ export function checkCiTests(root: string): void {
 		}
 	}
 	const files = globSync(["tests/integration/**/*.test.mts", "packages/*/test/**/*.test.mts"], { cwd: root }).sort();
-	const exceptionFile = join(root, "tools/evf/ci-test-exceptions.json");
+	const exceptionFile = join(root, "tools/ci/ci-test-exceptions.json");
 	const exceptions = new Set<string>();
 	if (existsSync(exceptionFile)) {
 		const entries: unknown = JSON.parse(readFileSync(exceptionFile, "utf8"));
@@ -147,4 +156,17 @@ export function checkCiTests(root: string): void {
 	console.log(
 		`CI includes all ${files.length - exceptions.size} test files${exceptions.size ? `; ${exceptions.size} explicit local-only exceptions` : ""}.`,
 	);
+}
+
+// CI's own check: `node tools/ci/ci-tests.ts` from anywhere in the checkout.
+if (import.meta.main) {
+	try {
+		const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
+		if (top.status !== 0) fail("ci-tests must run inside the repository.");
+		checkCiTests(top.stdout.trim());
+	} catch (error) {
+		if (!(error instanceof CiTestsError)) throw error;
+		console.error(`ci-tests: ${error.message}`);
+		process.exitCode = 1;
+	}
 }
