@@ -13,6 +13,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	addressStep,
 	begin,
 	editDrafts,
 	initialState,
@@ -305,4 +306,17 @@ test("INV-senior-pastor-fill: off by default, sent only with Yes, and summarized
 	assert.equal(skippedFill(yes("filled")), null);
 	assert.match(skippedFill(yes("occupied")), /already holds it/);
 	assert.equal(skippedFill({ answer: "no", savedAt: "" }), null);
+});
+
+// T-65 (Nora QA 2026-11-05 Ask C): a network Admin or a sending-church director reaches the organization screen, and the
+// address bar never shows a church-setup step for it. Screens with steps keep theirs, so planter routing is unchanged.
+test("T-65 an organization login's onboarding address carries no church step; planter steps keep theirs", () => {
+	for (const requested of [null, "church", "journey"]) {
+		const organization = initialState({ kind: "elsewhere", reason: "organization" }, requested);
+		assert.equal(addressStep(organization), null, `organization, requested ${requested}`);
+		assert.equal(addressStep(initialState({ kind: "elsewhere", reason: "member" }, requested)), null);
+		assert.equal(addressStep(initialState({ kind: "confirm_email" }, requested)), null);
+	}
+	assert.equal(addressStep(initialState({ kind: "start", offer: "planter", accountRevision: "1" }, null)), "church");
+	assert.equal(addressStep(initialState({ kind: "start", offer: "either", accountRevision: "1" }, "church")), "church");
 });
