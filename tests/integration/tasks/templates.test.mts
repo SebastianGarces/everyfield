@@ -150,9 +150,11 @@ after(() => f?.close());
 
 test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by item under one version", () => {
 	const reference = referenceCatalog();
-	assert.equal(typeof CATALOG.version, "number");
+	// Version 2 added the descriptions the reference lacks (decisions.md D87).
+	assert.equal(CATALOG.version, 2);
+	// Every field but an item's description is the reference's own.
 	assert.deepEqual(
-		CATALOG.checklists,
+		CATALOG.checklists.map((k) => ({ ...k, items: k.items.map(({ description: _, ...i }) => i) })),
 		reference.map((k) => ({
 			key: k.key,
 			name: k.name,
@@ -163,7 +165,6 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 				key: i.key,
 				// The 2026-10-23 brand ruling: app copy spells Everyfield; the frozen reference keeps its legacy spelling.
 				title: i.title.replace(/everyfield/gi, "Everyfield"),
-				description: i.description ?? null,
 				priority: i.priority ?? k.defaultPriority,
 				offsetDays: i.offsetDays,
 			})),
@@ -171,6 +172,26 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 	);
 	assert.equal(CATALOG.checklists.length, 20);
 	assert.deepEqual([...new Set(CATALOG.checklists.map((k) => k.phase))], [0, 1, 2, 3, 4, 5, 6]);
+	// The 4 item descriptions the reference holds are kept word for word.
+	const described = reference.flatMap((k) =>
+		k.items.filter((i) => i.description).map((i) => [k.key, i.key, i.description]),
+	);
+	assert.equal(described.length, 4);
+	for (const [list, item, text] of described)
+		assert.equal(CATALOG.checklists.find((k) => k.key === list).items.find((i) => i.key === item).description, text);
+	// Every one of the 143 items has its own short plain-text description, with the brand spelled Everyfield.
+	const items = CATALOG.checklists.flatMap((k) =>
+		k.items.map((i) => ({ at: `${k.key}/${i.key}`, text: i.description })),
+	);
+	assert.equal(items.length, 143);
+	for (const { at, text } of items) {
+		assert.equal(typeof text, "string", at);
+		assert.ok(text.trim().length > 0 && text.length <= 240, `${at}: ${text.length} characters`);
+		assert.doesNotMatch(text, /[<>[\]()*_#`]|https?:|www\./, `${at} is plain text`);
+		assert.equal(normalizeDescription(text), text, at);
+		assert.doesNotMatch(text.replace(/Everyfield/g, ""), /everyfield/i, at);
+	}
+	assert.equal(new Set(items.map((i) => i.text)).size, 143);
 });
 
 test("AC:TARGET-TSK-009 an Owner or Admin browses all 20 checklists with the current phase; a Member is refused", async () => {
@@ -201,8 +222,10 @@ test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date 
 	assert.equal(preview.checklist.taskCount, 10);
 	assert.deepEqual(
 		preview.checklist.tasks.map((t) => [t.key, t.title, t.description, t.priority, t.due]),
-		reference.items.map((i) => [i.key, i.title, i.description ?? "", i.priority, plus(today, i.offsetDays)]),
+		reference.items.map((i) => [i.key, i.title, i.description, i.priority, plus(today, i.offsetDays)]),
 	);
+	// Each of the 10 shows a title, a description and a due date (Nora QA 2026-11-05).
+	for (const t of preview.checklist.tasks) assert.ok(t.title && t.description && t.due, t.key);
 	assert.equal(preview.checklist.tasks[0].due, today);
 	assert.equal(preview.checklist.tasks.find((t) => t.key === "confirm-attendance").priority, "high");
 	assert.deepEqual(await footprint(plant), before);
@@ -235,6 +258,15 @@ test("AC:TARGET-TSK-009 an import adds exactly the previewed tasks; a retry repl
 	// The list shows exactly that set as top-level tasks.
 	const listed = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, { limit: 100 })));
 	assert.deepEqual(listed.items.map((t) => t.id).sort(), first.tasks.map((t) => t.id).sort());
+	// The stored text is the catalog's own, item for item.
+	const stored = await rows(sql`SELECT title, description FROM task WHERE plant_id=${c.w.id}`);
+	assert.deepEqual(
+		stored.map((t) => [t.title, t.description]).sort(),
+		CATALOG.checklists
+			.find((k) => k.key === "vision-meeting-preparation")
+			.items.map((i) => [i.title, i.description])
+			.sort(),
+	);
 	const once = await footprint(c.w);
 	assert.equal(once.tasks, 10);
 	assert.equal(once.assignees, 10);
@@ -283,6 +315,8 @@ test("AC:TARGET-TSK-009 a stale version, an unknown key or an actor without Owne
 		await importing(c.admin, "vision-meeting-preparation", randomUUID(), { catalogVersion: CATALOG.version + 1 }),
 		"stale_catalog",
 	);
+	// An import that names version 1, the catalog before descriptions, is refused whole.
+	refused(await importing(c.admin, "vision-meeting-preparation", randomUUID(), { catalogVersion: 1 }), "stale_catalog");
 	refused(await importing(c.member, "vision-meeting-preparation"), "unavailable");
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${c.admin.seatId}`);
 	refused(await importing(c.admin, "vision-meeting-preparation"), "unavailable");
@@ -464,6 +498,14 @@ test("AC:TARGET-TSK-010 a stale move, a forged key, a lost seat or a failed inse
 				catalogVersion: CATALOG.version + 1,
 				checklistKeys: ["peak-performance-classes"],
 			},
+		}),
+		"stale_catalog",
+	);
+	// An answer that names version 1, the catalog before descriptions.
+	refused(
+		await write(c.owner, "acceptPhaseOffer", {
+			requestKey: randomUUID(),
+			input: { transitionId: latest.id, catalogVersion: 1, checklistKeys: ["peak-performance-classes"] },
 		}),
 		"stale_catalog",
 	);
