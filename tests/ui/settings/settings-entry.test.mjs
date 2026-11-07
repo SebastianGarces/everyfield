@@ -12,6 +12,8 @@
 //     settings request after the page starts (it waited for hydration, then asked again, past the 1 s budget).
 //   UI-round-own-seat: an Admin who makes their own seat Member sends one request; the page drops what only Owners and
 //     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
+//   INV-settings-seats-link: Settings links to Seats for an Owner, a Member and an organization Owner: the real link
+//     closes the dialog and opens the page, a Member's page has no invitation form, and unsaved changes ask first.
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
@@ -94,6 +96,61 @@ for (const [name, engine] of ENGINES) {
 	});
 }
 
+const SEATS_LINK = { name: "Seats and invitations" };
+const seatsHeading = (page) => page.getByRole("heading", { level: 1, name: "Seats and invitations" });
+
+for (const [name, engine] of ENGINES) {
+	for (const [who, section, invites] of [
+		["owner", "account", true],
+		["member", "account", false],
+		["organization", "organization", true],
+	]) {
+		test(`INV-settings-seats-link (${name}, ${who}): Settings links to the Seats page`, async () => {
+			await withPage(engine, who, async (page) => {
+				await page.goto(`${BASE}/settings/${section}`, { waitUntil: "networkidle" });
+				await hydrated(page);
+				const dialog = page.getByRole("dialog").first();
+				const link = dialog.getByRole("navigation").getByRole("link", SEATS_LINK);
+				assert.equal(await link.getAttribute("href"), "/settings/seats");
+				const nav = (await dialog.getByRole("navigation").getByRole("link").allTextContents()).map((s) => s.trim());
+				assert.equal(nav[nav.indexOf("Seats and invitations") + 1], "Notifications");
+
+				await link.click();
+				await seatsHeading(page).waitFor({ timeout: 60_000 });
+				assert.equal(new URL(page.url()).pathname, "/settings/seats");
+				assert.equal(await page.getByRole("dialog").count(), 0);
+				assert.equal(await page.getByRole("button", { name: "Send invitation" }).count(), invites ? 1 : 0);
+			});
+		});
+	}
+
+	test(`INV-settings-seats-link (${name}): unsaved changes ask before the link leaves Settings`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/settings/account`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			const dialog = page.getByRole("dialog", { name: "Your account" });
+			const field = dialog.getByLabel("Your name");
+			const draft = `${await field.inputValue()} draft`;
+			await field.fill(draft);
+			const link = dialog.getByRole("navigation").getByRole("link", SEATS_LINK);
+			const question = page.getByRole("alertdialog", { name: "Discard unsaved changes?" });
+
+			await link.click();
+			await question.getByRole("button", { name: "Keep editing" }).click();
+			await question.waitFor({ state: "detached" });
+			assert.equal(new URL(page.url()).pathname, "/settings/account");
+			assert.equal(await field.inputValue(), draft);
+
+			await link.click();
+			await question.getByRole("button", { name: "Discard changes" }).click();
+			await seatsHeading(page).waitFor({ timeout: 60_000 });
+			assert.equal(new URL(page.url()).pathname, "/settings/seats");
+			assert.equal(await page.getByRole("dialog").count(), 0);
+			assert.equal(await page.getByRole("alertdialog").count(), 0);
+		});
+	});
+}
+
 /**
  * What each seat may change, and how to change it inside the open Settings dialog: `fields` maps a label to its new
  * value for one run. The Owner's church save changes the profile and the inactivity days together, two contract
@@ -102,7 +159,7 @@ for (const [name, engine] of ENGINES) {
 const ROLES = [
 	{
 		who: "owner",
-		sections: ["Church profile", "Notifications", "Your account"],
+		sections: ["Church profile", "Brand kit", "Seats and invitations", "Notifications", "Your account"],
 		edits: [
 			{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Daniel Reyes ${t}` } },
 			{
@@ -114,13 +171,13 @@ const ROLES = [
 	},
 	{
 		who: "member",
-		sections: ["Notifications", "Your account"],
+		sections: ["Seats and invitations", "Notifications", "Your account"],
 		locked: "/settings/church",
 		edits: [{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Ruth Allen ${t}` } }],
 	},
 	{
 		who: "organization",
-		sections: ["Organization profile", "Notifications", "Your account"],
+		sections: ["Organization profile", "Seats and invitations", "Notifications", "Your account"],
 		edits: [
 			{ section: "Organization profile", path: "/settings/organization", fields: { City: (t) => `Dallas ${t}` } },
 		],

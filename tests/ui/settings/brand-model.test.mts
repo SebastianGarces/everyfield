@@ -21,6 +21,7 @@ import {
 	type BrandForm,
 } from "../../../apps/web/src/features/settings/brand/model.ts";
 import {
+	firstSection,
 	offeredSections,
 	sectionAt,
 	sectionRequest,
@@ -73,6 +74,23 @@ test("INV-brand-offered: Owner and Admin of a plant see Brand kit after Church p
 	] as const;
 	for (const viewer of others) assert.ok(!offeredSections(viewer, []).includes("brand"), JSON.stringify(viewer));
 	assert.deepEqual(SECTION_ORDER.slice(0, 2), ["church", "brand"]);
+});
+
+test("INV-settings-seats-link: every seat is offered Seats before Notifications; an account-context viewer is not", () => {
+	const seats = [
+		{ context: "plant", accountId: "a", plant: PLANT, role: "owner" },
+		{ context: "plant", accountId: "a", plant: PLANT, role: "admin" },
+		{ context: "plant", accountId: "a", plant: PLANT, role: "member" },
+		{ context: "organization", accountId: "a", organization: ORG, role: "owner" },
+	] as const;
+	for (const viewer of seats) {
+		const offered = offeredSections(viewer, ["seats"]);
+		assert.equal(offered[offered.indexOf("seats") + 1], "notifications", JSON.stringify(viewer));
+	}
+	const account = { context: "account", accountId: "a" } as const;
+	assert.deepEqual(offeredSections(account, ["seats"]), ["notifications", "account"]);
+	// Seats is a page, so /settings never opens on it: a Member still lands on their first dialog section.
+	assert.equal(firstSection(seats[2]), "notifications");
 });
 
 test("a /settings/brand address opens the brand section and makes no settings-section read", () => {

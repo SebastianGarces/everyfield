@@ -58,6 +58,8 @@ const PORT: SettingsPort = {
 	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
+// Offered in the dialog's nav, but a page of its own: its link leaves Settings for that page.
+const PAGE_SECTIONS: readonly SectionKey[] = ["seats"];
 
 /**
  * The product's Settings dialog and a way to open it. The dialog shows the section asked for in the same event as
@@ -91,6 +93,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
+				pages={{ sections: PAGE_SECTIONS, open: (key) => router.push(hrefFor(key)) }}
 				// The dialog covers the frame's Guide button, so it carries its own (WP-034).
 				headerActions={<SettingsGuide />}
 				// The request ended every session, so the next page is a full load of the restricted deletion page.

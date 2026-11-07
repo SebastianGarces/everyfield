@@ -56,6 +56,8 @@ export type SettingsDialogProps = {
 	hrefFor: (section: SectionKey) => string;
 	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
+	/** Sections that are pages of their own: the nav links to them, and `open` leaves Settings for that page. */
+	pages?: { sections: readonly SectionKey[]; open: (section: SectionKey) => void };
 	/** A deletion was requested: the session ends and the restricted status page takes over. */
 	onDeletionRequested: (status: DeletionStatus | null) => void;
 	/** Header buttons left of Close, such as the Guide: the dialog covers the frame's own Guide button. */
@@ -72,12 +74,13 @@ export function SettingsDialog({
 	onNavigate,
 	hrefFor,
 	slots = {},
+	pages,
 	onDeletionRequested,
 	headerActions,
 }: SettingsDialogProps) {
 	const { viewer } = useSettings();
 	const dirty = useDirtySections();
-	const offered = offeredSections(viewer, Object.keys(slots) as SectionKey[]);
+	const offered = offeredSections(viewer, [...(Object.keys(slots) as SectionKey[]), ...(pages?.sections ?? [])]);
 	const [shown, setShown] = useState<SectionKey | null>(section);
 	const [confirming, setConfirming] = useState(false);
 	const panel = useRef<HTMLDivElement>(null);
@@ -116,9 +119,12 @@ export function SettingsDialog({
 	};
 	// ConfirmDialog also reports "closed" after Discard runs, so Discard marks itself first.
 	const discarded = useRef(false);
+	// The page a nav link asked for while the question about unsaved changes is open.
+	const leavingFor = useRef<SectionKey | null>(null);
 	const keepEditing = (open: boolean) => {
 		if (open) return;
 		setConfirming(false);
+		leavingFor.current = null;
 		if (discarded.current) {
 			discarded.current = false;
 			return;
@@ -130,13 +136,24 @@ export function SettingsDialog({
 		dirty.clear();
 		setConfirming(false);
 		setShown(null);
-		if (section) onNavigate(null);
+		if (leavingFor.current) pages?.open(leavingFor.current);
+		else if (section) onNavigate(null);
+	};
+	const openPage = (key: SectionKey) => {
+		if (dirty.keys.length > 0) {
+			leavingFor.current = key;
+			setConfirming(true);
+		} else {
+			setShown(null);
+			pages?.open(key);
+		}
 	};
 
 	const go = (key: SectionKey) => (e: MouseEvent<HTMLAnchorElement>) => {
 		if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
 		e.preventDefault();
-		if (key !== shown) onNavigate(key);
+		if (pages?.sections.includes(key)) openPage(key);
+		else if (key !== shown) onNavigate(key);
 	};
 
 	const current = shown;
@@ -184,7 +201,7 @@ export function SettingsDialog({
 												data-settings-nav={key}
 												aria-current={isCurrent ? "page" : undefined}
 												className={cn(
-													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
+													"flex h-[42px] cursor-pointer items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
 													isCurrent ? "bg-surface-raised text-ink shadow-raised" : "text-ink-2 hover:bg-hover",
 												)}
 											>
