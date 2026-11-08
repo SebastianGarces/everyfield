@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { PDFDocument, PDFName } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
+import {
+	decodePDFRawStream,
+	PDFArray,
+	PDFDocument,
+	PDFName,
+	PDFRawStream,
+} from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import {
 	docDocument,
 	forkTemplate,
@@ -115,6 +121,90 @@ test("WP-036 the card sheet prints four cards on one Letter page with suffixed f
 	assert.equal(words.length, 4);
 	const again = await renderDocPdf(await fork("commitment-card"));
 	assert.equal(sha(again.bytes), sha(pdf.bytes));
+});
+
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+
+/**
+ * Every rectangle a PDF page strokes, with the line width it is stroked at and the clip it is drawn under. Reads the
+ * page's own drawing operators, so it sees the drawn border rather than the form widget over it. The page draws its
+ * boxes as `x y w h re` then `S` (stroke) or `B` (fill and stroke), clips as `x y w h re W n`, and nests with `q`/`Q`.
+ */
+async function strokedRects(bytes: Uint8Array) {
+	const doc = await PDFDocument.load(bytes);
+	const contents = doc.getPage(0).node.Contents()!;
+	const streams = contents instanceof PDFArray ? contents.asArray().map((s) => doc.context.lookup(s)) : [contents];
+	const ops = streams
+		.map((s) => Buffer.from(decodePDFRawStream(s as PDFRawStream).decode()).toString("latin1"))
+		.join("\n")
+		.split("\n");
+	type State = { clip: Rect; width: number };
+	const page = doc.getPage(0).getSize();
+	let state: State = { clip: { x0: 0, y0: 0, x1: page.width, y1: page.height }, width: 1 };
+	const stack: State[] = [];
+	// A bare `re` line whose paint operator comes on the next line, as the checkboxes draw.
+	let pending: Rect | null = null;
+	const out: (Rect & { width: number; clip: Rect })[] = [];
+	const stroke = (rect: Rect) => out.push({ ...rect, width: state.width, clip: state.clip });
+	for (const line of ops) {
+		const tokens = line.trim().split(/\s+/);
+		const op = tokens.at(-1);
+		if (tokens[4] === "re") {
+			const [x, y, w, h] = tokens.slice(0, 4).map(Number) as [number, number, number, number];
+			const rect = { x0: Math.min(x, x + w), y0: Math.min(y, y + h), x1: Math.max(x, x + w), y1: Math.max(y, y + h) };
+			pending = null;
+			if (tokens[5] === "W") {
+				const c = state.clip;
+				state.clip = {
+					x0: Math.max(c.x0, rect.x0),
+					y0: Math.max(c.y0, rect.y0),
+					x1: Math.min(c.x1, rect.x1),
+					y1: Math.min(c.y1, rect.y1),
+				};
+			} else if (op === "S" || op === "B") stroke(rect);
+			else if (op === "re") pending = rect;
+			continue;
+		}
+		if (pending && tokens.length === 1 && (op === "S" || op === "B")) stroke(pending);
+		pending = null;
+		if (op === "q") stack.push({ ...state });
+		else if (op === "Q") state = stack.pop()!;
+		else if (op === "w" && tokens.length === 2) state.width = Number(tokens[0]);
+	}
+	return out;
+}
+
+test("T-48 every box on the 4-per-sheet card sheet draws its whole border inside its own card", async () => {
+	const pdf = await renderDocPdf(await fork("commitment-card"));
+	const boxes = await strokedRects(pdf.bytes);
+	const cards = [
+		{ x0: 0, y0: 396, x1: 306, y1: 792 },
+		{ x0: 306, y0: 396, x1: 612, y1: 792 },
+		{ x0: 0, y0: 0, x1: 306, y1: 396 },
+		{ x0: 306, y0: 0, x1: 612, y1: 396 },
+	];
+	const at = (n: number) => n.toFixed(2);
+	const clipped: string[] = [];
+	for (const [i, card] of cards.entries()) {
+		const inCard = boxes.filter((b) => b.x0 >= card.x0 && b.x1 <= card.x1 && b.y0 >= card.y0 && b.y1 <= card.y1);
+		// Name, Email or phone, Signature and Date, plus the three checkboxes (each drawn as an outer and inner square).
+		const fields = inCard.filter((b) => b.y1 - b.y0 >= 17 && b.x1 - b.x0 >= 90);
+		assert.equal(fields.length, 4, `card ${i + 1} draws its four field boxes`);
+		assert.ok(
+			fields.some((b) => b.x1 - b.x0 === 90 && b.y1 - b.y0 === 17),
+			`card ${i + 1} draws its Date box`,
+		);
+		assert.equal(inCard.length, 10, `card ${i + 1} draws 4 field boxes and 3 double-square checkboxes`);
+		for (const b of inCard) {
+			const half = b.width / 2;
+			const box = `card ${i + 1} box x ${at(b.x0)} to ${at(b.x1)}, y ${at(b.y0)} (${b.width} pt border)`;
+			assert.ok(b.clip.x0 >= card.x0 && b.clip.x1 <= card.x1, `${box} is clipped to its card`);
+			if (b.x1 + half > b.clip.x1) clipped.push(`${box}: right border cut at ${at(b.clip.x1)}`);
+			if (b.x0 - half < b.clip.x0) clipped.push(`${box}: left border cut at ${at(b.clip.x0)}`);
+			if (b.y1 + half > b.clip.y1 || b.y0 - half < b.clip.y0) clipped.push(`${box}: top or bottom border cut`);
+		}
+	}
+	assert.deepEqual(clipped, [], "no border is cut by its card's clip");
 });
 
 test("WP-036 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {

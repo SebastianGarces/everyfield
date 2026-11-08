@@ -16,7 +16,15 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
+import {
+	MAIL_KEYS,
+	runSeed,
+	source,
+	startQuietDatabase,
+	stopQuietDatabase,
+	tsxRun,
+	type QuietDatabase,
+} from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
 
 // Sentinels the stubbed CLIs emit or receive. None may reach qa's output, its store or any file it leaves behind.
@@ -85,7 +93,13 @@ if (a.includes("db:migrate")) {
 	process.exit(fs.existsSync(path.join(S, "FAIL_MIGRATE")) ? 1 : 0);
 }
 fs.writeFileSync(path.join(S, "role-password"), process.env.QA_ROLE_PASSWORD || "");
-console.log("seeded with " + process.env.QA_ROLE_PASSWORD);`,
+write("seed-keys.json", { IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY, IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY });
+console.log("seeded with " + process.env.QA_ROLE_PASSWORD);
+// A FAIL_SEED file makes the seed fail and print the keys it got, as a leaky seed would.
+if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
+	console.error("seed failed with " + process.env.IDENTITY_MAIL_KEY + " and " + process.env.IDENTITY_ADDRESS_KEY);
+	process.exit(1);
+}`,
 	);
 	stub(
 		"vercel",
@@ -202,6 +216,14 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
+		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
+		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
+		assert.deepEqual(seedKeys, {
+			IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY,
+			IDENTITY_ADDRESS_KEY: env.IDENTITY_ADDRESS_KEY,
+		});
+		for (const k of Object.values(seedKeys)) assert.match(k, /^[a-f0-9]{64}$/);
+		assert.notEqual(seedKeys.IDENTITY_MAIL_KEY, seedKeys.IDENTITY_ADDRESS_KEY);
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
 		assert.ok(s.calls("vercel").some((c) => c.includes("--target") && c.includes("preview")));
 		assert.ok(!s.calls("vercel").some((c) => c.includes("--prod") || c.includes("production")));
@@ -265,6 +287,20 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
 	} finally {
 		s.done();
+	}
+	// T-51: a seed that fails and prints the mail keys it got shows them masked, and nothing is deployed.
+	const seeded = setup();
+	try {
+		writeFileSync(join(seeded.state, "FAIL_SEED"), "");
+		const r = seeded.qa("up", "feature/nora-qa");
+		assert.equal(r.status, 1);
+		assert.match(r.stderr, /seed failed with <redacted> and <redacted>/);
+		for (const k of Object.values(seeded.stubState<Record<string, string>>("seed-keys.json")))
+			assert.ok(!(r.stdout + r.stderr).includes(k), "a mail key reached the output");
+		assert.ok(!seeded.calls("vercel").some((c) => c[0] === "deploy"));
+		assert.deepEqual(seeded.stubState("branches.json"), BRANCHES);
+	} finally {
+		seeded.done();
 	}
 });
 
@@ -430,7 +466,7 @@ function quiet(tag: string) {
 			out[String(tablename)] = Number((await query(`SELECT count(*)::int AS n FROM "${tablename}"`))[0]!.n);
 		return out;
 	};
-	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: ROLE_PASSWORD };
+	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: ROLE_PASSWORD, ...MAIL_KEYS };
 	const seed = () => {
 		const r = runSeed(env);
 		assert.equal(r.status, 0, r.stderr);
@@ -453,10 +489,7 @@ async function seedFresh() {
 	const q = quiet("qa-seed");
 	const before = await q.counts();
 	// The refusal leaves the database as it was.
-	assert.equal(
-		runSeed({ DATABASE_URL: q.db.adminUrl, NODE_ENV: "production", QA_ROLE_PASSWORD: "x".repeat(20) }).status,
-		2,
-	);
+	assert.equal(runSeed({ ...q.env, NODE_ENV: "production", QA_ROLE_PASSWORD: "x".repeat(20) }).status, 2);
 	assert.deepEqual(await q.counts(), before);
 	const first = q.seed();
 	const seeded = await q.counts();
@@ -465,6 +498,26 @@ async function seedFresh() {
 }
 
 const ORGS = { network: "Harvest Network (QA)", sending: "Grace Church (QA)" };
+/** The mail parts of the 2026-11-04 cases, in the order the seed names them. */
+const NOV4_MAIL =
+	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
+
+/**
+ * A church's rows without what the 2026-11-04 parts add or change on an older branch: Owen Price's seat and Person, the
+ * delivery message, and the church's material revision, which each new Person moves on. `before` names the old seats.
+ */
+function oldRows(rows: Array<Record<string, unknown>>, before: Array<Record<string, unknown>>) {
+	const row = (r: Record<string, unknown>) => r.row as Record<string, unknown>;
+	const seats = new Set(before.filter((r) => r.t === "seat").map((r) => row(r).account_id));
+	return rows
+		.filter(
+			(r) =>
+				!(r.t === "person" && row(r).display_name === "Owen Price") &&
+				!(r.t === "communication" && row(r).subject === "QA delivery check") &&
+				!(r.t === "seat" && !seats.has(row(r).account_id)),
+		)
+		.map((r) => (r.t === "plant" ? { ...r, row: { ...row(r), material_revision: null } } : r));
+}
 /** The owner's last seeded check-in week (OPS-125's history), and every note the history carries. */
 const LAST_WEEK = {
 	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
@@ -488,9 +541,10 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 	assert.deepEqual(
 		await query(`SELECT u.email, s.role FROM seat s JOIN account a ON a.id = s.account_id
 			JOIN auth_user u ON u.id = a.auth_user_id JOIN plant p ON p.id = s.plant_id
-			WHERE p.name = 'Harvest Point (QA)' ORDER BY s.role DESC`),
+			WHERE p.name = 'Harvest Point (QA)' ORDER BY s.role DESC, u.email`),
 		[
 			{ email: QA_LOGINS.owner, role: "owner" },
+			{ email: QA_LOGINS.member2, role: "member" },
 			{ email: QA_LOGINS.member, role: "member" },
 			{ email: QA_LOGINS.admin, role: "admin" },
 		],
@@ -514,13 +568,15 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 	);
 });
 
-test("OPS-126: five QA logins; the seed makes both organization logins verified and active, and each signs in (AC:OPS-126-1)", async () => {
+test("OPS-126: seven QA logins; the seed makes both organization logins verified and active, and each signs in (AC:OPS-126-1)", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
 		member: "delivered+qa-member@resend.dev",
 		network: "delivered+qa-network-admin@resend.dev",
 		sending: "delivered+qa-sending-director@resend.dev",
+		member2: "delivered+qa-member-2@resend.dev",
+		signup: "delivered+qa-signup@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -728,16 +784,23 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	assert.equal(beforeLogins.length, 3);
 
 	// The OPS-127 wiki cases came after OPS-106 too. Their article titles depend on the database's wiki release.
-	const upgrade = old.seed().split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading/);
+	const upgrade = old
+		.seed()
+		.split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading, wiki church versions of [^,]+/);
 	assert.deepEqual(upgrade, [
-		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, ${ORGS.network}, ${ORGS.network} admin seat, ` +
+		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, login ${QA_LOGINS.member2}, ` +
+			`login ${QA_LOGINS.signup}, spare member seat Owen Price, ${NOV4_MAIL}, ` +
+			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
 		", owner timezone, 13 check-in weeks.",
 	]);
-	assert.deepEqual(await church(), beforeChurch);
+	// The 2026-11-04 parts add Owen Price's seat and Person and the delivery message; every older row stays as it was.
+	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
 	assert.deepEqual(
-		(await logins()).filter((l) => !String(l.email).includes("-network-") && !String(l.email).includes("-sending-")),
+		(await logins()).filter(
+			(l) => ![QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup].includes(String(l.email)),
+		),
 		beforeLogins,
 	);
 	const upgraded = await old.counts();
@@ -773,7 +836,7 @@ test("OPS-126: the runbook's login table lists exactly the QA logins and says wh
 	);
 	assert.deepEqual(
 		table.map((cells) => cells[1]),
-		["Owner", "Admin", "Member", "Network Admin", "Sending-church director"],
+		["Owner", "Admin", "Member", "Network Admin", "Sending-church director", "Second Member", "Sign-up"],
 	);
 	for (const words of [
 		ORGS.network,
@@ -785,4 +848,110 @@ test("OPS-126: the runbook's login table lists exactly the QA logins and says wh
 		"check-ins",
 	])
 		assert.ok(section.replace(/\s+/g, " ").includes(words), words);
+});
+
+// Nora QA 2026-11-04 (T-51): a removable Member seat, a sign-up login, a refused recipient, the Admin's suppressed
+// address with a past restore. The wiki order case is in qa-wiki.test.ts.
+
+test("T-51: a second Member, Owen Price, holds a seat on the church and signs in to it; Ruth Allen's seat is unchanged", async () => {
+	const { query, seen } = await fresh();
+	assert.deepEqual(
+		await query(`SELECT u.email, u.email_verified, a.registration_state, s.role, s.ended_at IS NULL AS live,
+			s.accepted_at IS NOT NULL AS accepted, pe.display_name
+			FROM seat s JOIN account a ON a.id = s.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			JOIN plant p ON p.id = s.plant_id
+			LEFT JOIN person pe ON pe.linked_account_id = a.id AND pe.plant_id = p.id AND pe.state = 'live'
+			WHERE p.name = 'Harvest Point (QA)' AND s.role = 'member' ORDER BY u.email`),
+		[
+			{
+				email: QA_LOGINS.member2,
+				email_verified: true,
+				registration_state: "active",
+				role: "member",
+				live: true,
+				accepted: true,
+				display_name: "Owen Price",
+			},
+			{
+				email: QA_LOGINS.member,
+				email_verified: true,
+				registration_state: "active",
+				role: "member",
+				live: true,
+				accepted: true,
+				display_name: "Ruth Allen",
+			},
+		],
+	);
+	assert.equal(seen.member2.signedIn, "signed_in");
+	assert.equal(seen.member2.session, "active");
+	assert.deepEqual([seen.member2.context.kind, seen.member2.context.role], ["seat", "member"]);
+	assert.deepEqual(seen.member2.context.owner, seen.owner.selected);
+});
+
+test("T-51: the sign-up login is verified, holds no seat or organization, and signs in with church setup still to do", async () => {
+	const { query, seen } = await fresh();
+	assert.deepEqual(
+		await query(`SELECT u.email_verified, a.registration_state, a.registration_kind,
+			(SELECT count(*)::int FROM seat s WHERE s.account_id = a.id) AS seats
+			FROM auth_user u JOIN account a ON a.auth_user_id = u.id WHERE u.email = '${QA_LOGINS.signup}'`),
+		[{ email_verified: true, registration_state: "pending_domain", registration_kind: "planter", seats: 0 }],
+	);
+	assert.equal(seen.signup.signedIn, "signed_in");
+	assert.equal(seen.signup.session, "pending_domain");
+	assert.equal(seen.signup.actor.status, "pending_domain");
+});
+
+test("T-51: the sent delivery message has one refused recipient, counted as failed and not delivered", async () => {
+	const { seen } = await fresh();
+	assert.equal(seen.delivery.recipients.status, "ok");
+	// The seed sealed each address under the keys the preview gets, so the Owner's read opens it.
+	assert.deepEqual(
+		seen.delivery.recipients.value.items
+			.map((r: { name: string; deliveryStatus: string; deliveryAddress: string }) => [
+				r.name,
+				r.deliveryStatus,
+				r.deliveryAddress,
+			])
+			.sort(),
+		[
+			["Leo Pratt", "refused", "delivered+qa-leo@resend.dev"],
+			["Maria Santos", "delivered", "delivered+qa-maria@resend.dev"],
+			["Sara Nunez", "delivered", "delivered+qa-sara@resend.dev"],
+		],
+	);
+	const t = seen.delivery.totals.value;
+	assert.deepEqual(
+		[t.state, t.selected, t.attempted, t.accepted, t.delivered, t.failed, t.suppressed, t.unknown, t.bounced],
+		["sent", 3, 3, 2, 2, 1, 1, 0, 0],
+	);
+});
+
+test("T-51: the Admin's own address is suppressed and has one past restore by Lena Park with a reason", async () => {
+	const { seen } = await fresh();
+	assert.equal(seen.address.status, "ok");
+	const { address, active, restores } = seen.address.value;
+	assert.deepEqual([address, active, restores.length], [QA_LOGINS.admin, true, 1]);
+	assert.equal(restores[0].actorName, "Lena Park");
+	assert.equal(restores[0].reason, "Lena confirmed her inbox works again after the first bounce.");
+	const days = (Date.now() - Date.parse(restores[0].at)) / 86_400_000;
+	assert.ok(days > 20 && days < 22, restores[0].at);
+});
+
+test("T-51: the first run names each new part once; the second writes nothing", async () => {
+	const { first, second, seeded, after } = await fresh();
+	const parts = first
+		.replace(/^QA seed wrote: /, "")
+		.replace(/\.$/, "")
+		.split(", ");
+	for (const part of [
+		`login ${QA_LOGINS.member2}`,
+		`login ${QA_LOGINS.signup}`,
+		"spare member seat Owen Price",
+		...NOV4_MAIL.split(", "),
+	])
+		assert.equal(parts.filter((p) => p === part).length, 1, part);
+	assert.equal(parts.filter((p) => p.startsWith("wiki church versions of ")).length, 1, first);
+	assert.equal(second, "QA seed: the branch is already complete.");
+	assert.deepEqual(after, seeded);
 });
