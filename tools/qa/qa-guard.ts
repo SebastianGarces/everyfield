@@ -9,7 +9,8 @@ export const PROD_ENDPOINT = "ep-gentle-dust";
 
 /**
  * The known QA logins. They exist only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision).
- * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126).
+ * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126), then a second
+ * Member whose seat a tester may remove and a fresh sign-up with no church yet (Nora QA 2026-11-04).
  */
 export const QA_PASSWORD = "Everyfield-QA-preview-1";
 export const QA_LOGINS = {
@@ -18,6 +19,8 @@ export const QA_LOGINS = {
 	member: "delivered+qa-member@resend.dev",
 	network: "delivered+qa-network-admin@resend.dev",
 	sending: "delivered+qa-sending-director@resend.dev",
+	member2: "delivered+qa-member-2@resend.dev",
+	signup: "delivered+qa-signup@resend.dev",
 } as const;
 
 /** The two app logins the QA seed creates on a QA branch, one for each app database role. */
@@ -30,6 +33,8 @@ export function roleUrl(source: string, role: string, password: string): string 
 	u.password = password;
 	return u.href;
 }
+
+const HEX_KEY = /^[a-f0-9]{64}$/;
 
 const endpointOf = (host: string) => host.split(".")[0]!.replace(/-pooler$/, "");
 
@@ -47,6 +52,11 @@ export function seedRefusal(env: Readonly<Record<string, string | undefined>>): 
 	const endpoint = endpointOf(host);
 	if (endpoint.startsWith(PROD_ENDPOINT)) return "DATABASE_URL names the production database.";
 	if (endpoint.startsWith(DEV_ENDPOINT)) return "DATABASE_URL names the shared development branch, not a QA branch.";
+	// The preview's mail keys: the seed's suppression and mail rows match on the preview only under the same keys.
+	const mail = env.IDENTITY_MAIL_KEY ?? "",
+		address = env.IDENTITY_ADDRESS_KEY ?? "";
+	if (!HEX_KEY.test(mail) || !HEX_KEY.test(address))
+		return "IDENTITY_MAIL_KEY and IDENTITY_ADDRESS_KEY must each hold 64 hex characters, the preview's own keys.";
 	return null;
 }
 

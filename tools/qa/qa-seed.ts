@@ -5,6 +5,9 @@
 // organization invitation and acceptance commands. OPS-127 adds a second sending church that shares the wiki, church
 // and network copies of one article and a revised article the owner has read. It writes through the domain writers,
 // the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125).
+// Nora's 2026-11-04 cases add a second Member (Owen Price) whose seat she can remove, a verified sign-up with no church
+// yet, a sent message with one refused recipient, the Admin's suppressed address with one past restore, and article C,
+// which two sending churches each publish, so the Owner and Admin see the "Order needed" prompt.
 // Every address is delivered+<label>@resend.dev, an approved test recipient. The send path keeps mail safe: on a preview
 // mailRecipientAllowed captures any other address, also one a tester types.
 //
@@ -12,17 +15,20 @@
 // on a complete branch signs nobody in and writes nothing.
 //
 //   DATABASE_URL=<QA branch owner URL> QA_ROLE_PASSWORD=<new login password> \
+//     IDENTITY_MAIL_KEY=<preview mail key> IDENTITY_ADDRESS_KEY=<preview address key> \
 //     node --conditions=react-server --import tsx tools/qa/qa-seed.ts
 //
-// It refuses production, the shared development branch, NODE_ENV=production and a missing DATABASE_URL before it
-// opens any connection (qa-guard.ts). QA_ROLE_PASSWORD sets the password of the two app logins it creates on the
-// branch, evf_qa_runtime and evf_qa_auth. It prints no connection string or password.
-import { randomBytes, randomUUID } from "node:crypto";
+// It refuses production, the shared development branch, NODE_ENV=production, a missing DATABASE_URL and missing mail
+// keys before it opens any connection (qa-guard.ts). QA_ROLE_PASSWORD sets the password of the two app logins it
+// creates on the branch, evf_qa_runtime and evf_qa_auth. The two keys are the ones the preview deploys with: the seed
+// seals and hashes mail addresses under them, as the app does. It prints no connection string, password or key.
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql } from "../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase, type Database } from "../../packages/db/src/client.ts";
 import { RequestActor } from "../../packages/domain/src/access/session.ts";
-import { communicationWriter } from "../../packages/domain/src/communication/index.ts";
+import { communicationWriter, type DeliveryTransport } from "../../packages/domain/src/communication/index.ts";
+import { mailAddressHash } from "../../packages/domain/src/communication/delivery.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
 import { createIdentityService } from "../../packages/domain/src/identity/index.ts";
@@ -34,6 +40,7 @@ import { accountPersonProducer, peopleWriter, personFields } from "../../package
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { queueJobs } from "../../apps/web/src/server/jobs/queue.ts";
+import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
 const CHURCH = "Harvest Point (QA)";
@@ -76,6 +83,9 @@ const ORGANIZATIONS = [
 		role: "owner",
 	},
 ] as const;
+
+/** The preview's mail keys, as the app reads them (apps/web/src/features/communication/mail.ts). */
+type MailKeys = { encryptionKey: Buffer; addressKey: Buffer };
 
 type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
@@ -123,7 +133,11 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 		await logins(admin, password);
 		runtime = createDatabase({ connectionString: roleUrl(source, ROLES.runtime, password), max: 2 });
 		authDb = createDatabase({ connectionString: roleUrl(source, ROLES.auth, password), max: 2 });
-		return await fill(admin, runtime, authDb);
+		const keys = {
+			encryptionKey: Buffer.from(env.IDENTITY_MAIL_KEY!, "hex"),
+			addressKey: Buffer.from(env.IDENTITY_ADDRESS_KEY!, "hex"),
+		};
+		return await fill(admin, runtime, authDb, keys);
 	} finally {
 		if (runtime) await closeDatabase(runtime);
 		if (authDb) await closeDatabase(authDb);
@@ -131,7 +145,7 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	}
 }
 
-async function fill(admin: Database, runtime: Database, authDb: Database): Promise<string> {
+async function fill(admin: Database, runtime: Database, authDb: Database, keys: MailKeys): Promise<string> {
 	const done: string[] = [];
 	// Registration admission is limited per address, so each account registers from its own loopback address.
 	let ip = 0;
@@ -161,8 +175,17 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 			await rows(admin, sql`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email=${email}`)
 		)[0]?.id as string | undefined;
 
-	/** A verified, active account. An organization login registers as its organization kind, as the sign-up page does. */
-	async function account(name: string, email: string, organization?: (typeof ORGANIZATIONS)[number]): Promise<string> {
+	/**
+	 * A verified account. An organization login registers as its organization kind, as the sign-up page does. Every
+	 * login but the sign-up is made active; the sign-up stays as a verified new registration leaves it, with church
+	 * setup still to do.
+	 */
+	async function account(
+		name: string,
+		email: string,
+		organization?: (typeof ORGANIZATIONS)[number],
+		active = true,
+	): Promise<string> {
 		const known = await accountOf(email);
 		if (known) return known;
 		ip++;
@@ -177,9 +200,10 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 		});
 		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
-		await admin.execute(
-			sql`UPDATE account SET registration_state='active' WHERE auth_user_id=(SELECT id FROM auth_user WHERE email=${email})`,
-		);
+		if (active)
+			await admin.execute(
+				sql`UPDATE account SET registration_state='active' WHERE auth_user_id=(SELECT id FROM auth_user WHERE email=${email})`,
+			);
 		done.push(`login ${email}`);
 		return (await accountOf(email))!;
 	}
@@ -189,6 +213,9 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 	const member = await account("Ruth Allen", QA_LOGINS.member);
 	const overseers = [];
 	for (const o of ORGANIZATIONS) overseers.push({ ...o, account: await account(o.person, o.login, o) });
+	// Nora's 2026-11-04 logins: a second Member whose seat she may remove, and a sign-up that starts church onboarding.
+	const spareMember = await account("Owen Price", QA_LOGINS.member2);
+	await account("Hannah Cole", QA_LOGINS.signup, undefined, false);
 
 	// One session for each login the seed acts as, opened only when some part is missing. A complete branch gets none.
 	const sessions = new Map<string, string>();
@@ -252,9 +279,10 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 
 	// Admin and Member seats. Seat acceptance belongs to invitations; the seed writes the accepted seat, as the
 	// People UI seed does, and links a Person to each account.
-	for (const [accountId, role, name] of [
-		[adminAccount, "admin", "Lena Park"],
-		[member, "member", "Ruth Allen"],
+	for (const [accountId, role, name, label] of [
+		[adminAccount, "admin", "Lena Park", "admin seat"],
+		[member, "member", "Ruth Allen", "member seat"],
+		[spareMember, "member", "Owen Price", "spare member seat Owen Price"],
 	] as const) {
 		const seat = await rows(admin, sql`SELECT 1 FROM seat WHERE account_id=${accountId} AND plant_id=${plantId}`);
 		if (seat.length) continue;
@@ -268,7 +296,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 				selection: { kind: "create", displayName: name },
 			} as never),
 		);
-		done.push(`${role} seat`);
+		done.push(label);
 	}
 
 	const personId = async (name: string) =>
@@ -433,6 +461,8 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 		done.push("message");
 	}
 
+	done.push(...(await mailCases(admin, runtime, keys, { plantId, adminAccount, ctx, personId })));
+
 	// The overseeing side (OPS-126). No writer creates an organization or its first seat yet, so the seed writes those
 	// rows, as the Attestations UI seed does. The connection goes through the organization commands: the Owner invites
 	// each organization from the church, and the organization's login accepts with the proof the invitation mail carries.
@@ -527,6 +557,185 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
 	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+}
+
+/** The sent message with one refused recipient (WP-028). The seed finds it by its subject. */
+const DELIVERY = "QA delivery check";
+const DELIVERY_TO = ["Maria Santos", "Sara Nunez", "Leo Pratt"];
+/** Leo Pratt's address bounced before the send, so the send path refuses his mail. */
+const REFUSED = { name: "Leo Pratt", address: address("leo") };
+/** The Admin's own address: it bounced, Lena Park restored it with this reason, then it bounced again. */
+const RESTORE_REASON = "Lena confirmed her inbox works again after the first bounce.";
+/** Fixed provider event keys: the seed finds its own suppression rows by them, whatever the keys. */
+const BOUNCES = {
+	refused: "qa-seed/bounce/refused-recipient",
+	adminFirst: "qa-seed/bounce/admin-1",
+	adminAgain: "qa-seed/bounce/admin-2",
+} as const;
+
+/**
+ * One hard bounce of `address`, `daysAgo` days back, and its suppression: the rows the provider callback writes
+ * (apps/web/src/server/jobs/webhook.ts). The seed cannot receive a callback for a send that never happened, so it
+ * writes them directly. A later bounce of the same address moves the suppression to it and clears any restore.
+ */
+async function bounce(tx: Database, keys: MailKeys, eventKey: string, address: string, daysAgo: number) {
+	const event = randomUUID(),
+		hash = mailAddressHash(keys.addressKey, address);
+	await tx.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,processed_at,safe_payload)
+		VALUES(${event}::uuid,${eventKey},${eventKey},'bounced',clock_timestamp()-make_interval(days=>${daysAgo}),
+			clock_timestamp()-make_interval(days=>${daysAgo}),${digest()},clock_timestamp()-make_interval(days=>${daysAgo}),
+			'{"hard_bounce":true}'::jsonb)`);
+	return (
+		await rows(
+			tx,
+			sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+				VALUES(${hash},'hard_bounce',${event}::uuid,clock_timestamp()-make_interval(days=>${daysAgo}))
+				ON CONFLICT(address_hash) DO UPDATE SET reason=excluded.reason,source_event_id=excluded.source_event_id,
+					suppressed_at=excluded.suppressed_at,cleared_at=NULL,clear_operation_id=NULL,revision=suppression.revision+1
+				RETURNING id`,
+		)
+	)[0]!.id as string;
+}
+
+/**
+ * WP-028's cases. Leo Pratt's address is suppressed; then the owner sends "QA delivery check" to Maria, Sara and Leo
+ * through the app's own save, schedule and send-now commands, so Leo's mail is refused and the other two are handed to
+ * the email service. The email service here is a stand-in that accepts every message, and each accepted message gets a
+ * signed "delivered" callback through the app's webhook receiver, as Resend would send. The Admin's own address bounced
+ * 30 days ago, Lena Park restored it 21 days ago, and it bounced again 6 days ago: Messages > Address shows it
+ * suppressed with one past restore. The restore writer stamps the current time, so the seed writes that history as the
+ * writer and the callback would.
+ */
+async function mailCases(
+	admin: Database,
+	runtime: Database,
+	keys: MailKeys,
+	p: {
+		plantId: string;
+		adminAccount: string;
+		ctx: () => Promise<Ctx>;
+		personId: (name: string) => Promise<{ id: string; revision: string } | undefined>;
+	},
+): Promise<string[]> {
+	const done: string[] = [];
+	const known = async (eventKey: string) =>
+		(await rows(admin, sql`SELECT 1 FROM provider_event WHERE event_key=${eventKey}`)).length > 0;
+
+	if (!(await known(BOUNCES.refused))) {
+		await admin.transaction((tx) => bounce(tx as never, keys, BOUNCES.refused, REFUSED.address, 10));
+		done.push(`suppressed address of ${REFUSED.name}`);
+	}
+
+	// The message is written, scheduled, sent and delivered in one step; a failed seed leaves no branch to finish.
+	const message = async () =>
+		(
+			await rows(
+				admin,
+				sql`SELECT id, revision::text AS revision FROM communication WHERE plant_id=${p.plantId} AND subject=${DELIVERY}
+					ORDER BY created_at LIMIT 1`,
+			)
+		)[0] as { id: string; revision: string } | undefined;
+	if (!(await message())) {
+		const c = await p.ctx();
+		const personIds = [];
+		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
+		ok(
+			"delivery message",
+			await runtime.transaction((tx) =>
+				communicationWriter.saveDraft(tx as never, c as never, {
+					requestKey: randomUUID(),
+					input: {
+						subject: DELIVERY,
+						bodyHtml: "<p>Hello {{name}}, this is a short note to check that our church email reaches you.</p>",
+						audience: { groups: [], teamIds: [], personIds },
+					},
+				}),
+			),
+		);
+		const draft = (await message())!;
+		// Send now's schedule step: the next whole minute at least one minute away (sendNowChain.ts).
+		const at = new Date(Math.ceil((Date.now() + 60_000) / 60_000) * 60_000).toISOString();
+		ok(
+			"schedule delivery message",
+			await runtime.transaction((tx) =>
+				communicationWriter.scheduleReviewed(tx as never, c as never, {
+					requestKey: randomUUID(),
+					expectedRevision: draft.revision,
+					input: { communicationId: draft.id, scheduledAt: at },
+				}),
+			),
+		);
+		const scheduled = (await message())!;
+		const actor = await RequestActor.resolve(runtime, c.session as never);
+		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
+		const accepting: DeliveryTransport = {
+			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
+			lookup: async () => ({ outcome: "unknown" }),
+			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
+			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" })),
+		};
+		const result = ok(
+			"send delivery message",
+			await communicationWriter.sendReviewed(
+				runtime,
+				actor,
+				{ requestKey: randomUUID(), expectedRevision: scheduled.revision, input: { communicationId: scheduled.id } },
+				accepting,
+				{ ...keys, from: "qa-seed@everyfield.invalid", origin: ORIGIN },
+			),
+		) as { acceptedCount: number; rejectedCount: number };
+		if (result.acceptedCount !== DELIVERY_TO.length - 1 || result.rejectedCount !== 1)
+			throw Error(`send delivery message: ${JSON.stringify(result)}`);
+		// A signed "delivered" callback for each accepted message, under a secret made for this run.
+		const accepted = await rows(
+			admin,
+			sql`SELECT provider_message_id AS id FROM mail WHERE tenant_id=${p.plantId} AND purpose='communication'
+				AND logical_key LIKE ${`communication/${scheduled.id}/%`} AND state='accepted' AND provider_message_id IS NOT NULL`,
+		);
+		const secret = `whsec_${randomBytes(32).toString("base64")}`;
+		for (const row of accepted) {
+			const raw = JSON.stringify({
+				type: "email.delivered",
+				created_at: new Date().toISOString(),
+				data: { email_id: row.id as string },
+			});
+			const id = `qa-seed-${randomUUID()}`,
+				stamp = String(Math.floor(Date.now() / 1000));
+			const signature = createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
+				.update(`${id}.${stamp}.${raw}`)
+				.digest("base64");
+			const received = await receiveMailCallback(
+				runtime,
+				new Request(`${ORIGIN}/api/webhooks/mail`, {
+					method: "POST",
+					headers: { "svix-id": id, "svix-timestamp": stamp, "svix-signature": `v1,${signature}` },
+					body: raw,
+				}),
+				secret,
+			);
+			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
+		}
+		done.push(`message ${DELIVERY}`);
+	}
+
+	// The Admin's address: first bounce, Lena's restore, second bounce, in one transaction.
+	if (!(await known(BOUNCES.adminFirst))) {
+		await admin.transaction(async (tx) => {
+			const db = tx as never as Database;
+			const suppression = await bounce(db, keys, BOUNCES.adminFirst, QA_LOGINS.admin, 30);
+			// The rows restoreOwnSuppression writes (packages/domain/src/communication/delivery.ts), 21 days back.
+			const restore = randomUUID();
+			await db.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,reason,event_key,metadata,occurred_at,recorded_at)
+				VALUES(${restore}::uuid,${p.plantId}::uuid,${p.adminAccount}::uuid,'mail.reconciled','suppression_clear','record',
+					${suppression}::uuid,${RESTORE_REASON},${"suppress/qa-seed-admin-restore"},'{}'::jsonb,
+					clock_timestamp()-interval '21 days',clock_timestamp()-interval '21 days')`);
+			await db.execute(sql`UPDATE suppression SET cleared_at=clock_timestamp()-interval '21 days',clear_operation_id=${restore}::uuid,
+				revision=revision+1 WHERE id=${suppression}::uuid`);
+			await bounce(db, keys, BOUNCES.adminAgain, QA_LOGINS.admin, 6);
+		});
+		done.push("suppressed admin address", "past restore of the admin address");
+	}
+	return done;
 }
 
 // The owner's 13 past check-in weeks, oldest first: spiritual, family, financial, pace and an optional note. Pace ends
@@ -640,6 +849,8 @@ const SOURCES = [
 	{ kind: "sending_church", name: "Grace Fellowship (QA)", version: "church version", acceptedDaysAgo: 30 },
 	{ kind: "sending_network", name: "Harvest Network (QA)", version: "network version", acceptedDaysAgo: 20 },
 ] as const;
+/** Article C's two sending churches: OPS-127's wiki source, then OPS-126's church with the director login. */
+const ORDER_CHURCHES = ["Grace Fellowship (QA)", "Grace Church (QA)"] as const;
 /** A copy's body in the Wiki editor's document format (safe_nodes). Its line names the source. */
 const copyBody = (version: string, name: string) =>
 	JSON.stringify({
@@ -653,8 +864,8 @@ const copyBody = (version: string, name: string) =>
 const REVISED = "**Revised for QA:** this is the second revision of the article. It changed after you read the first.";
 
 /**
- * Articles A and B: the first and second published global article in the active release, by position and then slug.
- * The same rule on a fresh database and on a branch of development, so a rerun finds the same two.
+ * Articles A, B and C: the first, second and third published global article in the active release, by position and
+ * then slug. The same rule on a fresh database and on a branch of development, so a rerun finds the same three.
  */
 async function starterArticles(admin: Database) {
 	const found = await rows(
@@ -663,10 +874,13 @@ async function starterArticles(admin: Database) {
 			FROM article_revision r JOIN reference_item i ON i.id = r.section_id
 			WHERE r.tenant_id = ${GLOBAL}::uuid AND r.content_type = 'safe_mdx' AND r.published_at IS NOT NULL
 				AND r.release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)
-			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 2`,
+			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 3`,
 	);
-	if (found.length < 2) throw Error("wiki: the active release has fewer than two published articles");
-	return found.map((row) => row.article_id as string) as [string, string];
+	if (found.length < 3)
+		throw Error(
+			`wiki: the active release has ${found.length} published global articles; articles A, B and C need three`,
+		);
+	return found.map((row) => row.article_id as string) as [string, string, string];
 }
 
 /** The newest published global revision of an article in the active release, other than the seed's own revision. */
@@ -684,15 +898,46 @@ async function globalRevision(admin: Database, articleId: string) {
 }
 
 /**
+ * One organization's published version of an article, based on the global revision `base`, unless it has one. The
+ * Wiki editor's publish writes these two rows; it needs an organization seat, which the copying sources have not.
+ */
+async function publishCopy(
+	admin: Database,
+	orgId: string,
+	articleId: string,
+	base: Record<string, unknown>,
+	version: string,
+	name: string,
+): Promise<boolean> {
+	const copied = await rows(
+		admin,
+		sql`SELECT 1 FROM article_editor_state WHERE organization_id=${orgId} AND article_id=${articleId}`,
+	);
+	if (copied.length) return false;
+	const revisionId = randomUUID();
+	const body = copyBody(version, name);
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,upstream_revision_id,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+			SELECT ${revisionId}::uuid,article_id,${orgId}::uuid,NULL,1,id,${`${String(base.title)} (${name})`},slug,excerpt,${body},'safe_nodes',phase,position,${digest()},clock_timestamp(),true,1,section_id,parent_article_id,related_slugs
+			FROM article_revision WHERE id=${base.id as string}::uuid`);
+		await tx.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,based_on_upstream_id,revision)
+			VALUES(${randomUUID()},${orgId},${articleId},'published',${revisionId},${base.id as string},1)`);
+	});
+	return true;
+}
+
+/**
  * OPS-127: the reader cases Nora tests. The church and network share the wiki with the test church; each publishes its
  * own copy of article A, so the church copy wins over the network copy and the global article. Article B gets a second,
  * meaningful global revision, and the owner has finished the first, so the reader shows "Updated since you read it".
+ * Article C (WP-034) has a church version from Grace Fellowship (QA) and another from Grace Church (QA), OPS-126's
+ * sending church, and the church sets no order between them, so the Owner and Admin see "Order needed".
  * No writer creates organizations or publishes a release, so the seed writes these rows directly. Each part looks for
  * its own rows first.
  */
 async function wikiCases(admin: Database, plantId: string, owner: string): Promise<string[]> {
 	const done: string[] = [];
-	const [articleA, articleB] = await starterArticles(admin);
+	const [articleA, articleB, articleC] = await starterArticles(admin);
 	const base = await globalRevision(admin, articleA);
 	let copies = false;
 	for (const source of SOURCES) {
@@ -715,21 +960,7 @@ async function wikiCases(admin: Database, plantId: string, owner: string): Promi
 				VALUES(${randomUUID()},${plantId},${orgId},clock_timestamp()-(${source.acceptedDaysAgo} || ' days')::interval,false,false,false,false,true,false,false)`);
 			done.push(`affiliation with ${source.name}`);
 		}
-		const copied = await rows(
-			admin,
-			sql`SELECT 1 FROM article_editor_state WHERE organization_id=${orgId} AND article_id=${articleA}`,
-		);
-		if (copied.length) continue;
-		const revisionId = randomUUID();
-		const body = copyBody(source.version, source.name);
-		await admin.transaction(async (tx) => {
-			await tx.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,upstream_revision_id,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
-				SELECT ${revisionId}::uuid,article_id,${orgId}::uuid,NULL,1,id,${`${String(base.title)} (${source.name})`},slug,excerpt,${body},'safe_nodes',phase,position,${digest()},clock_timestamp(),true,1,section_id,parent_article_id,related_slugs
-				FROM article_revision WHERE id=${base.id as string}::uuid`);
-			await tx.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,based_on_upstream_id,revision)
-				VALUES(${randomUUID()},${orgId},${articleA},'published',${revisionId},${base.id as string},1)`);
-		});
-		copies = true;
+		if (await publishCopy(admin, orgId, articleA, base, source.version, source.name)) copies = true;
 	}
 	if (copies) done.push(`wiki copies of ${String(base.title)}`);
 
@@ -754,6 +985,18 @@ async function wikiCases(admin: Database, plantId: string, owner: string): Promi
 			VALUES(${randomUUID()},${owner},${articleB},${first.id as string},${plantId},1,clock_timestamp()-interval '7 days',clock_timestamp()-interval '7 days',${first.id as string},1,'wiki-reading-v1',${first.meaningful_sequence as string},false,1)`);
 		done.push("wiki reading");
 	}
+
+	// Article C: two sending churches, each with its own published version. OPS-126 made Grace Church (QA) and its
+	// connection, which shares the wiki.
+	const third = await globalRevision(admin, articleC);
+	let ordered = false;
+	for (const name of ORDER_CHURCHES) {
+		const orgId = (
+			await rows(admin, sql`SELECT id FROM organization WHERE kind='sending_church' AND name=${name} LIMIT 1`)
+		)[0]!.id as string;
+		if (await publishCopy(admin, orgId, articleC, third, "church version", name)) ordered = true;
+	}
+	if (ordered) done.push(`wiki church versions of ${String(third.title)}`);
 	return done;
 }
 

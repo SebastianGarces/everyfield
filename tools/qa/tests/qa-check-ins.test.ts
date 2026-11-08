@@ -6,7 +6,15 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
+import {
+	MAIL_KEYS,
+	runSeed,
+	source,
+	startQuietDatabase,
+	stopQuietDatabase,
+	tsxRun,
+	type QuietDatabase,
+} from "./fixtures.ts";
 
 // OPS-125: the QA seed gives the QA owner 13 answered past check-in weeks. Each test reads the seeded quiet database
 // through the private-care writer as the owner (qa-care-probe.ts), the way the check-in screen reads it.
@@ -61,7 +69,7 @@ function seeded(): Promise<Shared> {
 				await client.end();
 			}
 		};
-		const first = runSeed({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD });
+		const first = runSeed({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS });
 		assert.equal(first.status, 0, first.stderr);
 		return { db, firstSeed: first.stdout.trim(), query };
 	})();
@@ -209,7 +217,7 @@ test("OPS-125: the QA admin and member get no check-in rows and no seeded zone O
 
 test("OPS-125: a rerun writes nothing, and a branch without the history gets it once OPS-125-6", async () => {
 	const { db, query } = await seeded();
-	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD };
+	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS };
 	const counts = async () =>
 		(
 			await query(`SELECT (SELECT count(*)::int FROM private_week) AS weeks,

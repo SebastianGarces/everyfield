@@ -1,11 +1,14 @@
 // OPS-126: what each QA login sees on a seeded QA database, through the same domain reads the screens use. qa.test.ts
 // runs it with tsx and the react-server condition, because the domain code is server-only, and asserts on its JSON.
+// The mail reads use the keys the seed got, as the preview does.
 //
-//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<role password> node --conditions=react-server --import tsx qa-probe.ts
+//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<role password> IDENTITY_MAIL_KEY=<key> IDENTITY_ADDRESS_KEY=<key> \
+//     node --conditions=react-server --import tsx qa-probe.ts
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../../packages/db/src/client.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { createIdentityService } from "../../../../packages/domain/src/identity/index.ts";
 import { createPrivateCare } from "../../../../packages/domain/src/intelligence/index.ts";
 import { idsIn, namesFor, readHistory } from "../../../../packages/domain/src/organizations/index.ts";
@@ -40,8 +43,15 @@ const call = (path: string, body?: unknown, cookie?: string) =>
 		}),
 	);
 
-/** Sign in as a person does, then read the session the cookie names. */
-async function signIn(email: string) {
+const mailKeys = {
+	encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
+	addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
+	from: "qa-probe@everyfield.invalid",
+	origin: ORIGIN,
+};
+
+/** Sign in as a person does and read the session the cookie names, before any actor check. */
+async function signInOnly(email: string) {
 	const r = await call("sign-in/email", { email, password: QA_PASSWORD });
 	const signedIn = (await r.json()) as { status: string };
 	const cookie = r.headers
@@ -53,9 +63,15 @@ async function signIn(email: string) {
 		sessionId: string;
 		accountId: string;
 	};
+	return { signedIn: signedIn.status, session };
+}
+
+/** Sign in as a person does, then resolve the actor the session selects. */
+async function signIn(email: string) {
+	const { signedIn, session } = await signInOnly(email);
 	const authority = await RequestActor.resolve(runtime, session.sessionId as never);
 	if (!(authority instanceof RequestActor)) throw Error(`actor ${email}: ${JSON.stringify(authority)}`);
-	return { signedIn: signedIn.status, session, authority };
+	return { signedIn, session, authority };
 }
 
 /** A refusal without its correlation id, so the test can compare it exactly. */
@@ -77,6 +93,28 @@ try {
 		selected: owner.authority.actor.context.owner,
 		checkIn: await care.readCurrent(runtime, owner.authority),
 		history: await care.readHistory(runtime, owner.authority, { page: 1 }),
+	};
+	// The 2026-11-04 cases: the delivery message as the Owner opens it, the Admin's own address, the two new logins.
+	const delivery = (await admin.execute(sql`SELECT id FROM communication WHERE subject='QA delivery check'`)).rows[0]!
+		.id as string;
+	out.delivery = await runtime.transaction(async (tx) => ({
+		totals: await communicationWriter.getDeliveryTotals(tx as never, owner.authority, { communicationId: delivery }),
+		recipients: await communicationWriter.listHistoryRecipients(
+			tx as never,
+			owner.authority,
+			{ communicationId: delivery },
+			mailKeys,
+		),
+	}));
+	const lena = await signIn(QA_LOGINS.admin);
+	out.address = await communicationWriter.listForSelf(runtime, lena.authority, { address: QA_LOGINS.admin }, mailKeys);
+	const owen = await signIn(QA_LOGINS.member2);
+	out.member2 = { signedIn: owen.signedIn, session: owen.session.status, context: owen.authority.actor.context };
+	const signup = await signInOnly(QA_LOGINS.signup);
+	out.signup = {
+		signedIn: signup.signedIn,
+		session: signup.session.status,
+		actor: await RequestActor.resolve(runtime, signup.session.sessionId as never),
 	};
 	for (const login of ["network", "sending"] as const) {
 		const who = await signIn(QA_LOGINS[login]);

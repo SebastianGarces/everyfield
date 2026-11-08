@@ -183,15 +183,18 @@ function deployCheckout(
 		console.error("qa up: migrating the Neon branch with the branch's db:migrate.");
 		tool(redactor, "corepack", ["pnpm", "db:migrate"], { cwd: checkout, env: dbEnv });
 		const rolePassword = randomBytes(24).toString("hex");
-		redactor.add(rolePassword);
+		const key = () => randomBytes(32).toString("hex");
+		// The mail keys come before the seed: its suppression and mail rows hash and seal addresses under them, so the
+		// preview must run with the same two values.
+		const mailKeys = { IDENTITY_MAIL_KEY: key(), IDENTITY_ADDRESS_KEY: key() };
+		redactor.add(rolePassword, ...Object.values(mailKeys));
 		console.error("qa up: seeding the test church.");
 		tool(
 			redactor,
 			"corepack",
 			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
-			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword } },
+			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword, ...mailKeys } },
 		);
-		const key = () => randomBytes(32).toString("hex");
 		// Per-deployment settings: this preview's database and its own identity keys. Shared credentials (mail,
 		// storage, cron, Langfuse, Evry) come from the Vercel Preview environment.
 		const settings: Record<string, string> = {
@@ -201,8 +204,7 @@ function deployCheckout(
 			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.auth, rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
-			IDENTITY_MAIL_KEY: key(),
-			IDENTITY_ADDRESS_KEY: key(),
+			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
 		};
 		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (k === "IDENTITY_ORIGIN" ? [] : [v])));
