@@ -1,8 +1,10 @@
 // The watcher's only side effects: two allowlisted read-only commands, its own state, lock and log
-// files, and the wake transport. Nothing here writes to evf, GitHub or any routine.
+// files, and the wake transport (one HTTPS POST to the routine's own webhook). Nothing here writes to
+// evf or GitHub.
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, appendFile, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseState, type State } from "./observe.mts";
@@ -143,52 +145,201 @@ export function createLog(path: string, now: () => number = Date.now, maxBytes =
 
 // ---- transport --------------------------------------------------------------------------------
 
-export type Payload = { source: string; version: number; at: string; events: Record<string, unknown>[] };
-export type Transport = { mode: "dry-run" | "webhook"; send(payload: Payload, signal: AbortSignal): Promise<void> };
+export type Payload = { source: string; version: number; kind?: string; at: string; events: Record<string, unknown>[] };
+/**
+ * `result` is the only thing a log line may say about a send: `http_<status>`, an error class or a
+ * config refusal code. It never carries the URL, the key, a header or an error message.
+ * `retry` is true only when no request can have reached the routine (DNS, connect) or the routine
+ * answered 5xx. A routine run is not idempotent as far as its docs say, so anything else waits.
+ */
+export type SendResult = { ok: true; result: string } | { ok: false; result: string; retry: boolean };
+export type Transport = {
+	mode: "dry-run" | "webhook";
+	/** capped transports count every POST against WEBHOOK_SENDS_PER_HOUR */
+	capped: boolean;
+	send(payload: Payload, signal: AbortSignal): Promise<SendResult>;
+};
 
-/** The routine's documented public sender contract is unknown to agents, so webhook stays off. */
-export const WEBHOOK_CONTRACT_NEEDED =
-	"webhook_refused: the routine's documented public sender contract is missing. Needed: the endpoint URL shape, " +
-	"the auth header name and value format, and the payload schema (content type and required fields).";
+/** Sebastian writes this file by hand from the routine panel. Agents never read or print it. */
+export const WEBHOOK_CONFIG = join(STATE_DIR, "webhook.json");
+export type WebhookConfig = { url: URL; key: string };
 
-export function createTransport(mode: string, log: Log): { ok: true; transport: Transport } | { ok: false; code: string } {
-	if (mode === "dry-run") {
-		return { ok: true, transport: { mode: "dry-run", send: (payload) => log(`dry-run wake payload=${JSON.stringify(payload)}`) } };
+/** Read at send time only. Every refusal is a named code and happens before any request. */
+export async function readWebhookConfig(path: string): Promise<{ ok: true; config: WebhookConfig } | { ok: false; code: string }> {
+	let fh;
+	try {
+		fh = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+	} catch (e) {
+		return { ok: false, code: (e as NodeJS.ErrnoException).code === "ENOENT" ? "webhook_config_missing" : "webhook_config_unreadable" };
 	}
-	if (mode === "webhook") return { ok: false, code: WEBHOOK_CONTRACT_NEEDED };
+	let text: string;
+	try {
+		const st = await fh.stat();
+		if (!st.isFile()) return { ok: false, code: "webhook_config_unreadable" };
+		if (st.uid !== process.getuid?.()) return { ok: false, code: "webhook_config_not_owner" };
+		if ((st.mode & 0o077) !== 0) return { ok: false, code: "webhook_config_mode" };
+		text = await fh.readFile("utf8");
+	} catch {
+		return { ok: false, code: "webhook_config_unreadable" };
+	} finally {
+		await fh.close();
+	}
+	let raw: unknown;
+	try {
+		raw = JSON.parse(text);
+	} catch {
+		return { ok: false, code: "webhook_config_invalid_json" };
+	}
+	const obj = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+	// A bearer key is visible ASCII with no spaces; anything else could split the header.
+	if (!obj || typeof obj.url !== "string" || typeof obj.key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(obj.key)) {
+		return { ok: false, code: "webhook_config_invalid" };
+	}
+	let url: URL;
+	try {
+		url = new URL(obj.url);
+	} catch {
+		return { ok: false, code: "webhook_config_invalid_url" };
+	}
+	if (url.protocol !== "https:") return { ok: false, code: "webhook_url_not_https" };
+	return { ok: true, config: { url, key: obj.key } };
+}
+
+const DNS_ERRORS = new Set(["ENOTFOUND", "EAI_AGAIN", "EAI_NONAME", "EAI_FAIL"]);
+const CONNECT_ERRORS = new Set(["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL", "ENETDOWN"]);
+
+/** An error's class from its code alone; the message (which can name the host) is never read. */
+export function classifySendError(e: unknown): SendResult & { ok: false } {
+	const code = String((e as NodeJS.ErrnoException)?.code ?? "");
+	if (DNS_ERRORS.has(code)) return { ok: false, result: "dns_error", retry: true };
+	if (CONNECT_ERRORS.has(code)) return { ok: false, result: "connect_error", retry: true };
+	if (code === "ABORT_ERR" || (e as Error)?.name === "AbortError") return { ok: false, result: "timeout", retry: false };
+	if (/^(ERR_TLS|ERR_SSL|CERT_|UNABLE_TO|DEPTH_ZERO|SELF_SIGNED|HOSTNAME_MISMATCH|ERR_TLS_CERT)/.test(code)) {
+		return { ok: false, result: "tls_error", retry: false };
+	}
+	// ECONNRESET, EPIPE and the rest: the request may have reached the routine, so do not resend.
+	return { ok: false, result: "network_error", retry: false };
+}
+
+/** The request builder: one POST, exactly these two headers, the payload as the body. */
+export function webhookRequest(config: WebhookConfig, payload: Payload) {
+	return {
+		url: config.url,
+		method: "POST" as const,
+		headers: { Authorization: `Bearer ${config.key}`, "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	};
+}
+
+/** Only HTTP 200 means the routine accepted and started a run. Redirects are not followed. */
+function post(config: WebhookConfig, payload: Payload, signal: AbortSignal, ca?: string): Promise<SendResult> {
+	const req = webhookRequest(config, payload);
+	return new Promise((resolve) => {
+		try {
+			const r = httpsRequest(req.url, { method: req.method, headers: req.headers, signal, agent: false, ...(ca ? { ca } : {}) }, (res) => {
+				const status = res.statusCode ?? 0;
+				res.resume();
+				res.on("error", () => undefined);
+				if (status === 200) resolve({ ok: true, result: "http_200" });
+				else resolve({ ok: false, result: `http_${status}`, retry: status >= 500 && status <= 599 });
+			});
+			r.on("error", (e) => resolve(classifySendError(e)));
+			r.end(req.body);
+		} catch (e) {
+			resolve(classifySendError(e));
+		}
+	});
+}
+
+export function createTransport(
+	mode: string,
+	log: Log,
+	opts: { configPath?: string; ca?: string } = {},
+): { ok: true; transport: Transport } | { ok: false; code: string } {
+	if (mode === "dry-run") {
+		return {
+			ok: true,
+			transport: {
+				mode: "dry-run",
+				capped: false,
+				send: async (payload) => (await log(`dry-run wake payload=${JSON.stringify(payload)}`), { ok: true, result: "logged" }),
+			},
+		};
+	}
+	if (mode === "webhook") {
+		const configPath = opts.configPath ?? WEBHOOK_CONFIG;
+		return {
+			ok: true,
+			transport: {
+				mode: "webhook",
+				capped: true,
+				send: async (payload, signal) => {
+					const read = await readWebhookConfig(configPath);
+					if (!read.ok) return { ok: false, result: read.code, retry: false };
+					return post(read.config, payload, signal, opts.ca);
+				},
+			},
+		};
+	}
 	return { ok: false, code: "transport_unknown" };
 }
 
 export const SEND_TRIES = 3;
 export const SEND_TIMEOUT_MS = 10_000;
 export const SEND_BACKOFF_MS = 1_000;
+/** Far under the routine's documented 200 runs per routine per hour. */
+export const WEBHOOK_SENDS_PER_HOUR = 20;
+export const SEND_WINDOW_MS = 60 * 60_000;
 
-/** At most SEND_TRIES tries with exponential backoff and a per-try timeout, all inside one poll. */
+export type Delivery = { ok: boolean; tries: number; result: string; capped: boolean; sends: number[] };
+
+/**
+ * Up to `tries` tries (default SEND_TRIES) inside one poll, with exponential backoff and a per-try
+ * timeout. Only a retryable result tries again. With `cap`, every try is a POST counted in a
+ * rolling hour; at WEBHOOK_SENDS_PER_HOUR it stops before sending and reports `capped`.
+ */
 export async function deliver(
 	transport: Transport,
 	payload: Payload,
-	opts: { sleep?: (ms: number) => Promise<void>; timeoutMs?: number; backoffMs?: number } = {},
-): Promise<{ ok: boolean; tries: number }> {
+	opts: {
+		sleep?: (ms: number) => Promise<void>;
+		timeoutMs?: number;
+		backoffMs?: number;
+		tries?: number;
+		cap?: { sends: number[]; now: () => number };
+	} = {},
+): Promise<Delivery> {
 	const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-	for (let i = 0; i < SEND_TRIES; i++) {
+	const maxTries = opts.tries ?? SEND_TRIES;
+	const window = (sends: number[]) => (opts.cap ? sends.filter((t) => t > opts.cap!.now() - SEND_WINDOW_MS) : sends);
+	let sends = window(opts.cap?.sends ?? []);
+	let last: SendResult = { ok: false, result: "not_sent", retry: false };
+	for (let i = 0; i < maxTries; i++) {
+		if (opts.cap && transport.capped) {
+			sends = window(sends);
+			if (sends.length >= WEBHOOK_SENDS_PER_HOUR) return { ok: false, tries: i, result: "capped", capped: true, sends };
+			sends = [...sends, opts.cap.now()];
+		}
 		const ac = new AbortController();
 		let timer: NodeJS.Timeout | undefined;
 		try {
-			await Promise.race([
+			last = await Promise.race([
 				transport.send(payload, ac.signal),
-				new Promise((_, reject) => {
+				new Promise<SendResult>((resolve) => {
 					timer = setTimeout(() => {
 						ac.abort();
-						reject(new Error("send_timeout"));
+						resolve({ ok: false, result: "timeout", retry: false });
 					}, opts.timeoutMs ?? SEND_TIMEOUT_MS);
 				}),
 			]);
-			return { ok: true, tries: i + 1 };
 		} catch {
-			if (i < SEND_TRIES - 1) await sleep((opts.backoffMs ?? SEND_BACKOFF_MS) * 2 ** i);
+			last = { ok: false, result: "send_error", retry: false };
 		} finally {
 			clearTimeout(timer);
 		}
+		if (last.ok) return { ok: true, tries: i + 1, result: last.result, capped: false, sends };
+		if (!last.retry || i === maxTries - 1) return { ok: false, tries: i + 1, result: last.result, capped: false, sends };
+		await sleep((opts.backoffMs ?? SEND_BACKOFF_MS) * 2 ** i);
 	}
-	return { ok: false, tries: SEND_TRIES };
+	return { ok: false, tries: maxTries, result: last.result, capped: false, sends };
 }

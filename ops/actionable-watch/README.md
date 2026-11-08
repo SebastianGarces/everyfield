@@ -2,8 +2,9 @@
 
 A Mac-local observer that wakes the Grok Bot routine `everyfield-actionable-change-webhook` only when
 something needs attention. It reads, it never acts: it does not release, approve, merge, decide, step,
-guard or control Herdr. Status: **BUILT/TESTED, AWAITING HOOKUP**. Only the `dry-run` transport works.
-It is LIVE only after the parent verifies a real reception by the routine.
+guard or control Herdr. Status: **BUILT/TESTED, AWAITING LIVE RECEPTION**. The `dry-run` and `webhook`
+transports both work. It is LIVE only after Sebastian or the parent sees a run of the routine start from a
+real `--test-wake` (step 3 below).
 
 ## Architecture and scope
 
@@ -11,7 +12,7 @@ It is LIVE only after the parent verifies a real reception by the routine.
 - `observe.mts` is pure: parse `evf status --json` and main CI runs, reduce them to a canonical snapshot,
   derive events, advance dedup state, build the payload.
 - `io.mts` holds every side effect: the two allowlisted commands, the state file, the lock, the capped
-  log and the transport.
+  log and the transport (one HTTPS POST to the routine's webhook).
 - `run.mts` does one poll and exits. launchd's `StartInterval` (90 s) owns cadence and restart, so the
   watcher has no loop, no daemon and no retry spin.
 
@@ -51,7 +52,10 @@ Volatile fields (`now`, `heartbeat`, `machine`, `since`, `activity`, `activity_a
 tokens, audit, wait prose) never enter the snapshot, so they cannot defeat dedup. The first run, or a
 missing or corrupt state file, re-baselines: whatever is already true counts as sent, and nothing wakes.
 An evf failure (missing, not executable, non-zero exit, timeout, invalid JSON, unexpected shape) logs one
-line and leaves the state untouched. A gh failure keeps the last known CI and turns only the CI check off.
+line and leaves the state untouched. An unexpected shape names where it failed, by list, item index and
+field name with its type, never a value: `poll_failed code=evf_bad_shape list=agents index=0 fields=run:string`.
+While a decision is open, evf adds a `needs_you` row to `agents` with no `run` or `step` and a `task` that
+can be null; the parser accepts it, and the decision event is the only wake for that transition. A gh failure keeps the last known CI and turns only the CI check off.
 
 ## Wake payload and logs
 
@@ -59,9 +63,32 @@ The payload holds `source`, `version`, `at` and, per event, `kind`, `key` and on
 `task`, `label`, `step`, `run`, `decision`, `sha`, `conclusion`. A label or step that is not a short slug
 becomes `""`. No titles, ask text, transcripts, pane or activity text, emails, URLs or keys.
 
-Delivery makes up to 3 tries with 1 s and 2 s backoff and a 10 s per-try timeout, all inside one poll.
-An event whose send fails stays pending, gets one delivery attempt per poll, and is marked sent only on
-success. The `dry-run` transport writes `dry-run wake payload=...` to the log and counts as delivered.
+The `dry-run` transport writes `dry-run wake payload=...` to the log and counts as delivered.
+
+The `webhook` transport follows the routine's documented sender contract: one `POST` to the exact URL from
+the routine panel, with exactly `Authorization: Bearer <key>` and `Content-Type: application/json`, and the
+payload above as the JSON body. Only HTTP 200 counts as delivered (the run was accepted and started). Any
+other status, a network error or a timeout is not delivered, and the event stays pending. Redirects are not
+followed. The routine documents no path template, body-size limit or idempotency, so none is assumed:
+
+- The URL and key are read from `webhook.json` at send time only. The send is refused, with a named code
+  and no request, when the file is missing (`webhook_config_missing`), unreadable or a symlink
+  (`webhook_config_unreadable`), not owned by you (`webhook_config_not_owner`), readable by group or others
+  (`webhook_config_mode`), not JSON (`webhook_config_invalid_json`), lacks a string `url` or a bearer-safe
+  `key` (`webhook_config_invalid`), or has a bad or non-`https:` URL (`webhook_config_invalid_url`,
+  `webhook_url_not_https`).
+- In-poll retries (3 tries, 1 s and 2 s backoff) happen only when no request can have reached the routine
+  (DNS or connect errors) or it answered 5xx. A 4xx (including 429), a timeout or a dropped connection
+  waits for the next poll, so a run that may have started is not started again within the poll.
+- Each try has a 10 s timeout. Every POST counts against `WEBHOOK_SENDS_PER_HOUR` = 20 in a rolling hour,
+  persisted in `state.json` as `sends`, far under the routine's 200 runs per routine per hour (300 across
+  all routines). At the cap the poll logs `wake_capped` once and keeps the event pending.
+
+Log lines name only the transport, the result (`http_<status>`, `dns_error`, `connect_error`, `tls_error`,
+`timeout`, `network_error` or a config code) and the event keys: `wake webhook result=http_200 events=1
+keys=decision:D-9 ...`, `wake_failed transport=webhook tries=1 result=http_429 pending=1 keys=...`. The URL,
+its path or token, the key and the Authorization header never appear in a log line, the state file, an
+error code, argv or the plist.
 
 ## Files the watcher creates
 
@@ -69,7 +96,8 @@ success. The `dry-run` transport writes `dry-run wake payload=...` to the log an
 |---|---|
 | `~/Library/LaunchAgents/com.everyfield.actionable-watch.plist` | the launchd job (rendered from the template here) |
 | `~/Library/Application Support/everyfield-actionable-watch/app/*.mts` | installed copy of `observe.mts`, `io.mts`, `run.mts` |
-| `~/Library/Application Support/everyfield-actionable-watch/state.json` | last snapshot, sent keys, pending events (0600) |
+| `~/Library/Application Support/everyfield-actionable-watch/state.json` | last snapshot, sent keys, pending events, recent webhook send times (0600) |
+| `~/Library/Application Support/everyfield-actionable-watch/webhook.json` | the routine's URL and key, written by Sebastian only (0600) |
 | `~/Library/Application Support/everyfield-actionable-watch/watch.lock` | single-instance lock, `pid at`, present only during a poll |
 | `~/Library/Logs/everyfield-actionable-watch/watch.log` and `watch.log.1` | one line per poll, rolls at 1 MB |
 | `~/Library/Logs/everyfield-actionable-watch/launchd.log` | launchd stdout and stderr, normally empty |
@@ -111,19 +139,58 @@ rm -rf "$HOME/Library/Logs/everyfield-actionable-watch"
 
 Nothing else changes: no evf service, dashboard, routine, schedule or GitHub setting is touched.
 
-## Webhook hookup (pending the contract)
+## Webhook hookup
 
-`--transport webhook` refuses to start today and logs exactly what is missing: the routine's
-documented public sender contract, meaning the endpoint URL shape, the auth header name and value
-format, and the payload schema (content type and required fields). No endpoint, header or key is
-hard-coded, and no agent asks for or sees the sender key.
+The URL and key exist only in one local file that Sebastian writes. No agent sees, asks for, prints or
+stores them, and they never go through chat, a task, argv, the plist, a log or an evidence file.
 
-Once the parent supplies that contract and the code supports it, Sebastian provisions it locally:
+1. **Provision.** Open the routine `everyfield-actionable-change-webhook`, copy its "POST to" URL and its
+   sender key, and create the file with a local editor:
 
-1. Open the routine panel for `everyfield-actionable-change-webhook` and read its sender instructions.
-2. Create the config with a local editor, never through chat:
-   `install -m 600 /dev/null "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"`,
-   then open that file in a local editor and paste the URL and key from the panel.
-3. Do not paste the URL or key into any chat, task, log or evidence file.
-4. The parent coordinates one live reception test. Only after the routine shows the reception may the
-   watcher be called LIVE, and only then may the parent move the drive routine to a 2–3 hour backstop.
+   ```sh
+   install -m 600 /dev/null "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
+   open -e "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
+   ```
+
+   Its whole content is `{"url": "<the POST to URL>", "key": "<the sender key>"}`. Keep it at mode 0600:
+   any wider mode refuses every send.
+
+2. **Test wake.** Send one payload marked `{"kind": "test"}`. It makes one try, logs only the result and
+   does not read or change `state.json`:
+
+   ```sh
+   NODE="$(plutil -extract ProgramArguments.0 raw "$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist")"
+   "$NODE" "$HOME/Library/Application Support/everyfield-actionable-watch/app/run.mts" --test-wake --transport webhook
+   ```
+
+   It prints `test-wake transport=webhook result=http_200` when the routine accepted the run. The same
+   flag with `--transport dry-run` logs the test payload instead.
+
+3. **Confirm reception.** Sebastian or the parent checks the routine panel for a run started by the test
+   wake. Only then is the watcher LIVE.
+
+4. **Switch the job to webhook.** In `~/Library/LaunchAgents/com.everyfield.actionable-watch.plist`,
+   change the `--transport` argument from `dry-run` to `webhook`, then reload and run one poll:
+
+   ```sh
+   PLIST="$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
+   plutil -replace ProgramArguments.3 -string webhook "$PLIST" && plutil -lint "$PLIST"
+   launchctl bootout gui/$UID/com.everyfield.actionable-watch
+   launchctl bootstrap gui/$UID "$PLIST"
+   tail -n 3 "$HOME/Library/Logs/everyfield-actionable-watch/watch.log"   # expect "poll ok"
+   ```
+
+### Webhook rollback
+
+Switch the job back to `dry-run`, reload it and delete the config:
+
+```sh
+PLIST="$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
+plutil -replace ProgramArguments.3 -string dry-run "$PLIST" && plutil -lint "$PLIST"
+launchctl bootout gui/$UID/com.everyfield.actionable-watch
+launchctl bootstrap gui/$UID "$PLIST"
+rm -f "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
+```
+
+Only the parent may later move the hourly drive routine to a longer backstop; the watcher never changes a
+routine, its instruction or its schedule.

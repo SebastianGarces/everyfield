@@ -26,8 +26,9 @@ describe("normalisation", () => {
 
 	test("the snapshot keeps actionable identity only", () => {
 		const s = snap(running({ decisions: [{ id: 7, task: 1, question: "secret ask" }] }), { sha: "a".repeat(40), conclusion: "success" });
+		// evf hides the agent row of a task with an open decision behind its needs_you row.
 		assert.deepEqual(s, {
-			tasks: [{ id: 1, label: "task-1", phase: "running", lifecycle: "open", step: "implement", run: 10, error: null, eligibleWaiting: false }],
+			tasks: [{ id: 1, label: "task-1", phase: "running", lifecycle: "open", step: null, run: null, error: null, eligibleWaiting: false }],
 			deadSeats: [],
 			heartbeatStale: false,
 			tickError: false,
@@ -37,10 +38,29 @@ describe("normalisation", () => {
 		});
 	});
 
-	test("unexpected shapes are refused, not guessed", () => {
-		for (const raw of [null, [], "x", {}, { ...running(), tasks: "no" }, { ...running(), budget: {} }, { ...running(), seats: [{ task: 1 }] }, { ...running(), now: "soon" }, { ...running(), decisions: [{ id: "has space" }] }]) {
-			assert.deepEqual(parseStatus(raw), { ok: false, code: "evf_bad_shape" });
-		}
+	test("unexpected shapes are refused, and the refusal names list, field and type, never a value", () => {
+		const cases: [unknown, string][] = [
+			[null, "list=top fields=status:null"],
+			[[], "list=top fields=status:array"],
+			["x", "list=top fields=status:string"],
+			[{}, "list=top fields=now:undefined,heartbeat:undefined,budget.seats:undefined"],
+			[{ ...running(), tasks: "no" }, "list=tasks fields=tasks:string"],
+			[{ ...running(), budget: {} }, "list=top fields=budget.seats:object"],
+			[{ ...running(), seats: [{ task: 1 }] }, "list=seats index=0 fields=run:undefined,live:undefined"],
+			[{ ...running(), now: "soon" }, "list=top fields=now:string"],
+			[{ ...running(), decisions: [{ id: "has space" }] }, "list=decisions index=0 fields=id:string"],
+			[{ ...running(), agents: [{ task: 1, state: "working", run: 10 }, "row"] }, "list=agents index=1 fields=item:string"],
+		];
+		for (const [raw, detail] of cases) assert.deepEqual(parseStatus(raw), { ok: false, code: "evf_bad_shape", detail });
+	});
+
+	test("a refusal never carries the offending value", () => {
+		const secret = "sk-SECRET nora@example.com";
+		const raw = running({ agents: [{ task: 1, run: 10, step: "implement", state: secret }] });
+		raw.agents[0].task = secret as never;
+		const r = parseStatus(raw);
+		assert.deepEqual(r, { ok: false, code: "evf_bad_shape", detail: "list=agents index=0 fields=task:string" });
+		assert.ok(!JSON.stringify(r).includes("SECRET"));
 	});
 
 	test("main CI reads the newest head sha", () => {
@@ -209,7 +229,7 @@ describe("redaction", () => {
 			tasks: [{ id: 1, label: `ok ${secret}`, phase: "failed", wait: secret }],
 			agents: [{ task: 1, run: 10, step: `implement ${secret}` }],
 			seats: [{ task: 1, run: 10 }],
-			decisions: [{ id: 2, task: 1, question: secret, context: secret }],
+			decisions: [{ id: 2, task: 2, question: secret, context: secret }],
 		});
 		const s = advance(baseline(running()), snap(raw));
 		const text = JSON.stringify(buildPayload(s.due, NOW)) + JSON.stringify(s.next);
@@ -218,7 +238,7 @@ describe("redaction", () => {
 		}
 		assert.deepEqual(buildPayload(s.due, NOW).events, [
 			{ kind: "task-error", key: "task-error:1:failed", task: 1, label: "", step: "" },
-			{ kind: "decision-open", key: "decision:D-2", decision: "D-2", task: 1 },
+			{ kind: "decision-open", key: "decision:D-2", decision: "D-2", task: 2 },
 		]);
 	});
 });

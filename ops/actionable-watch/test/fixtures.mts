@@ -1,4 +1,7 @@
 // Raw `evf status --json` fixtures shaped like evf 2.0.0 output, with every volatile field present.
+// `agents` follows evf's `agents_of` (crates/evf-store/src/overview.rs): each open decision first adds a
+// `needs_you` row (task may be null, no `run` or `step` keys) and hides that task's own row. The real,
+// redacted capture lives in status-open-decision.json.
 export const NOW = 1_794_122_077_675;
 
 export type Task = { id: number; phase?: string; lifecycle?: string; hold?: string | null; wait?: string | null; label?: string };
@@ -59,7 +62,9 @@ export function rawStatus(o: {
 			wait: t.wait === undefined ? null : t.wait,
 			workflow: "implement",
 		})),
-		agents: (o.agents ?? []).map((a) => ({
+		agents: [
+			...needsYou(o.decisions ?? [], now),
+			...(o.agents ?? []).filter((a) => !(o.decisions ?? []).some((d) => d.task === a.task)).map((a) => ({
 			hold: null,
 			hold_by: null,
 			label: `task-${a.task}`,
@@ -73,7 +78,8 @@ export function rawStatus(o: {
 			task: a.task,
 			title: `Title ${noise}`,
 			wait: `implement is running ${noise}`,
-		})),
+			})),
+		],
 		seats: (o.seats ?? []).map((s) => ({
 			activity: `Bash: something ${noise}`,
 			activity_at: s.activity_at ?? now - (noise === "a" ? 1000 : 3000),
@@ -101,6 +107,23 @@ export function rawStatus(o: {
 			turn_started_at: now - 50,
 		})),
 	};
+}
+
+/** evf's row per open decision, one per task (the first one), shaped exactly as `agents_of` writes it. */
+function needsYou(decisions: Record<string, unknown>[], now: number) {
+	const seen = new Set<unknown>();
+	return decisions
+		.filter((d) => d.task === undefined || d.task === null || (!seen.has(d.task) && seen.add(d.task)))
+		.map((d) => ({
+			task: d.task ?? null,
+			title: "",
+			label: d.task ? `task-${d.task}` : null,
+			state: "needs_you",
+			decision: d.id,
+			kind: d.kind ?? "question",
+			open_decisions: 1,
+			since: now - 5,
+		}));
 }
 
 /** One running task with a live seat: the common idle-but-busy baseline. */

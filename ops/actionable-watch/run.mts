@@ -1,13 +1,14 @@
 // One poll per launchd run: launchd's StartInterval owns cadence and restart, so there is no loop.
-// Usage: node run.mts [--transport dry-run] [--state-dir <dir>] [--log-dir <dir>]
+// Usage: node run.mts [--transport dry-run|webhook] [--test-wake] [--state-dir <dir>] [--log-dir <dir>]
+// The webhook URL and key live only in <state-dir>/webhook.json (0600), never in argv or the plist.
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
-	acquireLock, createLog, createTransport, deliver, loadState, LOG_DIR, runAllowed, saveState, STATE_DIR,
+	acquireLock, createLog, createTransport, deliver, loadState, LOG_DIR, runAllowed, saveState, STATE_DIR, WEBHOOK_SENDS_PER_HOUR,
 	type CommandName, type ExecResult, type Log, type Transport,
 } from "./io.mts";
-import { advance, buildPayload, markDelivered, normalize, parseCi, parseStatus, type Ci } from "./observe.mts";
+import { advance, buildPayload, buildTestPayload, markDelivered, normalize, parseCi, parseStatus, type Ci } from "./observe.mts";
 
 export type Deps = {
 	now: () => number;
@@ -17,7 +18,7 @@ export type Deps = {
 	stateDir: string;
 	sleep?: (ms: number) => Promise<void>;
 };
-export type Outcome = "locked" | "poll_failed" | "baseline" | "no_change" | "woke" | "wake_failed";
+export type Outcome = "locked" | "poll_failed" | "baseline" | "no_change" | "woke" | "wake_failed" | "wake_capped";
 
 function parseJson(text: string): unknown {
 	try {
@@ -46,7 +47,7 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 		}
 		const status = parseStatus(raw);
 		if (!status.ok) {
-			await deps.log(`poll_failed code=${status.code}`);
+			await deps.log(`poll_failed code=${status.code}${status.detail ? ` ${status.detail}` : ""}`);
 			return "poll_failed";
 		}
 
@@ -73,14 +74,22 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 			await deps.log(`poll ok events=0 snapshot=${fingerprint}`);
 			outcome = "no_change";
 		} else {
-			const result = await deliver(deps.transport, buildPayload(due, deps.now()), { sleep: deps.sleep });
+			const mode = deps.transport.mode;
+			const result = await deliver(deps.transport, buildPayload(due, deps.now()), {
+				sleep: deps.sleep,
+				cap: { sends: next.sends, now: deps.now },
+			});
+			state = { ...next, sends: result.sends };
 			const keys = due.map((e) => e.key).join(",");
 			if (result.ok) {
-				state = markDelivered(next, due);
-				await deps.log(`wake ${deps.transport.mode} events=${due.length} keys=${keys} snapshot=${fingerprint}`);
+				state = markDelivered(state, due);
+				await deps.log(`wake ${mode} result=${result.result} events=${due.length} keys=${keys} snapshot=${fingerprint}`);
 				outcome = "woke";
+			} else if (result.capped) {
+				await deps.log(`wake_capped transport=${mode} sends_last_hour=${result.sends.length} cap=${WEBHOOK_SENDS_PER_HOUR} pending=${due.length} keys=${keys}`);
+				outcome = "wake_capped";
 			} else {
-				await deps.log(`wake_failed tries=${result.tries} pending=${due.length} keys=${keys}`);
+				await deps.log(`wake_failed transport=${mode} tries=${result.tries} result=${result.result} pending=${due.length} keys=${keys}`);
 				outcome = "wake_failed";
 			}
 		}
@@ -91,20 +100,35 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 	}
 }
 
+/** One test payload, one try, no lock, no cap and no dedup state: it neither reads nor writes state.json. */
+export async function testWake(deps: { transport: Transport; log: Log; now: () => number }): Promise<{ ok: boolean; line: string }> {
+	const result = await deliver(deps.transport, buildTestPayload(deps.now()), { tries: 1 });
+	const line = `test-wake transport=${deps.transport.mode} result=${result.result}`;
+	await deps.log(line);
+	return { ok: result.ok, line };
+}
+
 async function main() {
 	const { values } = parseArgs({
 		options: {
 			transport: { type: "string", default: "dry-run" },
 			"state-dir": { type: "string", default: STATE_DIR },
 			"log-dir": { type: "string", default: LOG_DIR },
+			"test-wake": { type: "boolean", default: false },
 		},
 	});
 	const stateDir = values["state-dir"];
 	const log = createLog(join(values["log-dir"], "watch.log"));
-	const transport = createTransport(values.transport, log);
+	const transport = createTransport(values.transport, log, { configPath: join(stateDir, "webhook.json") });
 	if (!transport.ok) {
 		await log(transport.code);
 		process.exitCode = 2;
+		return;
+	}
+	if (values["test-wake"]) {
+		const { ok, line } = await testWake({ transport: transport.transport, log, now: Date.now });
+		process.stdout.write(`${line}\n`);
+		process.exitCode = ok ? 0 : 1;
 		return;
 	}
 	await pollOnce({ now: Date.now, exec: (name) => runAllowed(name), transport: transport.transport, log, stateDir });
