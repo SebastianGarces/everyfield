@@ -146,18 +146,15 @@ export function createLog(path: string, now: () => number = Date.now, maxBytes =
 export type Payload = { source: string; version: number; at: string; events: Record<string, unknown>[] };
 export type Transport = { mode: "dry-run" | "webhook"; send(payload: Payload, signal: AbortSignal): Promise<void> };
 
-/** The routine's documented public sender contract. Unknown to agents, so null: webhook stays off. */
-export const WEBHOOK_CONTRACT: null = null;
+/** The routine's documented public sender contract is unknown to agents, so webhook stays off. */
 export const WEBHOOK_CONTRACT_NEEDED =
 	"webhook_refused: the routine's documented public sender contract is missing. Needed: the endpoint URL shape, " +
 	"the auth header name and value format, and the payload schema (content type and required fields).";
 
-export function dryRunTransport(log: Log): Transport {
-	return { mode: "dry-run", send: (payload) => log(`dry-run wake payload=${JSON.stringify(payload)}`) };
-}
-
 export function createTransport(mode: string, log: Log): { ok: true; transport: Transport } | { ok: false; code: string } {
-	if (mode === "dry-run") return { ok: true, transport: dryRunTransport(log) };
+	if (mode === "dry-run") {
+		return { ok: true, transport: { mode: "dry-run", send: (payload) => log(`dry-run wake payload=${JSON.stringify(payload)}`) } };
+	}
 	if (mode === "webhook") return { ok: false, code: WEBHOOK_CONTRACT_NEEDED };
 	return { ok: false, code: "transport_unknown" };
 }
