@@ -5,6 +5,17 @@ import {
 	type Ci, type Snapshot, type State,
 } from "../observe.mts";
 import { ciRuns, NOW, rawStatus, running, type Task } from "./fixtures.mts";
+import { readFileSync } from "node:fs";
+
+/**
+ * A real `evf status --json` (evf 2.0.0), captured 2026-11-08T15:30:35Z while one owner decision of kind
+ * `question` was open (on the task whose own agent row evf replaced with a `needs_you` row). Redacted by a
+ * script outside the repo: key names and value types kept; task, run and decision ids remapped (task 100,
+ * decision 900, ...); every string blanked except enum values of state, phase, lifecycle, kind, workflow,
+ * step, role, effort, part, status, action, verdict, type and hold_by; each list keeps one item per
+ * distinct shape (max 3).
+ */
+const realOpenDecision = JSON.parse(readFileSync(new URL("./status-open-decision.json", import.meta.url), "utf8"));
 
 const snap = (raw: unknown, ci: Ci | null = null): Snapshot => {
 	const s = parseStatus(raw);
@@ -70,6 +81,32 @@ describe("normalisation", () => {
 		assert.deepEqual(parseCi([]), { ok: true, value: null });
 		assert.deepEqual(parseCi({ runs: [] }), { ok: false, code: "gh_bad_shape" });
 		assert.deepEqual(parseCi([{ headSha: "not-a-sha", status: "completed", createdAt: "x" }]), { ok: false, code: "gh_bad_shape" });
+	});
+});
+
+describe("real capture: an open owner decision", () => {
+	// The Nov 8 outage: main's parser required `run` and `step` on every agents row, so this capture
+	// failed with evf_bad_shape on every poll while a decision was open (the parser at f450acec fails it).
+	test("the captured status parses, including evf's needs_you row", () => {
+		const needsYou = realOpenDecision.agents.filter((a: Record<string, unknown>) => a.state === "needs_you");
+		assert.equal(needsYou.length, 1, "the fixture holds the real needs_you row");
+		assert.ok(!("run" in needsYou[0]) && !("step" in needsYou[0]), "with no run or step keys");
+		const s = parseStatus(realOpenDecision);
+		assert.ok(s.ok, s.ok ? "" : s.detail);
+		assert.deepEqual(s.value.decisions, [{ id: "D-900", task: 100 }]);
+	});
+
+	test("the decision opening yields exactly one decision event", () => {
+		const before = structuredClone(realOpenDecision);
+		before.decisions = [];
+		before.agents = before.agents.filter((a: Record<string, unknown>) => a.state !== "needs_you");
+		assert.deepEqual(due(before, realOpenDecision), ["decision:D-900"]);
+		assert.deepEqual(due(realOpenDecision, realOpenDecision), [], "and nothing more while it stays open");
+	});
+
+	test("a decision opening on a running task does not also report the seat as finished", () => {
+		const cur = running({ decisions: [{ id: 12, task: 1, kind: "question" }] });
+		assert.deepEqual(due(running(), cur), ["decision:D-12"]);
 	});
 });
 
