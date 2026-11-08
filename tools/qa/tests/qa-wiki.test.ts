@@ -5,7 +5,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { source, startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "./fixtures.ts";
+import { MAIL_KEYS, source, startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "./fixtures.ts";
 
 // OPS-127: the QA seed's church and network copies of a Wiki article and its revised article. Each case seeds a quiet
 // local database (D81) and reads the result through the Wiki domain reader as the QA owner.
@@ -26,6 +26,7 @@ type Article = {
 	articleId: string;
 	sourceId: string;
 	sourceKind: string;
+	state: string;
 	title: string;
 	body: string | null;
 	revisionNumber: number;
@@ -38,9 +39,10 @@ type Branch = {
 	seed: () => ReturnType<typeof spawnSync>;
 	read: (requests: { articleId: string; source?: unknown }[]) => Article[];
 	first: string;
-	/** Articles A and B as the test expects them, by slug. */
+	/** Articles A, B and C as the test expects them, by slug. */
 	a: string;
 	b: string;
+	c: string;
 	releasesBefore: number;
 };
 
@@ -68,13 +70,16 @@ after(() => {
 	for (const db of started) stopQuietDatabase(db);
 });
 
-async function branch(tag: string, prepare: (query: Branch["query"]) => Promise<[string, string]>): Promise<Branch> {
+async function branch(
+	tag: string,
+	prepare: (query: Branch["query"]) => Promise<[string, string, string]>,
+): Promise<Branch> {
 	const db = startQuietDatabase(source, tag);
 	started.push(db);
 	const query = connect(db);
-	const [a, b] = await prepare(query);
+	const [a, b, c] = await prepare(query);
 	const releasesBefore = Number((await query("SELECT count(*)::int AS n FROM reference_release"))[0]!.n);
-	const env = clean({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD });
+	const env = clean({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS });
 	const seed = () =>
 		spawnSync(tsx, ["--conditions=react-server", "tools/qa/qa-seed.ts"], { cwd: source, encoding: "utf8", env });
 	const read = (requests: { articleId: string; source?: unknown }[]) => {
@@ -91,19 +96,23 @@ async function branch(tag: string, prepare: (query: Branch["query"]) => Promise<
 	};
 	const run = seed();
 	assert.equal(run.status, 0, String(run.stderr));
-	return { query, seed, read, first: String(run.stdout), a, b, releasesBefore };
+	return { query, seed, read, first: String(run.stdout), a, b, c, releasesBefore };
 }
 
 let freshBranch: Promise<Branch> | undefined;
-/** A fresh migrated database: the seed writes its own three-article wiki, so A and B are its first two articles. */
+/** A fresh migrated database: the seed writes its own three-article wiki, so A, B and C are its three articles. */
 const fresh = () =>
-	(freshBranch ??= branch("qa-wiki", async () => [corpus.articles[0]!.slug, corpus.articles[1]!.slug]));
+	(freshBranch ??= branch("qa-wiki", async () => [
+		corpus.articles[0]!.slug,
+		corpus.articles[1]!.slug,
+		corpus.articles[2]!.slug,
+	]));
 
 let devBranch: Promise<Branch> | undefined;
 /**
  * A database shaped like a Neon branch of development: an active release with articles in several sections whose
- * positions tie, article B already on its second revision, another church's data, and no QA data. A and B are the first two
- * by position and then slug.
+ * positions tie, article B already on its second revision, another church's data, and no QA data. A, B and C are the first
+ * three by position and then slug.
  */
 const development = () =>
 	(devBranch ??= branch("qa-wiki-dev", async (query) => {
@@ -165,7 +174,7 @@ const development = () =>
 			"INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES($1,'sending_church','Dev Sending Church','America/Chicago',1)",
 			[randomUUID()],
 		);
-		return ["finance/first-budget", "leadership/why-a-team"];
+		return ["finance/first-budget", "leadership/why-a-team", "training/overview"];
 	}));
 
 const articleId = async (b: Branch, slug: string) =>
@@ -402,6 +411,7 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 			JOIN auth_user u ON u.id = a.auth_user_id JOIN plant p ON p.id = s.plant_id ORDER BY u.email`),
 		[
 			{ email: "delivered+qa-admin@resend.dev", name: "Harvest Point (QA)", role: "admin" },
+			{ email: "delivered+qa-member-2@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-member@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-owner@resend.dev", name: "Harvest Point (QA)", role: "owner" },
 		],
@@ -446,5 +456,120 @@ test("AC:OPS-127-10 the QA runbook names articles A and B, the church and the ne
 	assert.match(
 		runbook,
 		/The church has people, .*a sending church, "Grace Fellowship \(QA\)", and a sending network,\s+"Harvest Network \(QA\)"/s,
+	);
+});
+
+/**
+ * T-51 (WP-034): article C has a published church version from each sending church that shares the wiki, and no order
+ * between them, so the reader names the order as required and offers both church versions by name. Article A keeps
+ * its one church version.
+ */
+async function orderCaseHolds(b: Branch, title: string) {
+	const c = await articleId(b, b.c),
+		a = await articleId(b, b.a);
+	const versions = await b.query(
+		`SELECT o.name, e.state, r.title, r.body, r.published_at IS NOT NULL AS published FROM article_editor_state e
+			JOIN organization o ON o.id = e.organization_id JOIN article_revision r ON r.id = e.current_revision_id
+			WHERE e.article_id = $1 ORDER BY o.name`,
+		[c],
+	);
+	assert.deepEqual(
+		versions.map((v) => [v.name, v.state, v.published, v.title, firstLine(v.body)]),
+		[DIRECTOR_CHURCH, CHURCH].map((name) => [
+			name,
+			"published",
+			true,
+			`${title} (${name})`,
+			`This is the church version from ${name}.`,
+		]),
+	);
+	// Both churches share the wiki with the test church, and it has set no order.
+	const plant = await plantId(b);
+	assert.deepEqual(
+		await b.query(
+			`SELECT o.name, f.share_wiki FROM affiliation f JOIN organization o ON o.id = f.organization_id
+				WHERE f.plant_id = $1 AND f.ended_at IS NULL AND o.kind = 'sending_church' ORDER BY o.name`,
+			[plant],
+		),
+		[
+			{ name: DIRECTOR_CHURCH, share_wiki: true },
+			{ name: CHURCH, share_wiki: true },
+		],
+	);
+	// A church order is an audit event of the church (packages/domain/src/wiki/writes.ts).
+	assert.deepEqual(
+		await b.query(
+			"SELECT count(*)::int AS n FROM audit_event WHERE tenant_id = $1 AND action = 'wiki.source_order_changed'",
+			[plant],
+		),
+		[{ n: 0 }],
+	);
+	const [read] = b.read([{ articleId: c }]);
+	assert.equal(read!.state, "source_order_required");
+	const churches = [await orgId(b, DIRECTOR_CHURCH), await orgId(b, CHURCH)].sort();
+	assert.deepEqual(
+		read!.alternates
+			.filter((alt) => alt.sourceKind === "church")
+			.map((alt) => alt.sourceId)
+			.sort(),
+		churches,
+	);
+	assert.deepEqual(
+		(await b.query("SELECT o.name FROM article_editor_state e JOIN organization o ON o.id = e.organization_id WHERE e.article_id = $1 AND o.kind = 'sending_church'", [a])).map((r) => r.name),
+		[CHURCH],
+	);
+}
+
+test("T-51: article C has church versions from Grace Fellowship (QA) and Grace Church (QA), and needs an order", async () => {
+	await orderCaseHolds(await fresh(), corpus.articles[2]!.title);
+	await orderCaseHolds(await development(), "Dev training/overview r1");
+});
+
+test("T-51: the seed's own wiki has three articles, and a release with fewer than three stops the seed", async () => {
+	const b = await fresh();
+	assert.deepEqual(
+		await b.query(`SELECT count(DISTINCT article_id)::int AS n FROM article_revision WHERE tenant_id = $1
+			AND release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)`, [GLOBAL]),
+		[{ n: 3 }],
+	);
+	const db = startQuietDatabase(source, "qa-wiki-two");
+	started.push(db);
+	const query = connect(db);
+	const hash = () => randomBytes(32).toString("hex");
+	const release = randomUUID(),
+		section = randomUUID();
+	await query(
+		`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES($1,$2,'memory://dev',$3,'validated',clock_timestamp(),clock_timestamp(),'memory://approval',$4,'v','profile',1,$5,0)`,
+		[release, "two-" + release, hash(), hash(), GLOBAL],
+	);
+	await query("INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'section','two/start',$2)", [
+		section,
+		GLOBAL,
+	]);
+	for (const [position, slug] of ["two/first", "two/second"].entries()) {
+		const article = randomUUID();
+		await query("INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'article',$2,$3)", [
+			article,
+			slug,
+			GLOBAL,
+		]);
+		await query(
+			`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+			VALUES($1,$2,$3,$4,1,$5,$5,$5,'Body.','safe_mdx',0,$6,$7,clock_timestamp(),true,1,$8,NULL,ARRAY[]::text[])`,
+			[randomUUID(), article, GLOBAL, release, slug, position + 1, hash(), section],
+		);
+	}
+	await query(
+		`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+		VALUES($1,$2,1,clock_timestamp(),'dev','dev',0)`,
+		[randomUUID(), release],
+	);
+	const env = clean({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS });
+	const r = spawnSync(tsx, ["--conditions=react-server", "tools/qa/qa-seed.ts"], { cwd: source, encoding: "utf8", env });
+	assert.equal(r.status, 1, r.stdout);
+	assert.match(
+		r.stderr,
+		/QA seed failed: Error: wiki: the active release has 2 published global articles; articles A, B and C need three/,
 	);
 });

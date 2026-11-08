@@ -11,6 +11,14 @@ export function tsxRun(args: string[], env: Record<string, string | undefined>) 
 	const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
 	return spawnSync(tsx, ["--conditions=react-server", ...args], { cwd: source, encoding: "utf8", env: clean });
 }
+/**
+ * Fixed mail keys for the seed, as `bin/qa up` passes the preview's own. A test that reads seeded suppression or mail
+ * rows hashes and opens addresses under them.
+ */
+export const MAIL_KEYS = {
+	IDENTITY_MAIL_KEY: "1a".repeat(32),
+	IDENTITY_ADDRESS_KEY: "2b".repeat(32),
+} as const;
 export const runSeed = (env: Record<string, string | undefined>) => tsxRun(["tools/qa/qa-seed.ts"], env);
 
 export type QuietDatabase = { container: string; adminUrl: string };

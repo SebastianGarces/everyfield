@@ -1,7 +1,7 @@
 # QA preview runbook (OPS-106)
 
 A QA preview is a Vercel preview of one branch with its own database. It gives Nora a working copy of the app to test,
-with seeded data, five known logins and the same shared credentials as every preview. Nothing builds on a normal push
+with seeded data, seven known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
 `bin/qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md). The code is in `tools/qa/`.
@@ -27,9 +27,12 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       is missing or also serves production (ep-gentle-dust).
    2. Creates a Neon branch named `qa-<branch>-<4 hex>` off development.
    3. Installs the branch's dependencies in a temporary checkout and runs its `db:migrate` on the Neon branch.
-   4. Runs the QA seed on the Neon branch.
+   4. Makes the preview's mail keys (`IDENTITY_MAIL_KEY` and `IDENTITY_ADDRESS_KEY`) and runs the QA seed on the Neon
+      branch with them. The seed seals and hashes the seeded mail addresses under these keys, so the preview must use
+      the same two. No key is printed.
    5. Deploys the branch head with `vercel deploy --target preview`. Only the database and identity settings are set
-      for this deployment. Everything else comes from the Vercel Preview environment.
+      for this deployment, with the same mail keys the seed got. Everything else comes from the Vercel Preview
+      environment.
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
 3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora.
@@ -45,16 +48,28 @@ If a step fails, the command removes what it made and prints the error with ever
 | Member                  | `delivered+qa-member@resend.dev`            | `Everyfield-QA-preview-1` |
 | Network Admin           | `delivered+qa-network-admin@resend.dev`     | `Everyfield-QA-preview-1` |
 | Sending-church director | `delivered+qa-sending-director@resend.dev`  | `Everyfield-QA-preview-1` |
+| Second Member           | `delivered+qa-member-2@resend.dev`          | `Everyfield-QA-preview-1` |
+| Sign-up                 | `delivered+qa-signup@resend.dev`            | `Everyfield-QA-preview-1` |
 
-These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin and Member land on
-the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two
-follow-ups, a written document, a draft message, the wiki and the Owner's private check-in history (below). It also has
-a sending church, "Grace Fellowship (QA)", and a sending network,
-"Harvest Network (QA)". Both share the wiki with Harvest Point (QA). Grace Fellowship (QA) has no login.
+These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
+Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
+tasks, two follow-ups, a written document, a draft message, a sent message, the wiki and the Owner's private check-in
+history (below).
 
-The last two logins test the overseeing side. The Network Admin is an Admin of the network "Harvest Network (QA)". The
-sending-church director is the Owner of the sending church "Grace Church (QA)". Each organization oversees Harvest
-Point (QA): the church's Owner sent each one a connection request, and the organization's login accepted it.
+The church is connected to three organizations. Two of them are sending churches with similar names. They are two
+different churches on purpose:
+
+- It has a sending church, "Grace Fellowship (QA)", and a sending network, "Harvest Network (QA)". Both share the wiki
+  with Harvest Point (QA) (OPS-127). Grace Fellowship (QA) has no login. It is the wiki source of article A's church
+  version (below).
+- "Grace Church (QA)" is the other sending church. It holds the sending-church director login (OPS-126). It also
+  shares the wiki.
+- Both sending churches publish a church version of article C (below).
+
+The Network Admin and Sending-church director logins test the overseeing side. The Network Admin is an Admin of the
+network "Harvest Network (QA)". The sending-church director is the Owner of the sending church "Grace Church (QA)".
+Each of these two organizations oversees Harvest Point (QA): the church's Owner sent each one a connection request,
+and the organization's login accepted it.
 
 - To see the connection, sign in as one of these logins and open `/settings/sharing`. Harvest Point (QA) is in the
   "Connected churches" list.
@@ -62,10 +77,25 @@ Point (QA): the church's Owner sent each one a connection request, and the organ
 - These logins do not see planter-private data such as check-ins. They see the church only through what the
   connection shares.
 
+### Removable Member seat and sign-up login (T-51)
+
+These cases came from Nora's QA notes of 2026-11-04 (WP-017).
+
+- **Second Member, Owen Price.** `delivered+qa-member-2@resend.dev` holds a Member seat on Harvest Point (QA), and his
+  Person is "Owen Price". Use this seat to test seat removal. Sign in as the Owner, open Settings, then Seats
+  (`/settings/seats`), and remove Owen Price. Do not remove Ruth Allen: she holds the Member login, so removing her
+  breaks it. After the removal, the Owner, Admin and Member logins still sign in and land on Harvest Point (QA). The
+  Second Member login then has no church. Removal cannot be undone on the preview, so to test it again, ask for a new
+  QA preview.
+- **Sign-up, Hannah Cole.** `delivered+qa-signup@resend.dev` is a new account with a verified email. It holds no seat
+  and no organization. Signing in shows "You're signed in" and "Setting up your church comes next", and its "Set up
+  your church" button opens church onboarding, not the home screen. Once Nora finishes onboarding on a preview, that
+  account owns a new church there, so to test sign-up again, ask for a new QA preview.
+
 ### Church, network and revised wiki articles (OPS-127)
 
-The seed gives two wiki articles a known state, so Nora can test what a planter sees. Sign in as the owner and open the
-Wiki.
+The seed gives three wiki articles a known state, so Nora can test what a planter sees. Sign in as the owner and open
+the Wiki.
 
 - **Article A, "First Year Budget Planning".** Grace Fellowship (QA) and Harvest Network (QA) each have a published
   version of it. The owner sees the church version: the title ends in "(Grace Fellowship (QA))", the line under the
@@ -77,10 +107,44 @@ Wiki.
   "(revised)" and its body starts with "Revised for QA". The owner finished the first revision a week ago, so the line
   under the title shows "Read" and "Updated since you read it". The admin and member have not read it, so they see
   no update note.
+- **Article C, "Acquiring Portable Church Equipment" (T-51, WP-034).** Grace Fellowship (QA) and Grace Church (QA)
+  each published their own church version, and Harvest Point (QA) has chosen no order between them. Signed in as the
+  Owner or the Admin, the article shows the "Order needed" callout "Choose which church version comes first" with a
+  "Choose the order" button. Until an order is chosen, everyone reads the global version. The Member sees no prompt.
+  The seed sets no order, so Nora can choose it herself. Each church version starts with "This is the church version
+  from" and the church's name.
 
-The seed picks these two articles as the first and second article by position, then by slug, in the active wiki
-release of the development database. If the development wiki changes, the seed can pick other articles. Its output
-names the two titles ("wiki copies of …" and "wiki revision of …"), so check them when you send the URL to Nora.
+Article A keeps its one church version, from Grace Fellowship (QA). Grace Church (QA) has no version of article A.
+
+The seed picks these three articles as the first, second and third article by position, then by slug, in the active
+wiki release of the development database. If the development wiki changes, the seed can pick other articles. Its
+output names the three titles ("wiki copies of …", "wiki revision of …" and "wiki church versions of …"), so check
+them when you send the URL to Nora. The seed stops with an error if the active release has fewer than three published
+articles.
+
+### Refused recipient and suppressed address (T-51)
+
+These cases came from Nora's QA notes of 2026-11-04 (WP-028).
+
+- **Refused recipient.** Messages has a sent message, "QA delivery check", to Maria Santos, Sara Nunez and Leo Pratt.
+  Leo Pratt's address bounced 10 days before the send, so his address is suppressed and the send refused his mail.
+  Sign in as the Owner, open Messages and open the message. Leo Pratt shows "Refused", and Maria and Sara show
+  "Delivered". The totals count Leo under "Failed" and "Suppressed", in "Not delivered". No email left the preview:
+  the seed handed the two messages to a stand-in for the email service.
+- **The Admin's suppressed address and its past restore.** The Admin's own address bounced 30 days ago. Lena Park, the
+  Admin, restored it 21 days ago, and it bounced again 6 days ago. Sign in as the Admin, open Messages, then "Your
+  address". It shows "This address is suppressed. It does not receive church email." "Past restores" lists one
+  restore with its date, "Restored by Lena Park" and the reason "Lena confirmed her inbox works again after the first
+  bounce." Nora can restore the address with a reason. It then shows as not suppressed, and "Past restores" lists two
+  restores, the new one first.
+
+The Address section shows only the signed-in account's own address, so only the Admin login shows this case.
+
+### Which previews have these cases
+
+A preview made before T-51 merged has none of the T-51 cases: the Second Member and Sign-up logins, the delivery
+message, the suppressed addresses and article C. Make a new preview with `bin/qa up` from a branch that contains T-51.
+A preview that is already open does not change.
 
 ### Check-in history on the owner login
 
