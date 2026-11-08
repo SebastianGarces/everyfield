@@ -57,7 +57,6 @@ export function seedRefusal(env: Readonly<Record<string, string | undefined>>): 
 		address = env.IDENTITY_ADDRESS_KEY ?? "";
 	if (!HEX_KEY.test(mail) || !HEX_KEY.test(address))
 		return "IDENTITY_MAIL_KEY and IDENTITY_ADDRESS_KEY must each hold 64 hex characters, the preview's own keys.";
-	if (mail === address) return "IDENTITY_MAIL_KEY and IDENTITY_ADDRESS_KEY must differ.";
 	return null;
 }
 

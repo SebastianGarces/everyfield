@@ -626,16 +626,15 @@ async function mailCases(
 		done.push(`suppressed address of ${REFUSED.name}`);
 	}
 
-	// Each step looks for its own state, so a rerun finishes a send that stopped part way.
+	// The message is written, scheduled, sent and delivered in one step; a failed seed leaves no branch to finish.
 	const message = async () =>
 		(
 			await rows(
 				admin,
-				sql`SELECT id, state, revision::text AS revision FROM communication WHERE plant_id=${p.plantId} AND subject=${DELIVERY}
+				sql`SELECT id, revision::text AS revision FROM communication WHERE plant_id=${p.plantId} AND subject=${DELIVERY}
 					ORDER BY created_at LIMIT 1`,
 			)
-		)[0] as { id: string; state: string; revision: string } | undefined;
-	let sent = false;
+		)[0] as { id: string; revision: string } | undefined;
 	if (!(await message())) {
 		const c = await p.ctx();
 		const personIds = [];
@@ -653,11 +652,7 @@ async function mailCases(
 				}),
 			),
 		);
-		sent = true;
-	}
-	const draft = (await message())!;
-	if (draft.state !== "scheduled") {
-		const c = await p.ctx();
+		const draft = (await message())!;
 		// Send now's schedule step: the next whole minute at least one minute away (sendNowChain.ts).
 		const at = new Date(Math.ceil((Date.now() + 60_000) / 60_000) * 60_000).toISOString();
 		ok(
@@ -670,12 +665,7 @@ async function mailCases(
 				}),
 			),
 		);
-		sent = true;
-	}
-	const scheduled = (await message())!;
-	const mailOf = sql`tenant_id=${p.plantId} AND purpose='communication' AND logical_key LIKE ${`communication/${scheduled.id}/%`}`;
-	if (!(await rows(admin, sql`SELECT 1 FROM mail WHERE ${mailOf}`)).length) {
-		const c = await p.ctx();
+		const scheduled = (await message())!;
 		const actor = await RequestActor.resolve(runtime, c.session as never);
 		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
@@ -696,16 +686,14 @@ async function mailCases(
 		) as { acceptedCount: number; rejectedCount: number };
 		if (result.acceptedCount !== DELIVERY_TO.length - 1 || result.rejectedCount !== 1)
 			throw Error(`send delivery message: ${JSON.stringify(result)}`);
-		sent = true;
-	}
-	// A signed "delivered" callback for each accepted message, under a secret made for this run.
-	const undelivered = await rows(
-		admin,
-		sql`SELECT provider_message_id AS id FROM mail WHERE ${mailOf} AND state='accepted' AND provider_message_id IS NOT NULL`,
-	);
-	if (undelivered.length) {
+		// A signed "delivered" callback for each accepted message, under a secret made for this run.
+		const accepted = await rows(
+			admin,
+			sql`SELECT provider_message_id AS id FROM mail WHERE tenant_id=${p.plantId} AND purpose='communication'
+				AND logical_key LIKE ${`communication/${scheduled.id}/%`} AND state='accepted' AND provider_message_id IS NOT NULL`,
+		);
 		const secret = `whsec_${randomBytes(32).toString("base64")}`;
-		for (const row of undelivered) {
+		for (const row of accepted) {
 			const raw = JSON.stringify({
 				type: "email.delivered",
 				created_at: new Date().toISOString(),
@@ -727,9 +715,8 @@ async function mailCases(
 			);
 			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
 		}
-		sent = true;
+		done.push(`message ${DELIVERY}`);
 	}
-	if (sent) done.push(`message ${DELIVERY}`);
 
 	// The Admin's address: first bounce, Lena's restore, second bounce, in one transaction.
 	if (!(await known(BOUNCES.adminFirst))) {
@@ -951,7 +938,6 @@ async function publishCopy(
 async function wikiCases(admin: Database, plantId: string, owner: string): Promise<string[]> {
 	const done: string[] = [];
 	const [articleA, articleB, articleC] = await starterArticles(admin);
-	const sourceIds = new Map<string, string>();
 	const base = await globalRevision(admin, articleA);
 	let copies = false;
 	for (const source of SOURCES) {
@@ -974,7 +960,6 @@ async function wikiCases(admin: Database, plantId: string, owner: string): Promi
 				VALUES(${randomUUID()},${plantId},${orgId},clock_timestamp()-(${source.acceptedDaysAgo} || ' days')::interval,false,false,false,false,true,false,false)`);
 			done.push(`affiliation with ${source.name}`);
 		}
-		sourceIds.set(source.name, orgId);
 		if (await publishCopy(admin, orgId, articleA, base, source.version, source.name)) copies = true;
 	}
 	if (copies) done.push(`wiki copies of ${String(base.title)}`);
@@ -1004,15 +989,13 @@ async function wikiCases(admin: Database, plantId: string, owner: string): Promi
 	// Article C: two sending churches, each with its own published version. OPS-126 made Grace Church (QA) and its
 	// connection, which shares the wiki.
 	const third = await globalRevision(admin, articleC);
-	const directorChurch = (
-		await rows(admin, sql`SELECT id FROM organization WHERE kind='sending_church' AND name=${ORDER_CHURCHES[1]} LIMIT 1`)
-	)[0]!.id as string;
 	let ordered = false;
-	for (const [name, orgId] of [
-		[ORDER_CHURCHES[0], sourceIds.get(ORDER_CHURCHES[0])!],
-		[ORDER_CHURCHES[1], directorChurch],
-	] as const)
+	for (const name of ORDER_CHURCHES) {
+		const orgId = (
+			await rows(admin, sql`SELECT id FROM organization WHERE kind='sending_church' AND name=${name} LIMIT 1`)
+		)[0]!.id as string;
 		if (await publishCopy(admin, orgId, articleC, third, "church version", name)) ordered = true;
+	}
 	if (ordered) done.push(`wiki church versions of ${String(third.title)}`);
 	return done;
 }
