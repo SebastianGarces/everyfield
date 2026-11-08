@@ -515,7 +515,12 @@ async function orderCaseHolds(b: Branch, title: string) {
 		churches,
 	);
 	assert.deepEqual(
-		(await b.query("SELECT o.name FROM article_editor_state e JOIN organization o ON o.id = e.organization_id WHERE e.article_id = $1 AND o.kind = 'sending_church'", [a])).map((r) => r.name),
+		(
+			await b.query(
+				"SELECT o.name FROM article_editor_state e JOIN organization o ON o.id = e.organization_id WHERE e.article_id = $1 AND o.kind = 'sending_church'",
+				[a],
+			)
+		).map((r) => r.name),
 		[CHURCH],
 	);
 }
@@ -528,8 +533,11 @@ test("T-51: article C has church versions from Grace Fellowship (QA) and Grace C
 test("T-51: the seed's own wiki has three articles, and a release with fewer than three stops the seed", async () => {
 	const b = await fresh();
 	assert.deepEqual(
-		await b.query(`SELECT count(DISTINCT article_id)::int AS n FROM article_revision WHERE tenant_id = $1
-			AND release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)`, [GLOBAL]),
+		await b.query(
+			`SELECT count(DISTINCT article_id)::int AS n FROM article_revision WHERE tenant_id = $1
+			AND release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)`,
+			[GLOBAL],
+		),
 		[{ n: 3 }],
 	);
 	const db = startQuietDatabase(source, "qa-wiki-two");
@@ -566,7 +574,11 @@ test("T-51: the seed's own wiki has three articles, and a release with fewer tha
 		[randomUUID(), release],
 	);
 	const env = clean({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS });
-	const r = spawnSync(tsx, ["--conditions=react-server", "tools/qa/qa-seed.ts"], { cwd: source, encoding: "utf8", env });
+	const r = spawnSync(tsx, ["--conditions=react-server", "tools/qa/qa-seed.ts"], {
+		cwd: source,
+		encoding: "utf8",
+		env,
+	});
 	assert.equal(r.status, 1, r.stdout);
 	assert.match(
 		r.stderr,

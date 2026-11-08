@@ -16,7 +16,15 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { MAIL_KEYS, runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
+import {
+	MAIL_KEYS,
+	runSeed,
+	source,
+	startQuietDatabase,
+	stopQuietDatabase,
+	tsxRun,
+	type QuietDatabase,
+} from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
 
 // Sentinels the stubbed CLIs emit or receive. None may reach qa's output, its store or any file it leaves behind.
@@ -210,7 +218,10 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
 		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
-		assert.deepEqual(seedKeys, { IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY, IDENTITY_ADDRESS_KEY: env.IDENTITY_ADDRESS_KEY });
+		assert.deepEqual(seedKeys, {
+			IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY,
+			IDENTITY_ADDRESS_KEY: env.IDENTITY_ADDRESS_KEY,
+		});
 		for (const k of Object.values(seedKeys)) assert.match(k, /^[a-f0-9]{64}$/);
 		assert.notEqual(seedKeys.IDENTITY_MAIL_KEY, seedKeys.IDENTITY_ADDRESS_KEY);
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
@@ -478,10 +489,7 @@ async function seedFresh() {
 	const q = quiet("qa-seed");
 	const before = await q.counts();
 	// The refusal leaves the database as it was.
-	assert.equal(
-		runSeed({ ...q.env, NODE_ENV: "production", QA_ROLE_PASSWORD: "x".repeat(20) }).status,
-		2,
-	);
+	assert.equal(runSeed({ ...q.env, NODE_ENV: "production", QA_ROLE_PASSWORD: "x".repeat(20) }).status, 2);
 	assert.deepEqual(await q.counts(), before);
 	const first = q.seed();
 	const seeded = await q.counts();
@@ -855,8 +863,24 @@ test("T-51: a second Member, Owen Price, holds a seat on the church and signs in
 			LEFT JOIN person pe ON pe.linked_account_id = a.id AND pe.plant_id = p.id AND pe.state = 'live'
 			WHERE p.name = 'Harvest Point (QA)' AND s.role = 'member' ORDER BY u.email`),
 		[
-			{ email: QA_LOGINS.member2, email_verified: true, registration_state: "active", role: "member", live: true, accepted: true, display_name: "Owen Price" },
-			{ email: QA_LOGINS.member, email_verified: true, registration_state: "active", role: "member", live: true, accepted: true, display_name: "Ruth Allen" },
+			{
+				email: QA_LOGINS.member2,
+				email_verified: true,
+				registration_state: "active",
+				role: "member",
+				live: true,
+				accepted: true,
+				display_name: "Owen Price",
+			},
+			{
+				email: QA_LOGINS.member,
+				email_verified: true,
+				registration_state: "active",
+				role: "member",
+				live: true,
+				accepted: true,
+				display_name: "Ruth Allen",
+			},
 		],
 	);
 	assert.equal(seen.member2.signedIn, "signed_in");
@@ -884,7 +908,11 @@ test("T-51: the sent delivery message has one refused recipient, counted as fail
 	// The seed sealed each address under the keys the preview gets, so the Owner's read opens it.
 	assert.deepEqual(
 		seen.delivery.recipients.value.items
-			.map((r: { name: string; deliveryStatus: string; deliveryAddress: string }) => [r.name, r.deliveryStatus, r.deliveryAddress])
+			.map((r: { name: string; deliveryStatus: string; deliveryAddress: string }) => [
+				r.name,
+				r.deliveryStatus,
+				r.deliveryAddress,
+			])
 			.sort(),
 		[
 			["Leo Pratt", "refused", "delivered+qa-leo@resend.dev"],
@@ -912,7 +940,10 @@ test("T-51: the Admin's own address is suppressed and has one past restore by Le
 
 test("T-51: the first run names each new part once; the second writes nothing", async () => {
 	const { first, second, seeded, after } = await fresh();
-	const parts = first.replace(/^QA seed wrote: /, "").replace(/\.$/, "").split(", ");
+	const parts = first
+		.replace(/^QA seed wrote: /, "")
+		.replace(/\.$/, "")
+		.split(", ");
 	for (const part of [
 		`login ${QA_LOGINS.member2}`,
 		`login ${QA_LOGINS.signup}`,

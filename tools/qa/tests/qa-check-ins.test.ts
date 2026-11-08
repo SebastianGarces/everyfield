@@ -6,7 +6,15 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { MAIL_KEYS, runSeed, source, startQuietDatabase, stopQuietDatabase, tsxRun, type QuietDatabase } from "./fixtures.ts";
+import {
+	MAIL_KEYS,
+	runSeed,
+	source,
+	startQuietDatabase,
+	stopQuietDatabase,
+	tsxRun,
+	type QuietDatabase,
+} from "./fixtures.ts";
 
 // OPS-125: the QA seed gives the QA owner 13 answered past check-in weeks. Each test reads the seeded quiet database
 // through the private-care writer as the owner (qa-care-probe.ts), the way the check-in screen reads it.
