@@ -33,11 +33,11 @@ describe("command allowlist", () => {
 		assert.deepEqual(await runAllowed("evf-decide" as never), { ok: false, code: "command_not_allowed" });
 	});
 
-	test("no source spawns, fetches or reads anything outside io.mts", async () => {
+	test("no source spawns, fetches or reads anything outside io.mts (provision.mts has its own test)", async () => {
 		const sources = (await readdir(here)).filter((f) => f.endsWith(".mts"));
 		for (const f of sources) {
 			const text = await readFile(join(here, f), "utf8");
-			if (f !== "io.mts") assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
+			if (f !== "io.mts" && f !== "provision.mts") assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
 			assert.doesNotMatch(text, /fetch\(|node:http"|node:net|XMLHttpRequest/, `${f} makes no other network call`);
 			if (f !== "io.mts") assert.doesNotMatch(text, /node:https/, `${f} makes no network call`);
 		}

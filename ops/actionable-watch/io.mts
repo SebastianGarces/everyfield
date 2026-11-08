@@ -160,7 +160,7 @@ export type Transport = {
 	send(payload: Payload, signal: AbortSignal): Promise<SendResult>;
 };
 
-/** Sebastian writes this file by hand from the routine panel. Agents never read or print it. */
+/** Written by `provision.mts` from Sebastian's paste (or by hand). Agents never read or print it. */
 export const WEBHOOK_CONFIG = join(STATE_DIR, "webhook.json");
 export type WebhookConfig = { url: URL; key: string };
 
@@ -191,18 +191,26 @@ export async function readWebhookConfig(path: string): Promise<{ ok: true; confi
 		return { ok: false, code: "webhook_config_invalid_json" };
 	}
 	const obj = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+	return obj ? parseWebhookFields(obj.url, obj.key) : { ok: false, code: "webhook_config_invalid" };
+}
+
+/**
+ * The one validator for a URL and key, shared by the send-time loader and the provisioning helper.
+ * It returns only a named code: a URL parse error can carry the input, so it is never surfaced.
+ */
+export function parseWebhookFields(url: unknown, key: unknown): { ok: true; config: WebhookConfig } | { ok: false; code: string } {
 	// A bearer key is visible ASCII with no spaces; anything else could split the header.
-	if (!obj || typeof obj.url !== "string" || typeof obj.key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(obj.key)) {
+	if (typeof url !== "string" || typeof key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(key)) {
 		return { ok: false, code: "webhook_config_invalid" };
 	}
-	let url: URL;
+	let parsed: URL;
 	try {
-		url = new URL(obj.url);
+		parsed = new URL(url);
 	} catch {
 		return { ok: false, code: "webhook_config_invalid_url" };
 	}
-	if (url.protocol !== "https:") return { ok: false, code: "webhook_url_not_https" };
-	return { ok: true, config: { url, key: obj.key } };
+	if (parsed.protocol !== "https:") return { ok: false, code: "webhook_url_not_https" };
+	return { ok: true, config: { url: parsed, key } };
 }
 
 const DNS_ERRORS = new Set(["ENOTFOUND", "EAI_AGAIN", "EAI_NONAME", "EAI_FAIL"]);

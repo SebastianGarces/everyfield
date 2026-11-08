@@ -1,11 +1,11 @@
 // One poll per launchd run: launchd's StartInterval owns cadence and restart, so there is no loop.
-// Usage: node run.mts [--transport dry-run|webhook] [--test-wake] [--state-dir <dir>] [--log-dir <dir>]
+// Usage: node run.mts [--transport dry-run|webhook] [--test-wake | --check-config] [--state-dir <dir>] [--log-dir <dir>]
 // The webhook URL and key live only in <state-dir>/webhook.json (0600), never in argv or the plist.
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
-	acquireLock, createLog, createTransport, deliver, loadState, LOG_DIR, runAllowed, saveState, STATE_DIR, WEBHOOK_SENDS_PER_HOUR,
+	acquireLock, createLog, createTransport, deliver, loadState, LOG_DIR, readWebhookConfig, runAllowed, saveState, STATE_DIR, WEBHOOK_SENDS_PER_HOUR,
 	type CommandName, type ExecResult, type Log, type Transport,
 } from "./io.mts";
 import { advance, buildPayload, buildTestPayload, markDelivered, normalize, parseCi, parseStatus, type Ci } from "./observe.mts";
@@ -115,9 +115,18 @@ async function main() {
 			"state-dir": { type: "string", default: STATE_DIR },
 			"log-dir": { type: "string", default: LOG_DIR },
 			"test-wake": { type: "boolean", default: false },
+			"check-config": { type: "boolean", default: false },
 		},
 	});
 	const stateDir = values["state-dir"];
+	if (values["check-config"]) {
+		// Reads webhook.json through the send-time loader and says only whether it would be used.
+		// It sends nothing, logs nothing and never touches state.json.
+		const read = await readWebhookConfig(join(stateDir, "webhook.json"));
+		process.stdout.write(`${read.ok ? "webhook_config ok" : read.code}\n`);
+		process.exitCode = read.ok ? 0 : 1;
+		return;
+	}
 	const log = createLog(join(values["log-dir"], "watch.log"));
 	const transport = createTransport(values.transport, log, { configPath: join(stateDir, "webhook.json") });
 	if (!transport.ok) {

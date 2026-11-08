@@ -285,3 +285,30 @@ test("--test-wake sends one test payload and neither reads nor changes the dedup
 		await routine.close();
 	}
 });
+
+test("--check-config reports only ok or the refusal code, sends nothing and leaves state.json alone", async () => {
+	const routine = await fakeRoutine([200]);
+	try {
+		const dir = await mkdtemp(join(tmpdir(), "actionable-watch-check-"));
+		const statePath = join(dir, "state.json");
+		await writeFile(statePath, "{deliberately not valid state", { mode: 0o600 });
+		const before = await stat(statePath);
+		const args = ["--check-config", "--transport", "webhook", "--state-dir", dir, "--log-dir", dir];
+
+		assert.deepEqual(await cli(args), { code: 1, stdout: "webhook_config_missing\n", stderr: "" });
+		const url = `${routine.origin}/hooks/SENTINELURLcheck`;
+		await writeConfig(dir, { url, key: "SENTINELKEYcheck" }, 0o644);
+		assert.deepEqual(await cli(args), { code: 1, stdout: "webhook_config_mode\n", stderr: "" });
+		await writeConfig(dir, { url: "http://127.0.0.1/x", key: "k" });
+		assert.deepEqual(await cli(args), { code: 1, stdout: "webhook_url_not_https\n", stderr: "" });
+		await writeConfig(dir, { url, key: "SENTINELKEYcheck" });
+		assert.deepEqual(await cli(args), { code: 0, stdout: "webhook_config ok\n", stderr: "" });
+
+		assert.equal(routine.seen.length, 0, "nothing was sent");
+		assert.equal(await readFile(statePath, "utf8"), "{deliberately not valid state");
+		assert.equal((await stat(statePath)).mtimeMs, before.mtimeMs);
+		await assert.rejects(stat(join(dir, "watch.log")), "nothing logged, so nothing to leak");
+	} finally {
+		await routine.close();
+	}
+});

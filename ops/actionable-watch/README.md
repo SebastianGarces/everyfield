@@ -13,6 +13,7 @@ real `--test-wake` (step 3 below).
   derive events, advance dedup state, build the payload.
 - `io.mts` holds every side effect: the two allowlisted commands, the state file, the lock, the capped
   log and the transport (one HTTPS POST to the routine's webhook).
+- `provision.mts` writes `webhook.json` from two native hidden-input prompts (see Webhook hookup).
 - `run.mts` does one poll and exits. launchd's `StartInterval` (90 s) owns cadence and restart, so the
   watcher has no loop, no daemon and no retry spin.
 
@@ -95,9 +96,10 @@ error code, argv or the plist.
 | Path | What |
 |---|---|
 | `~/Library/LaunchAgents/com.everyfield.actionable-watch.plist` | the launchd job (rendered from the template here) |
-| `~/Library/Application Support/everyfield-actionable-watch/app/*.mts` | installed copy of `observe.mts`, `io.mts`, `run.mts` |
+| `~/Library/Application Support/everyfield-actionable-watch/app/*.mts` | installed copy of `observe.mts`, `io.mts`, `run.mts`, `provision.mts` |
 | `~/Library/Application Support/everyfield-actionable-watch/state.json` | last snapshot, sent keys, pending events, recent webhook send times (0600) |
-| `~/Library/Application Support/everyfield-actionable-watch/webhook.json` | the routine's URL and key, written by Sebastian only (0600) |
+| `~/Library/Application Support/everyfield-actionable-watch/webhook.json` | the routine's URL and key, written only by `provision.mts` from Sebastian's paste, or by him by hand (0600) |
+| `~/Library/Application Support/everyfield-actionable-watch/provision.status` | the last provisioning outcome, one values-free line (0600) |
 | `~/Library/Application Support/everyfield-actionable-watch/watch.lock` | single-instance lock, `pid at`, present only during a poll |
 | `~/Library/Logs/everyfield-actionable-watch/watch.log` and `watch.log.1` | one line per poll, rolls at 1 MB |
 | `~/Library/Logs/everyfield-actionable-watch/launchd.log` | launchd stdout and stderr, normally empty |
@@ -111,7 +113,7 @@ APP="$HOME/Library/Application Support/everyfield-actionable-watch/app"
 NODE="$HOME/.nvm/versions/node/v24.22.1/bin/node"   # Node 24.22+, absolute path
 mkdir -p "$APP" "$HOME/Library/Logs/everyfield-actionable-watch"
 chmod 700 "$HOME/Library/Application Support/everyfield-actionable-watch"
-cp ops/actionable-watch/observe.mts ops/actionable-watch/io.mts ops/actionable-watch/run.mts "$APP/"
+cp ops/actionable-watch/observe.mts ops/actionable-watch/io.mts ops/actionable-watch/run.mts ops/actionable-watch/provision.mts "$APP/"
 sed -e "s|__NODE__|$NODE|" -e "s|__HOME__|$HOME|g" ops/actionable-watch/com.everyfield.actionable-watch.plist \
   > "$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
 plutil -lint "$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
@@ -141,22 +143,57 @@ Nothing else changes: no evf service, dashboard, routine, schedule or GitHub set
 
 ## Webhook hookup
 
-The URL and key exist only in one local file that Sebastian writes. No agent sees, asks for, prints or
-stores them, and they never go through chat, a task, argv, the plist, a log or an evidence file.
+The URL and key exist only in one local file, filled from Sebastian's own paste. No agent sees, asks for,
+prints or stores them, and they never go through chat, a task, an ask answer, argv, the plist, a log or an
+evidence file.
 
-1. **Provision.** Open the routine `everyfield-actionable-change-webhook`, copy its "POST to" URL and its
-   sender key, and create the file with a local editor:
+1. **Provision.** Run one command, or let the agent open it for you:
+
+   ```sh
+   APP="$HOME/Library/Application Support/everyfield-actionable-watch/app"
+   NODE="$(plutil -extract ProgramArguments.0 raw "$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist")"
+   "$NODE" "$APP/provision.mts" --detach
+   ```
+
+   Two native macOS dialogs open in turn, each with a hidden field: first paste the "POST to" URL from the
+   routine `everyfield-actionable-change-webhook`'s panel and press Save, then its sender key and press Save.
+   Each dialog has Cancel and closes itself after 30 minutes. The values reach the helper only over a pipe
+   from `osascript`. It trims surrounding whitespace, checks both with the transport's own validator, and
+   writes `webhook.json` at 0600 (a 0600 temp file in the same 0700 directory, fsynced, then renamed), and
+   then re-reads it through the transport's loader. It reads no clipboard, keychain, app file or API.
+
+   `--detach` prints only `pid=<pid> status=<path>` and returns. The helper keeps running after the
+   launching shell or agent turn ends. Without `--detach` it waits and prints `webhook_config ok` or a
+   code. Either way the outcome goes to `provision.status`, one line with no values:
+
+   ```text
+   state=waiting code=none at=...                      before the first prompt
+   state=ok code=webhook_config_ok at=...              webhook.json written and accepted
+   state=cancelled code=cancelled at=...               Cancel pressed; nothing written
+   state=timed_out code=timed_out at=...               a dialog gave up; nothing written
+   state=invalid code=<code> at=...                    e.g. webhook_url_not_https, webhook_config_invalid,
+                                                       webhook_config_invalid_url, prompt_failed; nothing written
+   ```
+
+   On cancel, timeout or invalid input any existing `webhook.json` stays as it was. Then check the file the
+   way a send would read it. This sends nothing and does not read or change `state.json`:
+
+   ```sh
+   "$NODE" "$APP/run.mts" --check-config     # prints "webhook_config ok" (exit 0) or a refusal code (exit 1)
+   ```
+
+   **Fallback, by hand:** create the file with a local editor, keep it at 0600 (any wider mode refuses
+   every send), and run `--check-config`:
 
    ```sh
    install -m 600 /dev/null "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
    open -e "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
    ```
 
-   Its whole content is `{"url": "<the POST to URL>", "key": "<the sender key>"}`. Keep it at mode 0600:
-   any wider mode refuses every send.
+   Its whole content is `{"url": "<the POST to URL>", "key": "<the sender key>"}`.
 
-2. **Test wake.** Send one payload marked `{"kind": "test"}`. It makes one try, logs only the result and
-   does not read or change `state.json`:
+2. **Test wake.** Only after `--check-config` prints `webhook_config ok`, send one payload marked
+   `{"kind": "test"}`. It makes one try, logs only the result and does not read or change `state.json`:
 
    ```sh
    NODE="$(plutil -extract ProgramArguments.0 raw "$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist")"
@@ -182,14 +219,15 @@ stores them, and they never go through chat, a task, argv, the plist, a log or a
 
 ### Webhook rollback
 
-Switch the job back to `dry-run`, reload it and delete the config:
+Switch the job back to `dry-run`, reload it and delete the config and the provisioning status:
 
 ```sh
 PLIST="$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
 plutil -replace ProgramArguments.3 -string dry-run "$PLIST" && plutil -lint "$PLIST"
 launchctl bootout gui/$UID/com.everyfield.actionable-watch
 launchctl bootstrap gui/$UID "$PLIST"
-rm -f "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json"
+rm -f "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json" \
+      "$HOME/Library/Application Support/everyfield-actionable-watch/provision.status"
 ```
 
 Only the parent may later move the hourly drive routine to a longer backstop; the watcher never changes a
