@@ -85,12 +85,12 @@ These cases came from Nora's QA notes of 2026-11-04 (WP-017).
   Person is "Owen Price". Use this seat to test seat removal. Sign in as the Owner, open Settings, then Seats
   (`/settings/seats`), and remove Owen Price. Do not remove Ruth Allen: she holds the Member login, so removing her
   breaks it. After the removal, the Owner, Admin and Member logins still sign in and land on Harvest Point (QA). The
-  Second Member login then has no church. Removal cannot be undone on the preview, so to test it again, ask for a new
-  QA preview.
+  Second Member login then has no church and opens church onboarding. The seed does not give the seat back, so to
+  test the removal again, ask for a new QA preview.
 - **Sign-up, Hannah Cole.** `delivered+qa-signup@resend.dev` is a new account with a verified email. It holds no seat
-  and no organization. Signing in shows "You're signed in" and "Setting up your church comes next", and its "Set up
-  your church" button opens church onboarding, not the home screen. Once Nora finishes onboarding on a preview, that
-  account owns a new church there, so to test sign-up again, ask for a new QA preview.
+  and no organization. Signing in opens church onboarding at "Start your church", not the home screen. Once Nora
+  finishes onboarding on a preview, that account owns a new church there, so to test sign-up again, ask for a new QA
+  preview.
 
 ### Church, network and revised wiki articles (OPS-127)
 
