@@ -362,7 +362,10 @@ test("AC:DOC-EDIT-HISTORY: version history lists saved revisions newest first an
 		assert.match(rows[0], /^Revision 3Current/);
 		assert.match(rows[1], /^Revision 2/);
 		assert.match(rows[2], /^Revision 1/);
-		assert.ok(!rows.some((r) => r.includes("Unknown author")), "each row names who saved it");
+		assert.ok(
+			!rows.some((r) => r.includes("A former member") || !r.includes("Saved by")),
+			"each row names who saved it",
+		);
 		await list.getByRole("button", { name: /Revision 1/ }).click();
 		await list.getByText("Revision 1, read-only").waitFor();
 		await page.getByRole("img", { name: /revision 1, page 1/ }).waitFor({ timeout: 60_000 });

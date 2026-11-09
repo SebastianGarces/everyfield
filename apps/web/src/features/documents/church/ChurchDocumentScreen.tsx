@@ -60,7 +60,7 @@ export function ChurchDocumentScreen({
 		mergeValues: Record<string, string>;
 	} | null;
 	canManage: boolean;
-	/** The signed-in account's name, shown as the author of a revision saved on this page. */
+	/** The viewer's own name, for the row their save adds; the server reads the same name for that revision. */
 	viewerName: string | null;
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
@@ -70,7 +70,7 @@ export function ChurchDocumentScreen({
 	const setRevision = (next: string) => {
 		setShownRevision(next);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString(), authorName: viewerName };
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
 		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
 	};
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.

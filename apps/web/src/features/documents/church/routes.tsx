@@ -12,10 +12,10 @@ import { canManageChurch, loadChurchDocument, loadLibrary } from "./server.ts";
 export const churchLibraryMetadata: Metadata = { title: "Church documents", robots: { index: false, follow: false } };
 export const churchDocumentMetadata: Metadata = { title: "Church document", robots: { index: false, follow: false } };
 
-async function activeAuthority(returnTo: string) {
+async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	return viewer.status === "active" ? viewer.authority : null;
+	return viewer.status === "active" ? viewer : null;
 }
 
 export async function ChurchLibraryPage({
@@ -23,7 +23,7 @@ export async function ChurchLibraryPage({
 }: {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const authority = await activeAuthority("/documents/church");
+	const authority = (await activeViewer("/documents/church"))?.authority;
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
 	if (loaded.status === "failed") return <Failed />;
@@ -41,10 +41,9 @@ export async function ChurchLibraryPage({
 
 export async function ChurchDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
 	const raw = (await params).documentId;
-	const authority = await activeAuthority(`/documents/church/${encodeURIComponent(raw)}`);
-	if (!authority) return <Unavailable />;
-	// The same cached read activeAuthority made: its name labels a revision this page saves until a reload.
-	const viewerName = (await getViewer())?.displayName ?? null;
+	const viewer = await activeViewer(`/documents/church/${encodeURIComponent(raw)}`);
+	const authority = viewer?.authority;
+	if (!viewer || !authority) return <Unavailable />;
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
@@ -60,7 +59,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 			canManage={canManage}
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}
-			viewerName={viewerName}
+			viewerName={viewer.displayName || null}
 		/>
 	);
 }

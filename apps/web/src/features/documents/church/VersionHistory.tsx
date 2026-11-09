@@ -54,7 +54,7 @@ export function VersionHistory({ revisions, title, current, file, page }: Props)
 										) : null}
 									</span>
 									<span className="text-sm text-text-2 tabular-nums">{WHEN.format(new Date(r.recordedAt))}</span>
-									<span className="text-sm text-text-2">{r.authorName ?? "Unknown author"}</span>
+									<span className="text-sm text-text-2">Saved by {r.savedBy ?? "A former member"}</span>
 								</button>
 							</li>
 						);

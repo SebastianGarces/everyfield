@@ -10,7 +10,7 @@ import type { RevisionRow } from "./server.ts";
 
 // The saved revisions of one Church Document, newest first, read only. Each row downloads that revision: the download
 // saves one export of it (D-78) and joins Saved exports. Any seat that reads the document downloads (D-80). No row edits,
-// restores or deletes a revision.
+// restores or deletes a revision. Each row names its saver, or "A former member" once their seat here has ended (D-105).
 
 type Format = keyof typeof FORMAT_LABEL;
 
@@ -61,11 +61,12 @@ export function ChurchRevisions({
 									<span className="text-md font-medium text-ink tabular-nums">Revision {r.number}</span>
 									{r.number === current ? <Tag>Current</Tag> : null}
 								</span>
-								<span className="text-sm text-text-3">
+								<span className="text-sm text-text-3 wrap-anywhere">
 									Saved{" "}
 									<time dateTime={r.recordedAt} suppressHydrationWarning className="tabular-nums">
 										{savedAt(r.recordedAt)}
-									</time>
+									</time>{" "}
+									by <span className="text-text-2">{r.savedBy ?? "A former member"}</span>
 								</span>
 							</div>
 							<div className="flex flex-none flex-wrap items-center gap-2">
