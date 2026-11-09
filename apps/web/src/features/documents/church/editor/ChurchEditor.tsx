@@ -408,11 +408,11 @@ function TemplateNotice({ onCompare }: { onCompare: () => void }) {
 			aria-label="Template updated"
 			className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)] app-sm:px-5"
 		>
-			<p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+			<p className="flex min-w-0 flex-[1_1_18rem] flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
 				<span className="inline-flex h-[26px] flex-none items-center rounded-md bg-blue-100 px-2.5 font-semibold text-blue-600">
 					Template updated
 				</span>
-				<span className="min-w-[16rem] flex-1 text-pretty text-text-2">
+				<span className="min-w-0 flex-[1_1_14rem] text-pretty text-text-2">
 					The template this document came from has changed. Compare to choose which changes to take.
 				</span>
 			</p>

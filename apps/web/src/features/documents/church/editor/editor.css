@@ -42,6 +42,12 @@
 	box-shadow: 0 0 0 1px var(--ef-line);
 	border-radius: 4px;
 }
+.ef-paper.ef-snippet .ProseMirror {
+	min-height: 0;
+}
+.ef-paper.ef-snippet .ProseMirror > :last-child {
+	margin-block-end: 0;
+}
 .ef-paper .ProseMirror {
 	display: flex;
 	flex-direction: column;
