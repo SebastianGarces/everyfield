@@ -442,7 +442,6 @@ export const churchWriter = {
 			return c.churchCompare.parse({
 				documentId: doc.id,
 				revision: doc.revision,
-				templateId: template.id,
 				templateTitle: template.title,
 				templateVersion: template.version,
 				templateHash: hash,

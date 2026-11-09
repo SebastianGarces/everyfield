@@ -8,7 +8,6 @@ export {
 	acceptDifferences,
 	compareWithTemplate,
 	missingFields,
-	type DifferenceKind,
 	type DocDifference,
 	type PageLayout,
 } from "./compare.ts";

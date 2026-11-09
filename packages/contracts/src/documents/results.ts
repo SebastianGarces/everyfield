@@ -243,7 +243,6 @@ export const churchFile = z.strictObject({
 export const churchCompare = z.strictObject({
 	documentId: recordId,
 	revision: revisionToken,
-	templateId,
 	templateTitle: z.string().min(1).max(200),
 	templateVersion: z.int().min(1),
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
