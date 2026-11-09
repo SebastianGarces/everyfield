@@ -468,3 +468,295 @@ describe("T-18 Save as template: a church saves its own document as a template",
 		assert.ok((await library(OWNER)).templates.some((t) => t.id === retried.id));
 	});
 });
+
+const updateTemplate = async (who, input) => documentsWriter.updateChurchTemplate(db, await authority(who), input);
+/** Everything stored for one Church Document: its row, every revision and the bytes of every saved export, as one hash. */
+const documentState = async (id) => {
+	const [row] = await rowsOf(sql`SELECT * FROM document WHERE id = ${id}::uuid`);
+	const revisions = await rowsOf(
+		sql`SELECT * FROM document_revision WHERE document_id = ${id}::uuid ORDER BY version_number`,
+	);
+	const exports = await rowsOf(
+		sql`SELECT g.*, f.opaque_key FROM generated_document g JOIN file_object f ON f.id = g.object_id
+		WHERE g.source_document_id = ${id}::uuid ORDER BY g.id`,
+	);
+	const bytes = exports.map((e) => sha256(client.objects.get(e.opaque_key)));
+	return sha(JSON.stringify({ row, revisions, exports, bytes }));
+};
+/** Every stored revision of one church template, oldest first. */
+const templateRevisions = async (id) =>
+	rowsOf(
+		sql`SELECT r.id, r.version_number, r.body, r.content_hash, t.current_revision_id = r.id AS current
+		FROM document t JOIN document_revision r ON r.document_id = t.id WHERE t.id = ${id}::uuid ORDER BY r.version_number`,
+	);
+const edited = async (who, doc, text) => {
+	const body = structuredClone(doc.body);
+	body.body.content.push({ type: "paragraph", content: [{ type: "text", text }] });
+	return ok(await save(who, doc.id, doc.revision, body));
+};
+
+describe(
+	"T-79 Update a church template: the next version, and earlier documents keep theirs",
+	{ concurrency: 1 },
+	() => {
+		const t = {};
+		test("an update makes v2 from a saved revision; New from template copies v2 and a v1 document stays exactly as it was", async () => {
+			await admin.execute(sql`UPDATE plant SET name = 'Harvest Point' WHERE id = ${P}::uuid`);
+			const first = await edited(
+				OWNER,
+				ok(await create(OWNER, "conflict-of-interest-policy", "t79-a")),
+				"First wording.",
+			);
+			const template = ok(
+				await saveTemplate(OWNER, {
+					documentId: first.id,
+					revision: Number(first.revision),
+					name: "Board policy",
+					description: "Kept across versions.",
+					requestKey: "t79-save",
+				}),
+			);
+			assert.equal(template.version, 1);
+			// A document made from v1, exported, before the update.
+			const v1 = ok(await create(ADMIN, template.templateId, "t79-v1-doc"));
+			const v1Export = ok(await exportDoc(OWNER, v1.id, 1, "pdf", "t79-v1-export"));
+			const v1Bytes = sha256(await bytesOf(v1Export));
+			const v1State = await documentState(v1.id);
+			const firstState = await documentState(first.id);
+			const [v1Revision] = await templateRevisions(template.id);
+
+			const second = await edited(
+				ADMIN,
+				ok(await create(OWNER, "conflict-of-interest-policy", "t79-b")),
+				"Second wording, for v2.",
+			);
+			const secondState = await documentState(second.id);
+			const before = await counts();
+			const input = {
+				templateId: template.id,
+				expectedVersion: 1,
+				documentId: second.id,
+				revision: Number(second.revision),
+				requestKey: "t79-update-1",
+			};
+			const updated = ok(await updateTemplate(ADMIN, input));
+			assert.equal(updated.replacedVersion, 1);
+			assert.equal(updated.template.id, template.id);
+			assert.equal(updated.template.templateId, template.templateId);
+			assert.equal(updated.template.version, 2);
+			assert.equal(updated.template.title, "Board policy");
+			assert.equal(updated.template.description, "Kept across versions.");
+			assert.deepEqual(updated.template.source, { documentId: second.id, revisionId: second.revisionId, revision: 2 });
+			assert.deepEqual(
+				await counts(),
+				{ ...before, revisions: before.revisions + 1, audits: before.audits + 1 },
+				"one revision and one audit row; no new template row",
+			);
+
+			// One audit row names the actor, the template, both versions and the source.
+			const [audit] = await rowsOf(
+				sql`SELECT actor_id, subject_id, kind, request_key, before_revision::int AS replaced, after_revision::int AS version,
+				after_value FROM audit_event WHERE action = 'documents.template_updated'`,
+			);
+			assert.equal(audit.actor_id, actors[ADMIN].id);
+			assert.equal(audit.subject_id, template.id);
+			assert.equal(audit.kind, "edit");
+			assert.equal(audit.request_key, "t79-update-1");
+			assert.equal(audit.replaced, 1);
+			assert.equal(audit.version, 2);
+			assert.equal(audit.after_value.sourceDocumentId, second.id);
+			assert.equal(audit.after_value.sourceRevisionId, second.revisionId);
+			assert.equal(audit.after_value.sourceRevision, 2);
+
+			// New from template lists it once, at v2, with its name and description.
+			const lib = await library(OWNER);
+			const cards = lib.templates.filter((x) => x.id === template.id);
+			assert.equal(cards.length, 1);
+			assert.equal(cards[0].version, 2);
+			assert.equal(cards[0].title, "Board policy");
+			assert.equal(cards[0].description, "Kept across versions.");
+
+			// A document from v2 is the revision it was updated from, without origin and frozen values, with today's details.
+			await admin.execute(sql`UPDATE plant SET name = 'Harvest Point North' WHERE id = ${P}::uuid`);
+			const v2 = ok(await create(OWNER, template.templateId, "t79-v2-doc"));
+			const v2Body = (await templateRevisions(template.id))[1].body;
+			assert.deepEqual(content(v2.body), content(second.body));
+			assert.equal(v2.templateVersion, 2);
+			assert.equal(v2.templateName, "Board policy");
+			assert.equal(v2.documentClass, "formal/legal");
+			assert.deepEqual(v2.body.origin, {
+				template: template.templateId,
+				version: 2,
+				hash: await templateHash(JSON.parse(v2Body)),
+			});
+			assert.equal(v2.body.data.church_name, "Harvest Point North");
+			assert.equal(second.body.data.church_name, "Harvest Point");
+
+			// The v1 document: same row, revisions, origin and export bytes; still "from Board policy v1".
+			assert.equal(await documentState(v1.id), v1State);
+			assert.equal(sha256(await bytesOf(v1Export)), v1Bytes);
+			const v1Read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: v1.id }));
+			assert.equal(v1Read.templateVersion, 1);
+			assert.deepEqual(v1Read.body.origin, v1.body.origin);
+			assert.equal(v1.body.origin.version, 1);
+			const lines = (await library(OWNER)).documents;
+			assert.equal(lines.find((d) => d.id === v1.id).templateVersion, 1);
+			assert.equal(lines.find((d) => d.id === v2.id).templateVersion, 2);
+			// v1 is stored unchanged, and the source documents are untouched.
+			assert.deepEqual((await templateRevisions(template.id))[0], { ...v1Revision, current: false });
+			assert.equal(await documentState(first.id), firstState);
+			assert.equal(await documentState(second.id), secondState);
+			Object.assign(t, { template, first, second, v1, v2, input, updated, v1State });
+		});
+
+		test("the same request key makes one version, for a resend and for two racing requests; another request on it is a conflict", async () => {
+			const { input, updated, template, first } = t;
+			const before = await counts();
+			assert.deepEqual(ok(await updateTemplate(ADMIN, input)), updated, "a resend returns the version it made");
+			assert.deepEqual(ok(await updateTemplate(OWNER, input)), updated);
+			refused(await updateTemplate(OWNER, { ...input, documentId: first.id, revision: 2 }), "conflict");
+			refused(await updateTemplate(OWNER, { ...input, revision: 1 }), "conflict");
+			const other = ok(
+				await saveTemplate(OWNER, { documentId: first.id, revision: 2, name: "Another", requestKey: "t79-other" }),
+			);
+			const mid = await counts();
+			refused(await updateTemplate(OWNER, { ...input, templateId: other.id }), "conflict");
+			assert.deepEqual(await counts(), mid);
+			assert.equal(mid.revisions, before.revisions + 1, "only the other template's save wrote");
+
+			const race = {
+				templateId: template.id,
+				expectedVersion: 2,
+				documentId: first.id,
+				revision: 2,
+				requestKey: "t79-race",
+			};
+			const [a, b] = (await Promise.all([updateTemplate(OWNER, race), updateTemplate(ADMIN, race)])).map(ok);
+			assert.deepEqual(a, b);
+			assert.equal(a.template.version, 3);
+			assert.deepEqual(await counts(), { ...mid, revisions: mid.revisions + 1, audits: mid.audits + 1 });
+		});
+
+		test("two updates naming the same version: the first makes the next one, the second is refused and writes nothing", async () => {
+			const { template, first, second } = t;
+			const named = (requestKey, doc) => ({
+				templateId: template.id,
+				expectedVersion: 3,
+				documentId: doc.id,
+				revision: 2,
+				requestKey,
+			});
+			const before = await counts();
+			const results = await Promise.all([
+				updateTemplate(OWNER, named("t79-race-a", first)),
+				updateTemplate(ADMIN, named("t79-race-b", second)),
+			]);
+			const won = results.filter((r) => r.status === "ok");
+			assert.equal(won.length, 1, JSON.stringify(results));
+			refused(
+				results.find((r) => r.status !== "ok"),
+				"conflict",
+			);
+			assert.equal(won[0].value.template.version, 4);
+			assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+			// A later request still naming v3 is refused; the dialog reads v4 as the current version.
+			refused(await updateTemplate(OWNER, named("t79-stale", first)), "conflict");
+			assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+			assert.equal((await library(ADMIN)).templates.find((x) => x.id === template.id).version, 4);
+		});
+
+		test("every version stays stored: 1, 2, 3, 4 with no gaps, each body naming its own version, the row at the newest", async () => {
+			const { template, first, v1, v1State } = t;
+			const revisions = await templateRevisions(template.id);
+			assert.deepEqual(
+				revisions.map((r) => r.version_number),
+				[1, 2, 3, 4],
+			);
+			assert.deepEqual(
+				revisions.map((r) => JSON.parse(r.body).version),
+				[1, 2, 3, 4],
+			);
+			assert.deepEqual(
+				revisions.map((r) => r.current),
+				[false, false, false, true],
+			);
+			for (const r of revisions) {
+				assert.equal(r.content_hash, sha(r.body), "each revision's hash is its own body's");
+				const body = JSON.parse(r.body);
+				assert.equal(body.id, template.templateId);
+				assert.equal(body.title, "Board policy");
+				assert.equal(body.description, "Kept across versions.");
+			}
+			const [row] = await rowsOf(sql`SELECT revision::int AS revision FROM document WHERE id = ${template.id}::uuid`);
+			assert.equal(row.revision, 4);
+			assert.match(JSON.stringify(JSON.parse(revisions[1].body).body), /Second wording, for v2\./);
+			assert.match(JSON.stringify(JSON.parse(revisions[2].body).body), /First wording\./);
+			assert.equal(await documentState(v1.id), v1State);
+			const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: first.id }));
+			assert.equal(read.revision, "2", "the document saved over it is unchanged");
+		});
+
+		test("a document from an updated formal/legal template keeps the legal notice after Delete all content", async () => {
+			const { v2 } = t;
+			const wiped = structuredClone(v2.body);
+			wiped.body = { type: "doc", content: [] };
+			wiped.page.header = { pages: "all", content: [] };
+			wiped.page.footer = { pages: "all", content: [] };
+			const saved = ok(await save(OWNER, v2.id, v2.revision, wiped));
+			assert.equal(saved.documentClass, "formal/legal");
+			assert.deepEqual(await pdfPages(bytesFrom(ok(await fileOf(OWNER, v2.id, "pdf")))), [
+				"Template, not legal advice",
+			]);
+			const word = docxParts(bytesFrom(ok(await fileOf(OWNER, v2.id, "docx"))));
+			assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
+		});
+
+		test("a deleted template is not offered and cannot be updated", async () => {
+			const { first } = t;
+			const gone = ok(
+				await saveTemplate(OWNER, { documentId: first.id, revision: 2, name: "Gone", requestKey: "t79-gone" }),
+			);
+			ok(await deleteTemplate(OWNER, gone.id));
+			assert.ok(!(await library(OWNER)).templates.some((x) => x.id === gone.id));
+			const before = await counts();
+			refused(
+				await updateTemplate(OWNER, {
+					templateId: gone.id,
+					expectedVersion: 1,
+					documentId: first.id,
+					revision: 2,
+					requestKey: "t79-gone-update",
+				}),
+				"unavailable",
+			);
+			assert.deepEqual(await counts(), before);
+		});
+
+		test("a Member, another church's seat and another church's document, revision or template are refused and write nothing", async () => {
+			const { template, first } = t;
+			const theirs = ok(await create(OTHER, "conflict-of-interest-policy", "t79-theirs"));
+			const theirTemplate = ok(
+				await saveTemplate(OTHER, { documentId: theirs.id, revision: 1, name: "Theirs", requestKey: "t79-their-tpl" }),
+			);
+			const input = { templateId: template.id, expectedVersion: 4, documentId: first.id, revision: 2 };
+			const before = await counts();
+			refused(await updateTemplate(MEMBER, { ...input, requestKey: "t79-member" }), "access_denied");
+			refused(await updateTemplate(OTHER, { ...input, requestKey: "t79-other-seat" }), "unavailable");
+			refused(
+				await updateTemplate(OWNER, { ...input, documentId: theirs.id, revision: 1, requestKey: "t79-their-doc" }),
+				"unavailable",
+			);
+			refused(
+				await updateTemplate(OWNER, {
+					...input,
+					templateId: theirTemplate.id,
+					expectedVersion: 1,
+					requestKey: "t79-their-tpl-up",
+				}),
+				"unavailable",
+			);
+			refused(await updateTemplate(OWNER, { ...input, revision: 99, requestKey: "t79-no-revision" }), "unavailable");
+			assert.deepEqual(await counts(), before);
+		});
+	},
+);

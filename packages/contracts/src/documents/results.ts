@@ -244,12 +244,20 @@ export const churchTemplateSummary = z.strictObject({
 	templateId,
 	title: z.string().min(1).max(200),
 	description: z.string().max(500).nullable(),
+	/** The current version: 1 when saved, one more for each update. */
+	version: z.int().min(1),
 	documentClass: churchClass,
 	formats: z.array(documentFormat).min(1).max(3),
 	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */
 	page: z.strictObject({ width: z.number().positive(), height: z.number().positive(), perSheet: z.int().min(1) }),
 	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }),
 });
+/** A church template after an update, with the version the update replaced. */
+export const updatedChurchTemplate = z.strictObject({
+	template: churchTemplateSummary,
+	replacedVersion: z.int().min(1),
+});
+export type UpdatedChurchTemplate = z.infer<typeof updatedChurchTemplate>;
 export const churchLibrary = z.strictObject({
 	documents: z.array(churchSummary).max(200),
 	templates: z.array(churchTemplateSummary).max(200),
