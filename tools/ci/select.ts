@@ -63,6 +63,7 @@ export const RULES: readonly Rule[] = [
 			".nvmrc",
 			".node-version",
 			"eslint.config.*",
+			".oxlintrc.json",
 			".github/workflows/**",
 			"tools/ci/select.ts",
 			"scripts/check.ts",
@@ -114,6 +115,11 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/evry-evals-coverage.test.mjs"],
 	},
 	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
+	{
+		name: "lint rule coverage",
+		paths: ["scripts/lint-rule-coverage.mjs"],
+		tests: ["tests/workflow/lint-rule-coverage.test.mjs"],
+	},
 	{ name: "coverage read tracer", paths: ["scripts/trace-reads.mjs"], tests: ["tests/workflow/nightly.test.ts"] },
 	// Fixtures and helpers next to the tests: the tests read them, so coverage cannot see every use.
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },

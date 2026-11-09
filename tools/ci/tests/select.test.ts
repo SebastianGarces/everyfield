@@ -317,6 +317,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 			"tests/workflow/sub/deep.test.mjs",
 			"tests/workflow/dev.test.mjs",
 			"tests/workflow/evry-evals-coverage.test.mjs",
+			"tests/workflow/lint-rule-coverage.test.mjs",
 			"tests/workflow/nightly.test.ts",
 			"tests/workflow/role-prompts.test.mjs",
 			"tests/workflow/server-logs.test.mjs",
@@ -330,7 +331,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 	);
 	assert.deepEqual(
 		unreachable(
-			TESTS,
+			[...TESTS, "tests/workflow/lint-rule-coverage.test.mjs"],
 			RULES.filter((rule) => !rule.checks?.includes("docs")),
 		),
 		["check docs is selected by no rule"],
@@ -342,6 +343,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 		'rule "preview config" names tests/workflow/setup-step.test.mjs, which no suite runs',
 		'rule "adapter operations and their eval cases" names tests/workflow/evry-evals-coverage.test.mjs, which no suite runs',
 		'rule "web app under a dev server" names tests/workflow/server-logs.test.mjs, which no suite runs',
+		'rule "lint rule coverage" names tests/workflow/lint-rule-coverage.test.mjs, which no suite runs',
 		'rule "coverage read tracer" names tests/workflow/nightly.test.ts, which no suite runs',
 	]);
 });
