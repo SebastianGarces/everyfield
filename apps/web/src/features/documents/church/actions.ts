@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { saveChurchRequest, setBrandingRequest } from "@everyfield/contracts/documents";
+import { saveChurchRequest } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -80,10 +80,8 @@ export async function setChurchBranding(documentId: string, useChurchBranding: b
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
-	const request = setBrandingRequest.safeParse({ documentId, useChurchBranding });
-	if (!request.success) return refusedWith("invalid_input");
 	try {
-		const reply = await documentsWriter.setBranding(db, actor, request.data);
+		const reply = await documentsWriter.setBranding(db, actor, { documentId, useChurchBranding });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		return { status: "saved", useChurchBranding: reply.value.useChurchBranding };
 	} catch (error) {

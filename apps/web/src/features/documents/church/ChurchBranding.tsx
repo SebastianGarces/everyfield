@@ -64,7 +64,6 @@ export function ChurchBranding({
 				onCheckedChange={(next) => void change(next)}
 				description={
 					<span id={describedBy} className="flex flex-col gap-1">
-						{access === "no-kit" ? null : <span aria-live="polite">{describe(shown, access === "member")}</span>}
 						{access === "no-kit" ? (
 							<span>
 								Your church has no brand kit yet, so documents use the plain Everyfield look.{" "}
@@ -72,7 +71,9 @@ export function ChurchBranding({
 									Set up the brand kit
 								</Link>
 							</span>
-						) : null}
+						) : (
+							<span aria-live="polite">{describe(shown, access === "member")}</span>
+						)}
 						{access === "member" ? <span>Only an Owner or Admin can change this.</span> : null}
 					</span>
 				}
