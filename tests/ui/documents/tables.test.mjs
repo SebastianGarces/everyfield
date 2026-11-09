@@ -11,6 +11,7 @@ import { test } from "node:test";
 import { TABLE_LIMITS } from "../../../packages/contracts/src/documents/index.ts";
 import { textOn } from "../../../packages/domain/src/documents/contrast.ts";
 import { makePalette, NEUTRAL_THEME, tokenColor } from "../../../packages/domain/src/documents/theme.ts";
+import { TOKEN_NAMES } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
 import { ENGINES } from "../setup.mjs";
 import { MOD, onFork, PAPER } from "./tables-support.mjs";
 
@@ -398,7 +399,7 @@ for (const [name, engine] of ENGINES) {
 			for (const token of ["primary", "accent", "ink", "muted-text", "border", "muted", "none"]) {
 				await t.checked(
 					`Header color ${token}`,
-					() => page.getByRole("radio", { name: token, exact: true }).first().click(),
+					() => page.getByRole("radio", { name: TOKEN_NAMES[token], exact: true }).first().click(),
 					{
 						same: token === "muted",
 					},

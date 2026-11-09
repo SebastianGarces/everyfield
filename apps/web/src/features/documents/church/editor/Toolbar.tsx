@@ -315,7 +315,10 @@ export function EditorToolbar({
 						portal
 						align="start"
 						aria-label="Insert block"
-						className="max-h-[min(75vh,560px)] overflow-y-auto"
+						collisionPadding={8}
+						// Radix measures the room under (or over) the button, so the list scrolls inside the window
+						// however far down the page the toolbar sits.
+						className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] overflow-y-auto"
 					>
 						{INSERT_KINDS.filter((k) => s.insertable[k.kind]).map((k, i, shown) => {
 							const image = k.group === "images" ? (k.kind as ImageKind) : null;
