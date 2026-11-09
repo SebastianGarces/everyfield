@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { recordsDir, wrapSetupCommands } from "./setup-step.mjs";
 
 const help = `Local preview commands, Node 24 and managed Portless required:
   corepack pnpm stack:up [--mode development|production]
@@ -21,6 +22,23 @@ function portless(args) {
 	if (result.status !== 0)
 		throw new Error("Portless command failed. Inspect portless preview logs for the preview ID.");
 	return JSON.parse(result.stdout);
+}
+
+/** The worktree's preview.json with install and build timed, written outside the checkout. */
+function previewConfig(project) {
+	const file = join(project, "scripts/preview.json");
+	const records = recordsDir(project);
+	if (!records || !existsSync(file)) return file;
+	const config = wrapSetupCommands(JSON.parse(readFileSync(file, "utf8")), {
+		source: "stack",
+		records,
+		node: process.execPath,
+	});
+	const dir = join(dirname(records), "evf-preview-config");
+	mkdirSync(dir, { recursive: true, mode: 0o700 });
+	const wrapped = join(dir, `stack-${basename(project)}.json`);
+	writeFileSync(wrapped, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+	return wrapped;
 }
 
 async function main() {
@@ -45,7 +63,7 @@ async function main() {
 	let preview = previews[0];
 	if (action === "up") {
 		if (preview && preview.mode !== mode) throw new Error("Stop this worktree's preview before changing mode.");
-		preview = portless(["up", "--project", project, "--mode", mode, "--config", join(project, "scripts/preview.json")]);
+		preview = portless(["up", "--project", project, "--mode", mode, "--config", previewConfig(project)]);
 	} else if (action === "down" && preview) {
 		portless(["down", preview.id]);
 		preview = undefined;
