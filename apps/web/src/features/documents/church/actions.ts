@@ -27,11 +27,7 @@ export async function createChurchDocument(
 	if (!actor || !db) return { status: "lost" };
 	let id: string;
 	try {
-		const reply = await documentsWriter.createFromTemplate(db, actor, {
-			templateId,
-			requestKey,
-			...(mergeFields && Object.keys(mergeFields).length ? { mergeFields } : {}),
-		});
+		const reply = await documentsWriter.createFromTemplate(db, actor, { templateId, requestKey, mergeFields });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		id = reply.value.id;
 	} catch (error) {
