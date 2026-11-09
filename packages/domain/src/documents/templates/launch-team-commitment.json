@@ -1,0 +1,415 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "launch-team-commitment",
+	"version": 1,
+	"title": "Launch Team Commitment",
+	"description": "The commitment of a launch team member, with a place to sign.",
+	"class": "operational",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "church.pastor",
+			"fallback": "[pastor name]",
+			"sample": "Pastor Daniel Reyes"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Launch Team Commitment"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Launch team"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Launch Team Commitment"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "The launch team carries "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " from the first gathering to Launch Sunday and beyond. This letter names what each member commits to. Read it, pray over it and sign it when you are ready."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "My role"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "I will serve on one launch team through Launch Sunday and for at least the first three months after it. I will keep the team lead informed of my plans and my limits."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "My time"
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "I will come to the launch team meetings."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "I will come to the training for my team."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "I will arrive early on Launch Sunday and stay to help close."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "My prayer"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "I will pray each week for the church plant, its leaders, the team and the people we hope to welcome."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "My giving"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "I will give regularly and with joy toward the work of this church plant, as God leads me."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "My conduct"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "I will treat every guest and every teammate with respect. I will follow the safety rules for children and the guidance of the team lead. I will speak well of the church plant and of its leaders."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "I make this commitment freely. I understand that I may talk with the pastor at any time if my situation changes."
+					}
+				]
+			},
+			{
+				"type": "columns",
+				"attrs": {
+					"gap": 12
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 4
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Name",
+									"key": "full_name",
+									"kind": "text"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 4
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Signature",
+									"key": "signature",
+									"kind": "signature"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 2
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Date",
+									"key": "signed_date",
+									"kind": "date"
+								}
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

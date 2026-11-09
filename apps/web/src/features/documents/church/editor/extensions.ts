@@ -611,7 +611,7 @@ function writeInView(initial: PMNode, editor: Editor, getPos: () => number | und
 export const EfSlot = laterNode("slot", {
 	group: BLOCKS,
 	content: "(paragraph | bulletList | orderedList)*",
-	attrs: { label: "string" },
+	attrs: { label: "string", key: "string" },
 	atom: true,
 });
 export const EfTable = laterNode("table", {
