@@ -10,9 +10,9 @@ import type { Outcome } from "./model.ts";
 // is the only authority: nothing here reads a session, an account or an address. The token is sealed with the
 // NOTIFICATION_OPT_OUT_KEYS ring under a Messages subkey, so a deployment without that ring has no Unsubscribe page.
 
-export type UnsubscribeMount = { db: Database; ring: OptOutKeyRing };
+type UnsubscribeMount = { db: Database; ring: OptOutKeyRing };
 
-export function unsubscribeMount(): UnsubscribeMount | null {
+function unsubscribeMount(): UnsubscribeMount | null {
 	const db = requestDatabase();
 	const ring = parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS);
 	return db && ring ? { db, ring } : null;

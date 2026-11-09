@@ -9,5 +9,4 @@ export {
 	undoMessagesOptOut,
 	type MessagesOptInResult,
 	type MessagesOptOutResult,
-	type MessagesOptOutView,
 } from "./opt-out.ts";

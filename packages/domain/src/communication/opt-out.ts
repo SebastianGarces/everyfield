@@ -76,10 +76,7 @@ function open(ring: OptOutKeyRing, token: string): Claim | null {
  * has a current opt-out from this church. It names the Person, never the address.
  */
 export function optedOutSql(plantId: SQL, personId: SQL): SQL {
-	return sql`EXISTS (SELECT 1 FROM person_email_opt_out o
-		WHERE o.plant_id = ${plantId} AND o.undone_at IS NULL
-			AND (o.person_id = ${personId} OR o.person_id IN (
-				SELECT q.id FROM person q WHERE q.merged_into_person_id = ${personId} AND q.tenant_id = ${plantId})))`;
+	return sql`(${optedOutAtSql(plantId, personId)} IS NOT NULL)`;
 }
 
 /** When `personId` (or a Person merged into them) opted out of this church's Messages email, as SQL text or null. */

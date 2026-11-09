@@ -164,12 +164,15 @@ const counts = (report: DeliveryReport) =>
 /** The count of people who unsubscribed from this church's email, when there are any. */
 export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
 
-/** Why nobody got it: the email service refused them, they unsubscribed, or both. */
-function refusedAll(report: DeliveryReport, outcome: "sent" | "scheduled") {
-	if (report.unsubscribedCount === 0) return `Not ${outcome}. The email service refused all ${report.rejectedCount}.`;
-	if (report.rejectedCount === 0) return `Not ${outcome}. Every recipient unsubscribed from this church's email.`;
-	return `Not ${outcome}. Some recipients unsubscribed from this church's email and the email service refused the rest.`;
+/** Why nobody got it: the email service refused them, they unsubscribed from this church's email, or both. */
+export function refusedAllText(unsubscribed: number, refused: number): string {
+	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
+	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
+	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
 }
+
+const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
+	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
 
 /** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
 export function deliveryText(report: DeliveryReport): string {

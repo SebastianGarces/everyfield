@@ -27,6 +27,7 @@ import {
 	hubStates,
 	outcomeText,
 	rateText,
+	refusedAllText,
 	replaceText,
 	rescheduleText,
 	sentNote,
@@ -360,13 +361,6 @@ type ScheduledActions = {
 const handoffCounts = (totals: MessageView["totals"]) =>
 	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
 
-/** Why nobody got it: the email service refused them, they unsubscribed from this church's email, or both. */
-function refusedAllText(totals: MessageView["totals"]): string {
-	if (totals.unsubscribed === 0) return `The email service refused all ${totals.failed}.`;
-	if (totals.failed === 0) return "Every recipient unsubscribed from this church's email.";
-	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
-}
-
 /** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
@@ -380,7 +374,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "not_scheduled":
 			return {
 				title: "Not scheduled",
-				body: `${refusedAllText(totals)} ${handoffCounts(totals)} The message stays saved.`,
+				body: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "cancel_unconfirmed":
 			return {
@@ -403,7 +397,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 				body:
 					totals.unsubscribed === 0
 						? `The email service refused all ${totals.failed}. The message stays saved.`
-						: `${refusedAllText(totals)} ${handoffCounts(totals)} The message stays saved.`,
+						: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "unknown":
 			return { title: "Not confirmed", body: `The email service gave no answer. ${handoffCounts(totals)}` };
