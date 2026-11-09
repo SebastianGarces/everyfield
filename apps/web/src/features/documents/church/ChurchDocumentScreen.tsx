@@ -90,9 +90,6 @@ export function ChurchDocumentScreen({
 	// reaches the same saved export instead of making a second one.
 	const keys = useRef(new Map<string, string>());
 
-	// The editor's and Version history's downloads name a revision as text.
-	const downloadRevision = (format: "pdf" | "docx", at: string) => void download(format, Number(at));
-
 	async function download(format: keyof typeof FORMAT_LABEL, at: number | null = null) {
 		if (exporting) return;
 		const target = at === null ? revision : String(at);
@@ -210,7 +207,6 @@ export function ChurchDocumentScreen({
 					revision={current.revision}
 					onRevision={setRevision}
 					file={file}
-					onDownload={downloadRevision}
 					template={current.template}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
@@ -243,8 +239,7 @@ export function ChurchDocumentScreen({
 							title={doc.title}
 							current={revision}
 							file={file}
-							onDownload={downloadRevision}
-							page={doc.page}
+									page={doc.page}
 						/>
 					) : (
 						<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">

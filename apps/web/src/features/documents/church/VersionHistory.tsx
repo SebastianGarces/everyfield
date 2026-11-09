@@ -1,7 +1,6 @@
 "use client";
 
-import { Download01Icon } from "@hugeicons/core-free-icons";
-import { Button, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useState } from "react";
 import { listChurchRevisions, type RevisionEntry } from "./actions.ts";
@@ -19,12 +18,10 @@ type Props = {
 	current: string;
 	/** The preview address of one revision in one format. */
 	file: (format: string, revision: string) => string;
-	/** Saves one export of a revision and downloads it (D-78). */
-	onDownload: (format: "pdf" | "docx", revision: string) => void;
 	page: { width: number; height: number };
 };
 
-export function VersionHistory({ docId, title, current, file, onDownload, page }: Props) {
+export function VersionHistory({ docId, title, current, file, page }: Props) {
 	// The list as loaded for one revision of the document: a save moves `current`, and the list loads again.
 	const [loaded, setLoaded] = useState<{ at: string; list: RevisionEntry[] | "failed" } | null>(null);
 	const [chosen, setChosen] = useState<number | null>(null);
@@ -97,24 +94,9 @@ export function VersionHistory({ docId, title, current, file, onDownload, page }
 				)}
 			</div>
 			<div className="flex min-w-0 flex-col gap-3">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<p className="text-sm text-text-2">
-						<span className="font-semibold text-ink tabular-nums">Revision {at}</span>, read-only
-					</p>
-					<div className="flex flex-wrap gap-2">
-						{(["pdf", "docx"] as const).map((format) => (
-							<Button
-								key={format}
-								variant="secondary"
-								size="sm"
-								icon={Download01Icon}
-								onClick={() => onDownload(format, at)}
-							>
-								{format === "pdf" ? "Download PDF" : "Download Word"}
-							</Button>
-						))}
-					</div>
-				</div>
+				<p className="text-sm text-text-2">
+					<span className="font-semibold text-ink tabular-nums">Revision {at}</span>, read-only
+				</p>
 				<ChurchPdf
 					key={file("pdf", at)}
 					title={`${title}, revision ${at}`}

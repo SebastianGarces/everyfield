@@ -84,8 +84,6 @@ type Props = {
 	onRevision: (revision: string) => void;
 	/** The preview address of one revision in one format: the preview and history read it. */
 	file: (format: string, revision: string) => string;
-	/** Saves one export of a revision and downloads it (D-78). */
-	onDownload: (format: "pdf" | "docx", revision: string) => void;
 	/** Where the document stands against its template; null when there is nothing to compare with. */
 	template: "behind" | "current" | null;
 	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
@@ -103,7 +101,6 @@ export default function ChurchEditor({
 	revision: initialRevision,
 	onRevision,
 	file,
-	onDownload,
 	template,
 	onAccepted,
 	accepted = null,
@@ -446,7 +443,6 @@ export default function ChurchEditor({
 						title={title}
 						current={shownRevision}
 						file={file}
-						onDownload={onDownload}
 						page={{ width: pageBox(page)?.width ?? 612, height: pageBox(page)?.height ?? 792 }}
 					/>
 				) : null}
