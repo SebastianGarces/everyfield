@@ -1,6 +1,13 @@
 "use client";
 
-import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+	Delete02Icon,
+	Edit02Icon,
+	FileSyncIcon,
+	FloppyDiskIcon,
+	Refresh01Icon,
+	ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
 import {
 	Button,
@@ -27,7 +34,9 @@ import { editorExtensions } from "./extensions.ts";
 import { fieldValues } from "./field-values.ts";
 import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
+import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
+import { TemplateCompare } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
@@ -61,6 +70,12 @@ type Props = {
 	revision: string;
 	onRevision: (revision: string) => void;
 	previewSrc: (revision: string) => string;
+	/** Where the document stands against its template; null when there is nothing to compare with. */
+	template: "behind" | "current" | null;
+	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
+	onAccepted: (document: DocDocument, revision: string, taken: number) => void;
+	/** What the last accept did, shown in the status line until the next edit. */
+	accepted?: string | null;
 };
 
 export default function ChurchEditor({
@@ -71,12 +86,15 @@ export default function ChurchEditor({
 	revision: initialRevision,
 	onRevision,
 	previewSrc,
+	template,
+	onAccepted,
+	accepted = null,
 }: Props) {
 	const base = useRef(stored);
 	const revision = useRef(initialRevision);
 	const [shownRevision, setShownRevision] = useState(initialRevision);
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
-	const [mode, setMode] = useState<"edit" | "preview">("edit");
+	const [mode, setMode] = useState<"edit" | "preview" | "compare">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
@@ -190,6 +208,12 @@ export default function ChurchEditor({
 		setMode("preview");
 	}, [save, status.kind]);
 
+	// The compare reads the saved revision, so edits not yet saved are saved first.
+	const compare = useCallback(async () => {
+		if (status.kind !== "saved" && !(await save())) return;
+		setMode("compare");
+	}, [save, status.kind]);
+
 	const deleteAll = useCallback(() => {
 		if (editor) deleteAllContent(editor);
 	}, [editor]);
@@ -210,26 +234,12 @@ export default function ChurchEditor({
 			? { x: page.tile.padding, y: page.tile.padding }
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
-		const { palette } = brand;
 		return {
 			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
 			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
-			// What each token of the format paints in this document: the PDF's palette.
-			"--tok-ink": palette.ink,
-			"--tok-muted-text": palette.mutedText,
-			"--tok-primary": palette.primary,
-			"--tok-accent": palette.accent,
-			"--tok-accent-line": palette.accentLine,
-			"--tok-muted": palette.muted,
-			"--tok-border": palette.border,
-			"--on-ink": palette.on.ink,
-			"--on-muted-text": palette.on["muted-text"],
-			"--on-primary": palette.on.primary,
-			"--on-accent": palette.on.accent,
-			"--on-muted": palette.on.muted,
-			"--on-border": palette.on.border,
+			...paletteVars(brand.palette),
 		} as CSSProperties;
 	}, [page, brand]);
 
@@ -240,8 +250,18 @@ export default function ChurchEditor({
 		<EditorContext.Provider value={{ editor }}>
 			<div className="flex flex-col gap-3">
 				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-					<SaveStatusText status={status} revision={shownRevision} onRetry={() => void save()} />
-					<div className="flex flex-wrap items-center gap-2">
+					<SaveStatusText
+						status={status}
+						revision={shownRevision}
+						accepted={status.kind === "saved" && shownRevision === initialRevision ? accepted : null}
+						onRetry={() => void save()}
+					/>
+					<div hidden={mode === "compare"} className="flex flex-wrap items-center gap-2">
+						{template !== null && mode === "edit" ? (
+							<Button variant="secondary" size="sm" icon={FileSyncIcon} onClick={() => void compare()}>
+								Compare with template
+							</Button>
+						) : null}
 						{mode === "edit" ? (
 							<Button variant="secondary" size="sm" icon={ViewIcon} onClick={() => void preview()}>
 								Preview
@@ -280,6 +300,7 @@ export default function ChurchEditor({
 						/>
 					</div>
 				</div>
+				{template === "behind" && mode === "edit" ? <TemplateNotice onCompare={() => void compare()} /> : null}
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
@@ -337,6 +358,16 @@ export default function ChurchEditor({
 						</div>
 					</div>
 				</div>
+				{mode === "compare" ? (
+					<TemplateCompare
+						docId={docId}
+						brand={brand}
+						revision={shownRevision}
+						// A compare that read a newer revision (saved in another tab) reloads the page onto it: nothing here is unsaved.
+						onBack={(stale) => (stale ? window.location.reload() : setMode("edit"))}
+						onAccepted={onAccepted}
+					/>
+				) : null}
 				{mode === "preview" ? (
 					<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
 						<ChurchPdf
@@ -370,7 +401,39 @@ function LockGlyph() {
 	);
 }
 
-function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; revision: string; onRetry: () => void }) {
+/** The template this document came from has changed since: a plain notice with the way to compare. */
+function TemplateNotice({ onCompare }: { onCompare: () => void }) {
+	return (
+		<section
+			aria-label="Template updated"
+			className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)] app-sm:px-5"
+		>
+			<p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+				<span className="inline-flex h-[26px] flex-none items-center rounded-md bg-blue-100 px-2.5 font-semibold text-blue-600">
+					Template updated
+				</span>
+				<span className="min-w-[16rem] flex-1 text-pretty text-text-2">
+					The template this document came from has changed. Compare to choose which changes to take.
+				</span>
+			</p>
+			<Button variant="primary" size="sm" icon={FileSyncIcon} onClick={onCompare}>
+				Compare with template
+			</Button>
+		</section>
+	);
+}
+
+function SaveStatusText({
+	status,
+	revision,
+	accepted,
+	onRetry,
+}: {
+	status: SaveStatus;
+	revision: string;
+	accepted: string | null;
+	onRetry: () => void;
+}) {
 	return (
 		<p
 			role="status"
@@ -379,7 +442,8 @@ function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; rev
 		>
 			{status.kind === "saved" ? (
 				<span>
-					Saved <span className="tabular-nums">· Revision {revision}</span>
+					{accepted ? `${accepted} ` : "Saved "}
+					<span className="tabular-nums">· Revision {revision}</span>
 				</span>
 			) : status.kind === "dirty" ? (
 				<span>Unsaved changes</span>
