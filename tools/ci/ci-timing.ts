@@ -14,17 +14,17 @@ class CiTimingError extends Error {
  * checkout, pnpm and Node setup, the corepack install, `pnpm install`, cache restore, the Playwright browser install
  * and the post-job cleanup.
  */
-export const SETUP_STEPS: readonly { label: string; pattern: RegExp }[] = [
-	{ label: "Set up job", pattern: /^Set up job$/ },
-	{ label: "checkout", pattern: /^Run actions\/checkout@/ },
-	{ label: "pnpm setup", pattern: /^Run pnpm\/action-setup@/ },
-	{ label: "Node setup", pattern: /^Run actions\/setup-node@/ },
-	{ label: "corepack install", pattern: /^pnpm in the corepack cache\b/ },
-	{ label: "pnpm install", pattern: /^Run pnpm install\b/ },
-	{ label: "cache restore", pattern: /^Run actions\/cache(?:\/restore)?@/ },
-	{ label: "Playwright install", pattern: /^Chromium for render tests$|playwright install/i },
-	{ label: "Post steps", pattern: /^Post / },
-	{ label: "Complete job", pattern: /^Complete job$/ },
+const SETUP_STEPS: readonly RegExp[] = [
+	/^Set up job$/,
+	/^Run actions\/checkout@/,
+	/^Run pnpm\/action-setup@/,
+	/^Run actions\/setup-node@/,
+	/^pnpm in the corepack cache\b/,
+	/^Run pnpm install\b/,
+	/^Run actions\/cache(?:\/restore)?@/,
+	/^Chromium for render tests$|playwright install/i,
+	/^Post /,
+	/^Complete job$/,
 ];
 /** Lines that actions/cache and actions/setup-node print when a cache restores or is absent. */
 const CACHE_HIT = /Cache restored from key/;
@@ -32,7 +32,7 @@ const CACHE_MISS = /Cache not found for input keys|\bcache is not found\b/;
 
 type Step = { name: string; conclusion?: string | null; started_at?: string | null; completed_at?: string | null };
 type Job = { id: number; name: string; created_at?: string | null; started_at?: string | null; steps?: Step[] };
-export type JobTiming = {
+type JobTiming = {
 	id: number;
 	name: string;
 	queueMs: number | null;
@@ -48,14 +48,12 @@ const between = (from?: string | null, to?: string | null): number | null => {
 	return Number.isFinite(ms) && ms >= 0 ? ms : null;
 };
 
-export const isSetupStep = (name: string): boolean => SETUP_STEPS.some((s) => s.pattern.test(name));
-
 /** One job's split. A category is null when any step in it that ran has no timestamps; skipped steps did not run. */
-export function jobTiming(job: Job, log: string | null): JobTiming {
+function jobTiming(job: Job, log: string | null): JobTiming {
 	const sums = { setup: 0, run: 0 } as Record<"setup" | "run", number | null>;
 	for (const step of job.steps ?? []) {
 		if (step.conclusion === "skipped") continue;
-		const kind = isSetupStep(step.name) ? "setup" : "run";
+		const kind = SETUP_STEPS.some((p) => p.test(step.name)) ? "setup" : "run";
 		const ms = between(step.started_at, step.completed_at);
 		sums[kind] = ms === null || sums[kind] === null ? null : sums[kind] + ms;
 	}
@@ -72,7 +70,7 @@ export function jobTiming(job: Job, log: string | null): JobTiming {
 }
 
 /** Totals per job name. Each value sums only the jobs that have it, and stays null when none does. */
-export function totals(jobs: JobTiming[]): Total[] {
+function totals(jobs: JobTiming[]): Total[] {
 	const byName = new Map<string, Total>();
 	for (const job of jobs) {
 		const total = byName.get(job.name) ?? {

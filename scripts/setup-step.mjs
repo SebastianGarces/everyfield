@@ -32,12 +32,12 @@ export function recordsDir(cwd) {
  */
 export function wrapSetupCommands(config, { source, records, node }) {
 	const wrapped = { ...config };
+	const who = [
+		...(process.env.EVF_TASK ? ["--task", process.env.EVF_TASK] : []),
+		...(process.env.EVF_ROLE ? ["--role", process.env.EVF_ROLE] : []),
+	];
 	for (const step of STEPS) {
 		if (!config[step]) continue;
-		const who = [
-			...(process.env.EVF_TASK ? ["--task", process.env.EVF_TASK] : []),
-			...(process.env.EVF_ROLE ? ["--role", process.env.EVF_ROLE] : []),
-		];
 		wrapped[step] = [
 			node,
 			WRAPPER,
@@ -57,7 +57,7 @@ export function wrapSetupCommands(config, { source, records, node }) {
 }
 
 /** hit when the build cache already has content, miss when it is missing or empty, unknown when it cannot be read. */
-export function buildCacheState(cwd) {
+function buildCacheState(cwd) {
 	try {
 		return readdirSync(join(cwd, "apps/web/.next/cache")).length > 0 ? "hit" : "miss";
 	} catch (error) {
@@ -136,7 +136,7 @@ async function run(args) {
 }
 
 /** ISO 8601 week of a date, in UTC, as 2026-W45. */
-export function isoWeek(date) {
+function isoWeek(date) {
 	const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 	d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
 	const year = d.getUTCFullYear();
@@ -191,7 +191,7 @@ function readRecords(dir) {
  * Each ISO week from the first record to the last, with every (source, step) pair sorted by total time. A week with
  * no records has no pairs. hitRate is hits over hits and misses, and null when the pair has neither.
  */
-export function setupReport(records) {
+function setupReport(records) {
 	if (!records.length) return { weeks: [] };
 	const times = records.map((r) => Date.parse(r.startedAt));
 	const weeks = [];
@@ -230,7 +230,7 @@ export function setupReport(records) {
 
 const seconds = (ms) => (ms >= 60_000 ? `${(ms / 60_000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`);
 
-export function formatReport(report) {
+function formatReport(report) {
 	if (!report.weeks.length) return "no data";
 	const lines = [];
 	for (const w of report.weeks) {
