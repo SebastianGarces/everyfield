@@ -1,7 +1,12 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { saveChurchRequest, type ChurchCompare, type DocDocument } from "@everyfield/contracts/documents";
+import {
+	saveChurchRequest,
+	type ChurchCompare,
+	type ChurchTemplateSummary,
+	type DocDocument,
+} from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,7 +19,7 @@ import { refusedWith } from "./refusal.ts";
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
 
 /**
- * Creates a Church Document from a built-in template, then opens its page. The same request key opens the same one.
+ * Creates a Church Document from a built-in or church template, then opens its page. The same request key opens the same one.
  * `mergeFields` are the values typed on the Documents template page; each wins over the church's own value.
  */
 export async function createChurchDocument(
@@ -111,6 +116,75 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	}
 	revalidatePath("/documents/church");
 	redirect("/documents/church?deleted=1");
+}
+
+export type TemplateSaveResult =
+	{ status: "saved"; template: ChurchTemplateSummary } | { status: "refused"; message: string } | { status: "lost" };
+
+/**
+ * Save as template: the saved revision the person sees becomes the church's own template. The same request key makes
+ * one template, so a double click or a resend after a dropped connection does not make two.
+ */
+export async function saveChurchTemplate(input: {
+	documentId: string;
+	revision: number;
+	name: string;
+	description: string;
+	requestKey: string;
+}): Promise<TemplateSaveResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.saveChurchTemplate(db, actor, input);
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		revalidatePath("/documents/church");
+		return { status: "saved", template: reply.value };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "template_save_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
+/** Deletes a church template after the person confirmed. Documents made from it keep their content. */
+export async function deleteChurchTemplate(
+	templateId: string,
+): Promise<{ status: "deleted" } | { status: "refused"; message: string } | { status: "lost" }> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.deleteChurchTemplate(db, actor, { templateId });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		revalidatePath("/documents/church");
+		return { status: "deleted" };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "template_delete_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
+export type DeleteExportResult = { status: "deleted" } | { status: "refused"; message: string } | { status: "lost" };
+
+/** An Owner or Admin deletes one saved export after confirming (D-79). The server refuses a Member. */
+export async function deleteSavedExport(documentId: string, exportId: string): Promise<DeleteExportResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.deleteExport(db, actor, { documentId, exportId });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "deleted" };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "export_delete_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
 }
 
 export type CompareResult =

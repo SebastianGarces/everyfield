@@ -185,6 +185,8 @@ export const churchDocument = z.strictObject({
 	/** The formats the document offers: PDF and Word, and Excel when it holds a ledger table. */
 	formats: z.array(documentFormat).min(1).max(3),
 	documentClass: churchClass,
+	/** The name of the church template the document was made from; null for a built-in template. */
+	templateName: z.string().min(1).max(200).nullable(),
 	useChurchBranding: z.boolean(),
 	title: z.string().min(1).max(200),
 	/** The current revision number, as a decimal string, for the expected-revision check. */
@@ -227,11 +229,33 @@ export const churchSummary = z.strictObject({
 	title: z.string().min(1).max(200),
 	templateId,
 	templateVersion: z.int().min(1),
+	/** The name of the church template the document was made from; null for a built-in template. */
+	templateName: z.string().min(1).max(200).nullable(),
 	documentClass: churchClass,
 	revision: revisionToken,
 	updatedAt: z.iso.datetime(),
 });
-export const churchLibrary = z.strictObject({ documents: z.array(churchSummary).max(200) });
+/**
+ * One of the church's own templates, as "New from template" shows it, with the document revision it was saved from.
+ * `templateId` is what New from template takes ("church-" and the record id).
+ */
+export const churchTemplateSummary = z.strictObject({
+	id: recordId,
+	templateId,
+	title: z.string().min(1).max(200),
+	description: z.string().max(500).nullable(),
+	documentClass: churchClass,
+	formats: z.array(documentFormat).min(1).max(3),
+	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */
+	page: z.strictObject({ width: z.number().positive(), height: z.number().positive(), perSheet: z.int().min(1) }),
+	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }),
+});
+export const churchLibrary = z.strictObject({
+	documents: z.array(churchSummary).max(200),
+	templates: z.array(churchTemplateSummary).max(200),
+});
+export const deletedChurchTemplate = z.strictObject({ templateId: recordId, deleted: z.literal(true) });
+export type ChurchTemplateSummary = z.infer<typeof churchTemplateSummary>;
 /** The bytes of one revision in one format, base64. */
 export const churchFile = z.strictObject({
 	documentId: recordId,
@@ -242,6 +266,22 @@ export const churchFile = z.strictObject({
 	digest: sha256,
 	bytes: z.string().min(1),
 });
+/** One saved export as the document page lists it. The revision and the bytes never change after the export. */
+export const savedExport = z.strictObject({
+	id: recordId,
+	documentId: recordId,
+	revision: z.int().min(1),
+	format: documentFormat,
+	generatedAt: z.iso.datetime(),
+	/** The name of the person who exported it, while they hold a seat in the church plant; else null. */
+	creatorName: z.string().min(1).max(255).nullable(),
+	digest: sha256,
+	byteCount: z.int().min(1),
+	downloadName: z.string().min(1).max(220),
+});
+export const savedExportList = z.strictObject({ documentId: recordId, exports: z.array(savedExport).max(100) });
+export const deletedExport = z.strictObject({ exportId: recordId, deleted: z.literal(true) });
+export type SavedExport = z.infer<typeof savedExport>;
 /**
  * A Church Document beside the current version of its template: every difference in reading order, and the text each
  * merge field prints on both sides (the document's frozen values, then what an accepted new field would print).

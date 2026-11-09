@@ -4130,6 +4130,11 @@
   },
   "added_links": [
     {
+      "requirement": "REQ-DOC-023",
+      "operation": "documents.deleteExport",
+      "reason": "T-54 ruling D-79 (Nora QA 2026-11-04, PR #393 follow-up): only an Owner or Admin deletes a saved export of a Church Document, with one audit row."
+    },
+    {
       "requirement": "REQ-DOC-022",
       "operation": "documents.setBranding",
       "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
@@ -4695,6 +4700,11 @@
     }
   ],
   "operation_additions": [
+    {
+      "id": "documents.deleteExport",
+      "reason": "T-54 ruling D-79 (Nora QA 2026-11-04, PR #393 follow-up): only an Owner or Admin deletes a saved export of a Church Document, with one audit row.",
+      "requirement": "REQ-DOC-023"
+    },
     {
       "id": "documents.setBranding",
       "reason": "Owner ruling 2026-10-30 (OPS-79): edit in the app and export both PDF and Word. REQ-DOC-022 holds a use church branding toggle that needs its own audited write.",

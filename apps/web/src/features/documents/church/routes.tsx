@@ -32,6 +32,7 @@ export async function ChurchLibraryPage({
 		<ChurchLibrary
 			documents={loaded.value.documents}
 			templates={loaded.value.templates}
+			churchTemplates={loaded.value.churchTemplates}
 			canManage={canManageChurch(authority)}
 			deleted={(await searchParams).deleted === "1"}
 		/>
@@ -55,6 +56,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 			doc={loaded.value.view}
 			editable={canManage && brands ? { document: loaded.value.document, brands, template } : null}
 			canManage={canManage}
+			exports={loaded.value.exports}
 		/>
 	);
 }
