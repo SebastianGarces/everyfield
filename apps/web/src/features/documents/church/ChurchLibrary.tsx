@@ -1,6 +1,6 @@
 "use client";
 
-import { Add01Icon, ArrowRight01Icon, Delete02Icon, File02Icon } from "@hugeicons/core-free-icons";
+import { Add01Icon, ArrowRight01Icon, Delete02Icon, File02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -23,6 +23,7 @@ import type { ChurchSummary, ChurchTemplateSummary } from "@everyfield/contracts
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
 import { useRef, useState, useTransition } from "react";
 import { createChurchDocument, deleteChurchTemplate, type ChurchActionResult } from "./actions.ts";
+import { EditTemplateDialog, type TemplateDetails } from "./EditTemplate.tsx";
 import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
 
 type Props = {
@@ -135,7 +136,7 @@ function matching(templates: Choice[], search: string) {
 /**
  * "New from template": the church's own templates first, then Everyfield's, each group under its own heading. A search
  * over name, description and category and pages of ten keep a long list easy to browse. Choosing one makes the
- * document and opens its page. An Owner or Admin can delete a church template here; Everyfield's stay.
+ * document and opens its page. An Owner or Admin can rename or delete a church template here; Everyfield's stay.
  */
 function TemplatePicker({
 	templates,
@@ -149,11 +150,14 @@ function TemplatePicker({
 	const [page, setPage] = useState(1);
 	// A deleted church template leaves the picker at once; the library page reads the rest on its next visit.
 	const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+	// A renamed church template shows its new name and description at once, by record id.
+	const [edited, setEdited] = useState<ReadonlyMap<string, TemplateDetails>>(new Map());
+	const [saved, setSaved] = useState<string | null>(null);
 	const list = useRef<HTMLDivElement>(null);
 	const all: Choice[] = [
 		...churchTemplates
 			.filter((t) => !removed.has(t.id))
-			.map((t) => ({ ...t, group: "church" as const, recordId: t.id })),
+			.map((t) => ({ ...t, ...edited.get(t.id), group: "church" as const, recordId: t.id })),
 		...templates.map((t) => ({ ...t, group: "everyfield" as const, templateId: t.id, recordId: null, version: null })),
 	];
 	const found = matching(all, search);
@@ -185,6 +189,7 @@ function TemplatePicker({
 		if (result.status === "refused") throw new Error(result.message);
 		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
 		setRemoved((prior) => new Set(prior).add(recordId));
+		setSaved(null);
 		// The last template of the last page went: show the page before it.
 		setPage((current) => Math.min(current, Math.max(1, Math.ceil((found.length - 1) / PAGE_SIZE))));
 	}
@@ -198,6 +203,7 @@ function TemplatePicker({
 				if (!next) {
 					keys.current.clear();
 					setMessage(null);
+					setSaved(null);
 					setSearch("");
 					setPage(1);
 				}
@@ -227,6 +233,13 @@ function TemplatePicker({
 				</div>
 				{/* pt-1 keeps the first card's ring and focus outline inside the scroll area, which clips its edges. */}
 				<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
+					<div role="status" className="empty:hidden">
+						{saved ? (
+							<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
+								Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.
+							</p>
+						) : null}
+					</div>
 					{shown.length === 0 ? (
 						<p className="py-6 text-md text-text-2">No template matches “{search.trim()}”.</p>
 					) : null}
@@ -251,6 +264,14 @@ function TemplatePicker({
 											disabled={pending && chosen !== t.templateId}
 											onChoose={() => choose(t.templateId)}
 											onDelete={t.recordId ? () => remove(t.recordId!) : null}
+											onEdited={
+												t.recordId
+													? (details) => {
+															setEdited((prior) => new Map(prior).set(t.recordId!, details));
+															setSaved(details.title);
+														}
+													: null
+											}
 										/>
 									))}
 								</ul>
@@ -287,20 +308,26 @@ function TemplatePicker({
 	);
 }
 
-/** One template: a button that makes a document from it, and for a church template a Delete button at its right edge, past the arrow. */
+/**
+ * One template: a button that makes a document from it, and for a church template Edit and Delete buttons at its right
+ * edge, past the arrow.
+ */
 function TemplateCard({
 	template: t,
 	busy,
 	disabled,
 	onChoose,
 	onDelete,
+	onEdited,
 }: {
 	template: Choice;
 	busy: boolean;
 	disabled: boolean;
 	onChoose: () => void;
 	onDelete: (() => Promise<void>) | null;
+	onEdited: ((details: TemplateDetails) => void) | null;
 }) {
+	const [editing, setEditing] = useState(false);
 	return (
 		<li className="relative">
 			<button
@@ -313,7 +340,7 @@ function TemplateCard({
 					"shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:shadow-[0_0_0_1px_var(--ef-ink)]",
 					"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
 					"disabled:cursor-not-allowed disabled:opacity-60",
-					onDelete && "pr-16",
+					onDelete && "pr-26 max-app-sm:pr-16",
 				)}
 			>
 				<span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -331,7 +358,28 @@ function TemplateCard({
 				{busy ? <Spinner size={18} /> : <Icon icon={ArrowRight01Icon} size={18} className="mt-0.5 text-text-3" />}
 			</button>
 			{onDelete ? (
-				<span className="absolute top-3 right-3">
+				<span className="absolute top-3 right-3 flex gap-2 max-app-sm:flex-col">
+					{onEdited && t.recordId ? (
+						<>
+							<IconButton
+								icon={PencilEdit02Icon}
+								label={`Edit template ${t.title}`}
+								size="sm"
+								disabled={disabled}
+								onClick={() => setEditing(true)}
+							/>
+							{/* Mounted only while open, so each opening starts from what the card shows and with new request keys. */}
+							{editing ? (
+								<EditTemplateDialog
+									open
+									onOpenChange={setEditing}
+									templateId={t.recordId}
+									details={{ title: t.title, description: t.description }}
+									onSaved={onEdited}
+								/>
+							) : null}
+						</>
+					) : null}
 					<ConfirmDialog
 						trigger={
 							<IconButton icon={Delete02Icon} label={`Delete template ${t.title}`} size="sm" disabled={disabled} />
