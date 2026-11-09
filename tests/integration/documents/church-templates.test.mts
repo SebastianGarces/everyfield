@@ -9,6 +9,7 @@ import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -756,6 +757,361 @@ describe(
 			);
 			refused(await updateTemplate(OWNER, { ...input, revision: 99, requestKey: "t79-no-revision" }), "unavailable");
 			assert.deepEqual(await counts(), before);
+		});
+	},
+);
+
+const editTemplate = async (who, input) => documentsWriter.editChurchTemplate(db, await authority(who), input);
+/** The template row as a rename may and may not change it. */
+const templateRow = async (id) =>
+	(
+		await rowsOf(
+			sql`SELECT title, description, revision::text AS revision, current_revision_id, copied_from_revision_id,
+				copied_from_hash, archived_at FROM document WHERE id = ${id}::uuid`,
+		)
+	)[0];
+const editAudits = async () =>
+	rowsOf(
+		sql`SELECT actor_id, subject_id, kind, request_key, before_value, after_value FROM audit_event
+		WHERE action = 'documents.template_details_changed' ORDER BY recorded_at`,
+	);
+
+describe(
+	"T-87 Rename a church template or change its description: no new version, earlier documents keep theirs",
+	{ concurrency: 1 },
+	() => {
+		const t = {};
+		test("a rename changes the card, later documents and the from line, and no revision, version or earlier document", async () => {
+			const source = await edited(
+				OWNER,
+				ok(await create(OWNER, "conflict-of-interest-policy", "t87-source")),
+				"Wording for T-87.",
+			);
+			const template = ok(
+				await saveTemplate(OWNER, {
+					documentId: source.id,
+					revision: Number(source.revision),
+					name: "Volunteer policy",
+					description: "The first description.",
+					requestKey: "t87-save",
+				}),
+			);
+			// A document made before the edit, exported.
+			const earlier = ok(await create(ADMIN, template.templateId, "t87-earlier"));
+			assert.equal(earlier.title, "Volunteer policy");
+			const earlierExport = ok(await exportDoc(OWNER, earlier.id, 1, "pdf", "t87-earlier-export"));
+			const earlierBytes = sha256(await bytesOf(earlierExport));
+			const earlierState = await documentState(earlier.id);
+			const revisionsBefore = await templateRevisions(template.id);
+			const rowBefore = await templateRow(template.id);
+			const before = await counts();
+
+			const input = {
+				templateId: template.id,
+				name: "Volunteer and staff policy",
+				description: "For everyone who serves.",
+				requestKey: "t87-edit-1",
+			};
+			const renamed = ok(await editTemplate(ADMIN, input));
+			assert.deepEqual(renamed, {
+				...template,
+				title: "Volunteer and staff policy",
+				description: "For everyone who serves.",
+			});
+			assert.equal(renamed.version, 1, "the version stays");
+			assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 }, "one audit row and nothing else");
+
+			// One audit event: the actor, the template, the name and description before and after.
+			const [audit] = await editAudits();
+			assert.equal(audit.actor_id, actors[ADMIN].id);
+			assert.equal(audit.subject_id, template.id);
+			assert.equal(audit.kind, "edit");
+			assert.equal(audit.request_key, "t87-edit-1");
+			assert.deepEqual(audit.before_value, { name: "Volunteer policy", description: "The first description." });
+			assert.equal(audit.after_value.name, "Volunteer and staff policy");
+			assert.equal(audit.after_value.description, "For everyone who serves.");
+
+			// The row keeps its version and current revision; every stored revision is byte-identical.
+			assert.deepEqual(await templateRow(template.id), {
+				...rowBefore,
+				title: "Volunteer and staff policy",
+				description: "For everyone who serves.",
+			});
+			assert.deepEqual(await templateRevisions(template.id), revisionsBefore);
+
+			// The card in New from template shows the new name and description at the same version.
+			const card = (await library(OWNER)).templates.find((x) => x.id === template.id);
+			assert.deepEqual(card, renamed);
+
+			// The earlier document keeps its title, revisions, origin and export bytes; its from line names the new name.
+			assert.equal(await documentState(earlier.id), earlierState);
+			assert.equal(sha256(await bytesOf(earlierExport)), earlierBytes);
+			const line = (await library(OWNER)).documents.find((d) => d.id === earlier.id);
+			assert.equal(line.title, "Volunteer policy");
+			assert.equal(line.templateName, "Volunteer and staff policy");
+			assert.equal(line.templateVersion, 1);
+			const opened = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: earlier.id }));
+			assert.equal(opened.title, "Volunteer policy");
+			assert.equal(opened.templateName, "Volunteer and staff policy");
+			assert.equal(opened.templateVersion, 1);
+			assert.deepEqual(opened.body.origin, earlier.body.origin);
+
+			// A document made now takes the new name; its body is the current revision apart from the title.
+			const later = ok(await create(OWNER, template.templateId, "t87-later"));
+			assert.equal(later.title, "Volunteer and staff policy");
+			assert.equal(later.body.title, "Volunteer and staff policy");
+			assert.equal(later.templateName, "Volunteer and staff policy");
+			assert.equal(later.templateVersion, 1);
+			const current = JSON.parse(revisionsBefore[0].body);
+			assert.deepEqual(later.body.origin, {
+				template: template.templateId,
+				version: 1,
+				hash: await templateHash(current),
+			});
+			assert.deepEqual(content(later.body), content(earlier.body));
+			assert.deepEqual(content(later.body).body, current.body);
+			assert.deepEqual(content(later.body).page, current.page);
+			const laterLine = (await library(OWNER)).documents.find((d) => d.id === later.id);
+			assert.equal(laterLine.title, "Volunteer and staff policy");
+			assert.equal(laterLine.templateName, "Volunteer and staff policy");
+			Object.assign(t, { template, source, input, renamed, earlier, earlierState });
+		});
+
+		test("a description-only edit and a cleared description keep the name; an empty or too long name is refused", async () => {
+			const { template } = t;
+			const described = ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: "Volunteer and staff policy",
+					description: "Read by every new volunteer.",
+					requestKey: "t87-description",
+				}),
+			);
+			assert.equal(described.title, "Volunteer and staff policy");
+			assert.equal(described.description, "Read by every new volunteer.");
+			const cleared = ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: "Volunteer and staff policy",
+					description: "  ",
+					requestKey: "t87-cleared",
+				}),
+			);
+			assert.equal(cleared.title, "Volunteer and staff policy");
+			assert.equal(cleared.description, null);
+			assert.equal((await templateRow(template.id)).description, null);
+			const card = (await library(OWNER)).templates.find((x) => x.id === template.id);
+			assert.equal(card.description, null);
+			assert.equal(card.title, "Volunteer and staff policy");
+			const [, second, third] = await editAudits();
+			assert.deepEqual(second.before_value, {
+				name: "Volunteer and staff policy",
+				description: "For everyone who serves.",
+			});
+			assert.equal(second.after_value.description, "Read by every new volunteer.");
+			assert.deepEqual(third.before_value, {
+				name: "Volunteer and staff policy",
+				description: "Read by every new volunteer.",
+			});
+			assert.equal(third.after_value.description, null);
+
+			const before = await counts();
+			const base = { templateId: template.id, description: "", requestKey: "t87-bad" };
+			for (const name of ["", "   ", "x".repeat(201)])
+				refused(await editTemplate(OWNER, { ...base, name }), "invalid_input");
+			refused(await editTemplate(OWNER, { ...base, name: "Fine", description: "x".repeat(501) }), "invalid_input");
+			// The limits are Save as template's: 200 and 500 characters fit.
+			const longest = ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: "n".repeat(200),
+					description: "d".repeat(500),
+					requestKey: "t87-longest",
+				}),
+			);
+			assert.equal(longest.title.length, 200);
+			assert.equal(longest.description.length, 500);
+			assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 });
+			ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: "Volunteer and staff policy",
+					description: "For everyone who serves.",
+					requestKey: "t87-restore",
+				}),
+			);
+		});
+
+		test("the same request key writes one change, for a resend and for two racing requests; other values on it are a conflict; an unchanged save writes nothing", async () => {
+			const { template, input, renamed } = t;
+			const before = await counts();
+			const audited = (await editAudits()).length;
+			// A resend of the first edit answers with the template as it stands now and writes nothing.
+			assert.deepEqual(ok(await editTemplate(ADMIN, input)), renamed);
+			assert.deepEqual(ok(await editTemplate(OWNER, input)), renamed);
+			refused(await editTemplate(OWNER, { ...input, name: "Another name" }), "conflict");
+			refused(await editTemplate(OWNER, { ...input, description: "Another description" }), "conflict");
+			const other = ok(
+				await saveTemplate(OWNER, { documentId: t.source.id, revision: 2, name: "Other", requestKey: "t87-other" }),
+			);
+			const mid = await counts();
+			refused(await editTemplate(OWNER, { ...input, templateId: other.id }), "conflict");
+			assert.deepEqual(await counts(), mid);
+			assert.deepEqual(mid, {
+				...before,
+				templates: before.templates + 1,
+				revisions: before.revisions + 1,
+				audits: before.audits + 1,
+			});
+
+			// A double click: two requests with one key race; one change and one audit row.
+			const race = { templateId: template.id, name: "Raced name", description: "Raced.", requestKey: "t87-race" };
+			const [a, b] = (await Promise.all([editTemplate(OWNER, race), editTemplate(OWNER, race)])).map(ok);
+			assert.deepEqual(a, b);
+			assert.equal(a.title, "Raced name");
+			assert.deepEqual(await counts(), { ...mid, audits: mid.audits + 1 });
+			assert.equal((await editAudits()).length, audited + 1);
+
+			// One key with other values, raced: one lands, the other is a conflict, one audit row.
+			const results = await Promise.all([
+				editTemplate(OWNER, { ...race, name: "First of two", requestKey: "t87-race-2" }),
+				editTemplate(ADMIN, { ...race, name: "Second of two", requestKey: "t87-race-2" }),
+			]);
+			const landed = results.filter((r) => r.status === "ok");
+			assert.equal(landed.length, 1, JSON.stringify(results));
+			refused(
+				results.find((r) => r.status !== "ok"),
+				"conflict",
+			);
+			assert.equal((await templateRow(template.id)).title, landed[0].value.title);
+			assert.deepEqual(await counts(), { ...mid, audits: mid.audits + 2 });
+
+			// A save that changes neither the name nor the description writes nothing.
+			const row = await templateRow(template.id);
+			const still = await counts();
+			const same = ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: row.title,
+					description: row.description ?? "",
+					requestKey: "t87-unchanged",
+				}),
+			);
+			assert.equal(same.title, row.title);
+			assert.deepEqual(await counts(), still);
+			assert.deepEqual(await templateRow(template.id), row);
+			ok(
+				await editTemplate(OWNER, {
+					templateId: template.id,
+					name: "Volunteer and staff policy",
+					description: "For everyone who serves.",
+					requestKey: "t87-restore-2",
+				}),
+			);
+		});
+
+		test("an update after a rename carries the new name and description into the next version", async () => {
+			const { template, source } = t;
+			const update = ok(
+				await updateTemplate(OWNER, {
+					templateId: template.id,
+					expectedVersion: 1,
+					documentId: source.id,
+					revision: 2,
+					requestKey: "t87-update",
+				}),
+			);
+			assert.equal(update.version, 2);
+			assert.equal(update.title, "Volunteer and staff policy");
+			assert.equal(update.description, "For everyone who serves.");
+			const [, v2] = await templateRevisions(template.id);
+			const body = JSON.parse(v2.body);
+			assert.equal(body.title, "Volunteer and staff policy");
+			assert.equal(body.description, "For everyone who serves.");
+			assert.equal(body.version, 2);
+			// The update list and the picker read the same summary.
+			const card = (await library(ADMIN)).templates.find((x) => x.id === template.id);
+			assert.deepEqual(card, update);
+			// The document made before the rename still reads v1 and its own title.
+			assert.equal(await documentState(t.earlier.id), t.earlierState);
+			const line = (await library(OWNER)).documents.find((d) => d.id === t.earlier.id);
+			assert.equal(line.templateVersion, 1);
+			assert.equal(line.templateName, "Volunteer and staff policy");
+		});
+
+		test("a deleted template cannot be edited and writes nothing", async () => {
+			const gone = ok(
+				await saveTemplate(OWNER, { documentId: t.source.id, revision: 2, name: "Gone", requestKey: "t87-gone" }),
+			);
+			ok(await deleteTemplate(OWNER, gone.id));
+			assert.ok(!(await library(OWNER)).templates.some((x) => x.id === gone.id), "no card, so no edit control");
+			const row = await templateRow(gone.id);
+			const before = await counts();
+			refused(
+				await editTemplate(OWNER, { templateId: gone.id, name: "Back", description: "", requestKey: "t87-gone-edit" }),
+				"unavailable",
+			);
+			assert.deepEqual(await counts(), before);
+			assert.deepEqual(await templateRow(gone.id), row);
+		});
+
+		test("a Member, another church's seat and another church's template are refused and write nothing", async () => {
+			const { template } = t;
+			const theirs = ok(await create(OTHER, "conflict-of-interest-policy", "t87-theirs"));
+			const theirTemplate = ok(
+				await saveTemplate(OTHER, { documentId: theirs.id, revision: 1, name: "Theirs", requestKey: "t87-their-tpl" }),
+			);
+			assert.deepEqual((await library(MEMBER)).templates, [], "a Member sees no church template, so no edit control");
+			const ours = await templateRow(template.id);
+			const their = await templateRow(theirTemplate.id);
+			const before = await counts();
+			const input = { templateId: template.id, name: "Taken over", description: "" };
+			refused(await editTemplate(MEMBER, { ...input, requestKey: "t87-member" }), "access_denied");
+			refused(await editTemplate(OTHER, { ...input, requestKey: "t87-other-seat" }), "unavailable");
+			refused(
+				await editTemplate(OWNER, { ...input, templateId: theirTemplate.id, requestKey: "t87-their-edit" }),
+				"unavailable",
+			);
+			assert.deepEqual(await counts(), before);
+			assert.deepEqual(await templateRow(template.id), ours);
+			assert.deepEqual(await templateRow(theirTemplate.id), their);
+		});
+
+		test("the migration fills the description column from each template's current revision", async () => {
+			const { template } = t;
+			const migration = (await readdir(new URL("../../../packages/db/migrations/", import.meta.url))).find((name) =>
+				name.endsWith("_church_template_details.sql"),
+			);
+			const backfill = (
+				await readFile(new URL(`../../../packages/db/migrations/${migration}`, import.meta.url), "utf8")
+			)
+				.split("--> statement-breakpoint")
+				.map((part) => part.trim())
+				.find((part) => part.startsWith("UPDATE"));
+			assert.ok(backfill, "the migration backfills the column");
+			// A template saved with a description, and one saved without, as they stood before the column existed.
+			const plain = ok(
+				await saveTemplate(OWNER, { documentId: t.source.id, revision: 2, name: "Plain", requestKey: "t87-plain" }),
+			);
+			const described = ok(
+				await saveTemplate(OWNER, {
+					documentId: t.source.id,
+					revision: 2,
+					name: "Described",
+					description: "Saved with a description.",
+					requestKey: "t87-described",
+				}),
+			);
+			assert.equal((await templateRow(described.id)).description, "Saved with a description.");
+			await admin.execute(sql`UPDATE document SET description = NULL WHERE kind = 'church_template'`);
+			await admin.execute(sql.raw(backfill));
+			assert.equal((await templateRow(described.id)).description, "Saved with a description.");
+			assert.equal((await templateRow(plain.id)).description, null);
+			// The renamed template reads its current revision's description (v2 holds the edited one).
+			assert.equal((await templateRow(template.id)).description, "For everyone who serves.");
+			const cards = (await library(OWNER)).templates;
+			assert.equal(cards.find((x) => x.id === described.id).description, "Saved with a description.");
+			assert.equal(cards.find((x) => x.id === plain.id).description, null);
 		});
 	},
 );
