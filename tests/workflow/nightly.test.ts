@@ -158,6 +158,21 @@ test("T-41 a nightly run writes the map, runs one engine at a time and closes it
 	});
 });
 
+test("T-41 a coverage run with failures keeps the previous map", async (t) => {
+	const dir = home(t);
+	const previous = '{"head":"old","createdAt":"1970-01-01T00:00:00.000Z","tests":{}}\n';
+	writeFileSync(join(dir, "coverage-map.json"), previous);
+	const { d } = deps(dir, { gh: fakeGh().gh, coverage: () => ({ passed: 39, failed: 1, tests: {} }) });
+	await nightly(d);
+	assert.equal(readFileSync(join(dir, "coverage-map.json"), "utf8"), previous);
+	assert.deepEqual(
+		lines(dir)
+			.filter((l) => l.suite === "coverage")
+			.map((l) => [l.passed, l.failed]),
+		[[39, 1]],
+	);
+});
+
 test("T-41 a browser run that throws still closes the preview and removes the worktree", async (t) => {
 	const { d, events } = deps(home(t), {
 		ui: () => {
@@ -222,7 +237,7 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 	assert.equal(issues[0].comments.length, 2);
 });
 
-test("T-41 the coverage map records what each test reached, also through a child process", (t) => {
+test("T-41 the coverage map records what each test ran or read, also through a child process", (t) => {
 	const root = mkdtempSync(join(tmpdir(), "evf-coverage-repo-"));
 	t.after(() => rmSync(root, { recursive: true, force: true }));
 	const files: Record<string, string> = {
@@ -236,6 +251,22 @@ test("T-41 the coverage map records what each test reached, also through a child
 			'test("cli adds", () => assert.equal(execFileSync(process.execPath, ["scripts/cli.mjs"], { encoding: "utf8" }), "3\\n"));',
 		].join("\n"),
 		"tests/workflow/plain.test.mjs": 'import { test } from "node:test";\ntest("nothing", () => {});\n',
+		// Reads that V8 coverage cannot see: a file as text here, a directory listing and a text read in a child.
+		"docs/notes.md": "# notes\n",
+		"docs/unread.md": "# unread\n",
+		"cases/a.json": "{}\n",
+		"scripts/list.mjs":
+			'import { readdirSync } from "node:fs";\nimport { readFile } from "node:fs/promises";\nconsole.log(readdirSync("cases").length, (await readFile("docs/notes.md", "utf8")).length);\n',
+		"tests/workflow/reads.test.mjs": [
+			'import { test } from "node:test";',
+			'import { readFileSync } from "node:fs";',
+			'import { execFileSync } from "node:child_process";',
+			'test("reads", () => {',
+			'	readFileSync("docs/notes.md", "utf8");',
+			'	readFileSync("/etc/hosts", "utf8");',
+			'	execFileSync(process.execPath, ["scripts/list.mjs"]);',
+			"});",
+		].join("\n"),
 	};
 	for (const [path, text] of Object.entries(files)) {
 		mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -245,11 +276,12 @@ test("T-41 the coverage map records what each test reached, also through a child
 	execFileSync("git", ["add", "."], { cwd: root });
 	const map = coverageMap(root);
 	assert.deepEqual(map, {
-		passed: 2,
+		passed: 3,
 		failed: 0,
 		tests: {
 			"tests/workflow/cli.test.mjs": ["scripts/cli.mjs", "scripts/lib.mjs"],
 			"tests/workflow/plain.test.mjs": [],
+			"tests/workflow/reads.test.mjs": ["cases/", "docs/notes.md", "scripts/list.mjs"],
 		},
 	});
 	assert.ok(!existsSync(join(root, "coverage")));

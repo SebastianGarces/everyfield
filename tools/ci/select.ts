@@ -101,7 +101,20 @@ export const RULES: readonly Rule[] = [
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
-	{ name: "preview config", paths: ["scripts/preview.json"], tests: ["tests/workflow/stack.test.mjs"] },
+	{
+		name: "preview config",
+		paths: ["scripts/preview.json"],
+		tests: ["tests/workflow/stack.test.mjs", "tests/workflow/setup-step.test.mjs"],
+	},
+	// Tests that read files as text or drive a process coverage cannot follow. The nightly map records node:fs reads
+	// too; these rules hold until a map has seen them, and cover reads made outside node:fs (Next's bundler).
+	{
+		name: "adapter operations and their eval cases",
+		paths: ["packages/evry/src/adapters/**", "tests/evry/evals/**"],
+		tests: ["tests/workflow/evry-evals-coverage.test.mjs"],
+	},
+	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
+	{ name: "coverage read tracer", paths: ["scripts/trace-reads.mjs"], tests: ["tests/workflow/nightly.test.ts"] },
 	// Fixtures and helpers next to the tests: the tests read them, so coverage cannot see every use.
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
@@ -225,9 +238,16 @@ export function selectChecks(
 	const testWhy = new Map<string, string[]>();
 	const filters = new Set<string>();
 	const add = <K>(into: Map<K, string[]>, key: K, why: string) => into.set(key, [...(into.get(key) ?? []), why]);
-	// Which tests reached each source file: the map inverted.
+	// Which tests reached each source file: the map inverted. A source ending in "/" is a directory the test listed, so
+	// every path under it reaches the test.
 	const reachedBy = new Map<string, string[]>();
-	for (const [test, sources] of Object.entries(map.tests)) for (const source of sources) add(reachedBy, source, test);
+	const listedBy = new Map<string, string[]>();
+	for (const [test, sources] of Object.entries(map.tests))
+		for (const source of sources) add(source.endsWith("/") ? listedBy : reachedBy, source, test);
+	const reachers = (path: string) => [
+		...(reachedBy.get(path) ?? []),
+		...[...listedBy].flatMap(([dir, tests]) => (path.startsWith(dir) ? tests : [])),
+	];
 
 	for (const path of changedPaths) {
 		if (inRoots(path) && (TEST_FILE.test(path) || suiteOf(path))) {
@@ -240,7 +260,7 @@ export function selectChecks(
 			full.push(`${path} is a ${shared.name}`);
 			continue;
 		}
-		const reached = reachedBy.get(path) ?? [];
+		const reached = [...new Set(reachers(path))];
 		if (!rules.length && !reached.length) {
 			full.push(`no rule covers ${path}`);
 			continue;

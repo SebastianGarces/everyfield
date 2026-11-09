@@ -14,7 +14,11 @@ const NOW = new Date("2026-11-09T12:00:00Z");
 const TESTS = [
 	".github/scripts/fail-forward.test.cjs",
 	"tests/workflow/dev.test.mjs",
+	"tests/workflow/evry-evals-coverage.test.mjs",
+	"tests/workflow/nightly.test.ts",
 	"tests/workflow/role-prompts.test.mjs",
+	"tests/workflow/server-logs.test.mjs",
+	"tests/workflow/setup-step.test.mjs",
 	"tests/workflow/stack.test.mjs",
 	"tools/ci/tests/select.test.ts",
 	"tools/qa/tests/qa.test.ts",
@@ -33,6 +37,11 @@ const context: Context = {
 			name: "@everyfield/db",
 			scripts: { "test:unit": "node --test ../../tests/integration/db/*.test.mts" },
 		},
+		{
+			dir: "packages/evry",
+			name: "@everyfield/evry",
+			scripts: { "test:unit": "node --test ../../tests/evry/evals/*.test.mts" },
+		},
 		{ dir: "packages/ui", name: "@everyfield/ui", scripts: { lint: "eslint .", typecheck: "tsc --noEmit" } },
 	],
 };
@@ -42,7 +51,12 @@ const map = {
 	tests: {
 		".github/scripts/fail-forward.test.cjs": [".github/scripts/fail-forward.cjs"],
 		"tests/workflow/dev.test.mjs": ["scripts/browser.ts", "scripts/dev.ts"],
+		// What a map built before the read tracer holds: V8 coverage alone sees nothing these tests read as text.
+		"tests/workflow/evry-evals-coverage.test.mjs": [],
+		"tests/workflow/nightly.test.ts": ["scripts/nightly.ts"],
 		"tests/workflow/role-prompts.test.mjs": [],
+		"tests/workflow/server-logs.test.mjs": [],
+		"tests/workflow/setup-step.test.mjs": ["scripts/setup-step.mjs", "scripts/stack.mjs"],
 		"tests/workflow/stack.test.mjs": ["scripts/stack.mjs"],
 		"tools/ci/tests/select.test.ts": ["tools/ci/select.ts"],
 		"tools/qa/tests/qa.test.ts": ["tools/qa/qa.ts", "tools/qa/store.ts"],
@@ -171,6 +185,70 @@ test("T-41 the map selects through child-process coverage and package tests reac
 	);
 });
 
+test("T-41 tests that read files as text are selected when those files change", async (t) => {
+	await t.test("an adapter operation runs the eval coverage guard as well as its package checks", () =>
+		assertSelected(selectChecks(["packages/evry/src/adapters/people/reads/list.ts"], map, context), {
+			checks: {
+				lint: "package source: packages/evry/src/adapters/people/reads/list.ts",
+				typecheck: "package source: packages/evry/src/adapters/people/reads/list.ts",
+				"test:unit": "package source: packages/evry/src/adapters/people/reads/list.ts",
+				workflow: "runs tests/workflow/evry-evals-coverage.test.mjs",
+			},
+			tests: {
+				"tests/workflow/evry-evals-coverage.test.mjs":
+					"adapter operations and their eval cases: packages/evry/src/adapters/people/reads/list.ts",
+			},
+			filters: ["...@everyfield/evry"],
+		}),
+	);
+	await t.test("an eval case file no package script names runs everything, the guard included", () =>
+		assertFull(selectChecks(["tests/evry/evals/classify.cases.json"], map, context), [
+			"no package owns tests/evry/evals/classify.cases.json",
+		]),
+	);
+	await t.test("the preview config runs both tests that read it", () =>
+		assertSelected(selectChecks(["scripts/preview.json"], map, context), {
+			checks: { workflow: "runs tests/workflow/setup-step.test.mjs; runs tests/workflow/stack.test.mjs" },
+			tests: {
+				"tests/workflow/stack.test.mjs": "preview config: scripts/preview.json",
+				"tests/workflow/setup-step.test.mjs": "preview config: scripts/preview.json",
+			},
+		}),
+	);
+	await t.test("a web app change runs the dev-server log test", () =>
+		assertSelected(selectChecks(["apps/web/src/features/settings/actions.ts"], map, context), {
+			checks: {
+				lint: "package source: apps/web/src/features/settings/actions.ts",
+				typecheck: "package source: apps/web/src/features/settings/actions.ts",
+				"test:unit": "package source: apps/web/src/features/settings/actions.ts",
+				workflow: "runs tests/workflow/server-logs.test.mjs",
+			},
+			tests: {
+				"tests/workflow/server-logs.test.mjs": "web app under a dev server: apps/web/src/features/settings/actions.ts",
+			},
+			filters: ["...@everyfield/web"],
+		}),
+	);
+	await t.test("a file read as text, or under a listed directory, reaches the test through the map", () =>
+		assertSelected(
+			selectChecks(
+				["tools/qa/qa-preview.md", "tools/qa/fixtures/new.json"],
+				{
+					...map,
+					tests: { ...map.tests, "tools/qa/tests/qa.test.ts": ["tools/qa/fixtures/", "tools/qa/qa-preview.md"] },
+				},
+				context,
+			),
+			{
+				checks: { "tools-qa": "runs tools/qa/tests/qa.test.ts" },
+				tests: {
+					"tools/qa/tests/qa.test.ts": "reached tools/qa/qa-preview.md; reached tools/qa/fixtures/new.json",
+				},
+			},
+		),
+	);
+});
+
 test("T-41 fail safe: each doubt runs every check, with the reason", async (t) => {
 	const cases: [string, string[] | null, Parameters<typeof selectChecks>[1], string][] = [
 		["an unreadable diff", null, map, "the diff could not be read"],
@@ -238,7 +316,11 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 			"tools/ci/tests/new.test.mjs",
 			"tests/workflow/sub/deep.test.mjs",
 			"tests/workflow/dev.test.mjs",
+			"tests/workflow/evry-evals-coverage.test.mjs",
+			"tests/workflow/nightly.test.ts",
 			"tests/workflow/role-prompts.test.mjs",
+			"tests/workflow/server-logs.test.mjs",
+			"tests/workflow/setup-step.test.mjs",
 			"tests/workflow/stack.test.mjs",
 		]),
 		[
@@ -257,5 +339,9 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 		'rule "role prompts and evf roles" names tests/workflow/role-prompts.test.mjs, which no suite runs',
 		'rule "dev command" names tests/workflow/dev.test.mjs, which no suite runs',
 		'rule "preview config" names tests/workflow/stack.test.mjs, which no suite runs',
+		'rule "preview config" names tests/workflow/setup-step.test.mjs, which no suite runs',
+		'rule "adapter operations and their eval cases" names tests/workflow/evry-evals-coverage.test.mjs, which no suite runs',
+		'rule "web app under a dev server" names tests/workflow/server-logs.test.mjs, which no suite runs',
+		'rule "coverage read tracer" names tests/workflow/nightly.test.ts, which no suite runs',
 	]);
 });

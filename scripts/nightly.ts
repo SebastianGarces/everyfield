@@ -18,7 +18,7 @@ import {
 } from "node:fs";
 import { availableParallelism, loadavg, tmpdir } from "node:os";
 import { basename, dirname, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { type CoverageMap, suiteOf } from "../tools/ci/select.ts";
 import { ciHome } from "./check.ts";
 
@@ -149,10 +149,14 @@ export async function nightly(deps: NightlyDeps): Promise<Entry[]> {
 	try {
 		let t0 = deps.now();
 		const { tests, ...covered } = deps.coverage(worktree);
-		const map: CoverageMap = { head, createdAt: at(), tests };
-		const file = join(deps.home, "coverage-map.json");
-		writeFileSync(file + ".tmp", JSON.stringify(map, null, 2) + "\n");
-		renameSync(file + ".tmp", file);
+		// A test that fails early reaches less than it would, so a map from a failing run would select too little. Keep the
+		// previous map; once it is over 7 days old, selection runs everything.
+		if (covered.failed === 0) {
+			const map: CoverageMap = { head, createdAt: at(), tests };
+			const file = join(deps.home, "coverage-map.json");
+			writeFileSync(file + ".tmp", JSON.stringify(map, null, 2) + "\n");
+			renameSync(file + ".tmp", file);
+		} else deps.log(`coverage had ${covered.failed} failures; the coverage map is not replaced`);
 		result(head, "coverage", t0, covered);
 
 		// The coverage run took minutes: ask again right before taking the slot.
@@ -198,19 +202,43 @@ export const counts = (output: string): SuiteRun => {
 	return { passed: Number(last("pass") ?? 0), failed: Number(last("fail") ?? 0) + (tests === undefined ? 1 : 0) };
 };
 
-/** The source files each selectable test file reached, through NODE_V8_COVERAGE, which child processes inherit. */
+/** Preloaded into every coverage process: it records the paths each one reads or lists through node:fs. */
+const TRACE_READS = pathToFileURL(fileURLToPath(new URL("./trace-reads.mjs", import.meta.url))).href;
+
+/**
+ * The repository files each selectable test file reached: the modules it ran, through NODE_V8_COVERAGE, and the files
+ * it read as text or directories it listed, through the trace-reads preload. Child processes inherit both. A listed
+ * directory is kept with a trailing "/", so a later file under it is reached as well.
+ */
 export function coverageMap(worktree: string, node = process.execPath): SuiteRun & { tests: Record<string, string[]> } {
 	// Coverage URLs hold real paths (macOS tmp is /private/var), so compare against the real worktree path.
 	worktree = realpathSync(worktree);
 	const tracked = new Set(run("git", ["-C", worktree, "ls-files", "-z"]).stdout.split("\0").filter(Boolean));
+	const trackedDirs = new Set(
+		[...tracked].flatMap((f) =>
+			f
+				.split("/")
+				.slice(0, -1)
+				.map((_, i, parts) => parts.slice(0, i + 1).join("/") + "/"),
+		),
+	);
+	const inRepo = (absolute: string) => {
+		const path = relative(worktree, absolute).split(sep).join("/");
+		return path.startsWith("../") ? null : path;
+	};
 	const tests: Record<string, string[]> = {};
 	const total = { passed: 0, failed: 0 };
 	for (const file of [...tracked].filter((f) => suiteOf(f)).sort()) {
 		const dir = mkdtempSync(join(tmpdir(), "evf-coverage-"));
+		const reads = mkdtempSync(join(tmpdir(), "evf-reads-"));
 		try {
 			// Without NODE_TEST_CONTEXT: a runner that inherits it reports to its parent and prints no counts.
 			const { NODE_TEST_CONTEXT: _, ...env } = process.env;
-			const r = run(node, ["--test", file], { cwd: worktree, env: { ...env, NODE_V8_COVERAGE: dir } });
+			const options = `${env.NODE_OPTIONS ?? ""} --import=${TRACE_READS}`.trim();
+			const r = run(node, ["--test", file], {
+				cwd: worktree,
+				env: { ...env, NODE_V8_COVERAGE: dir, TRACE_READS_DIR: reads, NODE_OPTIONS: options },
+			});
 			const c = counts(r.output);
 			total.passed += c.passed;
 			total.failed += c.failed;
@@ -219,13 +247,29 @@ export function coverageMap(worktree: string, node = process.execPath): SuiteRun
 				const { result } = JSON.parse(readFileSync(join(dir, name), "utf8")) as { result: { url: string }[] };
 				for (const { url } of result) {
 					if (!url.startsWith("file://")) continue;
-					const path = relative(worktree, fileURLToPath(url)).split(sep).join("/");
-					if (tracked.has(path) && path !== file) reached.add(path);
+					const path = inRepo(fileURLToPath(url));
+					if (path && tracked.has(path) && path !== file) reached.add(path);
 				}
 			}
+			for (const name of readdirSync(reads))
+				for (const line of readFileSync(join(reads, name), "utf8").split("\n").filter(Boolean)) {
+					// Reads hold the path as the test named it; a symlinked tmp dir resolves to the same real worktree.
+					const isDir = line.endsWith("/");
+					let real = line;
+					try {
+						real = realpathSync(line) + (isDir ? "/" : "");
+					} catch {
+						// A path that does not exist names no repository file.
+					}
+					const path = inRepo(real.replace(/\/$/, ""));
+					if (path === null || path === "") continue;
+					if (isDir ? trackedDirs.has(path + "/") : tracked.has(path) && path !== file)
+						reached.add(isDir ? path + "/" : path);
+				}
 			tests[file] = [...reached].sort();
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
+			rmSync(reads, { recursive: true, force: true });
 		}
 	}
 	return { ...total, tests };
@@ -302,17 +346,20 @@ function realDeps(): NightlyDeps {
 			must(run("git", ["-C", main, "fetch", "--quiet", "origin", "main"]), "git fetch");
 			const head = must(run("git", ["-C", main, "rev-parse", "origin/main^{commit}"]), "git rev-parse").stdout.trim();
 			const worktree = join(main, ".worktrees", `nightly-${head.slice(0, 12)}`);
+			const remove = () => {
+				rmSync(join(common, "evf-evidence", `verify-preview-${basename(worktree)}.json`), { force: true });
+				run("git", ["-C", main, "worktree", "remove", "--force", worktree]);
+			};
 			if (!existsSync(worktree))
 				must(run("git", ["-C", main, "worktree", "add", "--detach", worktree, head]), "git worktree add");
-			must(run("corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: worktree }), "pnpm install");
-			return {
-				head,
-				worktree,
-				remove: () => {
-					rmSync(join(common, "evf-evidence", `verify-preview-${basename(worktree)}.json`), { force: true });
-					run("git", ["-C", main, "worktree", "remove", "--force", worktree]);
-				},
-			};
+			try {
+				must(run("corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: worktree }), "pnpm install");
+			} catch (error) {
+				// nightly() removes the worktree only once checkout returns; a failed install must not leave it behind.
+				remove();
+				throw error;
+			}
+			return { head, worktree, remove };
 		},
 		coverage: (worktree) => coverageMap(worktree),
 		preview: async (worktree) => {
