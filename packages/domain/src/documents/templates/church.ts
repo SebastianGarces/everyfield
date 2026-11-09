@@ -40,9 +40,7 @@ export const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
 	{ key: "pastor_name", label: "Pastor name", required: false, autoFill: "pastor_name" },
 ];
 
-/** The visible blank an unfilled doctrinal slot prints, in the PDF and the DOCX. It is never doctrinal text. */
-export const SLOT_BLANK_NOTE =
-	"Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+export { SLOT_BLANK_NOTE } from "../doc-values.ts";
 
 /** How a merge value with no source reads in the text. It is never an invented name. */
 const blankFor = (key: string) => `[${(MERGE_FIELDS.find((f) => f.key === key)?.label ?? key).toLowerCase()}]`;

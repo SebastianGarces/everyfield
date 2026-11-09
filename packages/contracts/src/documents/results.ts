@@ -205,10 +205,12 @@ export const churchDocument = z.strictObject({
 /**
  * What the editor gets: the document and both looks the PDF can paint for it. `church` is the church theme, null when
  * the church has no brand kit with a primary color to paint; `plain` is the Everyfield-neutral theme. The document's
- * `useChurchBranding` picks one, so the page can follow the branding switch without another read.
+ * `useChurchBranding` picks one, so the page can follow the branding switch without another read. `mergeValues` is the
+ * church's current value of each merge field Insert offers.
  */
 export const churchDocumentView = churchDocument.extend({
 	brands: z.strictObject({ church: docBrand.nullable(), plain: docBrand }),
+	mergeValues: z.record(z.string().max(60), z.string().max(2000)),
 });
 export type DocBrands = z.infer<typeof churchDocumentView>["brands"];
 export const churchRevisionSummary = z.strictObject({

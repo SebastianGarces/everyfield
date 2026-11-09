@@ -18,7 +18,8 @@ import {
 import { Button } from "./tiptap/primitives/button.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tiptap/primitives/tooltip.tsx";
 import { TOOLBAR } from "./tiptap/styles.ts";
-import { writeInKindLabel } from "./extensions.ts";
+import { setFieldValue } from "./blocks.ts";
+import { fieldDecl, writeInKindLabel } from "./extensions.ts";
 
 // The settings of the block the cursor is in or on: the number of columns, a box's fill and border, a divider's weight
 // and color, an image's height and alignment. Each color control is a row of swatches, one for each token of the format,
@@ -286,7 +287,66 @@ function ControlsFor({ editor, target, palette }: { editor: Editor; target: Targ
 					<span className="text-sm text-text-2">Edit the label on the line.</span>
 				</Group>
 			);
+		case "field":
+			return <FieldValue editor={editor} fieldKey={String(attrs.key ?? "")} />;
 	}
+}
+
+/**
+ * The value of the selected merge field. It commits on Enter or when the input loses focus, as one Undo step, and every
+ * copy of the field on the page shows it at once. Escape puts back the value it had.
+ */
+function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) {
+	const id = useId();
+	const label = useEditorState({
+		editor,
+		selector: ({ editor: e }) => fieldDecl(e.state.doc, fieldKey)?.label ?? fieldKey,
+	});
+	const stored = useEditorState({
+		editor,
+		selector: ({ editor: e }) => {
+			const value = (e.state.doc.attrs.data as Record<string, unknown> | undefined)?.[fieldKey];
+			return typeof value === "string" ? value : "";
+		},
+	});
+	const [draft, setDraft] = useState<string | null>(null);
+	const commit = () => {
+		if (draft !== null) setFieldValue(editor, fieldKey, draft);
+		setDraft(null);
+	};
+	return (
+		<Group label={`Merge field · ${label}`}>
+			<span className="flex flex-wrap items-center gap-2">
+				<label htmlFor={id} className="text-sm text-text-2">
+					Value
+				</label>
+				<Tip text="What every copy of this field prints. Leave it empty to print its label in brackets.">
+					<input
+						id={id}
+						type="text"
+						maxLength={500}
+						value={draft ?? stored}
+						placeholder={`[${label.toLowerCase()}]`}
+						className="h-9 w-[min(280px,60vw)] rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none placeholder:text-text-3 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
+						onChange={(event) => setDraft(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								commit();
+								editor.view.focus();
+							} else if (event.key === "Escape") {
+								event.preventDefault();
+								setDraft(null);
+								editor.view.focus();
+							}
+						}}
+						onBlur={commit}
+					/>
+				</Tip>
+				<span className="text-sm text-text-2">Every copy of this field shows it.</span>
+			</span>
+		</Group>
+	);
 }
 
 /** The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. */
