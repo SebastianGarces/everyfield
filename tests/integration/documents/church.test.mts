@@ -853,6 +853,89 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
 	});
 
+	test("AC:CASE-DOC-023 T-83 an older revision exports its own content once, keeps its bytes and refuses a revision it lacks", async () => {
+		const owner = await authority(OWNER);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t83-policy"));
+		// Revision 2 rewrites the first line of text, so its first words are only in revision 1; revision 3 adds a line.
+		const second = structuredClone(doc.body);
+		const firstText = (function find(node) {
+			if (node.type === "text" && node.text.trim().split(/\s+/).length >= 3) return node;
+			for (const child of node.content ?? []) {
+				const hit = find(child);
+				if (hit) return hit;
+			}
+			return null;
+		})(second.body);
+		assert.ok(firstText, "the template has a line of text");
+		const onlyInOne = firstText.text.trim().split(/\s+/).slice(0, 3).join(" ");
+		firstText.text = "Rewritten in revision two.";
+		ok(await save(OWNER, doc.id, "1", second));
+		const third = structuredClone(second);
+		third.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Only in revision three." }] });
+		ok(await save(OWNER, doc.id, "2", third));
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			history.revisions.map((r) => r.number),
+			[1, 2, 3],
+			"a Member reads every revision",
+		);
+
+		const before = await countOf("generated_document");
+		const [pdf, again] = await Promise.all([
+			exportDoc(MEMBER, doc.id, 1, "pdf", "t83-pdf"),
+			exportDoc(MEMBER, doc.id, 1, "pdf", "t83-pdf"),
+		]);
+		assert.equal(ok(again).id, ok(pdf).id, "a double click is one saved export");
+		const saved = ok(pdf);
+		assert.equal(await countOf("generated_document"), before + 1);
+		assert.equal(saved.source.revision, 1);
+		const text = (await pdfPages(await bytesOf(saved))).join(" ").replace(/\s+/g, " ");
+		assert.ok(text.includes(onlyInOne), `revision 1's words "${onlyInOne}" are in the PDF`);
+		assert.equal(text.includes("Rewritten in revision two."), false);
+		assert.equal(text.includes("Only in revision three."), false, "the current revision's text is not");
+
+		const word = ok(await exportDoc(OWNER, doc.id, 1, "docx", "t83-docx"));
+		const words = wordText(docxParts(await bytesOf(word))["word/document.xml"]).replace(/\s+/g, " ");
+		assert.ok(words.includes(onlyInOne));
+		assert.equal(words.includes("Only in revision three."), false);
+		const listed = ok(await listExports(MEMBER, doc.id)).exports;
+		assert.deepEqual(
+			listed.map((e) => [e.id, e.revision, e.format, e.digest]),
+			[
+				[word.id, 1, "docx", word.digest],
+				[saved.id, 1, "pdf", saved.digest],
+			],
+		);
+		assert.equal(listed[1].downloadName, "conflict-of-interest-policy-revision-1.pdf");
+
+		// A kit change, the branding switch and a new revision later, the list download is still the first bytes.
+		const kit = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, { expectedRevision: kit.revision, patch: { primaryColor: "#2E7A1F" } }),
+		);
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: false }));
+		const fourth = structuredClone(third);
+		fourth.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision four." }] });
+		ok(await save(OWNER, doc.id, "3", fourth));
+		const file = ok(await exportFile(MEMBER, doc.id, saved.id));
+		assert.equal(sha256(bytesFrom(file)), saved.digest, "byte-identical to the first download");
+		assert.equal(sha256(bytesFrom(ok(await exportFile(OWNER, doc.id, word.id)))), word.digest);
+		assert.notEqual(ok(await fileOf(MEMBER, doc.id, "pdf", 1)).digest, saved.digest, "a fresh render differs now");
+
+		// A revision the document lacks, and another church plant's document, are not found and save nothing.
+		const counted = await counts();
+		refused(await exportDoc(OWNER, doc.id, 42, "pdf", "t83-missing"), "unavailable");
+		refused(await exportDoc(OTHER, doc.id, 1, "pdf", "t83-foreign"), "unavailable");
+		assert.deepEqual(await counts(), counted, "nothing is written");
+		const changed = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: changed.revision,
+				patch: { primaryColor: kit.primaryColor },
+			}),
+		);
+	});
+
 	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
 		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));

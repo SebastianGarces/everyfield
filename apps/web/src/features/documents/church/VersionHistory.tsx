@@ -20,7 +20,7 @@ type Props = {
 	/** The preview address of one revision in one format. */
 	file: (format: string, revision: string) => string;
 	/** Saves one export of a revision and downloads it (D-78). */
-	onDownload: (format: string, revision: string) => void;
+	onDownload: (format: "pdf" | "docx", revision: string) => void;
 	page: { width: number; height: number };
 };
 
