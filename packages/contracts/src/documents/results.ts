@@ -235,7 +235,6 @@ export const churchSummary = z.strictObject({
 export const churchTemplateSummary = z.strictObject({
 	id: recordId,
 	templateId,
-	version: z.int().min(1),
 	title: z.string().min(1).max(200),
 	description: z.string().max(500).nullable(),
 	documentClass: churchClass,
@@ -243,7 +242,6 @@ export const churchTemplateSummary = z.strictObject({
 	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */
 	page: z.strictObject({ width: z.number().positive(), height: z.number().positive(), perSheet: z.int().min(1) }),
 	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }),
-	createdAt: z.iso.datetime(),
 });
 export const churchLibrary = z.strictObject({
 	documents: z.array(churchSummary).max(200),

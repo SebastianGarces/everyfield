@@ -179,7 +179,6 @@ type TemplateRow = {
 	id: string;
 	title: string;
 	body: string;
-	created_at: Date | string;
 	source_document_id: string;
 	source_revision_id: string;
 	source_revision: number;
@@ -190,7 +189,6 @@ function templateSummary(row: TemplateRow) {
 	return c.churchTemplateSummary.parse({
 		id: row.id,
 		templateId: template.id,
-		version: template.version,
 		title: row.title,
 		description: template.description ?? null,
 		documentClass: template.class,
@@ -201,7 +199,6 @@ function templateSummary(row: TemplateRow) {
 			revisionId: row.source_revision_id,
 			revision: Number(row.source_revision),
 		},
-		createdAt: iso(row.created_at),
 	});
 }
 
@@ -736,7 +733,6 @@ export const churchWriter = {
 			let found: {
 				ok: boolean;
 				id: string | null;
-				created_at: Date | string | null;
 				prior_id: string | null;
 				prior_hash: string | null;
 			}[];
@@ -770,7 +766,7 @@ export const churchWriter = {
 						SELECT ${revId}::uuid, ins.tenant_id, ins.id, 1, ${body}, ${hash}, clock_timestamp(), clock_timestamp(),
 							${scope.accountId}::uuid
 						FROM ins
-						RETURNING id, recorded_at
+						RETURNING id
 					),
 					aud AS (
 						INSERT INTO audit_event (
@@ -786,7 +782,7 @@ export const churchWriter = {
 						RETURNING id
 					)
 					SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM ins) AS id, (SELECT id FROM prior) AS prior_id,
-						(SELECT hash FROM prior) AS prior_hash, (SELECT recorded_at FROM added) AS created_at, (SELECT count(*) FROM aud) AS audited`,
+						(SELECT hash FROM prior) AS prior_hash, (SELECT count(*) FROM aud) AS audited`,
 				);
 			} catch (error) {
 				// A race on the same request key reached the same stable id: answer with what the winner wrote.
@@ -800,18 +796,14 @@ export const churchWriter = {
 				return sameTemplate(db, scope, input.requestKey, requestHash);
 			}
 			if (!row.id) deny("unavailable");
-			return c.churchTemplateSummary.parse({
+			return templateSummary({
 				id: row.id,
-				templateId: checked.data.id,
-				version: 1,
 				title: input.name,
-				description: checked.data.description ?? null,
-				documentClass: checked.data.class,
-				formats: docFormats(checked.data),
-				page: sheetOf(checked.data.page),
-				source: { documentId: input.documentId, revisionId: src.revision_id, revision: input.revision },
-				createdAt: iso(row.created_at),
-			});
+				body,
+				source_document_id: input.documentId,
+				source_revision_id: src.revision_id,
+				source_revision: input.revision,
+			}) ?? deny("render_failed");
 		});
 	},
 

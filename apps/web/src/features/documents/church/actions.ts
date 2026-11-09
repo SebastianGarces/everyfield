@@ -102,13 +102,7 @@ export async function saveChurchTemplate(input: {
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
 	try {
-		const reply = await documentsWriter.saveChurchTemplate(db, actor, {
-			documentId: input.documentId,
-			revision: input.revision,
-			name: input.name,
-			...(input.description.trim() ? { description: input.description } : {}),
-			requestKey: input.requestKey,
-		});
+		const reply = await documentsWriter.saveChurchTemplate(db, actor, input);
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		revalidatePath("/documents/church");
 		return { status: "saved", template: reply.value };
