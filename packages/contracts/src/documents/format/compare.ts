@@ -5,7 +5,7 @@ import { FORMAT_SCHEMA } from "./schema.ts";
 import type { BlockNode, DocDocument, DocTemplate, FieldDecl, Origin, PageSetup, Region } from "./types.ts";
 
 /** "In template only", "In your document only" or "Changed". */
-export type DifferenceKind = "template-only" | "document-only" | "changed";
+type DifferenceKind = "template-only" | "document-only" | "changed";
 /** The page setup without its header and footer, which are listed on their own. */
 export type PageLayout = Omit<PageSetup, "header" | "footer">;
 

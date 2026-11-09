@@ -175,7 +175,7 @@ function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): M
 }
 
 /** Finds the current version of a built-in template. A test passes its own to compare with a template version 2. */
-export type TemplateLookup = (id: string) => c.DocTemplate | undefined;
+type TemplateLookup = (id: string) => c.DocTemplate | undefined;
 
 /**
  * Where a document stands against its template: "behind" when the template hash it records is not the current
