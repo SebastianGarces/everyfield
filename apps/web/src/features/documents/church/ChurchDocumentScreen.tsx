@@ -137,7 +137,7 @@ export function ChurchDocumentScreen({
 				subtitle={
 					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<span>
-							from {doc.templateId} v{templateVersion}
+							from {doc.templateName ?? doc.templateId} v{templateVersion}
 						</span>
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {revision}</span>

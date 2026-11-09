@@ -4,6 +4,7 @@ import { recordId } from "@everyfield/contracts/common";
 import {
 	type ChurchDocument,
 	type ChurchSummary,
+	type ChurchTemplateSummary,
 	type DocBrands,
 	type DocDocument,
 	type SavedExport,
@@ -29,6 +30,8 @@ export type ChurchView = {
 	title: string;
 	templateId: string;
 	templateVersion: number;
+	/** The church template's name when the document was made from one; null for a built-in template. */
+	templateName: string | null;
 	documentClass: ChurchDocument["documentClass"];
 	revision: string;
 	formats: ChurchDocument["formats"];
@@ -48,7 +51,9 @@ export const canManageChurch = (authority: RequestActor) => hasPlantSeat(authori
 
 export async function loadLibrary(
 	authority: RequestActor,
-): Promise<Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[] }>> {
+): Promise<
+	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
+> {
 	const db = requestDatabase();
 	if (!db || !hasPlantSeat(authority)) return db ? { status: "refused" } : { status: "failed" };
 	try {
@@ -59,6 +64,7 @@ export async function loadLibrary(
 			value: {
 				documents: reply.value.documents,
 				templates: docTemplateSummaries(),
+				churchTemplates: reply.value.templates,
 			},
 		};
 	} catch (error) {
@@ -108,6 +114,7 @@ export async function loadChurchDocument(
 					title: d.title,
 					templateId: d.templateId,
 					templateVersion: d.templateVersion,
+					templateName: d.templateName,
 					documentClass: d.documentClass,
 					revision: d.revision,
 					formats: d.formats,

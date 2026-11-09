@@ -17,6 +17,7 @@ export {
 	forkTemplate,
 	pageBox,
 	parseFormula,
+	templateFromDocument,
 	templateHash,
 	tileBox,
 	type Formula,
