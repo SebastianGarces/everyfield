@@ -382,6 +382,33 @@ for (const [name, engine] of ENGINES) {
 			assert.deepStrictEqual(await t.snap(), kept, "the condition is the same after a reload");
 			assert.equal(await t.label().innerText(), "Prints only when Church name has a value");
 
+			// 4: the block's state follows a merge value at once. Clearing the church name leaves its bracketed label,
+			// so the block stops printing; Undo brings the value and "Prints now" back.
+			await t.cursorIn(firstText);
+			await t.button("Insert block").click();
+			await page.getByRole("menuitem", { name: /^Church name/ }).click();
+			await t.settle();
+			assert.equal(await t.state().innerText(), "Prints now");
+			const named = (await t.snap()).data.church_name;
+			assert.ok(named, "the fork froze a church name");
+			doc = await t.checked("Clear the church name", async () => {
+				await page.locator(`${PAPER} span[data-ef-node="field"][data-ef-key="church_name"]`).first().click();
+				const value = page.getByRole("textbox", { name: "Value" });
+				await value.fill("");
+				await value.press("Enter");
+			});
+			assert.equal(doc.data.church_name, undefined, "the value is cleared");
+			assert.equal(await t.state().innerText(), "Does not print now", "after Redo the block does not print");
+			await t.undo();
+			await t.settle();
+			assert.equal((await t.snap()).data.church_name, named);
+			assert.equal(await t.state().innerText(), "Prints now", "Undo brings the value and its state back");
+			await t.redo();
+			await t.settle();
+			assert.equal(await t.state().innerText(), "Does not print now");
+			await t.undo();
+			await t.settle();
+
 			// 2: inside conditional text, Insert offers no second one; the page footer offers neither action.
 			await t.cursorIn("Only when named");
 			await t.button("Insert block").click();
