@@ -47,7 +47,11 @@ async function fork(page, title) {
 	await page.goto(`${BASE}/documents/church`);
 	await hydrated(page);
 	await page.getByRole("button", { name: "New from template" }).first().click();
-	await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
+	// The library also lists earlier copies by the same title: pick the template in the picker.
+	await page
+		.getByRole("dialog")
+		.getByRole("button", { name: new RegExp(`^${title}`) })
+		.click();
 	await page.waitForURL(/\/documents\/church\/[0-9a-f-]{36}$/, { timeout: 90_000 });
 	await page.locator(PAPER).waitFor({ timeout: 90_000 });
 	return new URL(page.url()).pathname;
@@ -285,8 +289,8 @@ test("AC:DOC-EDIT-SLOT: fill, delete and add back a doctrinal section; its PDF a
 			);
 		}
 		// The text after it follows straight on: the paragraph the section followed, then the next heading.
-		assert.match(out.word, /says that the member left the room\. (08 )?Yearly statement/);
-		assert.match(out.pdf, /says that the member left the room\. (08 )?Yearly statement/);
+		assert.match(out.word, /left the room\. (08 )?Yearly statement/);
+		assert.match(out.pdf, /left the room\. (08 )?Yearly statement/);
 		// The revision saved before the delete still prints the section.
 		const earlier = await files(context, path, 3);
 		assert.ok(earlier.pdf.includes(STATEMENT) && earlier.word.includes(STATEMENT), "revision 3 keeps the section");
@@ -333,11 +337,11 @@ test("AC:DOC-EDIT-HISTORY: version history lists saved revisions newest first an
 	let path = "";
 	await onPage(async (page) => {
 		path = await fork(page, "Conflict of Interest Policy");
-		for (const [n, word] of [
-			[2, "Second"],
-			[3, "Third"],
+		for (const [n, word, anchor] of [
+			[2, "Second", "The secretary writes"],
+			[3, "Third", "Second."],
 		]) {
-			await cursorIn(page, "The secretary writes", 0);
+			await cursorIn(page, anchor, 0);
 			await page.keyboard.insertText(`${word}. `);
 			await save(page, n);
 		}

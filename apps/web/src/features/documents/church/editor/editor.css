@@ -622,13 +622,13 @@
 	margin-bottom: 4px;
 	user-select: none;
 }
+/* Empty, the note takes the space and the one empty line lies over its first line, so the caret sits where text goes. */
 .ef-paper .ef-slot-note {
 	display: none;
-	position: absolute;
-	inset: 30px 12px auto;
 	color: var(--paper-text-quiet);
 	pointer-events: none;
 	user-select: none;
+	padding-bottom: 6px;
 }
 .ef-paper .ef-slot[data-empty] {
 	background: color-mix(in srgb, var(--paper-muted) 45%, white);
@@ -636,8 +636,9 @@
 .ef-paper .ef-slot[data-empty] .ef-slot-note {
 	display: block;
 }
-.ef-paper .ef-slot-body {
-	min-height: 42px;
+.ef-paper .ef-slot[data-empty] .ef-slot-body {
+	position: absolute;
+	inset: 28px 12px auto;
 }
 .ef-paper .ef-slot-body > :last-child {
 	margin-bottom: 0;
