@@ -69,7 +69,7 @@ export function ChurchDocumentScreen({
 		const result = await requestExport(doc.id, { revision, format, requestKey: key });
 		setExporting(null);
 		if (result.status === "lost") {
-			setExportError("The connection dropped before the file was saved. Nothing was downloaded. Try again.");
+			setExportError("The connection dropped, so nothing was downloaded. Try again; a retry will not save a second copy.");
 			return;
 		}
 		keys.current.delete(slot);

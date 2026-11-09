@@ -102,8 +102,8 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
 const gone = (status = 404) => new Response("This document is not available.", { status, headers: NO_STORE });
 
 /**
- * GET /documents/church/{id}/file?format=pdf[&revision=n][&download=1]. The preview and every download call the same
- * domain read, so the preview is the file Download gives. The actor is read again here.
+ * GET /documents/church/{id}/file?format=pdf[&revision=n]: the live preview, a fresh render that saves nothing (D-78).
+ * Download saves an export instead and serves its stored bytes (`savedExportRoute`). The actor is read again here.
  */
 export async function churchFileRoute(request: Request, { params }: { params: Promise<{ documentId: string }> }) {
 	const id = recordId.safeParse((await params).documentId);
@@ -124,12 +124,11 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 		);
 		if (reply.status !== "ok") return gone(reply.error.code === "invalid_input" ? 400 : 404);
 		const file = reply.value;
-		const disposition = url.searchParams.get("download") === "1" ? "attachment" : "inline";
 		return new Response(Buffer.from(file.bytes, "base64"), {
 			headers: {
 				...NO_STORE,
 				"Content-Type": file.mediaType,
-				"Content-Disposition": `${disposition}; filename="${file.downloadName}"`,
+				"Content-Disposition": `inline; filename="${file.downloadName}"`,
 				"X-Content-SHA256": file.digest,
 				"X-Content-Type-Options": "nosniff",
 			},

@@ -537,6 +537,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		documentsWriter.deleteExport(db, await authority(who), { documentId, exportId });
 	const exportDeletes = (id) =>
 		countOf("audit_event", `WHERE action = 'documents.export_deleted' AND subject_id = '${id}'::uuid`);
+	/** The object cleanup jobs a deleted export queued for its stored file. */
+	const cleanups = (id) =>
+		rowsOf(
+			sql`SELECT j.subject_record_id::text AS object_id, j.state FROM job j
+				WHERE j.kind = 'object_cleanup' AND j.producer_key = ${`export-deleted/${id}`}`,
+		);
+	const objectOf = async (id) =>
+		(await rowsOf(sql`SELECT object_id::text FROM generated_document WHERE id = ${id}::uuid`))[0].object_id;
 
 	test("AC:CASE-DOC-023 T-54 an export of revision 2 lists first with its revision, format, time and author", async () => {
 		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
@@ -608,27 +616,33 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		refused(await listExports(4, doc.id), "access_denied");
 	});
 
-	test("T-54 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row in the same statement", async () => {
+	test("T-54 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row and releases its file in the same statement", async () => {
 		const { doc, pdf, word } = state.saved;
 		const before = await counts();
 		refused(await deleteExport(MEMBER, doc.id, pdf.id), "access_denied");
 		refused(await deleteExport(OTHER, doc.id, pdf.id), "unavailable");
 		assert.deepEqual(await counts(), before, "nothing is written");
 		assert.equal(await exportDeletes(pdf.id), 0);
+		assert.deepEqual(await cleanups(pdf.id), [], "a refused delete queues no cleanup");
 		assert.ok(
 			ok(await listExports(MEMBER, doc.id)).exports.some((e) => e.id === pdf.id),
 			"the row is still listed",
 		);
 
+		const [pdfObject, wordObject] = [await objectOf(pdf.id), await objectOf(word.id)];
 		assert.deepEqual(ok(await deleteExport(ADMIN, doc.id, word.id)), { exportId: word.id, deleted: true });
 		assert.deepEqual(ok(await deleteExport(OWNER, doc.id, pdf.id)), { exportId: pdf.id, deleted: true });
 		assert.equal(await exportDeletes(pdf.id), 1, "one audit row");
 		assert.equal(await exportDeletes(word.id), 1);
+		// The stored file is released in the same statement: one cleanup job each, which the worker runs once the row is gone.
+		assert.deepEqual(await cleanups(pdf.id), [{ object_id: pdfObject, state: "ready" }], "one cleanup job");
+		assert.deepEqual(await cleanups(word.id), [{ object_id: wordObject, state: "ready" }]);
 		assert.deepEqual(await counts(), { ...before, generated: before.generated - 2, audits: before.audits + 2 });
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, [], "the rows leave the list");
 		refused(await exportFile(OWNER, doc.id, pdf.id), "unavailable", "its download stops working");
 		refused(await deleteExport(OWNER, doc.id, pdf.id), "unavailable");
 		assert.equal(await exportDeletes(pdf.id), 1, "a second delete writes nothing");
+		assert.equal((await cleanups(pdf.id)).length, 1, "and queues no second cleanup");
 	});
 
 	test("T-54 a render failure saves no export and leaves the list unchanged", async () => {

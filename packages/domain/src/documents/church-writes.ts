@@ -663,7 +663,14 @@ export const churchWriter = {
 					DELETE FROM generated_document gd USING gate
 					WHERE gate.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 						AND gd.source_document_id = ${input.documentId}::uuid
-					RETURNING gd.id
+					RETURNING gd.id, gd.object_id
+				),
+				rel AS (
+					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
+					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
+					FROM del
+					WHERE del.object_id IS NOT NULL
+					ON CONFLICT DO NOTHING
 				),
 				aud AS (
 					INSERT INTO audit_event (

@@ -553,7 +553,13 @@ test("AC:DOC-EDIT-PREVIEW: Preview saves first, equals Download, has one more pa
 		const url = new URL(page.url());
 		assert.ok(await page.getByText("Revision 2").first().isVisible(), "Preview saved first: revision 2");
 		const preview = await context.request.get(`${BASE}${url.pathname}/file?format=pdf&revision=2`);
-		const download = await context.request.get(`${BASE}${url.pathname}/file?format=pdf&revision=2&download=1`);
+		// Download saves an export of revision 2, then serves its stored bytes (D-78).
+		const saved = await context.request.post(`${BASE}${url.pathname}/exports`, {
+			data: { revision: "2", format: "pdf", requestKey: crypto.randomUUID() },
+		});
+		const reply = await saved.json();
+		assert.equal(reply.status, "saved", "Download saved an export");
+		const download = await context.request.get(`${BASE}${url.pathname}/exports/${reply.saved.id}`);
 		assert.equal(sha(await preview.body()), sha(await download.body()), "Preview and Download are the same bytes");
 		const after = await PDFDocument.load(await preview.body());
 		assert.equal(after.getPageCount(), pagesBefore + 1, "the page break added a page");
