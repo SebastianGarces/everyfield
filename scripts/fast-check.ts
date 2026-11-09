@@ -77,16 +77,12 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 	return lint;
 }
 
-/** Workspace packages from pnpm-workspace.yaml (`- dir/*` and `- dir` entries). */
+/** Workspace packages from the `- <dir>/*` entries of pnpm-workspace.yaml. */
 function workspacePackages(root: string): Pkg[] {
-	const yaml = existsSync(join(root, "pnpm-workspace.yaml"))
-		? readFileSync(join(root, "pnpm-workspace.yaml"), "utf8")
-		: "";
-	const dirs = [...yaml.matchAll(/^\s*-\s*["']?([^"'\s]+)["']?\s*$/gm)].flatMap(([, entry]) => {
-		if (!entry!.endsWith("/*")) return [join(root, entry!)];
-		const parent = join(root, entry!.slice(0, -2));
-		return existsSync(parent) ? readdirSync(parent).map((name) => join(parent, name)) : [];
-	});
+	const yaml = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
+	const dirs = [...yaml.matchAll(/^\s*-\s*["']?([^"'\s]+)\/\*["']?\s*$/gm)].flatMap(([, parent]) =>
+		readdirSync(join(root, parent!)).map((name) => join(root, parent!, name)),
+	);
 	return dirs
 		.filter((dir) => existsSync(join(dir, "package.json")))
 		.map((dir) => {
