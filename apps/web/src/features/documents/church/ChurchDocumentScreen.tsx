@@ -8,9 +8,9 @@ import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
-import { deleteChurchDocument, exportChurchDocument, type ChurchActionResult, type ExportResult } from "./actions.ts";
+import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
-import type { ChurchView } from "./server.ts";
+import type { ChurchView, ExportResult } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads and the saved exports. A download saves one export of
 // the shown revision, then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
@@ -66,9 +66,7 @@ export function ChurchDocumentScreen({
 		keys.current.set(slot, key);
 		setExporting(format);
 		setExportError(null);
-		const result: ExportResult = await exportChurchDocument(doc.id, revision, format, key).catch(() => ({
-			status: "lost" as const,
-		}));
+		const result = await requestExport(doc.id, { revision, format, requestKey: key });
 		setExporting(null);
 		if (result.status === "lost") {
 			setExportError("The connection dropped before the file was saved. Nothing was downloaded. Try again.");
@@ -178,4 +176,22 @@ export function ChurchDocumentScreen({
 			/>
 		</>
 	);
+}
+
+/** Asks the server to save one export. Any failure to reach it, or an answer that is not JSON, is a lost connection. */
+async function requestExport(
+	documentId: string,
+	body: { revision: string; format: string; requestKey: string },
+): Promise<ExportResult> {
+	try {
+		const response = await fetch(`/documents/church/${documentId}/exports`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		if (!response.ok) return { status: "lost" };
+		return (await response.json()) as ExportResult;
+	} catch {
+		return { status: "lost" };
+	}
 }

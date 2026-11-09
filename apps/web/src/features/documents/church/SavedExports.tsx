@@ -108,7 +108,7 @@ function DeleteExport({ saved, onDeleted }: { saved: SavedExport; onDeleted: (id
 		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
 		onDeleted(saved.id);
 	}
-	const label = `${FORMAT_LABEL[saved.format]} of revision ${saved.revision}`;
+	const label = `${FORMAT_LABEL[saved.format]} copy of revision ${saved.revision}`;
 	return (
 		<ConfirmDialog
 			trigger={
