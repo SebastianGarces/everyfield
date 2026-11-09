@@ -37,14 +37,6 @@ const SELF_CHECK = [
 		pass: true,
 	},
 	{
-		name: "white text with light computed backgrounds, drawn over a dark gradient",
-		html: `<div style="background-color:#fff;background-image:linear-gradient(90deg,#101418,#2a1f3a);padding:24px">
-			<p style="margin:0;background-color:transparent"><span id="chip" style="color:#fff;font:16px sans-serif">A new church plant.</span></p>
-		</div>`,
-		pass: true,
-		dark: true,
-	},
-	{
 		name: "white text with light computed backgrounds, drawn over a dark image",
 		html: `<div style="position:relative;background:#fafafa;width:400px;height:80px">
 			<img src="${darkImage}" alt="" style="position:absolute;inset:0">

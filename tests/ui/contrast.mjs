@@ -15,8 +15,8 @@ const GLYPH_DIFF = 2;
 
 /**
  * Measures the text contrast of the element `locator` names.
- * Returns { ratio, text, background, glyphPixels, shot } where `text` and `background` are the #rrggbb colors behind
- * the worst ratio, `glyphPixels` counts the pixels measured and `shot` is the PNG of the element as drawn.
+ * Returns { ratio, text, background, shot } where `text` and `background` are the #rrggbb colors behind the worst
+ * ratio and `shot` is the PNG of the element as drawn.
  */
 export async function contrastOf(locator) {
 	await locator.scrollIntoViewIfNeeded();
@@ -58,7 +58,6 @@ export async function contrastOf(locator) {
 			ratio: Math.round(worst.ratio * 100) / 100,
 			text: hex(worst.text),
 			background: hex(worst.background),
-			glyphPixels,
 			shot,
 		};
 	} finally {
@@ -77,7 +76,7 @@ export function luminance(rgb) {
 }
 
 /** WCAG 2 contrast ratio of two sRGB colors, from 1 to 21. */
-export function contrastRatio(a, b) {
+function contrastRatio(a, b) {
 	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
 	return (hi + 0.05) / (lo + 0.05);
 }
@@ -96,7 +95,7 @@ function parseColor(css) {
 }
 
 /** Decodes an 8-bit, non-interlaced RGB or RGBA PNG (what browser screenshots are) into RGBA pixels. */
-export function decodePng(buffer) {
+function decodePng(buffer) {
 	let offset = 8;
 	let width = 0;
 	let height = 0;
