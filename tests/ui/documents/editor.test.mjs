@@ -10,6 +10,7 @@
 //   AC:DOC-EDIT-LEGAL    criterion 12 (Delete all content keeps only the notice in the PDF and the Word file)
 //   AC:DOC-EDIT-MEMBER   criterion 14 (a Member sees no editing controls)
 //   AC:DOC-EDIT-CHUNKS   criterion 15 (no editor code on the library or the Member page)
+//   AC:CASE-DOC-023      T-83 (the Revisions list; a row asks once for its revision; a failure shows beside its row)
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
@@ -597,6 +598,72 @@ test("AC:DOC-EDIT-PREVIEW: Preview saves first, equals Download, has one more pa
 			sheets[0].split("Through Launch Sunday, I will: X").length - 1,
 			4,
 			"the edit shows on 4 cards of the sheet",
+		);
+	});
+});
+
+test("AC:CASE-DOC-023 T-83: the Revisions list follows each save, a row asks once for its revision, a failure stays by its row", async () => {
+	await onPage(async (page) => {
+		await fork(page, "Conflict of Interest Policy");
+		const revisions = page.getByRole("list", { name: "Revisions, newest first" }).getByRole("listitem");
+		const numbers = async () => (await revisions.allInnerTexts()).map((t) => t.match(/Revision (\d+)/)?.[1]);
+		assert.deepEqual(await numbers(), ["1"], "a fresh document has one revision");
+		assert.match(await revisions.first().innerText(), /Current/);
+		const status = page.getByRole("status").filter({ hasText: /Saved|Unsaved|Saving|Not saved/ });
+		for (const [n, words] of [
+			[2, " Two."],
+			[3, " Three."],
+		]) {
+			await select(page, PURPOSE, -1, -1);
+			await page.keyboard.type(words);
+			await button(page, "Save").click();
+			await status.filter({ hasText: `Revision ${n}` }).waitFor();
+		}
+		// The saves join the list without a reload, newest first, and only the newest is current.
+		assert.deepEqual(await numbers(), ["3", "2", "1"]);
+		assert.equal(await revisions.filter({ hasText: "Current" }).count(), 1);
+		assert.match(await revisions.first().innerText(), /Current/);
+
+		// A double click on revision 1's Download PDF sends one export request, for revision 1. The saved bytes, the digest
+		// and the one-export-per-key rule are checked against the database in tests/integration/documents/church.test.mts.
+		const asked = [];
+		await page.route("**/exports", (route) => {
+			if (route.request().method() === "POST") asked.push(route.request().postDataJSON());
+			return route.continue();
+		});
+		const idle = () =>
+			page
+				.locator("[aria-busy=true]")
+				.filter({ hasText: /PDF|Word/ })
+				.waitFor({ state: "detached" });
+		await page.getByRole("button", { name: "Download revision 1 as PDF" }).dblclick();
+		await idle();
+		assert.deepEqual(
+			asked.map((b) => [b.revision, b.format]),
+			[["1", "pdf"]],
+		);
+		// The header's Download PDF still exports the shown, current revision.
+		await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+		await idle();
+		assert.deepEqual(asked.at(-1).revision, "3");
+
+		// A lost connection shows its message beside the row and adds no Saved exports row and no download.
+		await page.unrouteAll({ behavior: "wait" });
+		await page.route("**/exports", (route) =>
+			route.request().method() === "POST" ? route.abort("internetdisconnected") : route.continue(),
+		);
+		const savedRows = page.getByRole("list", { name: "Saved exports, newest first" }).getByRole("listitem");
+		const before = await savedRows.count();
+		let downloaded = false;
+		page.on("download", () => (downloaded = true));
+		await page.getByRole("button", { name: "Download revision 2 as PDF" }).click();
+		await revisions.nth(1).getByRole("alert").filter({ hasText: "The connection dropped" }).waitFor();
+		assert.equal(await savedRows.count(), before, "no Saved exports row");
+		assert.equal(downloaded, false, "no file downloaded");
+		assert.equal(
+			await page.getByRole("alert").filter({ hasText: "The connection dropped" }).count(),
+			1,
+			"the message shows only beside that row",
 		);
 	});
 });

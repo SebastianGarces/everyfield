@@ -42,6 +42,8 @@ export type ChurchView = {
 };
 /** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
 export type TemplateState = Awaited<ReturnType<typeof templateStatus>>;
+/** One saved revision as the Revisions list shows it: its number and when it was saved. */
+export type RevisionRow = { number: number; recordedAt: string };
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -81,22 +83,26 @@ export async function loadChurchDocument(
 		brands: DocBrands | null;
 		template: TemplateState;
 		exports: SavedExport[];
+		/** Newest first. */
+		revisions: RevisionRow[];
 	}>
 > {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
 		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
-		// a Member reads the document alone, with its branding value, and gets no editor. Every seat reads the saved exports.
-		const [reply, saved] = await Promise.all([
+		// a Member reads the document alone, with its branding value, and gets no editor. Every seat reads the saved exports
+		// and the revisions (D-141).
+		const [reply, saved, history] = await Promise.all([
 			canManageChurch(authority)
 				? documentsWriter.readChurchForEdit(db, authority, { documentId })
 				: documentsWriter
 						.readChurch(db, authority, { documentId })
 						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null } } : r)),
 			documentsWriter.listExports(db, authority, { documentId }),
+			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
-		if (reply.status !== "ok" || saved.status !== "ok") return { status: "refused" };
+		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
 		const template = d.brands ? await templateStatus(d.body) : null;
@@ -118,6 +124,9 @@ export async function loadChurchDocument(
 				document: d.body,
 				brands: d.brands,
 				exports: saved.value.exports,
+				revisions: history.value.revisions
+					.map((r) => ({ number: r.number, recordedAt: r.recordedAt }))
+					.toSorted((a, b) => b.number - a.number),
 				template,
 			},
 		};
