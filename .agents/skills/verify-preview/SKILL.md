@@ -78,6 +78,11 @@ mode 0600 config outside the repository, prints no value and refuses to start wh
 The supervisor runs four previews at a time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
 preview only when its PR is merged or closed, and say so in your report.
 
+Setup timing: `preview.mjs` and `bin/dev stack up` record each install and build as one JSON file in
+`$(git rev-parse --path-format=absolute --git-common-dir)/evf-setup-steps` (or `EVF_SETUP_STEPS_DIR`), with the
+build's `.next/cache` state. `node scripts/setup-step.mjs report [--json]` gives weekly totals and hit rates per step.
+`node tools/ci/ci-timing.ts --last <n> [--json]` splits GitHub CI jobs into queue, setup and run time with cache hits.
+
 The development database is shared and may be wiped and reseeded at any time:
 `corepack pnpm --filter @everyfield/db reset:dev`. Never point a check at production. Never print
 credentials. Do not submit a valid access form unless the task needs it: it sends a real email.

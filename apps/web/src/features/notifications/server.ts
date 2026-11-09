@@ -2,7 +2,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
-import { createNotificationProducer } from "@everyfield/domain/notifications";
+import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/notifications";
 import { randomBytes } from "node:crypto";
 import "server-only";
 import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
@@ -12,20 +12,6 @@ import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
-
-/**
- * NOTIFICATION_OPT_OUT_KEYS: comma-separated base64 keys of 32 bytes, the current key first, then older keys that
- * still open tokens issued before a rotation. Anything else counts as not configured, so opt-out fails closed.
- */
-export function parseKeyRing(raw: string | undefined): { current: Buffer; previous: Buffer[] } | null {
-	const keys = (raw ?? "")
-		.split(",")
-		.map((k) => k.trim())
-		.filter(Boolean)
-		.map((k) => Buffer.from(k, "base64"));
-	const [current, ...previous] = keys;
-	return current && keys.every((k) => k.length === 32) ? { current, previous } : null;
-}
 
 const MOUNT: unique symbol = Symbol.for("everyfield.web.notifications");
 const slot = globalThis as { [MOUNT]?: { url: string; mount: Mount } };

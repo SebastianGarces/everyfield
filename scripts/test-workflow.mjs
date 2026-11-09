@@ -14,6 +14,7 @@ const files = process.argv.slice(2).length
 			"preview-slots.test.mjs",
 			"preview-env.test.ts",
 			"publish.test.ts",
+			"setup-step.test.mjs",
 			"check.test.ts",
 			"nightly.test.ts",
 		].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}`, import.meta.url)));
