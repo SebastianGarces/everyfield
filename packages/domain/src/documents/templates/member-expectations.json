@@ -6,10 +6,7 @@
 	"title": "Expectations of a Core Group Member",
 	"description": "What the church plant asks of each core group member, with a place to sign.",
 	"class": "operational",
-	"exports": [
-		"pdf",
-		"docx"
-	],
+	"exports": ["pdf", "docx"],
 	"fields": [
 		{
 			"key": "church_name",

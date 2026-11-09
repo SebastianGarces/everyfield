@@ -6,10 +6,7 @@
 	"title": "Launch Team Commitment",
 	"description": "The commitment of a launch team member, with a place to sign.",
 	"class": "operational",
-	"exports": [
-		"pdf",
-		"docx"
-	],
+	"exports": ["pdf", "docx"],
 	"fields": [
 		{
 			"key": "church_name",

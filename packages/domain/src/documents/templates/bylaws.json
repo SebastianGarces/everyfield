@@ -6,10 +6,7 @@
 	"title": "Bylaws",
 	"description": "How the church plant is governed. It has a statement-of-faith slot that stays blank until you fill it.",
 	"class": "formal/legal",
-	"exports": [
-		"pdf",
-		"docx"
-	],
+	"exports": ["pdf", "docx"],
 	"fields": [
 		{
 			"key": "church_name",

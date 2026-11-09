@@ -423,13 +423,7 @@ export function DocumentsScreen({
 								canStore={canStore}
 								saving={saving}
 								saveNote={saveNote}
-								make={
-									textTemplates.includes(selected.id) && canPreview
-										? canEdit
-											? "both"
-											: "member"
-										: "save"
-								}
+								make={textTemplates.includes(selected.id) && canPreview ? (canEdit ? "both" : "member") : "save"}
 								creating={creating}
 								createNote={createNote}
 								onDraft={(key, value) => {

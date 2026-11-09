@@ -6,10 +6,7 @@
 	"title": "Vision Meeting Follow-up Letter",
 	"description": "A thank-you letter to a guest of a vision meeting.",
 	"class": "outward-facing",
-	"exports": [
-		"pdf",
-		"docx"
-	],
+	"exports": ["pdf", "docx"],
 	"fields": [
 		{
 			"key": "church_name",

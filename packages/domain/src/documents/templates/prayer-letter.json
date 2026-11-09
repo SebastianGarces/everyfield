@@ -6,10 +6,7 @@
 	"title": "Prayer Letter",
 	"description": "A letter from the pastor that tells supporters how to pray for the church plant.",
 	"class": "outward-facing",
-	"exports": [
-		"pdf",
-		"docx"
-	],
+	"exports": ["pdf", "docx"],
 	"fields": [
 		{
 			"key": "church_name",
