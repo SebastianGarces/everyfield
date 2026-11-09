@@ -16846,6 +16846,7 @@
           "nullable": false
         },
         {
+          "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
           "name": "description",
           "type": "text",
           "nullable": true
