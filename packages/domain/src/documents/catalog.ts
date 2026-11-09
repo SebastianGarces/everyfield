@@ -1,5 +1,6 @@
 import { loadStarter, referenceArtifactSha256 } from "@everyfield/reference/playbook";
 import "server-only";
+import { CHURCH_TEMPLATES } from "./templates/church.ts";
 import { entryFor } from "./templates/registry.ts";
 import { z } from "zod";
 
@@ -39,6 +40,23 @@ export async function library() {
 			if (!entry) throw new Error(`Template ${template.id} is not in the document registry.`);
 			return { ...template, formats: [entry.format], pageCount: entry.pageCount };
 		});
+	// Text templates authored in code with no frozen reference row (Bylaws, Prayer Letter) join the library under
+	// Administrative, so "Save for your church" makes a file of them too (Sebastian, 2026-11-04: keep both paths).
+	const listed = new Set(templates.map((template) => template.id));
+	for (const church of CHURCH_TEMPLATES) {
+		if (listed.has(church.id)) continue;
+		const entry = entryFor(church.id);
+		if (!entry) throw new Error(`Template ${church.id} is not in the document registry.`);
+		templates.push({
+			id: church.id,
+			name: church.name,
+			description: church.description,
+			category: "administrative",
+			formats: [entry.format],
+			pageCount: entry.pageCount,
+			mergeFields: church.mergeFields.map(({ autoFill, ...field }) => (autoFill ? { ...field, autoFill } : field)),
+		});
+	}
 	return { version, templates };
 }
 

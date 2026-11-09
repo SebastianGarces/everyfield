@@ -18,6 +18,7 @@ import {
 } from "../../../packages/contracts/src/documents/format/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
+import { renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages } from "./fixtures/readers.mts";
 
@@ -33,15 +34,20 @@ const fork = async (id: string) => forkTemplate(docTemplateById(id)!, { data: DA
 const count = (text: string, part: string) => text.split(part).length - 1;
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
-test("WP-036 the four template files load through the contract parser and a file that does not validate fails", () => {
+test("WP-036 the nine template files load through the contract parser and a file that does not validate fails", () => {
 	const files = readdirSync(folder)
 		.filter((name) => name.endsWith(".json"))
 		.sort();
 	assert.deepEqual(files, [
 		"budget-worksheet.json",
+		"bylaws.json",
 		"commitment-card.json",
 		"conflict-of-interest-policy.json",
+		"follow-up-letter.json",
 		"guest-sign-in-sheet.json",
+		"launch-team-commitment.json",
+		"member-expectations.json",
+		"prayer-letter.json",
 	]);
 	assert.deepEqual(
 		DOC_TEMPLATES.map((t) => t.id),
@@ -92,6 +98,27 @@ test("WP-036 the conflict-of-interest policy prints its text, numbered headings,
 	);
 	const again = await renderDocPdf(await fork("conflict-of-interest-policy"));
 	assert.equal(sha(again.bytes), sha(pdf.bytes), "a second render gives the same bytes");
+});
+
+test("T-56 each text template's Church Document prints the same pages as its template preview on Documents", async () => {
+	// The Documents preview and "Save for your church" print the code template; "Create Church Document" forks the
+	// everyfield.doc/1 file. An unedited fork reads the same, page for page, with its fill-in fields.
+	const values = { church_name: "Harbor City Church", pastor_name: "Pastor Ada" };
+	for (const id of ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"]) {
+		const preview = await renderTemplatePdf({ id }, values);
+		const doc = await renderDocPdf(
+			await forkTemplate(docTemplateById(id)!, { data: { ...values, church_legal_name: values.church_name } }),
+		);
+		assert.equal(doc.pages, preview.pages, id);
+		// The text in reading order without the page footer, which each engine places in its own order.
+		const footer = /Harbor City Church \| [^|]*?(?= Page| Template|$)|Page \d+ of \d+|Template, not legal advice/g;
+		const text = async (bytes: Uint8Array) =>
+			(await pdfPages(bytes)).join(" ").replace(footer, " ").replace(/\s+/g, " ").trim();
+		const printed = await text(doc.bytes);
+		assert.equal(printed, await text(preview.bytes), id);
+		assert.ok(printed.includes("Harbor City Church"), id);
+		assert.equal(doc.fields.length, preview.fields.length, id);
+	}
 });
 
 test("WP-036 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {

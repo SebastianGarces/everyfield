@@ -1,0 +1,646 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "bylaws",
+	"version": 1,
+	"title": "Bylaws",
+	"description": "How the church plant is governed. It has a statement-of-faith slot that stays blank until you fill it.",
+	"class": "formal/legal",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "church.pastor",
+			"fallback": "[pastor name]",
+			"sample": "Pastor Daniel Reyes"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Bylaws"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Governing document"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Bylaws"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "These bylaws say how "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ", a church plant, is governed. Read each article with your board and a lawyer in your state. Then change the words to fit your church plant."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Name and purpose"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The name of this church is "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". It exists to gather people for worship, to help them grow together and to serve its neighbors."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Statement of faith"
+					}
+				]
+			},
+			{
+				"type": "slot",
+				"attrs": {
+					"label": "Statement of faith",
+					"key": "statement-of-faith"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Members"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A person becomes a member when the board accepts the person's written commitment to the church plant. The board keeps the list of members."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A member who wishes to leave tells the board in writing. The board removes the name from the list."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Board"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A board leads "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". It has no fewer than three members. Change this number if your state sets a different minimum."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 3
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "What the board does"
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "It sets the direction of the church plant."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "It hires and reviews the pastor."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "It approves the budget and watches the finances."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "It keeps the records of the church plant."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 3
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "How a board member serves"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A board member serves a term of [number] years. A member may serve [number] terms in a row. The board fills an empty seat until the next election."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Meetings"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The board meets at least [number] times each year. The chair gives each member notice of a meeting at least [number] days before it. A majority of the board is a quorum."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The members of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " meet once each year. The board may call a special meeting when it needs one."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Money and accountability"
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The board approves a budget each year."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Two people count and record every offering."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The board reviews the finances at every meeting."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A person who has no stake in the result reviews the books once each year."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A board member who has a personal interest in a decision tells the board and does not vote on it."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Changes to these bylaws"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The board may change these bylaws. A change needs the votes of [number] board members and a written notice to the members at least [number] days before the vote."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "If the church closes"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "If "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " closes, the board pays its debts. It gives what remains to a tax-exempt organization that shares its purpose. No board member or member receives any of it."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The board of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " adopted these bylaws. Each board member signs and dates below."
+					}
+				]
+			},
+			{
+				"type": "table",
+				"attrs": {
+					"style": "grid",
+					"header": true,
+					"headerFill": "muted",
+					"zebra": false,
+					"writeInRows": 3,
+					"rowHeight": 30,
+					"columns": [
+						{
+							"id": "member",
+							"label": "Board member",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "role",
+							"label": "Role",
+							"type": "text",
+							"width": 110
+						},
+						{
+							"id": "signature",
+							"label": "Signature",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "date",
+							"label": "Date",
+							"type": "text",
+							"width": 0
+						}
+					]
+				},
+				"content": []
+			}
+		]
+	}
+}

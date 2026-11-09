@@ -1,0 +1,446 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "member-expectations",
+	"version": 1,
+	"title": "Expectations of a Core Group Member",
+	"description": "What the church plant asks of each core group member, with a place to sign.",
+	"class": "operational",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "church.pastor",
+			"fallback": "[pastor name]",
+			"sample": "Pastor Daniel Reyes"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Expectations of a Core Group Member"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Core group"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Expectations of a Core Group Member"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Thank you for joining the core group of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". A new church plant grows from a small team that shows up. This page says what we ask of you, and what you can expect from us."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Be present"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The core group meets each week. Your presence tells the others that this church plant is worth building."
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Come to the weekly core group meeting."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Arrive on time and stay to the end."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Tell your group leader before you miss a meeting."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "GROW"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "We grow together. Join a weekly group, read what we read and ask your questions in the open."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "PRAY"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Pray each week for the neighbors we hope to reach, for the leaders and for Launch Sunday. Pray with the group when we gather."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "GIVE"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Give your time, your gifts and your money toward the launch. Give as you are able. No one is pressed or compared."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Join a team"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Serve on one launch team before Launch Sunday. Pick the team that fits how God made you. Your group leader will help you choose."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Protect the unity"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Speak well of the church plant and of its people. Take a concern to the leaders first, and do it in person."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "By signing, I say that I have read these expectations and that I will do my best to keep them."
+					}
+				]
+			},
+			{
+				"type": "columns",
+				"attrs": {
+					"gap": 12
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 4
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Name",
+									"key": "full_name",
+									"kind": "text"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 4
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Signature",
+									"key": "signature",
+									"kind": "signature"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 2
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Date",
+									"key": "signed_date",
+									"kind": "date"
+								}
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

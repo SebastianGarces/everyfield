@@ -4695,8 +4695,8 @@
     {
       "requirement": "REQ-DOC-002",
       "operation": "documents.generate",
-      "rule": "Refuse an editable template. Generate makes files only for fixed-layout and budget templates; an editable template goes through documents.createFromTemplate, then documents.exportNative.",
-      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): editable templates leave the generate path."
+      "rule": "Generate makes saved files for every template, including editable ones (\"Save for your church\"); an editable template can also become a Church Document through documents.createFromTemplate, then documents.exportNative.",
+      "reason": "Sebastian, 2026-11-04 (T-56): keep Save for your church alongside editable documents, so generate makes saved files for editable templates too."
     }
   ],
   "operation_additions": [
