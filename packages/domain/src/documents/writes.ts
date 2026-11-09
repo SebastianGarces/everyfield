@@ -353,6 +353,9 @@ const generatedWriter = {
 	deleteChurch: churchWriter.deleteChurch,
 	saveChurchTemplate: churchWriter.saveTemplate,
 	deleteChurchTemplate: churchWriter.deleteTemplate,
+	listExports: churchWriter.listExports,
+	readExportFile: churchWriter.readExportFile,
+	deleteExport: churchWriter.deleteExport,
 	readTemplateCompare: churchWriter.readTemplateCompare,
 	acceptTemplateChanges: churchWriter.acceptTemplateChanges,
 

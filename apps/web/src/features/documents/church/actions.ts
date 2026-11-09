@@ -161,6 +161,25 @@ export async function deleteChurchTemplate(
 	}
 }
 
+export type DeleteExportResult = { status: "deleted" } | { status: "refused"; message: string } | { status: "lost" };
+
+/** An Owner or Admin deletes one saved export after confirming (D-79). The server refuses a Member. */
+export async function deleteSavedExport(documentId: string, exportId: string): Promise<DeleteExportResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.deleteExport(db, actor, { documentId, exportId });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "deleted" };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "export_delete_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
 export type CompareResult =
 	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
 

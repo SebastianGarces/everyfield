@@ -8,7 +8,7 @@ export const CLASS_LABEL: Record<ChurchDocument["documentClass"], string> = {
 	operational: "Operational",
 };
 
-const FORMAT_LABEL = { pdf: "PDF", docx: "Word", xlsx: "Excel" } as const;
+export const FORMAT_LABEL = { pdf: "PDF", docx: "Word", xlsx: "Excel" } as const;
 
 /** "PDF, Word and Excel", in that order. */
 export function formatList(formats: readonly (keyof typeof FORMAT_LABEL)[]) {

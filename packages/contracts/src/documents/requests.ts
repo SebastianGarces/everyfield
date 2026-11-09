@@ -97,6 +97,10 @@ export const churchFileRequest = z.strictObject({
 	revision: z.int().min(1).max(1_000_000).optional(),
 	format: documentFormat,
 });
+/** The saved exports of one Church Document: the latest 100, newest first. */
+export const listExportsRequest = z.strictObject({ documentId: recordId });
+/** One saved export of one Church Document: its stored bytes for a download, or its deletion. */
+export const exportRequest = z.strictObject({ documentId: recordId, exportId: recordId });
 /** Compare a Church Document's current revision with the current version of its template. */
 export const churchCompareRequest = z.strictObject({ documentId: recordId });
 /**

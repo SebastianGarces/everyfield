@@ -842,14 +842,24 @@ async function pdfPage(bytes, n = 1) {
 	};
 }
 
-/** Fetches one file of the open document through the file route, with the owner's session. */
-async function file(page, id, format, revision, { download = false } = {}) {
+/** Fetches one file of the open document through the preview's file route, with the owner's session. */
+async function file(page, id, format, revision) {
 	const response = await page
 		.context()
-		.request.get(
-			`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
-		);
+		.request.get(`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}`);
 	assert.equal(response.status(), 200, `${format} file`);
+	return Buffer.from(await response.body());
+}
+/** What Download gives: it saves one export of the revision, then fetches that export's stored bytes (D-78). */
+async function downloaded(page, id, format, revision) {
+	const { request } = page.context();
+	const saved = await request.post(`${BASE}/documents/church/${id}/exports`, {
+		data: { revision: String(revision), format, requestKey: crypto.randomUUID() },
+	});
+	const reply = await saved.json();
+	assert.equal(reply.status, "saved", `${format} export saved`);
+	const response = await request.get(`${BASE}/documents/church/${id}/exports/${reply.saved.id}`);
+	assert.equal(response.status(), 200, `${format} saved export`);
 	return Buffer.from(await response.body());
 }
 const revisionOf = async (page) =>
@@ -923,10 +933,7 @@ test("AC:DOC-LAYOUT-FILES: one document with everything of this slice, in its PD
 		}
 
 		await t.test("the preview is the PDF Download gives", async () => {
-			assert.equal(
-				sha(await file(page, id, "pdf", revision)),
-				sha(await file(page, id, "pdf", revision, { download: true })),
-			);
+			assert.equal(sha(await file(page, id, "pdf", revision)), sha(await downloaded(page, id, "pdf", revision)));
 		});
 		await t.test("the PDF: size, columns, box, bar, fields, images, header, footer and page numbers", async () => {
 			const doc = await PDFDocument.load(pdf);
@@ -1083,11 +1090,7 @@ test("AC:DOC-LAYOUT-CARDS: 4 cards per sheet with cut marks, in the editor, the 
 				await page.getByRole("region", { name: "Preview" }).waitFor();
 				const marked = await file(page, id, "pdf", on);
 				const plain = await file(page, id, "pdf", off);
-				assert.equal(
-					sha(marked),
-					sha(await file(page, id, "pdf", on, { download: true })),
-					"preview bytes equal Download bytes",
-				);
+				assert.equal(sha(marked), sha(await downloaded(page, id, "pdf", on)), "preview bytes equal Download bytes");
 				const [a, b] = [await pdfPage(marked), await pdfPage(plain)];
 				assert.equal(a.pages, 1, "one sheet");
 				assert.equal(a.items.filter((i) => i.text.includes("My commitment")).length, 4, "4 copies of the card");
@@ -1251,7 +1254,7 @@ test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its curs
 				assert.equal(await page.getByRole("button", { name: "Page setup" }).count(), 0);
 				assert.equal(await page.getByRole("button", { name: "Insert block" }).count(), 0);
 				assert.equal(await page.locator(".ef-paper").count(), 0);
-				assert.ok(await page.getByRole("link", { name: "Download PDF" }).isVisible());
+				assert.ok(await page.getByRole("button", { name: "Download PDF" }).isVisible());
 			},
 			undefined,
 			"member",
