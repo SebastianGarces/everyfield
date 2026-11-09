@@ -7,7 +7,7 @@
 // working tree. Runs alternate current and new so a load change hits both. Each run records wall time, the peak
 // resident memory of its largest process and the 1-minute load average at its start. Results go to --out (default
 // $TMPDIR/time-checks/<time>), never inside the checkout.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { cpus, loadavg, platform, tmpdir } from "node:os";
@@ -105,34 +105,49 @@ function isolationForms(pkg) {
 }
 
 /** One timed run: wall time, the peak RSS of the largest process in the tree, and the load when it started. */
-function measure(command, cwd, env) {
+async function measure(command, cwd, env) {
 	const timeFlag = platform() === "darwin" ? "-l" : "-v";
 	const load = loadavg()[0];
 	const started = process.hrtime.bigint();
-	const result = spawnSync("/usr/bin/time", [timeFlag, "sh", "-c", command], {
+	// Its own process group, so a form that hangs (an open handle with test isolation off) is killed whole at 300 s.
+	const child = spawn("/usr/bin/time", [timeFlag, "sh", "-c", command], {
 		cwd,
 		env: { ...process.env, ...env },
-		encoding: "utf8",
-		maxBuffer: 256 * 1024 * 1024,
+		detached: true,
+		stdio: ["ignore", "ignore", "pipe"],
 	});
+	let stderr = "";
+	child.stderr.on("data", (chunk) => (stderr = (stderr + chunk).slice(-64 * 1024)));
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		process.kill(-child.pid, "SIGKILL");
+	}, 300_000);
+	const status = await new Promise((done) => child.on("close", (code) => done(code)));
+	clearTimeout(timer);
 	const seconds = Number(process.hrtime.bigint() - started) / 1e9;
 	const rss =
 		platform() === "darwin"
-			? Number(/(\d+)\s+maximum resident set size/.exec(result.stderr)?.[1] ?? NaN)
-			: Number(/Maximum resident set size \(kbytes\): (\d+)/.exec(result.stderr)?.[1] ?? NaN) * 1024;
-	return { seconds, peakMb: Math.round(rss / 1024 / 1024), load: Number(load.toFixed(2)), exit: result.status };
+			? Number(/(\d+)\s+maximum resident set size/.exec(stderr)?.[1] ?? NaN)
+			: Number(/Maximum resident set size \(kbytes\): (\d+)/.exec(stderr)?.[1] ?? NaN) * 1024;
+	return {
+		seconds,
+		peakMb: Math.round(rss / 1024 / 1024),
+		load: Number(load.toFixed(2)),
+		exit: timedOut ? "timeout" : status,
+	};
 }
 
 const binPath = (cwd) => [join(cwd, "node_modules/.bin"), join(root, "node_modules/.bin"), process.env.PATH].join(":");
 
-function timeForms(change, target, forms, prepare = () => {}) {
+async function timeForms(change, target, forms, prepare = () => {}) {
 	const record = { change, target, current: [], new: [], commands: { current: forms.current, new: forms.new } };
 	for (let i = 0; i < runs; i++) {
 		const order = i % 2 === 0 ? ["current", "new"] : ["new", "current"];
 		for (const form of order) {
 			const restore = prepare(form);
 			try {
-				const run = measure(forms[form], forms.cwd, { PATH: binPath(forms.cwd), NEXT_TELEMETRY_DISABLED: "1" });
+				const run = await measure(forms[form], forms.cwd, { PATH: binPath(forms.cwd), NEXT_TELEMETRY_DISABLED: "1" });
 				record[form].push(run);
 				console.log(
 					`${change} ${target} ${form} run ${i + 1}: ${run.seconds.toFixed(2)} s, ${run.peakMb} MB, load ${run.load}, exit ${run.exit}`,
@@ -151,7 +166,7 @@ const only = new Set(args.only.split(","));
 if (only.has("lint"))
 	for (const pkg of lintPackages) {
 		const forms = lintForms(pkg);
-		if (forms) results.push(timeForms("lint", pkg, forms));
+		if (forms) results.push(await timeForms("lint", pkg, forms));
 	}
 
 if (only.has("build")) {
@@ -171,7 +186,7 @@ if (only.has("build")) {
 		return () => cpSync(backup, configPath);
 	};
 	results.push(
-		timeForms(
+		await timeForms(
 			args.cold ? "build (cold)" : "build",
 			"apps/web",
 			{ current: "next build", new: "next build", cwd: web },
@@ -183,7 +198,7 @@ if (only.has("build")) {
 if (only.has("isolation"))
 	for (const pkg of lintPackages) {
 		const forms = isolationForms(pkg);
-		if (forms) results.push(timeForms("isolation", pkg, forms));
+		if (forms) results.push(await timeForms("isolation", pkg, forms));
 	}
 
 const median = (xs) => {
@@ -224,7 +239,7 @@ for (const change of new Set(rows.map((r) => r.change))) {
 		`| ${change} | all, summed | ${cur.toFixed(2)} | ${neu.toFixed(2)} | ${((1 - neu / cur) * 100).toFixed(0)}% | | | | |`,
 	);
 }
-lines.push("", "A run marked ! exited non-zero.");
+lines.push("", "A run marked ! exited non-zero or hit the 300 s limit.");
 writeFileSync(join(out, "results.json"), JSON.stringify(rows, null, 2) + "\n");
 writeFileSync(join(out, "results.md"), lines.join("\n") + "\n");
 console.log("\n" + lines.join("\n") + `\n\nWritten to ${out}`);
