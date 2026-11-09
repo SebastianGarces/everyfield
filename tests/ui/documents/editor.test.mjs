@@ -64,6 +64,10 @@ const snapshot = async (page, base = bases.policy) => documentFrom(base, await r
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 
 /** Selects text inside the textblock that starts with `starts`: offsets in characters, -1 for the end of the block. */
+// Tiptap's focus() waits for a frame, so a key sent straight after a scripted cursor move lands on the page body and is
+// lost. People focus with a real click, which is synchronous. Every helper that sets the cursor waits here.
+const frames = (page) =>
+	page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
 async function select(page, starts, from = 0, to = -1) {
 	await page.locator(PAPER).evaluate(
 		(el, [s, a, b]) => {
@@ -89,6 +93,7 @@ async function select(page, starts, from = 0, to = -1) {
 		},
 		[starts, from, to],
 	);
+	await frames(page);
 }
 async function cursorIn(page, starts, offset = 0) {
 	await select(page, starts, offset, offset);
@@ -364,13 +369,22 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 				await cursorIn(page, "Each board member signs");
 				await button(page, "Delete block").click();
 			});
-			// Later-slice blocks move and delete as whole blocks.
-			await checked(page, "move a later-slice block up", async () => {
-				await page.locator(".ef-block[data-ef-node=table]").click();
+			// A table moves and deletes as a whole block, selected as a block.
+			const selectTable = () =>
+				page.locator(PAPER).evaluate((el) => {
+					let pos = -1;
+					el.editor.state.doc.descendants((node, at) => {
+						if (node.type.name === "table" && pos < 0) pos = at;
+						return pos < 0;
+					});
+					el.editor.chain().focus().setNodeSelection(pos).run();
+				});
+			await checked(page, "move a table up", async () => {
+				await selectTable();
 				await button(page, "Move block up").click();
 			});
-			await checked(page, "delete a later-slice block", async () => {
-				await page.locator(".ef-block[data-ef-node=table]").click();
+			await checked(page, "delete a table", async () => {
+				await selectTable();
 				await button(page, "Delete block").click();
 			});
 			await checked(page, "delete a block from the keyboard", async () => {

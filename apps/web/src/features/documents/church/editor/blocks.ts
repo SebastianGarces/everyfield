@@ -2,6 +2,8 @@ import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, type Node as PMNode, type Schema } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
+import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
 
 // Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
 // selected block. Each one is one transaction, so one Undo reverses it. A block inside a list, quote, column or box
@@ -55,8 +57,11 @@ export type InsertKind =
 	| "dateLine"
 	| "logo"
 	| "mark"
-	| "photo";
-type InsertGroup = "text" | "rules" | "layout" | "lines" | "images";
+	| "photo"
+	| "table"
+	| "checklist"
+	| "budget";
+type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "tables";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
 	{ kind: "paragraph", label: "Paragraph", group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
@@ -77,6 +82,9 @@ export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup
 	{ kind: "logo", label: "Logo", group: "images" },
 	{ kind: "mark", label: "Mark", group: "images" },
 	{ kind: "photo", label: "Photo", group: "images" },
+	{ kind: "table", label: "Table", group: "tables" },
+	{ kind: "checklist", label: "Checklist rows", group: "tables" },
+	{ kind: "budget", label: "Budget table", group: "tables" },
 ];
 
 /** The brand-kit sources the image items offer, and what each is called in the brand kit. */
@@ -130,6 +138,12 @@ function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
 		case "mark":
 		case "photo":
 			return type("image").create({ source: kind, ...IMAGE_SIZE[kind], ...(alt ? { alt } : {}) });
+		case "table":
+			return nodeFromTable(schema, newGrid());
+		case "checklist":
+			return nodeFromTable(schema, newChecklist());
+		case "budget":
+			return nodeFromTable(schema, newBudget());
 		default:
 			return type(kind).create();
 	}
@@ -164,6 +178,8 @@ function insertionPoint(state: EditorState): { pos: number; parent: PMNode; inde
 
 /** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
 export function canInsert(state: EditorState, kind: InsertKind): boolean {
+	// A budget table sits in the body: the page header and footer print no Excel file.
+	if (kind === "budget" && regionAt(state)) return false;
 	const { parent, index } = insertionPoint(state);
 	const node = build(state.schema, kind);
 	return parent.canReplaceWith(index, index, node.type);
@@ -178,6 +194,8 @@ export function regionAt(state: EditorState): "pageHeader" | "pageFooter" | null
 	}
 	return null;
 }
+
+const labelPlace = { row: null, col: 0 };
 
 /** Adds a block after the current block. Text blocks take the cursor. `alt` is the asset's alternative text for an image. */
 export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean {
@@ -199,9 +217,20 @@ export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean
 		tr.setSelection(
 			addParagraph || after < tr.doc.content.size ? Selection.near(near, 1) : NodeSelection.create(tr.doc, at),
 		);
+	} else if (node.type.name === "table") {
+		// The cursor goes into the first text cell; a table with no typed row yet takes its first header label below.
+		let firstText: number | null = null;
+		node.descendants((child, offset) => {
+			if (firstText === null && child.type.name === "cell") firstText = at + 1 + offset;
+			return firstText === null;
+		});
+		if (firstText !== null) tr.setSelection(TextSelection.create(tr.doc, firstText + 1));
+		else selectIn(tr, at, labelPlace);
 	} else tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1));
 	editor.view.dispatch(tr);
 	editor.view.focus();
+	if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === "table")
+		focusPlace(editor.view, at, labelPlace);
 	return true;
 }
 
