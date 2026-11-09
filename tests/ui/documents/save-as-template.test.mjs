@@ -72,6 +72,8 @@ async function openPicker(page) {
 test("AC:DOC-TEMPLATE-SAVE: an unsaved edit is saved first, then the template holds it (Chromium)", async () => {
 	await as("owner", async (page) => {
 		const picker = await openPicker(page);
+		// Church templates come first, ten to a page: search, so earlier runs on the same seed do not hide the policy.
+		await picker.getByRole("searchbox", { name: "Search templates" }).fill("Conflict of Interest Policy");
 		await picker.getByRole("button", { name: /^Conflict of Interest Policy/ }).click();
 		await page.waitForURL(/\/documents\/church\/[0-9a-f-]{36}$/, { timeout: 90_000 });
 		await page.locator(PAPER).waitFor({ timeout: 90_000 });
