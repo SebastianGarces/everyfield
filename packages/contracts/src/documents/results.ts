@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { correlationId, recordId, tenantId } from "../common/values.ts";
 import { docDocument, type DocDifference } from "./format/index.ts";
+import { nativeBody } from "./native.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
@@ -129,8 +130,13 @@ export const ownedDocument = z.strictObject({
 	tenantId: tenantId,
 	kind: z.enum(["native", "core_values", "launch_summary"]),
 	title: z.string().min(1).max(200),
-	body: z.string().max(2_000_000),
+	/** The current revision's body; a pre-change text revision reads as one paragraph per line. */
+	body: nativeBody,
+	/** True when the current revision is stored as plain text, saved before native bodies. */
+	textRevision: z.boolean(),
 	revision: revisionToken,
+	/** The current revision record: Use for this church names it. */
+	revisionId: recordId,
 	contentHash: sha256,
 	archived: z.boolean(),
 	copiedFromRevisionId: recordId.nullable(),
@@ -139,6 +145,14 @@ export const ownedDocument = z.strictObject({
 export const ownedDocumentPage = z.strictObject({
 	documents: z.array(ownedDocument).max(100),
 });
+/** One account document Use for this church offers: its title and the current revision a copy takes. */
+export const copySource = z.strictObject({
+	id: recordId,
+	title: z.string().min(1).max(200),
+	revisionId: recordId,
+	updatedAt: z.iso.datetime(),
+});
+export const copySourcePage = z.strictObject({ documents: z.array(copySource).max(100) });
 export const coreValuesEvidence = z.strictObject({
 	documentId: recordId.nullable(),
 	text: z.string().max(2_000_000).nullable(),
