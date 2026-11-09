@@ -338,7 +338,7 @@ export default function NativeEditor({
 					subtitle={SECTION[scope]}
 				/>
 				{saved.kind === "core_values" || doc?.copied || textRevision ? (
-					<div className="flex flex-col gap-2">
+					<div className="flex w-full max-w-[816px] flex-col gap-2 self-center">
 						{saved.kind === "core_values" ? (
 							<div>
 								<Tag>Core values</Tag>
@@ -362,7 +362,15 @@ export default function NativeEditor({
 					</Field>
 				</div>
 				<div className="flex w-full max-w-[816px] flex-wrap items-center justify-between gap-x-4 gap-y-2 self-center">
-					{saved.id || status.kind !== "saved" ? (
+					{conflict ? (
+						// A retry would meet the same newer version, so a conflict offers the reload instead.
+						<p role="status" aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+							<span className="text-magenta-600 text-pretty">Not saved. {phase.reason}</span>
+							<Button variant="outline" size="sm" icon={Refresh01Icon} onClick={reload}>
+								Discard my edits and reload
+							</Button>
+						</p>
+					) : saved.id || status.kind !== "saved" ? (
 						<SaveStatusText status={status} revision={saved.revision} accepted={null} onRetry={() => void save()} />
 					) : (
 						<p role="status" className="text-sm text-text-2">
@@ -374,7 +382,7 @@ export default function NativeEditor({
 							variant="secondary"
 							size="sm"
 							icon={FileImportIcon}
-							disabled={!canStore || busy || changed}
+							disabled={!canStore || busy || bodyChanged || (saved.id !== null && changed)}
 							onClick={() => fileRef.current?.click()}
 						>
 							Import a text or Word file
@@ -383,9 +391,9 @@ export default function NativeEditor({
 							ref={fileRef}
 							type="file"
 							tabIndex={-1}
-							aria-label="Import a text or Word file"
+							aria-hidden="true"
 							accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-							className="sr-only"
+							className="hidden"
 							onChange={(event) => {
 								const file = event.target.files?.[0];
 								event.target.value = "";
@@ -435,13 +443,6 @@ export default function NativeEditor({
 					<p role="status" className="w-full max-w-[816px] self-center text-sm text-text-2 text-pretty">
 						{note}
 					</p>
-				) : null}
-				{conflict ? (
-					<div className="flex w-full max-w-[816px] flex-wrap items-center gap-3 self-center">
-						<Button variant="secondary" size="sm" icon={Refresh01Icon} onClick={reload}>
-							Discard my edits and reload
-						</Button>
-					</div>
 				) : null}
 				<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 w-full max-w-[816px] self-center overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
 					{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}

@@ -973,6 +973,29 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			type: "doc",
 			content: [para(text("One")), para(text("Two"))],
 		});
+		// A Word file's paragraphs land as paragraphs too, one for each, not run together into one line.
+		const words =
+			'<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+			"<w:p><w:r><w:t>Greeters welcome</w:t></w:r><w:r><w:t> every guest</w:t></w:r></w:p><w:p><w:r><w:t>Kids team</w:t></w:r></w:p>" +
+			"</w:body></w:document>";
+		const fromWord = ok(
+			await documentsWriter.importTextOrWord(
+				db,
+				owner,
+				{
+					title: "Volunteer roles",
+					format: "docx",
+					bytes: storedZip([{ name: "word/document.xml", data: words }]).toString("base64"),
+					expectedRevision: "0",
+					requestKey: randomUUID(),
+				},
+				storage,
+			),
+		);
+		assert.deepEqual(fromWord.body, {
+			type: "doc",
+			content: [para(text("Greeters welcome every guest")), para(text("Kids team"))],
+		});
 		refused(
 			await documentsWriter.importTextOrWord(
 				db,

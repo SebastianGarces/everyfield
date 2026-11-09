@@ -227,7 +227,7 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 							You have no documents of your own with text yet. Write one in Your documents first, then copy it here.
 						</p>
 					) : (
-						<ul aria-label="Your documents" className="flex flex-col gap-2">
+						<ul aria-label="Your documents" className="flex flex-col gap-2 p-0.5">
 							{sources.map((source) => (
 								<li key={source.id}>
 									<button
