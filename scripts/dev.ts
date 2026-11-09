@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { browserRun } from "./browser.ts";
+import { checkCommand } from "./check.ts";
+import { nightlyCommand } from "./nightly.ts";
 
 const HELP = `Browser runs, the local preview stack and its logs, for the worktree you run them from. Node 24.
   dev browser run [--timeout <seconds>] [--session <name>] -- <command> [args...]
@@ -9,6 +11,10 @@ const HELP = `Browser runs, the local preview stack and its logs, for the worktr
   dev stack up [--mode development|production] [--project <path>]    waits for a free preview slot, then starts it
   dev stack status|check|down [--project <path>]
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
+  dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
+        checks.json record outside the repo and prints its path
+  dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
+        time; skips when the machine is loaded or no preview slot is free
   dev traces                               says what to read instead: no trace reader exists yet`;
 
 const root = resolve(import.meta.dirname, "..");
@@ -84,6 +90,10 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return stack(args);
 		case "logs":
 			return logs(args);
+		case "check":
+			return checkCommand(args, root);
+		case "nightly":
+			return nightlyCommand(args);
 		case "traces":
 			throw new DevError(
 				"No trace reader exists yet: the observability package has not landed. Read bin/dev logs instead, and say so in your report.",
