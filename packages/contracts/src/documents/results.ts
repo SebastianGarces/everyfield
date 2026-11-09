@@ -215,6 +215,8 @@ export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),
 	authorAccountId: z.uuid().nullable(),
+	/** The saver's name while they hold a seat in this church plant; null once that seat ends or the account is gone (D-105). */
+	authorName: z.string().min(1).max(255).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
 });

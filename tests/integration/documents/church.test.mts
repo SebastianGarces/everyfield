@@ -843,6 +843,77 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 	});
 
+	test("T-86 each revision names its saver while they hold a seat here, else a former member (D-105)", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Ada Admin' WHERE id = ${actors[ADMIN].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Quinn Elsewhere' WHERE id = ${actors[OTHER].user}::uuid`);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t86-savers"));
+		let body = doc.body;
+		for (const [who, at] of [
+			[ADMIN, "1"],
+			[OWNER, "2"],
+			[ADMIN, "3"],
+			[OWNER, "4"],
+		]) {
+			body = structuredClone(body);
+			body.body.content.push({ type: "paragraph", content: [{ type: "text", text: `Saved after ${at}.` }] });
+			ok(await save(who, doc.id, at, body));
+		}
+		const names = async (who) =>
+			ok(await documentsWriter["history.list"](db, await authority(who), { documentId: doc.id })).revisions.map((r) => [
+				r.number,
+				r.authorName,
+			]);
+		assert.deepEqual(
+			await names(MEMBER),
+			[
+				[1, "Olivia Owner"],
+				[2, "Ada Admin"],
+				[3, "Olivia Owner"],
+				[4, "Ada Admin"],
+				[5, "Olivia Owner"],
+			],
+			"each revision names the person who saved it",
+		);
+
+		// Revision 4's saver is seated only in another church plant, and revision 5's account is gone.
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = ${actors[OTHER].id}::uuid
+				WHERE document_id = ${doc.id}::uuid AND version_number = 4`,
+		);
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = NULL WHERE document_id = ${doc.id}::uuid AND version_number = 5`,
+		);
+		// The Admin's seat here ends, so revision 2, which they saved, reads as a former member.
+		await admin.execute(
+			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+		);
+		try {
+			const expected = [
+				[1, "Olivia Owner"],
+				[2, null],
+				[3, "Olivia Owner"],
+				[4, null],
+				[5, null],
+			];
+			assert.deepEqual(await names(MEMBER), expected, "an ended seat, a seat elsewhere and a gone account name no one");
+			assert.deepEqual(await names(OWNER), expected, "an Owner reads the same names");
+			const reply = JSON.stringify(
+				ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id })),
+			);
+			for (const gone of ["Ada Admin", "Quinn Elsewhere", `${actors[ADMIN].id}@example.test`])
+				assert.equal(reply.includes(gone), false, `the reply does not carry ${gone}`);
+			const get = async (revision) =>
+				ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision }))
+					.authorName;
+			assert.deepEqual([await get(1), await get(2), await get(4), await get(5)], ["Olivia Owner", null, null, null]);
+		} finally {
+			await admin.execute(
+				sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+			);
+		}
+	});
+
 	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
 		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
