@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { BASE, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
@@ -20,10 +21,24 @@ export async function clickDownload(page, label) {
 	return new Uint8Array(await readFile(await download.path()));
 }
 
-/** The stored form of each template the tests fork, for `documentFrom`. */
+/**
+ * What a fork freezes for the seeded church: the People seed names it Harvest Point, and the Settings seed leaves it no
+ * brand kit and no senior pastor, so only the church name has a source.
+ */
+const SEEDED_CHURCH = {
+	churchName: "Harvest Point",
+	pastorName: null,
+	tagline: null,
+	legalName: null,
+	contactLine: null,
+	meetingDate: null,
+};
+
+/** The stored form of each template the tests fork, with the merge values the fork froze, for `documentFrom`. */
 export const bases = {};
 export async function baseOf(id) {
-	return (bases[id] ??= await forkTemplate(docTemplateById(id), { data: {} }));
+	const template = docTemplateById(id);
+	return (bases[id] ??= await forkTemplate(template, { data: frozenData(template.fields, SEEDED_CHURCH).data }));
 }
 
 /** The title the library lists a template under. */
