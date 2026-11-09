@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { saveChurchRequest } from "@everyfield/contracts/documents";
+import { saveChurchRequest, setBrandingRequest } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -64,6 +64,30 @@ export async function saveChurchDocument(
 		return { status: "saved", revision: reply.value.revision };
 	} catch (error) {
 		console.error(JSON.stringify({ component: "church-documents", outcome: "save_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
+export type BrandingResult =
+	{ status: "saved"; useChurchBranding: boolean } | { status: "refused"; message: string } | { status: "lost" };
+
+/**
+ * Turns church branding on or off for one Church Document: one audited write and no new revision, so later previews and
+ * exports follow it and saved exports keep their bytes. The actor is read again here and the write statement checks
+ * the seat, so a Member or a deleted document is refused with nothing written.
+ */
+export async function setChurchBranding(documentId: string, useChurchBranding: boolean): Promise<BrandingResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	const request = setBrandingRequest.safeParse({ documentId, useChurchBranding });
+	if (!request.success) return refusedWith("invalid_input");
+	try {
+		const reply = await documentsWriter.setBranding(db, actor, request.data);
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "saved", useChurchBranding: reply.value.useChurchBranding };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "branding_failed", error: String(error) }));
 		return { status: "lost" };
 	}
 }
