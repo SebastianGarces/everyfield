@@ -1,11 +1,12 @@
 "use client";
 
 import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import type { DocBrand, DocDocument } from "@everyfield/contracts/documents";
+import type { DocBrands, DocDocument } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { useState } from "react";
+import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
@@ -41,7 +42,7 @@ export function ChurchDocumentScreen({
 }: {
 	doc: ChurchView;
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: { document: DocDocument; brand: DocBrand; template: TemplateState } | null;
+	editable: { document: DocDocument; brands: DocBrands; template: TemplateState } | null;
 	canManage: boolean;
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
@@ -55,8 +56,13 @@ export function ChurchDocumentScreen({
 		accepted: null as string | null,
 	}));
 	const templateVersion = current.document?.origin?.version ?? doc.templateVersion;
+	// The branding switch makes no revision, so the preview's address also names the look: a change loads it again.
+	// The file route reads the stored value; `look` only keys the preview.
+	const [branded, setBranded] = useState(doc.useChurchBranding);
 	const file = (format: string, download: boolean, at = revision) =>
-		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : ""}`;
+		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : `&look=${branded ? "church" : "plain"}`}`;
+	const brands = editable?.brands;
+	const brand = brands ? (branded && brands.church ? brands.church : brands.plain) : null;
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
@@ -114,13 +120,20 @@ export function ChurchDocumentScreen({
 					</>
 				}
 			/>
-			{editable && current.document ? (
+			<ChurchBranding
+				documentId={doc.id}
+				stored={branded}
+				onSaved={setBranded}
+				access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
+				className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
+			/>
+			{editable && brand && current.document ? (
 				<ChurchEditor
 					key={current.epoch}
 					docId={doc.id}
 					title={doc.title}
 					document={current.document}
-					brand={editable.brand}
+					brand={brand}
 					revision={current.revision}
 					onRevision={setRevision}
 					previewSrc={(at) => file("pdf", false, at)}

@@ -3,7 +3,7 @@ import { recordId } from "@everyfield/contracts/common";
 import {
 	type ChurchDocument,
 	type ChurchSummary,
-	type DocBrand,
+	type DocBrands,
 	type DocDocument,
 } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
@@ -29,6 +29,8 @@ export type ChurchView = {
 	documentClass: ChurchDocument["documentClass"];
 	revision: string;
 	formats: ChurchDocument["formats"];
+	/** The stored branding switch: later previews and exports paint the church theme when it is on and a kit exists. */
+	useChurchBranding: boolean;
 	/** The sheet the preview shows (not one card) and its cards per sheet. */
 	page: { width: number; height: number; perSheet: number };
 };
@@ -63,21 +65,21 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null; template: TemplateState }>> {
+): Promise<Load<{ view: ChurchView; document: DocDocument; brands: DocBrands | null; template: TemplateState }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
-		// An Owner or Admin reads the document with its brand (what the PDF paints) in the same statement; a Member reads
-		// the document alone and gets no editor.
+		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
+		// a Member reads the document alone, with its branding value, and gets no editor.
 		const reply = canManageChurch(authority)
 			? await documentsWriter.readChurchForEdit(db, authority, { documentId })
 			: await documentsWriter
 					.readChurch(db, authority, { documentId })
-					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r));
+					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null } } : r));
 		if (reply.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
-		const template = d.brand ? await templateStatus(d.body) : null;
+		const template = d.brands ? await templateStatus(d.body) : null;
 		return {
 			status: "ok",
 			value: {
@@ -89,10 +91,11 @@ export async function loadChurchDocument(
 					documentClass: d.documentClass,
 					revision: d.revision,
 					formats: d.formats,
+					useChurchBranding: d.useChurchBranding,
 					page: sheetOf(d.body.page),
 				},
 				document: d.body,
-				brand: d.brand,
+				brands: d.brands,
 				template,
 			},
 		};
