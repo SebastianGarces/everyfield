@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import type { PrivateStorage } from "@everyfield/db/schema";
+import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
@@ -15,6 +15,7 @@ import { cleanOverrides } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
+	PAGE,
 	gateSql,
 	generatedFrom,
 	historyRows,
@@ -666,6 +667,159 @@ export const churchWriter = {
 			);
 			if (raced[0]?.same) return exportRecord(db, scope, raced[0].id);
 			deny("conflict");
+		});
+	},
+
+	/**
+	 * The saved exports of one Church Document, the latest 100 newest first (DOC-003). Any seat reads them. One statement.
+	 * A creator's name shows while that person holds a seat in the church plant.
+	 */
+	async listExports(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.listExportsRequest, raw);
+			const scope = readerScope(authority);
+			const found = await rowsOf<{
+				ok: boolean;
+				document_id: string | null;
+				id: string | null;
+				revision: number | null;
+				format: string | null;
+				generated_at: Date | string | null;
+				creator_name: string | null;
+				sha256: string | null;
+				byte_count: string | number | null;
+				download_name: string | null;
+			}>(
+				db,
+				sql`SELECT g.ok, d.id AS document_id, x.id, x.version_number AS revision, x.format, x.generated_at,
+					x.creator_name, x.sha256, x.byte_count, x.download_name
+				FROM (SELECT ${gateSql(scope, false)} AS ok) g
+				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
+				LEFT JOIN LATERAL (
+					SELECT gd.id, sr.version_number, gd.format, gd.generated_at, f.sha256, f.byte_count, gd.download_name,
+						(SELECT i.display_name FROM seat_identity(gd.creator_account_id) i
+							WHERE EXISTS (SELECT FROM seat s WHERE s.account_id = gd.creator_account_id AND s.plant_id = d.tenant_id
+								AND s.ended_at IS NULL)) AS creator_name
+					FROM generated_document gd
+					JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
+					JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
+					WHERE gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
+					ORDER BY gd.generated_at DESC, gd.id DESC
+					LIMIT ${PAGE}
+				) x ON true`,
+			);
+			if (found[0]?.ok !== true) deny("access_denied");
+			if (!found[0].document_id) deny("unavailable");
+			return c.savedExportList.parse({
+				documentId: input.documentId,
+				exports: found
+					.filter((row) => row.id)
+					.map((row) => ({
+						id: row.id,
+						documentId: input.documentId,
+						revision: Number(row.revision),
+						format: row.format,
+						generatedAt: iso(row.generated_at),
+						creatorName: row.creator_name || null,
+						digest: row.sha256,
+						byteCount: Number(row.byte_count),
+						downloadName: row.download_name,
+					})),
+			});
+		});
+	},
+
+	/**
+	 * The stored bytes of one saved export (DOC-003): read from private storage, checked against the saved digest, never
+	 * rendered again. The seat is checked before and after the bytes are read. Any seat reads it.
+	 */
+	async readExportFile(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+		return settle(async () => {
+			const input = parse(c.exportRequest, raw);
+			const scope = readerScope(authority);
+			if (!storage) deny("unavailable");
+			const found = await rowsOf<{
+				ok: boolean;
+				id: string | null;
+				object_id: string | null;
+				format: c.SavedExport["format"] | null;
+				download_name: string | null;
+				revision: number | null;
+			}>(
+				db,
+				sql`SELECT g.ok, gd.id, gd.object_id, gd.format, gd.download_name, sr.version_number AS revision
+				FROM (SELECT ${gateSql(scope, false)} AS ok) g
+				LEFT JOIN generated_document gd ON g.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
+					AND gd.source_document_id = ${input.documentId}::uuid
+				LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id`,
+			);
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (!row.id || !row.object_id || !row.format || !row.download_name || row.revision === null) deny("unavailable");
+			const authorize: ResourceAuthorizer = async (tx, file, intent) => {
+				if (intent !== "read") return null;
+				const allowed = await rowsOf<{ ok: boolean }>(
+					tx,
+					sql`SELECT ${gateSql(scope, false)} AS ok FROM generated_document gd
+					WHERE gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
+						AND gd.source_document_id = ${input.documentId}::uuid AND gd.object_id = ${file.id}::uuid`,
+				);
+				return allowed[0]?.ok === true ? { kind: "account", actorId: scope.accountId } : null;
+			};
+			const bytes = await readAuthorizedObject(db, storage, authorize, row.object_id).catch((error: unknown) =>
+				error instanceof Error && error.message === "unavailable" ? deny("unavailable") : Promise.reject(error),
+			);
+			return c.churchFile.parse({
+				documentId: input.documentId,
+				revision: Number(row.revision),
+				format: row.format,
+				mediaType: MEDIA[row.format],
+				downloadName: row.download_name,
+				digest: digestOf(Buffer.from(bytes)),
+				bytes: Buffer.from(bytes).toString("base64"),
+			});
+		});
+	},
+
+	/**
+	 * An Owner or Admin deletes one saved export (D-79). One statement checks the seat, removes the record and writes one
+	 * audit row; its download stops working. A Member is refused before any statement.
+	 */
+	async deleteExport(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.exportRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{ ok: boolean; deleted: string | null }>(
+				db,
+				sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+				del AS (
+					DELETE FROM generated_document gd USING gate
+					WHERE gate.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
+						AND gd.source_document_id = ${input.documentId}::uuid
+					RETURNING gd.id, gd.object_id
+				),
+				rel AS (
+					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
+					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
+					FROM del
+					ON CONFLICT DO NOTHING
+				),
+				aud AS (
+					INSERT INTO audit_event (
+						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, metadata
+					)
+					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.export_deleted', 'remove', del.id,
+						clock_timestamp(), clock_timestamp(), 'export-deleted:' || del.id::text, '{}'::jsonb
+					FROM del
+					RETURNING id
+				)
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM del) AS deleted, (SELECT count(*) FROM aud) AS audited`,
+			);
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (!row.deleted) deny("unavailable");
+			return c.deletedExport.parse({ exportId: row.deleted, deleted: true });
 		});
 	},
 
