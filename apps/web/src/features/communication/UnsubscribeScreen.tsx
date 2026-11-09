@@ -67,7 +67,7 @@ function Choice({ token, churchName, unsubscribed }: { token: string; churchName
 
 	return (
 		<Shell>
-			<Header church={church}>
+			<Header>
 				{done?.kind === "on"
 					? `You will get email from ${church} again`
 					: done
@@ -129,12 +129,12 @@ function Shell({ children }: { children: ReactNode }) {
 	);
 }
 
-function Header({ church, children }: { church: string; children: ReactNode }) {
+function Header({ children }: { children: ReactNode }) {
 	return (
 		<header className="bg-ink-fixed px-6 pt-14 pb-7 text-cream max-app-sm:pt-12">
 			<LogoMark className="h-8 w-8 text-green-500" />
 			<h1 className="mt-5 font-display text-[26px] leading-[1.15] tracking-[-0.02em] text-balance">{children}</h1>
-			<p className="mt-1.5 text-sm text-cream/75">Email from {church}</p>
+			<p className="mt-1.5 text-sm text-cream/75">Unsubscribe</p>
 		</header>
 	);
 }
