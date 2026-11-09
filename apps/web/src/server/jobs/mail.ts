@@ -6,6 +6,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { executeWrites } from "@everyfield/domain/operations";
+import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
 
@@ -66,12 +67,17 @@ export type TransportOutcome =
 	| { kind: "accepted"; id: string }
 	| { kind: "refused"; retryable: boolean; retryAfterSeconds?: number }
 	| { kind: "unknown" };
+/** One email as the transport hands it to the provider. `headers` holds the List-Unsubscribe pair, when the email has one. */
+export type MailPayload = Readonly<{
+	from: string;
+	to: string;
+	subject: string;
+	text: string;
+	html: string;
+	headers?: Readonly<Record<string, string>>;
+}>;
 export interface MailTransport {
-	send(
-		payload: Readonly<{ from: string; to: string; subject: string; text: string; html: string }>,
-		key: string,
-		signal: AbortSignal,
-	): Promise<TransportOutcome>;
+	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
 const stored = z.object({
@@ -90,9 +96,44 @@ const stored = z.object({
 	provider_message_id: z.string().nullable(),
 	revision: z.string(),
 	job_id: z.uuid().nullable(),
+	created_at: z.date(),
 });
+/**
+ * Mail a reader may turn off (REQ-NTF-012): a notification email and the two digests. Security, invitation and receipt
+ * mail never carries an Unsubscribe link. Messages to CRM people (`communication`) have no opt-out state yet.
+ */
+const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
+/** The opt-out page's origin and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
+export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
+/** The category an optional email belongs to and the reader's current unsubscribe revision for its email. */
+type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
+/** The deployment's unsubscribe configuration: the public origin and the NOTIFICATION_OPT_OUT_KEYS ring the opt-out page opens. */
+export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
+	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
+	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
+	return keys && origin.success ? { origin: origin.data, keys } : null;
+}
 export const escapeHtml = (text: string) =>
 	text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+/**
+ * The plain rendering of one email. Optional mail ends with its Unsubscribe and settings links in both bodies and
+ * carries the RFC 8058 List-Unsubscribe pair with the same token.
+ */
+function render(
+	to: string,
+	content: z.infer<typeof storedContentSchema>,
+	links: { page: string; oneClick: string; settings: string } | null,
+): MailPayload {
+	const html = `<p>${escapeHtml(content.text).replaceAll("\n", "<br>")}</p>`;
+	if (!links) return { to, ...content, html };
+	return {
+		to,
+		...content,
+		text: `${content.text}\n\n--\nUnsubscribe: ${links.page}\nNotification settings: ${links.settings}`,
+		html: `${html}<hr><p><a href="${escapeHtml(links.page)}">Unsubscribe</a> · <a href="${escapeHtml(links.settings)}">Notification settings</a></p>`,
+		headers: { "List-Unsubscribe": `<${links.oneClick}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+	};
+}
 export const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 
 export function createMailService(config: {
@@ -103,7 +144,11 @@ export function createMailService(config: {
 	authorize: AuthorizeMail;
 	transport: MailTransport;
 	authorizeRecovery?: AuthorizeRecovery;
+	unsubscribe?: MailUnsubscribe;
 }) {
+	const unsubscribe = config.unsubscribe
+		? { ...config.unsubscribe, origin: new URL(config.unsubscribe.origin).origin }
+		: null;
 	const encryptionKey = Buffer.from(config.encryptionKey),
 		addressKey = Buffer.from(config.addressKey);
 	if (encryptionKey.length !== 32 || addressKey.length !== 32 || encryptionKey.equals(addressKey))
@@ -134,7 +179,11 @@ export function createMailService(config: {
 		logicalKey: m.logical_key,
 	});
 	const aad = (id: string, tenant: string, purpose: string) => `${tenant}/${id}/${purpose}`;
-	async function live(tx: Transaction, m: z.infer<typeof stored>) {
+	/**
+	 * Whether the mail may still go. Live mail answers with the opt-out its notice's category gives, when the reader may
+	 * turn that category's email off: the category and the email preference's current unsubscribe revision.
+	 */
+	async function live(tx: Transaction, m: z.infer<typeof stored>): Promise<false | { optOut: OptOut | null }> {
 		// Current deletion witnesses override restored or still-present intent rows.
 		const barriers = await tx
 			.select({ id: tables.lifecycle_witness.id })
@@ -150,6 +199,7 @@ export function createMailService(config: {
 			)
 			.for("share");
 		if (barriers.length) return false;
+		let optOut: OptOut | null = null;
 		if (m.notice_id) {
 			const notice = await tx
 				.select({
@@ -173,7 +223,10 @@ export function createMailService(config: {
 			if (!parsedPreference.success) return false;
 			const preference = parsedPreference.data;
 			const choice = await tx
-				.select({ enabled: tables.notification_preference.enabled })
+				.select({
+					enabled: tables.notification_preference.enabled,
+					revision: sql<string>`${tables.notification_preference.unsubscribe_revision}::text`,
+				})
 				.from(tables.notification_preference)
 				.where(
 					and(
@@ -185,8 +238,10 @@ export function createMailService(config: {
 					),
 				);
 			if (!(choice[0]?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
+			if (OPTIONAL_PURPOSES.has(m.purpose))
+				optOut = { category: preference, revision: z.string().parse(choice[0]?.revision ?? "0") };
 		} else if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") return false;
-		return (await config.authorize(tx, [authority(m)])).has(m.id);
+		return (await config.authorize(tx, [authority(m)])).has(m.id) && { optOut };
 	}
 	function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {
 		return tx
@@ -404,6 +459,22 @@ export function createMailService(config: {
 		return id;
 	}
 
+	/**
+	 * The Unsubscribe page and one-click URLs for one optional email, or null. The token names the recipient and the
+	 * email's own category, and is the same on every attempt of this mail (`issueMailOptOutToken`).
+	 */
+	function optOutLinks(m: z.infer<typeof stored>, optOut: OptOut | null) {
+		if (!unsubscribe || !optOut || !m.recipient_account_id) return null;
+		const token = issueMailOptOutToken(unsubscribe.keys, {
+			accountId: m.recipient_account_id,
+			category: optOut.category,
+			unsubscribeRevision: optOut.revision,
+			iat: m.created_at.toISOString(),
+		});
+		const page = `${unsubscribe.origin}/email-preferences/${token}`;
+		return { page, oneClick: `${page}/one-click`, settings: `${unsubscribe.origin}/settings/notifications` };
+	}
+
 	async function dispatch(claim: Claim) {
 		const prepared = await transaction(config.db, async (tx) => {
 			if (claim.kind !== "mail" || !(await lockClaim(tx, claim))) return null;
@@ -417,7 +488,8 @@ export function createMailService(config: {
 				await finishClaim(tx, claim, { state: m.state === "cancelled" ? "cancelled" : "succeeded" });
 				return null;
 			}
-			if (m.revision !== claim.source_revision || !(await live(tx, m))) {
+			const current = m.revision === claim.source_revision && (await live(tx, m));
+			if (!current) {
 				if (["unknown", "dispatched"].includes(m.state)) {
 					await finishClaim(tx, claim, { state: "reconcile", code: "authority_changed" });
 					return null;
@@ -477,12 +549,7 @@ export function createMailService(config: {
 				tx.update(tables.mail).set({ state: "dispatched" }).where(eq(tables.mail.id, m.id)),
 			]);
 			await checkpoint(tx, claim, "external");
-			return {
-				m,
-				attempt,
-				key: r.provider_key,
-				payload: { to, ...content, html: `<p>${escapeHtml(content.text).replaceAll("\n", "<br>")}</p>` },
-			};
+			return { m, attempt, key: r.provider_key, payload: render(to, content, optOutLinks(m, current.optOut)) };
 		});
 		if (!prepared) return { kind: "not_dispatched" } as const;
 		let outcome: TransportOutcome;
