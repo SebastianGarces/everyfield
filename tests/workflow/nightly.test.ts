@@ -6,7 +6,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { coverageMap, type Gh, nightly, type NightlyDeps, nightlyLog, reportFailure } from "../../scripts/nightly.ts";
+import {
+	counts,
+	coverageMap,
+	type Gh,
+	nightly,
+	type NightlyDeps,
+	nightlyLog,
+	reportFailure,
+} from "../../scripts/nightly.ts";
 
 const HEAD = "f".repeat(40);
 
@@ -245,4 +253,11 @@ test("T-41 the coverage map records what each test reached, also through a child
 		},
 	});
 	assert.ok(!existsSync(join(root, "coverage")));
+});
+
+test("T-41 suite counts come from the run's own summary, not a nested run it printed first", () => {
+	const nested = "ℹ tests 33\nℹ pass 29\nℹ fail 4\n";
+	assert.deepEqual(counts(`${nested}✔ outer\nℹ tests 1\nℹ pass 1\nℹ fail 0\n`), { passed: 1, failed: 0 });
+	assert.deepEqual(counts("# tests 3\n# pass 2\n# fail 1\n"), { passed: 2, failed: 1 });
+	assert.deepEqual(counts("Error: cannot find module"), { passed: 0, failed: 1 });
 });

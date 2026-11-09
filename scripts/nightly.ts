@@ -195,10 +195,13 @@ const must = <R extends { status: number; output: string }>(r: R, what: string):
 	if (r.status !== 0) throw new Error(`${what} failed:\n${r.output.slice(-2000)}`);
 	return r;
 };
-const counts = (output: string): SuiteRun => ({
-	passed: Number(/(?:ℹ|#) pass (\d+)/.exec(output)?.[1] ?? 0),
-	failed: Number(/(?:ℹ|#) fail (\d+)/.exec(output)?.[1] ?? 0) + (/(?:ℹ|#) tests \d+/.test(output) ? 0 : 1),
-});
+/** The counts of node:test's own summary: the last one, since a test may print a nested run's summary first. */
+export const counts = (output: string): SuiteRun => {
+	const last = (name: string) => [...output.matchAll(new RegExp(`^(?:ℹ|#) ${name} (\\d+)\\s*$`, "gm"))].at(-1)?.[1];
+	const tests = last("tests");
+	// No summary at all means the run crashed before reporting: count it as a failure.
+	return { passed: Number(last("pass") ?? 0), failed: Number(last("fail") ?? 0) + (tests === undefined ? 1 : 0) };
+};
 
 /** The source files each selectable test file reached, through NODE_V8_COVERAGE, which child processes inherit. */
 export function coverageMap(worktree: string, node = process.execPath): SuiteRun & { tests: Record<string, string[]> } {
