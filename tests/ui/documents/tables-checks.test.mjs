@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { clean } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
-import { baseOf, MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const kind = (page, value) => page.getByRole("combobox", { name: "Column kind" }).selectOption(value);
@@ -151,7 +151,7 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WP-036-14 (${name}): a template's table, loaded and saved with no edit, keeps its stored form and shows no unsaved change`, async () => {
 		for (const id of ["budget-worksheet", "guest-sign-in-sheet", "commitment-card", "conflict-of-interest-policy"])
 			await onFork(engine, id, async (page, context, t) => {
-				const base = await baseOf(id);
+				const { base } = t;
 				// Look at every field of the table without changing anything.
 				const head = page.locator(".ef-head-cell");
 				for (let i = 0; i < (await head.count()); i++) {

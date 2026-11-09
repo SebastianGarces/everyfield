@@ -42,7 +42,9 @@ export function onFork(engine, templateId, run, { size, who = "owner", blank = f
 			await page.waitForURL(/\/documents\/church\/[0-9a-f-]{36}$/, { timeout: 120_000 });
 			await page.locator(PAPER).waitFor({ timeout: 120_000 });
 			await page.getByRole("button", { name: "Undo", exact: true }).waitFor();
-			const ctx = helpers(page, base);
+			// The fork freezes the church's merge values into `data`, so the stored form is the template plus those values.
+			const data = await page.locator(PAPER).evaluate((el) => el.editor.getJSON().attrs?.data);
+			const ctx = helpers(page, data === undefined ? base : { ...base, data });
 			if (blank) await ctx.deleteAll();
 			await run(page, context, ctx);
 		},
@@ -183,6 +185,7 @@ function helpers(page, base) {
 	const rowsDom = (n = 0) => page.locator(`${PAPER} [data-ef-node="table"]`).nth(n).locator('[data-ef-node="row"]');
 	const reasons = () => page.locator("[data-table-reasons]");
 	return {
+		base,
 		amount,
 		computed,
 		typeAmount,
