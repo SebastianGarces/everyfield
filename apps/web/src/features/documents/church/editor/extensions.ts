@@ -523,7 +523,7 @@ export const EfSlot = Node.create({
 	content: "(paragraph | bulletList | orderedList)*",
 	atom: true,
 	isolating: true,
-	addAttributes: () => attrsOfSpec({ label: "string" }),
+	addAttributes: () => attrsOfSpec({ label: "string", key: "string" }),
 	parseHTML: () => [{ tag: 'div[data-ef-node="slot"]' }],
 	renderHTML: ({ HTMLAttributes }) => ["div", mergeAttributes(HTMLAttributes, { "data-ef-node": "slot" }), 0],
 	addNodeView: () => readOnlyView,
