@@ -32,6 +32,7 @@ const profileRow = z.object({
 	description: z.string().nullable(),
 	contact_email: z.string().nullable(),
 	contact_phone: z.string().nullable(),
+	statement_of_faith: z.string().nullable(),
 	timezone: z.string(),
 	revision,
 });
@@ -204,14 +205,26 @@ export async function applyOrganizationProfile(
 		description: "description",
 		contactEmail: "contact_email",
 		contactPhone: "contact_phone",
+		statementOfFaith: "statement_of_faith",
 	} as const;
 	const patch: Partial<typeof tables.organization.$inferInsert> = {};
 	for (const [raw, value] of Object.entries(input)) {
 		const key = z
-			.enum(["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"])
+			.enum([
+				"name",
+				"city",
+				"stateProvince",
+				"country",
+				"description",
+				"contactEmail",
+				"contactPhone",
+				"statementOfFaith",
+			])
 			.parse(raw);
 		const field = fields[key];
 		if (row[field] === value) continue;
+		// D-107: only a sending network writes a statement of faith. The database refuses it on a church row too.
+		if (field === "statement_of_faith" && stored.kind !== "sending_network") refuse();
 		if (field === "name") patch.name = z.string().parse(value);
 		else patch[field] = value;
 	}
@@ -265,6 +278,7 @@ export function profileValue(row: z.infer<typeof profileRow>, organization: z.in
 			description: row.description,
 			contactEmail: row.contact_email,
 			contactPhone: row.contact_phone,
+			statementOfFaith: row.statement_of_faith,
 		},
 	});
 }

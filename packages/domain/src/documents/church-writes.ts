@@ -12,6 +12,7 @@ import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById } from "./doc-templates.ts";
 import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
@@ -190,7 +191,20 @@ export const churchWriter = {
 					source: cleaned.values[field.key] ? "override" : (frozen.from[field.key] ?? "absent").slice(0, 40),
 				}));
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
-			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
+			// D-108, D-109: the network's statement of faith is read now, once. The earliest-accepted active network
+			// with a statement fills each `statement-of-faith` slot; with none, the slot stays the marked blank.
+			const statements = await rowsOf<{ statement: string }>(
+				db,
+				sql`SELECT o.statement_of_faith AS statement FROM affiliation a
+				JOIN organization o ON o.id = a.organization_id
+				WHERE a.plant_id = ${scope.tenantId}::uuid AND a.ended_at IS NULL AND o.kind = 'sending_network'
+					AND o.statement_of_faith IS NOT NULL AND ${gateSql(scope, true)}
+				ORDER BY a.accepted_at, a.id LIMIT 1`,
+			);
+			const forked = fillStatementSlots(
+				await c.forkTemplate(template, { id: `doc-${docId}`, data }),
+				statements[0]?.statement ?? null,
+			);
 			const checked = c.docDocument.safeParse(forked);
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);

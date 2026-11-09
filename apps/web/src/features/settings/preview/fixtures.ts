@@ -223,6 +223,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 						description: "We send and support new churches across Central Texas.",
 						contactEmail: "office@austinsending.org",
 						contactPhone: null,
+						statementOfFaith: null,
 					},
 					timeZone: "America/Chicago",
 				},
