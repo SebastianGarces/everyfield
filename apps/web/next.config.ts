@@ -19,8 +19,9 @@ const config: NextConfig = {
 	},
 	poweredByHeader: false,
 	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and
-	// each request path; an email opt-out path carries its token (REQ-NTF-012), so those requests are not logged.
-	logging: { serverFunctions: false, incomingRequests: { ignore: [/\/email-preferences\//] } },
+	// each request path; an email opt-out or Messages unsubscribe path carries its token (REQ-NTF-012, REQ-NTF-016), so
+	// those requests are not logged.
+	logging: { serverFunctions: false, incomingRequests: { ignore: [/\/email-preferences\//, /\/unsubscribe\//] } },
 	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
 	// optimized copies (their URLs carry the content hash of the source file).
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },

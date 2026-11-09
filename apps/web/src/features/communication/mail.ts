@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
+import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { MailTransport } from "../../server/jobs/mail.ts";
 import { createResendTransport } from "../../server/jobs/resend.ts";
 import { captureAllowed, captureSilent, changeCaptured, isCaptureId, record } from "./capture.ts";
@@ -114,12 +115,22 @@ function knownRefusal(ready: MailReady): boolean {
 }
 
 export type MailReady = {
-	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
+	/**
+	 * `optOutKeys` is the NOTIFICATION_OPT_OUT_KEYS ring the Messages Unsubscribe link is sealed with, or null when it is
+	 * not configured: then the email carries no link, and an unsubscribed person is still refused.
+	 */
+	keys: {
+		encryptionKey: Uint8Array;
+		addressKey: Uint8Array;
+		from: string;
+		origin: string;
+		optOutKeys: OptOutKeyRing | null;
+	};
 	/** The provider key, or null when a development or preview server has none. Then every send is captured. */
 	apiKey: string | null;
 };
 
-type Outgoing = { to: string; subject: string; html: string; text: string };
+type Outgoing = { to: string; subject: string; html: string; text: string; headers?: Readonly<Record<string, string>> };
 type Batch = { outcome: "ids"; ids: (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
 
 /** The deployment's app origin, or null when it is not configured. */
@@ -144,7 +155,13 @@ export function mailReady(): MailReady | null {
 	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
 	if (encryptionKey.equals(addressKey)) return null;
 	return {
-		keys: { encryptionKey, addressKey, from: parsed.data.IDENTITY_MAIL_FROM, origin: parsed.data.IDENTITY_ORIGIN },
+		keys: {
+			encryptionKey,
+			addressKey,
+			from: parsed.data.IDENTITY_MAIL_FROM,
+			origin: parsed.data.IDENTITY_ORIGIN,
+			optOutKeys: parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS),
+		},
 		apiKey,
 	};
 }
@@ -316,6 +333,7 @@ export function deliveryTransport(
 					subject: message.subject,
 					html: message.html,
 					text: message.text,
+					...(message.headers ? { headers: message.headers } : {}),
 					...(scheduledAt === null ? {} : { scheduled_at: scheduledAt }),
 				})),
 			),

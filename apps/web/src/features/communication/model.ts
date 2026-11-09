@@ -139,6 +139,8 @@ export type DeliveryReport = {
 	acceptedCount: number;
 	rejectedCount: number;
 	unknownCount: number;
+	/** Refused by Everyfield because the person unsubscribed from this church's email. Not in rejectedCount. */
+	unsubscribedCount: number;
 };
 
 /** Per recipient, what the email service confirmed for a cancel or time change. */
@@ -156,14 +158,25 @@ export type RestoreReport = { suppressionClears: number };
 
 /** The counts every handoff result names. */
 const counts = (report: DeliveryReport) =>
-	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.`;
+	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
+	unsubscribedNote(report.unsubscribedCount);
+
+/** The count of people who unsubscribed from this church's email, when there are any. */
+export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
+
+/** Why nobody got it: the email service refused them, they unsubscribed, or both. */
+function refusedAll(report: DeliveryReport, outcome: "sent" | "scheduled") {
+	if (report.unsubscribedCount === 0) return `Not ${outcome}. The email service refused all ${report.rejectedCount}.`;
+	if (report.rejectedCount === 0) return `Not ${outcome}. Every recipient unsubscribed from this church's email.`;
+	return `Not ${outcome}. Some recipients unsubscribed from this church's email and the email service refused the rest.`;
+}
 
 /** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
 export function deliveryText(report: DeliveryReport): string {
 	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} It was not sent again.`;
-	return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
+	return `${refusedAll(report, "sent")} ${counts(report)} The message stays saved in Messages.`;
 }
 
 /**
@@ -175,7 +188,7 @@ export function scheduleText(report: DeliveryReport, when: string): string {
 		return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
-	return `Not scheduled. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
+	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
 }
 
 const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;
@@ -286,6 +299,8 @@ export type DeliveryTotals = {
 	bounced: number;
 	failed: number;
 	suppressed: number;
+	/** Refused because the person unsubscribed from this church's email. Not in failed. */
+	unsubscribed: number;
 	unknown: number;
 	cancelled: number;
 	cancelOpen: number;
@@ -373,6 +388,8 @@ export type ContactRow = {
 export type PersonHistory = HistoryPage & {
 	personId: string;
 	lastConfirmedContactAt: string | null;
+	/** When the person unsubscribed from this church's email. Only an Owner or Admin sees it. */
+	emailOptOutAt: string | null;
 	contacts: ContactRow[];
 };
 
