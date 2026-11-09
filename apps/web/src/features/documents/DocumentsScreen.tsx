@@ -16,8 +16,9 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { generateDocument, resolveDocument } from "./actions.ts";
+import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { RENDER_FAILED, bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
@@ -60,6 +61,8 @@ type Props = {
 	canEdit: boolean;
 	canStore: boolean;
 	written: "church" | "account" | null;
+	/** The authored text templates: each makes a saved file or an editable Church Document. */
+	textTemplates: readonly string[];
 };
 
 function failureText(code: string, problem?: string) {
@@ -70,7 +73,16 @@ function failureText(code: string, problem?: string) {
 	return RENDER_FAILED;
 }
 
-export function DocumentsScreen({ templates, query, context, canPreview, canEdit, canStore, written }: Props) {
+export function DocumentsScreen({
+	templates,
+	query,
+	context,
+	canPreview,
+	canEdit,
+	canStore,
+	written,
+	textTemplates,
+}: Props) {
 	const initial = filterTemplates(templates, query);
 	const [category, setCategory] = useState(query.category);
 	const [wiki, setWiki] = useState(query.wiki);
@@ -90,6 +102,9 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 	const [previewing, startPreview] = useTransition();
 	const [saving, startSave] = useTransition();
 	const [saveNote, setSaveNote] = useState<string | null>(null);
+	const [creating, startCreate] = useTransition();
+	const [createNote, setCreateNote] = useState<string | null>(null);
+	const createKeys = useRef(new Map<string, string>());
 	const [savedTick, setSavedTick] = useState(0);
 	const panel = useRef<HTMLDivElement>(null);
 	const autoPreviewed = useRef<string | null>(null);
@@ -190,6 +205,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		setSelectedId(id);
 		setPreview({ kind: "idle" });
 		setSaveNote(null);
+		setCreateNote(null);
 		// Below the desktop width the preview sits under the list, so bring it into view.
 		// 1023px is one under Tailwind's `lg` (1024px), where the layout turns side by side.
 		if (window.matchMedia("(max-width: 1023px)").matches)
@@ -217,6 +233,24 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 			}
 			setSaveNote(`Saved ${result.value.savedTemplateName} for your church.`);
 			setSavedTick((current) => current + 1);
+		});
+	}
+
+	// "Create Church Document" opens the new document's page. The same values reuse one request key, so a second click
+	// opens the same document. It uses the values typed here, as "Save for your church" does.
+	function runCreate() {
+		if (!selected || !ready || !canEdit) return;
+		const template = selected;
+		const key = createKeys.current.get(signature) ?? crypto.randomUUID();
+		createKeys.current.set(signature, key);
+		setCreateNote(null);
+		startCreate(async () => {
+			const result: ChurchActionResult | undefined = await createChurchDocument(template.id, key, overrides);
+			// A success redirects to the new document and returns nothing here; only a refusal comes back.
+			if (!result) return;
+			setCreateNote(
+				result.status === "refused" ? result.message : "The connection dropped. Nothing was made. Try again.",
+			);
 		});
 	}
 
@@ -389,10 +423,20 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								canStore={canStore}
 								saving={saving}
 								saveNote={saveNote}
+								make={
+									textTemplates.includes(selected.id) && canPreview
+										? canEdit
+											? "both"
+											: "member"
+										: "save"
+								}
+								creating={creating}
+								createNote={createNote}
 								onDraft={(key, value) => {
 									setDrafts((current) => ({ ...current, [key]: value }));
 									setArtifact(null);
 									setSaveNote(null);
+									setCreateNote(null);
 								}}
 								onFormat={(next) => {
 									setFormat(next);
@@ -403,6 +447,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
 								onSave={runSave}
+								onCreate={runCreate}
 							/>
 						) : (
 							<EmptyState icon={File02Icon} title="Select a template" headingLevel="h2">
@@ -433,11 +478,15 @@ function TemplatePanel({
 	preview,
 	stale,
 	saveNote,
+	make,
+	creating,
+	createNote,
 	onDraft,
 	onFormat,
 	onPreview,
 	onDownload,
 	onSave,
+	onCreate,
 }: {
 	template: Template;
 	format: Format;
@@ -453,11 +502,19 @@ function TemplatePanel({
 	preview: PreviewState;
 	stale: boolean;
 	saveNote: string | null;
+	/**
+	 * How this template makes a document here. `save`: the one Save button, as for every other template. `both`: an
+	 * Owner or Admin chooses a saved file or an editable Church Document. `member`: a Member is told who makes them.
+	 */
+	make: "save" | "both" | "member";
+	creating: boolean;
+	createNote: string | null;
 	onDraft: (key: string, value: string) => void;
 	onFormat: (format: Format) => void;
 	onPreview: () => void;
 	onDownload: () => void;
 	onSave: () => void;
+	onCreate: () => void;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
@@ -546,13 +603,62 @@ function TemplatePanel({
 				<Button variant="secondary" icon={Download01Icon} loading={busy} disabled={!ready} onClick={onDownload}>
 					Download {FORMAT_LABEL[format]}
 				</Button>
-				{canPreview ? (
+				{canPreview && make === "save" ? (
 					<Button variant="primary" loading={saving} disabled={!ready || !canStore} onClick={onSave}>
 						Save for your church
 					</Button>
 				) : null}
 			</div>
-			{canPreview && !canStore ? (
+			{make === "both" ? (
+				<section aria-labelledby="make-heading" className="flex flex-col gap-3 border-t border-line pt-4">
+					<h3 id="make-heading" className="font-sans text-sm font-medium tracking-normal text-ink">
+						Make a document for your church
+					</h3>
+					<MakeOption
+						id="make-save"
+						note="Saves a finished PDF in History. It can't be edited."
+						button={
+							<Button
+								variant="primary"
+								loading={saving}
+								disabled={!ready || !canStore || creating}
+								onClick={onSave}
+								aria-describedby="make-save"
+								className="w-full sm:w-56"
+							>
+								Save for your church
+							</Button>
+						}
+					/>
+					<MakeOption
+						id="make-create"
+						note="Makes a Church Document you can edit, then export as PDF or Word."
+						button={
+							<Button
+								variant="secondary"
+								loading={creating}
+								disabled={!ready || saving}
+								onClick={onCreate}
+								aria-describedby="make-create"
+								className="w-full sm:w-56"
+							>
+								Create Church Document
+							</Button>
+						}
+					/>
+				</section>
+			) : null}
+			{make === "member" ? (
+				<p className="text-sm text-text-2">
+					An Owner or Admin makes documents from templates. You can preview and download this one.
+				</p>
+			) : null}
+			{createNote ? (
+				<p role="status" className="text-sm font-medium text-magenta-600">
+					{createNote}
+				</p>
+			) : null}
+			{canPreview && !canStore && make !== "member" ? (
 				<p className="text-sm text-text-2">
 					Saving for your church is not available right now. A preview download stays on this device.
 				</p>
@@ -572,6 +678,18 @@ function TemplatePanel({
 					{preview.text}
 				</p>
 			) : null}
+		</div>
+	);
+}
+
+/** One way to make a document: its button, and a one-line note that says what the button makes. */
+function MakeOption({ id, note, button }: { id: string; note: string; button: ReactNode }) {
+	return (
+		<div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+			{button}
+			<p id={id} className="text-sm text-text-2 text-pretty">
+				{note}
+			</p>
 		</div>
 	);
 }
