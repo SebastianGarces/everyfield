@@ -81,7 +81,12 @@ const key = (value: unknown) => JSON.stringify(normal(value));
 
 /** A header or footer with no blocks prints nothing, so it counts as no region. */
 const region = (value: Region | null | undefined): Region | null => (value?.content?.length ? value : null);
-const layout = ({ header: _h, footer: _f, ...rest }: PageSetup): PageLayout => rest;
+const layout = (page: PageSetup): PageLayout => {
+	const rest: Partial<PageSetup> = { ...page };
+	delete rest.header;
+	delete rest.footer;
+	return rest as PageLayout;
+};
 const PAGE_DEFAULTS = { tile: null };
 const pageKey = (page: PageSetup) => key({ ...PAGE_DEFAULTS, ...layout(page) });
 
