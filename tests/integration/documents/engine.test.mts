@@ -77,15 +77,18 @@ const tagsOf = async (bytes: Buffer) => {
 
 describe("WP-036/api engine", () => {
 	test("DOC-006: the registry and docs/catalog/document-templates.json agree on id, class and format", async () => {
+		// The existing templates, then the text templates authored in code, which "Save for your church" prints too.
+		const authored = ["bylaws", "prayer-letter"];
 		const existing = catalogJson.templates.filter((t: { source: string }) => t.source === "existing");
-		assert.deepEqual(REGISTRY.map(ink), existing.map(ink));
-		for (const row of existing) {
+		const rows = [...existing, ...authored.map((id) => catalogJson.templates.find((t: { id: string }) => t.id === id))];
+		assert.deepEqual(REGISTRY.map(ink), rows.map(ink));
+		for (const row of rows) {
 			const entry = entryFor(row.id)!;
 			assert.equal(entry.documentClass, row.class, row.id);
 			// The catalog lists Word for the three editable templates (OPS-79). This task offers the first listed format only.
 			assert.equal(entry.format, row.formats[0], row.id);
 		}
-		assert.equal(REGISTRY.filter((e) => e.format === "pdf").length, 9);
+		assert.equal(REGISTRY.filter((e) => e.format === "pdf").length, 11);
 		assert.deepEqual(REGISTRY.filter((e) => e.format === "xlsx").map(ink), ["first-year-budget", "budget-worksheet"]);
 		const loaded = await library();
 		for (const template of loaded.templates)
@@ -183,7 +186,7 @@ describe("WP-036/api engine", () => {
 			);
 		const first = run();
 		const second = run();
-		assert.equal(first.trim().split("\n").length, 11);
+		assert.equal(first.trim().split("\n").length, 13);
 		assert.equal(first, second);
 	});
 
@@ -254,7 +257,7 @@ describe("WP-036/api engine", () => {
 			assert.ok(tags.has("H1"), `${entry.id} has no H1`);
 			if (
 				!["commitment-card", "response-card"].includes(entry.id) &&
-				entry.id !== "follow-up-letter" &&
+				!["follow-up-letter", "prayer-letter"].includes(entry.id) &&
 				entry.id !== "guest-sign-in-sheet"
 			)
 				assert.ok(tags.has("H2"), `${entry.id} has no H2`);

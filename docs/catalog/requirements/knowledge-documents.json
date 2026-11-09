@@ -90,7 +90,7 @@
         },
         {
           "operation": "documents.generate",
-          "rule": "Refuse an editable template. Generate makes files only for fixed-layout and budget templates; an editable template goes through documents.createFromTemplate, then documents.exportNative."
+          "rule": "Generate makes saved files for every template, including editable ones (\"Save for your church\"); an editable template can also become a Church Document through documents.createFromTemplate, then documents.exportNative."
         }
       ]
     },
