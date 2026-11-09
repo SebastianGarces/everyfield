@@ -17,12 +17,14 @@ type Props = {
 	title: string;
 	/** The revision the document is at now; the list loads again when it moves. */
 	current: string;
-	/** The file route of one revision in one format. */
-	file: (format: "pdf" | "docx", download: boolean, revision: string) => string;
+	/** The preview address of one revision in one format. */
+	file: (format: string, revision: string) => string;
+	/** Saves one export of a revision and downloads it (D-78). */
+	onDownload: (format: string, revision: string) => void;
 	page: { width: number; height: number };
 };
 
-export function VersionHistory({ docId, title, current, file, page }: Props) {
+export function VersionHistory({ docId, title, current, file, onDownload, page }: Props) {
 	// The list as loaded for one revision of the document: a save moves `current`, and the list loads again.
 	const [loaded, setLoaded] = useState<{ at: string; list: RevisionEntry[] | "failed" } | null>(null);
 	const [chosen, setChosen] = useState<number | null>(null);
@@ -101,18 +103,22 @@ export function VersionHistory({ docId, title, current, file, page }: Props) {
 					</p>
 					<div className="flex flex-wrap gap-2">
 						{(["pdf", "docx"] as const).map((format) => (
-							<Button key={format} variant="secondary" size="sm" icon={Download01Icon} asChild>
-								<a href={file(format, true, at)} download>
-									{format === "pdf" ? "Download PDF" : "Download Word"}
-								</a>
+							<Button
+								key={format}
+								variant="secondary"
+								size="sm"
+								icon={Download01Icon}
+								onClick={() => onDownload(format, at)}
+							>
+								{format === "pdf" ? "Download PDF" : "Download Word"}
 							</Button>
 						))}
 					</div>
 				</div>
 				<ChurchPdf
-					key={file("pdf", false, at)}
+					key={file("pdf", at)}
 					title={`${title}, revision ${at}`}
-					src={file("pdf", false, at)}
+					src={file("pdf", at)}
 					page={page}
 				/>
 			</div>
