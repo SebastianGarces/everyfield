@@ -350,3 +350,56 @@ export const contactCorrectionResult = z.strictObject({
 	correlationId: recordId,
 	lastConfirmedContactAt: instant.nullable(),
 });
+
+/** What became of one recipient of an earlier send that a replacement tried to cancel. */
+export const recipientOutcome = z.enum(["cancelled", "sent", "open"]);
+export type RecipientOutcome = z.infer<typeof recipientOutcome>;
+/**
+ * What the email service confirmed for an Evry email effect, as the proposal saves it and the review card reads it.
+ * `code` is why Messages stopped a step after the first one committed; with no code the email service itself answered.
+ */
+export const mailReport = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("schedule"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
+		scheduledAt: z.string(),
+		accepted: count,
+		refused: count,
+		unknown: count,
+		code: z.string().optional(),
+	}),
+	z.object({
+		kind: z.literal("reschedule"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
+		scheduledAt: z.string(),
+		open: count,
+		sent: count,
+	}),
+	z.object({
+		kind: z.literal("cancel"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
+		cancelled: count,
+		sent: count,
+		open: count,
+	}),
+	/** Every old send is confirmed cancelled and the new one reached the email service. */
+	z.object({
+		kind: z.literal("replace"),
+		confirmation: z.enum(["confirmed", "not_confirmed"]),
+		scheduledAt: z.string(),
+		accepted: count,
+		refused: count,
+		unknown: count,
+	}),
+	/** No new send: a cancel is open or too late, or the new one was refused after the old one was cancelled. */
+	z.object({
+		kind: z.literal("replace_stopped"),
+		confirmation: z.enum(["not_confirmed", "blocked", "refused"]),
+		cancelled: count,
+		sent: count,
+		open: count,
+		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })),
+		code: z.string().optional(),
+	}),
+]);
+export type MailReport = z.infer<typeof mailReport>;

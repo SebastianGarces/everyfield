@@ -21,6 +21,7 @@ import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.t
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { updatesOff } from "../../../packages/domain/src/communication/audience.ts";
 import { insertTasks } from "../task-assignees.mts";
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const ci =
@@ -405,6 +406,80 @@ test("AC:WP010-IDN-012 account preferences keep exact category/channel choices i
 		),
 	);
 	assert.equal(cadence.current.values.planterCadence, "daily");
+});
+
+test("AC:WP-028-3 a person who turns off every email switch Settings shows is left out of planter email, and nobody else", async () => {
+	const off = updatesOff(sql`up_person.id`);
+	const f = await plant();
+	const person = async (account) => {
+		const [row] = (
+			await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
+				VALUES(${randomUUID()},${f.p.id},${f.p.id},'Switches','other',clock_timestamp(),'prospect','unknown','unknown',1,'live',${account}) RETURNING id`)
+		).rows;
+		return row.id;
+	};
+	const isOff = async (id) =>
+		(await admin.execute(sql`SELECT ${off} AS off FROM person up_person WHERE up_person.id=${id}`)).rows[0].off;
+	const switchOff = async (a) => {
+		const shown = ok(await section(a, { section: "notifications" }));
+		let revision = Number(shown.revision);
+		const email = shown.values.choices.filter((c) => c.channel === "email" && c.enabled);
+		for (const choice of email) {
+			ok(
+				await call(
+					"saveSection",
+					a,
+					command(
+						{ section: "notifications", patch: { kind: "channel", choice: { ...choice, enabled: false } } },
+						String(revision),
+					),
+				),
+			);
+			revision += 1;
+		}
+		return email;
+	};
+	// No organization seat: Settings shows no oversight digest switch, and the rest are all that can be turned off.
+	const plain = await actor();
+	const plainPerson = await person(plain.id);
+	assert.equal(await isOff(plainPerson), false, "a person who saved nothing still gets planter email");
+	const plainEmail = await switchOff(plain);
+	assert.equal(plainEmail.length, 9);
+	assert.equal(
+		plainEmail.some((c) => c.category === "oversight_digest"),
+		false,
+	);
+	assert.equal(await isOff(plainPerson), true);
+	// One switch back on is enough.
+	const shown = ok(await section(plain, { section: "notifications" }));
+	ok(
+		await call(
+			"saveSection",
+			plain,
+			command(
+				{
+					section: "notifications",
+					patch: { kind: "channel", choice: { category: "task_due", channel: "email", enabled: true } },
+				},
+				shown.revision,
+			),
+		),
+	);
+	assert.equal(await isOff(plainPerson), false);
+	// With an organization seat the oversight digest email is off by default, with no saved row.
+	const seated = await actor();
+	const org = await organization();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: seated.id, organization_id: org.o.id, role: "admin", accepted_at: new Date() });
+	const seatedPerson = await person(seated.id);
+	const seatedEmail = await switchOff(seated);
+	assert.equal(
+		seatedEmail.some((c) => c.category === "oversight_digest"),
+		false,
+		"already off by default",
+	);
+	assert.equal(await isOff(seatedPerson), true);
 });
 
 test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canonicalize independently, require bound previews, and roll back required intents", async () => {

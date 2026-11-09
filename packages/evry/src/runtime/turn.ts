@@ -17,11 +17,12 @@ import {
 } from "../context/compile.ts";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
-import { allowedWrites, prepareProposal } from "../proposals/store.ts";
+import { prepareProposal } from "../proposals/store.ts";
+import type { MailPort } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
-import { readTools } from "./tools.ts";
+import { proposeChangeTool, readTools } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 
@@ -30,6 +31,8 @@ export type RunDeps = {
 	model: QualifiedModel;
 	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
+	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
+	mail?: MailPort | null;
 	now?: () => Date;
 };
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
@@ -344,62 +347,55 @@ async function run(
 			});
 
 		// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
-		const writes = allowedWrites(actor);
-		if (writes.length) {
-			const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
-			tools.propose_change = tool({
-				description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
-				inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-				execute: async (call: { operation: string; input: unknown }) => {
-					const fresh = await admit();
-					if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-					const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call).catch((error) =>
-						error instanceof EvryRefusal ? error.code : "unknown",
-					);
-					if (typeof proposal === "string") return { error: proposal };
-					if (!proposal) return { error: "source_unavailable" };
-					const target = proposal.review.target;
-					const sequence = await save("tool_result", {
-						operation: "evry.prepareProposal",
-						input: { operation: call.operation },
-						result: {
-							operation: "evry.prepareProposal",
-							status: "available",
-							// The target row lets replay withhold the card once the target is no longer available.
-							rows: target ? [{ kind: "person", id: target.id, label: target.label, fields: {} }] : [],
-							total: 1,
-							page: 1,
-							next: null,
-							completeness: "complete",
-							exclusions: [],
-							proposalId: proposal.id,
-						},
-					});
-					if (sequence === null) return { error: "cancelled" };
-					return JSON.parse(
-						scrub(
-							JSON.stringify({
-								proposalId: proposal.id,
-								status: "awaiting_approval",
-								expiresAt: proposal.expiresAt,
-								// The reviewed fields live in their source row, so a later model call withholds them with
-								// the row once the target is no longer available (withLiveRows).
-								rows: target
-									? [
-											{
-												kind: "person",
-												id: target.id,
-												label: target.label,
-												fields: { changes: proposal.review.changes },
-											},
-										]
-									: [],
-							}),
-						),
-					) as Record<string, unknown>;
+		const propose = proposeChangeTool(actor, async (call) => {
+			const fresh = await admit();
+			if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+			const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail).catch((error) =>
+				error instanceof EvryRefusal ? error.code : "unknown",
+			);
+			if (typeof proposal === "string") return { error: proposal };
+			if (!proposal) return { error: "source_unavailable" };
+			const target = proposal.review.target;
+			const sequence = await save("tool_result", {
+				operation: "evry.prepareProposal",
+				input: { operation: call.operation },
+				result: {
+					operation: "evry.prepareProposal",
+					status: "available",
+					// The target row lets replay withhold the card once the target is no longer available.
+					rows: target ? [{ kind: target.kind, id: target.id, label: target.label, fields: {} }] : [],
+					total: 1,
+					page: 1,
+					next: null,
+					completeness: "complete",
+					exclusions: [],
+					proposalId: proposal.id,
 				},
 			});
-		}
+			if (sequence === null) return { error: "cancelled" };
+			return JSON.parse(
+				scrub(
+					JSON.stringify({
+						proposalId: proposal.id,
+						status: "awaiting_approval",
+						expiresAt: proposal.expiresAt,
+						// The reviewed fields live in their source row, so a later model call withholds them with
+						// the row once the target is no longer available (withLiveRows).
+						rows: target
+							? [
+									{
+										kind: target.kind,
+										id: target.id,
+										label: target.label,
+										fields: { changes: proposal.review.changes },
+									},
+								]
+							: [],
+					}),
+				),
+			) as Record<string, unknown>;
+		});
+		if (propose) tools.propose_change = propose;
 
 		// The classification call counts against the same turn budget as every tool-loop step.
 		const before = { ...usage };

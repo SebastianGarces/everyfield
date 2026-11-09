@@ -112,8 +112,10 @@ export async function withMeetingsWrite<T>(
 }
 /** Carries a previewed write's answer out of its transaction, so the transaction rolls back. */
 class Preview extends Error {
-	constructor(readonly value: unknown) {
+	readonly value: unknown;
+	constructor(value: unknown) {
 		super("preview");
+		this.value = value;
 	}
 }
 /**

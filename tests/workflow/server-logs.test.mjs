@@ -34,27 +34,55 @@ function actionId(name) {
 	return found[0];
 }
 
-test("BUG-PR199: the dev server log never shows a password sent to a server action", { timeout: 240_000 }, async () => {
+/** Starts `next dev` and renders the page once. The render compiles the page and with it the settings actions. */
+async function startDev() {
 	const port = await freePort();
 	const origin = `http://127.0.0.1:${port}`;
-	let log = "";
+	const dev = { origin, log: "", rendered: false };
 	const server = spawn(process.execPath, [next, "dev", "--hostname", "127.0.0.1", "--port", String(port)], {
 		cwd: app,
 		env: { ...process.env, NODE_ENV: "development", NEXT_TELEMETRY_DISABLED: "1", PORT: String(port) },
 		stdio: ["ignore", "pipe", "pipe"],
 		detached: true,
 	});
-	server.stdout.on("data", (chunk) => (log += chunk));
-	server.stderr.on("data", (chunk) => (log += chunk));
+	server.stdout.on("data", (chunk) => (dev.log += chunk));
+	server.stderr.on("data", (chunk) => (dev.log += chunk));
+	const closed = new Promise((resolve) => server.on("close", resolve));
+	dev.stop = async () => {
+		try {
+			process.kill(-server.pid, "SIGTERM");
+		} catch {}
+		await closed;
+	};
 	try {
 		const deadline = Date.now() + 120_000;
-		while (!/Ready in/.test(log)) {
-			assert.ok(server.exitCode === null, `next dev exited:\n${log}`);
-			assert.ok(Date.now() < deadline, `next dev did not start:\n${log}`);
+		while (!/Ready in/.test(dev.log)) {
+			assert.ok(server.exitCode === null, `next dev exited:\n${dev.log}`);
+			assert.ok(Date.now() < deadline, `next dev did not start:\n${dev.log}`);
 			await new Promise((r) => setTimeout(r, 250));
 		}
-		// The first render compiles the page and with it the settings actions.
-		await fetch(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		const page = await fetch(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		await page.text();
+		// The signed-out cookie reaches sign-in only through the compiled page.
+		dev.rendered = page.status === 307;
+		return dev;
+	} catch (error) {
+		await dev.stop();
+		throw error;
+	}
+}
+
+test("BUG-PR199: the dev server log never shows a password sent to a server action", { timeout: 600_000 }, async () => {
+	// Turbopack sometimes fails a cold compile with a 404 or a next/font/google error, and the server stays broken until
+	// it restarts. The attempts cover that compile only: every assertion on the action calls runs on one rendered page.
+	let dev = await startDev();
+	for (let attempt = 1; !dev.rendered && attempt < 3; attempt++) {
+		await dev.stop();
+		dev = await startDev();
+	}
+	const { origin } = dev;
+	try {
+		assert.ok(dev.rendered, `the page never compiled:\n${dev.log}`);
 
 		const secrets = { current: "Synthetic-current-7Qx!", next: "Synthetic-new-3Vb!", proof: "Synthetic-proof-9Lm!" };
 		const calls = [
@@ -75,17 +103,15 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			});
 			await response.text();
 			// The action ran: Next.js answers an action call, not the page or a missing-action refusal.
-			assert.match(response.headers.get("content-type") ?? "", /text\/x-component/, `${name} did not run:\n${log}`);
+			assert.match(response.headers.get("content-type") ?? "", /text\/x-component/, `${name} did not run:\n${dev.log}`);
 		}
 		// The call log prints after the request finishes.
 		await new Promise((r) => setTimeout(r, 1_500));
-		assert.match(log, new RegExp(`POST ${PAGE}`), "the dev server logged no action request");
-		const shown = Object.keys(secrets).filter((key) => log.includes(secrets[key]));
-		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), log);
+		assert.match(dev.log, new RegExp(`POST ${PAGE}`), "the dev server logged no action request");
+		const shown = Object.keys(secrets).filter((key) => dev.log.includes(secrets[key]));
+		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), dev.log);
 		assert.deepEqual(shown, [], `the dev server log shows synthetic passwords:\n${masked}`);
 	} finally {
-		try {
-			process.kill(-server.pid, "SIGTERM");
-		} catch {}
+		await dev.stop();
 	}
 });

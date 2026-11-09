@@ -122,3 +122,31 @@ test("INV-household-detail: only person rows link; other kinds keep the generic 
 		["People", "1 person", `/people/${P1}`, { kind: "stage", stage: "prospect" }],
 	);
 });
+
+test("AC:WP-028-10 a message read is a Messages card with the send time, no person wording and no avatar", () => {
+	const friday = {
+		kind: "message",
+		id: H,
+		label: "Friday note",
+		fields: {
+			state: "scheduled",
+			sendsAt: "Fri 2026-11-06 09:00",
+			sendsAtInstant: "2026-11-06T15:00:00Z",
+			zone: "America/Chicago",
+		},
+	};
+	const draft = { kind: "message", id: P1, label: "Untitled draft", fields: { state: "draft", sendsAt: null } };
+	const view = cardView("communication.list", result("communication.list", [friday, draft]), null);
+	assert.equal(view.title, "Messages");
+	assert.equal(view.summary, "2 messages");
+	assert.equal(view.icon, "message");
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.avatar, r.href]),
+		[
+			["Friday note", "Sends Fri, Nov 6, 9:00 AM CST", null, null],
+			["Untitled draft", "Draft", null, null],
+		],
+	);
+	const none = cardView("communication.list", result("communication.list", [], { status: "not_found" }), null);
+	assert.deepEqual(none.facts.slice(0, 1), ["No draft or scheduled message in this church matches."]);
+});
