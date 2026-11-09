@@ -14,9 +14,9 @@ import {
 } from "../../../packages/contracts/src/documents/format/index.ts";
 import { renderDocFile } from "../../../packages/domain/src/documents/doc-render.ts";
 import { DOC_TEMPLATES, docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { printedDoc } from "../../../packages/domain/src/documents/doc-values.ts";
+import { conditionHolds, printedDoc } from "../../../packages/domain/src/documents/doc-values.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
-import { conditionLabel, printsNow } from "../../../apps/web/src/features/documents/church/editor/condition.ts";
+import { conditionLabel } from "../../../apps/web/src/features/documents/church/editor/condition.ts";
 import { docxParts, pdfPages, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
@@ -321,7 +321,7 @@ test("T-20 criterion 4: the editor's prints-now state matches the PDF in every c
 	for (const c of CASES) {
 		const d = doc([text("BEFORE"), cond(c.condition), text("AFTER")], c.data);
 		assert.deepEqual(issues(d), [], c.name);
-		assert.equal(printsNow(d, c.condition), c.prints, `${c.name}: the editor's state`);
+		assert.equal(conditionHolds(d, c.condition), c.prints, `${c.name}: the editor's state`);
 		const printed = await pdfText(d);
 		assert.equal(printed.includes("CONDITIONAL LINE"), c.prints, `${c.name}: the PDF agrees with the editor`);
 		assert.match(printed, /BEFORE AFTER|BEFORE CONDITIONAL LINE AFTER/, c.name);

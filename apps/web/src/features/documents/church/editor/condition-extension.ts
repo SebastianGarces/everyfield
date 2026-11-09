@@ -3,7 +3,8 @@ import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { DocDocument } from "@everyfield/contracts/documents";
 import { attrsOfSpec, BLOCKS } from "./attrs.ts";
-import { conditionLabel, printsNow, type Condition } from "./condition.ts";
+import { conditionHolds } from "@everyfield/domain/documents/values";
+import { conditionLabel, type Condition } from "./condition.ts";
 
 // Conditional text: the format's `if` node. It always shows its blocks so they can be edited; a condition that does not
 // hold with this document's values dims them and says "Does not print now". The rules plugin keeps it where the format
@@ -57,7 +58,7 @@ function conditionView(initial: PMNode, doc: ConditionDoc | null) {
 	const draw = (node: PMNode) => {
 		const condition = conditionOf(node);
 		const text = conditionLabel(doc?.fields ?? [], condition);
-		const prints = doc ? printsNow(doc as DocDocument, condition) : true;
+		const prints = doc ? conditionHolds(doc as DocDocument, condition) : true;
 		label.textContent = text;
 		state.textContent = prints ? "Prints now" : "Does not print now";
 		dom.dataset.prints = prints ? "true" : "false";

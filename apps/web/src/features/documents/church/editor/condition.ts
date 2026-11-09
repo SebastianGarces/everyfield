@@ -1,16 +1,10 @@
-import type { ConditionTest, DocDocument, FieldDecl, IfNode } from "@everyfield/contracts/documents";
-import { conditionHolds } from "@everyfield/domain/documents/values";
+import type { ConditionTest, FieldDecl, IfNode } from "@everyfield/contracts/documents";
 
-// Conditional text in the editor: the words of a condition, the tests each field type offers, and whether the block
-// prints with this document's values. "Prints now" is the same function the PDF and the Word file print by.
+// Conditional text in the editor: the words of a condition and the tests each field type offers. Whether a block prints
+// now is `conditionHolds`, the same function the PDF and the Word file print by.
 
 export type Condition = IfNode["attrs"];
 
-const TEST_WORDS: Record<ConditionTest, string> = {
-	"has-value": "has a value",
-	"is-empty": "is empty",
-	"more-than": "is more than",
-};
 export const TEST_LABEL: Record<ConditionTest, string> = {
 	"has-value": "Has a value",
 	"is-empty": "Is empty",
@@ -30,11 +24,8 @@ export function conditionLabel(fields: readonly FieldDecl[], condition: Conditio
 	const field = fields.find((f) => f.key === condition.field);
 	const name = field?.label ?? condition.field;
 	const value = condition.test === "more-than" ? ` ${condition.value ?? 0}` : "";
-	return `Prints only when ${name} ${TEST_WORDS[condition.test] ?? condition.test}${value}`;
+	return `Prints only when ${name} ${TEST_LABEL[condition.test]?.toLowerCase() ?? condition.test}${value}`;
 }
-
-/** True when the block prints with this document's values, as in the PDF of the same revision. */
-export const printsNow = (doc: DocDocument, condition: Condition) => conditionHolds(doc, condition);
 
 /** A new condition on `field`: has a value. */
 export const firstCondition = (fields: readonly FieldDecl[]): Condition | null =>
