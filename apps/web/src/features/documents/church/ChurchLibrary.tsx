@@ -285,7 +285,7 @@ function TemplatePicker({
 	);
 }
 
-/** One template: a button that makes a document from it, and for a church template a Delete button beside it. */
+/** One template: a button that makes a document from it, and for a church template a Delete button at its right edge, past the arrow. */
 function TemplateCard({
 	template: t,
 	busy,
@@ -328,7 +328,7 @@ function TemplateCard({
 				{busy ? <Spinner size={18} /> : <Icon icon={ArrowRight01Icon} size={18} className="mt-0.5 text-text-3" />}
 			</button>
 			{onDelete ? (
-				<span className="absolute top-3 right-12">
+				<span className="absolute top-3 right-3">
 					<ConfirmDialog
 						trigger={
 							<IconButton icon={Delete02Icon} label={`Delete template ${t.title}`} size="sm" disabled={disabled} />
