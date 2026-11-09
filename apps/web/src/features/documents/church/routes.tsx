@@ -18,16 +18,12 @@ async function activeViewer(returnTo: string) {
 	return viewer.status === "active" ? viewer : null;
 }
 
-async function activeAuthority(returnTo: string) {
-	return (await activeViewer(returnTo))?.authority ?? null;
-}
-
 export async function ChurchLibraryPage({
 	searchParams,
 }: {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const authority = await activeAuthority("/documents/church");
+	const authority = (await activeViewer("/documents/church"))?.authority;
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
 	if (loaded.status === "failed") return <Failed />;

@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
@@ -59,12 +59,11 @@ type Provenance = { key: string; value: string | null; source: string }[];
 const TEMPLATE_NAME = sql`(SELECT t.title FROM document t WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template'
 	AND 'church-' || t.id::text = d.template_id)`;
 /**
- * Who saved revision `r` of Church Document `d`: their name while they hold a seat in this church plant, else null, which
- * reads "A former member" (D-105). A seat in another plant does not count. The rule Saved exports uses for its creator.
+ * The name of `account` while they hold a seat in the church plant of document `d`, else null, which reads "A former
+ * member" (D-105). A seat in another plant does not count. Saved exports name their creator and revisions their saver by it.
  */
-const AUTHOR_NAME = sql`(SELECT i.display_name FROM seat_identity(r.author_account_id) i
-	WHERE EXISTS (SELECT FROM seat s WHERE s.account_id = r.author_account_id AND s.plant_id = d.tenant_id
-		AND s.ended_at IS NULL))`;
+const seatedName = (account: SQL) => sql`(SELECT i.display_name FROM seat_identity(${account}) i
+	WHERE EXISTS (SELECT FROM seat s WHERE s.account_id = ${account} AND s.plant_id = d.tenant_id AND s.ended_at IS NULL))`;
 type ChurchRow = {
 	id: string;
 	template_id: string;
@@ -771,9 +770,7 @@ export const churchWriter = {
 					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN LATERAL (
 					SELECT gd.id, sr.version_number, gd.format, gd.generated_at, f.sha256, f.byte_count, gd.download_name,
-						(SELECT i.display_name FROM seat_identity(gd.creator_account_id) i
-							WHERE EXISTS (SELECT FROM seat s WHERE s.account_id = gd.creator_account_id AND s.plant_id = d.tenant_id
-								AND s.ended_at IS NULL)) AS creator_name
+						${seatedName(sql`gd.creator_account_id`)} AS creator_name
 					FROM generated_document gd
 					JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
 					JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
@@ -1253,8 +1250,8 @@ export const churchWriter = {
 				content_hash: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id, ${AUTHOR_NAME} AS author_name,
-					r.recorded_at, r.content_hash
+				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id,
+					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
@@ -1294,8 +1291,8 @@ export const churchWriter = {
 				body: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id, ${AUTHOR_NAME} AS author_name, r.recorded_at,
-					r.content_hash, r.body
+				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id,
+					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash, r.body
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
