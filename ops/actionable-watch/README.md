@@ -207,11 +207,12 @@ evidence file.
    wake. Only then is the watcher LIVE.
 
 4. **Switch the job to webhook.** In `~/Library/LaunchAgents/com.everyfield.actionable-watch.plist`,
-   change the `--transport` argument from `dry-run` to `webhook`, then reload and run one poll:
+   change the `--transport` argument from `dry-run` to `webhook`, then reload and run one poll. Remove, then
+   insert: on macOS 27 `plutil -replace` on an array index inserts beside the old value instead of replacing it.
 
    ```sh
    PLIST="$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
-   plutil -replace ProgramArguments.3 -string webhook "$PLIST" && plutil -lint "$PLIST"
+   plutil -remove ProgramArguments.3 "$PLIST" && plutil -insert ProgramArguments.3 -string webhook "$PLIST" && plutil -lint "$PLIST"
    launchctl bootout gui/$UID/com.everyfield.actionable-watch
    launchctl bootstrap gui/$UID "$PLIST"
    tail -n 3 "$HOME/Library/Logs/everyfield-actionable-watch/watch.log"   # expect "poll ok"
@@ -223,7 +224,7 @@ Switch the job back to `dry-run`, reload it and delete the config and the provis
 
 ```sh
 PLIST="$HOME/Library/LaunchAgents/com.everyfield.actionable-watch.plist"
-plutil -replace ProgramArguments.3 -string dry-run "$PLIST" && plutil -lint "$PLIST"
+plutil -remove ProgramArguments.3 "$PLIST" && plutil -insert ProgramArguments.3 -string dry-run "$PLIST" && plutil -lint "$PLIST"
 launchctl bootout gui/$UID/com.everyfield.actionable-watch
 launchctl bootstrap gui/$UID "$PLIST"
 rm -f "$HOME/Library/Application Support/everyfield-actionable-watch/webhook.json" \

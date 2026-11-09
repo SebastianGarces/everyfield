@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import assert from "node:assert/strict";
 import { chmod, mkdtemp, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -352,8 +353,19 @@ describe("install docs", () => {
 		const run = await readFile(join(here, "run.mts"), "utf8");
 		const args = [...plist.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
 		assert.deepEqual(args.slice(2), ["--transport", "dry-run"], "ProgramArguments.3 is the transport");
-		assert.ok(readme.includes("plutil -replace ProgramArguments.3 -string webhook"));
-		assert.ok(readme.includes("plutil -replace ProgramArguments.3 -string dry-run"));
+		// Run the README's own switch and rollback lines on a copy of the template and read the result back.
+		const switches = readme.split("\n").filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l)).map((l) => l.trim());
+		assert.equal(switches.length, 2, "one switch to webhook, one rollback to dry-run");
+		const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
+		await writeFile(copy, plist);
+		for (const [line, want] of [[switches[0], "webhook"], [switches[1], "dry-run"]]) {
+			await new Promise<void>((resolve, reject) =>
+				execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) => (e ? reject(e) : resolve())),
+			);
+			const now = await readFile(copy, "utf8");
+			const got = [...now.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
+			assert.deepEqual(got.slice(2), ["--transport", want], line);
+		}
 		assert.ok(readme.includes("plutil -extract ProgramArguments.0 raw"));
 		const rel = WEBHOOK_CONFIG.replace(/^.*?\/Library\//, "Library/");
 		assert.ok(readme.includes(`install -m 600 /dev/null "$HOME/${rel}"`));
