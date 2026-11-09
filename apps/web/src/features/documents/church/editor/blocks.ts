@@ -55,8 +55,9 @@ export type InsertKind =
 	| "dateLine"
 	| "logo"
 	| "mark"
-	| "photo";
-type InsertGroup = "text" | "rules" | "layout" | "lines" | "images";
+	| "photo"
+	| "slot";
+type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "sections";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
 	{ kind: "paragraph", label: "Paragraph", group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
@@ -77,6 +78,7 @@ export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup
 	{ kind: "logo", label: "Logo", group: "images" },
 	{ kind: "mark", label: "Mark", group: "images" },
 	{ kind: "photo", label: "Photo", group: "images" },
+	{ kind: "slot", label: "Doctrinal section", group: "sections" },
 ];
 
 /** The brand-kit sources the image items offer, and what each is called in the brand kit. */
@@ -120,6 +122,8 @@ function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
 		}
 		case "box":
 			return type("box").create(null, paragraph());
+		case "slot":
+			return type("slot").create(null, paragraph());
 		case "writeIn":
 			return type("writeIn").create({ kind: "text", label: "Name", key: "name" });
 		case "signature":
@@ -164,9 +168,23 @@ function insertionPoint(state: EditorState): { pos: number; parent: PMNode; inde
 
 /** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
 export function canInsert(state: EditorState, kind: InsertKind): boolean {
+	if (kind === "slot" && hasSlot(state.doc)) return false;
 	const { parent, index } = insertionPoint(state);
 	const node = build(state.schema, kind);
 	return parent.canReplaceWith(index, index, node.type);
+}
+
+/**
+ * True when the document holds a doctrinal section. The format gives a section no id of its own, so a body holds at
+ * most one, and Insert offers "Doctrinal section" only when it was deleted.
+ */
+export function hasSlot(doc: PMNode) {
+	let found = false;
+	doc.descendants((node) => {
+		if (node.type.name === "slot") found = true;
+		return !found && !node.isTextblock;
+	});
+	return found;
 }
 
 /** The page header or footer that holds the selection, or null. */
@@ -331,4 +349,52 @@ export const isNumbered = (state: EditorState) => state.selection.$from.parent.a
 export function toggleNumbered(editor: Editor) {
 	const next = isNumbered(editor.state) ? undefined : true;
 	return editor.chain().setMeta("closeHistory", true).focus().updateAttributes("heading", { numbered: next }).run();
+}
+
+// ---------------------------------------------------------------- merge fields
+
+type FieldDecl = { key: string; label: string; type: string; source?: string | null };
+type FieldData = Record<string, unknown>;
+const declared = (state: EditorState) => (state.doc.attrs.fields as FieldDecl[] | undefined) ?? [];
+
+/** True when a merge field can go at the cursor: in a line of text the schema lets a field into. */
+export function canInsertField(state: EditorState): boolean {
+	const type = state.schema.nodes.field;
+	const { $from } = state.selection;
+	return !!type && $from.parent.inlineContent && $from.parent.type.contentMatch.matchType(type) !== null;
+}
+
+/**
+ * Puts a merge field at the cursor as one unit. A field the document does not declare yet is declared in the same step,
+ * with the church's current value (`value`) frozen as its value when there is one. One Undo removes both.
+ */
+export function insertField(editor: Editor, field: FieldDecl, value: string | undefined): boolean {
+	const { state } = editor;
+	const type = state.schema.nodes.field;
+	if (!type || !canInsertField(state)) return false;
+	const tr = history(state.tr);
+	if (!declared(state).some((f) => f.key === field.key)) {
+		tr.setDocAttribute("fields", [...declared(state), { ...field }]);
+		if (value)
+			tr.setDocAttribute("data", { ...((state.doc.attrs.data as FieldData | undefined) ?? {}), [field.key]: value });
+	}
+	tr.replaceSelectionWith(type.create({ key: field.key }), false);
+	editor.view.dispatch(tr);
+	editor.view.focus();
+	return true;
+}
+
+/**
+ * Sets the value every copy of a merge field prints. An empty value removes the stored one, so the field falls back to
+ * its fallback or to its label in brackets. One step, so one Undo puts the old value back.
+ */
+export function setFieldValue(editor: Editor, key: string, value: string): boolean {
+	const { state } = editor;
+	const data: FieldData = { ...((state.doc.attrs.data as FieldData | undefined) ?? {}) };
+	const next = value.trim();
+	if ((data[key] ?? "") === next) return false;
+	if (next) data[key] = next;
+	else delete data[key];
+	editor.view.dispatch(history(state.tr).setDocAttribute("data", data));
+	return true;
 }

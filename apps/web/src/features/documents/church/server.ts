@@ -84,6 +84,7 @@ export async function loadChurchDocument(
 		view: ChurchView;
 		document: DocDocument;
 		brands: DocBrands | null;
+		mergeValues: Record<string, string>;
 		template: TemplateState;
 		exports: SavedExport[];
 		/** Newest first. */
@@ -101,7 +102,7 @@ export async function loadChurchDocument(
 				? documentsWriter.readChurchForEdit(db, authority, { documentId })
 				: documentsWriter
 						.readChurch(db, authority, { documentId })
-						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null } } : r)),
+						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {} } } : r)),
 			documentsWriter.listExports(db, authority, { documentId }),
 			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
@@ -126,6 +127,7 @@ export async function loadChurchDocument(
 				},
 				document: d.body,
 				brands: d.brands,
+				mergeValues: d.mergeValues,
 				exports: saved.value.exports,
 				revisions: history.value.revisions
 					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName }))

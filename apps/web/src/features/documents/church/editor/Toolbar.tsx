@@ -20,7 +20,10 @@ import { Fragment, useEffect, useReducer } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
 	canInsert,
+	canInsertField,
 	canMove,
+	hasSlot,
+	insertField,
 	canNumber,
 	canSetTextStyle,
 	currentBlock,
@@ -39,6 +42,8 @@ import {
 	currentTextStyle,
 	type InsertKind,
 } from "./blocks.ts";
+import { INSERTABLE_FIELDS } from "@everyfield/domain/documents/values";
+import { liveValues } from "./extensions.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 import {
 	DropdownMenu,
@@ -107,6 +112,7 @@ const GROUP_LABEL = {
 	layout: "Layout",
 	lines: "Lines to fill in",
 	images: "Brand kit images",
+	sections: "Sections",
 } as const;
 
 /** A heading over a group of Insert menu items. */
@@ -129,10 +135,13 @@ const PAGE_NUMBERS = [
 export function EditorToolbar({
 	editor,
 	brand,
+	mergeValues,
 	pageSetup,
 }: {
 	editor: Editor;
 	brand: DocBrand;
+	/** The church's current value of each merge field Insert offers, by key. */
+	mergeValues: Record<string, string>;
 	pageSetup: { open: boolean; controls: string; toggle: () => void };
 }) {
 	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
@@ -161,6 +170,9 @@ export function EditorToolbar({
 				canTag: e.can().toggleMark("tag"),
 				styles: Object.fromEntries(TEXT_STYLES.map((t) => [t.style, canSetTextStyle(e, t.style)])),
 				region: regionAt(state),
+				canField: canInsertField(state),
+				hasSlot: hasSlot(state.doc),
+				values: liveValues(state.doc),
 				insertable: Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)])) as Record<
 					InsertKind,
 					boolean
@@ -283,7 +295,7 @@ export function EditorToolbar({
 						aria-label="Insert block"
 						className="max-h-[min(75vh,560px)] overflow-y-auto"
 					>
-						{INSERT_KINDS.filter((k) => s.insertable[k.kind]).map((k, i, shown) => {
+						{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
 							const image = k.group === "images" ? (k.kind as ImageKind) : null;
 							const asset = image ? brand.assets[image] : null;
 							const divide = i > 0 && shown[i - 1]?.group !== k.group;
@@ -317,6 +329,41 @@ export function EditorToolbar({
 								</Fragment>
 							);
 						})}
+						<MenuLabel>Doctrinal section</MenuLabel>
+						<DropdownMenuItem
+							className={MENU_ITEM}
+							disabled={!s.insertable.slot}
+							onSelect={() => insertBlock(editor, "slot")}
+						>
+							Doctrinal section
+						</DropdownMenuItem>
+						{!s.insertable.slot ? (
+							<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
+								{s.hasSlot
+									? "This document already has one. Delete it first to add a new one."
+									: "Put the cursor in the body to add one."}
+							</p>
+						) : null}
+						<MenuLabel>Merge fields</MenuLabel>
+						{INSERTABLE_FIELDS.map((field) => {
+							const shown = s.values[field.key] ?? mergeValues[field.key] ?? `[${field.label.toLowerCase()}]`;
+							return (
+								<DropdownMenuItem
+									key={field.key}
+									className={cn(MENU_ITEM, "flex-col items-start gap-0")}
+									disabled={!s.canField}
+									onSelect={() => insertField(editor, field, mergeValues[field.key])}
+								>
+									<span>{field.label}</span>
+									<span className="max-w-[240px] truncate text-sm text-text-2">{shown || "Prints nothing"}</span>
+								</DropdownMenuItem>
+							);
+						})}
+						{!s.canField ? (
+							<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
+								Put the cursor in a line of text to add a field.
+							</p>
+						) : null}
 						{s.region ? (
 							<>
 								<MenuLabel>Page number</MenuLabel>
