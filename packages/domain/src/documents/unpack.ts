@@ -154,9 +154,8 @@ type Style = {
 	basedOn: string | null;
 	outline: number | null;
 	numId: string | null;
-	ilvl: number | null;
 };
-type Numbering = (numId: string, ilvl: number) => "bullet" | "ordered" | null;
+type Numbering = (numId: string) => "bullet" | "ordered" | null;
 type Word = {
 	styles: Map<string, Style>;
 	numbering: Numbering;
@@ -167,7 +166,6 @@ type Inline = { type: "text"; text: string; href: string | null } | { type: "har
 type Open = {
 	style: string | null;
 	numId: string | null;
-	ilvl: number | null;
 	outline: number | null;
 	plain: boolean;
 	inline: Inline[];
@@ -201,7 +199,6 @@ function readStyles(xml: string | undefined) {
 			basedOn: val(body, "basedOn"),
 			outline: int(val(body, "outlineLvl")),
 			numId: val(body, "numId"),
-			ilvl: int(val(body, "ilvl")),
 		});
 	}
 	return styles;
@@ -231,7 +228,7 @@ function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 	return null;
 }
 
-/** Each numbering instance's format at each level: its override, else its abstract definition's level. */
+/** Each numbering instance's top-level format: its override, else its abstract definition's level 0. */
 function readNumbering(xml: string | undefined, styles: Map<string, Style>): Numbering {
 	const levels = (body: string) => {
 		const out = new Map<number, string>();
@@ -254,18 +251,17 @@ function readNumbering(xml: string | undefined, styles: Map<string, Style>): Num
 		if (id !== null && !nums.has(id))
 			nums.set(id, { abstract: val(found[2]!, "abstractNumId"), overrides: levels(found[2]!) });
 	}
-	const format = (numId: string, ilvl: number, hops: number): "bullet" | "ordered" | null => {
+	const format = (numId: string, hops: number): "bullet" | "ordered" | null => {
 		const num = nums.get(numId);
 		if (!num) return null;
 		const abstract = num.abstract === null ? undefined : abstracts.get(num.abstract);
 		// A list defined by a numbering style takes its levels from the numbering that style sets.
 		if (abstract && !abstract.levels.size && abstract.link && hops < 2)
 			for (const style of chain(styles, abstract.link))
-				if (style.numId && style.numId !== numId) return format(style.numId, ilvl, hops + 1);
-		const fmt = num.overrides.get(ilvl) ?? abstract?.levels.get(ilvl) ?? abstract?.levels.get(0) ?? null;
-		return fmt === "bullet" ? "bullet" : "ordered";
+				if (style.numId && style.numId !== numId) return format(style.numId, hops + 1);
+		return (num.overrides.get(0) ?? abstract?.levels.get(0)) === "bullet" ? "bullet" : "ordered";
 	};
-	return (numId, ilvl) => format(numId, ilvl, 0);
+	return (numId) => format(numId, 0);
 }
 
 /** The document's hyperlink relationships whose address passes the native link rule. */
@@ -290,7 +286,7 @@ function listOf(word: Word, open: Open) {
 	let numId = open.numId;
 	for (const style of chain(word.styles, open.style)) numId ??= style.numId;
 	if (numId === null || numId === "0") return null;
-	const kind = word.numbering(numId, 0);
+	const kind = word.numbering(numId);
 	return kind ? { kind, numId } : null;
 }
 
@@ -386,7 +382,6 @@ function wordBody(xml: string, word: Word): DocNode {
 			const next: Open = {
 				style: null,
 				numId: null,
-				ilvl: null,
 				outline: null,
 				plain: plainDepth > 0,
 				inline: [],
@@ -407,7 +402,6 @@ function wordBody(xml: string, word: Word): DocNode {
 			const value = attr(rest, "w:val");
 			if (name === "w:pStyle" && value !== null) open.style = decodeEntities(value);
 			else if (name === "w:numId") open.numId = value;
-			else if (name === "w:ilvl") open.ilvl = int(value);
 			else if (name === "w:outlineLvl") open.outline = int(value);
 		} else if (name === "w:tbl" || name === "w:txbxContent") {
 			if (!selfClosing) plainDepth += 1;
