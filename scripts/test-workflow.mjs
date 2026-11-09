@@ -12,6 +12,7 @@ const stream = run({
 		"preview-slots.test.mjs",
 		"preview-env.test.ts",
 		"publish.test.ts",
+		"setup-step.test.mjs",
 		"fast-check.test.mjs",
 	].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}`, import.meta.url))),
 });
