@@ -8,6 +8,7 @@
 	"scripts": {
 		"dev": "pnpm --filter @everyfield/web dev",
 		"build": "pnpm --filter @everyfield/web build",
+		"prepare": "bin/dev hooks install",
 		"lint": "pnpm -r --if-present lint",
 		"typecheck": "pnpm -r --if-present typecheck",
 		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm test:logs && pnpm build",

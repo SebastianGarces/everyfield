@@ -836,3 +836,29 @@ export function editorExtensions(assets: Assets | null = null) {
 		TableRules,
 	];
 }
+
+/**
+ * The plain document set (D-208): the same nodes and marks the Church Document editor uses for prose, and nothing a
+ * template brings (no page header or footer, page setup, merge fields, slots, images, tables, layout blocks or tag).
+ * Content the schema does not know, such as a pasted table, is dropped, so the editor JSON is always a native body.
+ */
+export function nativeExtensions() {
+	return [
+		Document.extend({ content: "block*" }),
+		Text,
+		EfParagraph.extend({ addAttributes: () => ({}) }),
+		EfHeading.extend({ addAttributes: () => attrsOfSpec({ level: "number" }) }),
+		EfBulletList,
+		EfOrderedList,
+		EfListItem,
+		EfQuote,
+		EfDivider.extend({ addAttributes: () => ({}) }),
+		HardBreak,
+		Bold,
+		Italic,
+		Underline,
+		EfLink,
+		UndoRedo,
+		Placeholders,
+	];
+}

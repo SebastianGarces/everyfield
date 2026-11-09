@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
 import { docDocument } from "./format/index.ts";
+import { nativeBody } from "./native.ts";
 import { MERGE_KEY_MAX, MERGE_VALUE_MAX, documentCategory, documentFormat, templateId } from "./values.ts";
 
 const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERGE_VALUE_MAX)).optional();
@@ -45,9 +46,10 @@ export const generateRequest = z
 	.superRefine(oneSubject);
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
 const documentTitle = z.string().trim().min(1).max(200);
+/** A plain native document saves its title and one native body node (D-209). Any other body is refused. */
 export const saveNativeRequest = z.strictObject({
 	title: documentTitle,
-	body: z.string().max(2_000_000),
+	body: nativeBody,
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 });
@@ -78,6 +80,16 @@ export const updateChurchTemplateRequest = z.strictObject({
 	expectedVersion: z.int().min(1).max(1_000_000),
 	documentId: recordId,
 	revision: z.int().min(1).max(1_000_000),
+	requestKey: z.string().trim().min(1).max(80),
+});
+/**
+ * Rename a church template or change its description. It makes no new version. The limits are Save as template's; an
+ * empty description clears it. The same request key makes one change; last write wins (D-173).
+ */
+export const editChurchTemplateRequest = z.strictObject({
+	templateId: recordId,
+	name: documentTitle,
+	description: z.string().trim().max(500),
 	requestKey: z.string().trim().min(1).max(80),
 });
 /** Delete a church template from "New from template". Documents made from it keep their content. */
@@ -140,13 +152,17 @@ export const importDocumentRequest = z.strictObject({
 	expectedRevision: revisionToken,
 	requestKey: z.string().trim().min(1).max(80),
 });
+/** Copy the current revision of one of your account documents into the church plant. The same key makes one copy. */
 export const useForChurchRequest = z.strictObject({
 	documentId: recordId,
 	revisionId: recordId,
+	requestKey: z.string().trim().min(1).max(80),
 });
 export const ownedDocumentRequest = z.strictObject({ documentId: recordId });
 export const generatedDocumentRequest = z.strictObject({ documentId: recordId });
 export const listOwnedRequest = z.strictObject({});
+/** Your own account documents that Use for this church can copy. */
+export const listCopySourcesRequest = z.strictObject({});
 export const listHistoryRequest = z.strictObject({});
 export const readEvidenceRequest = z.strictObject({});
 export const purgeOwnedRequest = z.strictObject({ witnessId: recordId });
