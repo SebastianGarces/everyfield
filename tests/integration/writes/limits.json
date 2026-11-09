@@ -443,6 +443,9 @@
 	"documents.templates.list": {
 		"limit": 1
 	},
+	"documents.updateChurchTemplate": {
+		"limit": 3
+	},
 	"documents.useForChurch": {
 		"limit": 1
 	},

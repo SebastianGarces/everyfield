@@ -3,7 +3,7 @@
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import type { FieldDecl } from "@everyfield/contracts/documents";
 import { Icon } from "@everyfield/ui/foundations";
-import type { Editor } from "@tiptap/react";
+import { useEditorState, type Editor } from "@tiptap/react";
 import { useId, useState } from "react";
 import { removeCondition } from "./blocks.ts";
 import { nextCondition, parseConditionValue, TEST_LABEL, testsFor, type Condition } from "./condition.ts";
@@ -65,15 +65,13 @@ function ValueField({ editor, target, condition }: { editor: Editor; target: Tar
 	);
 }
 
-export function ConditionControls({
-	editor,
-	target,
-	fields,
-}: {
-	editor: Editor;
-	target: Target;
-	fields: readonly FieldDecl[];
-}) {
+export function ConditionControls({ editor, target }: { editor: Editor; target: Target }) {
+	// The document's fields as the root node holds them now, so a merge field inserted a moment ago is offered at once.
+	const fields =
+		useEditorState({
+			editor,
+			selector: ({ editor: e }) => (e.state.doc.attrs.fields as FieldDecl[] | undefined) ?? [],
+		}) ?? [];
 	const condition = conditionOf(target.node);
 	const field = fields.find((f) => f.key === condition.field);
 	const tests = testsFor(field);

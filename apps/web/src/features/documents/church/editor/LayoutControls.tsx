@@ -1,6 +1,6 @@
 "use client";
 
-import type { DocBrand, FieldDecl, Token } from "@everyfield/contracts/documents";
+import type { DocBrand, Token } from "@everyfield/contracts/documents";
 import { cn } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
@@ -8,8 +8,9 @@ import { useId, useState } from "react";
 import { Group, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, WEIGHTS, type Target } from "./layout.ts";
 import { TOOLBAR } from "./tiptap/styles.ts";
-import { writeInKindLabel } from "./extensions.ts";
+import { setFieldValue } from "./blocks.ts";
 import { ConditionControls } from "./ConditionControls.tsx";
+import { fieldDecl, writeInKindLabel } from "./extensions.ts";
 import { TableControls } from "./TableControls.tsx";
 
 // The settings of the block the cursor is in or on: the number of columns, a box's fill and border, a divider's weight
@@ -60,17 +61,7 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 const WEIGHT_LABEL = { hairline: "Hairline", rule: "Rule", bar: "Bar" } as const;
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
 
-function ControlsFor({
-	editor,
-	target,
-	palette,
-	fields,
-}: {
-	editor: Editor;
-	target: Target;
-	palette: DocBrand["palette"];
-	fields: readonly FieldDecl[];
-}) {
+function ControlsFor({ editor, target, palette }: { editor: Editor; target: Target; palette: DocBrand["palette"] }) {
 	const attrs = target.node.attrs;
 	switch (target.kind) {
 		case "columns":
@@ -139,27 +130,77 @@ function ControlsFor({
 		case "table":
 			return <TableControls editor={editor} palette={palette} />;
 		case "if":
-			return <ConditionControls editor={editor} target={target} fields={fields} />;
+			return <ConditionControls editor={editor} target={target} />;
 		case "writeIn":
 			return (
 				<Group label={writeInKindLabel(attrs.kind)}>
 					<span className="text-sm text-text-2">Edit the label on the line.</span>
 				</Group>
 			);
+		case "field":
+			return <FieldValue editor={editor} fieldKey={String(attrs.key ?? "")} />;
 	}
 }
 
+/**
+ * The value of the selected merge field. It commits on Enter or when the input loses focus, as one Undo step, and every
+ * copy of the field on the page shows it at once. Escape puts back the value it had.
+ */
+function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) {
+	const id = useId();
+	const label = useEditorState({
+		editor,
+		selector: ({ editor: e }) => fieldDecl(e.state.doc, fieldKey)?.label ?? fieldKey,
+	});
+	const stored = useEditorState({
+		editor,
+		selector: ({ editor: e }) => {
+			const value = (e.state.doc.attrs.data as Record<string, unknown> | undefined)?.[fieldKey];
+			return typeof value === "string" ? value : "";
+		},
+	});
+	const [draft, setDraft] = useState<string | null>(null);
+	const commit = () => {
+		if (draft !== null) setFieldValue(editor, fieldKey, draft);
+		setDraft(null);
+	};
+	return (
+		<Group label={`Merge field · ${label}`}>
+			<span className="flex flex-wrap items-center gap-2">
+				<label htmlFor={id} className="text-sm text-text-2">
+					Value
+				</label>
+				<Tip text="What every copy of this field prints. Leave it empty to print its label in brackets.">
+					<input
+						id={id}
+						type="text"
+						maxLength={500}
+						value={draft ?? stored}
+						placeholder={`[${label.toLowerCase()}]`}
+						className="h-9 w-[min(280px,60vw)] rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none placeholder:text-text-3 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
+						onChange={(event) => setDraft(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								commit();
+								editor.view.focus();
+							} else if (event.key === "Escape") {
+								event.preventDefault();
+								setDraft(null);
+								editor.view.focus();
+							}
+						}}
+						onBlur={commit}
+					/>
+				</Tip>
+				<span className="text-sm text-text-2">Every copy of this field shows it.</span>
+			</span>
+		</Group>
+	);
+}
+
 /** The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. */
-export function BlockControls({
-	editor,
-	palette,
-	fields,
-}: {
-	editor: Editor;
-	palette: DocBrand["palette"];
-	/** The document's fields, which a condition reads. */
-	fields: readonly FieldDecl[];
-}) {
+export function BlockControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
 	const targets = useEditorState({
 		editor,
 		selector: ({ editor: e }) => layoutTargets(e.state),
@@ -174,13 +215,7 @@ export function BlockControls({
 			className={cn(TOOLBAR, "flex-wrap overflow-visible border-t border-b-0 border-line")}
 		>
 			{targets.map((target) => (
-				<ControlsFor
-					key={`${target.kind}-${target.pos}`}
-					editor={editor}
-					target={target}
-					palette={palette}
-					fields={fields}
-				/>
+				<ControlsFor key={`${target.kind}-${target.pos}`} editor={editor} target={target} palette={palette} />
 			))}
 		</div>
 	);

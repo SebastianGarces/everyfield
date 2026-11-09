@@ -2,6 +2,7 @@
 
 import {
 	Cancel01Icon,
+	Clock01Icon,
 	Delete02Icon,
 	Edit02Icon,
 	FileSyncIcon,
@@ -43,16 +44,17 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSPrope
 import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
+import type { RevisionRow } from "../server.ts";
+import { VersionHistory } from "../VersionHistory.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
-import { fieldValues } from "./field-values.ts";
 import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
-import { SaveAsTemplateDialog } from "./SaveAsTemplate.tsx";
+import { SaveAsTemplateDialog, type TemplateSaved } from "./SaveAsTemplate.tsx";
 import { TemplateCompare } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
@@ -87,10 +89,15 @@ type Props = {
 	document: DocDocument;
 	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
+	/** The church's current value of each merge field Insert offers, by key. */
+	mergeValues: Record<string, string>;
 	revision: string;
 	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
 	onRevision: (revision: string, formats: ExportFormat[]) => void;
-	previewSrc: (revision: string) => string;
+	/** The saved revisions, newest first, as Version history lists them. */
+	revisions: RevisionRow[];
+	/** The preview address of one revision in one format: the preview and history read it. */
+	file: (format: string, revision: string) => string;
 	/** Where the document stands against its template; null when there is nothing to compare with. */
 	template: "behind" | "current" | null;
 	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
@@ -104,18 +111,21 @@ export default function ChurchEditor({
 	title,
 	document: stored,
 	brand,
+	mergeValues,
 	revision: initialRevision,
 	onRevision,
-	previewSrc,
+	revisions,
+	file,
 	template,
 	onAccepted,
 	accepted = null,
 }: Props) {
+	const previewSrc = (at: string) => file("pdf", at);
 	const base = useRef(stored);
 	const revision = useRef(initialRevision);
 	const [shownRevision, setShownRevision] = useState(initialRevision);
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
-	const [mode, setMode] = useState<"edit" | "preview" | "compare">("edit");
+	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
@@ -136,10 +146,7 @@ export default function ChurchEditor({
 		}),
 		[],
 	);
-	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), assets, stored), BlockShortcuts],
-		[stored, assets],
-	);
+	const extensions = useMemo(() => [...editorExtensions(assets), BlockShortcuts], [assets]);
 	const editor = useEditor({
 		extensions,
 		content: editorContent(stored),
@@ -310,7 +317,7 @@ export default function ChurchEditor({
 
 	// Save as template: each opening mounts the dialog afresh (a new request key); a success names the template here.
 	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0 });
-	const [savedTemplate, setSavedTemplate] = useState<string | null>(null);
+	const [savedTemplate, setSavedTemplate] = useState<TemplateSaved | null>(null);
 
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
@@ -332,9 +339,14 @@ export default function ChurchEditor({
 							</Button>
 						) : null}
 						{mode === "edit" ? (
-							<Button variant="secondary" size="sm" icon={ViewIcon} onClick={() => void preview()}>
-								Preview
-							</Button>
+							<>
+								<Button variant="secondary" size="sm" icon={ViewIcon} onClick={() => void preview()}>
+									Preview
+								</Button>
+								<Button variant="secondary" size="sm" icon={Clock01Icon} onClick={() => setMode("history")}>
+									Version history
+								</Button>
+							</>
 						) : (
 							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={() => setMode("edit")}>
 								Back to editing
@@ -385,8 +397,18 @@ export default function ChurchEditor({
 				{savedTemplate ? (
 					<div className="flex items-start gap-3 rounded-md bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)]">
 						<p role="status" className="min-w-0 flex-1 text-md text-text-2 text-pretty">
-							Saved <span className="font-medium text-ink">“{savedTemplate}”</span> as your church&apos;s template. Find
-							it in New from template on{" "}
+							{savedTemplate.updated ? (
+								<>
+									Updated <span className="font-medium text-ink">“{savedTemplate.title}”</span> to v
+									{savedTemplate.version}. Documents made from earlier versions keep theirs. New documents from it use v
+									{savedTemplate.version} in New from template on{" "}
+								</>
+							) : (
+								<>
+									Saved <span className="font-medium text-ink">“{savedTemplate.title}”</span> as your church&apos;s
+									template. Find it in New from template on{" "}
+								</>
+							)}
 							<IntentLink href="/documents/church" className="cursor-pointer text-ink underline underline-offset-2">
 								Church documents
 							</IntentLink>
@@ -410,10 +432,10 @@ export default function ChurchEditor({
 								<EditorToolbar
 									editor={editor}
 									brand={brand}
-									fields={stored.fields}
+									mergeValues={mergeValues}
 									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
 								/>
-								<BlockControls editor={editor} palette={brand.palette} fields={stored.fields} />
+								<BlockControls editor={editor} palette={brand.palette} />
 								{refused ? (
 									<p
 										role="alert"
@@ -470,6 +492,15 @@ export default function ChurchEditor({
 						</div>
 					</div>
 				</div>
+				{mode === "history" ? (
+					<VersionHistory
+						revisions={revisions}
+						title={title}
+						current={shownRevision}
+						file={file}
+						page={{ width: pageBox(page)?.width ?? 612, height: pageBox(page)?.height ?? 792 }}
+					/>
+				) : null}
 				{mode === "compare" ? (
 					<TemplateCompare
 						docId={docId}
@@ -502,7 +533,7 @@ export default function ChurchEditor({
 				unsaved={status.kind !== "saved"}
 				saving={status.kind === "saving"}
 				onSaveFirst={save}
-				onSaved={(template) => setSavedTemplate(template.title)}
+				onSaved={setSavedTemplate}
 			/>
 		</EditorContext.Provider>
 	);

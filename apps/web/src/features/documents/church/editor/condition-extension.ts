@@ -1,7 +1,8 @@
 import { Extension, mergeAttributes, Node } from "@tiptap/core";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import type { DocDocument } from "@everyfield/contracts/documents";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import type { DocDocument, FieldDecl } from "@everyfield/contracts/documents";
 import { attrsOfSpec, BLOCKS } from "./attrs.ts";
 import { conditionHolds } from "@everyfield/domain/documents/values";
 import { conditionLabel, type Condition } from "./condition.ts";
@@ -11,8 +12,6 @@ import { conditionLabel, type Condition } from "./condition.ts";
 // takes it: in the body, a column or a box, never in the page header or footer, never inside another conditional text,
 // and never around a budget table, a section slot or a block its column or box refuses.
 
-export type ConditionDoc = Pick<DocDocument, "kind" | "fields" | "data">;
-
 /** The condition an `if` node holds. */
 export const conditionOf = (node: PMNode): Condition => ({
 	field: String(node.attrs.field ?? ""),
@@ -20,26 +19,54 @@ export const conditionOf = (node: PMNode): Condition => ({
 	...(typeof node.attrs.value === "number" ? { value: node.attrs.value } : {}),
 });
 
-export const EfIf = Node.create<{ doc: ConditionDoc | null }>({
+/**
+ * What a conditional text says on the page, from the fields and values the root node holds now: its condition in words
+ * and whether it prints. A change of value or of field list redraws every block at once.
+ */
+function conditionSpec(root: PMNode, node: PMNode) {
+	const fields = (root.attrs.fields as FieldDecl[] | undefined) ?? [];
+	const doc = { kind: "document", fields, data: root.attrs.data } as DocDocument;
+	const condition = conditionOf(node);
+	return { conditionText: conditionLabel(fields, condition), prints: conditionHolds(doc, condition) };
+}
+type ConditionSpec = ReturnType<typeof conditionSpec>;
+
+export const EfIf = Node.create({
 	name: "if",
 	group: BLOCKS,
 	content: "block+",
 	defining: true,
 	isolating: true,
-	addOptions: () => ({ doc: null }),
 	addAttributes() {
 		return attrsOfSpec({ field: "string", test: "string", value: "number" });
 	},
 	parseHTML: () => [{ tag: 'div[data-ef-node="if"]' }],
 	renderHTML: ({ HTMLAttributes }) => ["div", mergeAttributes(HTMLAttributes, { "data-ef-node": "if" }), 0],
 	addNodeView() {
-		const doc = this.options.doc;
-		return ({ node }) => conditionView(node, doc);
+		return ({ node, decorations }) => conditionView(node, decorations);
+	},
+	addProseMirrorPlugins() {
+		return [
+			new Plugin({
+				key: new PluginKey("efConditionState"),
+				props: {
+					decorations: (state) => {
+						const found: Decoration[] = [];
+						state.doc.descendants((node, pos) => {
+							if (node.type.name !== "if") return true;
+							found.push(Decoration.node(pos, pos + node.nodeSize, {}, conditionSpec(state.doc, node)));
+							return false;
+						});
+						return DecorationSet.create(state.doc, found);
+					},
+				},
+			}),
+		];
 	},
 });
 
 /** The block on the page: its condition and whether it prints now, above its editable blocks. */
-function conditionView(initial: PMNode, doc: ConditionDoc | null) {
+function conditionView(initial: PMNode, decorations: readonly Decoration[]) {
 	const dom = document.createElement("div");
 	dom.className = "ef-if";
 	dom.setAttribute("data-ef-node", "if");
@@ -55,22 +82,23 @@ function conditionView(initial: PMNode, doc: ConditionDoc | null) {
 	const contentDOM = document.createElement("div");
 	contentDOM.className = "ef-if-body";
 	dom.append(head, contentDOM);
-	const draw = (node: PMNode) => {
-		const condition = conditionOf(node);
-		const text = conditionLabel(doc?.fields ?? [], condition);
-		const prints = doc ? conditionHolds(doc as DocDocument, condition) : true;
+	const draw = (decos: readonly Decoration[]) => {
+		const spec = decos.find((d) => (d.spec as Partial<ConditionSpec>).conditionText !== undefined)?.spec as
+			ConditionSpec | undefined;
+		const text = spec?.conditionText ?? "";
+		const prints = spec?.prints ?? true;
 		label.textContent = text;
 		state.textContent = prints ? "Prints now" : "Does not print now";
 		dom.dataset.prints = prints ? "true" : "false";
 		dom.setAttribute("aria-label", `Conditional text. ${text}. ${state.textContent}.`);
 	};
-	draw(initial);
+	draw(decorations);
 	return {
 		dom,
 		contentDOM,
-		update(next: PMNode) {
+		update(next: PMNode, decos: readonly Decoration[]) {
 			if (next.type !== initial.type) return false;
-			draw(next);
+			draw(decos);
 			return true;
 		},
 		ignoreMutation: (mutation: { target: globalThis.Node; type: string }) =>

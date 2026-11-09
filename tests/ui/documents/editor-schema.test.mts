@@ -16,9 +16,8 @@ import {
 } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
-import { fieldValues } from "../../../apps/web/src/features/documents/church/editor/field-values.ts";
 import { conditionIssue } from "../../../apps/web/src/features/documents/church/editor/condition-extension.ts";
-import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
+import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;

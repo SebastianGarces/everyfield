@@ -400,10 +400,12 @@ function Side({
 
 /** Blocks on a strip of white paper, drawn by the editor's own nodes, read only. */
 function Snippet({ content, values, brand }: { content: unknown[]; values: FieldValues; brand: DocBrand }) {
-	const extensions = useMemo(() => editorExtensions(values, brand.assets), [values, brand.assets]);
+	const extensions = useMemo(() => editorExtensions(brand.assets), [brand.assets]);
+	// Fields read their values from the root node, so the snippet's root carries the printed values as data.
+	const fields = Object.keys(values).map((key) => ({ key, type: "string", label: key }));
 	const editor = useEditor({
 		extensions,
-		content: { type: "doc", content: content as JSONContent[] },
+		content: { type: "doc", attrs: { fields, data: values }, content: content as JSONContent[] },
 		editable: false,
 		immediatelyRender: true,
 		editorProps: { attributes: { "aria-readonly": "true" } },
