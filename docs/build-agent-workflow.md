@@ -45,6 +45,10 @@ runs an install step by hand. `evf --version` names the commit the binary in use
 a notice on the dashboard. `~/dev/evf-v2/README.md` ("Self-install") gives the backups, the logs and the way to turn it
 off.
 
+A merge or rebase of main that leaves a task's own lines alone keeps its proofs and the owner's approval, even when main
+edited a line next to the task's hunk and the change id moved (T-94, after T-79 lost 26 proofs that way). Checks and the
+review still run again. Any edit to the task's own lines voids both. `~/dev/evf-v2/DESIGN.md` ("A carry") gives the rule.
+
 ## Tools that moved
 
 | Need | Use |
