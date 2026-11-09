@@ -45,7 +45,7 @@ runs an install step by hand. `evf --version` names the commit the binary in use
 a notice on the dashboard. `~/dev/evf-v2/README.md` ("Self-install") gives the backups, the logs and the way to turn it
 off.
 
-Coming with evf-v2 branch `evf/t94-carry-proof` (`050dc0a`, T-94), and not in the evf in use until an evf-v2 task lands
+Coming with evf-v2 branch `evf/t94-carry-proof` (`050dc0a`, T-94), and not in the evf in use until evf-v2 task T-1 lands
 it on evf-v2 `main` and self-install deploys it: a merge or rebase of main that leaves a task's own lines alone keeps its
 proofs and the owner's approval, even when main edited a line next to the task's hunk and the change id moved (T-79 lost
 26 proofs that way). Checks and the review still run again. Any edit to the task's own lines voids both. `DESIGN.md`
