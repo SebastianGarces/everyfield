@@ -56,7 +56,7 @@ export function createNotificationProducer(config: NotificationConfig) {
 	};
 }
 
-export { issueEmailOptOutToken } from "./opt-out.ts";
+export { issueEmailOptOutToken, issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "./opt-out.ts";
 export {
 	compileOversightDigest,
 	compilePlanterDigest,

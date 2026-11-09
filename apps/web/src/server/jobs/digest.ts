@@ -14,7 +14,7 @@ import "server-only";
 import { z } from "zod";
 import { transaction } from "../platform/database.ts";
 import { owedPeriod } from "./calendar.ts";
-import { createMailService, type AuthorizeMail } from "./mail.ts";
+import { createMailService, mailUnsubscribe, type AuthorizeMail } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 
 // The church digest (NTF-007) and the oversight digest (NTF-008), delivered by the scheduled runner. Each minute the
@@ -288,6 +288,7 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 			addressKey: Buffer.from(v.data.IDENTITY_ADDRESS_KEY, "hex"),
 			from: v.data.IDENTITY_MAIL_FROM,
 			authorize: authorizeDigestMail,
+			unsubscribe: mailUnsubscribe(),
 			// WP-031 owns dispatch; no real provider is configured here.
 			transport: {
 				async send() {
