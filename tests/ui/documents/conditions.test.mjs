@@ -13,6 +13,7 @@ import { docTemplateById } from "../../../packages/domain/src/documents/doc-temp
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { pdfPages } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+import { clickDownload } from "./tables-support.mjs";
 
 const PAPER = ".ef-paper .ProseMirror";
 const MOD = "ControlOrMeta";
@@ -181,15 +182,23 @@ function helpers(page, base, id) {
 	}
 	async function save() {
 		await button("Save").click();
-		await page.getByText(/^Saved/).waitFor({ timeout: 60_000 });
+		await page.getByRole("status").filter({ hasText: /^Saved/ }).waitFor({ timeout: 60_000 });
 	}
+	/** The bytes for the saved revision. `download` is what Download gives: it saves one export of the revision, then
+	 * fetches that export's stored bytes (D-78). Else the file route the preview reads. */
 	async function file(format, { download = true } = {}) {
-		const revision = (await page.getByText(/^Saved/).innerText()).match(/Revision (\d+)/)?.[1];
-		const response = await page
-			.context()
-			.request.get(
-				`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
-			);
+		const revision = (await page.getByRole("status").filter({ hasText: /^Saved/ }).innerText()).match(/Revision (\d+)/)?.[1];
+		const { request } = page.context();
+		if (!download) {
+			const response = await request.get(`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}`);
+			return { status: response.status(), bytes: new Uint8Array(await response.body()) };
+		}
+		const saved = await request.post(`${BASE}/documents/church/${id}/exports`, {
+			data: { revision: String(revision), format, requestKey: randomUUID() },
+		});
+		const reply = await saved.json();
+		if (reply.status !== "saved") return { status: saved.status(), bytes: new Uint8Array() };
+		const response = await request.get(`${BASE}/documents/church/${id}/exports/${reply.saved.id}`);
 		return { status: response.status(), bytes: new Uint8Array(await response.body()) };
 	}
 	const conditions = async () => (await body()).filter((n) => n.type === "if");
@@ -584,13 +593,10 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(await page.locator(PAPER).count(), 0, "no editor");
 			assert.equal(await page.getByRole("combobox", { name: "Condition field" }).count(), 0, "no condition control");
 			assert.equal(await page.getByText(/Prints only when/).count(), 0, "no condition label");
-			const response = await context.request.get(`${BASE}/documents/church/${docId}/file?format=pdf&download=1`);
-			assert.equal(response.status(), 200);
-			const text = await pdfText(new Uint8Array(await response.body()));
+			const text = await pdfText(await clickDownload(page, "Download PDF"));
 			assert.ok(!text.includes("This list shows"), "the Member's file leaves the false block out");
 			assert.match(text, /Attendees Follow-up actions/);
-			const word = await context.request.get(`${BASE}/documents/church/${docId}/file?format=docx&download=1`);
-			assert.equal(word.status(), 200);
+			assert.ok((await clickDownload(page, "Download Word")).length > 0, "the Member downloads the Word file");
 		});
 	});
 }

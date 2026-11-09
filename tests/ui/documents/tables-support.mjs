@@ -2,6 +2,7 @@
 // Every flow runs on a forked document in a real browser. `checked` is the heart of it: it runs one action, then Undo and
 // Redo, and compares the whole document JSON at each step, as the ask requires.
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
@@ -9,6 +10,12 @@ import { BASE, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 export const PAPER = ".ef-paper .ProseMirror";
 export const MOD = "ControlOrMeta";
+
+/** Clicks the Download button named `label`, as a person does, and returns the bytes of the file it saves. */
+export async function clickDownload(page, label) {
+	const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: label }).click()]);
+	return new Uint8Array(await readFile(await download.path()));
+}
 
 /** The stored form of each template the tests fork, for `documentFrom`. */
 export const bases = {};
@@ -100,7 +107,7 @@ function helpers(page, base) {
 		await settle();
 	}
 	async function save() {
-		const saved = page.getByText(/^Saved/);
+		const saved = page.getByRole("status").filter({ hasText: /^Saved/ });
 		await button("Save").click();
 		await saved.waitFor({ timeout: 60_000 });
 	}
@@ -158,16 +165,23 @@ function helpers(page, base) {
 	/** The id of the open document and the revision the page shows as saved. */
 	const where = async () => ({
 		id: page.url().split("/").pop(),
-		revision: (await page.getByText(/^Saved/).innerText()).match(/Revision (\d+)/)?.[1],
+		revision: (await page.getByRole("status").filter({ hasText: /^Saved/ }).innerText()).match(/Revision (\d+)/)?.[1],
 	});
-	/** The bytes the file route gives for the saved revision. `download` is the Download link, else the preview. */
+	/** The bytes for the saved revision. `download` is what Download gives: it saves one export of the revision, then
+	 * fetches that export's stored bytes (D-78). Else the file route the preview reads. */
 	async function file(format, { download = true } = {}) {
 		const { id, revision } = await where();
-		const response = await page
-			.context()
-			.request.get(
-				`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
-			);
+		const { request } = page.context();
+		if (!download) {
+			const response = await request.get(`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}`);
+			return { status: response.status(), bytes: new Uint8Array(await response.body()) };
+		}
+		const saved = await request.post(`${BASE}/documents/church/${id}/exports`, {
+			data: { revision: String(revision), format, requestKey: crypto.randomUUID() },
+		});
+		const reply = await saved.json();
+		if (reply.status !== "saved") return { status: saved.status(), bytes: new Uint8Array() };
+		const response = await request.get(`${BASE}/documents/church/${id}/exports/${reply.saved.id}`);
 		return { status: response.status(), bytes: new Uint8Array(await response.body()) };
 	}
 	const rowsDom = (n = 0) => page.locator(`${PAPER} [data-ef-node="table"]`).nth(n).locator('[data-ef-node="row"]');
