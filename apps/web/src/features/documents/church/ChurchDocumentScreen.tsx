@@ -46,6 +46,8 @@ export function ChurchDocumentScreen({
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
 	const [revision, setRevision] = useState(doc.revision);
+	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
+	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
 	const file = (format: string, download: boolean, at = revision) =>
 		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : ""}`;
 
@@ -77,7 +79,7 @@ export function ChurchDocumentScreen({
 				}
 				actions={
 					<>
-						{DOWNLOADS.filter((d) => doc.formats.includes(d.format)).map((d, i) => (
+						{DOWNLOADS.filter((d) => formats.includes(d.format)).map((d, i) => (
 							<Button key={d.format} variant={i === 0 ? "primary" : "secondary"} icon={Download01Icon} asChild>
 								<a href={file(d.format, true)} download>
 									{d.label}
@@ -112,7 +114,10 @@ export function ChurchDocumentScreen({
 					document={editable.document}
 					brand={editable.brand}
 					revision={doc.revision}
-					onRevision={setRevision}
+					onRevision={(next, offered) => {
+						setRevision(next);
+						setFormats(offered);
+					}}
 					previewSrc={(at) => file("pdf", false, at)}
 				/>
 			) : (

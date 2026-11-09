@@ -138,6 +138,45 @@ function formulaRefs(tree: Formula, columnIds: string[]) {
 	return out;
 }
 
+type FormulaDep = {
+	/** The formula column. */
+	column: TableNode["attrs"]["columns"][number];
+	/** Every column id the formula reads, a sum range expanded. */
+	reads: string[];
+	/** The column index spans of its sum ranges: a column added inside one would join the sum. */
+	spans: [number, number][];
+};
+
+/** What each formula column of a table reads. A formula that does not parse reads nothing. */
+export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[] {
+	const ids = columns.map((c) => c.id);
+	const out: FormulaDep[] = [];
+	columns.forEach((column) => {
+		if (column.type !== "formula") return;
+		let tree: Formula;
+		try {
+			tree = parseFormula(column.formula ?? "");
+		} catch {
+			return;
+		}
+		const spans: [number, number][] = [];
+		const walk = (n: Formula) => {
+			if (n.op === "sum") {
+				const a = ids.indexOf(n.first);
+				const b = ids.indexOf(n.last);
+				if (a >= 0 && b >= 0) spans.push([Math.min(a, b), Math.max(a, b)]);
+			} else if (n.op === "neg") walk(n.a);
+			else if (n.op !== "num" && n.op !== "col") {
+				walk(n.a);
+				walk(n.b);
+			}
+		};
+		walk(tree);
+		out.push({ column, reads: formulaRefs(tree, ids), spans });
+	});
+	return out;
+}
+
 function evalTree(n: Formula, get: (id: string) => number, columnIds: string[]): number {
 	switch (n.op) {
 		case "num":
@@ -266,20 +305,35 @@ type Ctx = {
 	region: string | null;
 };
 
+const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
+	schema,
+	fail,
+	nodes: 0,
+	fields: new Map(),
+	writeIns: new Map(),
+	fieldRefs: [],
+	ledgers: 0,
+	region: null,
+});
+
+/** The first fault the format finds in one table, or null. The editor asks this before it applies a change to a table. */
+export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | null {
+	const errors: string[] = [];
+	const node = table as unknown as Rec;
+	checkTable(
+		node,
+		node.attrs as Rec,
+		"table",
+		newCtx(schema, (_path, message) => errors.push(message)),
+	);
+	return errors[0] ?? null;
+}
+
 /** Validate one document or template. Returns every fault found, each as "<path>: <message>". */
 export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; errors: string[] } {
 	const errors: string[] = [];
 	const fail = (path: string, message: string) => errors.push(`${path}: ${message}`);
-	const ctx: Ctx = {
-		schema,
-		fail,
-		nodes: 0,
-		fields: new Map(),
-		writeIns: new Map(),
-		fieldRefs: [],
-		ledgers: 0,
-		region: null,
-	};
+	const ctx = newCtx(schema, fail);
 	if (!isRec(doc)) {
 		fail("(root)", "the file is not a JSON object");
 		return { ok: false, errors };
@@ -609,6 +663,21 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 			if (!value || typeof value !== "object") fail(path, "must be a node");
 			return; // the body is checked by checkNode.
 	}
+}
+
+/** What the format says about one attribute value of a node type, in its words, or null when the value is fine. */
+export function attrIssue(node: string, attribute: string, value: unknown): string | null {
+	const spec = FORMAT_SCHEMA.nodes[node]?.attrs[attribute];
+	if (!spec) return null;
+	let message: string | null = null;
+	const ctx = {
+		schema: FORMAT_SCHEMA,
+		fail: (_path: string, text: string) => {
+			message ??= text;
+		},
+	} as Ctx;
+	checkValue(value, spec, attribute, ctx);
+	return message;
 }
 
 function checkObject(value: unknown, props: Record<string, ValueSpec>, path: string, ctx: Ctx, root = false) {
