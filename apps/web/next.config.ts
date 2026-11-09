@@ -17,6 +17,9 @@ const config: NextConfig = {
 			"../../packages/domain/src/documents/fonts/*.ttf",
 		],
 	},
+	// `pnpm typecheck` checks every package before `pnpm build` in `pnpm check` and in the CI app job, so the build skips
+	// its own second pass over the same types (T-43: a third of the build's time).
+	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
 	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and
 	// each request path; an email opt-out or Messages unsubscribe path carries its token (REQ-NTF-012, REQ-NTF-016), so

@@ -1,3 +1,6 @@
 packages:
   - apps/*
   - packages/*
+# Bun's postinstall puts the platform binary in place for typecheck:bun (T-53).
+onlyBuiltDependencies:
+  - bun
