@@ -121,7 +121,7 @@ const show = (ms: number | null): string =>
 	ms === null ? "no data" : ms >= 60_000 ? `${(ms / 60_000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`;
 const count = (n: number | null): string => (n === null ? "no data" : String(n));
 const line = (name: string, t: Omit<JobTiming, "id" | "name">): string =>
-	`  ${name.padEnd(44)} queue ${show(t.queueMs).padStart(9)}  setup ${show(t.setupMs).padStart(9)}  run ${show(t.runMs).padStart(9)}  cache hits ${count(t.cacheHits)} misses ${count(t.cacheMisses)}`;
+	`  ${name.padEnd(52)} queue ${show(t.queueMs).padStart(9)}  setup ${show(t.setupMs).padStart(9)}  run ${show(t.runMs).padStart(9)}  cache hits ${count(t.cacheHits)} misses ${count(t.cacheMisses)}`;
 
 function main(): void {
 	const { values } = parseArgs({ options: { last: { type: "string" }, json: { type: "boolean" } } });
