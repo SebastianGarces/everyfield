@@ -23,15 +23,16 @@ type Props = {
 };
 
 export function VersionHistory({ docId, title, current, file, page }: Props) {
-	const [revisions, setRevisions] = useState<RevisionEntry[] | "failed" | null>(null);
+	// The list as loaded for one revision of the document: a save moves `current`, and the list loads again.
+	const [loaded, setLoaded] = useState<{ at: string; list: RevisionEntry[] | "failed" } | null>(null);
 	const [chosen, setChosen] = useState<number | null>(null);
+	const revisions = loaded?.at === current ? loaded.list : null;
 
 	useEffect(() => {
 		let cancelled = false;
-		setRevisions(null);
 		listChurchRevisions(docId).then(
-			(result) => !cancelled && setRevisions(result.status === "ok" ? result.revisions : "failed"),
-			() => !cancelled && setRevisions("failed"),
+			(result) => !cancelled && setLoaded({ at: current, list: result.status === "ok" ? result.revisions : "failed" }),
+			() => !cancelled && setLoaded({ at: current, list: "failed" }),
 		);
 		return () => {
 			cancelled = true;

@@ -41,6 +41,12 @@ export function editorContent(doc: DocDocument): Json {
 }
 
 const isSlot = (node: Json) => node.type === "slot";
+/** A copy of `node` without `key`. */
+function without(node: Json, key: string): Json {
+	const copy = { ...node };
+	delete copy[key];
+	return copy;
+}
 /** A stored empty doctrinal section gets one empty paragraph in the editor, so the cursor can go into it. */
 function withSlotLines(nodes: Json[]): Json[] {
 	return nodes.map((node) => {
@@ -53,7 +59,7 @@ function withSlotLines(nodes: Json[]): Json[] {
 function blankSlotsEmpty(nodes: Json[]): Json[] {
 	return nodes.map((node) => {
 		const content = node.content as Json[] | undefined;
-		if (isSlot(node)) return content && textOf(node).trim() === "" ? (({ content: _, ...rest }) => rest)(node) : node;
+		if (isSlot(node)) return content && textOf(node).trim() === "" ? without(node, "content") : node;
 		return content ? { ...node, content: blankSlotsEmpty(content) } : node;
 	});
 }
@@ -108,10 +114,9 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 		} else if ((attrs?.page as Json | undefined)?.[key] === null) page[key] = null;
 	}
 	// The merge fields and their values the editor holds; `data` stays out when the document never had any.
-	const { data: _data, ...envelope } = base;
 	const data = attrs ? attrs.data : base.data;
 	return {
-		...envelope,
+		...without(base as unknown as Json, "data"),
 		fields: attrs?.fields ?? base.fields,
 		...(data === undefined ? {} : { data }),
 		page,
