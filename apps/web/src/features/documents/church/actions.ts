@@ -199,6 +199,37 @@ export async function updateChurchTemplate(input: {
 	}
 }
 
+export type TemplateEditResult =
+	| { status: "saved"; template: ChurchTemplateSummary }
+	| { status: "refused"; code: string; message: string }
+	| { status: "lost" };
+
+/**
+ * Renames a church template or changes its description. It makes no new version, and documents already made from it
+ * keep their own title. One request key makes one change, so a double click or a resend writes it once.
+ */
+export async function editChurchTemplate(input: {
+	templateId: string;
+	name: string;
+	description: string;
+	requestKey: string;
+}): Promise<TemplateEditResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.editChurchTemplate(db, actor, input);
+		if (reply.status !== "ok") return { ...refusedWith(reply.error.code), code: reply.error.code };
+		revalidatePath("/documents/church");
+		return { status: "saved", template: reply.value };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "template_edit_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
 /** Deletes a church template after the person confirmed. Documents made from it keep their content. */
 export async function deleteChurchTemplate(
 	templateId: string,

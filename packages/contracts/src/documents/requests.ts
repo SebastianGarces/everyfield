@@ -80,6 +80,16 @@ export const updateChurchTemplateRequest = z.strictObject({
 	revision: z.int().min(1).max(1_000_000),
 	requestKey: z.string().trim().min(1).max(80),
 });
+/**
+ * Rename a church template or change its description. It makes no new version. The limits are Save as template's; an
+ * empty description clears it. The same request key makes one change; last write wins (D-173).
+ */
+export const editChurchTemplateRequest = z.strictObject({
+	templateId: recordId,
+	name: documentTitle,
+	description: z.string().trim().max(500),
+	requestKey: z.string().trim().min(1).max(80),
+});
 /** Delete a church template from "New from template". Documents made from it keep their content. */
 export const deleteChurchTemplateRequest = z.strictObject({ templateId: recordId });
 /** A built-in or church template id, merge values by field key and a request key. The same key returns the same document. */
