@@ -2571,6 +2571,12 @@
 			"table_name": "file_object"
 		},
 		{
+			"definition": "CREATE TRIGGER immutable_opt_out BEFORE UPDATE ON <schema>.person_email_opt_out FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,plant_id,person_id,opted_out_at')",
+			"enabled": "O",
+			"name": "immutable_opt_out",
+			"table_name": "person_email_opt_out"
+		},
+		{
 			"definition": "CREATE TRIGGER immutable_record BEFORE UPDATE ON <schema>.record FOR EACH ROW EXECUTE FUNCTION immutable_identity()",
 			"enabled": "O",
 			"name": "immutable_record",
@@ -2725,6 +2731,12 @@
 			"enabled": "O",
 			"name": "reference_version_global",
 			"table_name": "reference_version"
+		},
+		{
+			"definition": "CREATE TRIGGER undone_once BEFORE UPDATE ON <schema>.person_email_opt_out FOR EACH ROW WHEN ((old.undone_at IS NOT NULL)) EXECUTE FUNCTION freeze_fields('undone_at')",
+			"enabled": "O",
+			"name": "undone_once",
+			"table_name": "person_email_opt_out"
 		},
 		{
 			"definition": "CREATE TRIGGER witness_clock BEFORE UPDATE ON <schema>.lifecycle_witness FOR EACH ROW EXECUTE FUNCTION witness_clock()",
@@ -4411,6 +4423,20 @@
 			"kind": "table",
 			"object": "passage",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_email_opt_out",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_email_opt_out",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -6714,6 +6740,20 @@
 			"kind": "table",
 			"object": "people_column",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_email_opt_out",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_email_opt_out",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

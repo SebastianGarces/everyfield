@@ -2191,6 +2191,20 @@
 				"future_case_ids": ["SCHEMA-009", "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE"]
 			},
 			{
+				"table": "person_email_opt_out",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-028"],
+				"meaning": "A CRM person's opt-out from one church's Messages email (D-284). Only the person's own token writes it.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the opt-out.",
+				"merge_policy": "Keep the opt-out on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays unsubscribed while merged.",
+				"inverse_policy": "Unmerge does not move an opt-out, because the merge did not move it.",
+				"retirement_policy": "A retired person gets no Messages email anyway. The opt-out stays under that person.",
+				"privacy_policy": "An opt-out never transfers account grants, account notification preferences or marketing consent.",
+				"immutable_evidence_policy": "Who, which church and when stay as written; only the person's one-hour undo stamps undone_at.",
+				"future_case_ids": ["CASE-NTF-016"]
+			},
+			{
 				"table": "mail",
 				"columns": ["recipient_person_id", "tenant_id"],
 				"target_columns": ["id", "tenant_id"],
@@ -11090,6 +11104,9 @@
 				},
 				"address_hash": {
 					"note": ""
+				},
+				"refusal": {
+					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
 				}
 			},
 			"foreignKeys": {
@@ -17135,6 +17152,68 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A proposal goes with its conversation, in the same tenant."
+					}
+				}
+			}
+		},
+		"person_email_opt_out": {
+			"table": {
+				"name": "person_email_opt_out",
+				"domain": "communication",
+				"purpose": "A CRM person's opt-out from one church's Messages email (D-284): per church and per person, keyed by the Person and never by the address. The person's own token writes it from the Unsubscribe page or the one-click header; its undo sets undone_at within one hour. Messages refuses an opted-out person, and a merged-away Person's opt-out still covers the survivor through merge lineage.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-046"],
+				"replaces": [],
+				"producer_work_packages": ["WP-028"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-028"],
+					"rule": "WP-028 Messages delivery records a Messages opt-out from the person's own token."
+				},
+				"feature_ids": ["NTF-016"],
+				"acceptance_ids": ["AC-NTF-016--NTF-016"],
+				"future_case_ids": [],
+				"scope": "communication",
+				"invariants": [
+					"At most one current (undone_at IS NULL) opt-out per Person.",
+					"Only the person's token writes it; no staff operation clears or rewrites it, and the runtime login cannot delete it or change any column except undone_at.",
+					"An address change on the Person does not lift it.",
+					"It never changes account notification preferences, marketing consent or any other CRM field."
+				],
+				"revision": "No revision column; an opt-out is one row, and its undo stamps undone_at once.",
+				"idempotency": "A second unsubscribe while one is current changes nothing; an undo token names the opt-out row it can undo.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Opt-out identity; an undo token names it."
+				},
+				"plant_id": {
+					"note": "The church whose Messages email the person stopped."
+				},
+				"person_id": {
+					"note": "The CRM Person who unsubscribed. Not moved by a merge."
+				},
+				"opted_out_at": {
+					"note": "When the person unsubscribed."
+				},
+				"undone_at": {
+					"note": "When the person undid it from the opt-out page, within one hour; null while current."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The opt-out goes with its Person in the church purge. The runtime login cannot delete it."
 					}
 				}
 			}
