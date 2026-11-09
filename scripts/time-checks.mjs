@@ -22,6 +22,8 @@ const { values: args } = parseArgs({
 		only: { type: "string", default: "lint,build,isolation" },
 		base: { type: "string" },
 		out: { type: "string" },
+		// Clear .next/cache before each build too, as a CI runner without a cache hit starts.
+		cold: { type: "boolean", default: false },
 	},
 });
 
@@ -160,7 +162,7 @@ if (only.has("build")) {
 	const baseConfig = atBase("apps/web/next.config.ts");
 	const prepare = (form) => {
 		for (const entry of existsSync(join(web, ".next")) ? readdirSync(join(web, ".next")) : [])
-			if (entry !== "cache") rmSync(join(web, ".next", entry), { recursive: true, force: true });
+			if (args.cold || entry !== "cache") rmSync(join(web, ".next", entry), { recursive: true, force: true });
 		execFileSync(join(web, "node_modules/.bin/tsc"), ["--noEmit"], { cwd: web, stdio: "ignore" });
 		if (form !== "current") return;
 		const backup = join(out, "next.config.ts.working");
@@ -168,7 +170,14 @@ if (only.has("build")) {
 		writeFileSync(configPath, baseConfig + "\n");
 		return () => cpSync(backup, configPath);
 	};
-	results.push(timeForms("build", "apps/web", { current: "next build", new: "next build", cwd: web }, prepare));
+	results.push(
+		timeForms(
+			args.cold ? "build (cold)" : "build",
+			"apps/web",
+			{ current: "next build", new: "next build", cwd: web },
+			prepare,
+		),
+	);
 }
 
 if (only.has("isolation"))
