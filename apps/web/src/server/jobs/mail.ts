@@ -103,7 +103,7 @@ const stored = z.object({
  * mail never carries an Unsubscribe link. Messages to CRM people (`communication`) have no opt-out state yet.
  */
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
-/** The opt-out page's origin and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
+/** The opt-out page's origin (scheme, host and port only) and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 /** The category an optional email belongs to and the reader's current unsubscribe revision for its email. */
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
@@ -111,7 +111,7 @@ type OptOut = { category: z.infer<typeof notificationCategory>; revision: string
 export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
-	return keys && origin.success ? { origin: origin.data, keys } : null;
+	return keys && origin.success ? { origin: new URL(origin.data).origin, keys } : null;
 }
 export const escapeHtml = (text: string) =>
 	text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
@@ -146,9 +146,7 @@ export function createMailService(config: {
 	authorizeRecovery?: AuthorizeRecovery;
 	unsubscribe?: MailUnsubscribe;
 }) {
-	const unsubscribe = config.unsubscribe
-		? { ...config.unsubscribe, origin: new URL(config.unsubscribe.origin).origin }
-		: null;
+	const unsubscribe = config.unsubscribe ?? null;
 	const encryptionKey = Buffer.from(config.encryptionKey),
 		addressKey = Buffer.from(config.addressKey);
 	if (encryptionKey.length !== 32 || addressKey.length !== 32 || encryptionKey.equals(addressKey))
