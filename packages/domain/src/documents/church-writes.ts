@@ -669,7 +669,6 @@ export const churchWriter = {
 					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
 					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
 					FROM del
-					WHERE del.object_id IS NOT NULL
 					ON CONFLICT DO NOTHING
 				),
 				aud AS (
