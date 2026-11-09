@@ -17,6 +17,7 @@ import {
 	slotIdsOf,
 	type ChurchBlock,
 } from "../../../packages/contracts/src/documents/body.ts";
+import { nativeText } from "../../../packages/contracts/src/documents/native.ts";
 import { ContrastLog } from "../../../packages/domain/src/documents/contrast.ts";
 import { renderChurchDocx, renderChurchPdf } from "../../../packages/domain/src/documents/church-render.ts";
 import { NEUTRAL_EXPORT_THEME, type ExportTheme } from "../../../packages/domain/src/documents/church-theme.ts";
@@ -427,7 +428,7 @@ describe("WP-037 Word export", () => {
 	test("DOC-023: a reader that is not the writer opens the Word file", async () => {
 		const bytes = renderChurchDocx(input("bylaws", brandTheme()));
 		// The importer of DOC-016 reads Word with its own ZIP and XML code.
-		const text = readImport(bytes, "docx");
+		const text = nativeText(readImport(bytes, "docx"));
 		for (const phrase of ["Bylaws", "Name and purpose", "Harborlight Church", "Board member"])
 			assert.ok(text.includes(phrase), phrase);
 		if (hasSoffice()) {

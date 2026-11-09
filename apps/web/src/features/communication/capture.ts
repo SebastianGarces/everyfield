@@ -20,6 +20,8 @@ export type Captured = {
 	subject: string;
 	html: string;
 	text: string;
+	/** The headers the provider request would carry: the List-Unsubscribe pair of an optional email. */
+	headers?: Readonly<Record<string, string>>;
 	/** The held send time, or null for a send-now capture. */
 	scheduledAt: string | null;
 	cancelled: boolean;
