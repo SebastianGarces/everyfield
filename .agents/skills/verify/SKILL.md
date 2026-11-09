@@ -10,7 +10,8 @@ Name the scope you actually verify. A producer or split part does not complete a
 
 Include current main and commit. evf runs the repo's checks for the task in its own check slot, and those do not
 replace green GitHub CI or independent real verification. In a seat, run only focused tests for the files you change,
-with the language's own runner (`node --test <files>`).
+with the language's own runner (`node --test <files>`), or `bin/dev check`: it runs the checks and test files your
+diff touches, runs everything when in doubt, and prints the path of its checks.json record (T-41).
 
 Format, lint and typecheck fail fast on your own machine. `pnpm install` points this repo's `core.hooksPath` at
 `tools/git-hooks` (or run `bin/dev hooks install`). Its `pre-push` hook runs `bin/dev fast-check` on each push of a task
