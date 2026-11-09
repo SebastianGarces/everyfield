@@ -6,11 +6,11 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
-import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
+import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
 import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById, sheetOf } from "./doc-templates.ts";
-import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
+import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -122,14 +122,24 @@ function followedVersion(
 
 /**
  * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
- * statement: the kit joins the same read.
+ * statement: the kit joins the same read. With `withSources`, it also reads the plant's name and senior pastor, the values
+ * the editor's merge fields offer.
  */
-async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
-	const found = await rowsOf<ChurchRow & { ok: boolean; kit: Record<string, unknown> | null }>(
+async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false, withSources = false) {
+	const found = await rowsOf<
+		ChurchRow & {
+			ok: boolean;
+			kit: Record<string, unknown> | null;
+			church_name: string | null;
+			pastor_name: string | null;
+		}
+	>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
-			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name
+			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name,
+			${withSources ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
+			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
@@ -153,7 +163,16 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
 	});
-	return { doc, kit: row.kit ? dataFromRow(row.kit) : null };
+	const kit = row.kit ? dataFromRow(row.kit) : null;
+	const sources: MergeSources = {
+		churchName: row.church_name ?? "",
+		pastorName: row.pastor_name,
+		tagline: kit?.tagline ?? null,
+		legalName: kit?.legalName ?? null,
+		contactLine: contactLine(kit),
+		meetingDate: null,
+	};
+	return { doc, kit, sources };
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
@@ -182,9 +201,12 @@ function knownFields(template: c.DocTemplate, values: Record<string, string>) {
 	if (foreign) rejectInput(`mergeFields.${foreign}`, "Unknown merge field.");
 }
 
-/** The body of one live church template of the scope's church plant, as a scalar subquery. */
-const churchTemplateBody = (scope: Scope, recordId: string) =>
-	sql`(SELECT r.body FROM document t
+/**
+ * One live church template of the scope's church plant, as a scalar subquery: its name, from the row (D-171), and the
+ * body of its current revision.
+ */
+const churchTemplateOf = (scope: Scope, recordId: string) =>
+	sql`(SELECT json_build_object('title', t.title, 'body', r.body) FROM document t
 		JOIN document_revision r ON r.id = t.current_revision_id AND r.tenant_id = t.tenant_id
 		WHERE t.id = ${recordId}::uuid AND t.tenant_id = ${scope.tenantId}::uuid AND t.kind = 'church_template'
 			AND t.archived_at IS NULL)`;
@@ -195,10 +217,11 @@ function storedTemplate(text: string | null) {
 	return parsed.success ? parsed.data : null;
 }
 
-/** One church template as "New from template" shows it. */
+/** One church template as "New from template" shows it. The name and description are the row's (D-171). */
 type TemplateRow = {
 	id: string;
 	title: string;
+	description: string | null;
 	body: string;
 	source_document_id: string;
 	source_revision_id: string;
@@ -211,7 +234,7 @@ function templateSummary(row: TemplateRow) {
 		id: row.id,
 		templateId: template.id,
 		title: row.title,
-		description: template.description ?? null,
+		description: row.description,
 		version: template.version,
 		documentClass: template.class,
 		formats: docFormats(template),
@@ -300,14 +323,20 @@ export const churchWriter = {
 				{ personId: null, meetingId: null, teamId: null },
 			);
 			// The brand kit and, for a church template, its body: one statement. Another church's template reads as none.
-			const kitRows = await rowsOf<{ kit: Record<string, unknown> | null; template_body: string | null }>(
+			const kitRows = await rowsOf<{
+				kit: Record<string, unknown> | null;
+				church_template: { title: string; body: string } | null;
+			}>(
 				db,
 				sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit,
-					${churchTemplate ? churchTemplateBody(scope, churchTemplate) : sql`NULL::text`} AS template_body
+					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
 			);
 			const sources = mergeSources(plant, kitRows[0]?.kit ? dataFromRow(kitRows[0].kit) : null);
-			const template = builtIn ?? storedTemplate(kitRows[0]?.template_body ?? null) ?? deny("unavailable");
+			const stored = kitRows[0]?.church_template ?? null;
+			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
+			// A church template's name is its row's, which a rename changes without a new version (D-172).
+			const title = stored?.title ?? template.title;
 			if (!builtIn) knownFields(template, cleaned.values);
 			// The values are frozen now (input provenance): an override wins over the church and the brand kit.
 			const frozen = frozenData(template.fields, sources);
@@ -323,7 +352,7 @@ export const churchWriter = {
 				}));
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
 			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
-			const checked = c.docDocument.safeParse(forked);
+			const checked = c.docDocument.safeParse({ ...forked, title });
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);
 			const hash = hashOf(body);
@@ -344,7 +373,7 @@ export const churchWriter = {
 							id, tenant_id, kind, title, current_revision_id, revision, template_id, template_version,
 							document_class, use_church_branding, input_provenance
 						)
-						SELECT ${docId}::uuid, ${scope.tenantId}::uuid, 'church_document', ${template.title}, ${revId}::uuid, 1,
+						SELECT ${docId}::uuid, ${scope.tenantId}::uuid, 'church_document', ${title}, ${revId}::uuid, 1,
 							${template.id}, ${template.version}, ${template.class}, true, ${JSON.stringify(provenance)}::jsonb
 						FROM gate WHERE ok AND NOT EXISTS (SELECT FROM prior)
 						RETURNING id, tenant_id
@@ -399,9 +428,9 @@ export const churchWriter = {
 				templateId: template.id,
 				templateVersion: template.version,
 				documentClass: template.class,
-				templateName: churchTemplate ? template.title : null,
+				templateName: churchTemplate ? title : null,
 				useChurchBranding: true,
-				title: template.title,
+				title,
 				revision: "1",
 				revisionId: revId,
 				body: checked.data,
@@ -910,12 +939,13 @@ export const churchWriter = {
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
 			if (!found) return deny("unavailable");
 			const church = documentBrand(found.kit, true);
 			return c.churchDocumentView.parse({
 				...found.doc,
 				brands: { church: church.palette.themed ? church : null, plain: documentBrand(null, false) },
+				mergeValues: insertableValues(found.sources),
 			});
 		});
 	},
@@ -955,7 +985,7 @@ export const churchWriter = {
 						LIMIT 200
 					) x) AS documents,
 					(SELECT coalesce(json_agg(y ORDER BY y.created_at DESC, y.id), '[]'::json) FROM (
-						SELECT t.id, t.title, r.body, r.recorded_at AS created_at, s.document_id AS source_document_id,
+						SELECT t.id, t.title, t.description, r.body, r.recorded_at AS created_at, s.document_id AS source_document_id,
 							s.id AS source_revision_id, s.version_number AS source_revision
 						FROM document t
 						JOIN document_revision r ON r.id = t.current_revision_id AND r.tenant_id = t.tenant_id
@@ -1049,9 +1079,11 @@ export const churchWriter = {
 							AND d.kind = 'church_document' AND d.archived_at IS NULL
 					),
 					ins AS (
-						INSERT INTO document (id, tenant_id, kind, title, current_revision_id, revision, copied_from_revision_id, copied_from_hash)
-						SELECT ${id}::uuid, ${scope.tenantId}::uuid, 'church_template', ${input.name}, ${revId}::uuid, 1, src.revision_id,
-							${src.hash}
+						INSERT INTO document (
+							id, tenant_id, kind, title, description, current_revision_id, revision, copied_from_revision_id, copied_from_hash
+						)
+						SELECT ${id}::uuid, ${scope.tenantId}::uuid, 'church_template', ${input.name}, ${input.description || null},
+							${revId}::uuid, 1, src.revision_id, ${src.hash}
 						FROM src WHERE NOT EXISTS (SELECT FROM prior)
 						RETURNING id, tenant_id
 					),
@@ -1096,6 +1128,7 @@ export const churchWriter = {
 				templateSummary({
 					id: row.id,
 					title: input.name,
+					description: input.description || null,
 					body,
 					source_document_id: input.documentId,
 					source_revision_id: src.revision_id,
@@ -1129,13 +1162,13 @@ export const churchWriter = {
 				hash: string | null;
 				template_id: string | null;
 				title: string | null;
+				description: string | null;
 				version: string | null;
-				template_body: string | null;
 				prior_hash: string | null;
 			}>(
 				db,
 				sql`SELECT g.ok, r.id AS revision_id, r.body, r.content_hash AS hash, t.id AS template_id, t.title,
-					t.revision::text AS version, tr.body AS template_body, p.after_value->>'hash' AS prior_hash
+					t.description, t.revision::text AS version, p.after_value->>'hash' AS prior_hash
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document' AND d.archived_at IS NULL
@@ -1143,7 +1176,6 @@ export const churchWriter = {
 					AND r.version_number = ${input.revision}
 				LEFT JOIN document t ON g.ok AND t.id = ${input.templateId}::uuid AND t.tenant_id = ${scope.tenantId}::uuid
 					AND t.kind = 'church_template' AND t.archived_at IS NULL
-				LEFT JOIN document_revision tr ON tr.id = t.current_revision_id AND tr.tenant_id = t.tenant_id
 				LEFT JOIN audit_event p ON g.ok AND p.tenant_id = ${scope.tenantId}::uuid AND p.request_key = ${input.requestKey}
 					AND p.action = 'documents.template_updated'`,
 			);
@@ -1156,7 +1188,8 @@ export const churchWriter = {
 			if (!src.revision_id || !src.hash || !src.template_id || !src.title || src.version === null) deny("unavailable");
 			if (Number(src.version) !== input.expectedVersion) deny("conflict");
 			const doc = storedDoc(src.body) ?? deny("render_failed");
-			const description = storedTemplate(src.template_body)?.description;
+			// The new version keeps the row's current name and description (D-172).
+			const { description } = src;
 			const checked = c.docTemplate.safeParse(
 				c.templateFromDocument(doc, {
 					id: c.churchTemplateKey(src.template_id),
@@ -1232,11 +1265,88 @@ export const churchWriter = {
 				templateSummary({
 					id: row.id,
 					title: src.title,
+					description,
 					body,
 					source_document_id: input.documentId,
 					source_revision_id: src.revision_id,
 					source_revision: input.revision,
 				}) ?? deny("render_failed")
+			);
+		});
+	},
+
+	/**
+	 * Rename a church template or change its description (D-171): the row's name and description change, and no revision
+	 * is written, so the version, every stored revision and every document made earlier stay as they were. One statement
+	 * checks the seat, locks the live template, writes the change only when it changes something and writes one audit
+	 * row with the name and description before and after (D-174). Last write wins (D-173). The same request key answers
+	 * with the template as it stands; another request on it is a conflict. A race on one key waits on the row lock, then
+	 * finds nothing left to change, or meets the unique request key when it asks for other values.
+	 */
+	async editTemplate(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.editChurchTemplateRequest, raw);
+			const scope = adminScope(authority);
+			const description = input.description || null;
+			const requestHash = hashOf(JSON.stringify([input.templateId, input.name, description ?? ""]));
+			let found: (Omit<TemplateRow, "id"> & { ok: boolean; id: string | null; prior_hash: string | null })[];
+			try {
+				found = await rowsOf(
+					db,
+					sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+					prior AS (
+						SELECT a.after_value->>'hash' AS hash FROM audit_event a JOIN gate ON gate.ok
+						WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${input.requestKey}
+							AND a.action = 'documents.template_details_changed'
+					),
+					cur AS (
+						SELECT t.id, t.title, t.description, t.current_revision_id, t.copied_from_revision_id, t.tenant_id
+						FROM document t JOIN gate ON gate.ok
+						WHERE t.id = ${input.templateId}::uuid AND t.tenant_id = ${scope.tenantId}::uuid AND t.kind = 'church_template'
+							AND t.archived_at IS NULL
+						FOR UPDATE OF t
+					),
+					upd AS (
+						UPDATE document SET title = ${input.name}, description = ${description}::text
+						FROM cur
+						WHERE document.id = cur.id AND NOT EXISTS (SELECT FROM prior)
+							AND (cur.title IS DISTINCT FROM ${input.name} OR cur.description IS DISTINCT FROM ${description}::text)
+						RETURNING document.id, cur.title AS before_title, cur.description AS before_description
+					),
+					aud AS (
+						INSERT INTO audit_event (
+							tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, request_key,
+							before_value, after_value, metadata
+						)
+						SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.template_details_changed', 'edit', upd.id,
+							clock_timestamp(), clock_timestamp(), 'church-template-details:' || upd.id::text || ':' || ${input.requestKey},
+							${input.requestKey}, jsonb_build_object('name', upd.before_title, 'description', upd.before_description),
+							jsonb_build_object('hash', ${requestHash}::text, 'name', ${input.name}::text, 'description', ${description}::text),
+							'{}'::jsonb
+						FROM upd
+						RETURNING id
+					)
+					SELECT (SELECT ok FROM gate) AS ok, (SELECT hash FROM prior) AS prior_hash, cur.id,
+						cur.title, cur.description, r.body, s.document_id AS source_document_id, s.id AS source_revision_id,
+						s.version_number AS source_revision, (SELECT count(*) FROM aud) AS audited
+					FROM (SELECT 1) one
+					LEFT JOIN cur ON true
+					LEFT JOIN document_revision r ON r.id = cur.current_revision_id AND r.tenant_id = cur.tenant_id
+					LEFT JOIN document_revision s ON s.id = cur.copied_from_revision_id AND s.tenant_id = cur.tenant_id`,
+				);
+			} catch (error) {
+				// The same request key with other values, raced: the winner's audit row holds the key.
+				if (postgresCode(error) !== "23505") throw error;
+				return sameTemplate(db, scope, input.requestKey, requestHash, "documents.template_details_changed");
+			}
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (row.prior_hash !== null && row.prior_hash !== requestHash) deny("conflict");
+			if (!row.id) deny("unavailable");
+			// A first request leaves the row at what it asked for; a resend answers with the row as it stands now.
+			const now = row.prior_hash === null ? { title: input.name, description } : row;
+			return (
+				templateSummary({ ...row, id: row.id, title: now.title, description: now.description }) ?? deny("render_failed")
 			);
 		});
 	},
@@ -1496,17 +1606,26 @@ async function renderRevision(
 	}
 }
 
-/** The template one request key made, when the same request made it; another request on that key is a conflict. */
-async function sameTemplate(db: Database, scope: Scope, requestKey: string, requestHash: string) {
+/**
+ * The template one request key saved or edited, when the same request did it; another request on that key is a
+ * conflict.
+ */
+async function sameTemplate(
+	db: Database,
+	scope: Scope,
+	requestKey: string,
+	requestHash: string,
+	action: "documents.template_saved" | "documents.template_details_changed" = "documents.template_saved",
+) {
 	const found = await rowsOf<TemplateRow & { hash: string | null }>(
 		db,
-		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, r.body, r.recorded_at AS created_at,
+		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, t.description, r.body, r.recorded_at AS created_at,
 			s.document_id AS source_document_id, s.id AS source_revision_id, s.version_number AS source_revision
 		FROM audit_event a
 		JOIN document t ON t.id = a.subject_id AND t.tenant_id = a.tenant_id AND t.kind = 'church_template'
 		JOIN document_revision r ON r.id = t.current_revision_id AND r.tenant_id = t.tenant_id
 		JOIN document_revision s ON s.id = t.copied_from_revision_id AND s.tenant_id = t.tenant_id
-		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey} AND a.action = 'documents.template_saved'
+		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey} AND a.action = ${action}
 			AND ${gateSql(scope, true)}`,
 	);
 	const row = found[0];
@@ -1518,7 +1637,7 @@ async function sameTemplate(db: Database, scope: Scope, requestKey: string, requ
 async function sameUpdate(db: Database, scope: Scope, requestKey: string, requestHash: string) {
 	const found = await rowsOf<TemplateRow & { hash: string | null }>(
 		db,
-		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, r.body,
+		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, t.description, r.body,
 			s.document_id AS source_document_id, s.id AS source_revision_id, s.version_number AS source_revision
 		FROM audit_event a
 		JOIN document t ON t.id = a.subject_id AND t.tenant_id = a.tenant_id AND t.kind = 'church_template'

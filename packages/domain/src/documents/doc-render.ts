@@ -38,7 +38,7 @@ export async function renderDocPdf(doc: EveryfieldDoc, theme: RenderTheme = NEUT
 	const context = () => renderContext(values.church_name ?? doc.title, values, theme, doc.class);
 	try {
 		const mode = needsSplit(doc) ? await splitPoint(context(), doc) : ({ kind: "single" } as const);
-		return await renderPdfElement(docElement(context(), doc, mode));
+		return await renderPdfElement(docElement(context(), doc, mode), { placeholders: true });
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed(error);
