@@ -647,29 +647,23 @@ test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a 
 		)
 		.sort();
 	assert.deepEqual(adapters, ["people-organization/reads", "people/commands", "people/reads"]);
-	const covered = new Set<string>();
-	const walk = (node: unknown) => {
-		if (Array.isArray(node)) node.forEach(walk);
+	/** Every `operation` string in a value; `past` also looks inside an object that names one (case specs do, modules not). */
+	const operations = (node: unknown, into: Set<string>, past: boolean): Set<string> => {
+		if (Array.isArray(node)) node.forEach((v) => operations(v, into, past));
 		else if (node && typeof node === "object") {
 			const op = (node as { operation?: unknown }).operation;
-			if (typeof op === "string") covered.add(op);
-			Object.values(node).forEach(walk);
+			if (typeof op === "string") into.add(op);
+			if (past || typeof op !== "string") Object.values(node).forEach((v) => operations(v, into, past));
 		}
+		return into;
 	};
-	for (const file of readdirSync(fileURLToPath(here("."))).filter((f) => f.endsWith(".cases.json"))) walk(json(file));
+	const covered = new Set<string>();
+	for (const file of readdirSync(fileURLToPath(here("."))).filter((f) => f.endsWith(".cases.json")))
+		operations(json(file), covered, true);
 	const problems: string[] = [];
 	for (const adapter of adapters) {
 		const mod = await import(`${root}${adapter}/index.ts`);
-		const ops = new Set<string>();
-		const collect = (v: unknown) => {
-			if (Array.isArray(v)) v.forEach(collect);
-			else if (v && typeof v === "object") {
-				const op = (v as { operation?: unknown }).operation;
-				if (typeof op === "string") ops.add(op);
-				else Object.values(v).forEach(collect);
-			}
-		};
-		Object.values(mod).forEach(collect);
+		const ops = operations(Object.values(mod), new Set(), false);
 		if (!ops.size) problems.push(`${adapter}: no operations found`);
 		for (const op of ops) if (!covered.has(op)) problems.push(`${adapter}: ${op} has no case`);
 		const mine = extras.filter((c) => c.adapter === adapter);
