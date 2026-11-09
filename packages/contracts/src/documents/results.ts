@@ -246,6 +246,8 @@ export const churchTemplateSummary = z.strictObject({
 	templateId,
 	title: z.string().min(1).max(200),
 	description: z.string().max(500).nullable(),
+	/** The current version: 1 when saved, one more for each update. */
+	version: z.int().min(1),
 	documentClass: churchClass,
 	formats: z.array(documentFormat).min(1).max(3),
 	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */

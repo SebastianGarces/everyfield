@@ -45,7 +45,7 @@ import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
-import { SaveAsTemplateDialog } from "./SaveAsTemplate.tsx";
+import { SaveAsTemplateDialog, type TemplateSaved } from "./SaveAsTemplate.tsx";
 import { TemplateCompare } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
@@ -279,7 +279,7 @@ export default function ChurchEditor({
 
 	// Save as template: each opening mounts the dialog afresh (a new request key); a success names the template here.
 	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0 });
-	const [savedTemplate, setSavedTemplate] = useState<string | null>(null);
+	const [savedTemplate, setSavedTemplate] = useState<TemplateSaved | null>(null);
 
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
@@ -354,8 +354,18 @@ export default function ChurchEditor({
 				{savedTemplate ? (
 					<div className="flex items-start gap-3 rounded-md bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)]">
 						<p role="status" className="min-w-0 flex-1 text-md text-text-2 text-pretty">
-							Saved <span className="font-medium text-ink">“{savedTemplate}”</span> as your church&apos;s template. Find
-							it in New from template on{" "}
+							{savedTemplate.updated ? (
+								<>
+									Updated <span className="font-medium text-ink">“{savedTemplate.title}”</span> to v
+									{savedTemplate.version}. Documents made from earlier versions keep theirs. New documents from it use v
+									{savedTemplate.version} in New from template on{" "}
+								</>
+							) : (
+								<>
+									Saved <span className="font-medium text-ink">“{savedTemplate.title}”</span> as your church&apos;s
+									template. Find it in New from template on{" "}
+								</>
+							)}
 							<IntentLink href="/documents/church" className="cursor-pointer text-ink underline underline-offset-2">
 								Church documents
 							</IntentLink>
@@ -460,7 +470,7 @@ export default function ChurchEditor({
 				unsaved={status.kind !== "saved"}
 				saving={status.kind === "saving"}
 				onSaveFirst={save}
-				onSaved={(template) => setSavedTemplate(template.title)}
+				onSaved={setSavedTemplate}
 			/>
 		</EditorContext.Provider>
 	);
