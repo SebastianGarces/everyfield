@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
 import { docDocument } from "./format/index.ts";
+import { nativeBody } from "./native.ts";
 import { MERGE_KEY_MAX, MERGE_VALUE_MAX, documentCategory, documentFormat, templateId } from "./values.ts";
 
 const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERGE_VALUE_MAX)).optional();
@@ -45,9 +46,10 @@ export const generateRequest = z
 	.superRefine(oneSubject);
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
 const documentTitle = z.string().trim().min(1).max(200);
+/** A plain native document saves its title and one native body node (D-209). Any other body is refused. */
 export const saveNativeRequest = z.strictObject({
 	title: documentTitle,
-	body: z.string().max(2_000_000),
+	body: nativeBody,
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 });
@@ -150,13 +152,17 @@ export const importDocumentRequest = z.strictObject({
 	expectedRevision: revisionToken,
 	requestKey: z.string().trim().min(1).max(80),
 });
+/** Copy the current revision of one of your account documents into the church plant. The same key makes one copy. */
 export const useForChurchRequest = z.strictObject({
 	documentId: recordId,
 	revisionId: recordId,
+	requestKey: z.string().trim().min(1).max(80),
 });
 export const ownedDocumentRequest = z.strictObject({ documentId: recordId });
 export const generatedDocumentRequest = z.strictObject({ documentId: recordId });
 export const listOwnedRequest = z.strictObject({});
+/** Your own account documents that Use for this church can copy. */
+export const listCopySourcesRequest = z.strictObject({});
 export const listHistoryRequest = z.strictObject({});
 export const readEvidenceRequest = z.strictObject({});
 export const purgeOwnedRequest = z.strictObject({ witnessId: recordId });

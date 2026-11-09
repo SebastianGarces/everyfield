@@ -753,9 +753,16 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	try {
 		// The OPS-106 seed as commit 1e5fa559 left it. A file, not `git show`: CI checks out one commit.
 		const shown = readFileSync(join(source, "tools/qa/tests/fixtures/qa-seed-ops106.ts.txt"), "utf8");
+		// It runs against today's domain, which takes a native body as the everyfield.doc/1 node (D-209), not text.
+		const welcome = '"Welcome to Harvest Point. We meet Sundays at 10 AM at Travis Elementary."';
+		assert.ok(shown.includes(`body: ${welcome}`), "the old seed's document body");
 		writeFileSync(
 			script,
-			shown.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/qa/qa-guard.ts"`),
+			`import { nativeFromText } from "${source}/packages/contracts/src/documents/native.ts";\n` +
+				shown
+					.replaceAll('"../../', `"${source}/`)
+					.replace('"./qa-guard.ts"', `"${source}/tools/qa/qa-guard.ts"`)
+					.replace(`body: ${welcome}`, `body: nativeFromText(${welcome})`),
 		);
 		const r = tsxRun([script], old.env);
 		assert.equal(r.status, 0, r.stderr);
