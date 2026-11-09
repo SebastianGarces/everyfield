@@ -252,12 +252,6 @@ export const churchTemplateSummary = z.strictObject({
 	page: z.strictObject({ width: z.number().positive(), height: z.number().positive(), perSheet: z.int().min(1) }),
 	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }),
 });
-/** A church template after an update, with the version the update replaced. */
-export const updatedChurchTemplate = z.strictObject({
-	template: churchTemplateSummary,
-	replacedVersion: z.int().min(1),
-});
-export type UpdatedChurchTemplate = z.infer<typeof updatedChurchTemplate>;
 export const churchLibrary = z.strictObject({
 	documents: z.array(churchSummary).max(200),
 	templates: z.array(churchTemplateSummary).max(200),

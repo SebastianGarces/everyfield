@@ -6,7 +6,6 @@ import {
 	type ChurchCompare,
 	type ChurchTemplateSummary,
 	type DocDocument,
-	type UpdatedChurchTemplate,
 } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
@@ -162,7 +161,7 @@ export async function listChurchTemplates(): Promise<
 }
 
 export type TemplateUpdateResult =
-	| { status: "updated"; update: UpdatedChurchTemplate }
+	| { status: "updated"; template: ChurchTemplateSummary }
 	| { status: "refused"; code: string; message: string }
 	| { status: "lost" };
 
@@ -184,7 +183,7 @@ export async function updateChurchTemplate(input: {
 		const reply = await documentsWriter.updateChurchTemplate(db, actor, input);
 		if (reply.status !== "ok") return { ...refusedWith(reply.error.code), code: reply.error.code };
 		revalidatePath("/documents/church");
-		return { status: "updated", update: reply.value };
+		return { status: "updated", template: reply.value };
 	} catch (error) {
 		console.error(
 			JSON.stringify({ component: "church-documents", outcome: "template_update_failed", error: String(error) }),

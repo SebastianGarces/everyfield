@@ -145,7 +145,7 @@ export function SaveAsTemplateDialog({
 		if (result.status === "updated") {
 			setPending(false);
 			onOpenChange(false);
-			onSaved({ title: result.update.template.title, version: result.update.template.version, updated: true });
+			onSaved({ title: result.template.title, version: result.template.version, updated: true });
 			return;
 		}
 		if (result.status === "lost") {

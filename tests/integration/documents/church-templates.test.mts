@@ -540,13 +540,12 @@ describe(
 				requestKey: "t79-update-1",
 			};
 			const updated = ok(await updateTemplate(ADMIN, input));
-			assert.equal(updated.replacedVersion, 1);
-			assert.equal(updated.template.id, template.id);
-			assert.equal(updated.template.templateId, template.templateId);
-			assert.equal(updated.template.version, 2);
-			assert.equal(updated.template.title, "Board policy");
-			assert.equal(updated.template.description, "Kept across versions.");
-			assert.deepEqual(updated.template.source, { documentId: second.id, revisionId: second.revisionId, revision: 2 });
+			assert.equal(updated.id, template.id);
+			assert.equal(updated.templateId, template.templateId);
+			assert.equal(updated.version, 2);
+			assert.equal(updated.title, "Board policy");
+			assert.equal(updated.description, "Kept across versions.");
+			assert.deepEqual(updated.source, { documentId: second.id, revisionId: second.revisionId, revision: 2 });
 			assert.deepEqual(
 				await counts(),
 				{ ...before, revisions: before.revisions + 1, audits: before.audits + 1 },
@@ -633,7 +632,7 @@ describe(
 			};
 			const [a, b] = (await Promise.all([updateTemplate(OWNER, race), updateTemplate(ADMIN, race)])).map(ok);
 			assert.deepEqual(a, b);
-			assert.equal(a.template.version, 3);
+			assert.equal(a.version, 3);
 			assert.deepEqual(await counts(), { ...mid, revisions: mid.revisions + 1, audits: mid.audits + 1 });
 		});
 
@@ -657,7 +656,7 @@ describe(
 				results.find((r) => r.status !== "ok"),
 				"conflict",
 			);
-			assert.equal(won[0].value.template.version, 4);
+			assert.equal(won[0].value.version, 4);
 			assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 			// A later request still naming v3 is refused; the dialog reads v4 as the current version.
 			refused(await updateTemplate(OWNER, named("t79-stale", first)), "conflict");

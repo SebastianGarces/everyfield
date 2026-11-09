@@ -1224,18 +1224,16 @@ export const churchWriter = {
 			// Nothing written: the template or the source changed after the read. When it was this request on the same key
 			// that landed first, answer with what it made; anything else is a conflict.
 			if (!row.id) return sameUpdate(db, scope, input.requestKey, requestHash);
-			return c.updatedChurchTemplate.parse({
-				template:
-					templateSummary({
-						id: row.id,
-						title: src.title,
-						body,
-						source_document_id: input.documentId,
-						source_revision_id: src.revision_id,
-						source_revision: input.revision,
-					}) ?? deny("render_failed"),
-				replacedVersion: input.expectedVersion,
-			});
+			return (
+				templateSummary({
+					id: row.id,
+					title: src.title,
+					body,
+					source_document_id: input.documentId,
+					source_revision_id: src.revision_id,
+					source_revision: input.revision,
+				}) ?? deny("render_failed")
+			);
 		});
 	},
 
@@ -1508,9 +1506,9 @@ async function sameTemplate(db: Database, scope: Scope, requestKey: string, requ
 
 /** The version one request key made, when the same request made it; another request on that key is a conflict. */
 async function sameUpdate(db: Database, scope: Scope, requestKey: string, requestHash: string) {
-	const found = await rowsOf<TemplateRow & { hash: string | null; replaced: string }>(
+	const found = await rowsOf<TemplateRow & { hash: string | null }>(
 		db,
-		sql`SELECT a.after_value->>'hash' AS hash, a.before_revision::text AS replaced, t.id, t.title, r.body,
+		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, r.body,
 			s.document_id AS source_document_id, s.id AS source_revision_id, s.version_number AS source_revision
 		FROM audit_event a
 		JOIN document t ON t.id = a.subject_id AND t.tenant_id = a.tenant_id AND t.kind = 'church_template'
@@ -1521,8 +1519,7 @@ async function sameUpdate(db: Database, scope: Scope, requestKey: string, reques
 	);
 	const row = found[0];
 	if (!row || row.hash !== requestHash) deny("conflict");
-	const template = templateSummary(row) ?? deny("conflict");
-	return c.updatedChurchTemplate.parse({ template, replacedVersion: Number(row.replaced) });
+	return templateSummary(row) ?? deny("conflict");
 }
 
 /** One saved export, as the history lists it. */
