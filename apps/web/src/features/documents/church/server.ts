@@ -3,12 +3,18 @@ import { recordId } from "@everyfield/contracts/common";
 import {
 	type ChurchDocument,
 	type ChurchSummary,
-	type DocBrand,
+	type DocBrands,
 	type DocDocument,
 } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
-import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
+import {
+	documentsWriter,
+	docTemplateSummaries,
+	sheetOf,
+	templateStatus,
+	type DocTemplateSummary,
+} from "@everyfield/domain/documents";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 
@@ -23,9 +29,13 @@ export type ChurchView = {
 	documentClass: ChurchDocument["documentClass"];
 	revision: string;
 	formats: ChurchDocument["formats"];
+	/** The stored branding switch: later previews and exports paint the church theme when it is on and a kit exists. */
+	useChurchBranding: boolean;
 	/** The sheet the preview shows (not one card) and its cards per sheet. */
 	page: { width: number; height: number; perSheet: number };
 };
+/** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
+export type TemplateState = Awaited<ReturnType<typeof templateStatus>>;
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -55,19 +65,21 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null }>> {
+): Promise<Load<{ view: ChurchView; document: DocDocument; brands: DocBrands | null; template: TemplateState }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
-		// An Owner or Admin reads the document with its brand (what the PDF paints) in the same statement; a Member reads
-		// the document alone and gets no editor.
+		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
+		// a Member reads the document alone, with its branding value, and gets no editor.
 		const reply = canManageChurch(authority)
 			? await documentsWriter.readChurchForEdit(db, authority, { documentId })
 			: await documentsWriter
 					.readChurch(db, authority, { documentId })
-					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r));
+					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null } } : r));
 		if (reply.status !== "ok") return { status: "refused" };
 		const d = reply.value;
+		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
+		const template = d.brands ? await templateStatus(d.body) : null;
 		return {
 			status: "ok",
 			value: {
@@ -79,10 +91,12 @@ export async function loadChurchDocument(
 					documentClass: d.documentClass,
 					revision: d.revision,
 					formats: d.formats,
+					useChurchBranding: d.useChurchBranding,
 					page: sheetOf(d.body.page),
 				},
 				document: d.body,
-				brand: d.brand,
+				brands: d.brands,
+				template,
 			},
 		};
 	} catch (error) {

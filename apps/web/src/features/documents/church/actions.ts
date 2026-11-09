@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { saveChurchRequest } from "@everyfield/contracts/documents";
+import { saveChurchRequest, type ChurchCompare, type DocDocument } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -75,6 +75,28 @@ export async function saveChurchDocument(
 	}
 }
 
+export type BrandingResult =
+	{ status: "saved"; useChurchBranding: boolean } | { status: "refused"; message: string } | { status: "lost" };
+
+/**
+ * Turns church branding on or off for one Church Document: one audited write and no new revision, so later previews and
+ * exports follow it and saved exports keep their bytes. The actor is read again here and the write statement checks
+ * the seat, so a Member or a deleted document is refused with nothing written.
+ */
+export async function setChurchBranding(documentId: string, useChurchBranding: boolean): Promise<BrandingResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.setBranding(db, actor, { documentId, useChurchBranding });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "saved", useChurchBranding: reply.value.useChurchBranding };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "branding_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
 /** Deletes a Church Document after the person confirmed, then returns to the library without it. */
 export async function deleteChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
 	const actor = await documentActor();
@@ -89,4 +111,57 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	}
 	revalidatePath("/documents/church");
 	redirect("/documents/church?deleted=1");
+}
+
+export type CompareResult =
+	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
+
+/** The differences between the document's saved revision and the current template. An Owner or Admin only. */
+export async function compareWithTemplate(documentId: string): Promise<CompareResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.readTemplateCompare(db, actor, { documentId });
+		if (reply.status !== "ok")
+			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
+		return { status: "ok", compare: reply.value };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "compare_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
+export type AcceptResult =
+	| { status: "accepted"; revision: string; document: DocDocument }
+	| { status: "refused"; code: string; message: string }
+	| { status: "lost" };
+
+/**
+ * Accepts the chosen differences (or all of them) as the next revision. The write checks the seat, the revision the
+ * compare read and the template it compared with, so a Member, a stale compare or a newer template writes nothing.
+ */
+export async function acceptTemplateChanges(
+	documentId: string,
+	expectedRevision: string,
+	templateHash: string,
+	accept: number[] | "all",
+): Promise<AcceptResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.acceptTemplateChanges(db, actor, {
+			documentId,
+			expectedRevision,
+			templateHash,
+			accept,
+		});
+		if (reply.status !== "ok")
+			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
+		return { status: "accepted", revision: reply.value.revision, document: reply.value.body };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "accept_failed", error: String(error) }));
+		return { status: "lost" };
+	}
 }

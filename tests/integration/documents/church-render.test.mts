@@ -40,6 +40,7 @@ import {
 } from "../../../packages/domain/src/documents/templates/church.ts";
 import { entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { readImport } from "../../../packages/domain/src/documents/unpack.ts";
+import { DOCTRINAL } from "./fixtures/doctrinal.mts";
 import { docxParts, hasSoffice, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
 
@@ -143,8 +144,6 @@ describe("WP-037 Church Document templates", () => {
 	});
 
 	test("DOC-020: Everyfield ships no doctrinal text in any authored template", () => {
-		const doctrinal =
-			/\b(trinity|trinitarian|inerran|infallib|virgin birth|resurrection|atonement|justification|predestin|baptis|eucharist|communion|salvation|saved by|original sin|second coming|deity of|divinity)/i;
 		for (const template of CHURCH_TEMPLATES) {
 			const slots = template.body.filter((b) => b.kind === "slot");
 			assert.deepEqual(
@@ -154,7 +153,7 @@ describe("WP-037 Church Document templates", () => {
 			);
 			for (const slot of slots) assert.equal(slot.text, "", `${template.id}/${slot.slotId} starts empty`);
 			const text = JSON.stringify(template);
-			assert.equal(doctrinal.test(text), false, `${template.id} states a doctrine: ${doctrinal.exec(text)?.[0]}`);
+			assert.equal(DOCTRINAL.test(text), false, `${template.id} states a doctrine: ${DOCTRINAL.exec(text)?.[0]}`);
 		}
 		assert.deepEqual(churchTemplate("bylaws")!.slots, [{ id: "statement-of-faith", label: "Statement of faith" }]);
 	});
