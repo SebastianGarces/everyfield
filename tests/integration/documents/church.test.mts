@@ -10,6 +10,8 @@ import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { DOCTRINAL } from "./fixtures/doctrinal.mts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
@@ -493,6 +495,92 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
 			"unavailable",
 		);
+	});
+
+	test("AC:CASE-DOC-020-EDIT a doctrinal slot saves blank, takes the church's words and deletes; history keeps each revision", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "doc020-slot"));
+		const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
+		const BEFORE = "The text before the section.";
+		const AFTER = "The text after the section.";
+		const OWN = "We hold these words as our own statement.";
+		const withBody = (content) => {
+			const next = structuredClone(doc.body);
+			next.body = { type: "doc", content };
+			return next;
+		};
+		const blankSlot = { type: "slot", attrs: { label: "Statement of faith" }, content: [] };
+		const filledSlot = { type: "slot", attrs: { label: "Statement of faith" }, content: [para(OWN)] };
+		const slotOf = (body) => body.body.content.find((n) => n.type === "slot");
+		const files = async (who, revision, key) => {
+			const pdf = await bytesOf(ok(await exportDoc(who, doc.id, revision, "pdf", `${key}-pdf`)));
+			const word = docxParts(await bytesOf(ok(await exportDoc(who, doc.id, revision, "docx", `${key}-docx`))));
+			return {
+				pdf: (await pdfPages(pdf)).join(" "),
+				docx: wordText(word["word/document.xml"]),
+				xml: word["word/document.xml"],
+			};
+		};
+
+		// 1. An unfilled slot reads back with its label and no content: the data the editor's marked blank needs.
+		const blank = ok(await save(OWNER, doc.id, doc.revision, withBody([para(BEFORE), blankSlot, para(AFTER)])));
+		assert.equal(blank.revision, "2");
+		const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: doc.id }));
+		assert.equal(slotOf(read.body).attrs.label, "Statement of faith");
+		assert.equal(slotOf(read.body).content?.length ?? 0, 0);
+		const two = ok(
+			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 2 }),
+		);
+		assert.deepEqual(two.body, read.body);
+
+		// 5. Anyone who reads it exports a visible, labelled blank and never default or doctrinal wording.
+		const empty = await files(MEMBER, 2, "doc020-blank");
+		for (const text of [empty.pdf, empty.docx]) {
+			assert.match(text, /statement of faith/i);
+			assert.ok(text.includes(SLOT_BLANK_NOTE), "the marked blank");
+			assert.equal(DOCTRINAL.test(text), false, `doctrinal words: ${DOCTRINAL.exec(text)?.[0]}`);
+		}
+
+		// 2. The church's own statement prints under the label, with no blank note.
+		const filled = ok(await save(OWNER, doc.id, "2", withBody([para(BEFORE), filledSlot, para(AFTER)])));
+		assert.equal(filled.revision, "3");
+		const own = await files(OWNER, 3, "doc020-filled");
+		for (const text of [own.pdf, own.docx]) {
+			assert.match(text, /statement of faith We hold these words as our own statement\./i);
+			assert.equal(text.includes(SLOT_BLANK_NOTE), false);
+		}
+
+		// 3. Deleting the slot saves as one new revision; its files hold no label, no blank and no frame.
+		const before = await counts();
+		const deleted = ok(await save(OWNER, doc.id, "3", withBody([para(BEFORE), para(AFTER)])));
+		assert.equal(deleted.revision, "4");
+		assert.equal(slotOf(deleted.body), undefined);
+		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		const gone = await files(OWNER, 4, "doc020-deleted");
+		for (const text of [gone.pdf, gone.docx, gone.xml]) {
+			assert.equal(/statement of faith/i.test(text), false);
+			assert.equal(text.includes(SLOT_BLANK_NOTE), false);
+			assert.equal(text.includes(OWN), false);
+		}
+		for (const text of [gone.pdf, gone.docx]) assert.ok(text.includes(`${BEFORE} ${AFTER}`), "the neighbours meet");
+		const tables = (xml) => (xml.match(/<w:tbl>/g) ?? []).length;
+		assert.equal(tables(gone.xml), tables(own.xml) - 1, "the slot's frame is gone from the Word file");
+
+		// 4. The earlier revisions keep the slot in history and still export it as they were saved.
+		const three = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 3 }),
+		);
+		assert.deepEqual(slotOf(three.body), filledSlot);
+		assert.deepEqual(
+			slotOf(
+				ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 2 })).body,
+			),
+			slotOf(read.body),
+		);
+		const again = await files(MEMBER, 3, "doc020-filled-again");
+		assert.match(again.pdf, /statement of faith We hold these words as our own statement\./i);
+		assert.ok(again.docx.includes(OWN));
+		const blankAgain = await files(MEMBER, 2, "doc020-blank-again");
+		for (const text of [blankAgain.pdf, blankAgain.docx]) assert.ok(text.includes(SLOT_BLANK_NOTE));
 	});
 
 	test("AC:CASE-DOC-023 the church theme: a brand kit colors the PDF and Word file, and the toggle gives the neutral theme", async () => {
