@@ -14,8 +14,8 @@ import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs
 const owner = () => fixture("people").owner.cookie;
 const member = () => fixture("people").member.cookie;
 const SUBJECT = "Sunday's interest meeting";
-// The preview records mail in its own temp folder. `evf browser run` gives this process a private temp folder inside it.
-const systemTmp = /\/evf-browser-[^/]+$/.test(tmpdir()) ? dirname(tmpdir()) : tmpdir();
+// The preview records mail in its own temp folder. `bin/dev browser run` gives this process a private temp folder inside it.
+const systemTmp = /\/browser-run-[^/]+$/.test(tmpdir()) ? dirname(tmpdir()) : tmpdir();
 const outbox = process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(systemTmp, "everyfield-dev-outbox");
 
 let db = null;
