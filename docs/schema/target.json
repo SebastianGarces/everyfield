@@ -16846,12 +16846,6 @@
           "nullable": false
         },
         {
-          "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
-          "name": "description",
-          "type": "text",
-          "nullable": true
-        },
-        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "current_revision_id",
           "type": "uuid",
@@ -16910,6 +16904,12 @@
           "note": "Church Documents only. Frozen merge values of revision 1. Each entry has key, value and source.",
           "name": "input_provenance",
           "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
+          "name": "description",
+          "type": "text",
           "nullable": true
         }
       ],

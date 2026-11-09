@@ -1197,7 +1197,6 @@ export const document = pgTable(
 			enum: ["native", "core_values", "launch_summary", "church_document", "church_template"],
 		}).notNull(),
 		title: text("title").notNull(),
-		description: text("description"),
 		current_revision_id: uuid("current_revision_id"),
 		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
 		copied_from_revision_id: uuid("copied_from_revision_id"),
@@ -1210,6 +1209,7 @@ export const document = pgTable(
 		document_class: text("document_class", { enum: ["formal/legal", "outward-facing", "operational"] }),
 		use_church_branding: boolean("use_church_branding"),
 		input_provenance: jsonb("input_provenance"),
+		description: text("description"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
