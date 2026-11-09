@@ -13,8 +13,9 @@ import { UndoRedo } from "@tiptap/extensions";
 import { closeHistory } from "@tiptap/pm/history";
 import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import type { DocBrand } from "@everyfield/contracts/documents";
+import { Decoration, DecorationSet, type ViewMutationRecord } from "@tiptap/pm/view";
+import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
+import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
@@ -63,8 +64,14 @@ export const EfDocument = Document.extend({
 	// and below the body, take the same text tools, and share one Undo history with the body and the page setup.
 	content: "pageHeader? block* pageFooter?",
 	// `page` is the page setup of the format (size, orientation, margins, tile) without the header and the footer.
+	// `fields` and `data` are the merge fields the document declares and their values: a field inserted or a value
+	// changed is a step on the root node, so it joins the one Undo history.
 	addAttributes() {
-		return { page: { default: undefined, rendered: false } };
+		return {
+			page: { default: undefined, rendered: false },
+			fields: { default: undefined, rendered: false },
+			data: { default: undefined, rendered: false },
+		};
 	},
 });
 
@@ -242,22 +249,83 @@ export const EfPageBreak = Node.create({
 
 export type FieldValues = Record<string, string>;
 
-export const EfField = Node.create<{ values: FieldValues }>({
+/** The text each merge field prints now, from the field declarations and values on the root node. */
+export function liveValues(doc: PMNode): FieldValues {
+	return printedValues({
+		kind: "document",
+		fields: (doc.attrs.fields as FieldDecl[] | undefined) ?? [],
+		data: doc.attrs.data as Record<string, unknown> | undefined,
+	} as EveryfieldDoc);
+}
+
+/** The declaration of a field key on the root node, if any. */
+export const fieldDecl = (doc: PMNode, key: string) =>
+	((doc.attrs.fields as FieldDecl[] | undefined) ?? []).find((field) => field.key === key);
+
+/** A whole bracketed placeholder, such as an unfilled field's "[pastor]". */
+const isPlaceholder = (text: string) => new RegExp(`^${PLACEHOLDER.source}$`).test(text);
+
+/**
+ * A merge field: one unit that shows its value as the PDF prints it. The value comes from the root node, so a change of
+ * value shows in every copy at once. The plugin below hands each field its value as a node decoration.
+ */
+export const EfField = Node.create({
 	name: "field",
 	group: "inline",
 	inline: true,
 	atom: true,
-	addOptions: () => ({ values: {} }),
 	addAttributes() {
 		return attrsOfSpec({ key: "string" });
 	},
 	parseHTML: () => [{ tag: 'span[data-ef-node="field"]' }],
 	renderHTML({ node, HTMLAttributes }) {
 		const key = String(node.attrs.key ?? "");
+		return ["span", mergeAttributes(HTMLAttributes, { "data-ef-node": "field" }), `{${key}}`];
+	},
+	addNodeView() {
+		return ({ node, editor, decorations }) => {
+			const dom = document.createElement("span");
+			dom.setAttribute("data-ef-node", "field");
+			dom.contentEditable = "false";
+			const draw = (current: PMNode, decos: readonly Decoration[]) => {
+				const key = String(current.attrs.key ?? "");
+				const value = (decos.find((d) => d.spec.fieldValue !== undefined)?.spec.fieldValue as string) ?? "";
+				const label = fieldDecl(editor.state.doc, key)?.label ?? key;
+				dom.setAttribute("data-ef-key", key);
+				dom.title = `Merge field: ${label}. Select it to change its value.`;
+				dom.textContent = value;
+				dom.classList.toggle("ef-placeholder", isPlaceholder(value));
+				dom.classList.toggle("ef-field-empty", value === "");
+			};
+			draw(node, decorations);
+			return {
+				dom,
+				update(next: PMNode, decos: readonly Decoration[]) {
+					if (next.type !== node.type) return false;
+					draw(next, decos);
+					return true;
+				},
+				ignoreMutation: () => true,
+			};
+		};
+	},
+	addProseMirrorPlugins() {
 		return [
-			"span",
-			mergeAttributes(HTMLAttributes, { "data-ef-node": "field", title: `Merge field: ${key}` }),
-			this.options.values[key] ?? `{${key}}`,
+			new Plugin({
+				key: new PluginKey("efFieldValues"),
+				props: {
+					decorations: (state) => {
+						const values = liveValues(state.doc);
+						const found: Decoration[] = [];
+						state.doc.descendants((node, pos) => {
+							if (node.type.name !== "field") return;
+							const value = values[String(node.attrs.key ?? "")] ?? "";
+							found.push(Decoration.node(pos, pos + node.nodeSize, {}, { fieldValue: value }));
+						});
+						return DecorationSet.create(state.doc, found);
+					},
+				},
+			}),
 		];
 	},
 });
@@ -285,7 +353,6 @@ const KIND_LABEL: Record<string, (attrs: Attrs) => string> = {
 	box: () => "Box",
 	image: (a) => `Image · ${String(a.source ?? "logo")}`,
 	writeIn: (a) => (a.kind === "signature" ? "Signature line" : a.kind === "date" ? "Date line" : "Write-in line"),
-	slot: (a) => `Section · ${String(a.label ?? "Statement of faith")}`,
 	table: () => "Table",
 };
 export const blockLabel = (node: PMNode) => KIND_LABEL[node.type.name]?.(node.attrs) ?? node.type.name;
@@ -608,12 +675,76 @@ function writeInView(initial: PMNode, editor: Editor, getPos: () => number | und
 	};
 }
 
-export const EfSlot = laterNode("slot", {
+/** The label a doctrinal section prints when the file leaves it out (the format's default). */
+export const SLOT_LABEL = "Statement of faith";
+
+/**
+ * A doctrinal section: a labelled area the church fills with its own statement. It can be filled, deleted with the
+ * block tools and added back from the Insert menu. Empty, it shows the same marked blank the PDF and the Word file print.
+ */
+export const EfSlot = Node.create({
+	name: "slot",
 	group: BLOCKS,
 	content: "(paragraph | bulletList | orderedList)*",
-	attrs: { label: "string" },
-	atom: true,
+	isolating: true,
+	defining: true,
+	addAttributes() {
+		return attrsOfSpec({ label: "string" });
+	},
+	parseHTML: () => [{ tag: 'section[data-ef-node="slot"]', contentElement: ".ef-slot-body" }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"section",
+		mergeAttributes(HTMLAttributes, { "data-ef-node": "slot" }),
+		["div", { class: "ef-slot-label" }, String(node.attrs.label ?? SLOT_LABEL)],
+		["div", { class: "ef-slot-body" }, 0],
+	],
+	addNodeView() {
+		return ({ node }) => {
+			const dom = document.createElement("section");
+			dom.className = "ef-slot";
+			dom.setAttribute("data-ef-node", "slot");
+			dom.setAttribute("role", "group");
+			const label = document.createElement("div");
+			label.className = "ef-slot-label";
+			label.contentEditable = "false";
+			const note = document.createElement("div");
+			note.className = "ef-slot-note";
+			note.contentEditable = "false";
+			note.textContent = SLOT_BLANK_NOTE;
+			const body = document.createElement("div");
+			body.className = "ef-slot-body";
+			dom.append(label, note, body);
+			const draw = (current: PMNode) => {
+				const text = String(current.attrs.label ?? SLOT_LABEL);
+				label.textContent = `Doctrinal section · ${text}`;
+				dom.setAttribute("aria-label", `Doctrinal section: ${text}`);
+				dom.toggleAttribute("data-empty", isBlankSlot(current));
+			};
+			draw(node);
+			return {
+				dom,
+				contentDOM: body,
+				update(next: PMNode) {
+					if (next.type !== node.type) return false;
+					draw(next);
+					return true;
+				},
+				ignoreMutation: (mutation: ViewMutationRecord) => !body.contains(mutation.target),
+			};
+		};
+	},
 });
+
+/** A doctrinal section with no text in it: it prints as the marked blank. */
+export function isBlankSlot(node: PMNode) {
+	let field = false;
+	node.descendants((child) => {
+		if (child.type.name === "field") field = true;
+		return !field;
+	});
+	return !field && node.textContent.trim() === "";
+}
+
 export const EfTable = laterNode("table", {
 	group: BLOCKS,
 	content: "row*",
@@ -632,6 +763,42 @@ export const EfTable = laterNode("table", {
 });
 export const EfRow = laterNode("row", { content: "cell+", attrs: { role: "string", sign: "string" } });
 export const EfCell = laterNode("cell", { content: "inline*", attrs: { value: "number", checked: "boolean" } });
+
+// ---------------------------------------------------------------- placeholders
+
+/** The placeholder spans of a document: each bracketed prompt such as [date] in its text, read from the text itself. */
+function placeholderDecorations(doc: PMNode) {
+	const found: Decoration[] = [];
+	doc.descendants((node, pos) => {
+		if (!node.isText || !node.text) return;
+		for (const match of node.text.matchAll(PLACEHOLDER))
+			found.push(
+				Decoration.inline(pos + match.index, pos + match.index + match[0].length, { class: "ef-placeholder" }),
+			);
+	});
+	return DecorationSet.create(doc, found);
+}
+
+/**
+ * Highlights every bracketed placeholder ([date], [number], [low amount]) as the PDF and the Word file do. Nothing is
+ * stored: a new "[...]" lights up as it is typed and goes dark when a bracket is removed.
+ */
+export const Placeholders = Extension.create({
+	name: "placeholders",
+	addProseMirrorPlugins() {
+		const key = new PluginKey<DecorationSet>("efPlaceholders");
+		return [
+			new Plugin({
+				key,
+				state: {
+					init: (_config, state) => placeholderDecorations(state.doc),
+					apply: (tr, old) => (tr.docChanged ? placeholderDecorations(tr.doc) : old),
+				},
+				props: { decorations: (state) => key.getState(state) },
+			}),
+		];
+	},
+});
 
 // ---------------------------------------------------------------- heading numbers
 
@@ -706,7 +873,7 @@ function freeKey(base: string, taken: ReadonlySet<string>) {
 	}
 }
 
-const CONTAINERS = ["column", "box", "pageHeader", "pageFooter"];
+const CONTAINERS = ["column", "box", "pageHeader", "pageFooter", "slot"];
 
 /**
  * Rules that keep the document valid as it changes: a write-in line keeps a key no other line uses (new, copied and
@@ -777,7 +944,7 @@ export const LayoutRules = Extension.create({
 // ---------------------------------------------------------------- the set
 
 /** Every extension of the editor. The headless tests load the same list. */
-export function editorExtensions(values: FieldValues = {}, assets: Assets | null = null) {
+export function editorExtensions(assets: Assets | null = null) {
 	return [
 		EfDocument,
 		Text,
@@ -802,7 +969,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		EfRow,
 		EfCell,
 		HardBreak,
-		EfField.configure({ values }),
+		EfField,
 		EfPageNumber,
 		Bold,
 		Italic,
@@ -811,6 +978,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		EfTag,
 		UndoRedo,
 		HeadingNumbers,
+		Placeholders,
 		LayoutRules,
 	];
 }

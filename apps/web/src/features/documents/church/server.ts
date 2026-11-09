@@ -55,7 +55,9 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null }>> {
+): Promise<
+	Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null; mergeValues: Record<string, string> }>
+> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
@@ -65,7 +67,7 @@ export async function loadChurchDocument(
 			? await documentsWriter.readChurchForEdit(db, authority, { documentId })
 			: await documentsWriter
 					.readChurch(db, authority, { documentId })
-					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r));
+					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null, mergeValues: {} } } : r));
 		if (reply.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		return {
@@ -83,6 +85,7 @@ export async function loadChurchDocument(
 				},
 				document: d.body,
 				brand: d.brand,
+				mergeValues: d.mergeValues,
 			},
 		};
 	} catch (error) {

@@ -1,12 +1,13 @@
 "use client";
 
-import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
+import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import type { DocBrand, DocDocument } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
+import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView } from "./server.ts";
@@ -41,11 +42,12 @@ export function ChurchDocumentScreen({
 }: {
 	doc: ChurchView;
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: { document: DocDocument; brand: DocBrand } | null;
+	editable: { document: DocDocument; brand: DocBrand; mergeValues: Record<string, string> } | null;
 	canManage: boolean;
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
 	const [revision, setRevision] = useState(doc.revision);
+	const [history, setHistory] = useState(false);
 	const file = (format: string, download: boolean, at = revision) =>
 		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : ""}`;
 
@@ -111,14 +113,31 @@ export function ChurchDocumentScreen({
 					title={doc.title}
 					document={editable.document}
 					brand={editable.brand}
+					mergeValues={editable.mergeValues}
 					revision={doc.revision}
 					onRevision={setRevision}
-					previewSrc={(at) => file("pdf", false, at)}
+					file={file}
 				/>
 			) : (
-				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
-					<ChurchPdf key={file("pdf", false)} title={doc.title} src={file("pdf", false)} page={doc.page} />
-				</section>
+				<div className="flex flex-col gap-3">
+					<div className="flex justify-end">
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={history ? ViewIcon : Clock01Icon}
+							onClick={() => setHistory((open) => !open)}
+						>
+							{history ? "Back to the document" : "Version history"}
+						</Button>
+					</div>
+					{history ? (
+						<VersionHistory docId={doc.id} title={doc.title} current={revision} file={file} page={doc.page} />
+					) : (
+						<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
+							<ChurchPdf key={file("pdf", false)} title={doc.title} src={file("pdf", false)} page={doc.page} />
+						</section>
+					)}
+				</div>
 			)}
 		</>
 	);

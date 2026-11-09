@@ -35,10 +35,35 @@ export function editorContent(doc: DocDocument): Json {
 	};
 	return {
 		type: "doc",
-		attrs: { page },
-		content: [...region("header"), ...(doc.body.content ?? []), ...region("footer")],
+		attrs: { page, fields: doc.fields, ...(doc.data === undefined ? {} : { data: doc.data }) },
+		content: [...region("header"), ...withSlotLines((doc.body.content ?? []) as Json[]), ...region("footer")],
 	};
 }
+
+const isSlot = (node: Json) => node.type === "slot";
+/** A stored empty doctrinal section gets one empty paragraph in the editor, so the cursor can go into it. */
+function withSlotLines(nodes: Json[]): Json[] {
+	return nodes.map((node) => {
+		const content = node.content as Json[] | undefined;
+		if (isSlot(node)) return content?.length ? node : { ...node, content: [{ type: "paragraph" }] };
+		return content ? { ...node, content: withSlotLines(content) } : node;
+	});
+}
+/** A doctrinal section with no text in it is stored empty, so it exports as the marked blank and never as blank lines. */
+function blankSlotsEmpty(nodes: Json[]): Json[] {
+	return nodes.map((node) => {
+		const content = node.content as Json[] | undefined;
+		if (isSlot(node)) return content && textOf(node).trim() === "" ? (({ content: _, ...rest }) => rest)(node) : node;
+		return content ? { ...node, content: blankSlotsEmpty(content) } : node;
+	});
+}
+/** The text of a node; a merge field counts as text, so a section that holds only a field is kept. */
+const textOf = (node: Json): string =>
+	typeof node.text === "string"
+		? node.text
+		: node.type === "field"
+			? "field"
+			: ((node.content as Json[] | undefined) ?? []).map(textOf).join("");
 
 /**
  * The stored form of a tree: what JSON would drop, plus every empty `attrs` and every empty `content` list.
@@ -65,9 +90,12 @@ export function clean<T>(value: T): T {
 
 /** The document the editor holds: the stored envelope with the page setup, header, footer and body the editor now has. */
 export function documentFrom(base: DocDocument, json: Json): DocDocument {
-	const { attrs, content = [] } = clean(json) as { attrs?: { page?: Json }; content?: Json[] };
+	const { attrs, content = [] } = clean(json) as {
+		attrs?: { page?: Json; fields?: unknown[]; data?: Json };
+		content?: Json[];
+	};
 	const page: Json = { ...(attrs?.page ?? (base.page as Json)) };
-	const body = [...content];
+	const body = blankSlotsEmpty(content);
 	// A region node left in the page becomes the region; with none, the page keeps a stored null or has no key.
 	for (const [key, type] of Object.entries(REGION_NODE) as [keyof typeof REGION_NODE, string][]) {
 		delete page[key];
@@ -79,8 +107,13 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 			page[key] = { pages, content: (node.content as unknown[] | undefined) ?? [] };
 		} else if ((attrs?.page as Json | undefined)?.[key] === null) page[key] = null;
 	}
+	// The merge fields and their values the editor holds; `data` stays out when the document never had any.
+	const { data: _data, ...envelope } = base;
+	const data = attrs ? attrs.data : base.data;
 	return {
-		...base,
+		...envelope,
+		fields: attrs?.fields ?? base.fields,
+		...(data === undefined ? {} : { data }),
 		page,
 		body: { type: "doc", ...(body.length ? { content: body } : {}) },
 	} as unknown as DocDocument;

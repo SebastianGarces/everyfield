@@ -202,10 +202,16 @@ export const churchDocument = z.strictObject({
 });
 /** What a reader gets: the document and what the PDF paints for it. */
 export const churchDocumentView = churchDocument.extend({ brand: docBrand });
+/** What an Owner or Admin edits: the reader's view and the church's current value of each field Insert offers. */
+export const churchEditView = churchDocumentView.extend({
+	mergeValues: z.record(z.string().max(60), z.string().max(2000)),
+});
 export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),
 	authorAccountId: z.uuid().nullable(),
+	/** The saver's name as their account shows it; null when the account has none. */
+	authorName: z.string().max(255).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
 });

@@ -1,6 +1,13 @@
 "use client";
 
-import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+	Clock01Icon,
+	Delete02Icon,
+	Edit02Icon,
+	FloppyDiskIcon,
+	Refresh01Icon,
+	ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
 import {
 	Button,
@@ -20,11 +27,11 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSPrope
 import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
+import { VersionHistory } from "../VersionHistory.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
-import { fieldValues } from "./field-values.ts";
 import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
@@ -58,9 +65,12 @@ type Props = {
 	document: DocDocument;
 	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
+	/** The church's current value of each merge field Insert offers, by key. */
+	mergeValues: Record<string, string>;
 	revision: string;
 	onRevision: (revision: string) => void;
-	previewSrc: (revision: string) => string;
+	/** The file route of one revision in one format: the preview, history and the downloads read it. */
+	file: (format: "pdf" | "docx", download: boolean, revision: string) => string;
 };
 
 export default function ChurchEditor({
@@ -68,22 +78,21 @@ export default function ChurchEditor({
 	title,
 	document: stored,
 	brand,
+	mergeValues,
 	revision: initialRevision,
 	onRevision,
-	previewSrc,
+	file,
 }: Props) {
+	const previewSrc = (at: string) => file("pdf", false, at);
 	const base = useRef(stored);
 	const revision = useRef(initialRevision);
 	const [shownRevision, setShownRevision] = useState(initialRevision);
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
-	const [mode, setMode] = useState<"edit" | "preview">("edit");
+	const [mode, setMode] = useState<"edit" | "preview" | "history">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
-	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
-		[stored, brand.assets],
-	);
+	const extensions = useMemo(() => [...editorExtensions(brand.assets), BlockShortcuts], [brand.assets]);
 	const editor = useEditor({
 		extensions,
 		content: editorContent(stored),
@@ -243,9 +252,14 @@ export default function ChurchEditor({
 					<SaveStatusText status={status} revision={shownRevision} onRetry={() => void save()} />
 					<div className="flex flex-wrap items-center gap-2">
 						{mode === "edit" ? (
-							<Button variant="secondary" size="sm" icon={ViewIcon} onClick={() => void preview()}>
-								Preview
-							</Button>
+							<>
+								<Button variant="secondary" size="sm" icon={ViewIcon} onClick={() => void preview()}>
+									Preview
+								</Button>
+								<Button variant="secondary" size="sm" icon={Clock01Icon} onClick={() => setMode("history")}>
+									Version history
+								</Button>
+							</>
 						) : (
 							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={() => setMode("edit")}>
 								Back to editing
@@ -288,6 +302,7 @@ export default function ChurchEditor({
 								<EditorToolbar
 									editor={editor}
 									brand={brand}
+									mergeValues={mergeValues}
 									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
 								/>
 								<BlockControls editor={editor} palette={brand.palette} />
@@ -337,6 +352,15 @@ export default function ChurchEditor({
 						</div>
 					</div>
 				</div>
+				{mode === "history" ? (
+					<VersionHistory
+						docId={docId}
+						title={title}
+						current={shownRevision}
+						file={file}
+						page={{ width: pageBox(page)?.width ?? 612, height: pageBox(page)?.height ?? 792 }}
+					/>
+				) : null}
 				{mode === "preview" ? (
 					<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
 						<ChurchPdf

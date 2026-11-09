@@ -62,6 +62,28 @@ const SOURCE: Record<string, (s: MergeSources) => string | null> = {
 };
 
 /**
+ * The merge fields the editor's Insert menu offers. Inserting one that the document does not declare adds this
+ * declaration, and freezes the church's current value for it when the church has one.
+ */
+export const INSERTABLE_FIELDS = [
+	{ key: "church_name", label: "Church name", type: "text", source: "church.name" },
+	{ key: "pastor_name", label: "Pastor", type: "text", source: "church.pastor" },
+	{ key: "church_tagline", label: "Tagline", type: "text", source: "brand.tagline" },
+	{ key: "contact_line", label: "Contact line", type: "text", source: "brand.contactLine" },
+	{ key: "meeting_date", label: "Meeting date", type: "date", source: "meeting.date" },
+] as const satisfies readonly FieldDecl[];
+
+/** The church's current value for each insertable field, by key. A field with no value now is left out. */
+export function insertableValues(sources: MergeSources): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const field of INSERTABLE_FIELDS) {
+		const value = SOURCE[field.source]?.(sources)?.trim();
+		if (value) out[field.key] = value;
+	}
+	return out;
+}
+
+/**
  * The merge values a new document freezes: each field's source, then its fallback (which may name other fields in
  * braces). An empty fallback is a value: the field prints nothing. A field with neither is left out of `data`.
  * `from` says where each value came from: the source name, or "fallback".
@@ -84,6 +106,12 @@ export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) 
 	}
 	return { data, from };
 }
+
+/**
+ * The visible blank an unfilled doctrinal slot prints, in the editor, the PDF and the DOCX. It is never doctrinal text.
+ */
+export const SLOT_BLANK_NOTE =
+	"Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
 
 // ---------------------------------------------------------------- placeholders
 

@@ -6,11 +6,11 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
-import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
+import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
 import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById } from "./doc-templates.ts";
-import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
+import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -95,11 +95,20 @@ function churchResult(
  * statement: the kit joins the same read.
  */
 async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
-	const found = await rowsOf<ChurchRow & { ok: boolean; kit: Record<string, unknown> | null }>(
+	const found = await rowsOf<
+		ChurchRow & {
+			ok: boolean;
+			kit: Record<string, unknown> | null;
+			church_name: string | null;
+			pastor_name: string | null;
+		}
+	>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
-			d.input_provenance, to_jsonb(k) AS kit
+			d.input_provenance, to_jsonb(k) AS kit,
+			${admin ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
+			${admin ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
@@ -122,7 +131,16 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
 	});
-	return { doc, kit: row.kit ? dataFromRow(row.kit) : null };
+	const kit = row.kit ? dataFromRow(row.kit) : null;
+	const sources: MergeSources = {
+		churchName: row.church_name ?? "",
+		pastorName: row.pastor_name,
+		tagline: kit?.tagline ?? null,
+		legalName: kit?.legalName ?? null,
+		contactLine: contactLine(kit),
+		meetingDate: null,
+	};
+	return { doc, kit, sources };
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
@@ -553,9 +571,10 @@ export const churchWriter = {
 			const input = parse(c.readChurchRequest, raw);
 			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
 			if (!found) return deny("unavailable");
-			return c.churchDocumentView.parse({
+			return c.churchEditView.parse({
 				...found.doc,
 				brand: documentBrand(found.kit, found.doc.useChurchBranding),
+				mergeValues: insertableValues(found.sources),
 			});
 		});
 	},
@@ -707,9 +726,11 @@ export const churchWriter = {
 				author_account_id: string | null;
 				recorded_at: Date | string | null;
 				content_hash: string | null;
+				author_name: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash
+				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash,
+					(SELECT i.display_name FROM seat_identity(r.author_account_id) i LIMIT 1) AS author_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
@@ -726,6 +747,7 @@ export const churchWriter = {
 						id: row.id,
 						number: row.version_number,
 						authorAccountId: row.author_account_id,
+						authorName: row.author_name || null,
 						recordedAt: iso(row.recorded_at),
 						contentHash: row.content_hash,
 					})),
@@ -745,9 +767,11 @@ export const churchWriter = {
 				recorded_at: Date | string | null;
 				content_hash: string | null;
 				body: string | null;
+				author_name: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash, r.body
+				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash, r.body,
+					(SELECT i.display_name FROM seat_identity(r.author_account_id) i LIMIT 1) AS author_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
@@ -761,6 +785,7 @@ export const churchWriter = {
 				id: row.id,
 				number: row.version_number,
 				authorAccountId: row.author_account_id,
+				authorName: row.author_name || null,
 				recordedAt: iso(row.recorded_at),
 				contentHash: row.content_hash,
 				documentId: input.documentId,
