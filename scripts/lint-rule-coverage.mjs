@@ -105,8 +105,7 @@ export async function writeBaseline() {
 }
 
 /** For each package, each baseline rule and the tool that enforces it now: "eslint", "oxlint" or "missing". */
-export async function coverage() {
-	const baseline = JSON.parse(readFileSync(baselineFile, "utf8"));
+export async function coverage(baseline = JSON.parse(readFileSync(baselineFile, "utf8"))) {
 	const result = {};
 	for (const [pkg, oldRules] of Object.entries(baseline)) {
 		const setup = lintSetup(pkg);
