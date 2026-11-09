@@ -248,7 +248,8 @@
 			{
 				"type": "slot",
 				"attrs": {
-					"label": "Statement of faith"
+					"label": "Statement of faith",
+					"key": "statement-of-faith"
 				}
 			},
 			{

@@ -623,14 +623,25 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 	});
 
 	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".
-	const TEXT_TEMPLATES = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
+	const TEXT_TEMPLATES = [
+		"member-expectations",
+		"launch-team-commitment",
+		"follow-up-letter",
+		"bylaws",
+		"prayer-letter",
+	];
 
 	test("T-56 Save for your church makes one saved file of each text template and no Church Document", async () => {
 		const owner = await authority(OWNER);
 		for (const templateId of TEXT_TEMPLATES) {
 			const before = await counts();
 			const saved = ok(
-				await documentsWriter.generate(db, owner, { templateId, format: "pdf", requestKey: `t56-save-${templateId}` }, storage),
+				await documentsWriter.generate(
+					db,
+					owner,
+					{ templateId, format: "pdf", requestKey: `t56-save-${templateId}` },
+					storage,
+				),
 			);
 			const bytes = await bytesOf(saved);
 			assert.equal(sha256(bytes), saved.digest, templateId);
@@ -642,7 +653,12 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			assert.equal(after.files, before.files + 1, templateId);
 			// The same request key gives the same file and stores nothing more.
 			const again = ok(
-				await documentsWriter.generate(db, owner, { templateId, format: "pdf", requestKey: `t56-save-${templateId}` }, storage),
+				await documentsWriter.generate(
+					db,
+					owner,
+					{ templateId, format: "pdf", requestKey: `t56-save-${templateId}` },
+					storage,
+				),
 			);
 			assert.equal(again.id, saved.id, templateId);
 			assert.deepEqual(await counts(), after, templateId);
@@ -671,6 +687,45 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			assert.equal(ok(await save(OWNER, doc.id, "1", edited)).revision, "2", templateId);
 			const two = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
 			assert.ok(two.includes("Edited by the church."), templateId);
+		}
+	});
+
+	// D-129 (Sebastian, 2026-11-08): the Bylaws "Statement of faith" slot carries the key T-84 fills from the network.
+	test("D-129 a Church Document from Bylaws keeps the keyed Statement of faith slot; Save and the export print the marked blank", async () => {
+		const doc = ok(await create(OWNER, "bylaws", "d129-bylaws"));
+		const slots = doc.body.body.content.filter((n) => n.type === "slot");
+		assert.deepEqual(slots, [{ type: "slot", attrs: { label: "Statement of faith", key: "statement-of-faith" } }]);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.deepEqual(
+			one.body.body.content.filter((n) => n.type === "slot"),
+			slots,
+			"revision 1 keeps the key",
+		);
+
+		const exported = await pdfPages(await bytesOf(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "d129-pdf"))));
+		const word = docxParts(await bytesOf(ok(await exportDoc(OWNER, doc.id, 1, "docx", "d129-docx"))));
+		const saved = await pdfPages(
+			await bytesOf(
+				ok(
+					await documentsWriter.generate(
+						db,
+						await authority(OWNER),
+						{ templateId: "bylaws", format: "pdf", requestKey: "d129-save" },
+						storage,
+					),
+				),
+			),
+		);
+		for (const [name, text] of [
+			["export pdf", exported.join(" ")],
+			["export docx", wordText(word["word/document.xml"])],
+			["saved file", saved.join(" ")],
+		]) {
+			assert.match(text, /statement of faith/i, name);
+			assert.ok(text.includes(SLOT_BLANK_NOTE), `${name} prints the marked blank`);
+			assert.equal(text.includes("statement-of-faith"), false, `${name} never prints the key`);
 		}
 	});
 
