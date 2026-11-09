@@ -14,6 +14,7 @@ const stream = run({
 		"publish.test.ts",
 		"setup-step.test.mjs",
 		"lint-rule-coverage.test.mjs",
+		"fast-check.test.mjs",
 	].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}`, import.meta.url))),
 });
 stream.on("test:pass", ({ name, file }) => tests.push({ name, file, status: "passed" }));

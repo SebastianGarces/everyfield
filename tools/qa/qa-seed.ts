@@ -29,6 +29,7 @@ import { closeDatabase, createDatabase, type Database } from "../../packages/db/
 import { RequestActor } from "../../packages/domain/src/access/session.ts";
 import { communicationWriter, type DeliveryTransport } from "../../packages/domain/src/communication/index.ts";
 import { mailAddressHash } from "../../packages/domain/src/communication/delivery.ts";
+import { nativeFromText } from "../../packages/contracts/src/documents/native.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
 import { createIdentityService } from "../../packages/domain/src/identity/index.ts";
@@ -435,7 +436,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 			"document",
 			await documentsWriter.saveNative(runtime, actor, {
 				title: DOCUMENT,
-				body: "Welcome to Harvest Point. We meet Sundays at 10 AM at Travis Elementary.",
+				body: nativeFromText("Welcome to Harvest Point. We meet Sundays at 10 AM at Travis Elementary."),
 				expectedRevision: "0",
 			}),
 		);

@@ -135,14 +135,15 @@ function attr(tag: string, name: string) {
 	return found?.[1] ?? null;
 }
 
+/** The text of a Word body: one line for each paragraph, and a line break where Word has one. */
 function wordText(xml: string) {
 	let out = "";
-	const pattern = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g;
+	const pattern = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<\/w:p>|<w:br\b[^>]*\/>/g;
 	for (const found of xml.matchAll(pattern)) {
-		out += decodeEntities(found[1] ?? "");
+		out += found[1] !== undefined ? decodeEntities(found[1]) : "\n";
 		if (out.length > TEXT_MAX) throw new ImportRejected("Imported text is too long.");
 	}
-	return out;
+	return out.replace(/\n+$/, "");
 }
 
 function decodeEntities(value: string) {
