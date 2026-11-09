@@ -12,6 +12,13 @@ Include current main and commit. evf runs the repo's checks for the task in its 
 replace green GitHub CI or independent real verification. In a seat, run only focused tests for the files you change,
 with the language's own runner (`node --test <files>`).
 
+Format, lint and typecheck fail fast on your own machine. `pnpm install` points this repo's `core.hooksPath` at
+`tools/git-hooks` (or run `bin/dev hooks install`). Its `pre-push` hook runs `bin/dev fast-check` on each push of a task
+branch (`refs/heads/evf/*`) and refuses the push when it fails. The check covers only the files changed since the merge
+base of `origin/main`, needs no database or stack, and prints the exact fix command. Run it by hand with
+`bin/dev fast-check` (`--json` for each step's status, files and time). It skips the non-ESLint parts of `apps/web` lint
+and every file the branch did not change, so GitHub CI's full run stays required.
+
 Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a fresh Opus
 verifier session runs the exact PR head on its own preview, publishes the evidence and records
 its review with `evf review submit`. Tooling tests establish tooling behavior only.
