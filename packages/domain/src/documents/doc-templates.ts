@@ -1,8 +1,13 @@
 import { docTemplate, pageBox, type DocTemplate, type PageSetup } from "@everyfield/contracts/documents";
 import budgetWorksheet from "./templates/budget-worksheet.json" with { type: "json" };
+import bylaws from "./templates/bylaws.json" with { type: "json" };
 import commitmentCard from "./templates/commitment-card.json" with { type: "json" };
 import conflictOfInterestPolicy from "./templates/conflict-of-interest-policy.json" with { type: "json" };
+import followUpLetter from "./templates/follow-up-letter.json" with { type: "json" };
 import guestSignInSheet from "./templates/guest-sign-in-sheet.json" with { type: "json" };
+import launchTeamCommitment from "./templates/launch-team-commitment.json" with { type: "json" };
+import memberExpectations from "./templates/member-expectations.json" with { type: "json" };
+import prayerLetter from "./templates/prayer-letter.json" with { type: "json" };
 
 // The built-in everyfield.doc/1 templates: one JSON file per template, `templates/<id>.json`. Each file is parsed
 // with the contract parser when this module loads, so a file that does not validate stops the build and every
@@ -11,9 +16,14 @@ import guestSignInSheet from "./templates/guest-sign-in-sheet.json" with { type:
 /** The files, by the id their name gives. A test keeps this list equal to the folder. */
 const FILES: Record<string, unknown> = {
 	"budget-worksheet": budgetWorksheet,
+	bylaws,
 	"commitment-card": commitmentCard,
 	"conflict-of-interest-policy": conflictOfInterestPolicy,
+	"follow-up-letter": followUpLetter,
 	"guest-sign-in-sheet": guestSignInSheet,
+	"launch-team-commitment": launchTeamCommitment,
+	"member-expectations": memberExpectations,
+	"prayer-letter": prayerLetter,
 };
 
 /** Parse one template file. A fault names the file and every issue; a file whose id differs from its name fails. */

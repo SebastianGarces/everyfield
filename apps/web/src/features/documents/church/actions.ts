@@ -18,14 +18,21 @@ import { refusedWith } from "./refusal.ts";
 
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
 
-/** Creates a Church Document from a built-in or church template, then opens its page. The same request key opens the same one. */
-export async function createChurchDocument(templateId: string, requestKey: string): Promise<ChurchActionResult> {
+/**
+ * Creates a Church Document from a built-in or church template, then opens its page. The same request key opens the same one.
+ * `mergeFields` are the values typed on the Documents template page; each wins over the church's own value.
+ */
+export async function createChurchDocument(
+	templateId: string,
+	requestKey: string,
+	mergeFields?: Record<string, string>,
+): Promise<ChurchActionResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
 	let id: string;
 	try {
-		const reply = await documentsWriter.createFromTemplate(db, actor, { templateId, requestKey });
+		const reply = await documentsWriter.createFromTemplate(db, actor, { templateId, requestKey, mergeFields });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		id = reply.value.id;
 	} catch (error) {

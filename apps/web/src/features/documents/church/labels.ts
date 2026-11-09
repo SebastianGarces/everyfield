@@ -37,3 +37,14 @@ export function updatedText(iso: string) {
 	const date = new Date(iso);
 	return `Updated ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
 }
+
+/** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
+export function savedAt(iso: string) {
+	return new Date(iso).toLocaleString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}

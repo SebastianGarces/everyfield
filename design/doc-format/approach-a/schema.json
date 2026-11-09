@@ -194,7 +194,8 @@
 		"slot": {
 			"group": "block",
 			"attrs": {
-				"label": { "type": "string", "min": 1, "max": 80, "default": "Statement of faith" }
+				"label": { "type": "string", "min": 1, "max": 80, "default": "Statement of faith" },
+				"key": { "type": "slug", "optional": true }
 			},
 			"content": { "allow": ["paragraph", "bulletList", "orderedList"], "min": 0 }
 		},
