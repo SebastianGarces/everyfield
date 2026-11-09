@@ -292,7 +292,6 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.card = card;
 		state.budget = budget;
 		const before = await counts();
-		refused(await create(OWNER, "bylaws", "wp036-old"), "unavailable");
 		refused(await create(OWNER, "not-a-template", "wp036-none"), "unavailable");
 		refused(await create(OWNER, "budget-worksheet", "wp036-foreign", { pastor_name: "X" }), "invalid_input");
 		assert.deepEqual(await counts(), before);
@@ -528,5 +527,57 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(plain.theme, { kind: "everyfield-neutral", primary: null });
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
+	});
+
+	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".
+	const TEXT_TEMPLATES = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
+
+	test("T-56 Save for your church makes one saved file of each text template and no Church Document", async () => {
+		const owner = await authority(OWNER);
+		for (const templateId of TEXT_TEMPLATES) {
+			const before = await counts();
+			const saved = ok(
+				await documentsWriter.generate(db, owner, { templateId, format: "pdf", requestKey: `t56-save-${templateId}` }, storage),
+			);
+			const bytes = await bytesOf(saved);
+			assert.equal(sha256(bytes), saved.digest, templateId);
+			assert.ok((await pdfPages(bytes)).join(" ").includes("Harvest Point"), `${templateId} prints the church name`);
+			const after = await counts();
+			assert.equal(after.documents, before.documents, `${templateId} makes no Church Document`);
+			assert.equal(after.revisions, before.revisions, templateId);
+			assert.equal(after.generated, before.generated + 1, `${templateId} stores one saved file`);
+			assert.equal(after.files, before.files + 1, templateId);
+			// The same request key gives the same file and stores nothing more.
+			const again = ok(
+				await documentsWriter.generate(db, owner, { templateId, format: "pdf", requestKey: `t56-save-${templateId}` }, storage),
+			);
+			assert.equal(again.id, saved.id, templateId);
+			assert.deepEqual(await counts(), after, templateId);
+		}
+	});
+
+	test("T-56 Create Church Document makes an editable Church Document of each text template with the church name", async () => {
+		for (const templateId of TEXT_TEMPLATES) {
+			const before = await counts();
+			const doc = ok(await create(OWNER, templateId, `t56-create-${templateId}`));
+			assert.equal(doc.templateId, templateId);
+			assert.equal(doc.revision, "1");
+			assert.equal(doc.title, docTemplateById(templateId).title);
+			assert.deepEqual(doc.formats, ["pdf", "docx"]);
+			assert.equal(doc.body.data.church_name, "Harvest Point");
+			assert.equal(doc.body.data.pastor_name, "Pastor Ada");
+			const after = await counts();
+			assert.equal(after.documents, before.documents + 1, templateId);
+			assert.equal(after.generated, before.generated, `${templateId} makes no saved file`);
+			const text = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
+			assert.ok(text.includes("Harvest Point"), `${templateId} prints the church name`);
+			assert.ok(!text.includes("{church_name}"), templateId);
+			// Editable: the Owner saves an edited body as revision 2.
+			const edited = structuredClone(doc.body);
+			edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Edited by the church." }] });
+			assert.equal(ok(await save(OWNER, doc.id, "1", edited)).revision, "2", templateId);
+			const two = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
+			assert.ok(two.includes("Edited by the church."), templateId);
+		}
 	});
 });

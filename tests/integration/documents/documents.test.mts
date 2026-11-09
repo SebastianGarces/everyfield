@@ -229,7 +229,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const { templates } = await library();
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			11,
+			13,
 		);
 		for (const template of templates) {
 			for (const format of template.formats) {
@@ -354,10 +354,11 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 
 	test("GAP-REF-003 REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
 		const { templates, version } = await library();
-		assert.equal(templates.length, 11);
+		// The 11 frozen catalog rows, then Bylaws and Prayer Letter, authored in code.
+		assert.equal(templates.length, 13);
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			11,
+			13,
 		);
 		assert.equal(version, await referenceArtifactSha256());
 		const card = templates.find((template) => template.id === "commitment-card");
