@@ -121,9 +121,8 @@ function runs(w: W, content: readonly InlineNode[] | undefined, base: RunStyle):
 					o.color = w.p.onAccent;
 				}
 			}
-			const text = node.marks?.some((m) => m.type === "tag") ? ` ${node.text} ` : node.text;
 			const tagged = node.marks?.some((m) => m.type === "tag");
-			const inner = tagged ? run(text, o) : marked(w, text, o);
+			const inner = tagged ? run(` ${node.text} `, o) : marked(w, node.text, o);
 			if (!href) return inner;
 			return `<w:hyperlink r:id="${rel(w.part, "hyperlink", href, true)}">${inner}</w:hyperlink>`;
 		})

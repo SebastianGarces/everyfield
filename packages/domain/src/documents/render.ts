@@ -76,10 +76,10 @@ export type PdfRender = {
 	fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[];
 };
 
-/** Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). */
 /**
- * One PDF from a Forme element. With `placeholders`, each bracketed placeholder ([date], [number]) the PDF prints gets
- * the placeholder highlight, found in the laid-out PDF itself so it sits exactly under the printed text.
+ * Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). With `placeholders`, each
+ * bracketed placeholder ([date], [number]) the PDF prints gets the placeholder highlight, found in the laid-out PDF
+ * itself so it sits exactly under the printed text.
  */
 export async function renderPdfElement(element: unknown, { placeholders = false } = {}): Promise<PdfRender> {
 	const laid = await renderDocumentWithLayout(element as never);

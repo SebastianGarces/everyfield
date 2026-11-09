@@ -676,7 +676,7 @@ function writeInView(initial: PMNode, editor: Editor, getPos: () => number | und
 }
 
 /** The label a doctrinal section prints when the file leaves it out (the format's default). */
-export const SLOT_LABEL = "Statement of faith";
+const SLOT_LABEL = "Statement of faith";
 
 /**
  * A doctrinal section: a labelled area the church fills with its own statement. It can be filled, deleted with the
@@ -736,7 +736,7 @@ export const EfSlot = Node.create({
 });
 
 /** A doctrinal section with no text in it: it prints as the marked blank. */
-export function isBlankSlot(node: PMNode) {
+function isBlankSlot(node: PMNode) {
 	let field = false;
 	node.descendants((child) => {
 		if (child.type.name === "field") field = true;
