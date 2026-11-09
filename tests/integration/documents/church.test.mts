@@ -10,6 +10,8 @@ import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { DOCTRINAL } from "./fixtures/doctrinal.mts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
@@ -376,10 +378,15 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		const doc = state.policy;
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
 		assert.equal(edit.id, doc.id);
-		assert.equal(edit.brand.palette.themed, true, "the kit has a primary color and the document uses church branding");
-		assert.equal(edit.brand.palette.primary, "#1F4E79");
-		assert.equal(edit.brand.palette.accent, "#C9A227");
-		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		assert.equal(edit.useChurchBranding, true);
+		const church = edit.brands.church;
+		assert.ok(church, "the kit has a primary color, so the church look exists");
+		assert.equal(church.palette.themed, true);
+		assert.equal(church.palette.primary, "#1F4E79");
+		assert.equal(church.palette.accent, "#C9A227");
+		assert.deepEqual(church.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		assert.equal(edit.brands.plain.palette.themed, false, "the plain look is the Everyfield-neutral theme");
+		assert.deepEqual(edit.brands.plain.assets, { logo: null, mark: null, photo: null });
 		// T-17: the church's current value of each merge field Insert offers; a field with no value now is left out.
 		assert.deepEqual(edit.mergeValues, {
 			church_name: "Harvest Point",
@@ -387,7 +394,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			church_tagline: "A church for the whole city.",
 			contact_line: "harvestpoint.church  ·  (555) 010-0100",
 		});
-		const { brand: _brand, mergeValues: _values, ...document } = edit;
+		const { brands: _brands, mergeValues: _values, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -583,6 +590,92 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 	});
 
+	test("AC:CASE-DOC-020-EDIT a doctrinal slot saves blank, takes the church's words and deletes; history keeps each revision", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "doc020-slot"));
+		const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
+		const BEFORE = "The text before the section.";
+		const AFTER = "The text after the section.";
+		const OWN = "We hold these words as our own statement.";
+		const withBody = (content) => {
+			const next = structuredClone(doc.body);
+			next.body = { type: "doc", content };
+			return next;
+		};
+		const blankSlot = { type: "slot", attrs: { label: "Statement of faith" }, content: [] };
+		const filledSlot = { type: "slot", attrs: { label: "Statement of faith" }, content: [para(OWN)] };
+		const slotOf = (body) => body.body.content.find((n) => n.type === "slot");
+		const files = async (who, revision, key) => {
+			const pdf = await bytesOf(ok(await exportDoc(who, doc.id, revision, "pdf", `${key}-pdf`)));
+			const word = docxParts(await bytesOf(ok(await exportDoc(who, doc.id, revision, "docx", `${key}-docx`))));
+			return {
+				pdf: (await pdfPages(pdf)).join(" "),
+				docx: wordText(word["word/document.xml"]),
+				xml: word["word/document.xml"],
+			};
+		};
+
+		// 1. An unfilled slot reads back with its label and no content: the data the editor's marked blank needs.
+		const blank = ok(await save(OWNER, doc.id, doc.revision, withBody([para(BEFORE), blankSlot, para(AFTER)])));
+		assert.equal(blank.revision, "2");
+		const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: doc.id }));
+		assert.equal(slotOf(read.body).attrs.label, "Statement of faith");
+		assert.equal(slotOf(read.body).content?.length ?? 0, 0);
+		const two = ok(
+			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 2 }),
+		);
+		assert.deepEqual(two.body, read.body);
+
+		// 5. Anyone who reads it exports a visible, labelled blank and never default or doctrinal wording.
+		const empty = await files(MEMBER, 2, "doc020-blank");
+		for (const text of [empty.pdf, empty.docx]) {
+			assert.match(text, /statement of faith/i);
+			assert.ok(text.includes(SLOT_BLANK_NOTE), "the marked blank");
+			assert.equal(DOCTRINAL.test(text), false, `doctrinal words: ${DOCTRINAL.exec(text)?.[0]}`);
+		}
+
+		// 2. The church's own statement prints under the label, with no blank note.
+		const filled = ok(await save(OWNER, doc.id, "2", withBody([para(BEFORE), filledSlot, para(AFTER)])));
+		assert.equal(filled.revision, "3");
+		const own = await files(OWNER, 3, "doc020-filled");
+		for (const text of [own.pdf, own.docx]) {
+			assert.match(text, /statement of faith We hold these words as our own statement\./i);
+			assert.equal(text.includes(SLOT_BLANK_NOTE), false);
+		}
+
+		// 3. Deleting the slot saves as one new revision; its files hold no label, no blank and no frame.
+		const before = await counts();
+		const deleted = ok(await save(OWNER, doc.id, "3", withBody([para(BEFORE), para(AFTER)])));
+		assert.equal(deleted.revision, "4");
+		assert.equal(slotOf(deleted.body), undefined);
+		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		const gone = await files(OWNER, 4, "doc020-deleted");
+		for (const text of [gone.pdf, gone.docx, gone.xml]) {
+			assert.equal(/statement of faith/i.test(text), false);
+			assert.equal(text.includes(SLOT_BLANK_NOTE), false);
+			assert.equal(text.includes(OWN), false);
+		}
+		for (const text of [gone.pdf, gone.docx]) assert.ok(text.includes(`${BEFORE} ${AFTER}`), "the neighbours meet");
+		const tables = (xml) => (xml.match(/<w:tbl>/g) ?? []).length;
+		assert.equal(tables(gone.xml), tables(own.xml) - 1, "the slot's frame is gone from the Word file");
+
+		// 4. The earlier revisions keep the slot in history and still export it as they were saved.
+		const three = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 3 }),
+		);
+		assert.deepEqual(slotOf(three.body), filledSlot);
+		assert.deepEqual(
+			slotOf(
+				ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 2 })).body,
+			),
+			slotOf(read.body),
+		);
+		const again = await files(MEMBER, 3, "doc020-filled-again");
+		assert.match(again.pdf, /statement of faith We hold these words as our own statement\./i);
+		assert.ok(again.docx.includes(OWN));
+		const blankAgain = await files(MEMBER, 2, "doc020-blank-again");
+		for (const text of [blankAgain.pdf, blankAgain.docx]) assert.ok(text.includes(SLOT_BLANK_NOTE));
+	});
+
 	test("AC:CASE-DOC-023 the church theme: a brand kit colors the PDF and Word file, and the toggle gives the neutral theme", async () => {
 		const owner = await authority(OWNER);
 		const current = ok(await brandReader.get(db, owner, {}));
@@ -621,5 +714,73 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(plain.theme, { kind: "everyfield-neutral", primary: null });
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
+	});
+
+	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
+		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
+		const forEdit = async () =>
+			ok(await documentsWriter.readChurchForEdit(db, await authority(OWNER), { documentId: doc.id }));
+		const switched = () =>
+			rowsOf(
+				sql`SELECT actor_id, after_value FROM audit_event
+					WHERE action = 'documents.branding_changed' AND subject_id = ${doc.id}::uuid ORDER BY recorded_at`,
+			);
+		const setBy = async (who, useChurchBranding) =>
+			documentsWriter.setBranding(db, await authority(who), { documentId: doc.id, useChurchBranding });
+		// A new document starts with church branding on, and a Member's read carries the value too.
+		assert.equal((await forEdit()).useChurchBranding, true);
+		assert.equal((await read(MEMBER)).useChurchBranding, true);
+		assert.equal(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-branded-pdf")).theme.kind, "church");
+
+		const before = await counts();
+		assert.deepEqual(ok(await setBy(OWNER, false)), { documentId: doc.id, useChurchBranding: false });
+		const off = await forEdit();
+		assert.equal(off.useChurchBranding, false);
+		assert.equal(off.revision, "1", "the switch makes no revision");
+		assert.ok(off.brands.church, "the church look stays known, so the page can turn branding back on");
+		assert.equal((await read(MEMBER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 }, "one audit row and nothing else");
+		assert.deepEqual(await switched(), [{ actor_id: actors[OWNER].id, after_value: { useChurchBranding: false } }]);
+		const plainPdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-plain-pdf"));
+		assert.deepEqual(plainPdf.theme, { kind: "everyfield-neutral", primary: null });
+		const plainWord = ok(await fileOf(OWNER, doc.id, "docx", 1));
+		assert.equal(plainWord.downloadName, "conflict-of-interest-policy-revision-1.docx");
+		const word = docxParts(bytesFrom(plainWord));
+		assert.equal(word["word/styles.xml"].includes("1F4E79"), false, "no church color in the Word file");
+		assert.equal(word["word/document.xml"].includes("Harvest Point Church logo"), false, "no church logo");
+
+		// A Member can't change it: the write is refused and the stored value and the audit stay.
+		const held = await counts();
+		refused(await setBy(MEMBER, true), "access_denied");
+		assert.equal((await read(OWNER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), held);
+
+		assert.deepEqual(ok(await setBy(ADMIN, true)), { documentId: doc.id, useChurchBranding: true });
+		const on = await forEdit();
+		assert.equal(on.useChurchBranding, true);
+		assert.equal(on.revision, "1");
+		assert.deepEqual(
+			(await switched()).map((r) => r.after_value),
+			[{ useChurchBranding: false }, { useChurchBranding: true }],
+		);
+		assert.deepEqual(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-again-pdf")).theme, {
+			kind: "church",
+			primary: "#1F4E79",
+		});
+		assert.ok(docxParts(bytesFrom(ok(await fileOf(OWNER, doc.id, "docx", 1))))["word/styles.xml"].includes("1F4E79"));
+
+		// A deleted document refuses the switch with the page's "not available" message.
+		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
+		refused(await setBy(OWNER, false), "unavailable");
+		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
+	});
+
+	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
+		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
+		assert.equal(edit.useChurchBranding, true);
+		assert.equal(edit.brands.church, null, "no brand kit, so the page shows the note and paints the plain look");
+		assert.equal(edit.brands.plain.palette.themed, false);
 	});
 });

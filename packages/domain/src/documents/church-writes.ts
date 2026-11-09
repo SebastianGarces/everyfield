@@ -564,17 +564,18 @@ export const churchWriter = {
 	},
 
 	/**
-	 * One Church Document for the editor: the document and what the PDF paints for it (the palette and the brand-kit
-	 * images). An Owner or Admin only. One statement, the same one a read makes.
+	 * One Church Document for the editor: the document and both looks the PDF can paint for it (the palette and the
+	 * brand-kit images), church and plain. An Owner or Admin only. One statement, the same one a read makes.
 	 */
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
 			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
 			if (!found) return deny("unavailable");
-			return c.churchEditView.parse({
+			const church = documentBrand(found.kit, true);
+			return c.churchDocumentView.parse({
 				...found.doc,
-				brand: documentBrand(found.kit, found.doc.useChurchBranding),
+				brands: { church: church.palette.themed ? church : null, plain: documentBrand(null, false) },
 				mergeValues: insertableValues(found.sources),
 			});
 		});

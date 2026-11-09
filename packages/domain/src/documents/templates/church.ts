@@ -28,7 +28,7 @@ export type ChurchTemplate = {
 	title: string;
 	subject: string;
 	frame: Frame;
-	/** Doctrinal slots. The body holds one slot node for each, and editing never deletes it. */
+	/** Doctrinal slots. The body starts with one slot node for each, and editing can fill or delete it. */
 	slots: { id: string; label: string }[];
 	mergeFields: { key: string; label: string; required: boolean; autoFill: string | null }[];
 	/** The body with `{church_name}` and `{pastor_name}` tokens. */
