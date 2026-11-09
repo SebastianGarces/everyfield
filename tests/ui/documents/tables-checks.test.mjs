@@ -162,7 +162,10 @@ for (const [name, engine] of ENGINES) {
 				for (const field of await page.locator(".ef-vinput").all()) await field.click();
 				for (const box of await page.getByRole("checkbox").all()) await box.focus();
 				await t.settle();
-				await page.getByRole("status").filter({ hasText: /^Saved/ }).waitFor();
+				await page
+					.getByRole("status")
+					.filter({ hasText: /^Saved/ })
+					.waitFor();
 				assert.equal(await page.getByText("Unsaved changes").count(), 0, `${id}: no unsaved change`);
 				assert.deepEqual(await t.snap(), clean(base), `${id}: the stored form has no added key`);
 				await t.save();

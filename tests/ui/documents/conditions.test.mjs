@@ -182,12 +182,20 @@ function helpers(page, base, id) {
 	}
 	async function save() {
 		await button("Save").click();
-		await page.getByRole("status").filter({ hasText: /^Saved/ }).waitFor({ timeout: 60_000 });
+		await page
+			.getByRole("status")
+			.filter({ hasText: /^Saved/ })
+			.waitFor({ timeout: 60_000 });
 	}
 	/** The bytes for the saved revision. `download` is what Download gives: it saves one export of the revision, then
 	 * fetches that export's stored bytes (D-78). Else the file route the preview reads. */
 	async function file(format, { download = true } = {}) {
-		const revision = (await page.getByRole("status").filter({ hasText: /^Saved/ }).innerText()).match(/Revision (\d+)/)?.[1];
+		const revision = (
+			await page
+				.getByRole("status")
+				.filter({ hasText: /^Saved/ })
+				.innerText()
+		).match(/Revision (\d+)/)?.[1];
 		const { request } = page.context();
 		if (!download) {
 			const response = await request.get(`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}`);

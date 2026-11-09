@@ -223,7 +223,10 @@ for (const [name, engine] of ENGINES) {
 			await t.settle();
 			assert.deepEqual(await exportsOf(), ["pdf", "docx"]);
 			await t.save();
-			await page.getByRole("status").filter({ hasText: /^Saved/ }).waitFor();
+			await page
+				.getByRole("status")
+				.filter({ hasText: /^Saved/ })
+				.waitFor();
 			assert.equal(await excel.count(), 0, "Download Excel goes away after the save");
 			await t.undo();
 			await t.settle();

@@ -13,7 +13,10 @@ export const MOD = "ControlOrMeta";
 
 /** Clicks the Download button named `label`, as a person does, and returns the bytes of the file it saves. */
 export async function clickDownload(page, label) {
-	const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: label }).click()]);
+	const [download] = await Promise.all([
+		page.waitForEvent("download"),
+		page.getByRole("button", { name: label }).click(),
+	]);
 	return new Uint8Array(await readFile(await download.path()));
 }
 
@@ -165,7 +168,12 @@ function helpers(page, base) {
 	/** The id of the open document and the revision the page shows as saved. */
 	const where = async () => ({
 		id: page.url().split("/").pop(),
-		revision: (await page.getByRole("status").filter({ hasText: /^Saved/ }).innerText()).match(/Revision (\d+)/)?.[1],
+		revision: (
+			await page
+				.getByRole("status")
+				.filter({ hasText: /^Saved/ })
+				.innerText()
+		).match(/Revision (\d+)/)?.[1],
 	});
 	/** The bytes for the saved revision. `download` is what Download gives: it saves one export of the revision, then
 	 * fetches that export's stored bytes (D-78). Else the file route the preview reads. */
