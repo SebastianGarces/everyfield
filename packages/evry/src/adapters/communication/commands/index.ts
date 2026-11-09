@@ -128,7 +128,7 @@ const draftInput = z.strictObject({
 	body: z.string().trim().min(1).max(20_000).describe("Plain text. A blank line starts a new paragraph."),
 	audience: audienceInput,
 });
-const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
+export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	operation: "communication.saveDraft",
 	description:
 		"Propose saving a new email draft with its subject, audience and body. The draft is saved in Messages and nothing is sent. Nothing changes until the user approves the exact review.",
@@ -218,7 +218,7 @@ function scheduleReport(sent: Handoff, scheduledAt: string): MailReport {
 	};
 }
 
-const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
+export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	operation: "communication.scheduleReviewed",
 	description:
 		"Propose scheduling a saved draft for a send time in the church's time zone, within the next 30 days. The review lists who gets it, who is left out and why, and the exact content. Nothing is sent until the user approves.",
@@ -344,7 +344,7 @@ const checkedOnly = async (_tx: Transaction, _context: unknown, args: unknown): 
 	return { receiptId: saved.input.communicationId, revision: saved.expectedRevision };
 };
 
-const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
+export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	operation: "communication.rescheduleReviewed",
 	description:
 		"Propose moving a scheduled email to a new send time in the church's time zone, within the next 30 days. Recipients and content stay the same. The new time is shown only after the email service confirms it. Nothing changes until the user approves.",
@@ -406,7 +406,7 @@ async function cancelStep(
 	};
 }
 
-const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
+export const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 	operation: "communication.cancelScheduledReviewed",
 	description:
 		"Propose cancelling a scheduled email with the email service. The result says Cancelled only after the email service confirms. Nothing changes until the user approves.",
@@ -557,7 +557,7 @@ async function replaceStep(
 	};
 }
 
-const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
+export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	operation: "communication.replaceScheduledReviewed",
 	description:
 		"Propose replacing the body or the audience of a scheduled email. The old send is cancelled first; the new one is scheduled at the same time only after the email service confirms every cancel. Nothing changes until the user approves.",
