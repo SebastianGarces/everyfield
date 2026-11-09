@@ -91,9 +91,26 @@ export default function ChurchEditor({
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
+	// The image blocks read the brand-kit images through this one object, so the branding switch can change the images
+	// without a new editor: its content, cursor and undo history stay, and only the image views draw again (below).
+	const liveAssets = useRef(brand.assets);
+	const assets = useMemo<DocBrand["assets"]>(
+		() => ({
+			get logo() {
+				return liveAssets.current.logo;
+			},
+			get mark() {
+				return liveAssets.current.mark;
+			},
+			get photo() {
+				return liveAssets.current.photo;
+			},
+		}),
+		[],
+	);
 	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), brand.assets, stored), BlockShortcuts],
-		[stored, brand.assets],
+		() => [...editorExtensions(fieldValues(stored), assets, stored), BlockShortcuts],
+		[stored, assets],
 	);
 	const editor = useEditor({
 		extensions,
@@ -113,6 +130,13 @@ export default function ChurchEditor({
 			},
 		},
 	});
+
+	useEffect(() => {
+		if (liveAssets.current === brand.assets) return;
+		liveAssets.current = brand.assets;
+		// New node view functions make ProseMirror draw the image blocks again, now with the new brand's images.
+		if (editor && !editor.isDestroyed) editor.createNodeViews();
+	}, [editor, brand.assets]);
 
 	// "Unsaved changes" means the document differs from the last saved one, so Undo back to it reads "Saved" again.
 	// Tiptap can build the schema again after the first render; the saved document is read into the current schema
