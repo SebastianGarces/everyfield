@@ -234,7 +234,7 @@ export function SaveAsTemplateDialog({
 									<Radio
 										key={t.id}
 										value={t.id}
-										className="border-b border-line last:border-b-0"
+										className="shrink-0 border-b border-line last:border-b-0"
 										label={
 											<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
 												<span className="min-w-0 break-words">{t.title}</span>

@@ -325,10 +325,7 @@ test("AC:DOC-TEMPLATE-UPDATE-CONFLICT: an update from a version someone replaced
 		await button(stale, "Update to v4").waitFor();
 		await button(stale, "Cancel").click();
 		const again = await openUpdate(page);
-		await again
-			.getByRole("radio", { name: new RegExp(`^${UPDATED}`) })
-			.getByText("v3", { exact: true })
-			.waitFor();
+		await again.getByRole("radio", { name: new RegExp(`^${UPDATED}\\s*v3$`) }).waitFor();
 	});
 });
 
