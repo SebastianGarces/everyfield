@@ -277,9 +277,6 @@ test("AC:DOC-TEMPLATE-UPDATE: an edit saved first becomes the template's v2; a v
 		const card = mine.getByRole("listitem").filter({ hasText: UPDATED });
 		await card.getByText(DESCRIPTION).waitFor();
 		await card.getByText("v2 · Letter · PDF and Word", { exact: true }).waitFor();
-		await button(picker, "Close")
-			.click()
-			.catch(() => page.keyboard.press("Escape"));
 		state.v2Path = await fromPicker(page, UPDATED);
 		assert.match(await paperText(page), escaped(MARK2));
 		await page.getByText(`from ${UPDATED} v2`).waitFor();
