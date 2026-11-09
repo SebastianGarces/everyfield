@@ -1261,7 +1261,7 @@ test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its curs
 				assert.equal(await page.getByRole("button", { name: "Page setup" }).count(), 0);
 				assert.equal(await page.getByRole("button", { name: "Insert block" }).count(), 0);
 				assert.equal(await page.locator(".ef-paper").count(), 0);
-				assert.ok(await page.getByRole("link", { name: "Download PDF" }).isVisible());
+				assert.ok(await page.getByRole("button", { name: "Download PDF" }).isVisible());
 			},
 			undefined,
 			"member",

@@ -625,7 +625,7 @@ test("AC:DOC-EDIT-MEMBER: a Member sees the preview and the downloads, and no ed
 		for (const name of ["Save", "Preview", "Delete all content", "Undo", "Bold"])
 			assert.equal(await page.getByRole("button", { name, exact: true }).count(), 0, `no ${name} control`);
 		assert.equal(await page.getByRole("toolbar").count(), 0, "no toolbar");
-		assert.ok(await page.getByRole("link", { name: "Download PDF" }).isVisible(), "the downloads stay");
+		assert.ok(await page.getByRole("button", { name: "Download PDF" }).isVisible(), "the downloads stay");
 	});
 });
 
