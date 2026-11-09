@@ -354,6 +354,8 @@ const generatedWriter = {
 	listExports: churchWriter.listExports,
 	readExportFile: churchWriter.readExportFile,
 	deleteExport: churchWriter.deleteExport,
+	readTemplateCompare: churchWriter.readTemplateCompare,
+	acceptTemplateChanges: churchWriter.acceptTemplateChanges,
 
 	async readCoreValuesEvidence(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {

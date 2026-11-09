@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { correlationId, recordId, tenantId } from "../common/values.ts";
-import { docDocument } from "./format/index.ts";
+import { docDocument, type DocDifference } from "./format/index.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
@@ -258,6 +258,29 @@ export const savedExport = z.strictObject({
 export const savedExportList = z.strictObject({ documentId: recordId, exports: z.array(savedExport).max(100) });
 export const deletedExport = z.strictObject({ exportId: recordId, deleted: z.literal(true) });
 export type SavedExport = z.infer<typeof savedExport>;
+/**
+ * A Church Document beside the current version of its template: every difference in reading order, and the text each
+ * merge field prints on both sides (the document's frozen values, then what an accepted new field would print).
+ * `behind` is true when the template hash the document records is not the current template's.
+ */
+export const churchCompare = z.strictObject({
+	documentId: recordId,
+	revision: revisionToken,
+	templateTitle: z.string().min(1).max(200),
+	templateVersion: z.int().min(1),
+	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	behind: z.boolean(),
+	values: z.record(z.string(), z.string()),
+	differences: z
+		.array(
+			z.custom<DocDifference>(
+				(v) => !!v && typeof v === "object" && "id" in v && "part" in v && "kind" in v,
+				"a difference",
+			),
+		)
+		.max(10_000),
+});
+export type ChurchCompare = z.infer<typeof churchCompare>;
 export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });
 export type ChurchSummary = z.infer<typeof churchSummary>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });

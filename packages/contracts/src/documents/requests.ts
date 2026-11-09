@@ -88,6 +88,18 @@ export const churchFileRequest = z.strictObject({
 export const listExportsRequest = z.strictObject({ documentId: recordId });
 /** One saved export of one Church Document: its stored bytes for a download, or its deletion. */
 export const exportRequest = z.strictObject({ documentId: recordId, exportId: recordId });
+/** Compare a Church Document's current revision with the current version of its template. */
+export const churchCompareRequest = z.strictObject({ documentId: recordId });
+/**
+ * Accept differences from the current template as the next revision. The ids are the compare's numbers, which hold for
+ * the expected revision and the template hash the compare named; a newer revision or template is a conflict.
+ */
+export const acceptTemplateRequest = z.strictObject({
+	documentId: recordId,
+	expectedRevision: revisionToken,
+	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	accept: z.union([z.literal("all"), z.array(z.int().min(0).max(100_000)).min(1).max(10_000)]),
+});
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
 export const archiveDocumentRequest = z.strictObject({

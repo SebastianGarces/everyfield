@@ -11,7 +11,7 @@ import { ChurchPdf } from "./ChurchPdf.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
-import type { ChurchView, ExportResult } from "./server.ts";
+import type { ChurchView, ExportResult, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads and the saved exports. A download saves one export of
 // the shown revision, then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
@@ -47,11 +47,20 @@ export function ChurchDocumentScreen({
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: { document: DocDocument; brands: DocBrands } | null;
+	editable: { document: DocDocument; brands: DocBrands; template: TemplateState } | null;
 	canManage: boolean;
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
 	const [revision, setRevision] = useState(doc.revision);
+	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
+	const [current, setCurrent] = useState(() => ({
+		document: editable?.document ?? null,
+		revision: doc.revision,
+		template: editable?.template ?? null,
+		epoch: 0,
+		accepted: null as string | null,
+	}));
+	const templateVersion = current.document?.origin?.version ?? doc.templateVersion;
 	// The branding switch makes no revision, so the preview's address also names the look: a change loads it again.
 	// The file route reads the stored value; `look` only keys the preview.
 	const [branded, setBranded] = useState(doc.useChurchBranding);
@@ -113,7 +122,7 @@ export function ChurchDocumentScreen({
 				subtitle={
 					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<span>
-							from {doc.templateId} v{doc.templateVersion}
+							from {doc.templateId} v{templateVersion}
 						</span>
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {revision}</span>
@@ -170,15 +179,29 @@ export function ChurchDocumentScreen({
 				access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
 				className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
 			/>
-			{editable && brand ? (
+			{editable && brand && current.document ? (
 				<ChurchEditor
+					key={current.epoch}
 					docId={doc.id}
 					title={doc.title}
-					document={editable.document}
+					document={current.document}
 					brand={brand}
-					revision={doc.revision}
+					revision={current.revision}
 					onRevision={setRevision}
 					previewSrc={(at) => file("pdf", at)}
+					template={current.template}
+					accepted={current.accepted}
+					onAccepted={(document, next, taken) => {
+						setRevision(next);
+						setCurrent((now) => ({
+							document,
+							revision: next,
+							template: "current",
+							epoch: now.epoch + 1,
+							accepted:
+								taken === 1 ? "Accepted 1 change from the template." : `Accepted ${taken} changes from the template.`,
+						}));
+					}}
 				/>
 			) : (
 				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">

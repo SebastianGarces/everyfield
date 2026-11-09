@@ -10,7 +10,13 @@ import {
 } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
-import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
+import {
+	documentsWriter,
+	docTemplateSummaries,
+	sheetOf,
+	templateStatus,
+	type DocTemplateSummary,
+} from "@everyfield/domain/documents";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
@@ -31,6 +37,8 @@ export type ChurchView = {
 	/** The sheet the preview shows (not one card) and its cards per sheet. */
 	page: { width: number; height: number; perSheet: number };
 };
+/** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
+export type TemplateState = Awaited<ReturnType<typeof templateStatus>>;
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -60,7 +68,15 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brands: DocBrands | null; exports: SavedExport[] }>> {
+): Promise<
+	Load<{
+		view: ChurchView;
+		document: DocDocument;
+		brands: DocBrands | null;
+		template: TemplateState;
+		exports: SavedExport[];
+	}>
+> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
@@ -76,6 +92,8 @@ export async function loadChurchDocument(
 		]);
 		if (reply.status !== "ok" || saved.status !== "ok") return { status: "refused" };
 		const d = reply.value;
+		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
+		const template = d.brands ? await templateStatus(d.body) : null;
 		return {
 			status: "ok",
 			value: {
@@ -93,6 +111,7 @@ export async function loadChurchDocument(
 				document: d.body,
 				brands: d.brands,
 				exports: saved.value.exports,
+				template,
 			},
 		};
 	} catch (error) {
