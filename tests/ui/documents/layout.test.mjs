@@ -933,10 +933,7 @@ test("AC:DOC-LAYOUT-FILES: one document with everything of this slice, in its PD
 		}
 
 		await t.test("the preview is the PDF Download gives", async () => {
-			assert.equal(
-				sha(await file(page, id, "pdf", revision)),
-				sha(await downloaded(page, id, "pdf", revision)),
-			);
+			assert.equal(sha(await file(page, id, "pdf", revision)), sha(await downloaded(page, id, "pdf", revision)));
 		});
 		await t.test("the PDF: size, columns, box, bar, fields, images, header, footer and page numbers", async () => {
 			const doc = await PDFDocument.load(pdf);
@@ -1093,11 +1090,7 @@ test("AC:DOC-LAYOUT-CARDS: 4 cards per sheet with cut marks, in the editor, the 
 				await page.getByRole("region", { name: "Preview" }).waitFor();
 				const marked = await file(page, id, "pdf", on);
 				const plain = await file(page, id, "pdf", off);
-				assert.equal(
-					sha(marked),
-					sha(await downloaded(page, id, "pdf", on)),
-					"preview bytes equal Download bytes",
-				);
+				assert.equal(sha(marked), sha(await downloaded(page, id, "pdf", on)), "preview bytes equal Download bytes");
 				const [a, b] = [await pdfPage(marked), await pdfPage(plain)];
 				assert.equal(a.pages, 1, "one sheet");
 				assert.equal(a.items.filter((i) => i.text.includes("My commitment")).length, 4, "4 copies of the card");
