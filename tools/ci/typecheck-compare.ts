@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { availableParallelism, cpus, loadavg, platform, release, totalmem } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -7,7 +7,7 @@ import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./
 
 /**
  * Time tsc, tsgo and bun check on each typecheck package (T-53).
- * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]... [--out table.md] [--json data.json]`
+ * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
  * Each run records the 1-minute load average before it starts, wall time, CPU time (user + system, children
  * included) and peak resident memory, from /usr/bin/time. tsc and tsgo run with --incremental false, so every run
  * is a full check, as on a fresh checkout or in GitHub CI.
@@ -170,8 +170,6 @@ if (import.meta.main) {
 		options: {
 			runs: { type: "string", default: "3" },
 			package: { type: "string", multiple: true },
-			out: { type: "string" },
-			json: { type: "string" },
 		},
 	});
 	const root = resolve(import.meta.dirname, "../..");
@@ -181,8 +179,6 @@ if (import.meta.main) {
 				.filter((p) => p.scripts["typecheck:bun"])
 				.map((p) => p.dir);
 	const { rows, markdown } = await compare(root, packages, Number(values.runs));
-	if (values.out) writeFileSync(values.out, markdown);
-	if (values.json) writeFileSync(values.json, JSON.stringify(rows, null, 2) + "\n");
 	process.stdout.write(markdown);
 	if (rows.some((r) => r.outcome !== "pass" && r.outcome !== "errors")) process.exitCode = 1;
 }

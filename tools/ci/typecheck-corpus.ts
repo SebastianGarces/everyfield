@@ -15,7 +15,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { parseArgs } from "node:util";
 import {
 	diagnosticKey,
 	diffDiagnostics,
@@ -28,7 +27,7 @@ import {
 
 /**
  * Seeded type errors for comparing tsc with bun check (T-53).
- * `node tools/ci/typecheck-corpus.ts [--out report.md] [--json report.json] [--keep]`
+ * `node tools/ci/typecheck-corpus.ts`
  * Every case runs in a temporary copy of the workspace, never in tracked source. Each case is applied alone and
  * bun check must exit non-zero in every package it names. Then all cases are applied together and tsc and bun check
  * must report the same file, line and code in each package.
@@ -476,7 +475,7 @@ export type CorpusReport = {
 	ok: boolean;
 };
 
-export async function runCorpus(root: string, keep = false): Promise<CorpusReport & { copy: string }> {
+export async function runCorpus(root: string): Promise<CorpusReport> {
 	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:bun"]);
 	const dirs = packages.map((p) => p.dir);
 	const bunScript = (dir: string) => packages.find((p) => p.dir === dir)!.scripts["typecheck:bun"];
@@ -543,9 +542,9 @@ export async function runCorpus(root: string, keep = false): Promise<CorpusRepor
 			Object.values(baseline).every((b) => b.tsc === 0 && b.bun === 0) &&
 			cases.every((c) => c.packages.every((p) => p.nonZero && p.expectedFound)) &&
 			Object.values(combined).every((r) => r.differences.length === 0 && r.missingExpected.length === 0);
-		return { cases, baseline, combined, ok, copy };
+		return { cases, baseline, combined, ok };
 	} finally {
-		if (!keep) rmSync(copy, { recursive: true, force: true });
+		rmSync(copy, { recursive: true, force: true });
 	}
 }
 
@@ -591,15 +590,7 @@ export function markdown(report: CorpusReport): string {
 }
 
 if (import.meta.main) {
-	const { values } = parseArgs({
-		options: { out: { type: "string" }, json: { type: "string" }, keep: { type: "boolean" } },
-	});
-	const root = resolve(import.meta.dirname, "../..");
-	const report = await runCorpus(root, values.keep);
-	const md = markdown(report);
-	if (values.out) writeFileSync(values.out, md);
-	if (values.json) writeFileSync(values.json, JSON.stringify(report, null, 2) + "\n");
-	process.stdout.write(md);
-	if (values.keep) console.error(`kept the copy at ${report.copy}`);
+	const report = await runCorpus(resolve(import.meta.dirname, "../.."));
+	process.stdout.write(markdown(report));
 	process.exitCode = report.ok ? 0 : 1;
 }

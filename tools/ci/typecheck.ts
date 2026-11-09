@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, globSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 /**
  * `pnpm typecheck`: tsc in every package, as before, and `bun check` beside it as a shadow (T-53).
@@ -234,7 +234,7 @@ async function shadow(root: string, tscOutput: string, tscExit: number, tscWallM
 	};
 }
 
-function record(root: string, result: ShadowResult): void {
+function record(result: ShadowResult): void {
 	const line = `typecheck-shadow ${JSON.stringify(result)}`;
 	console.log(line);
 	const verdict =
@@ -249,10 +249,6 @@ function record(root: string, result: ShadowResult): void {
 	);
 	if (result.ci) return;
 	const log = shadowLogPath();
-	if (!relative(root, log).startsWith("..")) {
-		console.error(`typecheck-shadow: not logging to ${log}, which is inside the repository.`);
-		return;
-	}
 	try {
 		mkdirSync(dirname(log), { recursive: true });
 		appendFileSync(log, `${JSON.stringify(result)}\n`);
@@ -300,7 +296,7 @@ export async function typecheck(root: string): Promise<number> {
 		};
 	}
 	try {
-		record(root, result);
+		record(result);
 	} catch (error) {
 		console.error(`typecheck-shadow: could not record the result: ${String(error)}`);
 	}
