@@ -28,13 +28,11 @@ const DESCRIPTION_MAX = 500;
 export type TemplateDetails = Pick<ChurchTemplateSummary, "title" | "description">;
 
 export function EditTemplateDialog({
-	open,
 	onOpenChange,
 	templateId,
 	details,
 	onSaved,
 }: {
-	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** The church template's record id. */
 	templateId: string;
@@ -78,7 +76,7 @@ export function EditTemplateDialog({
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={change}>
+		<Dialog open onOpenChange={change}>
 			<DialogContent size="md">
 				<DialogHeader
 					title="Edit template"

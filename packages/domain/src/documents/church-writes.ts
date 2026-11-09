@@ -1269,7 +1269,7 @@ export const churchWriter = {
 			const scope = adminScope(authority);
 			const description = input.description || null;
 			const requestHash = hashOf(JSON.stringify([input.templateId, input.name, description ?? ""]));
-			let found: (TemplateRow & { ok: boolean; found: string | null; prior_hash: string | null })[];
+			let found: (Omit<TemplateRow, "id"> & { ok: boolean; id: string | null; prior_hash: string | null })[];
 			try {
 				found = await rowsOf(
 					db,
@@ -1306,7 +1306,7 @@ export const churchWriter = {
 						FROM upd
 						RETURNING id
 					)
-					SELECT (SELECT ok FROM gate) AS ok, cur.id AS found, (SELECT hash FROM prior) AS prior_hash, cur.id,
+					SELECT (SELECT ok FROM gate) AS ok, (SELECT hash FROM prior) AS prior_hash, cur.id,
 						cur.title, cur.description, r.body, s.document_id AS source_document_id, s.id AS source_revision_id,
 						s.version_number AS source_revision, (SELECT count(*) FROM aud) AS audited
 					FROM (SELECT 1) one
@@ -1317,15 +1317,17 @@ export const churchWriter = {
 			} catch (error) {
 				// The same request key with other values, raced: the winner's audit row holds the key.
 				if (postgresCode(error) !== "23505") throw error;
-				return sameEdit(db, scope, input.requestKey, requestHash);
+				return sameTemplate(db, scope, input.requestKey, requestHash, "documents.template_details_changed");
 			}
 			const row = found[0];
 			if (!row?.ok) deny("access_denied");
 			if (row.prior_hash !== null && row.prior_hash !== requestHash) deny("conflict");
-			if (!row.found) deny("unavailable");
+			if (!row.id) deny("unavailable");
 			// A first request leaves the row at what it asked for; a resend answers with the row as it stands now.
 			const now = row.prior_hash === null ? { title: input.name, description } : row;
-			return templateSummary({ ...row, title: now.title, description: now.description }) ?? deny("render_failed");
+			return (
+				templateSummary({ ...row, id: row.id, title: now.title, description: now.description }) ?? deny("render_failed")
+			);
 		});
 	},
 
@@ -1584,8 +1586,17 @@ async function renderRevision(
 	}
 }
 
-/** The template one request key made, when the same request made it; another request on that key is a conflict. */
-async function sameTemplate(db: Database, scope: Scope, requestKey: string, requestHash: string) {
+/**
+ * The template one request key saved or edited, when the same request did it; another request on that key is a
+ * conflict.
+ */
+async function sameTemplate(
+	db: Database,
+	scope: Scope,
+	requestKey: string,
+	requestHash: string,
+	action: "documents.template_saved" | "documents.template_details_changed" = "documents.template_saved",
+) {
 	const found = await rowsOf<TemplateRow & { hash: string | null }>(
 		db,
 		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, t.description, r.body, r.recorded_at AS created_at,
@@ -1594,7 +1605,7 @@ async function sameTemplate(db: Database, scope: Scope, requestKey: string, requ
 		JOIN document t ON t.id = a.subject_id AND t.tenant_id = a.tenant_id AND t.kind = 'church_template'
 		JOIN document_revision r ON r.id = t.current_revision_id AND r.tenant_id = t.tenant_id
 		JOIN document_revision s ON s.id = t.copied_from_revision_id AND s.tenant_id = t.tenant_id
-		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey} AND a.action = 'documents.template_saved'
+		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey} AND a.action = ${action}
 			AND ${gateSql(scope, true)}`,
 	);
 	const row = found[0];
@@ -1614,24 +1625,6 @@ async function sameUpdate(db: Database, scope: Scope, requestKey: string, reques
 		JOIN document_revision s ON s.id = (a.after_value->>'sourceRevisionId')::uuid AND s.tenant_id = a.tenant_id
 		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey} AND a.action = 'documents.template_updated'
 			AND ${gateSql(scope, true)}`,
-	);
-	const row = found[0];
-	if (!row || row.hash !== requestHash) deny("conflict");
-	return templateSummary(row) ?? deny("conflict");
-}
-
-/** The template one edit's request key changed, when the same request changed it; another request on it is a conflict. */
-async function sameEdit(db: Database, scope: Scope, requestKey: string, requestHash: string) {
-	const found = await rowsOf<TemplateRow & { hash: string | null }>(
-		db,
-		sql`SELECT a.after_value->>'hash' AS hash, t.id, t.title, t.description, r.body,
-			s.document_id AS source_document_id, s.id AS source_revision_id, s.version_number AS source_revision
-		FROM audit_event a
-		JOIN document t ON t.id = a.subject_id AND t.tenant_id = a.tenant_id AND t.kind = 'church_template'
-		JOIN document_revision r ON r.id = t.current_revision_id AND r.tenant_id = t.tenant_id
-		JOIN document_revision s ON s.id = t.copied_from_revision_id AND s.tenant_id = t.tenant_id
-		WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${requestKey}
-			AND a.action = 'documents.template_details_changed' AND ${gateSql(scope, true)}`,
 	);
 	const row = found[0];
 	if (!row || row.hash !== requestHash) deny("conflict");

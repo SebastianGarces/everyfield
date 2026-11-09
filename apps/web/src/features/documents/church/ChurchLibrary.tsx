@@ -371,7 +371,6 @@ function TemplateCard({
 							{/* Mounted only while open, so each opening starts from what the card shows and with new request keys. */}
 							{editing ? (
 								<EditTemplateDialog
-									open
 									onOpenChange={setEditing}
 									templateId={t.recordId}
 									details={{ title: t.title, description: t.description }}
