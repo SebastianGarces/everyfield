@@ -1,6 +1,6 @@
 "use client";
 
-import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
+import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import type { DocBrands, DocDocument, SavedExport } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
@@ -10,6 +10,7 @@ import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
+import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL, type FORMAT_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
@@ -52,7 +53,12 @@ export function ChurchDocumentScreen({
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: { document: DocDocument; brands: DocBrands; template: TemplateState } | null;
+	editable: {
+		document: DocDocument;
+		brands: DocBrands;
+		template: TemplateState;
+		mergeValues: Record<string, string>;
+	} | null;
 	canManage: boolean;
 	/** The viewer's own name, for the row their save adds; the server reads the same name for that revision. */
 	viewerName: string | null;
@@ -60,6 +66,7 @@ export function ChurchDocumentScreen({
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
 	const [revisions, setRevisions] = useState(firstRevisions);
+	const [history, setHistory] = useState(false);
 	const setRevision = (next: string) => {
 		setShownRevision(next);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
@@ -204,9 +211,11 @@ export function ChurchDocumentScreen({
 					title={doc.title}
 					document={current.document}
 					brand={brand}
+					mergeValues={editable.mergeValues}
 					revision={current.revision}
 					onRevision={setRevision}
-					previewSrc={(at) => file("pdf", at)}
+					revisions={revisions}
+					file={file}
 					template={current.template}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
@@ -222,9 +231,25 @@ export function ChurchDocumentScreen({
 					}}
 				/>
 			) : (
-				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
-					<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />
-				</section>
+				<div className="flex flex-col gap-3">
+					<div className="flex justify-end">
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={history ? ViewIcon : Clock01Icon}
+							onClick={() => setHistory((open) => !open)}
+						>
+							{history ? "Back to the document" : "Version history"}
+						</Button>
+					</div>
+					{history ? (
+						<VersionHistory revisions={revisions} title={doc.title} current={revision} file={file} page={doc.page} />
+					) : (
+						<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
+							<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />
+						</section>
+					)}
+				</div>
 			)}
 			<ChurchRevisions
 				revisions={revisions}

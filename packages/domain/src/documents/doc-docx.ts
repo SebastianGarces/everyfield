@@ -9,7 +9,8 @@ import type {
 	TableNode,
 } from "@everyfield/contracts/documents";
 import { attrsOf, computeTable, pageBox, tileBox } from "@everyfield/contracts/documents";
-import { fieldValues, listValues } from "./doc-values.ts";
+import { textOn } from "./contrast.ts";
+import { fieldValues, listValues, PLACEHOLDER_FILL, placeholderParts } from "./doc-values.ts";
 import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
 import { formatNumber } from "./layouts/doc.tsx";
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
@@ -80,12 +81,23 @@ function rel(part: Part, type: string, target: string, external = false) {
 	return id;
 }
 
+/** Text as runs, each bracketed placeholder ([date], [number]) a run shaded with the placeholder fill, as in the PDF. */
+function marked(w: W, text: string, o: RunStyle) {
+	return placeholderParts(text)
+		.map((part) =>
+			part.placeholder
+				? run(part.text, { ...o, shade: PLACEHOLDER_FILL, color: textOn(PLACEHOLDER_FILL, w.p.ink) })
+				: run(part.text, o),
+		)
+		.join("");
+}
+
 /** Inline nodes as runs. Marks map to Word run properties; a link is a w:hyperlink; a tag is a shaded caps run. */
 function runs(w: W, content: readonly InlineNode[] | undefined, base: RunStyle): string {
 	return (content ?? [])
 		.map((node) => {
 			if (node.type === "hardBreak") return `<w:r>${rpr(base)}<w:br/></w:r>`;
-			if (node.type === "field") return run(w.values[node.attrs.key] ?? "", base);
+			if (node.type === "field") return marked(w, w.values[node.attrs.key] ?? "", base);
 			if (node.type === "pageNumber") {
 				const format = attrsOf(node).format;
 				return `${run("Page ", base)}${fieldRun("PAGE", base)}${format === "page-of-total" ? `${run(" of ", base)}${fieldRun("NUMPAGES", base)}` : ""}`;
@@ -109,9 +121,10 @@ function runs(w: W, content: readonly InlineNode[] | undefined, base: RunStyle):
 					o.color = w.p.onAccent;
 				}
 			}
-			const text = node.marks?.some((m) => m.type === "tag") ? ` ${node.text} ` : node.text;
-			if (!href) return run(text, o);
-			return `<w:hyperlink r:id="${rel(w.part, "hyperlink", href, true)}">${run(text, o)}</w:hyperlink>`;
+			const tagged = node.marks?.some((m) => m.type === "tag");
+			const inner = tagged ? run(` ${node.text} `, o) : marked(w, node.text, o);
+			if (!href) return inner;
+			return `<w:hyperlink r:id="${rel(w.part, "hyperlink", href, true)}">${inner}</w:hyperlink>`;
 		})
 		.join("");
 }

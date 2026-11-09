@@ -51,11 +51,11 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	if (loaded.status === "refused") return <Missing />;
 	// The stored document goes to the browser only for an Owner or Admin, who can edit it. A Member gets the preview.
 	const canManage = canManageChurch(authority);
-	const { brands, template } = loaded.value;
+	const { brands, template, mergeValues } = loaded.value;
 	return (
 		<ChurchDocumentScreen
 			doc={loaded.value.view}
-			editable={canManage && brands ? { document: loaded.value.document, brands, template } : null}
+			editable={canManage && brands ? { document: loaded.value.document, brands, template, mergeValues } : null}
 			canManage={canManage}
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}

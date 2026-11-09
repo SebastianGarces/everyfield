@@ -158,3 +158,20 @@ function nameTable(font: Buffer): Record<number, string> {
 	}
 	return out;
 }
+
+/** The decoded content-stream operators of every page of a PDF, as text, with the ExtGState dictionaries they name. */
+export async function pdfOperators(bytes: Uint8Array): Promise<string> {
+	const { PDFDocument, PDFArray, PDFRawStream, decodePDFRawStream } =
+		await import("../../../../packages/domain/node_modules/pdf-lib/cjs/index.js");
+	const doc = await PDFDocument.load(bytes);
+	const out: string[] = [];
+	for (const page of doc.getPages()) {
+		const contents = page.node.Contents();
+		if (!contents) continue;
+		const streams = contents instanceof PDFArray ? contents.asArray().map((s) => doc.context.lookup(s)) : [contents];
+		for (const s of streams)
+			out.push(s instanceof PDFRawStream ? Buffer.from(decodePDFRawStream(s).decode()).toString("latin1") : String(s));
+		out.push(String(page.node.Resources() ?? ""));
+	}
+	return out.join("\n");
+}

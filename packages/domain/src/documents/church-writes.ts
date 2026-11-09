@@ -6,11 +6,11 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
-import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
+import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
 import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById, sheetOf } from "./doc-templates.ts";
-import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
+import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -122,14 +122,24 @@ function followedVersion(
 
 /**
  * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
- * statement: the kit joins the same read.
+ * statement: the kit joins the same read. With `withSources`, it also reads the plant's name and senior pastor, the values
+ * the editor's merge fields offer.
  */
-async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
-	const found = await rowsOf<ChurchRow & { ok: boolean; kit: Record<string, unknown> | null }>(
+async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false, withSources = false) {
+	const found = await rowsOf<
+		ChurchRow & {
+			ok: boolean;
+			kit: Record<string, unknown> | null;
+			church_name: string | null;
+			pastor_name: string | null;
+		}
+	>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
-			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name
+			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name,
+			${withSources ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
+			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
@@ -153,7 +163,16 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
 	});
-	return { doc, kit: row.kit ? dataFromRow(row.kit) : null };
+	const kit = row.kit ? dataFromRow(row.kit) : null;
+	const sources: MergeSources = {
+		churchName: row.church_name ?? "",
+		pastorName: row.pastor_name,
+		tagline: kit?.tagline ?? null,
+		legalName: kit?.legalName ?? null,
+		contactLine: contactLine(kit),
+		meetingDate: null,
+	};
+	return { doc, kit, sources };
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
@@ -910,12 +929,13 @@ export const churchWriter = {
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
 			if (!found) return deny("unavailable");
 			const church = documentBrand(found.kit, true);
 			return c.churchDocumentView.parse({
 				...found.doc,
 				brands: { church: church.palette.themed ? church : null, plain: documentBrand(null, false) },
+				mergeValues: insertableValues(found.sources),
 			});
 		});
 	},
