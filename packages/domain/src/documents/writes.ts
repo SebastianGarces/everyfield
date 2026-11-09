@@ -447,15 +447,16 @@ const generatedWriter = {
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const bytes = decodeImport(input.bytes);
-			let text: string;
+			let read: c.DocNode;
 			try {
-				text = readImport(bytes, input.format);
+				read = readImport(bytes, input.format);
 			} catch (error) {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
 			}
-			// The imported text lands as paragraphs, one for each line, and saves as a native body.
-			const parsed = c.nativeBody.safeParse(c.nativeFromText(text));
+			// Text lands as one paragraph for each line, a Word file with its headings, lists and links. Either passes the
+			// same native body rules as any save before anything is written.
+			const parsed = c.nativeBody.safeParse(read);
 			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
 			const body = JSON.stringify(parsed.data);
 			const hash = hashOf(body);

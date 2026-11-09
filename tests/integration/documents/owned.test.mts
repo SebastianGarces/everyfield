@@ -9,7 +9,7 @@ import { nativeFromText, nativeText, readNative } from "../../../packages/contra
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { crc32 } from "node:zlib";
+import * as W from "./fixtures/word.mts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -113,23 +113,7 @@ const endSeat = (accountId) =>
 const restoreSeat = (accountId) =>
 	admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${accountId}::uuid`);
 
-function storedZip(entries) {
-	const parts = [];
-	for (const entry of entries) {
-		const name = Buffer.from(entry.name);
-		const data = Buffer.from(entry.data);
-		const local = Buffer.alloc(30);
-		local.writeUInt32LE(0x04034b50, 0);
-		local.writeUInt16LE(20, 4);
-		local.writeUInt16LE(0, 8);
-		local.writeUInt32LE(crc32(data) >>> 0, 14);
-		local.writeUInt32LE(data.length, 18);
-		local.writeUInt32LE(data.length, 22);
-		local.writeUInt16LE(name.length, 26);
-		parts.push(local, name, data);
-	}
-	return Buffer.concat(parts);
-}
+const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
 const docx = (text, extra = []) =>
@@ -1146,5 +1130,292 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		);
 		await restoreSeat(actors[2].id);
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: first.id })).body, body);
+	});
+
+	test("AC:CASE-DOC-016 T-99 a Word file keeps its headings, lists and links as native nodes", async () => {
+		const owner = await authority(2);
+		const member = await authority(1);
+		const text = (value, href) => ({
+			type: "text",
+			text: value,
+			...(href ? { marks: [{ type: "link", attrs: { href } }] } : {}),
+		});
+		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
+		const heading = (level, ...content) => ({ type: "heading", attrs: { level }, content });
+		const items = (...texts) => texts.map((value) => ({ type: "listItem", content: [para(text(value))] }));
+		const bullets = (...texts) => ({ type: "bulletList", content: items(...texts) });
+		const ordered = (...texts) => ({ type: "orderedList", content: items(...texts) });
+		const importWord = async (bytes, requestKey = randomUUID()) =>
+			documentsWriter.importTextOrWord(
+				db,
+				owner,
+				{ title: "From Word", format: "docx", bytes, expectedRevision: "0", requestKey },
+				storage,
+			);
+		const stored = async (result) => {
+			const value = ok(result);
+			const body = JSON.parse((await currentOf(value.id)).body);
+			assert.deepEqual(value.body, body);
+			return body;
+		};
+
+		// Criterion 1: headings by style name (any style id, or a style based on one) or by outline level.
+		const headingStyles = W.styles(
+			W.style("Normal", "Normal"),
+			W.style("Heading1", "heading 1"),
+			W.style("berschrift2", "heading 2", '<w:basedOn w:val="Normal"/>'),
+			W.style("Heading3", "heading 3"),
+			W.style("Kapitel", "Kapitel", '<w:basedOn w:val="Heading3"/>'),
+			W.style("Heading4", "heading 4"),
+			W.style("Heading9", "heading 9"),
+			W.style("Chapter", "Chapter", '<w:pPr><w:outlineLvl w:val="1"/></w:pPr>'),
+			W.style("Loop", "Loop", '<w:basedOn w:val="Loop"/>'),
+		);
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.word(
+						W.styled("Heading1", "Our values") +
+							W.styled("berschrift2", "Gemeinde") +
+							W.styled("Kapitel", "Based on heading 3") +
+							W.styled("Heading4", "Four") +
+							W.styled("Heading9", "Nine") +
+							W.styled("Chapter", "Outline two") +
+							W.p("Outline one", '<w:outlineLvl w:val="0"/>') +
+							W.styled("Heading1", ["Line one", W.br, "line two"]) +
+							W.styled("Normal", "Body text") +
+							W.styled("Loop", "Cyclic style") +
+							W.styled("Missing", "Unknown style"),
+						{ styles: headingStyles },
+					),
+				),
+			),
+			{
+				type: "doc",
+				content: [
+					heading(1, text("Our values")),
+					heading(2, text("Gemeinde")),
+					heading(3, text("Based on heading 3")),
+					heading(3, text("Four")),
+					heading(3, text("Nine")),
+					heading(2, text("Outline two")),
+					heading(1, text("Outline one")),
+					heading(1, text("Line one"), { type: "hardBreak" }, text("line two")),
+					para(text("Body text")),
+					para(text("Cyclic style")),
+					para(text("Unknown style")),
+				],
+			},
+		);
+
+		// Criteria 2 to 4: bulleted and numbered runs, the breaks between lists, nested levels and a list item's line break.
+		const listParts = {
+			styles: W.styles(
+				W.style("ListBullet", "List Bullet", '<w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr>'),
+				W.style("Heading1", "heading 1"),
+			),
+			numbering: W.numbering(
+				["1", ["bullet", "bullet"]],
+				["2", ["decimal", "lowerLetter"]],
+				["3", ["bullet"]],
+				["4", ["lowerRoman"]],
+				["5", ["upperLetter"]],
+			),
+		};
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.word(
+						W.styled("ListBullet", "Bread") +
+							W.numbered("1", "Cups") +
+							W.numbered("1", "Nested cup", 1) +
+							W.numbered("2", "First") +
+							W.numbered("2", "Sub a", 1) +
+							W.numbered("2", "Second") +
+							W.numbered("4", "Roman i") +
+							W.p("Between") +
+							W.numbered("4", "Roman ii") +
+							W.numbered("3", "Other bullets") +
+							W.numbered("5", "Letter A") +
+							W.p() +
+							W.numbered("3", ["Two", W.br, "lines"]) +
+							W.p("Not a list", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>') +
+							W.p("Unknown list", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="77"/></w:numPr>'),
+						listParts,
+					),
+				),
+			),
+			{
+				type: "doc",
+				content: [
+					bullets("Bread", "Cups", "Nested cup"),
+					ordered("First", "Sub a", "Second"),
+					ordered("Roman i"),
+					para(text("Between")),
+					ordered("Roman ii"),
+					bullets("Other bullets"),
+					ordered("Letter A"),
+					para(),
+					{
+						type: "bulletList",
+						content: [{ type: "listItem", content: [para(text("Two"), { type: "hardBreak" }, text("lines"))] }],
+					},
+					para(text("Not a list")),
+					para(text("Unknown list")),
+				],
+			},
+		);
+		const many = Array.from({ length: 250 }, (_, i) => `Step ${i + 1}`);
+		assert.deepEqual(
+			await stored(await importWord(W.word(many.map((step) => W.numbered("2", step)).join(""), listParts))),
+			{ type: "doc", content: [ordered(...many.slice(0, 200)), ordered(...many.slice(200))] },
+		);
+
+		// Criterion 5: links to safe addresses keep their exact address; every other target stays plain text.
+		const linkRels = W.rels(
+			["rId1", "https://example.org/give?fund=1&amp;week=2"],
+			["rId2", "mailto:team@example.org"],
+			["rId3", "javascript:alert(1)"],
+			["rId4", "notes/other.docx", false],
+			["rId5", "relative/page.html"],
+			["rId6", "http://example.org/plain"],
+		);
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.word(
+						W.p(["Give ", W.link("rId1", "online"), " or ", W.link("rId2", "email us")]) +
+							W.p([
+								W.link("rId3", "script "),
+								'<w:hyperlink w:anchor="top"><w:r><w:t>anchor </w:t></w:r></w:hyperlink>',
+								W.link("rId4", "relative "),
+								W.link("rId5", "external relative "),
+								W.link("rId404", "missing"),
+							]) +
+							W.p([W.link("rId6", "first"), W.link("rId6", " same")]),
+						{ rels: linkRels },
+					),
+				),
+			),
+			{
+				type: "doc",
+				content: [
+					para(
+						text("Give "),
+						text("online", "https://example.org/give?fund=1&week=2"),
+						text(" or "),
+						text("email us", "mailto:team@example.org"),
+					),
+					para(text("script anchor relative external relative missing")),
+					para(text("first same", "http://example.org/plain")),
+				],
+			},
+		);
+		const hyperlinkTo = (target) =>
+			W.word(W.p("outside"), {
+				rels: `<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${target}" TargetMode="External"/></Relationships>`,
+			});
+		for (const target of ["file:///etc/passwd", "../../outside.docx"])
+			refused(await importWord(hyperlinkTo(target)), "invalid_input");
+
+		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
+		const textBox = (inner) =>
+			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
+		const mixed = ok(
+			await importWord(
+				W.word(
+					W.styled("Heading1", "Plan") +
+						`<w:tbl><w:tr><w:tc>${W.styled("Heading1", "Cell heading")}</w:tc><w:tc>${W.numbered("1", "Cell item")}</w:tc></w:tr></w:tbl>` +
+						W.p(["Before box ", textBox(W.p("Inside box")), "after box"]) +
+						W.p() +
+						W.p("Tom &amp; Ann &lt;3") +
+						W.p() +
+						W.p(),
+					listParts,
+				),
+			),
+		);
+		assert.deepEqual(mixed.body, {
+			type: "doc",
+			content: [
+				heading(1, text("Plan")),
+				para(text("Cell heading")),
+				para(text("Cell item")),
+				para(text("Before box ")),
+				para(text("Inside box")),
+				para(text("after box")),
+				para(),
+				para(text("Tom & Ann <3")),
+			],
+		});
+		assert.equal(
+			nativeText(mixed.body),
+			"Plan\nCell heading\nCell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
+		);
+
+		// Criterion 7: one structured revision and one audit row; the same key replays it; a body past a format limit
+		// writes nothing.
+		const key = randomUUID();
+		const bytes = W.word(
+			W.styled("Heading1", "Values") + W.numbered("1", "Pray first") + W.numbered("1", "Go together"),
+			listParts,
+		);
+		const first = ok(await importWord(bytes, key));
+		const replay = ok(await importWord(bytes, key));
+		assert.equal(replay.id, first.id);
+		assert.equal(replay.revision, first.revision);
+		assert.equal(await countOf("document_revision", `WHERE document_id = '${first.id}'`), 1);
+		assert.equal(await countOf("audit_event", `WHERE action = 'documents.imported' AND request_key = '${key}'`), 1);
+		const rows = async () => [
+			await countOf("document"),
+			await countOf("document_revision"),
+			await countOf("file_object"),
+			await countOf("audit_event"),
+		];
+		const before = await rows();
+		const huge = Array.from({ length: 2600 }, (_, i) => W.p(`Line ${i}`)).join("");
+		const tooLarge = refused(await importWord(W.word(huge)), "invalid_input");
+		assert.match(JSON.stringify(tooLarge), /too large/);
+		assert.deepEqual(await rows(), before);
+
+		// Criterion 9: the core-values evidence of a structured import is its plain text lines in reading order.
+		ok(
+			await documentsWriter.designateCoreValues(db, owner, { documentId: first.id, expectedRevision: first.revision }),
+		);
+		assert.equal(
+			ok(await documentsWriter.readCoreValuesEvidence(db, member, {})).text,
+			"Values\nPray first\nGo together",
+		);
+
+		// Criterion 10: no styles or numbering part, or a malformed one, leaves plain paragraphs; an unclosed paragraph keeps
+		// its text.
+		const structured = W.styled("Heading1", "Title") + W.numbered("1", "Item");
+		const plain = { type: "doc", content: [para(text("Title")), para(text("Item"))] };
+		assert.deepEqual(await stored(await importWord(W.word(structured))), plain);
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.word(structured, {
+						styles: '<w:styles><w:style w:styleId="Heading1"><w:name w:val=',
+						numbering: "<w:numbering><w:abstractNum <<<>>> </w:num>",
+						rels: "<Relationships><Relationship Id=",
+					}),
+				),
+			),
+			plain,
+		);
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					storedZip([
+						{
+							name: "word/document.xml",
+							data: "<w:document><w:body><w:p><w:r><w:t>Cut off</w:t></w:r><w:p><w:r><w:t>mid",
+						},
+					]).toString("base64"),
+				),
+			),
+			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },
+		);
 	});
 });
