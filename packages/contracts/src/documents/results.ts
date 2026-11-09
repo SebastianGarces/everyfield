@@ -150,7 +150,6 @@ export const copySource = z.strictObject({
 	id: recordId,
 	title: z.string().min(1).max(200),
 	revisionId: recordId,
-	updatedAt: z.iso.datetime(),
 });
 export const copySourcePage = z.strictObject({ documents: z.array(copySource).max(100) });
 export const coreValuesEvidence = z.strictObject({

@@ -553,10 +553,9 @@ const generatedWriter = {
 				title: string;
 				revision_id: string;
 				body: string;
-				recorded_at: Date | string;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id, r.body, r.recorded_at
+				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id, r.body
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.accountId}::uuid AND d.current_revision_id IS NOT NULL
 					AND d.kind IN ('native', 'core_values') AND d.archived_at IS NULL
@@ -569,12 +568,7 @@ const generatedWriter = {
 			return c.copySourcePage.parse({
 				documents: found
 					.filter((row) => row.id && row.body && c.nativeText(c.readNative(row.body).body))
-					.map((row) => ({
-						id: row.id,
-						title: row.title,
-						revisionId: row.revision_id,
-						updatedAt: iso(row.recorded_at),
-					})),
+					.map((row) => ({ id: row.id, title: row.title, revisionId: row.revision_id })),
 			});
 		});
 	},
