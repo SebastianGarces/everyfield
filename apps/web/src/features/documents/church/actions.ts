@@ -1,12 +1,15 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { saveChurchRequest } from "@everyfield/contracts/documents";
+import { getViewer } from "@/server/request-context";
+import { recordId } from "@everyfield/contracts/common";
+import { saveChurchRequest, type SavedExport } from "@everyfield/contracts/documents";
+import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
-import { refusedWith } from "./refusal.ts";
+import { EXPORT_MESSAGES, refusedWith } from "./refusal.ts";
 
 // New from template and Delete. The actor is read again here; the server refuses a Member, whatever the page showed.
 // A success moves to the next page on the server, so the library is fresh without a client refresh.
@@ -82,4 +85,71 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	}
 	revalidatePath("/documents/church");
 	redirect("/documents/church?deleted=1");
+}
+
+export type ExportResult =
+	{ status: "saved"; saved: SavedExport } | { status: "refused"; message: string } | { status: "lost" };
+
+/**
+ * Download saves one export of the shown revision (D-78, DOC-023) and returns its record; the browser then downloads
+ * that record's stored bytes. Any seat that reads the document exports (D-80). The same request key returns the same
+ * export, so a double click or a retry after a lost reply makes one.
+ */
+export async function exportChurchDocument(
+	documentId: string,
+	revision: string,
+	format: string,
+	requestKey: string,
+): Promise<ExportResult> {
+	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.exportNative(
+			db,
+			actor,
+			{ documentId, revision: Number(revision), format, requestKey },
+			privateStorage(),
+		);
+		if (reply.status !== "ok") {
+			return { status: "refused", message: EXPORT_MESSAGES[reply.error.code] ?? EXPORT_MESSAGES.unavailable! };
+		}
+		const done = reply.value;
+		return {
+			status: "saved",
+			saved: {
+				id: done.id,
+				documentId: done.source?.documentId ?? recordId.parse(documentId),
+				revision: done.source?.revision ?? Number(revision),
+				format: done.format,
+				generatedAt: done.generatedAt,
+				creatorName: viewer?.displayName || null,
+				digest: done.digest,
+				byteCount: done.byteCount,
+				downloadName: done.downloadName,
+			},
+		};
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "export_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
+export type DeleteExportResult = { status: "deleted" } | { status: "refused"; message: string } | { status: "lost" };
+
+/** An Owner or Admin deletes one saved export after confirming (D-79). The server refuses a Member. */
+export async function deleteSavedExport(documentId: string, exportId: string): Promise<DeleteExportResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.deleteExport(db, actor, { documentId, exportId });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "deleted" };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "export_delete_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
 }

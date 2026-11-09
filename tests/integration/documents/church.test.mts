@@ -529,4 +529,119 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
 	});
+	// T-54: a Download saves one export (D-78); the page lists the saved exports and a list download is the stored bytes.
+	const listExports = async (who, documentId) => documentsWriter.listExports(db, await authority(who), { documentId });
+	const exportFile = async (who, documentId, exportId) =>
+		documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage);
+	const deleteExport = async (who, documentId, exportId) =>
+		documentsWriter.deleteExport(db, await authority(who), { documentId, exportId });
+	const exportDeletes = (id) =>
+		countOf("audit_event", `WHERE action = 'documents.export_deleted' AND subject_id = '${id}'::uuid`);
+
+	test("AC:CASE-DOC-023 T-54 an export of revision 2 lists first with its revision, format, time and author", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Max Member' WHERE id = ${actors[MEMBER].user}::uuid`);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t54-policy"));
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, [], "no export yet");
+		const edited = structuredClone(doc.body);
+		edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision two." }] });
+		ok(await save(OWNER, doc.id, "1", edited));
+		const before = await countOf("generated_document");
+		const pdf = ok(await exportDoc(OWNER, doc.id, 2, "pdf", "t54-pdf"));
+		const again = ok(await exportDoc(OWNER, doc.id, 2, "pdf", "t54-pdf"));
+		assert.equal(again.id, pdf.id, "the same request key returns the same export");
+		assert.equal(await countOf("generated_document"), before + 1, "a retry makes one saved export");
+		const word = ok(await exportDoc(MEMBER, doc.id, 2, "docx", "t54-docx"));
+		const listed = ok(await listExports(MEMBER, doc.id)).exports;
+		assert.deepEqual(
+			listed.map((e) => [e.id, e.revision, e.format, e.creatorName, e.digest]),
+			[
+				[word.id, 2, "docx", "Max Member", word.digest],
+				[pdf.id, 2, "pdf", "Olivia Owner", pdf.digest],
+			],
+			"newest first, each with its own format",
+		);
+		assert.equal(listed[1].generatedAt, pdf.generatedAt);
+		assert.equal(listed[1].downloadName, "conflict-of-interest-policy-revision-2.pdf");
+		const file = ok(await exportFile(MEMBER, doc.id, pdf.id));
+		assert.equal(sha256(bytesFrom(file)), pdf.digest, "the download is the saved bytes");
+		assert.equal(file.mediaType, "application/pdf");
+		assert.equal(file.revision, 2);
+		const docx = ok(await exportFile(OWNER, doc.id, word.id));
+		assert.equal(sha256(bytesFrom(docx)), word.digest);
+		assert.equal(docx.downloadName, "conflict-of-interest-policy-revision-2.docx");
+		state.saved = { doc, pdf, word };
+	});
+
+	test("AC:CASE-DOC-023 T-54 after a new revision, the branding switch and a kit color change, a Member gets the identical file", async () => {
+		const { doc, pdf } = state.saved;
+		const owner = await authority(OWNER);
+		const fresh = ok(await fileOf(MEMBER, doc.id, "pdf", 2));
+		assert.equal(fresh.digest, pdf.digest, "before any change the fresh render and the saved export agree");
+		const current = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: current.revision,
+				patch: { primaryColor: "#7A1F4E" },
+			}),
+		);
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: false }));
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: true }));
+		const latest = ok(await documentsWriter.readChurch(db, owner, { documentId: doc.id }));
+		const third = structuredClone(latest.body);
+		third.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision three." }] });
+		ok(await save(OWNER, doc.id, latest.revision, third));
+		const rerendered = ok(await fileOf(MEMBER, doc.id, "pdf", 2));
+		assert.notEqual(rerendered.digest, pdf.digest, "a fresh render of revision 2 now paints the new kit color");
+		const file = ok(await exportFile(MEMBER, doc.id, pdf.id));
+		assert.equal(sha256(bytesFrom(file)), pdf.digest, "the saved export keeps its first bytes, not a new render");
+		assert.deepEqual(bytesFrom(file), await bytesOf(pdf), "they are the stored object, byte for byte");
+	});
+
+	test("T-54 a saved-export download refuses another church plant, a seatless account and an unknown id", async () => {
+		const { doc, pdf } = state.saved;
+		refused(await exportFile(OTHER, doc.id, pdf.id), "unavailable");
+		refused(await exportFile(4, doc.id, pdf.id), "access_denied");
+		refused(await exportFile(MEMBER, doc.id, randomUUID()), "unavailable");
+		refused(await exportFile(MEMBER, state.card.id, pdf.id), "unavailable", "the export belongs to another document");
+		refused(await listExports(OTHER, doc.id), "unavailable");
+		refused(await listExports(4, doc.id), "access_denied");
+	});
+
+	test("T-54 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row in the same statement", async () => {
+		const { doc, pdf, word } = state.saved;
+		const before = await counts();
+		refused(await deleteExport(MEMBER, doc.id, pdf.id), "access_denied");
+		refused(await deleteExport(OTHER, doc.id, pdf.id), "unavailable");
+		assert.deepEqual(await counts(), before, "nothing is written");
+		assert.equal(await exportDeletes(pdf.id), 0);
+		assert.ok(
+			ok(await listExports(MEMBER, doc.id)).exports.some((e) => e.id === pdf.id),
+			"the row is still listed",
+		);
+
+		assert.deepEqual(ok(await deleteExport(ADMIN, doc.id, word.id)), { exportId: word.id, deleted: true });
+		assert.deepEqual(ok(await deleteExport(OWNER, doc.id, pdf.id)), { exportId: pdf.id, deleted: true });
+		assert.equal(await exportDeletes(pdf.id), 1, "one audit row");
+		assert.equal(await exportDeletes(word.id), 1);
+		assert.deepEqual(await counts(), { ...before, generated: before.generated - 2, audits: before.audits + 2 });
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, [], "the rows leave the list");
+		refused(await exportFile(OWNER, doc.id, pdf.id), "unavailable", "its download stops working");
+		refused(await deleteExport(OWNER, doc.id, pdf.id), "unavailable");
+		assert.equal(await exportDeletes(pdf.id), 1, "a second delete writes nothing");
+	});
+
+	test("T-54 a render failure saves no export and leaves the list unchanged", async () => {
+		const { doc } = state.saved;
+		// A revision whose stored body cannot render, written beside the editor's revisions.
+		await admin.execute(
+			sql`INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
+				VALUES (${randomUUID()}::uuid, ${P}::uuid, ${doc.id}::uuid, 99, 'not a document', ${sha("not a document")}, clock_timestamp(), clock_timestamp())`,
+		);
+		const before = await counts();
+		refused(await exportDoc(OWNER, doc.id, 99, "pdf", "t54-broken"), "render_failed");
+		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "unavailable");
+		assert.deepEqual(await counts(), before, "no file and no saved export");
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
+	});
 });

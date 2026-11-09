@@ -84,6 +84,10 @@ export const churchFileRequest = z.strictObject({
 	revision: z.int().min(1).max(1_000_000).optional(),
 	format: documentFormat,
 });
+/** The saved exports of one Church Document: the latest 100, newest first. */
+export const listExportsRequest = z.strictObject({ documentId: recordId });
+/** One saved export of one Church Document: its stored bytes for a download, or its deletion. */
+export const exportRequest = z.strictObject({ documentId: recordId, exportId: recordId });
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
 export const archiveDocumentRequest = z.strictObject({

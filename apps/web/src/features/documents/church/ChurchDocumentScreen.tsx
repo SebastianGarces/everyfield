@@ -1,18 +1,20 @@
 "use client";
 
 import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import type { DocBrand, DocDocument } from "@everyfield/contracts/documents";
+import type { DocBrand, DocDocument, SavedExport } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
-import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
+import { SavedExports, savedExportHref } from "./SavedExports.tsx";
+import { deleteChurchDocument, exportChurchDocument, type ChurchActionResult, type ExportResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView } from "./server.ts";
 
-// One Church Document: the real PDF as its preview, and the downloads. The preview and every download read the same
-// file route for the same revision, so the preview is the file Download gives. An Owner or Admin can edit and delete it.
+// One Church Document: the real PDF as its preview, the downloads and the saved exports. A download saves one export of
+// the shown revision, then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
+// nothing. Any seat downloads (D-80). An Owner or Admin can edit and delete it, and delete a saved export (D-79).
 // The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
 const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
@@ -38,16 +40,52 @@ export function ChurchDocumentScreen({
 	doc,
 	editable,
 	canManage,
+	exports: firstExports,
 }: {
 	doc: ChurchView;
+	/** The latest saved exports, newest first. */
+	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
 	editable: { document: DocDocument; brand: DocBrand } | null;
 	canManage: boolean;
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
 	const [revision, setRevision] = useState(doc.revision);
-	const file = (format: string, download: boolean, at = revision) =>
-		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : ""}`;
+	const file = (format: string, at = revision) => `/documents/church/${doc.id}/file?format=${format}&revision=${at}`;
+	const [exports, setExports] = useState(firstExports);
+	const [exporting, setExporting] = useState<string | null>(null);
+	const [exportError, setExportError] = useState<string | null>(null);
+	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
+	// reaches the same saved export instead of making a second one.
+	const keys = useRef(new Map<string, string>());
+
+	async function download(format: string) {
+		if (exporting) return;
+		const slot = `${revision}:${format}`;
+		const key = keys.current.get(slot) ?? crypto.randomUUID();
+		keys.current.set(slot, key);
+		setExporting(format);
+		setExportError(null);
+		const result: ExportResult = await exportChurchDocument(doc.id, revision, format, key).catch(() => ({
+			status: "lost" as const,
+		}));
+		setExporting(null);
+		if (result.status === "lost") {
+			setExportError("The connection dropped before the file was saved. Nothing was downloaded. Try again.");
+			return;
+		}
+		keys.current.delete(slot);
+		if (result.status === "refused") {
+			setExportError(result.message);
+			return;
+		}
+		const saved = result.saved;
+		setExports((list) => [saved, ...list.filter((e) => e.id !== saved.id)].slice(0, 100));
+		const link = document.createElement("a");
+		link.href = savedExportHref(saved);
+		link.download = saved.downloadName;
+		link.click();
+	}
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
@@ -78,10 +116,15 @@ export function ChurchDocumentScreen({
 				actions={
 					<>
 						{DOWNLOADS.filter((d) => doc.formats.includes(d.format)).map((d, i) => (
-							<Button key={d.format} variant={i === 0 ? "primary" : "secondary"} icon={Download01Icon} asChild>
-								<a href={file(d.format, true)} download>
-									{d.label}
-								</a>
+							<Button
+								key={d.format}
+								variant={i === 0 ? "primary" : "secondary"}
+								icon={Download01Icon}
+								loading={exporting === d.format}
+								disabled={exporting !== null && exporting !== d.format}
+								onClick={() => void download(d.format)}
+							>
+								{d.label}
 							</Button>
 						))}
 						{canManage ? (
@@ -105,6 +148,14 @@ export function ChurchDocumentScreen({
 					</>
 				}
 			/>
+			{exportError ? (
+				<p
+					role="alert"
+					className="mb-4 rounded-md bg-magenta-100 px-4 py-3 text-md text-magenta-600 shadow-[0_0_0_1px_var(--ef-line)]"
+				>
+					{exportError}
+				</p>
+			) : null}
 			{editable ? (
 				<ChurchEditor
 					docId={doc.id}
@@ -113,13 +164,18 @@ export function ChurchDocumentScreen({
 					brand={editable.brand}
 					revision={doc.revision}
 					onRevision={setRevision}
-					previewSrc={(at) => file("pdf", false, at)}
+					previewSrc={(at) => file("pdf", at)}
 				/>
 			) : (
 				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
-					<ChurchPdf key={file("pdf", false)} title={doc.title} src={file("pdf", false)} page={doc.page} />
+					<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />
 				</section>
 			)}
+			<SavedExports
+				exports={exports}
+				canManage={canManage}
+				onDeleted={(id) => setExports((list) => list.filter((e) => e.id !== id))}
+			/>
 		</>
 	);
 }

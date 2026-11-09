@@ -5,6 +5,7 @@ import {
 	type ChurchSummary,
 	type DocBrand,
 	type DocDocument,
+	type SavedExport,
 } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -12,8 +13,8 @@ import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 
-// The Church Documents reads. The library is one statement; a document page is one statement. The PDF bytes are a
-// separate request (churchFileRoute), so the page never waits for a render.
+// The Church Documents reads. The library is one statement; a document page is two (the document and its saved exports).
+// The PDF bytes are a separate request (churchFileRoute), so the page never waits for a render.
 
 export type ChurchView = {
 	id: string;
@@ -55,18 +56,21 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null }>> {
+): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null; exports: SavedExport[] }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
 		// An Owner or Admin reads the document with its brand (what the PDF paints) in the same statement; a Member reads
-		// the document alone and gets no editor.
-		const reply = canManageChurch(authority)
-			? await documentsWriter.readChurchForEdit(db, authority, { documentId })
-			: await documentsWriter
-					.readChurch(db, authority, { documentId })
-					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r));
-		if (reply.status !== "ok") return { status: "refused" };
+		// the document alone and gets no editor. Every seat reads the saved exports.
+		const [reply, saved] = await Promise.all([
+			canManageChurch(authority)
+				? documentsWriter.readChurchForEdit(db, authority, { documentId })
+				: documentsWriter
+						.readChurch(db, authority, { documentId })
+						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r)),
+			documentsWriter.listExports(db, authority, { documentId }),
+		]);
+		if (reply.status !== "ok" || saved.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		return {
 			status: "ok",
@@ -83,6 +87,7 @@ export async function loadChurchDocument(
 				},
 				document: d.body,
 				brand: d.brand,
+				exports: saved.value.exports,
 			},
 		};
 	} catch (error) {
@@ -129,6 +134,47 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 		});
 	} catch (error) {
 		console.error(JSON.stringify({ component: "church-documents", outcome: "file_failed", error: String(error) }));
+		return gone(500);
+	}
+}
+
+/**
+ * GET /documents/church/{id}/exports/{exportId}: the stored bytes of one saved export, never rendered again (DOC-003).
+ * Another church plant, a seatless account and an unknown id get not found. The actor is read again here.
+ */
+export async function savedExportRoute(
+	_request: Request,
+	{ params }: { params: Promise<{ documentId: string; exportId: string }> },
+) {
+	const raw = await params;
+	const documentId = recordId.safeParse(raw.documentId);
+	const exportId = recordId.safeParse(raw.exportId);
+	if (!documentId.success || !exportId.success) return gone();
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return gone();
+	try {
+		const reply = await documentsWriter.readExportFile(
+			db,
+			actor,
+			{ documentId: documentId.data, exportId: exportId.data },
+			privateStorage(),
+		);
+		if (reply.status !== "ok") return gone();
+		const file = reply.value;
+		return new Response(Buffer.from(file.bytes, "base64"), {
+			headers: {
+				...NO_STORE,
+				"Content-Type": file.mediaType,
+				"Content-Disposition": `attachment; filename="${file.downloadName}"`,
+				"X-Content-SHA256": file.digest,
+				"X-Content-Type-Options": "nosniff",
+			},
+		});
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "export_file_failed", error: String(error) }),
+		);
 		return gone(500);
 	}
 }

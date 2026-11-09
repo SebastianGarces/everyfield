@@ -9,7 +9,7 @@
 		"limit": 2
 	},
 	"GET /documents/church/[documentId]": {
-		"limit": 2
+		"limit": 3
 	},
 	"GET /documents/church/[documentId]/file": {
 		"limit": 2
@@ -374,6 +374,9 @@
 		"limit": 4
 	},
 	"documents.deleteChurch": {
+		"limit": 1
+	},
+	"documents.deleteExport": {
 		"limit": 1
 	},
 	"documents.designateCoreValues": {
