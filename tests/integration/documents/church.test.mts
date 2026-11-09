@@ -386,7 +386,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(church.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
 		assert.equal(edit.brands.plain.palette.themed, false, "the plain look is the Everyfield-neutral theme");
 		assert.deepEqual(edit.brands.plain.assets, { logo: null, mark: null, photo: null });
-		const { brands: _brands, ...document } = edit;
+		// T-17: the church's current value of each merge field Insert offers; a field with no value now is left out.
+		assert.deepEqual(edit.mergeValues, {
+			church_name: "Harvest Point",
+			pastor_name: "Pastor Ada",
+			church_tagline: "A church for the whole city.",
+			contact_line: "harvestpoint.church  ·  (555) 010-0100",
+		});
+		const { brands: _brands, mergeValues: _values, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -395,6 +402,92 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
 			"access_denied",
 		);
+	});
+
+	test("AC:DOC-EDIT-SLOT AC:DOC-EDIT-HISTORY a doctrinal section prints blank, then filled, then not at all; history names each saver", async () => {
+		let doc = state.policy;
+		const STATEMENT = "We believe in one God, Father, Son and Holy Spirit.";
+		const headingText = (node: any) => (node.content ?? []).map((n: any) => n.text ?? "").join("");
+		const original = doc.body;
+		const withSlot = (content?: unknown[]) => {
+			const body = structuredClone(original);
+			const at = body.body.content.findIndex((n: any) => n.type === "heading" && headingText(n) === "Yearly statement");
+			assert.ok(at > 0, "the policy has a Yearly statement heading");
+			body.body.content.splice(at, 0, {
+				type: "slot",
+				attrs: { label: "Statement of faith" },
+				...(content ? { content } : {}),
+			});
+			return body;
+		};
+		const texts = async (revision: string) => {
+			const pdf = await policyText(ok(await fileOf(MEMBER, doc.id, "pdf", Number(revision))));
+			const docx = docxParts(bytesFrom(ok(await fileOf(MEMBER, doc.id, "docx", Number(revision)))));
+			return { pdf: pdf.replace(/\s+/g, " "), word: wordText(docx["word/document.xml"]) };
+		};
+		const BLANK = "Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+
+		// An empty section that was not deleted prints the marked blank, never default text.
+		const empty = ok(await save(ADMIN, doc.id, doc.revision, withSlot()));
+		let out = await texts(empty.revision);
+		for (const text of [out.pdf, out.word]) {
+			assert.match(text, /statement of faith/i);
+			assert.ok(text.includes(BLANK), "the marked blank prints");
+		}
+		// Filled, it prints the church's statement in that section.
+		doc = empty;
+		const filled = ok(
+			await save(
+				OWNER,
+				doc.id,
+				doc.revision,
+				withSlot([{ type: "paragraph", content: [{ type: "text", text: STATEMENT }] }]),
+			),
+		);
+		out = await texts(filled.revision);
+		assert.match(
+			out.pdf,
+			new RegExp(`statement of faith ${STATEMENT}`, "i"),
+			"the PDF prints the statement in its section",
+		);
+		assert.ok(
+			out.word.includes(STATEMENT) && !out.word.includes(BLANK),
+			"the Word file prints the statement, no blank",
+		);
+		// Deleted, neither file has the section, its label or a blank; the text after it follows straight on.
+		doc = filled;
+		const gone = ok(await save(ADMIN, doc.id, doc.revision, original));
+		out = await texts(gone.revision);
+		for (const [name, text] of [
+			["PDF", out.pdf],
+			["Word", out.word],
+		]) {
+			assert.doesNotMatch(text, /statement of faith/i, `the ${name} has no section label`);
+			assert.ok(!text.includes(STATEMENT) && !text.includes(BLANK), `the ${name} has no section and no blank`);
+			assert.match(text, /left the room\. (08 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
+		}
+		// The revision saved before the delete keeps its section.
+		assert.ok((await texts(filled.revision)).word.includes(STATEMENT), "the earlier revision still prints it");
+
+		// History lists every revision with who saved it (the auth user's name).
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		const last = history.revisions.slice(-3);
+		assert.deepEqual(
+			last.map((r: any) => [String(r.number), r.authorName]),
+			[
+				[empty.revision, "Synthetic"],
+				[filled.revision, "Synthetic"],
+				[gone.revision, "Synthetic"],
+			],
+		);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), {
+				documentId: doc.id,
+				revision: Number(filled.revision),
+			}),
+		);
+		assert.equal(one.authorName, "Synthetic");
+		state.policy = gone;
 	});
 
 	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
@@ -947,6 +1040,77 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 				patch: { primaryColor: kit.primaryColor },
 			}),
 		);
+	});
+
+	test("T-86 each revision names its saver while they hold a seat here, else a former member (D-105)", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Ada Admin' WHERE id = ${actors[ADMIN].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Quinn Elsewhere' WHERE id = ${actors[OTHER].user}::uuid`);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t86-savers"));
+		let body = doc.body;
+		for (const [who, at] of [
+			[ADMIN, "1"],
+			[OWNER, "2"],
+			[ADMIN, "3"],
+			[OWNER, "4"],
+		]) {
+			body = structuredClone(body);
+			body.body.content.push({ type: "paragraph", content: [{ type: "text", text: `Saved after ${at}.` }] });
+			ok(await save(who, doc.id, at, body));
+		}
+		const names = async (who) =>
+			ok(await documentsWriter["history.list"](db, await authority(who), { documentId: doc.id })).revisions.map((r) => [
+				r.number,
+				r.authorName,
+			]);
+		assert.deepEqual(
+			await names(MEMBER),
+			[
+				[1, "Olivia Owner"],
+				[2, "Ada Admin"],
+				[3, "Olivia Owner"],
+				[4, "Ada Admin"],
+				[5, "Olivia Owner"],
+			],
+			"each revision names the person who saved it",
+		);
+
+		// Revision 4's saver is seated only in another church plant, and revision 5's account is gone.
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = ${actors[OTHER].id}::uuid
+				WHERE document_id = ${doc.id}::uuid AND version_number = 4`,
+		);
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = NULL WHERE document_id = ${doc.id}::uuid AND version_number = 5`,
+		);
+		// The Admin's seat here ends, so revision 2, which they saved, reads as a former member.
+		await admin.execute(
+			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+		);
+		try {
+			const expected = [
+				[1, "Olivia Owner"],
+				[2, null],
+				[3, "Olivia Owner"],
+				[4, null],
+				[5, null],
+			];
+			assert.deepEqual(await names(MEMBER), expected, "an ended seat, a seat elsewhere and a gone account name no one");
+			assert.deepEqual(await names(OWNER), expected, "an Owner reads the same names");
+			const reply = JSON.stringify(
+				ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id })),
+			);
+			for (const gone of ["Ada Admin", "Quinn Elsewhere", `${actors[ADMIN].id}@example.test`])
+				assert.equal(reply.includes(gone), false, `the reply does not carry ${gone}`);
+			const get = async (revision) =>
+				ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision }))
+					.authorName;
+			assert.deepEqual([await get(1), await get(2), await get(4), await get(5)], ["Olivia Owner", null, null, null]);
+		} finally {
+			await admin.execute(
+				sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+			);
+		}
 	});
 
 	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {

@@ -148,6 +148,57 @@ export async function saveChurchTemplate(input: {
 	}
 }
 
+/** The church's templates as they stand now, for "Update a template". Read when the dialog opens, so it is current. */
+export async function listChurchTemplates(): Promise<
+	{ status: "ok"; templates: ChurchTemplateSummary[] } | { status: "refused"; message: string } | { status: "lost" }
+> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.listChurch(db, actor, {});
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "ok", templates: reply.value.templates };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "template_list_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
+export type TemplateUpdateResult =
+	| { status: "updated"; template: ChurchTemplateSummary }
+	| { status: "refused"; code: string; message: string }
+	| { status: "lost" };
+
+/**
+ * Update a church template: the saved revision the person sees becomes the template's next version. The request names
+ * the version it replaces, so a template another person updated first is refused. One request key makes one version.
+ */
+export async function updateChurchTemplate(input: {
+	templateId: string;
+	expectedVersion: number;
+	documentId: string;
+	revision: number;
+	requestKey: string;
+}): Promise<TemplateUpdateResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.updateChurchTemplate(db, actor, input);
+		if (reply.status !== "ok") return { ...refusedWith(reply.error.code), code: reply.error.code };
+		revalidatePath("/documents/church");
+		return { status: "updated", template: reply.value };
+	} catch (error) {
+		console.error(
+			JSON.stringify({ component: "church-documents", outcome: "template_update_failed", error: String(error) }),
+		);
+		return { status: "lost" };
+	}
+}
+
 /** Deletes a church template after the person confirmed. Documents made from it keep their content. */
 export async function deleteChurchTemplate(
 	templateId: string,

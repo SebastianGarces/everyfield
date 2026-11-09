@@ -99,6 +99,17 @@ function asText(value: unknown) {
 	return null;
 }
 
+/** The display name of the plant's current senior pastor, or null: a scalar subquery for a SELECT list. */
+export const seniorPastorName = (plantId: string) =>
+	sql`SELECT pe.display_name FROM team_tenure tt
+		JOIN team_role tr ON tr.id=tt.role_id AND tr.plant_id=${plantId}::uuid
+			AND tr.retired_at IS NULL AND tr.template_key='senior_pastor'
+		JOIN team tm ON tm.id=tr.team_id AND tm.plant_id=${plantId}::uuid AND tm.archived_at IS NULL
+		JOIN person pe ON pe.id=tt.person_id AND pe.tenant_id=${plantId}::uuid AND pe.state='live'
+		WHERE tt.ended_on IS NULL AND tt.plant_id=${plantId}::uuid
+		ORDER BY tt.started_on, pe.id
+		LIMIT 1`;
+
 /**
  * One statement. Names stay null unless the live session, the claimed account, the seat, and the subject all match.
  * launch_date comes from the launch row, not from a plant column.
@@ -115,7 +126,7 @@ export async function readPlant(
 		LEFT JOIN LATERAL (
 			SELECT g.subject_ok,
 				CASE WHEN g.subject_ok THEN p.name END AS church_name,
-				CASE WHEN g.subject_ok THEN pastor.display_name END AS pastor_name,
+				CASE WHEN g.subject_ok THEN (${seniorPastorName(viewer.plantId)}) END AS pastor_name,
 				CASE WHEN g.subject_ok THEN launch.day END AS launch_date,
 				CASE WHEN g.subject_ok THEN mt.facts END AS meeting
 			FROM (SELECT (
@@ -128,16 +139,6 @@ export async function readPlant(
 					WHERE tm.id=${subject.teamId}::uuid AND tm.plant_id=${viewer.plantId}::uuid AND tm.archived_at IS NULL))
 			) AS subject_ok) g
 			LEFT JOIN plant p ON g.subject_ok AND p.id=${viewer.plantId}::uuid
-			LEFT JOIN LATERAL (
-				SELECT pe.display_name FROM team_tenure tt
-				JOIN team_role tr ON tr.id=tt.role_id AND tr.plant_id=${viewer.plantId}::uuid
-					AND tr.retired_at IS NULL AND tr.template_key='senior_pastor'
-				JOIN team tm ON tm.id=tr.team_id AND tm.plant_id=${viewer.plantId}::uuid AND tm.archived_at IS NULL
-				JOIN person pe ON pe.id=tt.person_id AND pe.tenant_id=${viewer.plantId}::uuid AND pe.state='live'
-				WHERE tt.ended_on IS NULL AND tt.plant_id=${viewer.plantId}::uuid
-				ORDER BY tt.started_on, pe.id
-				LIMIT 1
-			) pastor ON g.subject_ok
 			LEFT JOIN LATERAL (
 				SELECT coalesce(l.target_date, l.actual_date)::text AS day FROM launch l
 				WHERE l.plant_id=${viewer.plantId}::uuid AND l.status<>'postponed'

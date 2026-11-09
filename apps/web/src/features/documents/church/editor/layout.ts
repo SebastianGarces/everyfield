@@ -28,8 +28,12 @@ const history = (editor: Editor) => closeHistory(editor.state.tr);
 
 // ---------------------------------------------------------------- what the selection is in
 
-export type Target = { kind: "columns" | "box" | "divider" | "image" | "writeIn" | "table"; pos: number; node: PMNode };
-const KINDS = new Set(["columns", "box", "divider", "image", "writeIn", "table"]);
+export type Target = {
+	kind: "columns" | "box" | "divider" | "image" | "writeIn" | "table" | "field";
+	pos: number;
+	node: PMNode;
+};
+const KINDS = new Set(["columns", "box", "divider", "image", "writeIn", "table", "field"]);
 
 /** The layout blocks the selection is in or on, outermost first: the columns and boxes around the cursor, or the selected block. */
 export function layoutTargets(state: EditorState): Target[] {

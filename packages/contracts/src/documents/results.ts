@@ -205,16 +205,20 @@ export const churchDocument = z.strictObject({
 /**
  * What the editor gets: the document and both looks the PDF can paint for it. `church` is the church theme, null when
  * the church has no brand kit with a primary color to paint; `plain` is the Everyfield-neutral theme. The document's
- * `useChurchBranding` picks one, so the page can follow the branding switch without another read.
+ * `useChurchBranding` picks one, so the page can follow the branding switch without another read. `mergeValues` is the
+ * church's current value of each merge field Insert offers.
  */
 export const churchDocumentView = churchDocument.extend({
 	brands: z.strictObject({ church: docBrand.nullable(), plain: docBrand }),
+	mergeValues: z.record(z.string().max(60), z.string().max(2000)),
 });
 export type DocBrands = z.infer<typeof churchDocumentView>["brands"];
 export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),
 	authorAccountId: z.uuid().nullable(),
+	/** The saver's name while they hold a seat in this church plant; null once that seat ends or the account is gone (D-105). */
+	authorName: z.string().min(1).max(255).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
 });
@@ -244,6 +248,8 @@ export const churchTemplateSummary = z.strictObject({
 	templateId,
 	title: z.string().min(1).max(200),
 	description: z.string().max(500).nullable(),
+	/** The current version: 1 when saved, one more for each update. */
+	version: z.int().min(1),
 	documentClass: churchClass,
 	formats: z.array(documentFormat).min(1).max(3),
 	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */

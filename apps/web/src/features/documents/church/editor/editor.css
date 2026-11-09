@@ -267,34 +267,6 @@
 	cursor: default;
 	user-select: none;
 }
-/* Blocks that later slices edit show read-only: the kind as a label, then the content as it will print. */
-.ef-paper .ef-block {
-	position: relative;
-	margin-bottom: 8px;
-	padding: 22px 8px 8px;
-	border-radius: 6px;
-	box-shadow: inset 0 0 0 1px var(--paper-line);
-	background: color-mix(in srgb, var(--paper-muted) 40%, white);
-	cursor: default;
-}
-.ef-paper .ef-block-label {
-	position: absolute;
-	top: 4px;
-	left: 8px;
-	font-size: 11px;
-	font-weight: 700;
-	line-height: 1;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--paper-quiet);
-}
-.ef-paper .ef-block-body {
-	pointer-events: none;
-	user-select: none;
-}
-.ef-paper .ef-block-body :last-child {
-	margin-bottom: 0;
-}
 .ef-empty {
 	position: absolute;
 	inset-inline: clamp(16px, var(--pad-x), 8cqi);
@@ -414,13 +386,6 @@
 	background: color-mix(in srgb, var(--on-fill) 14%, transparent);
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-fill) 45%, transparent);
 	color: var(--on-fill);
-}
-/* A read-only block keeps its light panel on a fill, so it keeps the paper's own text colors. */
-.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) .ef-block {
-	--on-fill: var(--paper-text);
-	--paper-ink: var(--paper-text);
-	--paper-quiet: var(--paper-text-quiet);
-	color: var(--paper-ink);
 }
 /* Write-in, signature and date lines: the label is an input, the line is where the person writes. */
 .ef-paper .ef-writein {
@@ -814,4 +779,66 @@
 	margin: 4px 0 0;
 	font-size: 11px;
 	color: var(--paper-quiet);
+}
+/* A bracketed placeholder such as [date] or [number], highlighted from the text itself: the fill the PDF and the Word
+   file print under it (doc-values.ts, PLACEHOLDER_FILL), with the paper's own ink on it. */
+.ef-paper .ef-placeholder,
+.ef-paper span[data-ef-node="field"].ef-placeholder {
+	background: #fdf0a6;
+	color: var(--paper-text);
+	border-radius: 2px;
+	box-decoration-break: clone;
+	-webkit-box-decoration-break: clone;
+}
+/* A merge field reads as one unit: a chip with its value. Selected, it takes the focus ring. */
+.ef-paper span[data-ef-node="field"] {
+	cursor: pointer;
+}
+.ef-paper span[data-ef-node="field"].ef-field-empty::before {
+	content: "empty";
+	font-size: 11px;
+	font-style: italic;
+	color: var(--paper-quiet);
+}
+.ef-paper span[data-ef-node="field"].ProseMirror-selectednode {
+	outline: 2px solid var(--ef-focus);
+	outline-offset: 1px;
+}
+/* A doctrinal section: a labelled area to fill, framed as the PDF frames it. Empty, it shows the marked blank. */
+.ef-paper .ef-slot {
+	position: relative;
+	margin-bottom: 12px;
+	padding: 10px 12px 6px;
+	border: 1px dashed color-mix(in srgb, var(--paper-text) 45%, white);
+	border-radius: 4px;
+}
+.ef-paper .ef-slot-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-text-quiet);
+	margin-bottom: 4px;
+	user-select: none;
+}
+/* Empty, the note takes the space and the one empty line lies over its first line, so the caret sits where text goes. */
+.ef-paper .ef-slot-note {
+	display: none;
+	color: var(--paper-text-quiet);
+	pointer-events: none;
+	user-select: none;
+	padding-bottom: 6px;
+}
+.ef-paper .ef-slot[data-empty] {
+	background: color-mix(in srgb, var(--paper-muted) 45%, white);
+}
+.ef-paper .ef-slot[data-empty] .ef-slot-note {
+	display: block;
+}
+.ef-paper .ef-slot[data-empty] .ef-slot-body {
+	position: absolute;
+	inset: 28px 12px auto;
+}
+.ef-paper .ef-slot-body > :last-child {
+	margin-bottom: 0;
 }

@@ -12,10 +12,10 @@ import { canManageChurch, loadChurchDocument, loadLibrary } from "./server.ts";
 export const churchLibraryMetadata: Metadata = { title: "Church documents", robots: { index: false, follow: false } };
 export const churchDocumentMetadata: Metadata = { title: "Church document", robots: { index: false, follow: false } };
 
-async function activeAuthority(returnTo: string) {
+async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	return viewer.status === "active" ? viewer.authority : null;
+	return viewer.status === "active" ? viewer : null;
 }
 
 export async function ChurchLibraryPage({
@@ -23,7 +23,7 @@ export async function ChurchLibraryPage({
 }: {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const authority = await activeAuthority("/documents/church");
+	const authority = (await activeViewer("/documents/church"))?.authority;
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
 	if (loaded.status === "failed") return <Failed />;
@@ -41,8 +41,9 @@ export async function ChurchLibraryPage({
 
 export async function ChurchDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
 	const raw = (await params).documentId;
-	const authority = await activeAuthority(`/documents/church/${encodeURIComponent(raw)}`);
-	if (!authority) return <Unavailable />;
+	const viewer = await activeViewer(`/documents/church/${encodeURIComponent(raw)}`);
+	const authority = viewer?.authority;
+	if (!viewer || !authority) return <Unavailable />;
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
@@ -50,14 +51,15 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	if (loaded.status === "refused") return <Missing />;
 	// The stored document goes to the browser only for an Owner or Admin, who can edit it. A Member gets the preview.
 	const canManage = canManageChurch(authority);
-	const { brands, template } = loaded.value;
+	const { brands, template, mergeValues } = loaded.value;
 	return (
 		<ChurchDocumentScreen
 			doc={loaded.value.view}
-			editable={canManage && brands ? { document: loaded.value.document, brands, template } : null}
+			editable={canManage && brands ? { document: loaded.value.document, brands, template, mergeValues } : null}
 			canManage={canManage}
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}
+			viewerName={viewer.displayName || null}
 		/>
 	);
 }

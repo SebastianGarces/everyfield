@@ -68,6 +68,18 @@ export const saveChurchTemplateRequest = z.strictObject({
 	description: z.string().trim().max(500).optional(),
 	requestKey: z.string().trim().min(1).max(80),
 });
+/**
+ * Update a church template: one saved revision of a Church Document becomes the template's next version. The request
+ * names the version it replaces, so a template that changed since the dialog opened is a conflict. The same request
+ * key makes one version.
+ */
+export const updateChurchTemplateRequest = z.strictObject({
+	templateId: recordId,
+	expectedVersion: z.int().min(1).max(1_000_000),
+	documentId: recordId,
+	revision: z.int().min(1).max(1_000_000),
+	requestKey: z.string().trim().min(1).max(80),
+});
 /** Delete a church template from "New from template". Documents made from it keep their content. */
 export const deleteChurchTemplateRequest = z.strictObject({ templateId: recordId });
 /** A built-in or church template id, merge values by field key and a request key. The same key returns the same document. */

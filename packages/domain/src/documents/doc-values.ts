@@ -62,6 +62,28 @@ const SOURCE: Record<string, (s: MergeSources) => string | null> = {
 };
 
 /**
+ * The merge fields the editor's Insert menu offers. Inserting one that the document does not declare adds this
+ * declaration, and freezes the church's current value for it when the church has one.
+ */
+export const INSERTABLE_FIELDS = [
+	{ key: "church_name", label: "Church name", type: "text", source: "church.name" },
+	{ key: "pastor_name", label: "Pastor", type: "text", source: "church.pastor" },
+	{ key: "church_tagline", label: "Tagline", type: "text", source: "brand.tagline" },
+	{ key: "contact_line", label: "Contact line", type: "text", source: "brand.contactLine" },
+	{ key: "meeting_date", label: "Meeting date", type: "date", source: "meeting.date" },
+] as const satisfies readonly FieldDecl[];
+
+/** The church's current value for each insertable field, by key. A field with no value now is left out. */
+export function insertableValues(sources: MergeSources): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const field of INSERTABLE_FIELDS) {
+		const value = SOURCE[field.source]?.(sources)?.trim();
+		if (value) out[field.key] = value;
+	}
+	return out;
+}
+
+/**
  * The merge values a new document freezes: each field's source, then its fallback (which may name other fields in
  * braces). An empty fallback is a value: the field prints nothing. A field with neither is left out of `data`.
  * `from` says where each value came from: the source name, or "fallback".
@@ -83,4 +105,38 @@ export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) 
 		from[field.key] = "fallback";
 	}
 	return { data, from };
+}
+
+/**
+ * The visible blank an unfilled doctrinal slot prints, in the editor, the PDF and the DOCX. It is never doctrinal text.
+ */
+export const SLOT_BLANK_NOTE =
+	"Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+
+// ---------------------------------------------------------------- placeholders
+
+/**
+ * A bracketed prompt such as [date], [number] or [low amount]: text in square brackets, 1 to 60 characters, on one line.
+ * The highlight comes from the text itself, so the editor, the PDF and the Word file mark the same spans and nothing is
+ * stored for it. The PDF hands `source` to Forme's Rust regex engine, which needs the inner `[` escaped.
+ */
+export const PLACEHOLDER = /\[[^\[\]\n]{1,60}\]/g;
+
+/**
+ * The fill every placeholder prints on, whatever the brand: a pale yellow that reads on paper and in grayscale, with the
+ * document's ink on it (contrast above 13:1 with any dark ink).
+ */
+export const PLACEHOLDER_FILL = "#FDF0A6";
+
+/** A run of text cut where its placeholders start and end. Text with none is one plain part. */
+export function placeholderParts(text: string): { text: string; placeholder: boolean }[] {
+	const parts: { text: string; placeholder: boolean }[] = [];
+	let at = 0;
+	for (const match of text.matchAll(PLACEHOLDER)) {
+		if (match.index > at) parts.push({ text: text.slice(at, match.index), placeholder: false });
+		parts.push({ text: match[0], placeholder: true });
+		at = match.index + match[0].length;
+	}
+	if (at < text.length || parts.length === 0) parts.push({ text: text.slice(at), placeholder: false });
+	return parts;
 }
