@@ -937,6 +937,7 @@ function CandidateDialog({
 						asOf: asOf as CandidateEntry["asOf"],
 						statement: statement.trim() || null,
 						authorName: viewerName,
+						// oxlint-disable-next-line react/purity -- run() is an event handler, not render; Oxlint's compiler port reads it as render
 						recordedAt: new Date().toISOString() as CandidateEntry["recordedAt"],
 						revision: String(BigInt(revision) + 1n) as CandidateEntry["revision"],
 					};
