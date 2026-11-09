@@ -10230,7 +10230,7 @@
     "id": "DOC-020",
     "title": "Doctrinal sections as network-filled slots",
     "module": "documents",
-    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill but cannot delete. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
+    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill or delete, and the block menu can add it back. A deleted slot is left out of later revisions and their exports entirely; earlier revisions keep it. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
     "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
     "requirement_ids": [
       "REQ-DOC-020"

@@ -84,3 +84,31 @@ export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) 
 	}
 	return { data, from };
 }
+
+// ---------------------------------------------------------------- placeholders
+
+/**
+ * A bracketed prompt such as [date], [number] or [low amount]: text in square brackets, 1 to 60 characters, on one line.
+ * The highlight comes from the text itself, so the editor, the PDF and the Word file mark the same spans and nothing is
+ * stored for it. The PDF hands `source` to Forme's Rust regex engine, which needs the inner `[` escaped.
+ */
+export const PLACEHOLDER = /\[[^\[\]\n]{1,60}\]/g;
+
+/**
+ * The fill every placeholder prints on, whatever the brand: a pale yellow that reads on paper and in grayscale, with the
+ * document's ink on it (contrast above 13:1 with any dark ink).
+ */
+export const PLACEHOLDER_FILL = "#FDF0A6";
+
+/** A run of text cut where its placeholders start and end. Text with none is one plain part. */
+export function placeholderParts(text: string): { text: string; placeholder: boolean }[] {
+	const parts: { text: string; placeholder: boolean }[] = [];
+	let at = 0;
+	for (const match of text.matchAll(PLACEHOLDER)) {
+		if (match.index > at) parts.push({ text: text.slice(at, match.index), placeholder: false });
+		parts.push({ text: match[0], placeholder: true });
+		at = match.index + match[0].length;
+	}
+	if (at < text.length || parts.length === 0) parts.push({ text: text.slice(at), placeholder: false });
+	return parts;
+}
