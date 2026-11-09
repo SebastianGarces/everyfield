@@ -6,7 +6,7 @@
 // two shots are where the glyphs sit, and the second shot holds the real pixels behind them. Each of those background
 // pixels is compared with the text's fill color by the WCAG 2 relative luminance formula. The worst one (lowest ratio)
 // is the result.
-import { inflateSync } from "node:zlib";
+import sharp from "../../apps/web/node_modules/sharp/dist/index.mjs";
 
 const PROBE = "data-contrast-probe";
 /** A pixel is part of a glyph when one channel differs by more than this between the two shots. Text that is close to
@@ -36,8 +36,8 @@ export async function contrastOf(locator) {
 		const shot = await locator.screenshot(options);
 		await locator.evaluate((el, probe) => el.setAttribute(probe, ""), PROBE);
 		const behind = await locator.screenshot(options);
-		const drawn = decodePng(shot);
-		const under = decodePng(behind);
+		const drawn = await decode(shot);
+		const under = await decode(behind);
 		if (drawn.width !== under.width || drawn.height !== under.height)
 			throw new Error(`the two shots differ in size: ${drawn.width}x${drawn.height}, ${under.width}x${under.height}`);
 		const [r, g, b, a] = parseColor(fill.color);
@@ -94,56 +94,8 @@ function parseColor(css) {
 	return [parts[0], parts[1], parts[2], parts[3] ?? 1];
 }
 
-/** Decodes an 8-bit, non-interlaced RGB or RGBA PNG (what browser screenshots are) into RGBA pixels. */
-function decodePng(buffer) {
-	let offset = 8;
-	let width = 0;
-	let height = 0;
-	let channels = 0;
-	const data = [];
-	while (offset < buffer.length) {
-		const length = buffer.readUInt32BE(offset);
-		const type = buffer.toString("ascii", offset + 4, offset + 8);
-		const body = buffer.subarray(offset + 8, offset + 8 + length);
-		if (type === "IHDR") {
-			width = body.readUInt32BE(0);
-			height = body.readUInt32BE(4);
-			const [depth, colorType, , , interlace] = body.subarray(8, 13);
-			channels = { 2: 3, 6: 4 }[colorType];
-			if (depth !== 8 || !channels || interlace !== 0)
-				throw new Error(`unsupported PNG: depth ${depth}, color type ${colorType}, interlace ${interlace}`);
-		} else if (type === "IDAT") data.push(body);
-		else if (type === "IEND") break;
-		offset += 12 + length;
-	}
-	const raw = inflateSync(Buffer.concat(data));
-	const stride = width * channels;
-	const rows = Buffer.alloc(stride * height);
-	for (let y = 0; y < height; y++) {
-		const filter = raw[y * (stride + 1)];
-		const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
-		for (let x = 0; x < stride; x++) {
-			const left = x >= channels ? rows[y * stride + x - channels] : 0;
-			const up = y > 0 ? rows[(y - 1) * stride + x] : 0;
-			const corner = x >= channels && y > 0 ? rows[(y - 1) * stride + x - channels] : 0;
-			let predictor = 0;
-			if (filter === 1) predictor = left;
-			else if (filter === 2) predictor = up;
-			else if (filter === 3) predictor = (left + up) >> 1;
-			else if (filter === 4) {
-				const p = left + up - corner;
-				const [pa, pb, pc] = [Math.abs(p - left), Math.abs(p - up), Math.abs(p - corner)];
-				predictor = pa <= pb && pa <= pc ? left : pb <= pc ? up : corner;
-			}
-			rows[y * stride + x] = (line[x] + predictor) & 0xff;
-		}
-	}
-	const pixels = new Uint8Array(width * height * 4);
-	for (let i = 0, j = 0; i < width * height; i++, j += channels) {
-		pixels[i * 4] = rows[j];
-		pixels[i * 4 + 1] = rows[j + 1];
-		pixels[i * 4 + 2] = rows[j + 2];
-		pixels[i * 4 + 3] = channels === 4 ? rows[j + 3] : 255;
-	}
-	return { width, height, pixels };
+/** Decodes a PNG into RGBA pixels. */
+async function decode(png) {
+	const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+	return { width: info.width, height: info.height, pixels: data };
 }
