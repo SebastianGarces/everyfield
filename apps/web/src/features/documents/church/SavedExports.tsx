@@ -6,7 +6,7 @@ import { Button, Card, ConfirmDialog, EmptyState } from "@everyfield/ui/controls
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { deleteSavedExport } from "./actions.ts";
-import { FORMAT_LABEL } from "./labels.ts";
+import { FORMAT_LABEL, savedAt as exportedAt } from "./labels.ts";
 
 // The saved exports of one Church Document, newest first. Each row downloads the stored bytes of that export, which never
 // change after later edits, brand kit changes or renderer changes. Only an Owner or Admin sees Delete.
@@ -14,17 +14,6 @@ import { FORMAT_LABEL } from "./labels.ts";
 /** The stored file of one saved export. The route reads the bytes; it never renders. */
 export const savedExportHref = (saved: Pick<SavedExport, "documentId" | "id">) =>
 	`/documents/church/${saved.documentId}/exports/${saved.id}`;
-
-/** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
-function exportedAt(iso: string) {
-	return new Date(iso).toLocaleString("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-	});
-}
 
 function size(bytes: number) {
 	return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
