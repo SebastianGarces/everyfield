@@ -20,6 +20,7 @@ export {
 	formulaDeps,
 	pageBox,
 	parseFormula,
+	templateFromDocument,
 	templateHash,
 	tileBox,
 	type Formula,

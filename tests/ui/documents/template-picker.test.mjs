@@ -23,7 +23,7 @@ const box = (dialog) =>
 	});
 const titles = (dialog) =>
 	dialog
-		.getByRole("list", { name: "Templates" })
+		.getByRole("list", { name: "Everyfield templates" })
 		.getByRole("button")
 		.evaluateAll((buttons) => buttons.map((b) => b.querySelector("span > span")?.textContent));
 
@@ -36,8 +36,10 @@ for (const [name, engine] of ENGINES) {
 			const full = await box(dialog);
 			// The first card's top edge sits inside the scroll area, so its ring is not clipped.
 			const edges = await dialog.evaluate((el) => {
-				const body = el.querySelector("ul[aria-label=Templates]").parentElement.getBoundingClientRect();
-				const card = el.querySelector("ul[aria-label=Templates] button").getBoundingClientRect();
+				const body = el
+					.querySelector("ul[aria-label='Everyfield templates']")
+					.parentElement.parentElement.getBoundingClientRect();
+				const card = el.querySelector("ul[aria-label='Everyfield templates'] button").getBoundingClientRect();
 				return { body: body.top, card: card.top };
 			});
 			assert.ok(

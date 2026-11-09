@@ -1,11 +1,14 @@
 "use client";
 
 import {
+	Cancel01Icon,
 	Delete02Icon,
 	Edit02Icon,
 	FileSyncIcon,
 	FloppyDiskIcon,
+	MoreHorizontalIcon,
 	Refresh01Icon,
+	FileAddIcon,
 	ViewIcon,
 } from "@hugeicons/core-free-icons";
 import {
@@ -23,6 +26,12 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	IconButton,
+	IntentLink,
+	Menu,
+	MenuContent,
+	MenuItem,
+	MenuTrigger,
 	Tooltip,
 } from "@everyfield/ui/controls";
 import { Extension, type Editor } from "@tiptap/core";
@@ -43,6 +52,7 @@ import { BlockControls } from "./LayoutControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
+import { SaveAsTemplateDialog } from "./SaveAsTemplate.tsx";
 import { TemplateCompare } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
@@ -291,6 +301,10 @@ export default function ChurchEditor({
 		} as CSSProperties;
 	}, [page, brand]);
 
+	// Save as template: each opening mounts the dialog afresh (a new request key); a success names the template here.
+	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0 });
+	const [savedTemplate, setSavedTemplate] = useState<string | null>(null);
+
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
 
@@ -346,8 +360,40 @@ export default function ChurchEditor({
 							confirmLabel="Delete all content"
 							onConfirm={deleteAll}
 						/>
+						<Menu>
+							<MenuTrigger asChild>
+								<IconButton icon={MoreHorizontalIcon} label="More actions" size="sm" />
+							</MenuTrigger>
+							<MenuContent align="end">
+								<MenuItem
+									icon={FileAddIcon}
+									onSelect={() => setTemplateDialog((d) => ({ open: true, opening: d.opening + 1 }))}
+								>
+									Save as template
+								</MenuItem>
+							</MenuContent>
+						</Menu>
 					</div>
 				</div>
+				{savedTemplate ? (
+					<div className="flex items-start gap-3 rounded-md bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)]">
+						<p role="status" className="min-w-0 flex-1 text-md text-text-2 text-pretty">
+							Saved <span className="font-medium text-ink">“{savedTemplate}”</span> as your church&apos;s template. Find
+							it in New from template on{" "}
+							<IntentLink href="/documents/church" className="cursor-pointer text-ink underline underline-offset-2">
+								Church documents
+							</IntentLink>
+							.
+						</p>
+						<IconButton
+							icon={Cancel01Icon}
+							label="Dismiss"
+							size="sm"
+							variant="soft"
+							onClick={() => setSavedTemplate(null)}
+						/>
+					</div>
+				) : null}
 				{template === "behind" && mode === "edit" ? <TemplateNotice onCompare={() => void compare()} /> : null}
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
@@ -433,6 +479,18 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
+			<SaveAsTemplateDialog
+				key={templateDialog.opening}
+				open={templateDialog.open}
+				onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
+				docId={docId}
+				title={title}
+				revision={shownRevision}
+				unsaved={status.kind !== "saved"}
+				saving={status.kind === "saving"}
+				onSaveFirst={save}
+				onSaved={(template) => setSavedTemplate(template.title)}
+			/>
 		</EditorContext.Provider>
 	);
 }
