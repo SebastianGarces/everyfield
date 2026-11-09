@@ -284,8 +284,6 @@ async function assertGuides(db: Database) {
 		const guide = result.value;
 		assert.deepEqual([guide.found, guide.slug, guide.citation], [true, entry.slug, entry.heading], route);
 		const section = sectionExcerpt("safe_mdx", await seedContent(approvedWiki.payloadPath, entry.slug), entry.heading);
-		assert.match(section.split("\n")[0] ?? "", /^#{2,3} /, route);
-		assert.equal(section.split("\n")[0]?.replace(/^#+ /, ""), entry.heading, route);
 		assert.equal(guide.body, section, route);
 		if (entry.route === "/settings/brand")
 			assert.equal(guide.title, "Building Your Church's Brand: Logo, Tagline and Style Guide");

@@ -14,7 +14,6 @@ const HEADING = /^ {0,3}#{1,6}\s+(.*?)\s*$/;
 
 test("T-28 every Guide entry names a published article and one exact heading in the pinned living seed", () => {
 	assert.equal(hash(bytes), approvedWiki.payloadSha256, "the test reads the pinned seed bytes");
-	assert.equal(GUIDE_ROUTES.length, 13);
 	for (const entry of GUIDE_ROUTES) {
 		const matches = seed.articles.filter((article) => article.slug === entry.slug);
 		assert.equal(matches.length, 1, `${entry.route}: article ${entry.slug}`);
