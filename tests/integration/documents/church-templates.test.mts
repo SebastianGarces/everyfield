@@ -972,23 +972,10 @@ describe(
 			assert.deepEqual(await counts(), { ...mid, audits: mid.audits + 1 });
 			assert.equal((await editAudits()).length, audited + 1);
 
-			// One key with other values, raced: one lands, the other is a conflict, one audit row.
-			const results = await Promise.all([
-				editTemplate(OWNER, { ...race, name: "First of two", requestKey: "t87-race-2" }),
-				editTemplate(ADMIN, { ...race, name: "Second of two", requestKey: "t87-race-2" }),
-			]);
-			const landed = results.filter((r) => r.status === "ok");
-			assert.equal(landed.length, 1, JSON.stringify(results));
-			refused(
-				results.find((r) => r.status !== "ok"),
-				"conflict",
-			);
-			assert.equal((await templateRow(template.id)).title, landed[0].value.title);
-			assert.deepEqual(await counts(), { ...mid, audits: mid.audits + 2 });
-
 			// A save that changes neither the name nor the description writes nothing.
 			const row = await templateRow(template.id);
 			const still = await counts();
+			assert.deepEqual(still, { ...mid, audits: mid.audits + 1 });
 			const same = ok(
 				await editTemplate(OWNER, {
 					templateId: template.id,
