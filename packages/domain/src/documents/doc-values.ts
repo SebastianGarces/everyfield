@@ -1,4 +1,4 @@
-import type { EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
+import type { BlockNode, EveryfieldDoc, FieldDecl, IfNode } from "@everyfield/contracts/documents";
 
 // What a `field` node prints, for the PDF, the Word file and the workbook alike. A document prints the value it froze at
 // creation (`data`), then the field's fallback. A template prints its sample. A field with no value prints its label in
@@ -40,6 +40,62 @@ export function listValues(doc: EveryfieldDoc, key: string): Record<string, unkn
 	return Array.isArray(raw)
 		? raw.filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
 		: [];
+}
+
+// ---------------------------------------------------------------- conditional text
+
+/** A whole or decimal number as a field prints it, or null for any other text (a bracketed label, an empty value). */
+const asNumber = (text: string) => (/^-?\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : null);
+
+/**
+ * True when the condition of conditional text holds for this document. It reads the value the field prints: a
+ * document's frozen `data`, then the fallback; a template's sample. `has-value` holds when that value is not empty and
+ * is not the field's label in brackets, and for a list field when the list has an entry. `is-empty` is its opposite.
+ * `more-than` compares a number field's number, or a list field's entry count, with `value`.
+ */
+export function conditionHolds(
+	doc: EveryfieldDoc,
+	condition: IfNode["attrs"],
+	values: Record<string, string> = fieldValues(doc),
+): boolean {
+	const field = doc.fields.find((f) => f.key === condition.field);
+	if (!field) return false;
+	const count = field.type === "list" ? listValues(doc, field.key).length : null;
+	const printed = values[field.key] ?? "";
+	const hasValue = count !== null ? count > 0 : printed !== "" && printed !== `[${field.label.toLowerCase()}]`;
+	switch (condition.test) {
+		case "has-value":
+			return hasValue;
+		case "is-empty":
+			return !hasValue;
+		case "more-than": {
+			const amount = count ?? asNumber(printed);
+			return amount !== null && amount > (condition.value ?? 0);
+		}
+	}
+}
+
+/**
+ * The document as it prints: each conditional text whose condition holds gives way to its blocks, in place, and each
+ * one that does not is gone, leaving no blank. The PDF, the preview, the Word file and a Member's view all print this.
+ * A document with no conditional text comes back as the same object.
+ */
+export function printedDoc<T extends EveryfieldDoc>(doc: T): T {
+	const values = fieldValues(doc);
+	let found = false;
+	const walk = (nodes: readonly BlockNode[]): BlockNode[] =>
+		nodes.flatMap((node): BlockNode[] => {
+			if (node.type === "if") {
+				found = true;
+				return conditionHolds(doc, node.attrs, values) ? walk(node.content) : [];
+			}
+			if (node.type === "columns")
+				return [{ ...node, content: node.content.map((col) => ({ ...col, content: walk(col.content ?? []) })) }];
+			if (node.type === "box") return [{ ...node, content: walk(node.content ?? []) }];
+			return [node];
+		});
+	const content = walk(doc.body.content ?? []);
+	return found ? { ...doc, body: { ...doc.body, content } } : doc;
 }
 
 /** Where the app fills each field from, at creation. */

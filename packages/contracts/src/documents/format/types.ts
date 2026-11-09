@@ -62,6 +62,18 @@ export type SlotNode = {
 	content?: (ParagraphNode | BulletListNode | OrderedListNode)[];
 };
 
+/** What a condition tests: a field has a value, is empty, or (a number or a list field) is more than `value`. */
+export type ConditionTest = "has-value" | "is-empty" | "more-than";
+/**
+ * Conditional text: blocks that print only while the condition on one of the document's fields holds. It sits in the
+ * body, a column or a box, and holds no other conditional text, no budget table and no section slot.
+ */
+export type IfNode = {
+	type: "if";
+	attrs: { field: string; test: ConditionTest; value?: number };
+	content: BlockNode[];
+};
+
 export type ColumnType = "text" | "number" | "money" | "check" | "index" | "formula";
 export type ColumnSpec = {
 	id: string;
@@ -105,7 +117,8 @@ export type BlockNode =
 	| ImageNode
 	| WriteInNode
 	| SlotNode
-	| TableNode;
+	| TableNode
+	| IfNode;
 export type DocNode = { type: "doc"; attrs?: Record<string, never>; content?: BlockNode[] };
 export type AnyNode = DocNode | BlockNode | ListItemNode | ColumnNode | RowNode | CellNode | InlineNode;
 

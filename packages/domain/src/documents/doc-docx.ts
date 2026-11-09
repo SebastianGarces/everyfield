@@ -9,7 +9,7 @@ import type {
 	TableNode,
 } from "@everyfield/contracts/documents";
 import { attrsOf, columnWidths, computeTable, formatNumber, pageBox, tileBox } from "@everyfield/contracts/documents";
-import { fieldValues, listValues } from "./doc-values.ts";
+import { fieldValues, listValues, printedDoc } from "./doc-values.ts";
 import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 import { SLOT_BLANK_NOTE } from "./templates/church.ts";
@@ -427,6 +427,8 @@ function block(w: W, node: BlockNode): string {
 			return slot(w, node);
 		case "table":
 			return table(w, node);
+		case "if":
+			throw new Error("conditional text resolves before the Word file is written (printedDoc)");
 	}
 }
 const blocks = (w: W, nodes: readonly BlockNode[]) => nodes.map((n) => block(w, n)).join("");
@@ -493,10 +495,12 @@ function regionPart(w: W, which: "header" | "footer", region: Region | null) {
 
 /** The Word file for one document or template. The theme names the fonts and colors; images come from it. */
 export function renderDocDocx(
-	doc: EveryfieldDoc,
+	source: EveryfieldDoc,
 	theme: { render: RenderTheme; fonts: { heading: string; body: string } },
 	created: Date,
 ): Buffer {
+	// Conditional text resolves first, as for the PDF: a block left out leaves no empty paragraph behind.
+	const doc = printedDoc(source);
 	const size = pageBox(doc.page);
 	if (!size) throw new Error("the page has no size");
 	const m = doc.page.margin;
