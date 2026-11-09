@@ -361,6 +361,12 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 			ok(await documentsWriter.readChurch(db, await authority(MEMBER), { documentId: doc.id })).templateVersion,
 			2,
 		);
+		assert.equal(
+			ok(await documentsWriter.listChurch(db, await authority(MEMBER), {})).documents.find((d) => d.id === doc.id)
+				?.templateVersion,
+			2,
+			"the library shows the version the document page shows",
+		);
 
 		// Exactly one new revision; the earlier ones are unchanged and still render the same file.
 		assert.deepEqual(

@@ -87,10 +87,21 @@ function churchResult(
 		provenance: Provenance;
 	},
 ) {
-	// The template version a document follows is the one its current revision records: the version it was made from,
-	// or the one it last accepted changes from. The row keeps the version it was made from (frozen source evidence).
-	const templateVersion = d.body.origin?.template === d.templateId ? d.body.origin.version : d.templateVersion;
+	const templateVersion = followedVersion(d.templateId, d.templateVersion, d.body.origin);
 	return c.churchDocument.parse({ ...d, templateVersion, tenantId, formats: docFormats(d.body), archived: false });
+}
+
+/**
+ * The template version a document follows is the one its current revision records: the version it was made from, or
+ * the one it last accepted changes from. The row keeps the version it was made from (frozen source evidence), so every
+ * reader derives the version here.
+ */
+function followedVersion(
+	templateId: string | null,
+	madeFrom: number | null,
+	origin: { template?: string; version?: number } | null | undefined,
+) {
+	return origin?.template === templateId && typeof origin?.version === "number" ? origin.version : Number(madeFrom);
 }
 
 /**
@@ -694,13 +705,14 @@ export const churchWriter = {
 				title: string | null;
 				template_id: string | null;
 				template_version: number | null;
+				origin: { template?: string; version?: number } | null;
 				document_class: ChurchRow["document_class"] | null;
 				revision: string | null;
 				updated_at: Date | string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id, d.title, d.template_id, d.template_version, d.document_class, d.revision::text AS revision,
-					r.recorded_at AS updated_at
+				sql`SELECT g.ok, d.id, d.title, d.template_id, d.template_version, r.body::jsonb->'origin' AS origin,
+					d.document_class, d.revision::text AS revision, r.recorded_at AS updated_at
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document'
 					AND d.archived_at IS NULL AND d.current_revision_id IS NOT NULL
@@ -716,7 +728,7 @@ export const churchWriter = {
 						id: row.id,
 						title: row.title,
 						templateId: row.template_id,
-						templateVersion: Number(row.template_version),
+						templateVersion: followedVersion(row.template_id, row.template_version, row.origin),
 						documentClass: row.document_class,
 						revision: row.revision,
 						updatedAt: iso(row.updated_at),
