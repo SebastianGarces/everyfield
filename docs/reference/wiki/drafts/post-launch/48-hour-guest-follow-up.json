@@ -34,7 +34,7 @@
 		"rulings": [
 			"F44 attribution: 'Many churches find that a quick personal follow-up, within a day or two, makes a return visit more likely.' replaces 'Research consistently shows...'. No study for a 48-hour cutoff could be traced.",
 			"Wording choice (same row): the unsourced 'a call on Wednesday has half the impact of a call on Monday' and 'high open rates' claims become unquantified advice.",
-			"Everyfield instead of outside tools (Page table 'Outside tools where Everyfield already helps'): feature claims match docs/product (people.md, meetings-follow-up.md, tasks.md). Slice 1's wording is reused: 'Everyfield doesn't handle giving or children's check-in.' Here: guests are added to People, each gets a follow-up task with a due date, and each contact is logged on the person's record. Everyfield creates follow-up tasks automatically only for first-time Vision Meeting guests, so this article tells the reader to create the task. Texting advice stays (SMS is out of scope, not advice)."
+			"Everyfield instead of outside tools (Page table 'Outside tools where Everyfield already helps'): feature claims match docs/product (people.md, meetings-follow-up.md, tasks.md). Here: guests are added to People, each gets a follow-up task with a due date, and each contact is logged on the person's record. Everyfield creates follow-up tasks automatically only for first-time Vision Meeting guests, so this article tells the reader to create the task. Texting advice stays (SMS is out of scope, not advice)."
 		]
 	}
 }

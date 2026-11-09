@@ -12,8 +12,7 @@
 		"administrative/financial/principles-of-financial-accountability",
 		"administrative/financial/collections-handling-cash-checks",
 		"administrative/financial/disbursements-and-approvals",
-		"administrative/financial/first-year-budget-planning",
-		"administrative/purchasing/using-a-gift-registry-for-equipment"
+		"administrative/financial/first-year-budget-planning"
 	],
 	"section_id": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
 	"slug": "administrative/financial/designated-giving-policies",
@@ -35,8 +34,7 @@
 		},
 		"rulings": [
 			"D1 elder polity, Sebastian Oct 31: each place that named the elders now says 'the elders or the governing body your bylaws name'; later mentions in the same passage say 'that body' or 'they'. Every control (two signatures, approval thresholds, designated funds only, reporting) is unchanged.",
-			"Wording choice: the heading 'Elder-Established Funds Only' becomes 'Established Funds Only'; the rule itself is unchanged.",
-			"F55 orphans: related_article_slugs gains administrative/purchasing/using-a-gift-registry-for-equipment so that article has an inbound link from a related slice article."
+			"Wording choice: the heading 'Elder-Established Funds Only' becomes 'Established Funds Only'; the rule itself is unchanged."
 		]
 	}
 }
