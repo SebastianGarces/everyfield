@@ -92,6 +92,8 @@ export const dispatchResult = z.strictObject({
 	acceptedCount: z.number().int().nonnegative(),
 	rejectedCount: z.number().int().nonnegative(),
 	unknownCount: z.number().int().nonnegative(),
+	/** Recipients Everyfield refused because the person unsubscribed from this church's email. Not in rejectedCount. */
+	unsubscribedCount: z.number().int().nonnegative(),
 	uncertain: z.boolean(),
 	failed: z.boolean(),
 	providerCalls: z.number().int().nonnegative(),
@@ -220,6 +222,8 @@ export const deliveryTotalsResult = z.strictObject({
 	bounced: z.number().int().nonnegative(),
 	failed: z.number().int().nonnegative(),
 	suppressed: z.number().int().nonnegative(),
+	/** Recipients refused because the person unsubscribed from this church's email. Not in failed. */
+	unsubscribed: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
 	/** Recipients the email service confirmed cancelled. */
 	cancelled: z.number().int().nonnegative(),
@@ -263,6 +267,8 @@ export const detailResult = z.strictObject({
 export const personHistoryResult = historyPage.extend({
 	personId: recordId,
 	lastConfirmedContactAt: instant.nullable(),
+	/** When the person unsubscribed from this church's Messages email, for an Owner or Admin; null otherwise. */
+	emailOptOutAt: instant.nullable(),
 	contacts: z.array(
 		z.strictObject({
 			outcomeId: recordId,

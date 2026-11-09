@@ -657,3 +657,15 @@
 .ef-paper .ef-slot-body > :last-child {
 	margin-bottom: 0;
 }
+
+/* A plain native document's paper (written/): Letter width, no fixed page height, dividers in the paper's own ink. It
+   has no page setup, so the page box is fixed here. */
+.ef-sheet.ef-native {
+	--page-w: 816px;
+	--page-h: 640px;
+	--pad-x: 88px;
+	--pad-y: 72px;
+}
+.ef-native .ef-paper {
+	--tok-ink: var(--paper-text);
+}

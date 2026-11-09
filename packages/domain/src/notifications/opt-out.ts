@@ -79,10 +79,30 @@ function seal(
 		exp,
 		unsubscribeRevision: input.unsubscribeRevision,
 	});
-	const nonce = iv(ring.current, claim);
-	const cipher = createCipheriv("aes-256-gcm", ring.current, nonce);
+	return sealClaim(ring.current, claim, iv(ring.current, claim));
+}
+
+/**
+ * One AES-256-GCM token over a JSON claim: nonce, tag, then ciphertext, in base64url. The Messages opt-out
+ * (communication/opt-out.ts) seals its own claims with this under its own subkey.
+ */
+export function sealClaim(key: Buffer, claim: string, nonce: Buffer): string {
+	const cipher = createCipheriv("aes-256-gcm", key, nonce);
 	const body = Buffer.concat([cipher.update(claim), cipher.final()]);
 	return Buffer.concat([nonce, cipher.getAuthTag(), body]).toString("base64url");
+}
+
+/** The JSON claim a token sealed under `key` holds, or null when it does not open: forged, tampered or another key. */
+export function openClaim(key: Buffer, token: string): unknown {
+	try {
+		const buf = Buffer.from(token, "base64url");
+		if (buf.length < 29 || key.length !== 32) return null;
+		const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
+		decipher.setAuthTag(buf.subarray(12, 28));
+		return JSON.parse(Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString());
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -100,17 +120,8 @@ export function parseKeyRing(raw: string | undefined): { current: Buffer; previo
 }
 
 function openWith(key: Buffer, token: string): Payload | null {
-	try {
-		const buf = Buffer.from(token, "base64url");
-		if (buf.length < 29 || key.length !== 32) return null;
-		const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
-		decipher.setAuthTag(buf.subarray(12, 28));
-		const json = Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString();
-		const parsed = payload.safeParse(JSON.parse(json));
-		return parsed.success ? parsed.data : null;
-	} catch {
-		return null;
-	}
+	const parsed = payload.safeParse(openClaim(key, token));
+	return parsed.success ? parsed.data : null;
 }
 
 function openToken(key: Buffer | OptOutKeyRing, token: string): Payload | null {

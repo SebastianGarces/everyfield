@@ -3595,6 +3595,25 @@
     ]
   },
   {
+    "id": "AC-NTF-016--NTF-016",
+    "shared_gate_id": "AC-NTF-016",
+    "feature_id": "NTF-016",
+    "requirement_ids": [
+      "REQ-NTF-016"
+    ],
+    "case_ids": [
+      "CASE-NTF-016"
+    ],
+    "operations": [
+      "communication.applyMessagesOptOut",
+      "communication.describeMessagesOptOut",
+      "communication.undoMessagesOptOut"
+    ],
+    "work_packages": [
+      "WP-028"
+    ]
+  },
+  {
     "id": "AC-DOC-001--DOC-001",
     "shared_gate_id": "AC-DOC-001",
     "feature_id": "DOC-001",

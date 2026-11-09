@@ -4683,6 +4683,21 @@
       "requirement": "REQ-DOC-020",
       "operation": "documents.exportNative",
       "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.describeMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.applyMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.undoMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
     }
   ],
   "rule_additions": [
@@ -4697,6 +4712,18 @@
       "operation": "documents.generate",
       "rule": "Generate makes saved files for every template, including editable ones (\"Save for your church\"); an editable template can also become a Church Document through documents.createFromTemplate, then documents.exportNative.",
       "reason": "Sebastian, 2026-11-04 (T-56): keep Save for your church alongside editable documents, so generate makes saved files for editable templates too."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.applyMessagesOptOut",
+      "rule": "Messages opt-out requires an explicit native request bound to the disable purpose; only the Person's own token writes it.",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.undoMessagesOptOut",
+      "rule": "Undo requires the separate one-hour undo token of that exact opt-out; no staff or Admin operation clears or rewrites it.",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
     }
   ],
   "operation_additions": [
@@ -4999,6 +5026,21 @@
       "id": "documents.exportNative",
       "requirement": "REQ-DOC-023",
       "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): WP-037 owns editable template documents and their export."
+    },
+    {
+      "id": "communication.describeMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "communication.applyMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "communication.undoMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
     }
   ],
   "shared_rewrites": {
