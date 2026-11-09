@@ -32,6 +32,7 @@ export async function ChurchLibraryPage({
 		<ChurchLibrary
 			documents={loaded.value.documents}
 			templates={loaded.value.templates}
+			churchTemplates={loaded.value.churchTemplates}
 			canManage={canManageChurch(authority)}
 			deleted={(await searchParams).deleted === "1"}
 		/>

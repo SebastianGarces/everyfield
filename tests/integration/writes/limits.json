@@ -376,6 +376,9 @@
 	"documents.deleteChurch": {
 		"limit": 1
 	},
+	"documents.deleteChurchTemplate": {
+		"limit": 1
+	},
 	"documents.designateCoreValues": {
 		"limit": 1
 	},
@@ -415,6 +418,9 @@
 	},
 	"documents.resolveContext": {
 		"limit": 1
+	},
+	"documents.saveChurchTemplate": {
+		"limit": 3
 	},
 	"documents.saveNative": {
 		"limit": 1
