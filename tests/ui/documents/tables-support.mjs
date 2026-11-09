@@ -10,6 +10,9 @@ import { BASE, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 export const PAPER = ".ef-paper .ProseMirror";
 export const MOD = "ControlOrMeta";
 
+/** The text of a stored cell. */
+export const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
+
 /** The stored form of each template the tests fork, for `documentFrom`. */
 export const bases = {};
 export async function baseOf(id) {

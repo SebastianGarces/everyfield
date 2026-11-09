@@ -7,10 +7,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ENGINES } from "../setup.mjs";
 import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
-import { MOD, onFork, PAPER } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const roles = (table) => (table.content ?? []).map((r) => r.attrs?.role ?? "item");
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const labels = (table) => (table.content ?? []).map((r) => textOf(r.content[0]));
 
 for (const [name, engine] of ENGINES) {

@@ -7,10 +7,9 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { clean } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
-import { baseOf, MOD, onFork, PAPER } from "./tables-support.mjs";
+import { baseOf, MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const kind = (page, value) => page.getByRole("combobox", { name: "Column kind" }).selectOption(value);
 
 for (const [name, engine] of ENGINES) {

@@ -13,14 +13,13 @@ import { textOn } from "../../../packages/domain/src/documents/contrast.ts";
 import { makePalette, NEUTRAL_THEME, tokenColor } from "../../../packages/domain/src/documents/theme.ts";
 import { ENGINES } from "../setup.mjs";
 import { TOKEN_NAMES } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
-import { MOD, onFork, PAPER } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const palette = makePalette(NEUTRAL_THEME);
 const rgb = (hex) => {
 	const n = Number.parseInt(hex.replace("#", ""), 16);
 	return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 };
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 
 for (const [name, engine] of ENGINES) {
 	test(`AC:WP-036-1 (${name}): Insert offers Table; a cell takes typing, the text tools, Tab and Enter; a pasted block is one line`, async () => {
