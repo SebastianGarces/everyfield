@@ -306,6 +306,11 @@ test("AC:DOC-EDIT-PLACEHOLDERS: placeholders are highlighted from the text in th
 		assert.deepEqual(await marks(), ["[number]", "[date]"], "the policy's placeholders are highlighted, nothing else");
 		await cursorIn(page, "The secretary writes", 0);
 		await page.keyboard.insertText("On [low amount] ");
+		// The decoration follows the transaction; wait for the paint rather than read the DOM in the same tick.
+		await page
+			.locator(`${PAPER} .ef-placeholder`, { hasText: "[low amount]" })
+			.waitFor({ timeout: 5_000 })
+			.catch(() => {});
 		assert.ok((await marks()).includes("[low amount]"), "a typed placeholder lights up as it is typed");
 		// Removing the closing bracket ends the highlight; nothing is stored for it.
 		await cursorIn(page, "On [low amount]", 15);
