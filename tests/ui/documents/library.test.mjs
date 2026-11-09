@@ -99,19 +99,19 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`INV-doc-format (${name}): PDF for nine templates, Excel for two, no Word and no format switch`, async () => {
+	test(`INV-doc-format (${name}): PDF for eleven templates, Excel for two, no Word and no format switch`, async () => {
 		await withPage(engine, async (page) => {
 			await page.goto(`${BASE}/documents`);
 			await hydrated(page);
 			const cards = page.getByRole("group", { name: "Templates" }).getByRole("button");
 			await cards.first().waitFor();
-			assert.equal(await cards.count(), 11);
+			assert.equal(await cards.count(), 13);
 			// The tags sit beside the button in the same card.
 			const labels = await cards.evaluateAll((nodes) =>
 				nodes.map((n) => [...n.parentElement.querySelectorAll("span")].map((s) => s.textContent)),
 			);
 			const formats = labels.map((l) => (l.includes("PDF") ? "PDF" : l.includes("Excel") ? "Excel" : "other"));
-			assert.equal(formats.filter((f) => f === "PDF").length, 9);
+			assert.equal(formats.filter((f) => f === "PDF").length, 11);
 			assert.equal(formats.filter((f) => f === "Excel").length, 2);
 			assert.equal(await page.getByText("Word", { exact: true }).count(), 0);
 			assert.equal(await page.getByRole("radiogroup", { name: "Format" }).count(), 0);

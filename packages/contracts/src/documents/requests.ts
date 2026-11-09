@@ -57,7 +57,20 @@ export const saveChurchRequest = z.strictObject({
 	expectedRevision: revisionToken,
 	body: docDocument,
 });
-/** A built-in template id, merge values by field key and a request key. The same key returns the same document. */
+/**
+ * Save as template: one saved revision of a Church Document becomes the church's own template. The request names the
+ * revision it copies, so the template holds what the person saw saved. The same request key makes one template.
+ */
+export const saveChurchTemplateRequest = z.strictObject({
+	documentId: recordId,
+	revision: z.int().min(1).max(1_000_000),
+	name: documentTitle,
+	description: z.string().trim().max(500).optional(),
+	requestKey: z.string().trim().min(1).max(80),
+});
+/** Delete a church template from "New from template". Documents made from it keep their content. */
+export const deleteChurchTemplateRequest = z.strictObject({ templateId: recordId });
+/** A built-in or church template id, merge values by field key and a request key. The same key returns the same document. */
 export const createFromTemplateRequest = z.strictObject({
 	templateId,
 	mergeFields: overrides,

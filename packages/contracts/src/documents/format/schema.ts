@@ -496,6 +496,10 @@ export const FORMAT_SCHEMA: FormatSchema = {
 					max: 80,
 					default: "Statement of faith",
 				},
+				key: {
+					type: "slug",
+					optional: true,
+				},
 			},
 			content: {
 				allow: ["paragraph", "bulletList", "orderedList"],

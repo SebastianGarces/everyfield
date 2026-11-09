@@ -8,13 +8,14 @@ import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
+import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL } from "./labels.ts";
-import type { ChurchView, ExportResult, TemplateState } from "./server.ts";
+import { CLASS_LABEL, type FORMAT_LABEL } from "./labels.ts";
+import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
-// One Church Document: the real PDF as its preview, the downloads and the saved exports. A download saves one export of
-// the shown revision, then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
+// One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
+// one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
 // nothing. Any seat downloads (D-80). An Owner or Admin can edit and delete it, and delete a saved export (D-79).
 // The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
@@ -42,16 +43,26 @@ export function ChurchDocumentScreen({
 	editable,
 	canManage,
 	exports: firstExports,
+	revisions: firstRevisions,
 }: {
 	doc: ChurchView;
+	/** The saved revisions, newest first. */
+	revisions: RevisionRow[];
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
 	editable: { document: DocDocument; brands: DocBrands; template: TemplateState } | null;
 	canManage: boolean;
 }) {
-	// A save moves the revision here, so the header and the downloads follow without a page refresh.
-	const [revision, setRevision] = useState(doc.revision);
+	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
+	const [revision, setShownRevision] = useState(doc.revision);
+	const [revisions, setRevisions] = useState(firstRevisions);
+	const setRevision = (next: string) => {
+		setShownRevision(next);
+		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
+		const row = { number: Number(next), recordedAt: new Date().toISOString() };
+		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
+	};
 	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
 	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
@@ -71,30 +82,34 @@ export function ChurchDocumentScreen({
 	const brands = editable?.brands;
 	const brand = brands ? (branded && brands.church ? brands.church : brands.plain) : null;
 	const [exports, setExports] = useState(firstExports);
-	const [exporting, setExporting] = useState<string | null>(null);
-	const [exportError, setExportError] = useState<string | null>(null);
+	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
+	// spinner and a failure show beside the button that was clicked.
+	const [exporting, setExporting] = useState<{ at: number | null; format: keyof typeof FORMAT_LABEL } | null>(null);
+	const [exportError, setExportError] = useState<{ at: number | null; message: string } | null>(null);
 	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
 	// reaches the same saved export instead of making a second one.
 	const keys = useRef(new Map<string, string>());
 
-	async function download(format: string) {
+	async function download(format: keyof typeof FORMAT_LABEL, at: number | null = null) {
 		if (exporting) return;
-		const slot = `${revision}:${format}`;
+		const target = at === null ? revision : String(at);
+		const slot = `${target}:${format}`;
 		const key = keys.current.get(slot) ?? crypto.randomUUID();
 		keys.current.set(slot, key);
-		setExporting(format);
+		setExporting({ at, format });
 		setExportError(null);
-		const result = await requestExport(doc.id, { revision, format, requestKey: key });
+		const result = await requestExport(doc.id, { revision: target, format, requestKey: key });
 		setExporting(null);
 		if (result.status === "lost") {
-			setExportError(
-				"The connection dropped, so nothing was downloaded. Try again; a retry will not save a second copy.",
-			);
+			setExportError({
+				at,
+				message: "The connection dropped, so nothing was downloaded. Try again; a retry will not save a second copy.",
+			});
 			return;
 		}
 		keys.current.delete(slot);
 		if (result.status === "refused") {
-			setExportError(result.message);
+			setExportError({ at, message: result.message });
 			return;
 		}
 		const saved = result.saved;
@@ -124,7 +139,7 @@ export function ChurchDocumentScreen({
 				subtitle={
 					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<span>
-							from {doc.templateId} v{templateVersion}
+							from {doc.templateName ?? doc.templateId} v{templateVersion}
 						</span>
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {revision}</span>
@@ -138,8 +153,8 @@ export function ChurchDocumentScreen({
 								key={d.format}
 								variant={i === 0 ? "primary" : "secondary"}
 								icon={Download01Icon}
-								loading={exporting === d.format}
-								disabled={exporting !== null && exporting !== d.format}
+								loading={exporting?.at === null && exporting.format === d.format}
+								disabled={exporting !== null && !(exporting.at === null && exporting.format === d.format)}
 								onClick={() => void download(d.format)}
 							>
 								{d.label}
@@ -166,12 +181,12 @@ export function ChurchDocumentScreen({
 					</>
 				}
 			/>
-			{exportError ? (
+			{exportError?.at === null ? (
 				<p
 					role="alert"
 					className="mb-4 rounded-md bg-magenta-100 px-4 py-3 text-md text-magenta-600 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					{exportError}
+					{exportError.message}
 				</p>
 			) : null}
 			<ChurchBranding
@@ -213,6 +228,14 @@ export function ChurchDocumentScreen({
 					<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />
 				</section>
 			)}
+			<ChurchRevisions
+				revisions={revisions}
+				current={Number(revision)}
+				formats={doc.formats}
+				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
+				error={exportError}
+				onDownload={(at, format) => void download(format, at)}
+			/>
 			<SavedExports
 				exports={exports}
 				canManage={canManage}

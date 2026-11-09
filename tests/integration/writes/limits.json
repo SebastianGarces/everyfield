@@ -9,7 +9,7 @@
 		"limit": 2
 	},
 	"GET /documents/church/[documentId]": {
-		"limit": 3
+		"limit": 4
 	},
 	"GET /documents/church/[documentId]/file": {
 		"limit": 2
@@ -379,6 +379,9 @@
 	"documents.deleteChurch": {
 		"limit": 1
 	},
+	"documents.deleteChurchTemplate": {
+		"limit": 1
+	},
 	"documents.deleteExport": {
 		"limit": 1
 	},
@@ -421,6 +424,9 @@
 	},
 	"documents.resolveContext": {
 		"limit": 1
+	},
+	"documents.saveChurchTemplate": {
+		"limit": 3
 	},
 	"documents.saveNative": {
 		"limit": 1

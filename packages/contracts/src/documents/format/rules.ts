@@ -788,3 +788,27 @@ export async function forkTemplate(
 		body: copy.body,
 	};
 }
+
+/**
+ * Save as template: a church's own template from one of its documents. The template is a full copy of the document's
+ * page, fields and body. It drops `origin` and `data`, so a document made from it freezes the church's details anew.
+ */
+export function templateFromDocument(
+	doc: DocDocument,
+	{ id, title, description }: { id: string; title: string; description?: string },
+): DocTemplate {
+	const copy = structuredClone(doc);
+	return {
+		format: copy.format,
+		kind: "template",
+		id,
+		version: 1,
+		title,
+		...(description ? { description } : {}),
+		class: copy.class,
+		exports: copy.exports,
+		fields: copy.fields,
+		page: copy.page,
+		body: copy.body,
+	};
+}

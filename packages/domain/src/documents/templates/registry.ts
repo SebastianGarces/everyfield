@@ -71,7 +71,7 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
  * A text-heavy template's preview. It renders the template's revision 1 through the Church Document render path, so the
  * preview and the export of an unedited revision 1 show the same page text and outline.
  */
-const textEntry = (id: string): PdfEntry => {
+const textEntry = (id: string, pageCount = 1): PdfEntry => {
 	const template = churchTemplate(id);
 	if (!template) throw new Error(`Template ${id} is not a Church Document template.`);
 	const letter = template.style === "letter";
@@ -80,14 +80,16 @@ const textEntry = (id: string): PdfEntry => {
 		format: "pdf",
 		documentClass: template.documentClass,
 		pageSize: LETTER,
-		pageCount: 1,
+		pageCount,
 		outline: letter ? [template.title] : template.body.flatMap((b) => (b.kind === "heading" ? [b.text] : [])),
 		fields:
 			template.frame.kind === "letter"
 				? ["letter_date", "pastor_name"]
 				: template.frame.kind === "sign"
 					? template.frame.slots.map((s) => s.name)
-					: [],
+					: range(template.frame.signers).flatMap((n) =>
+							["name", "role", "signature", "date"].map((part) => `adopt_${n}_${part}`),
+						),
 		build: (ctx) =>
 			churchDocument(
 				ctx,
@@ -160,6 +162,9 @@ export const REGISTRY: RegistryEntry[] = [
 		],
 		build: checklistsDocument,
 	},
+	// Text templates authored in code (docs/catalog/document-templates.json `named`). They print a saved file too.
+	textEntry("bylaws", 2),
+	textEntry("prayer-letter"),
 ];
 export const entryFor = (id: string) => REGISTRY.find((entry) => entry.id === id);
 
