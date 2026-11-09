@@ -5,12 +5,14 @@ import type { BlockNode, DocDocument, InlineNode, ParagraphNode } from "@everyfi
 // (D-109): a later change to the network's text never reaches a document that already exists.
 
 /** The slot key the network's statement of faith fills. */
-export const STATEMENT_OF_FAITH_KEY = "statement-of-faith";
+const STATEMENT_OF_FAITH_KEY = "statement-of-faith";
 
-/** The network's text as paragraphs: one per blank-line-separated block, a single line break kept as a break. */
+/**
+ * The network's text as paragraphs: one per blank-line-separated block, a single line break kept as a break. The
+ * organization write already turned CRLF into LF and trimmed it.
+ */
 export function statementParagraphs(text: string): ParagraphNode[] {
 	return text
-		.replace(/\r\n?/g, "\n")
 		.split(/\n[ \t]*\n/)
 		.map((block) => block.replace(/^\n+|\n+$/g, ""))
 		.filter((block) => block.trim() !== "")
@@ -24,12 +26,12 @@ export function statementParagraphs(text: string): ParagraphNode[] {
 }
 
 /**
- * The document with every `statement-of-faith` slot holding the network's text under its label. With no text, the
- * document is returned unchanged, so the slot stays as the template authored it (the marked blank when empty). A slot
- * with no key or another key is never touched.
+ * The document with every `statement-of-faith` slot holding the network's text under its label. With no text (the
+ * database never holds blank text), the document is returned unchanged, so the slot stays as the template authored it
+ * (the marked blank when empty). A slot with no key or another key is never touched.
  */
 export function fillStatementSlots(doc: DocDocument, statement: string | null): DocDocument {
-	if (statement === null || statement.trim() === "") return doc;
+	if (statement === null) return doc;
 	const paragraphs = statementParagraphs(statement);
 	const fill = (node: BlockNode): BlockNode => {
 		switch (node.type) {

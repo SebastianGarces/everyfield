@@ -197,7 +197,7 @@ export const churchWriter = {
 				db,
 				sql`SELECT o.statement_of_faith AS statement FROM affiliation a
 				JOIN organization o ON o.id = a.organization_id
-				WHERE a.plant_id = ${scope.tenantId}::uuid AND a.ended_at IS NULL AND o.kind = 'sending_network'
+				WHERE a.plant_id = ${scope.tenantId}::uuid AND a.ended_at IS NULL
 					AND o.statement_of_faith IS NOT NULL AND ${gateSql(scope, true)}
 				ORDER BY a.accepted_at, a.id LIMIT 1`,
 			);

@@ -262,7 +262,7 @@ after(async () => {
 describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
 	test("statementParagraphs: one paragraph per blank-line-separated block, a single line break kept", () => {
 		assert.deepEqual(statementParagraphs(TEXT), PARAGRAPHS);
-		assert.deepEqual(statementParagraphs("One.\r\n\r\n\r\nTwo.\n \nThree."), [
+		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [
 			para("One."),
 			para("Two."),
 			para("Three."),
@@ -274,7 +274,6 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 			body: { type: "doc", content: [{ type: "slot", attrs: { key: "statement-of-faith" }, content: [] }] },
 		};
 		assert.equal(fillStatementSlots(doc, null), doc);
-		assert.equal(fillStatementSlots(doc, "  \n "), doc);
 	});
 
 	test("AC:CASE-DOC-020 network-fills-slot: revision 1 holds the network's exact text under the label, in both exports", async () => {
