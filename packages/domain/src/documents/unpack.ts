@@ -1,5 +1,5 @@
 import { safeLinkAddress } from "@everyfield/contracts/common";
-import { nativeFromText, type DocNode } from "@everyfield/contracts/documents";
+import { FORMAT_SCHEMA, nativeFromText, type DocNode } from "@everyfield/contracts/documents";
 import { crc32, inflateRawSync } from "node:zlib";
 
 const UPLOAD_MAX = 10 * 1024 * 1024;
@@ -175,7 +175,10 @@ type Open = {
 };
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: unknown[] };
 
-const LIST_MAX = 200;
+const LIST_MAX = Math.min(
+	FORMAT_SCHEMA.nodes.bulletList!.content!.max ?? Infinity,
+	FORMAT_SCHEMA.nodes.orderedList!.content!.max ?? Infinity,
+);
 const CHAIN_MAX = 20;
 const val = (body: string, tag: string) => {
 	const found = new RegExp(String.raw`<w:${tag}\b[^>]*?\bw:val\s*=\s*"([^"]*)"`).exec(body);
@@ -279,15 +282,15 @@ function readLinks(xml: string | undefined) {
 	return links;
 }
 
+/**
+ * The list a numbered paragraph belongs to. Its kind is the numbering instance's top level, whatever the paragraph's
+ * own level, so numbered steps with bulleted sub-points stay one numbered list.
+ */
 function listOf(word: Word, open: Open) {
 	let numId = open.numId;
-	let ilvl = open.ilvl;
-	for (const style of chain(word.styles, open.style)) {
-		numId ??= style.numId;
-		ilvl ??= style.ilvl;
-	}
+	for (const style of chain(word.styles, open.style)) numId ??= style.numId;
 	if (numId === null || numId === "0") return null;
-	const kind = word.numbering(numId, ilvl ?? 0);
+	const kind = word.numbering(numId, 0);
 	return kind ? { kind, numId } : null;
 }
 

@@ -1220,6 +1220,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				["3", ["bullet"]],
 				["4", ["lowerRoman"]],
 				["5", ["upperLetter"]],
+				["6", ["decimal", "bullet"]],
+				["7", ["bullet", "decimal"]],
 			),
 		};
 		assert.deepEqual(
@@ -1240,7 +1242,12 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 							W.p() +
 							W.numbered("3", ["Two", W.br, "lines"]) +
 							W.p("Not a list", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>') +
-							W.p("Unknown list", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="77"/></w:numPr>'),
+							W.p("Unknown list", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="77"/></w:numPr>') +
+							W.numbered("6", "Step A") +
+							W.numbered("6", "detail a1", 1) +
+							W.numbered("6", "Step B") +
+							W.numbered("7", "Point") +
+							W.numbered("7", "sub 1", 1),
 						listParts,
 					),
 				),
@@ -1262,6 +1269,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 					},
 					para(text("Not a list")),
 					para(text("Unknown list")),
+					ordered("Step A", "detail a1", "Step B"),
+					bullets("Point", "sub 1"),
 				],
 			},
 		);
