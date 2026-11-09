@@ -1,6 +1,6 @@
 "use client";
 
-import type { DocBrand, Token } from "@everyfield/contracts/documents";
+import type { DocBrand, FieldDecl, Token } from "@everyfield/contracts/documents";
 import { cn } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
@@ -9,6 +9,7 @@ import { Group, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, WEIGHTS, type Target } from "./layout.ts";
 import { TOOLBAR } from "./tiptap/styles.ts";
 import { writeInKindLabel } from "./extensions.ts";
+import { ConditionControls } from "./ConditionControls.tsx";
 import { TableControls } from "./TableControls.tsx";
 
 // The settings of the block the cursor is in or on: the number of columns, a box's fill and border, a divider's weight
@@ -59,7 +60,17 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 const WEIGHT_LABEL = { hairline: "Hairline", rule: "Rule", bar: "Bar" } as const;
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
 
-function ControlsFor({ editor, target, palette }: { editor: Editor; target: Target; palette: DocBrand["palette"] }) {
+function ControlsFor({
+	editor,
+	target,
+	palette,
+	fields,
+}: {
+	editor: Editor;
+	target: Target;
+	palette: DocBrand["palette"];
+	fields: readonly FieldDecl[];
+}) {
 	const attrs = target.node.attrs;
 	switch (target.kind) {
 		case "columns":
@@ -127,6 +138,8 @@ function ControlsFor({ editor, target, palette }: { editor: Editor; target: Targ
 			);
 		case "table":
 			return <TableControls editor={editor} palette={palette} />;
+		case "if":
+			return <ConditionControls editor={editor} target={target} fields={fields} />;
 		case "writeIn":
 			return (
 				<Group label={writeInKindLabel(attrs.kind)}>
@@ -137,7 +150,16 @@ function ControlsFor({ editor, target, palette }: { editor: Editor; target: Targ
 }
 
 /** The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. */
-export function BlockControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
+export function BlockControls({
+	editor,
+	palette,
+	fields,
+}: {
+	editor: Editor;
+	palette: DocBrand["palette"];
+	/** The document's fields, which a condition reads. */
+	fields: readonly FieldDecl[];
+}) {
 	const targets = useEditorState({
 		editor,
 		selector: ({ editor: e }) => layoutTargets(e.state),
@@ -152,7 +174,13 @@ export function BlockControls({ editor, palette }: { editor: Editor; palette: Do
 			className={cn(TOOLBAR, "flex-wrap overflow-visible border-t border-b-0 border-line")}
 		>
 			{targets.map((target) => (
-				<ControlsFor key={`${target.kind}-${target.pos}`} editor={editor} target={target} palette={palette} />
+				<ControlsFor
+					key={`${target.kind}-${target.pos}`}
+					editor={editor}
+					target={target}
+					palette={palette}
+					fields={fields}
+				/>
 			))}
 		</div>
 	);

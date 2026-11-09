@@ -44,6 +44,9 @@ import { EditorToolbar } from "./Toolbar.tsx";
 export type SaveStatus =
 	{ kind: "saved" } | { kind: "dirty" } | { kind: "saving" } | { kind: "failed"; reason: string };
 
+const TABLE_REFUSED =
+	"That change would break a table, so nothing changed. Select the whole table, or text in one cell.";
+
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
@@ -89,7 +92,7 @@ export default function ChurchEditor({
 	const inflight = useRef<Promise<boolean> | null>(null);
 
 	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
+		() => [...editorExtensions(fieldValues(stored), brand.assets, stored), BlockShortcuts],
 		[stored, brand.assets],
 	);
 	const editor = useEditor({
@@ -191,17 +194,21 @@ export default function ChurchEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
-	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
-	const [refused, setRefused] = useState(false);
+	// A change that would break a table, or put conditional text where the format refuses it, does not happen. The note
+	// says why, until the next change or cursor move.
+	const [refused, setRefused] = useState<string | null>(null);
 	useEffect(() => {
 		if (!editor) return;
-		const show = () => setRefused(true);
-		const hide = () => setRefused(false);
-		editor.on("tableChangeRefused", show);
+		const table = () => setRefused(TABLE_REFUSED);
+		const condition = (reason: string) => setRefused(`${reason} Nothing changed.`);
+		const hide = () => setRefused(null);
+		editor.on("tableChangeRefused", table);
+		editor.on("conditionChangeRefused", condition);
 		editor.on("update", hide);
 		editor.on("selectionUpdate", hide);
 		return () => {
-			editor.off("tableChangeRefused", show);
+			editor.off("tableChangeRefused", table);
+			editor.off("conditionChangeRefused", condition);
 			editor.off("update", hide);
 			editor.off("selectionUpdate", hide);
 		};
@@ -312,12 +319,18 @@ export default function ChurchEditor({
 								<EditorToolbar
 									editor={editor}
 									brand={brand}
+									fields={stored.fields}
 									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
 								/>
-								<BlockControls editor={editor} palette={brand.palette} />
+								<BlockControls editor={editor} palette={brand.palette} fields={stored.fields} />
 								{refused ? (
-									<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
-										That change would break a table, so nothing changed. Select the whole table, or text in one cell.
+									<p
+										role="alert"
+										data-table-refused={refused === TABLE_REFUSED ? "" : undefined}
+										data-condition-refused={refused === TABLE_REFUSED ? undefined : ""}
+										className="px-3 py-2 text-xs font-medium text-magenta-600"
+									>
+										{refused}
 									</p>
 								) : null}
 							</>

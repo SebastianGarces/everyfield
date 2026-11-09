@@ -5,6 +5,7 @@ import {
 	ArrowDown01Icon,
 	File02Icon,
 	ArrowUp01Icon,
+	GitBranchIcon,
 	Delete02Icon,
 	ParagraphSpacingIcon,
 	Scissor01Icon,
@@ -14,7 +15,7 @@ import {
 	UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import type { DocBrand } from "@everyfield/contracts/documents";
+import type { DocBrand, FieldDecl } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
 import { Fragment, useEffect, useReducer } from "react";
 import { useEditorState } from "@tiptap/react";
@@ -23,6 +24,7 @@ import {
 	canMove,
 	canNumber,
 	canSetTextStyle,
+	canWrap,
 	currentBlock,
 	deleteBlock,
 	IMAGE_KINDS,
@@ -38,7 +40,10 @@ import {
 	toggleNumbered,
 	currentTextStyle,
 	type InsertKind,
+	wrapBlock,
 } from "./blocks.ts";
+import { firstCondition, noConditionReason } from "./condition.ts";
+import { Tip } from "./ControlParts.tsx";
 import { Button } from "./tiptap/primitives/button.tsx";
 import {
 	DropdownMenu,
@@ -101,6 +106,28 @@ function Action({
 	);
 }
 
+/**
+ * Make block conditional: wraps the current block in conditional text. When it cannot apply, the button is disabled and
+ * its tooltip, on a wrapper that still takes the pointer and the keyboard, says why.
+ */
+function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | null; run: () => void }) {
+	const button = (
+		<Action editor={editor} label="Make block conditional" icon={GitBranchIcon} disabled={reason !== null} run={run} />
+	);
+	if (reason === null) return button;
+	return (
+		<Tip text={`Make block conditional: ${reason}`} className="flex cursor-not-allowed">
+			<span
+				tabIndex={0}
+				aria-label={`Make block conditional is unavailable. ${reason}`}
+				className="flex rounded-sm outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
+			>
+				{button}
+			</span>
+		</Tip>
+	);
+}
+
 const GROUP_LABEL = {
 	text: "Text",
 	rules: "Rules and spacing",
@@ -108,6 +135,7 @@ const GROUP_LABEL = {
 	lines: "Lines to fill in",
 	images: "Brand kit images",
 	tables: "Tables",
+	conditions: "Conditions",
 } as const;
 
 /** A heading over a group of Insert menu items. */
@@ -130,12 +158,16 @@ const PAGE_NUMBERS = [
 export function EditorToolbar({
 	editor,
 	brand,
+	fields,
 	pageSetup,
 }: {
 	editor: Editor;
 	brand: DocBrand;
+	/** The document's fields: conditional text needs at least one to read. */
+	fields: readonly FieldDecl[];
 	pageSetup: { open: boolean; controls: string; toggle: () => void };
 }) {
+	const noFields = noConditionReason(fields);
 	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
 	// Bold, Italic, Underline and Link show on load, not after the first click.
 	const [, drawAgain] = useReducer((n: number) => n + 1, 0);
@@ -162,6 +194,7 @@ export function EditorToolbar({
 				canTag: e.can().toggleMark("tag"),
 				styles: Object.fromEntries(TEXT_STYLES.map((t) => [t.style, canSetTextStyle(e, t.style)])),
 				region: regionAt(state),
+				canWrap: canWrap(state),
 				insertable: Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)])) as Record<
 					InsertKind,
 					boolean
@@ -288,16 +321,25 @@ export function EditorToolbar({
 							const image = k.group === "images" ? (k.kind as ImageKind) : null;
 							const asset = image ? brand.assets[image] : null;
 							const divide = i > 0 && shown[i - 1]?.group !== k.group;
+							const conditional = k.kind === "if";
 							return (
 								<Fragment key={k.kind}>
 									{i === 0 || divide ? <MenuLabel>{GROUP_LABEL[k.group]}</MenuLabel> : null}
 									<DropdownMenuItem
 										className={MENU_ITEM}
-										disabled={image !== null && !asset}
-										onSelect={() => insertBlock(editor, k.kind, asset?.alt ?? "")}
+										disabled={(image !== null && !asset) || (conditional && noFields !== null)}
+										title={
+											conditional ? (noFields ?? "Text that prints only when a field's condition holds") : undefined
+										}
+										onSelect={() =>
+											conditional
+												? insertBlock(editor, "if", "", firstCondition(fields) ?? undefined)
+												: insertBlock(editor, k.kind, asset?.alt ?? "")
+										}
 									>
 										{k.label}
 									</DropdownMenuItem>
+									{conditional && noFields ? <p className="px-2.5 pb-1.5 text-sm text-text-2">{noFields}</p> : null}
 									{image && !asset ? (
 										<div className="px-2.5 pb-1.5 text-sm text-text-2">
 											<p>
@@ -358,6 +400,16 @@ export function EditorToolbar({
 					disabled={!s.hasBlock}
 					run={() => deleteBlock(editor)}
 				/>
+				{s.region ? null : (
+					<WrapAction
+						editor={editor}
+						reason={noFields ?? (s.canWrap ? null : "This block cannot become conditional text here.")}
+						run={() => {
+							const condition = firstCondition(fields);
+							if (condition) wrapBlock(editor, condition);
+						}}
+					/>
+				)}
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>

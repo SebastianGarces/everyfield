@@ -17,6 +17,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { DocBrand } from "@everyfield/contracts/documents";
 import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { ConditionRules, EfIf, type ConditionDoc } from "./condition-extension.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
@@ -672,8 +673,15 @@ export const LayoutRules = Extension.create({
 
 // ---------------------------------------------------------------- the set
 
-/** Every extension of the editor. The headless tests load the same list. */
-export function editorExtensions(values: FieldValues = {}, assets: Assets | null = null) {
+/**
+ * Every extension of the editor. The headless tests load the same list. `doc` gives conditional text the fields and
+ * values it reads, so each block can say whether it prints now.
+ */
+export function editorExtensions(
+	values: FieldValues = {},
+	assets: Assets | null = null,
+	doc: ConditionDoc | null = null,
+) {
 	return [
 		EfDocument,
 		Text,
@@ -694,6 +702,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		EfImage.configure({ assets }),
 		EfWriteIn,
 		EfSlot,
+		EfIf.configure({ doc }),
 		EfTable,
 		EfRow,
 		EfCell,
@@ -709,6 +718,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		UndoRedo,
 		HeadingNumbers,
 		LayoutRules,
+		ConditionRules,
 		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
 		TableRules,
 	];

@@ -801,3 +801,56 @@
 	font-size: 11px;
 	color: var(--paper-quiet);
 }
+
+/* ---- conditional text ---- */
+/* The editor always shows the blocks so they can be edited. A dashed frame, sitting in the margin so the text keeps
+   its place, carries the condition and whether it prints with this document's values. A block that does not print now
+   is dimmed. None of this prints: the PDF prints the blocks, or nothing. */
+.ef-paper .ef-if {
+	position: relative;
+	margin: 0 -8px 8px;
+	padding: 6px 7px 1px;
+	border: 1px dashed color-mix(in srgb, var(--paper-quiet) 55%, transparent);
+	border-radius: 6px;
+}
+.ef-paper .ef-if:focus-within {
+	border-color: var(--paper-accent);
+}
+.ef-paper .ef-if-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+	margin-bottom: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--paper-quiet);
+	user-select: none;
+	cursor: default;
+}
+.ef-paper .ef-if-label {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.ef-paper .ef-if-state {
+	flex: none;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	background: #ddf2e6;
+	color: #025232;
+}
+.ef-paper .ef-if[data-prints="false"] .ef-if-state {
+	background: var(--paper-muted);
+	color: var(--paper-text-quiet);
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+}
+.ef-paper .ef-if[data-prints="false"] .ef-if-body {
+	opacity: 0.5;
+}
+.ef-paper .ef-if-body > :last-child {
+	margin-bottom: 0;
+}

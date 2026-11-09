@@ -1,6 +1,7 @@
 // WP-036 slice 2: the editor's free parts and its schema. No browser, no database.
 //   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package; no private registry.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
+//   T-20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
 //   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -16,6 +17,7 @@ import {
 import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { fieldValues } from "../../../apps/web/src/features/documents/church/editor/field-values.ts";
+import { conditionIssue } from "../../../apps/web/src/features/documents/church/editor/condition-extension.ts";
 import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
@@ -122,4 +124,74 @@ test("BUG-T49: a commitment card with a stored empty contact_line shows nothing 
 	assert.equal(fieldValues(filled).church_name, "Harbor City Church");
 	const bare = await forkTemplate(card, { data: {} });
 	assert.equal(fieldValues(bare).church_name, "[church name]");
+});
+
+test("T-20: conditional text loads into the editor and reads back unchanged, in the body, a column and a box", async () => {
+	const fork = await forkTemplate(
+		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
+		{ data: {} },
+	);
+	const p = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
+	const body = {
+		type: "doc",
+		content: [
+			{ type: "if", attrs: { field: "church_tagline", test: "has-value" }, content: [p("A"), { type: "pageBreak" }] },
+			{
+				type: "columns",
+				content: [
+					{
+						type: "column",
+						content: [{ type: "if", attrs: { field: "contact_line", test: "is-empty" }, content: [p("B")] }],
+					},
+					{ type: "column", content: [p("C")] },
+				],
+			},
+			{ type: "box", content: [{ type: "if", attrs: { field: "church_name", test: "has-value" }, content: [p("D")] }] },
+		],
+	};
+	const doc = { ...fork, body } as typeof fork;
+	assert.equal(docDocument.safeParse(doc).success, true, "the document parses with docDocument");
+	const node = schema.nodeFromJSON(editorContent(doc));
+	node.check();
+	assert.equal(conditionIssue(node), null);
+	assert.deepStrictEqual(documentFrom(doc, node.toJSON()), clean(doc));
+});
+
+test("T-20: the editor refuses conditional text where the format refuses it, each with its reason", () => {
+	const p = { type: "paragraph", content: [{ type: "text", text: "x" }] };
+	const cond = (content: unknown[]) => ({ type: "if", attrs: { field: "a", test: "has-value" }, content });
+	const ledger = {
+		type: "table",
+		attrs: { style: "ledger", columns: [{ id: "item", label: "Item", type: "text", width: 0 }] },
+		content: [{ type: "row", content: [{ type: "cell" }] }],
+	};
+	const cases: [unknown, RegExp][] = [
+		[
+			{ type: "doc", content: [{ type: "pageHeader", attrs: { pages: "all" }, content: [cond([p])] }] },
+			/page header or footer/,
+		],
+		[{ type: "doc", content: [cond([cond([p])])] }, /another conditional text/],
+		[{ type: "doc", content: [cond([{ type: "slot", content: [p] }])] }, /section slot/],
+		[{ type: "doc", content: [cond([ledger])] }, /budget table/],
+		[
+			{ type: "doc", content: [{ type: "box", content: [cond([{ type: "box", content: [p] }])] }] },
+			/cannot hold a box/,
+		],
+		[
+			{
+				type: "doc",
+				content: [
+					{
+						type: "columns",
+						content: [
+							{ type: "column", content: [cond([{ type: "pageBreak" }])] },
+							{ type: "column", content: [p] },
+						],
+					},
+				],
+			},
+			/cannot hold a page break/,
+		],
+	];
+	for (const [json, reason] of cases) assert.match(conditionIssue(schema.nodeFromJSON(json)) ?? "", reason);
 });
