@@ -10,6 +10,8 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+// The timing wrapper comes from this checkout, so a preview of a commit older than it is timed too.
+import { wrapSetupCommands } from "../../../../scripts/setup-step.mjs";
 import { assertDevelopmentDatabase, composeEnv, composePreviewEnv } from "./preview-env.mjs";
 import { ensurePreviewSlot } from "./preview-slots.mjs";
 
@@ -62,7 +64,9 @@ const base = value("config") ? JSON.parse(readFileSync(resolve(value("config")),
   timeoutSeconds: 300,
 };
 // Process env wins over any .env file in the app, so production snapshots and development mode both see it.
-const composed = { ...base, env: composePreviewEnv(env, { NEXT_TELEMETRY_DISABLED: "1", CI: "true", PATH: `${dirname(node24)}:${process.env.PATH}` }, base.env) };
+// Install and build run unchanged inside the timing wrapper, which records each as a setup step.
+const timed = wrapSetupCommands(base, { source: "verify-preview", records: process.env.EVF_SETUP_STEPS_DIR ?? join(common, "evf-setup-steps"), node: node24 });
+const composed = { ...timed, env: composePreviewEnv(env, { NEXT_TELEMETRY_DISABLED: "1", CI: "true", PATH: `${dirname(node24)}:${process.env.PATH}` }, base.env) };
 mkdirSync(join(common, "evf-evidence"), { recursive: true });
 const config = join(common, "evf-evidence", `verify-preview-${basename(project)}.json`);
 writeFileSync(config, JSON.stringify(composed, null, 2), { mode: 0o600 });
