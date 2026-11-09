@@ -209,7 +209,8 @@ const CONTACTS = HOPE.people.flatMap((p) => [p.email, p.phone?.slice(-8)].filter
 type Check = { name: string; ok: boolean; detail: string };
 const show = (s: string) => JSON.stringify(s.length > 140 ? s.slice(0, 137) + "…" : s);
 
-function score(spec: Checks, c: Conversation, context: { area: string; given: string }): Check[] {
+/** The checks a spec names. A Partially target adds only its own checks, so it skips the review-card gate. */
+function score(spec: Checks, c: Conversation, context: { area: string; given: string; target?: boolean }): Check[] {
 	const out: Check[] = [];
 	const add = (name: string, ok: boolean, detail: string) => out.push({ name, ok, detail });
 	const answer = c.answer;
@@ -243,7 +244,8 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	const unexpected = c.proposals.filter(
 		(p) => !expected.some((e) => e.operation === p.operation) && !(attempts.has(p.operation) && !p.prepared),
 	);
-	add("no unexpected review card", !unexpected.length, `${unexpected.length} unexpected; proposed: ${proposalsText}`);
+	if (!context.target)
+		add("no unexpected review card", !unexpected.length, `${unexpected.length} unexpected; proposed: ${proposalsText}`);
 	for (const want of expected) {
 		const input = resolve(want.input);
 		const mine = c.proposals.filter(
@@ -408,7 +410,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		if (spec.cantYet) row.offersInstead = OFFERS_INSTEAD.test(c.answer);
 		if (spec.target) {
 			const t = spec.target;
-			const checks = score(t, c, { area, given });
+			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
 				...readCatalog(ACTORS[as].actor).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
