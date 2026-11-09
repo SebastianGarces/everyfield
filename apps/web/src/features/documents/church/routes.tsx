@@ -43,6 +43,8 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	const raw = (await params).documentId;
 	const authority = await activeAuthority(`/documents/church/${encodeURIComponent(raw)}`);
 	if (!authority) return <Unavailable />;
+	// The same cached read activeAuthority made: its name labels a revision this page saves until a reload.
+	const viewerName = (await getViewer())?.displayName ?? null;
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
@@ -58,6 +60,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 			canManage={canManage}
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}
+			viewerName={viewerName}
 		/>
 	);
 }

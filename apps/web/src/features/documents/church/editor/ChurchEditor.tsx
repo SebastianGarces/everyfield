@@ -37,6 +37,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSPrope
 import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
+import type { RevisionRow } from "../server.ts";
 import { VersionHistory } from "../VersionHistory.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
@@ -82,6 +83,8 @@ type Props = {
 	mergeValues: Record<string, string>;
 	revision: string;
 	onRevision: (revision: string) => void;
+	/** The saved revisions, newest first, as Version history lists them. */
+	revisions: RevisionRow[];
 	/** The preview address of one revision in one format: the preview and history read it. */
 	file: (format: string, revision: string) => string;
 	/** Where the document stands against its template; null when there is nothing to compare with. */
@@ -100,6 +103,7 @@ export default function ChurchEditor({
 	mergeValues,
 	revision: initialRevision,
 	onRevision,
+	revisions,
 	file,
 	template,
 	onAccepted,
@@ -439,7 +443,7 @@ export default function ChurchEditor({
 				</div>
 				{mode === "history" ? (
 					<VersionHistory
-						docId={docId}
+						revisions={revisions}
 						title={title}
 						current={shownRevision}
 						file={file}

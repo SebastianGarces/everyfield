@@ -42,8 +42,8 @@ export type ChurchView = {
 };
 /** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
 export type TemplateState = Awaited<ReturnType<typeof templateStatus>>;
-/** One saved revision as the Revisions list shows it: its number and when it was saved. */
-export type RevisionRow = { number: number; recordedAt: string };
+/** One saved revision as the Revisions list and Version history show it: its number, when and who saved it. */
+export type RevisionRow = { number: number; recordedAt: string; authorName: string | null };
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -127,7 +127,7 @@ export async function loadChurchDocument(
 				mergeValues: d.mergeValues,
 				exports: saved.value.exports,
 				revisions: history.value.revisions
-					.map((r) => ({ number: r.number, recordedAt: r.recordedAt }))
+					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, authorName: r.authorName }))
 					.toSorted((a, b) => b.number - a.number),
 				template,
 			},

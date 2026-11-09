@@ -45,6 +45,7 @@ export function ChurchDocumentScreen({
 	canManage,
 	exports: firstExports,
 	revisions: firstRevisions,
+	viewerName,
 }: {
 	doc: ChurchView;
 	/** The saved revisions, newest first. */
@@ -52,8 +53,15 @@ export function ChurchDocumentScreen({
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: { document: DocDocument; brands: DocBrands; template: TemplateState; mergeValues: Record<string, string> } | null;
+	editable: {
+		document: DocDocument;
+		brands: DocBrands;
+		template: TemplateState;
+		mergeValues: Record<string, string>;
+	} | null;
 	canManage: boolean;
+	/** The signed-in account's name, shown as the author of a revision saved on this page. */
+	viewerName: string | null;
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
@@ -62,7 +70,7 @@ export function ChurchDocumentScreen({
 	const setRevision = (next: string) => {
 		setShownRevision(next);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString() };
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), authorName: viewerName };
 		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
 	};
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
@@ -206,6 +214,7 @@ export function ChurchDocumentScreen({
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
 					onRevision={setRevision}
+					revisions={revisions}
 					file={file}
 					template={current.template}
 					accepted={current.accepted}
@@ -234,13 +243,7 @@ export function ChurchDocumentScreen({
 						</Button>
 					</div>
 					{history ? (
-						<VersionHistory
-							docId={doc.id}
-							title={doc.title}
-							current={revision}
-							file={file}
-									page={doc.page}
-						/>
+						<VersionHistory revisions={revisions} title={doc.title} current={revision} file={file} page={doc.page} />
 					) : (
 						<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
 							<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />

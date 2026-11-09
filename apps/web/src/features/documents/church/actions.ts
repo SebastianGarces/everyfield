@@ -111,30 +111,6 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	redirect("/documents/church?deleted=1");
 }
 
-/** One saved revision as Version history lists it. */
-export type RevisionEntry = { number: number; recordedAt: string; authorName: string | null };
-export type HistoryResult = { status: "ok"; revisions: RevisionEntry[] } | ChurchActionResult;
-
-/** The saved revisions of a Church Document, newest first. Any seat of the church plant reads them. One statement. */
-export async function listChurchRevisions(documentId: string): Promise<HistoryResult> {
-	const actor = await documentActor();
-	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
-	try {
-		const reply = await documentsWriter["history.list"](db, actor, { documentId });
-		if (reply.status !== "ok") return refusedWith(reply.error.code);
-		return {
-			status: "ok",
-			revisions: reply.value.revisions
-				.map((r) => ({ number: r.number, recordedAt: r.recordedAt, authorName: r.authorName }))
-				.reverse(),
-		};
-	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "history_failed", error: String(error) }));
-		return { status: "lost" };
-	}
-}
-
 export type TemplateSaveResult =
 	{ status: "saved"; template: ChurchTemplateSummary } | { status: "refused"; message: string } | { status: "lost" };
 
