@@ -352,6 +352,7 @@ const generatedWriter = {
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,
 	saveChurchTemplate: churchWriter.saveTemplate,
+	updateChurchTemplate: churchWriter.updateTemplate,
 	deleteChurchTemplate: churchWriter.deleteTemplate,
 	listExports: churchWriter.listExports,
 	readExportFile: churchWriter.readExportFile,

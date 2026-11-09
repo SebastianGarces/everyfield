@@ -108,6 +108,8 @@ type Choice = {
 	templateId: string;
 	/** The church template's record id, which Delete takes. */
 	recordId: string | null;
+	/** The church template's current version; Everyfield's templates show none. */
+	version: number | null;
 	title: string;
 	description: string | null;
 	documentClass: DocTemplateSummary["documentClass"];
@@ -152,7 +154,7 @@ function TemplatePicker({
 		...churchTemplates
 			.filter((t) => !removed.has(t.id))
 			.map((t) => ({ ...t, group: "church" as const, recordId: t.id })),
-		...templates.map((t) => ({ ...t, group: "everyfield" as const, templateId: t.id, recordId: null })),
+		...templates.map((t) => ({ ...t, group: "everyfield" as const, templateId: t.id, recordId: null, version: null })),
 	];
 	const found = matching(all, search);
 	const pageCount = Math.ceil(found.length / PAGE_SIZE);
@@ -321,6 +323,7 @@ function TemplateCard({
 						{t.group === "church" ? <Tag tone="green">Your church</Tag> : null}
 						<Tag>{CLASS_LABEL[t.documentClass]}</Tag>
 						<span>
+							{t.version === null ? null : `v${t.version} · `}
 							{paperText(t.page)} · {formatList(t.formats)}
 						</span>
 					</span>
