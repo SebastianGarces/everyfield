@@ -378,11 +378,16 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		const doc = state.policy;
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
 		assert.equal(edit.id, doc.id);
-		assert.equal(edit.brand.palette.themed, true, "the kit has a primary color and the document uses church branding");
-		assert.equal(edit.brand.palette.primary, "#1F4E79");
-		assert.equal(edit.brand.palette.accent, "#C9A227");
-		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
-		const { brand: _brand, ...document } = edit;
+		assert.equal(edit.useChurchBranding, true);
+		const church = edit.brands.church;
+		assert.ok(church, "the kit has a primary color, so the church look exists");
+		assert.equal(church.palette.themed, true);
+		assert.equal(church.palette.primary, "#1F4E79");
+		assert.equal(church.palette.accent, "#C9A227");
+		assert.deepEqual(church.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		assert.equal(edit.brands.plain.palette.themed, false, "the plain look is the Everyfield-neutral theme");
+		assert.deepEqual(edit.brands.plain.assets, { logo: null, mark: null, photo: null });
+		const { brands: _brands, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -616,5 +621,73 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(plain.theme, { kind: "everyfield-neutral", primary: null });
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
+	});
+
+	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
+		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
+		const forEdit = async () =>
+			ok(await documentsWriter.readChurchForEdit(db, await authority(OWNER), { documentId: doc.id }));
+		const switched = () =>
+			rowsOf(
+				sql`SELECT actor_id, after_value FROM audit_event
+					WHERE action = 'documents.branding_changed' AND subject_id = ${doc.id}::uuid ORDER BY recorded_at`,
+			);
+		const setBy = async (who, useChurchBranding) =>
+			documentsWriter.setBranding(db, await authority(who), { documentId: doc.id, useChurchBranding });
+		// A new document starts with church branding on, and a Member's read carries the value too.
+		assert.equal((await forEdit()).useChurchBranding, true);
+		assert.equal((await read(MEMBER)).useChurchBranding, true);
+		assert.equal(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-branded-pdf")).theme.kind, "church");
+
+		const before = await counts();
+		assert.deepEqual(ok(await setBy(OWNER, false)), { documentId: doc.id, useChurchBranding: false });
+		const off = await forEdit();
+		assert.equal(off.useChurchBranding, false);
+		assert.equal(off.revision, "1", "the switch makes no revision");
+		assert.ok(off.brands.church, "the church look stays known, so the page can turn branding back on");
+		assert.equal((await read(MEMBER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 }, "one audit row and nothing else");
+		assert.deepEqual(await switched(), [{ actor_id: actors[OWNER].id, after_value: { useChurchBranding: false } }]);
+		const plainPdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-plain-pdf"));
+		assert.deepEqual(plainPdf.theme, { kind: "everyfield-neutral", primary: null });
+		const plainWord = ok(await fileOf(OWNER, doc.id, "docx", 1));
+		assert.equal(plainWord.downloadName, "conflict-of-interest-policy-revision-1.docx");
+		const word = docxParts(bytesFrom(plainWord));
+		assert.equal(word["word/styles.xml"].includes("1F4E79"), false, "no church color in the Word file");
+		assert.equal(word["word/document.xml"].includes("Harvest Point Church logo"), false, "no church logo");
+
+		// A Member can't change it: the write is refused and the stored value and the audit stay.
+		const held = await counts();
+		refused(await setBy(MEMBER, true), "access_denied");
+		assert.equal((await read(OWNER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), held);
+
+		assert.deepEqual(ok(await setBy(ADMIN, true)), { documentId: doc.id, useChurchBranding: true });
+		const on = await forEdit();
+		assert.equal(on.useChurchBranding, true);
+		assert.equal(on.revision, "1");
+		assert.deepEqual(
+			(await switched()).map((r) => r.after_value),
+			[{ useChurchBranding: false }, { useChurchBranding: true }],
+		);
+		assert.deepEqual(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-again-pdf")).theme, {
+			kind: "church",
+			primary: "#1F4E79",
+		});
+		assert.ok(docxParts(bytesFrom(ok(await fileOf(OWNER, doc.id, "docx", 1))))["word/styles.xml"].includes("1F4E79"));
+
+		// A deleted document refuses the switch with the page's "not available" message.
+		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
+		refused(await setBy(OWNER, false), "unavailable");
+		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
+	});
+
+	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
+		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
+		assert.equal(edit.useChurchBranding, true);
+		assert.equal(edit.brands.church, null, "no brand kit, so the page shows the note and paints the plain look");
+		assert.equal(edit.brands.plain.palette.themed, false);
 	});
 });
