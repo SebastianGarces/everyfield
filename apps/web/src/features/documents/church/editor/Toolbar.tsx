@@ -316,9 +316,9 @@ export function EditorToolbar({
 						align="start"
 						aria-label="Insert block"
 						collisionPadding={8}
-						// Radix measures the room under (or over) the button, so the list scrolls inside the window
-						// however far down the page the toolbar sits.
-						className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] overflow-y-auto"
+						// Radix measures the room around the button, so the list scrolls inside the window however far
+						// down the page the toolbar sits, and its notes wrap on a narrow screen.
+						className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
 					>
 						{INSERT_KINDS.filter((k) => s.insertable[k.kind]).map((k, i, shown) => {
 							const image = k.group === "images" ? (k.kind as ImageKind) : null;
