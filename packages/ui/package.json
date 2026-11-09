@@ -20,6 +20,7 @@
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
+		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"lint": "eslint --max-warnings=0 ."
 	},
 	"dependencies": {
