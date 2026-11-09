@@ -433,12 +433,12 @@ function copyWorkspace(root: string, to: string, dirs: string[]): void {
 	}
 }
 
-type Run = { outcome: Outcome; exit: number | null; diagnostics: Diagnostic[]; wallMs: number };
+type Run = { outcome: Outcome; exit: number | null; diagnostics: Diagnostic[] };
 
 async function check(copy: string, dir: string, tool: "tsc" | "bun", bunScript: string): Promise<Run> {
 	const script = tool === "tsc" ? "node_modules/.bin/tsc --noEmit --pretty false" : bunScript;
 	const run = await runScript(script, join(copy, dir), 900_000);
-	return { outcome: run.outcome, exit: run.code, diagnostics: parseDiagnostics(run.output), wallMs: run.wallMs };
+	return { outcome: run.outcome, exit: run.code, diagnostics: parseDiagnostics(run.output) };
 }
 
 function apply(copy: string, files: Record<string, string>): () => void {
@@ -565,10 +565,9 @@ export function markdown(report: CorpusReport): string {
 		"",
 		"| Case | Seeds | Package | bun exit | Expected error found |",
 		"|---|---|---|---:|---|",
-		...report.cases.flatMap((c) => {
-			const kind = CASES.find((x) => x.id === c.id)!.kind;
-			return c.packages.map((p) => `| ${c.id} | ${kind} | ${p.pkg} | ${p.exit} | ${p.expectedFound ? "yes" : "no"} |`);
-		}),
+		...report.cases.flatMap((c) =>
+			c.packages.map((p) => `| ${c.id} | ${c.kind} | ${p.pkg} | ${p.exit} | ${p.expectedFound ? "yes" : "no"} |`),
+		),
 		"",
 		"### All cases together: tsc against bun check",
 		"",
