@@ -228,7 +228,7 @@ export function ChurchDocumentScreen({
 				current={Number(revision)}
 				formats={doc.formats}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
-				error={exportError && exportError.at !== null ? { at: exportError.at, message: exportError.message } : null}
+				error={exportError}
 				onDownload={(at, format) => void download(format, at)}
 			/>
 			<SavedExports

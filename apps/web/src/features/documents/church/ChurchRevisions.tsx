@@ -30,7 +30,8 @@ export function ChurchRevisions({
 	formats: readonly Format[];
 	/** The row download running now. */
 	exporting: { at: number; format: Format } | null;
-	error: { at: number; message: string } | null;
+	/** The last failed download; it shows on its row when `at` is that row's revision. */
+	error: { at: number | null; message: string } | null;
 	onDownload: (at: number, format: Format) => void;
 }) {
 	const [all, setAll] = useState(false);
