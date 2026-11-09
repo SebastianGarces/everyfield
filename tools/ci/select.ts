@@ -168,11 +168,6 @@ export type Selection = {
 	packageFilters: string[];
 };
 
-const isSuiteFile = (path: string) =>
-	(Object.keys(CHECKS) as CheckId[]).some((id) => {
-		const check: Check = CHECKS[id];
-		return check.kind === "suite" && matchesGlob(path, check.files);
-	});
 const TEST_FILE = /\.test\.[cm]?[jt]s$/;
 const inRoots = (path: string) => SELECTABLE_ROOTS.some((root) => path.startsWith(root + "/"));
 const matches = (rule: Rule, path: string) => rule.paths.some((glob) => matchesGlob(path, glob));
@@ -235,7 +230,7 @@ export function selectChecks(
 	for (const [test, sources] of Object.entries(map.tests)) for (const source of sources) add(reachedBy, source, test);
 
 	for (const path of changedPaths) {
-		if (inRoots(path) && (TEST_FILE.test(path) || isSuiteFile(path))) {
+		if (inRoots(path) && (TEST_FILE.test(path) || suiteOf(path))) {
 			full.push(`test file ${path} is new or changed`);
 			continue;
 		}

@@ -133,14 +133,15 @@ export async function nightly(deps: NightlyDeps): Promise<Entry[]> {
 		});
 	};
 
-	const { load, cores } = deps.load();
-	if (load > 2 * cores) {
-		skip(null, "all", `the 1-minute load ${load.toFixed(1)} is above 2 × ${cores} cores`);
-		return entries;
-	}
-	const free = await deps.slot("nightly");
-	if (free !== null) {
-		skip(null, "all", free);
+	/** Why nothing may start now: a loaded machine, else no free preview slot. The slot is probed only when not loaded. */
+	const busy = async (project: string) => {
+		const { load, cores } = deps.load();
+		if (load > 2 * cores) return `the 1-minute load ${load.toFixed(1)} is above 2 × ${cores} cores`;
+		return deps.slot(project);
+	};
+	const busyNow = await busy("nightly");
+	if (busyNow !== null) {
+		skip(null, "all", busyNow);
 		return entries;
 	}
 	const { head, worktree, remove } = deps.checkout();
@@ -155,14 +156,8 @@ export async function nightly(deps: NightlyDeps): Promise<Entry[]> {
 		result(head, "coverage", t0, covered);
 
 		// The coverage run took minutes: ask again right before taking the slot.
-		const current = deps.load();
-		if (current.load > 2 * current.cores)
-			return (
-				skip(head, "tests/ui", `the 1-minute load ${current.load.toFixed(1)} is above 2 × ${current.cores} cores`),
-				entries
-			);
-		const slot = await deps.slot(worktree);
-		if (slot !== null) return (skip(head, "tests/ui", slot), entries);
+		const busyLater = await busy(worktree);
+		if (busyLater !== null) return (skip(head, "tests/ui", busyLater), entries);
 		const preview = await deps.preview(worktree);
 		close = preview.close;
 		for (const engine of ENGINES) {
