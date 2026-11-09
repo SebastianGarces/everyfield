@@ -5,6 +5,14 @@ import type { DocDocument, DocTemplate, EveryfieldDoc } from "./types.ts";
 export * from "./types.ts";
 export { FORMAT_SCHEMA } from "./schema.ts";
 export {
+	acceptDifferences,
+	compareWithTemplate,
+	missingFields,
+	type DifferenceKind,
+	type DocDifference,
+	type PageLayout,
+} from "./compare.ts";
+export {
 	attrsOf,
 	computeTable,
 	forkTemplate,
