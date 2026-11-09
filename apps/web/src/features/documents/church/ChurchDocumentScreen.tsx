@@ -44,6 +44,7 @@ export function ChurchDocumentScreen({
 	canManage,
 	exports: firstExports,
 	revisions: firstRevisions,
+	viewerName,
 }: {
 	doc: ChurchView;
 	/** The saved revisions, newest first. */
@@ -53,6 +54,8 @@ export function ChurchDocumentScreen({
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
 	editable: { document: DocDocument; brands: DocBrands; template: TemplateState } | null;
 	canManage: boolean;
+	/** The viewer's own name, for the row their save adds; the server reads the same name for that revision. */
+	viewerName: string | null;
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
@@ -60,7 +63,7 @@ export function ChurchDocumentScreen({
 	const setRevision = (next: string) => {
 		setShownRevision(next);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString() };
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
 		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
 	};
 	// Excel is offered while the body holds a budget table, so a save can add it or take it away.

@@ -11,6 +11,7 @@
 //   AC:DOC-EDIT-MEMBER   criterion 14 (a Member sees no editing controls)
 //   AC:DOC-EDIT-CHUNKS   criterion 15 (no editor code on the library or the Member page)
 //   AC:CASE-DOC-023      T-83 (the Revisions list; a row asks once for its revision; a failure shows beside its row)
+//                        and T-86 (each row names its saver, before and after a reload)
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
@@ -623,6 +624,18 @@ test("AC:CASE-DOC-023 T-83: the Revisions list follows each save, a row asks onc
 		assert.deepEqual(await numbers(), ["3", "2", "1"]);
 		assert.equal(await revisions.filter({ hasText: "Current" }).count(), 1);
 		assert.match(await revisions.first().innerText(), /Current/);
+		// T-86: each row names its saver, the seeded Owner, before and after a reload (the server reads the same name).
+		const savers = async () => (await revisions.allInnerTexts()).map((t) => t.match(/ by (.+)$/m)?.[1]);
+		assert.deepEqual(await savers(), ["Daniel Reyes", "Daniel Reyes", "Daniel Reyes"], "the new rows name the Owner");
+		await page.reload();
+		await hydrated(page);
+		await revisions.nth(2).waitFor();
+		assert.deepEqual(await numbers(), ["3", "2", "1"]);
+		assert.deepEqual(
+			await savers(),
+			["Daniel Reyes", "Daniel Reyes", "Daniel Reyes"],
+			"the stored rows name the Owner",
+		);
 
 		// A double click on revision 1's Download PDF sends one export request, for revision 1. The saved bytes, the digest
 		// and the one-export-per-key rule are checked against the database in tests/integration/documents/church.test.mts.
