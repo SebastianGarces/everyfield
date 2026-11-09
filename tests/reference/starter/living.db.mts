@@ -15,6 +15,11 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import type { WikiSource } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { referenceService } from "../../../packages/reference/src/starter/verify/service.ts";
+import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
+import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -229,7 +234,7 @@ test("WP-033 criterion 11: the real living generation replaces the bootstrap one
 	);
 });
 
-test("WP-033 criterion 12 seed step: wiki:install activates the living seed on a seed schema, and a rerun changes nothing", async (t) => {
+test("WP-033 criterion 12 and T-28: wiki:install activates the living seed on a seed schema, a rerun changes nothing, and every Guide opens at its section", async (t) => {
 	if (localCi) return t.skip("the command writes only the shared development database");
 	// The command accepts only tests/ui seed schema names, so this store borrows that shape.
 	const { db } = await emptyStore("ui_" + randomBytes(8).toString("hex"));
@@ -252,4 +257,39 @@ test("WP-033 criterion 12 seed step: wiki:install activates the living seed on a
 	assert.deepEqual(run(), { activeRelease: approvedWiki.version, activationNumber: "1", changed: false });
 	const sessions = await db.execute(sql`SELECT count(*)::int AS n FROM auth_session`);
 	assert.equal((sessions.rows[0] as { n: number }).n, 1, "only the test caller's session remains");
+	await assertGuides(db);
 });
+
+/** T-28: an Owner's Guide on every mapped screen opens at its section of the installed release, and writes no reading. */
+async function assertGuides(db: Database) {
+	const who = { id: randomUUID(), user: randomUUID(), session: randomUUID(), plant: randomUUID() };
+	await db.execute(sql`INSERT INTO auth_user(id, email, email_verified, name)
+		VALUES (${who.user}::uuid, ${who.id + "@example.test"}, true, 'Owner')`);
+	await db.execute(sql`INSERT INTO account(id, auth_user_id, registration_state, registration_kind)
+		VALUES (${who.id}::uuid, ${who.user}::uuid, 'active', 'planter')`);
+	await db.execute(sql`INSERT INTO auth_session(id, user_id, token, expires_at)
+		VALUES (${who.session}::uuid, ${who.user}::uuid, ${randomUUID()}, now() + interval '1 hour')`);
+	await db.execute(sql`INSERT INTO plant(id, name, timezone, warning_days, alert_days, digest_weekday, digest_hour, phase, material_revision)
+		VALUES (${who.plant}::uuid, 'Guide plant', 'America/Chicago', 7, 14, 1, 8, 1, 1)`);
+	await db.execute(sql`INSERT INTO seat(account_id, plant_id, role, accepted_at)
+		VALUES (${who.id}::uuid, ${who.plant}::uuid, 'owner', clock_timestamp())`);
+	const actor = await RequestActor.resolve(db, sessionId.parse(who.session));
+	assert.ok(actor instanceof RequestActor);
+	const api = createWikiProducer();
+	const record = randomUUID();
+	for (const entry of GUIDE_ROUTES) {
+		const route = entry.route.replace(/\[[^\]]+\]/, record);
+		const result = await api.contextGuide(db, actor, { route });
+		assert.ok(result.status === "ok", JSON.stringify(result));
+		const guide = result.value;
+		assert.deepEqual([guide.found, guide.slug, guide.citation], [true, entry.slug, entry.heading], route);
+		const section = sectionExcerpt("safe_mdx", await seedContent(approvedWiki.payloadPath, entry.slug), entry.heading);
+		assert.match(section.split("\n")[0] ?? "", /^#{2,3} /, route);
+		assert.equal(section.split("\n")[0]?.replace(/^#+ /, ""), entry.heading, route);
+		assert.equal(guide.body, section, route);
+		if (entry.route === "/settings/brand")
+			assert.equal(guide.title, "Building Your Church's Brand: Logo, Tagline and Style Guide");
+	}
+	const readings = await db.execute(sql`SELECT count(*)::int AS n FROM reading`);
+	assert.equal((readings.rows[0] as { n: number }).n, 0, "opening the Guide writes no reading record");
+}
