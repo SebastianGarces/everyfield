@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { copyToChurch, loadCopySources, loadWrittenDocuments } from "./actions.ts";
 import { documentProblem, type CopySource, type OwnedView } from "./model.ts";
+import { SECTION } from "./written/notes.tsx";
 
 // Written documents for the account or the church. Each row opens the document on its own page, where it is edited
 // in the shared editor (or read, for a Member). In a church plant seat an Owner or Admin can copy one of their own
@@ -41,7 +42,6 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 	const [failed, setFailed] = useState(false);
 	const [attempt, setAttempt] = useState(0);
 	const [copyOpen, setCopyOpen] = useState(false);
-	const heading = written === "church" ? "Written for your church" : "Your documents";
 	const evidenceLabel = written === "church" ? "Core values for your church" : "Your core values";
 
 	useEffect(() => {
@@ -70,7 +70,7 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 		<section aria-labelledby="written-heading" className="mt-8 flex flex-col gap-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<h2 id="written-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
-					{heading}
+					{SECTION[written]}
 				</h2>
 				<div className="flex flex-wrap gap-2">
 					{written === "church" && canEdit ? (
