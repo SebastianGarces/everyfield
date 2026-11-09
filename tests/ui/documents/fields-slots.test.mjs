@@ -15,7 +15,7 @@ import { docDocument, forkTemplate } from "../../../packages/contracts/src/docum
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
-import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
+import { docxParts, pdfOperators, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -312,7 +312,8 @@ test("AC:DOC-EDIT-PLACEHOLDERS: placeholders are highlighted from the text in th
 		await page.keyboard.type("]");
 		await save(page, 2);
 		const pdfBytes = Buffer.from(await (await context.request.get(`${BASE}${path}/file?format=pdf&revision=2`)).body());
-		const fills = pdfBytes.toString("latin1").match(/\/Artifact BMC/g) ?? [];
+		const fills =
+			(await pdfOperators(pdfBytes)).match(/\/Artifact BMC\nq\n\/GS-\d+ gs\n0\.992\d* 0\.941\d* 0\.650\d* rg/g) ?? [];
 		assert.equal(fills.length, 3, "the PDF paints three placeholder fills");
 		const { xml } = await files(context, path, 2);
 		for (const text of ["[number]", "[date]", "[low amount]"])

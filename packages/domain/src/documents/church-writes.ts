@@ -92,9 +92,10 @@ function churchResult(
 
 /**
  * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
- * statement: the kit joins the same read.
+ * statement: the kit joins the same read. With `withSources`, it also reads the plant's name and senior pastor, the values
+ * the editor's merge fields offer.
  */
-async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
+async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false, withSources = false) {
 	const found = await rowsOf<
 		ChurchRow & {
 			ok: boolean;
@@ -107,8 +108,8 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
 			d.input_provenance, to_jsonb(k) AS kit,
-			${admin ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
-			${admin ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
+			${withSources ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
+			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
@@ -569,7 +570,7 @@ export const churchWriter = {
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
 			if (!found) return deny("unavailable");
 			return c.churchEditView.parse({
 				...found.doc,

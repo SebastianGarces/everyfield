@@ -20,7 +20,7 @@ import { docTemplateById } from "../../../packages/domain/src/documents/doc-temp
 import { fieldValues } from "../../../packages/domain/src/documents/doc-values.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
 import { ledgerTables } from "../../../packages/domain/src/documents/xlsx.ts";
-import { docxParts, hasSoffice, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
+import { docxParts, hasSoffice, pdfOperators, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
 	render: NEUTRAL_THEME,
@@ -60,7 +60,11 @@ function proseOf(doc: DocDocument) {
 	return { headings: headings.filter(Boolean), paragraphs: paragraphs.filter(Boolean) };
 }
 
-const words = (text: string) => squash(text).replace(/[‐-―]/g, "-");
+// pdf.js joins text items with a space, so a shaded placeholder run reads "[date] ." in LibreOffice's PDF.
+const words = (text: string) =>
+	squash(text)
+		.replace(/[‐-―]/g, "-")
+		.replace(/ ([.,;:])/g, "$1");
 
 test(
 	"WP-036 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
@@ -234,3 +238,29 @@ test(
 		assert.deepEqual(expected.at(-1), [null, -9002.5, -108030]);
 	},
 );
+
+test("AC:DOC-EDIT-PLACEHOLDERS the PDF paints a fill under each bracketed placeholder and the Word file shades its run", async () => {
+	const doc = await fork("conflict-of-interest-policy");
+	// A placeholder in a field value prints highlighted too; text outside the brackets does not.
+	doc.body.content.push({
+		type: "paragraph",
+		content: [{ type: "text", text: "Approved for [low amount] to [high amount], not [] or a [bracket" }],
+	});
+	const pdf = await renderDocFile(doc, "pdf", THEME, SAVED);
+	const { findTextRegions } = await import("../../../packages/domain/node_modules/@formepdf/core/dist/index.js");
+	const found = await findTextRegions(pdf, [{ pattern: "\\[[^\\[\\]\\n]{1,60}\\]", pattern_type: "Regex" }]);
+	assert.equal(found.length, 4, "[number], [date], [low amount] and [high amount]");
+	// Each fill is an artifact rectangle in multiply blend, so the text above it keeps its own ink.
+	// Each fill is an artifact in the placeholder color (#FDF0A6), painted through a graphics state (the multiply blend).
+	const ops = await pdfOperators(pdf);
+	const fills = ops.match(/\/Artifact BMC\nq\n\/GS-\d+ gs\n0\.992\d* 0\.941\d* 0\.650\d* rg/g) ?? [];
+	assert.equal(fills.length, 4, "one fill for each placeholder");
+	assert.match(ops, /\/BM \/Multiply/, "the fills multiply, so the text above keeps its ink");
+	const xml = docxParts(await renderDocFile(doc, "docx", THEME, SAVED))["word/document.xml"];
+	const shaded = [
+		...xml.matchAll(
+			/<w:shd w:val="clear" w:color="auto" w:fill="FDF0A6"\/><\/w:rPr><w:t xml:space="preserve">([^<]*)<\/w:t>/g,
+		),
+	].map((m) => m[1]);
+	assert.deepEqual(shaded, ["[number]", "[date]", "[low amount]", "[high amount]"]);
+});

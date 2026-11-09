@@ -380,7 +380,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(edit.brand.palette.primary, "#1F4E79");
 		assert.equal(edit.brand.palette.accent, "#C9A227");
 		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
-		const { brand: _brand, ...document } = edit;
+		// T-17: the church's current value of each merge field Insert offers; a field with no value now is left out.
+		assert.deepEqual(edit.mergeValues, {
+			church_name: "Harvest Point",
+			pastor_name: "Pastor Ada",
+			church_tagline: "A church for the whole city.",
+			contact_line: "harvestpoint.church  ·  (555) 010-0100",
+		});
+		const { brand: _brand, mergeValues: _values, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -389,6 +396,92 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
 			"access_denied",
 		);
+	});
+
+	test("AC:DOC-EDIT-SLOT AC:DOC-EDIT-HISTORY a doctrinal section prints blank, then filled, then not at all; history names each saver", async () => {
+		let doc = state.policy;
+		const STATEMENT = "We believe in one God, Father, Son and Holy Spirit.";
+		const headingText = (node: any) => (node.content ?? []).map((n: any) => n.text ?? "").join("");
+		const original = doc.body;
+		const withSlot = (content?: unknown[]) => {
+			const body = structuredClone(original);
+			const at = body.body.content.findIndex((n: any) => n.type === "heading" && headingText(n) === "Yearly statement");
+			assert.ok(at > 0, "the policy has a Yearly statement heading");
+			body.body.content.splice(at, 0, {
+				type: "slot",
+				attrs: { label: "Statement of faith" },
+				...(content ? { content } : {}),
+			});
+			return body;
+		};
+		const texts = async (revision: string) => {
+			const pdf = await policyText(ok(await fileOf(MEMBER, doc.id, "pdf", Number(revision))));
+			const docx = docxParts(bytesFrom(ok(await fileOf(MEMBER, doc.id, "docx", Number(revision)))));
+			return { pdf: pdf.replace(/\s+/g, " "), word: wordText(docx["word/document.xml"]) };
+		};
+		const BLANK = "Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+
+		// An empty section that was not deleted prints the marked blank, never default text.
+		const empty = ok(await save(ADMIN, doc.id, doc.revision, withSlot()));
+		let out = await texts(empty.revision);
+		for (const text of [out.pdf, out.word]) {
+			assert.match(text, /statement of faith/i);
+			assert.ok(text.includes(BLANK), "the marked blank prints");
+		}
+		// Filled, it prints the church's statement in that section.
+		doc = empty;
+		const filled = ok(
+			await save(
+				OWNER,
+				doc.id,
+				doc.revision,
+				withSlot([{ type: "paragraph", content: [{ type: "text", text: STATEMENT }] }]),
+			),
+		);
+		out = await texts(filled.revision);
+		assert.match(
+			out.pdf,
+			new RegExp(`statement of faith ${STATEMENT}`, "i"),
+			"the PDF prints the statement in its section",
+		);
+		assert.ok(
+			out.word.includes(STATEMENT) && !out.word.includes(BLANK),
+			"the Word file prints the statement, no blank",
+		);
+		// Deleted, neither file has the section, its label or a blank; the text after it follows straight on.
+		doc = filled;
+		const gone = ok(await save(ADMIN, doc.id, doc.revision, original));
+		out = await texts(gone.revision);
+		for (const [name, text] of [
+			["PDF", out.pdf],
+			["Word", out.word],
+		]) {
+			assert.doesNotMatch(text, /statement of faith/i, `the ${name} has no section label`);
+			assert.ok(!text.includes(STATEMENT) && !text.includes(BLANK), `the ${name} has no section and no blank`);
+			assert.match(text, /left the room\. (08 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
+		}
+		// The revision saved before the delete keeps its section.
+		assert.ok((await texts(filled.revision)).word.includes(STATEMENT), "the earlier revision still prints it");
+
+		// History lists every revision with who saved it (the auth user's name).
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		const last = history.revisions.slice(-3);
+		assert.deepEqual(
+			last.map((r: any) => [String(r.number), r.authorName]),
+			[
+				[empty.revision, "Synthetic"],
+				[filled.revision, "Synthetic"],
+				[gone.revision, "Synthetic"],
+			],
+		);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), {
+				documentId: doc.id,
+				revision: Number(filled.revision),
+			}),
+		);
+		assert.equal(one.authorName, "Synthetic");
+		state.policy = gone;
 	});
 
 	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
