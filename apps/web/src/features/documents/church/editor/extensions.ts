@@ -689,7 +689,7 @@ export const EfSlot = Node.create({
 	isolating: true,
 	defining: true,
 	addAttributes() {
-		return attrsOfSpec({ label: "string" });
+		return attrsOfSpec({ label: "string", key: "string" });
 	},
 	parseHTML: () => [{ tag: 'section[data-ef-node="slot"]', contentElement: ".ef-slot-body" }],
 	renderHTML: ({ node, HTMLAttributes }) => [

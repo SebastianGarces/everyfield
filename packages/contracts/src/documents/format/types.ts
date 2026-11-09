@@ -58,7 +58,8 @@ export type WriteInNode = {
 };
 export type SlotNode = {
 	type: "slot";
-	attrs?: { label?: string };
+	/** `key` names what may fill the slot at creation: `statement-of-faith` takes the sending network's text (D-106). */
+	attrs?: { label?: string; key?: string };
 	content?: (ParagraphNode | BulletListNode | OrderedListNode)[];
 };
 

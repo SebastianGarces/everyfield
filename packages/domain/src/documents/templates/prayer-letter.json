@@ -1,0 +1,370 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "prayer-letter",
+	"version": 1,
+	"title": "Prayer Letter",
+	"description": "A letter from the pastor that tells supporters how to pray for the church plant.",
+	"class": "outward-facing",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "church.pastor",
+			"fallback": "[pastor name]",
+			"sample": "Pastor Daniel Reyes"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  A Letter to Those Who Pray for Us"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Prayer letter"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "A Letter to Those Who Pray for Us"
+					}
+				]
+			},
+			{
+				"type": "writeIn",
+				"attrs": {
+					"label": "Date",
+					"key": "letter_date",
+					"kind": "date",
+					"width": 200
+				}
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Dear friends,"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Thank you for praying for "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ", a new church plant. Your prayers carry us. We want you to know how things stand."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 3
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "What we are thankful for"
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "[Name one thing that went well this month.]"
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "[Name one person or family you are glad to have met.]"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 3
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "How to pray this month"
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "[Name a request for our neighbors.]"
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "[Name a request for our team.]"
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "[Name a request for the next step toward Launch Sunday.]"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Thank you for standing with us. If you would like to hear more, reply to this letter or call me any time."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "With gratitude,"
+					}
+				]
+			},
+			{
+				"type": "spacer",
+				"attrs": {
+					"size": 24
+				}
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "pastor_name"
+						}
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "small"
+				},
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					}
+				]
+			}
+		]
+	}
+}

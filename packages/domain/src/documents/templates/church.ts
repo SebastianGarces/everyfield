@@ -159,6 +159,12 @@ export const CHURCH_TEMPLATES: ChurchTemplate[] = [
 	},
 ];
 
+/**
+ * The authored text templates. On Documents each offers both ways to make a document: "Save for your church" (a saved
+ * file, `documents.generate`) and "Create Church Document" (`documents.createFromTemplate`). Sebastian, 2026-11-04.
+ */
+export const TEXT_TEMPLATE_IDS: readonly string[] = CHURCH_TEMPLATES.map((template) => template.id);
+
 export const churchTemplate = (id: string) => CHURCH_TEMPLATES.find((template) => template.id === id);
 
 /**

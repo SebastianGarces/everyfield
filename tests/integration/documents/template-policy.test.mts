@@ -23,7 +23,7 @@ test("WP-036 each templates/*.json file matches the document-templates owner cla
 	const files = readdirSync(new URL("packages/domain/src/documents/templates/", root))
 		.filter((name) => name.endsWith(".json"))
 		.map((name) => `packages/domain/src/documents/templates/${name}`);
-	assert.equal(files.length, 4);
+	assert.equal(files.length, 9);
 	const matches = (path: string) =>
 		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));
 	for (const file of files) assert.ok(matches(file), `${file} is in the document-template class`);
