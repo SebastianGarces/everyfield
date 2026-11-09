@@ -3909,6 +3909,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"statement_of_faith": {
+					"note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church."
 				}
 			},
 			"foreignKeys": {
