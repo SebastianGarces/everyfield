@@ -561,7 +561,10 @@
 				"allowed": ["tag=Worship team"]
 			},
 			"derivation": "No tag filter on the people list: the tag count is readable, names only per person.",
-			"finding": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
+			"finding": {
+				"checks": ["gives an answer"],
+				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
+			}
 		}
 	}
 ]

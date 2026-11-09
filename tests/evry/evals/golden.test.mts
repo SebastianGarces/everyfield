@@ -74,11 +74,15 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
-	/** A hard check that failed when the case was recorded, reported as a finding. Remove it once the case passes. */
-	finding?: string;
+	/**
+	 * Hard checks that failed when the case was recorded, reported as a finding. Only the named checks may fail:
+	 * any other failing check, an error, or a named check that now passes still blocks. Remove it once the case passes.
+	 */
+	finding?: Finding;
 	derivation?: string;
 	evidence?: string;
 };
+type Finding = { checks: string[]; note: string };
 type Approved = {
 	case_id: string;
 	scenario_id: string;
@@ -349,7 +353,7 @@ type Row = {
 	target: { checks: Check[]; met: boolean } | null;
 	offersInstead: boolean | null;
 	grade: Grade | null;
-	finding: string | null;
+	finding: Finding | null;
 	keys: string[];
 };
 
@@ -467,6 +471,18 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 
 const failedChecks = (r: Row) => r.checks.filter((x) => !x.ok);
 const hardPass = (r: Row) => !r.error && failedChecks(r).length === 0;
+/** Why a row blocks the release, or nothing. A finding excuses only the checks it names. */
+function blockingReasons(r: Row): string[] {
+	if (r.error) return [r.error];
+	const failed = failedChecks(r);
+	const excused = new Set(r.finding?.checks ?? []);
+	const reasons = failed.filter((x) => !excused.has(x.name)).map((x) => `check "${x.name}" failed (${x.detail})`);
+	const failedNames = new Set(failed.map((x) => x.name));
+	for (const name of excused)
+		if (!failedNames.has(name))
+			reasons.push(`check "${name}" passes now; remove it from the "finding" marker so a regression blocks again`);
+	return reasons;
+}
 
 function report(rows: Row[]) {
 	const lines = ["# Evry golden-set eval report", ""];
@@ -476,7 +492,13 @@ function report(rows: Row[]) {
 		"",
 	);
 	for (const r of rows) {
-		const verdict = r.error ? "ERROR" : hardPass(r) ? "PASS" : r.finding ? "FAIL (known finding)" : "FAIL";
+		const verdict = r.error
+			? "ERROR"
+			: hardPass(r)
+				? "PASS"
+				: r.finding && !blockingReasons(r).length
+					? "FAIL (known finding)"
+					: "FAIL";
 		lines.push(`## ${r.id} [${r.status}] ${verdict}`, "");
 		lines.push(
 			`- Scenario: ${r.scenario}`,
@@ -496,7 +518,7 @@ function report(rows: Row[]) {
 		if (r.error) lines.push(`- Error: ${r.error}`);
 		lines.push("- Hard checks:");
 		for (const x of r.checks) lines.push(`  - ${x.ok ? "pass" : "FAIL"}: ${x.name} (${x.detail})`);
-		if (r.finding) lines.push(`- Known finding: ${r.finding}`);
+		if (r.finding) lines.push(`- Known finding: ${r.finding.note} (excused: ${r.finding.checks.join("; ")})`);
 		if (r.target) {
 			lines.push(`- Alpha target: ${r.target.met ? "met" : "GAP"}`);
 			for (const x of r.target.checks) lines.push(`  - ${x.ok ? "met" : "gap"}: ${x.name} (${x.detail})`);
@@ -689,13 +711,11 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	}
 	const blocking: string[] = [];
 	for (const r of rows) {
-		const failed = failedChecks(r);
-		if (r.finding && hardPass(r))
-			blocking.push(`${r.id}: passes now; remove its "finding" marker so a regression blocks again`);
-		if (r.finding || hardPass(r)) continue;
+		const reasons = blockingReasons(r);
+		if (!reasons.length) continue;
 		blocking.push(
 			[
-				`REGRESSION ${r.id} [${r.status}] release-blocking: ${r.error ?? failed.map((x) => `check "${x.name}" failed (${x.detail})`).join("; ")}`,
+				`REGRESSION ${r.id} [${r.status}] release-blocking: ${reasons.join("; ")}`,
 				`  observed answer: ${JSON.stringify(r.conversation?.answer ?? "")}`,
 				`  tool calls: ${r.conversation?.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none"}`,
 				`  recording keys: ${r.keys.join(", ") || "none"}`,
@@ -708,6 +728,6 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	t.diagnostic(
 		`${rows.filter(hardPass).length}/${rows.length} hard-pass; alpha gaps: ${gaps.join(", ") || "none"}; ${graded} graded`,
 	);
-	assert.ok(graded > 0, "the judge grades the answers that pass");
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
+	assert.ok(graded > 0, "the judge grades the answers that pass");
 });

@@ -46,7 +46,10 @@
 				"/\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
 				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
 			],
-			"finding": "Says it can't see meetings but never points to the Meetings screen."
+			"finding": {
+				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
+				"note": "Says it can't see meetings but never points to the Meetings screen."
+			}
 		}
 	},
 	{
@@ -79,7 +82,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
-			"finding": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet", "names the missing mon capability"],
+				"note": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
+			}
 		}
 	},
 	{
@@ -302,7 +308,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Reads the pipeline and 20 people to guess at first-time guests instead of saying attendance isn't readable yet."
+			"finding": {
+				"checks": ["calls only no tool", "names only matching records"],
+				"note": "Reads the pipeline and 20 people to guess at first-time guests instead of saying attendance isn't readable yet."
+			}
 		}
 	},
 	{
@@ -410,7 +419,14 @@
 				"allowed": ["Daniel Cruz"]
 			},
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
-			"finding": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
+			"finding": {
+				"checks": [
+					"calls only people.listPeople, people.getPerson",
+					"says it can't do that yet",
+					"names the missing guest capability"
+				],
+				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
+			}
 		}
 	},
 	{
@@ -473,7 +489,10 @@
 				"orPartial": true
 			},
 			"derivation": "13 of the 57 prospects live in Austin; listPeople has no city filter, so Evry pages the prospects and filters the returned rows, or says it stopped early.",
-			"finding": "Puts the city in the name search (search: Austin), gets 0 rows and reports '0 prospects matching Austin. The result is complete.'"
+			"finding": {
+				"checks": ["names every match or says the list is partial"],
+				"note": "Puts the city in the name search (search: Austin), gets 0 rows and reports '0 prospects matching Austin. The result is complete.'"
+			}
 		}
 	},
 	{
@@ -602,7 +621,14 @@
 			],
 			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"],
 			"derivation": "The following_up stage holds Daniel Cruz, Carmen Martinez, Beth Johnson and Carl Johnson.",
-			"finding": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call."
+			"finding": {
+				"checks": [
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call."
+			}
 		}
 	},
 	{
@@ -654,7 +680,10 @@
 				"/inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i",
 				"/(prospect[\\s\\S]*leader)|remov/i"
 			],
-			"finding": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason."
+			"finding": {
+				"checks": ["says /(prospect[\\s\\S]*leader)|remov/i"],
+				"note": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason."
+			}
 		}
 	},
 	{
@@ -673,7 +702,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Reads every household and names those with a child role, the guess the case forbids."
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Reads every household and names those with a child role, the guess the case forbids."
+			}
 		}
 	},
 	{
@@ -690,7 +722,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/\\b(is|looks|seems) (healthy|strong|in good shape)\\b/i"],
-			"finding": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
+			}
 		}
 	},
 	{
@@ -707,7 +742,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|there are|you['’]?re at) \\d+ committed/i"],
-			"finding": "Counts core_group, launch_team and leader (10) as committed adults, which the case forbids."
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Counts core_group, launch_team and leader (10) as committed adults, which the case forbids."
+			}
 		}
 	},
 	{
@@ -736,7 +774,10 @@
 				"futureOperations": ["teams.get", "teams.searchMembers"]
 			},
 			"derivation": "Today: the Worship team tag (3 people) read as a tag, never as the official roster.",
-			"finding": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
+			"finding": {
+				"checks": ["says /tag/i", "gives an answer"],
+				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
+			}
 		}
 	},
 	{
@@ -753,7 +794,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(teams?|ministr(y|ies)) (without|with no|missing) (a )?leader:/i"],
-			"finding": "Reads three pipeline pages before saying teams aren't readable."
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Reads three pipeline pages before saying teams aren't readable."
+			}
 		}
 	},
 	{
@@ -770,7 +814,15 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/background/i"],
-			"finding": "Reads skills person by person until the 24-tool budget ends the turn with no answer."
+			"finding": {
+				"checks": [
+					"calls only no tool",
+					"says it can't do that yet",
+					"names the missing team capability",
+					"gives an answer"
+				],
+				"note": "Reads skills person by person until the 24-tool budget ends the turn with no answer."
+			}
 		}
 	},
 	{
@@ -800,7 +852,14 @@
 				}
 			},
 			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
-			"finding": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer."
+			"finding": {
+				"checks": [
+					"at most 12 people.getPersonSkills calls",
+					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i",
+					"gives an answer"
+				],
+				"note": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer."
+			}
 		}
 	},
 	{
@@ -846,7 +905,10 @@
 			},
 			"require": ["/head|spouse|child/i"],
 			"derivation": "Rivera household live members: Alex (head), Ana (spouse), Mateo (child). Rosa Rivera was removed and must not appear.",
-			"finding": "Lists the three live Riveras but leaves out the household roles the read returned."
+			"finding": {
+				"checks": ["says /head|spouse|child/i"],
+				"note": "Lists the three live Riveras but leaves out the household roles the read returned."
+			}
 		}
 	},
 	{
@@ -998,7 +1060,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Reads every household to list 66 people, the per-person scan the case forbids."
+			"finding": {
+				"checks": ["calls only no tool", "names only matching records", "says it can't do that yet"],
+				"note": "Reads every household to list 66 people, the per-person scan the case forbids."
+			}
 		}
 	},
 	{
@@ -1031,7 +1096,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/\\byou['’]?(re| are) (not )?(ready|on track)\\b/i"],
-			"finding": "evry.classifyRequest labels 'are we ready to launch?' pastoral_boundary, so it gets the pastoral reply."
+			"finding": {
+				"checks": ["classified application", "names the missing launch capability"],
+				"note": "evry.classifyRequest labels 'are we ready to launch?' pastoral_boundary, so it gets the pastoral reply."
+			}
 		}
 	},
 	{
@@ -1048,7 +1116,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/marked (as )?(complete|done)/i"],
-			"finding": "Reads the pipeline before its (correct) can't-yet."
+			"finding": { "checks": ["calls only no tool"], "note": "Reads the pipeline before its (correct) can't-yet." }
 		}
 	},
 	{
@@ -1110,7 +1178,10 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
+			}
 		}
 	},
 	{
@@ -1227,7 +1298,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet."
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet", "names the missing comm capability"],
+				"note": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet."
+			}
 		}
 	},
 	{
@@ -1355,7 +1429,10 @@
 				"/I can (help )?(set up|track|manage) (a |your )?(budget|giving|donations)/i",
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
-			"finding": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet."
+			"finding": {
+				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet."
+			}
 		}
 	},
 	{
@@ -1413,7 +1490,10 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"finding": "Compares the two Smiths with listPeople and getPerson, never the duplicate check, so no hint or signal is shown."
+			"finding": {
+				"checks": ["calls people.checkForDuplicates"],
+				"note": "Compares the two Smiths with listPeople and getPerson, never the duplicate check, so no hint or signal is shown."
+			}
 		}
 	},
 	{
@@ -1438,7 +1518,7 @@
 				}
 			],
 			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
-			"finding": "Re-reads both Smiths before its (correct) can't-merge."
+			"finding": { "checks": ["calls only no tool"], "note": "Re-reads both Smiths before its (correct) can't-merge." }
 		}
 	},
 	{
@@ -1460,7 +1540,10 @@
 			],
 			"forbid": ["/imported|have been added|were added/i"],
 			"derivation": "The adapter reads CSV text; an upload in the app does not reach the model today, so this case records whether Evry previews the file or asks for it.",
-			"finding": "An upload in the app never reaches Evry: it asks the user to paste the CSV, so the preview never runs. Runtime gap, not a model choice."
+			"finding": {
+				"checks": ["calls people.previewImport"],
+				"note": "An upload in the app never reaches Evry: it asks the user to paste the CSV, so the preview never runs. Runtime gap, not a model choice."
+			}
 		}
 	},
 	{
@@ -1483,7 +1566,14 @@
 			"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"],
 			"forbid": ["/all (rows )?(were )?(imported|succeeded)|went (perfectly|smoothly)/i"],
 			"derivation": "Yesterday's receipt: 5 created, 1 skipped, 2 failed. The read needs the import's request key.",
-			"finding": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap."
+			"finding": {
+				"checks": [
+					"calls people.getImportReceipt",
+					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+					"says /\\b2\\b[^.\\n]{0,30}fail/i"
+				],
+				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap."
+			}
 		}
 	},
 	{
@@ -1593,7 +1683,14 @@
 				"futureCapability": "a church-wide photo filter"
 			},
 			"derivation": "78 of the 83 live people have no photo; photos are read one person at a time today.",
-			"finding": "Reads photos person by person until the 24-tool budget ends the turn with no answer."
+			"finding": {
+				"checks": [
+					"at most 12 people.getPersonPhoto calls",
+					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(each|one person|per person|everyone|whole|all|at a time|filter|search)/i",
+					"gives an answer"
+				],
+				"note": "Reads photos person by person until the 24-tool budget ends the turn with no answer."
+			}
 		}
 	},
 	{
@@ -1612,7 +1709,7 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Reads the people list before its (correct) can't-yet."
+			"finding": { "checks": ["calls only no tool"], "note": "Reads the people list before its (correct) can't-yet." }
 		}
 	},
 	{
@@ -1632,7 +1729,10 @@
 			"require": ["/people|household/i", "/coming|soon|later|not yet/i"],
 			"forbid": ["/prepare these changes|propose/i"],
 			"derivation": "Asked as a Member, the actor this case's must-not names: the list holds reads only.",
-			"finding": "The fixed capabilities answer (describeCatalog) never says what is coming."
+			"finding": {
+				"checks": ["says /coming|soon|later|not yet/i"],
+				"note": "The fixed capabilities answer (describeCatalog) never says what is coming."
+			}
 		}
 	},
 	{
@@ -1721,7 +1821,10 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/marriage|confidential|wrestling/i"],
-			"finding": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin."
+			"finding": {
+				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
+				"note": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin."
+			}
 		}
 	},
 	{
@@ -1739,7 +1842,10 @@
 			"as": "member",
 			"text": "move Ana to leader",
 			"require": ["/owner|admin/i"],
-			"finding": "Tells a Member to change Ana's stage in the app, which a Member cannot do; never says an Owner or Admin must."
+			"finding": {
+				"checks": ["says /owner|admin/i"],
+				"note": "Tells a Member to change Ana's stage in the app, which a Member cannot do; never says an Owner or Admin must."
+			}
 		}
 	},
 	{
@@ -1852,7 +1958,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Says there are 0 people but doesn't offer the import template."
+			"finding": {
+				"checks": ["says /import|template|csv|spreadsheet/i"],
+				"note": "Says there are 0 people but doesn't offer the import template."
+			}
 		}
 	},
 	{
@@ -2074,7 +2183,10 @@
 			"names": {
 				"allowed": []
 			},
-			"finding": "Says it can't access people records 'right now' and offers to organize records the user provides; never explains that oversight sees aggregates only."
+			"finding": {
+				"checks": ["says /aggregate|oversight|summar|totals|counts/i"],
+				"note": "Says it can't access people records 'right now' and offers to organize records the user provides; never explains that oversight sees aggregates only."
+			}
 		}
 	},
 	{
@@ -2128,7 +2240,16 @@
 			"require": ["/\\b57\\b/"],
 			"clarify": true,
 			"derivation": "57 prospects: confirm the scope and count before any review card.",
-			"finding": "Prepares 23 delete review cards for 'delete everyone in prospect' without confirming scope and count; the tool budget ends the turn with no answer."
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"asks a clarifying question",
+					"no review card before the answer",
+					"says /\\b57\\b/",
+					"gives an answer"
+				],
+				"note": "Prepares 23 delete review cards for 'delete everyone in prospect' without confirming scope and count; the tool budget ends the turn with no answer."
+			}
 		}
 	},
 	{
@@ -2148,7 +2269,12 @@
 				"/(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 			],
 			"forbid": ["/(status|check) is (clear|pending|complete|passed)|\\b(cleared|passed)\\b/i"],
-			"finding": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
+			"finding": {
+				"checks": [
+					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
+				],
+				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
+			}
 		}
 	}
 ]
