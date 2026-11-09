@@ -16,13 +16,32 @@ import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
+import type { OptOutKeyRing } from "../notifications/opt-out.ts";
+import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
 
 const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
 
-/** `origin` is the deployment's app origin (the one Better Auth uses). RSVP links in invitations start with it. */
-export type DeliveryKeys = { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
-export type DeliveryMessage = { to: string; subject: string; html: string; text: string };
+/**
+ * `origin` is the deployment's app origin (the one Better Auth uses). RSVP and Unsubscribe links start with it.
+ * `optOutKeys` is the NOTIFICATION_OPT_OUT_KEYS ring; without it a Messages email carries no Unsubscribe link, and an
+ * unsubscribed person is still refused.
+ */
+export type DeliveryKeys = {
+	encryptionKey: Uint8Array;
+	addressKey: Uint8Array;
+	from: string;
+	origin: string;
+	optOutKeys?: OptOutKeyRing | null;
+};
+/** `headers` holds the RFC 8058 List-Unsubscribe pair, with the same token as the visible Unsubscribe link. */
+export type DeliveryMessage = {
+	to: string;
+	subject: string;
+	html: string;
+	text: string;
+	headers?: Readonly<Record<string, string>>;
+};
 export type DeliveryBatch =
 	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
 /**
@@ -55,6 +74,8 @@ type Member = {
 	/** The send time the email service holds for this recipient; null for a send-now handoff. */
 	scheduledAt: string | null;
 	cancelRequested: boolean;
+	/** Refused before any handoff because the person unsubscribed from this church's email. */
+	unsubscribed: boolean;
 };
 type Mode = "now" | "scheduled" | "lookup";
 /** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
@@ -71,7 +92,7 @@ function keysOf(keys: DeliveryKeys) {
 		throw new Error("mail_keys_required");
 	const from = z.email().parse(keys.from);
 	const origin = new URL(keys.origin).origin;
-	return { encryptionKey, addressKey, from, origin };
+	return { encryptionKey, addressKey, from, origin, optOutKeys: keys.optOutKeys ?? null };
 }
 function seal(key: Buffer, value: string, aad: string) {
 	const iv = randomBytes(12);
@@ -132,13 +153,14 @@ function prefix(id: string) {
 function counts(members: readonly Member[]) {
 	const accepted = members.filter((row) => row.state === "accepted" || row.state === "sent");
 	const rejected = members.filter(
-		(row) => row.state === "refused" || row.state === "failed" || row.state === "cancelled",
+		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
 	const unknown = members.filter((row) => row.state === "unknown" || row.state === "dispatched");
 	return {
 		acceptedCount: accepted.length,
 		rejectedCount: rejected.length,
 		unknownCount: unknown.length,
+		unsubscribedCount: members.filter((row) => row.unsubscribed).length,
 		confirmedRecipientIds: accepted.map((row) => row.personId).filter((id): id is string => id !== null),
 	};
 }
@@ -256,7 +278,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 				SELECT coalesce(jsonb_agg(jsonb_build_object(
 					'position', mem.position, 'state', m.state, 'personId', m.recipient_person_id, 'provider', m.provider_message_id,
 					'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-					'cancelRequested', m.cancel_requested_at IS NOT NULL
+					'cancelRequested', m.cancel_requested_at IS NOT NULL, 'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed'
 				) ORDER BY mem.position), '[]'::jsonb)
 				FROM mail_request_member mem
 				JOIN mail m ON m.id = mem.mail_id
@@ -291,6 +313,7 @@ function membersOf(raw: unknown): Member[] {
 				provider: z.string().nullable(),
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
+				unsubscribed: z.boolean(),
 			}),
 		)
 		.parse(asJson(raw) ?? []);
@@ -370,8 +393,19 @@ async function prepare(
 			name: person.displayName,
 			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
 		};
-		const html = renderEmailHtml(found.body_html!, merge, { churchName: found.church_name ?? "" });
-		const text = plainText(renderBody(found.body_html!, merge)) || found.subject!;
+		// The Unsubscribe link names this church and this Person. Its token is the same on every render.
+		const unsubscribe = keys.optOutKeys
+			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
+			: null;
+		const html = renderEmailHtml(found.body_html!, merge, {
+			churchName: found.church_name ?? "",
+			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
+		});
+		const body = plainText(renderBody(found.body_html!, merge)) || found.subject!;
+		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
+		const headers = unsubscribe
+			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+			: undefined;
 		const payloadHash = hash({
 			purpose: "communication",
 			personId: person.id,
@@ -379,6 +413,7 @@ async function prepare(
 			subject: found.subject,
 			body: html,
 			from: keys.from,
+			...(headers ? { headers } : {}),
 		});
 		return {
 			id,
@@ -388,12 +423,13 @@ async function prepare(
 			token_hash: token ? rsvpTokenDigest(token) : null,
 			html,
 			text,
+			headers,
 			address_hash: addressHash(keys.addressKey, address),
 			payload: {
 				v: 1,
 				sealed: seal(
 					keys.encryptionKey,
-					JSON.stringify({ subject: found.subject, text, html, from: keys.from }),
+					JSON.stringify({ subject: found.subject, text, html, from: keys.from, ...(headers ? { headers } : {}) }),
 					`${actor.plantId}/${id}/communication`,
 				),
 			},
@@ -427,21 +463,23 @@ async function prepare(
 			),
 			ins_mail AS (
 				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, logical_key, payload_hash, audience_hash,
-					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at)
+					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN EXISTS (
+					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) THEN 'refused' ELSE 'dispatched' END,
-					clock_timestamp(), ${heldUntil}::timestamptz
-				FROM input i
+					clock_timestamp(), ${heldUntil}::timestamptz,
+					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
+					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
+				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
 					SELECT 1 FROM communication c
 					WHERE c.id = ${found.id}::uuid AND c.plant_id = ${actor.plantId}::uuid AND c.state = 'scheduled'
 					AND c.revision = ${found.revision}::bigint AND c.review_digest = ${loaded.digest}
 				)
-				RETURNING id, state
+				RETURNING id, state, refusal
 			)${tokens},
 			ins_req AS (
 				INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
@@ -480,7 +518,7 @@ async function prepare(
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT outcome FROM ins_attempt) AS outcome,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('position', i.position, 'state', m.state, 'personId', i.person, 'provider', NULL,
-					'scheduledAt', ${heldUntil}::text, 'cancelRequested', false) ORDER BY i.position)
+					'scheduledAt', ${heldUntil}::text, 'cancelRequested', false, 'unsubscribed', m.refusal IS NOT NULL) ORDER BY i.position)
 					FROM ins_mail m JOIN input i ON i.id = m.id), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -495,6 +533,7 @@ async function prepare(
 			subject: found.subject!,
 			html: row.html,
 			text: row.text,
+			...(row.headers ? { headers: row.headers } : {}),
 		}));
 	if (stored.outcome === "refused" || messages.length === 0) return { kind: "done", members };
 	return { kind: "send", requestId, attemptId, providerKey, messages, members };

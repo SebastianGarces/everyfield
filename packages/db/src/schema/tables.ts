@@ -2163,8 +2163,11 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
+		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
+		refusal: text("refusal", { enum: ["unsubscribed"] }),
 	},
 	(table): PgTableExtraConfigValue[] => [
+		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
 		foreignKey({ name: "mail_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
@@ -5377,6 +5380,43 @@ export const person_merge = pgTable(
 			.on(t.source_id)
 			.where(sql`unmerged_at IS NULL`),
 		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
+	],
+);
+/**
+ * A CRM person's opt-out from one church's Messages email (REQ-NTF-016, D-284): per church and per person, keyed by
+ * the Person, never by the address. Only the person's own token writes it: the opt-out page inserts the row and its
+ * one-hour undo sets `undone_at`. Staff read it on the person's record but have no write path, and the runtime login
+ * cannot delete it or change any other column. A merge leaves it on the Person who unsubscribed; Messages reads the
+ * merge lineage, so the survivor stays unsubscribed.
+ */
+export const person_email_opt_out = pgTable(
+	"person_email_opt_out",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		person_id: uuid("person_id").notNull(),
+		opted_out_at: timestamp("opted_out_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		undone_at: timestamp("undone_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_email_opt_out_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "person_email_opt_out_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		check("person_email_opt_out_undone", sql`((undone_at IS NULL) OR (undone_at >= opted_out_at))`),
+		// One current opt-out per Person.
+		uniqueIndex("person_email_opt_out_current")
+			.on(t.person_id)
+			.where(sql`undone_at IS NULL`),
+		index("person_email_opt_out_plant").on(t.plant_id, t.person_id),
 	],
 );
 /**
