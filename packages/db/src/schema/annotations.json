@@ -10361,6 +10361,9 @@
 				"title": {
 					"note": ""
 				},
+				"description": {
+					"note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171)."
+				},
 				"current_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
