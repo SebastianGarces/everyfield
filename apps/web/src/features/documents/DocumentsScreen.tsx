@@ -452,7 +452,7 @@ export function DocumentsScreen({
 				</aside>
 			</section>
 			<SavedHistory enabled={canPreview} refreshKey={savedTick} />
-			{written ? <NativeDocuments written={written} canEdit={canEdit} canStore={canStore} /> : null}
+			{written ? <NativeDocuments written={written} canEdit={canEdit} /> : null}
 		</>
 	);
 }

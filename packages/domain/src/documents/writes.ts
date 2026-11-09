@@ -26,6 +26,7 @@ import {
 	plantScope,
 	postgresCode,
 	refuseStorage,
+	rerun,
 	rowsOf,
 	sameRevision,
 	storeBytes,
@@ -505,13 +506,12 @@ const generatedWriter = {
 			const input = parse(c.useForChurchRequest, raw);
 			const scope = copyScope(authority);
 			if (!scope) deny();
-			const copy = () => copyForChurch(db, scope, input);
 			let row: Awaited<ReturnType<typeof copyForChurch>>;
 			try {
-				row = await copy();
+				row = await copyForChurch(db, scope, input);
 			} catch (error) {
 				if (postgresCode(error) !== "23505") throw error;
-				row = await copy();
+				row = await rerun(db, (bound) => copyForChurch(bound, scope, input));
 			}
 			if (!row?.ok) deny();
 			if (row.prior_id) {
