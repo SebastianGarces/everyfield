@@ -76,7 +76,7 @@ const headFocus = (page, col) => page.locator(".ef-head-cell").nth(col).focus();
 async function downloadExcel(page) {
 	const [download] = await Promise.all([
 		page.waitForEvent("download"),
-		page.getByRole("link", { name: "Download Excel" }).click(),
+		page.getByRole("button", { name: "Download Excel" }).click(),
 	]);
 	const dir = mkdtempSync(join(tmpdir(), "wp036-dl-"));
 	try {

@@ -213,7 +213,7 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:WP-036-12 (${name}): the download list follows the budget on save, on Delete block, on Delete all content and on Undo`, async () => {
 		await onFork(engine, "budget-worksheet", async (page, context, t) => {
-			const excel = page.getByRole("link", { name: "Download Excel" });
+			const excel = page.getByRole("button", { name: "Download Excel" });
 			assert.equal(await excel.count(), 1, "a forked budget offers Excel");
 			const exportsOf = async () => (await t.snap()).exports;
 			assert.deepEqual(await exportsOf(), ["xlsx", "pdf", "docx"], "the stored order stays while the budget stays");
@@ -222,7 +222,10 @@ for (const [name, engine] of ENGINES) {
 			await t.settle();
 			assert.deepEqual(await exportsOf(), ["pdf", "docx"]);
 			await t.save();
-			await page.getByText(/^Saved/).waitFor();
+			await page
+				.getByRole("status")
+				.filter({ hasText: /^Saved/ })
+				.waitFor();
 			assert.equal(await excel.count(), 0, "Download Excel goes away after the save");
 			await t.undo();
 			await t.settle();
@@ -245,7 +248,7 @@ for (const [name, engine] of ENGINES) {
 			engine,
 			"guest-sign-in-sheet",
 			async (page, context, t) => {
-				const excel = page.getByRole("link", { name: "Download Excel" });
+				const excel = page.getByRole("button", { name: "Download Excel" });
 				assert.equal(await excel.count(), 0);
 				await t.insert("Budget table");
 				assert.deepEqual((await t.snap()).exports, ["pdf", "docx", "xlsx"]);

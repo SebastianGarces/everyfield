@@ -103,7 +103,8 @@ function helpers(page, base) {
 		await settle();
 	}
 	async function save() {
-		const saved = page.getByText(/^Saved/);
+		// The save status line, not the "Saved exports" list below the page.
+		const saved = page.getByRole("status").filter({ hasText: /^Saved/ });
 		await button("Save").click();
 		await saved.waitFor({ timeout: 60_000 });
 	}
@@ -161,7 +162,13 @@ function helpers(page, base) {
 	/** The id of the open document and the revision the page shows as saved. */
 	const where = async () => ({
 		id: page.url().split("/").pop(),
-		revision: (await page.getByText(/^Saved/).innerText()).match(/Revision (\d+)/)?.[1],
+		revision: (
+			await page
+				.getByRole("status")
+				.filter({ hasText: /Revision \d+/ })
+				.first()
+				.innerText()
+		).match(/Revision (\d+)/)?.[1],
 	});
 	/** The bytes the file route gives for the saved revision. `download` is the Download link, else the preview. */
 	async function file(format, { download = true } = {}) {

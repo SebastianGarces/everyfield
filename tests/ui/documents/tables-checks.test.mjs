@@ -2,7 +2,7 @@
 // tooltips, cursors, keyboard, 390 px, a Member). Seed People, then Settings, as tables.test.mjs says.
 //   AC:WP-036-14 every action of criteria 1 to 9 with Undo and Redo      AC:WP-036-15 access and the narrow screen
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { clean } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
@@ -161,7 +161,10 @@ for (const [name, engine] of ENGINES) {
 				for (const field of await page.locator(".ef-vinput").all()) await field.click();
 				for (const box of await page.getByRole("checkbox").all()) await box.focus();
 				await t.settle();
-				await page.getByText("Saved", { exact: false }).first().waitFor();
+				await page
+					.getByRole("status")
+					.filter({ hasText: /^Saved/ })
+					.waitFor();
 				assert.equal(await page.getByText("Unsaved changes").count(), 0, `${id}: no unsaved change`);
 				assert.deepEqual(await t.snap(), clean(base), `${id}: the stored form has no added key`);
 				await t.save();
@@ -313,19 +316,20 @@ for (const [name, engine] of ENGINES) {
 			await signIn(context, fixture("people").member.cookie);
 			await page.goto(url);
 			await hydrated(page);
-			await page.getByRole("link", { name: "Download PDF" }).waitFor();
+			await page.getByRole("button", { name: "Download PDF" }).waitFor();
 			assert.equal(await page.locator(PAPER).count(), 0, "no editor");
 			for (const label of ["Insert block", "Save", "Add row below", "Add line item", "Delete all content"])
 				assert.equal(await page.getByRole("button", { name: label }).count(), 0, `no ${label}`);
 			assert.equal(await page.locator("input.ef-vinput, input.ef-head-cell").count(), 0, "no field to type in");
-			const pdf = await page
-				.context()
-				.request.get(
-					new URL(await page.getByRole("link", { name: "Download PDF" }).getAttribute("href"), url).toString(),
-				);
-			assert.equal(pdf.status(), 200);
+			// Download saves an export, then the browser downloads its stored bytes.
+			const [download] = await Promise.all([
+				page.waitForEvent("download"),
+				page.getByRole("button", { name: "Download PDF" }).click(),
+			]);
+			const bytes = readFileSync(await download.path());
+			assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-", "the Member downloads the PDF");
 			assert.equal(
-				await page.getByRole("link", { name: "Download Excel" }).count(),
+				await page.getByRole("button", { name: "Download Excel" }).count(),
 				1,
 				"a budget still offers Excel to read",
 			);
