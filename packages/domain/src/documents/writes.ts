@@ -322,7 +322,7 @@ const generatedWriter = {
 					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
-					AND d.kind <> 'church_document'
+					AND d.kind NOT IN ('church_document', 'church_template')
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
@@ -351,6 +351,8 @@ const generatedWriter = {
 	listChurch: churchWriter.listChurch,
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,
+	saveChurchTemplate: churchWriter.saveTemplate,
+	deleteChurchTemplate: churchWriter.deleteTemplate,
 	listExports: churchWriter.listExports,
 	readExportFile: churchWriter.readExportFile,
 	deleteExport: churchWriter.deleteExport,
@@ -576,7 +578,7 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 		FROM (SELECT ${gateSql(scope, false)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.current_revision_id IS NOT NULL
-			AND d.kind <> 'church_document'
+			AND d.kind NOT IN ('church_document', 'church_template')
 		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
 	);
 	if (!found[0]?.ok || !found[0].id) deny();
@@ -688,7 +690,7 @@ async function appendNative(
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
-			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind <> 'church_document'
+			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind NOT IN ('church_document', 'church_template')
 		),
 		added AS (
 			INSERT INTO document_revision (
@@ -783,7 +785,7 @@ async function mutateOwned(
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
-			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind <> 'church_document'
+			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind NOT IN ('church_document', 'church_template')
 		),
 		updated AS (
 			UPDATE document SET
