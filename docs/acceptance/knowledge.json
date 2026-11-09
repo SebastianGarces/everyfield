@@ -3479,7 +3479,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Export a bylaws Church Document with an unfilled doctrinal slot. Both files show a visible blank. An attempt to delete the slot node is refused.",
+      "description": "Export a bylaws Church Document with an unfilled doctrinal slot. Both files show a visible blank. Deleting the slot node is allowed: the save makes revision 2, whose PDF and DOCX leave the section out with no label and no blank, while revision 1 still exports with the blank.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3608,7 +3608,7 @@
           }
         },
         {
-          "name": "slot-delete-refused",
+          "name": "slot-delete-saves",
           "given": {
             "document": {
               "fixture_type": "church_document",
@@ -3643,10 +3643,185 @@
             }
           },
           "expected": {
+            "state": {
+              "document": "D",
+              "current_revision": 2,
+              "revision_2_slot_present": false,
+              "revision_1_slot_present": true
+            },
+            "result": {
+              "revision": 2,
+              "warning": null
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "deleted-slot-pdf-omits-section",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "pdf",
+              "request_key": "CASE-DOC-020-EDIT-deleted-pdf"
+            }
+          },
+          "expected": {
             "state": {},
             "result": {
-              "error_code": "slot_not_deletable",
-              "current_revision": 1
+              "format": "pdf",
+              "slot_present": false,
+              "visible_blank": false,
+              "slot_label_present": false,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "deleted-slot-docx-omits-section",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "docx",
+              "request_key": "CASE-DOC-020-EDIT-deleted-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "slot_present": false,
+              "visible_blank": false,
+              "slot_label_present": false,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "earlier-revision-keeps-blank",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-020-EDIT-rev1-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "slot": "statement-of-faith",
+              "visible_blank": true,
+              "default_text_present": false
             },
             "event": null
           }

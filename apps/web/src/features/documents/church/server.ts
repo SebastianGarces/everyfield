@@ -4,7 +4,7 @@ import { recordId } from "@everyfield/contracts/common";
 import {
 	type ChurchDocument,
 	type ChurchSummary,
-	type DocBrand,
+	type DocBrands,
 	type DocDocument,
 	type SavedExport,
 } from "@everyfield/contracts/documents";
@@ -26,6 +26,8 @@ export type ChurchView = {
 	documentClass: ChurchDocument["documentClass"];
 	revision: string;
 	formats: ChurchDocument["formats"];
+	/** The stored branding switch: later previews and exports paint the church theme when it is on and a kit exists. */
+	useChurchBranding: boolean;
 	/** The sheet the preview shows (not one card) and its cards per sheet. */
 	page: { width: number; height: number; perSheet: number };
 };
@@ -58,18 +60,18 @@ export async function loadLibrary(
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
-): Promise<Load<{ view: ChurchView; document: DocDocument; brand: DocBrand | null; exports: SavedExport[] }>> {
+): Promise<Load<{ view: ChurchView; document: DocDocument; brands: DocBrands | null; exports: SavedExport[] }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
-		// An Owner or Admin reads the document with its brand (what the PDF paints) in the same statement; a Member reads
-		// the document alone and gets no editor. Every seat reads the saved exports.
+		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
+		// a Member reads the document alone, with its branding value, and gets no editor. Every seat reads the saved exports.
 		const [reply, saved] = await Promise.all([
 			canManageChurch(authority)
 				? documentsWriter.readChurchForEdit(db, authority, { documentId })
 				: documentsWriter
 						.readChurch(db, authority, { documentId })
-						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r)),
+						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null } } : r)),
 			documentsWriter.listExports(db, authority, { documentId }),
 		]);
 		if (reply.status !== "ok" || saved.status !== "ok") return { status: "refused" };
@@ -85,10 +87,11 @@ export async function loadChurchDocument(
 					documentClass: d.documentClass,
 					revision: d.revision,
 					formats: d.formats,
+					useChurchBranding: d.useChurchBranding,
 					page: sheetOf(d.body.page),
 				},
 				document: d.body,
-				brand: d.brand,
+				brands: d.brands,
 				exports: saved.value.exports,
 			},
 		};
