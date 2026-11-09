@@ -1,12 +1,14 @@
+import { execFile } from "node:child_process";
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import {
-	acquireLock, COMMANDS, createLog, createTransport, deliver, runAllowed, saveState, WEBHOOK_CONTRACT_NEEDED,
-	type Transport,
+	acquireLock, classifySendError, COMMANDS, createLog, createTransport, deliver, readWebhookConfig, runAllowed, saveState,
+	WEBHOOK_SENDS_PER_HOUR, webhookRequest, type SendResult, type Transport,
 } from "../io.mts";
+import { fakeRoutine, writeConfig } from "./fake-routine.mts";
 
 const here = new URL("..", import.meta.url).pathname;
 const tmp = () => mkdtemp(join(tmpdir(), "actionable-watch-"));
@@ -32,15 +34,17 @@ describe("command allowlist", () => {
 		assert.deepEqual(await runAllowed("evf-decide" as never), { ok: false, code: "command_not_allowed" });
 	});
 
-	test("no source spawns, fetches or reads anything outside io.mts", async () => {
+	test("no source spawns, fetches or reads anything outside io.mts (provision.mts has its own test)", async () => {
 		const sources = (await readdir(here)).filter((f) => f.endsWith(".mts"));
 		for (const f of sources) {
 			const text = await readFile(join(here, f), "utf8");
-			if (f !== "io.mts") assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
-			assert.doesNotMatch(text, /fetch\(|node:https?|node:net|XMLHttpRequest/, `${f} makes no network call`);
+			if (f !== "io.mts" && f !== "provision.mts") assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
+			assert.doesNotMatch(text, /fetch\(|node:http"|node:net|XMLHttpRequest/, `${f} makes no other network call`);
+			if (f !== "io.mts") assert.doesNotMatch(text, /node:https/, `${f} makes no network call`);
 		}
 		const io = await readFile(join(here, "io.mts"), "utf8");
 		assert.equal(io.match(/execFile\(/g)?.length, 1, "one spawn site");
+		assert.equal(io.match(/httpsRequest\(/g)?.length, 1, "one request site, the webhook POST");
 		assert.match(io, /\[\.\.\.command\.args\]/, "args come only from COMMANDS");
 		assert.doesNotMatch(io, /https?:\/\//, "no hard-coded endpoint");
 	});
@@ -69,7 +73,7 @@ describe("files", () => {
 	test("state is written atomically and privately", async () => {
 		const dir = await tmp();
 		const path = join(dir, "s", "state.json");
-		const state = { version: 1 as const, snapshot: {} as never, sent: ["a"], pending: [] };
+		const state = { version: 1 as const, snapshot: {} as never, sent: ["a"], pending: [], sends: [] };
 		await saveState(path, state);
 		await saveState(path, { ...state, sent: ["b"] });
 		assert.deepEqual(JSON.parse(await readFile(path, "utf8")).sent, ["b"]);
@@ -110,11 +114,9 @@ describe("files", () => {
 
 describe("transport", () => {
 	const payload = { source: "s", version: 1, at: "t", events: [{ kind: "tick-error", key: "tick-error" }] };
+	const fail = (result: string, retry: boolean): SendResult => ({ ok: false, result, retry });
 
-	test("webhook mode refuses and names the missing contract", () => {
-		const t = createTransport("webhook", async () => {});
-		assert.deepEqual(t, { ok: false, code: WEBHOOK_CONTRACT_NEEDED });
-		assert.match(WEBHOOK_CONTRACT_NEEDED, /URL shape.*auth header name.*payload schema/);
+	test("unknown modes are refused", () => {
 		assert.deepEqual(createTransport("http", async () => {}), { ok: false, code: "transport_unknown" });
 	});
 
@@ -122,33 +124,208 @@ describe("transport", () => {
 		const lines: string[] = [];
 		const t = createTransport("dry-run", async (l) => void lines.push(l));
 		assert.ok(t.ok);
-		assert.deepEqual(await deliver(t.transport, payload), { ok: true, tries: 1 });
+		assert.deepEqual(await deliver(t.transport, payload), { ok: true, tries: 1, result: "logged", capped: false, sends: [] });
 		assert.deepEqual(lines, [`dry-run wake payload=${JSON.stringify(payload)}`]);
 	});
 
-	test("retries stop at 3 with exponential backoff", async () => {
-		const sleeps: number[] = [];
-		let calls = 0;
-		const failing: Transport = {
-			mode: "webhook",
-			send: async () => {
-				calls++;
-				throw new Error("down");
-			},
-		};
-		assert.deepEqual(await deliver(failing, payload, { sleep: async (ms) => void sleeps.push(ms) }), { ok: false, tries: 3 });
-		assert.equal(calls, 3);
-		assert.deepEqual(sleeps, [1000, 2000]);
+	test("only retryable results try again, up to 3 with exponential backoff", async () => {
+		for (const [result, retry, tries] of [
+			["connect_error", true, 3], ["dns_error", true, 3], ["http_503", true, 3],
+			["http_429", false, 1], ["http_401", false, 1], ["timeout", false, 1], ["network_error", false, 1],
+		] as const) {
+			const sleeps: number[] = [];
+			let calls = 0;
+			const t: Transport = { mode: "webhook", capped: false, send: async () => (calls++, fail(result, retry)) };
+			const d = await deliver(t, payload, { sleep: async (ms) => void sleeps.push(ms) });
+			assert.deepEqual({ ok: d.ok, tries: d.tries, result: d.result }, { ok: false, tries, result }, result);
+			assert.equal(calls, tries, result);
+			assert.deepEqual(sleeps, tries === 3 ? [1000, 2000] : [], result);
+		}
 	});
 
-	test("a hung send times out per try", async () => {
+	test("a hung send times out once and is not retried in the poll", async () => {
 		let aborted = 0;
 		const hung: Transport = {
 			mode: "webhook",
+			capped: false,
 			send: (_p, signal) => new Promise(() => signal.addEventListener("abort", () => aborted++)),
 		};
-		assert.deepEqual(await deliver(hung, payload, { sleep: async () => {}, timeoutMs: 20 }), { ok: false, tries: 3 });
-		assert.equal(aborted, 3);
+		const d = await deliver(hung, payload, { sleep: async () => {}, timeoutMs: 20 });
+		assert.deepEqual({ ok: d.ok, tries: d.tries, result: d.result }, { ok: false, tries: 1, result: "timeout" });
+		assert.equal(aborted, 1);
+	});
+
+	test("the hourly cap counts every POST and stops before sending", async () => {
+		const now = 10 * 3_600_000;
+		let calls = 0;
+		const t: Transport = { mode: "webhook", capped: true, send: async () => (calls++, fail("http_500", true)) };
+		const old = Array.from({ length: 30 }, (_, i) => now - 3_600_000 - i); // outside the rolling hour
+		const recent = Array.from({ length: WEBHOOK_SENDS_PER_HOUR - 1 }, (_, i) => now - 1000 - i);
+		const d = await deliver(t, payload, { sleep: async () => {}, cap: { sends: [...old, ...recent], now: () => now } });
+		assert.equal(calls, 1, "one POST fits under the cap, the retry does not");
+		assert.deepEqual({ ok: d.ok, capped: d.capped, result: d.result, n: d.sends.length }, { ok: false, capped: true, result: "capped", n: WEBHOOK_SENDS_PER_HOUR });
+	});
+});
+
+describe("webhook config", () => {
+	const good = { url: "https://example.invalid/hook", key: "k" };
+
+	test("a private, owned, valid config is read", async () => {
+		const path = await writeConfig(await tmp(), good);
+		const r = await readWebhookConfig(path);
+		assert.ok(r.ok);
+		assert.equal(r.config.url.href, good.url);
+	});
+
+	test("each refusal has its own code", async () => {
+		const dir = await tmp();
+		const cases: [string, string][] = [
+			[join(dir, "absent.json"), "webhook_config_missing"],
+			[await writeConfig(await tmp(), good, 0o000), "webhook_config_unreadable"],
+			[await writeConfig(await tmp(), good, 0o640), "webhook_config_mode"],
+			[await writeConfig(await tmp(), good, 0o604), "webhook_config_mode"],
+			[await writeConfig(await tmp(), "{not json"), "webhook_config_invalid_json"],
+			[await writeConfig(await tmp(), { url: good.url }), "webhook_config_invalid"],
+			[await writeConfig(await tmp(), { ...good, key: "two words" }), "webhook_config_invalid"],
+			[await writeConfig(await tmp(), { ...good, url: "not a url" }), "webhook_config_invalid_url"],
+			[await writeConfig(await tmp(), { ...good, url: "http://example.invalid/hook" }), "webhook_url_not_https"],
+			[dir, "webhook_config_unreadable"],
+		];
+		const link = join(await tmp(), "link.json");
+		await symlink(await writeConfig(await tmp(), good), link);
+		cases.push([link, "webhook_config_unreadable"]);
+		// A file owned by someone else: root's /etc/hosts. Running as root makes it ours, so skip then.
+		if (process.getuid?.() !== 0) cases.push(["/etc/hosts", "webhook_config_not_owner"]);
+		for (const [path, code] of cases) assert.deepEqual(await readWebhookConfig(path), { ok: false, code }, code);
+	});
+
+	test("a refused config sends nothing", async () => {
+		const routine = await fakeRoutine();
+		try {
+			for (const [config, mode] of [
+				[{ url: `${routine.origin}/hook`, key: "k" }, 0o644],
+				[{ url: `${routine.origin.replace("https:", "http:")}/hook`, key: "k" }, 0o600],
+				["{", 0o600],
+			] as const) {
+				const path = await writeConfig(await tmp(), config, mode);
+				const t = createTransport("webhook", async () => {}, { configPath: path, ca: routine.ca });
+				assert.ok(t.ok);
+				const d = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
+				assert.equal(d.ok, false);
+				assert.equal(d.tries, 1, "a refusal is not retried");
+			}
+			assert.equal(routine.seen.length, 0);
+		} finally {
+			await routine.close();
+		}
+	});
+
+	test("the config is read at send time, not at start", async () => {
+		const dir = await tmp();
+		const routine = await fakeRoutine([200]);
+		try {
+			const t = createTransport("webhook", async () => {}, { configPath: join(dir, "webhook.json"), ca: routine.ca });
+			assert.ok(t.ok, "a missing config does not stop the transport from being built");
+			assert.equal((await deliver(t.transport, wakePayload())).result, "webhook_config_missing");
+			await writeConfig(dir, { url: `${routine.origin}/hook`, key: "k" });
+			assert.equal((await deliver(t.transport, wakePayload())).result, "http_200");
+		} finally {
+			await routine.close();
+		}
+	});
+});
+
+const wakePayload = () => ({ source: "everyfield-actionable-watch", version: 1, at: "2026-11-08T00:00:00.000Z", events: [{ kind: "tick-error", key: "tick-error" }] });
+
+describe("webhook send", () => {
+	test("the request builder sets exactly the two headers and the payload body", () => {
+		const r = webhookRequest({ url: new URL("https://example.invalid/p"), key: "abc" }, wakePayload());
+		assert.deepEqual(r, {
+			url: new URL("https://example.invalid/p"),
+			method: "POST",
+			headers: { Authorization: "Bearer abc", "Content-Type": "application/json" },
+			body: JSON.stringify(wakePayload()),
+		});
+	});
+
+	test("one POST to the configured URL with exactly those headers; only 200 delivers", async () => {
+		const routine = await fakeRoutine([200]);
+		try {
+			const path = await writeConfig(await tmp(), { url: `${routine.origin}/routines/abc/trigger?x=1`, key: "the-key" });
+			const t = createTransport("webhook", async () => {}, { configPath: path, ca: routine.ca });
+			assert.ok(t.ok);
+			const d = await deliver(t.transport, wakePayload());
+			assert.deepEqual({ ok: d.ok, tries: d.tries, result: d.result }, { ok: true, tries: 1, result: "http_200" });
+			assert.equal(routine.seen.length, 1);
+			const [req] = routine.seen;
+			assert.equal(req.method, "POST");
+			assert.equal(req.path, "/routines/abc/trigger?x=1");
+			assert.equal(req.headers.authorization, "Bearer the-key");
+			assert.equal(req.headers["content-type"], "application/json");
+			// Node adds only the protocol headers; the watcher adds nothing else (no user agent, no cookies).
+			assert.deepEqual(Object.keys(req.headers).sort(), ["authorization", "connection", "content-length", "content-type", "host"]);
+			assert.deepEqual(JSON.parse(req.body), wakePayload());
+
+			for (const [status, tries] of [[201, 1], [202, 1], [204, 1], [302, 1], [400, 1], [401, 1], [404, 1], [429, 1], [500, 3], [503, 3]] as const) {
+				routine.seen.length = 0;
+				routine.replies = [status];
+				const r = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
+				assert.deepEqual({ ok: r.ok, tries: r.tries, result: r.result }, { ok: false, tries, result: `http_${status}` }, String(status));
+				assert.equal(routine.seen.length, tries, `${status} reached the server ${tries} times`);
+			}
+		} finally {
+			await routine.close();
+		}
+	});
+
+	test("a timeout and a dropped connection are not delivered and not retried", async () => {
+		const routine = await fakeRoutine(["hang"]);
+		try {
+			const path = await writeConfig(await tmp(), { url: `${routine.origin}/hook`, key: "k" });
+			const t = createTransport("webhook", async () => {}, { configPath: path, ca: routine.ca });
+			assert.ok(t.ok);
+			const hung = await deliver(t.transport, wakePayload(), { sleep: async () => {}, timeoutMs: 300 });
+			assert.deepEqual({ ok: hung.ok, tries: hung.tries, result: hung.result }, { ok: false, tries: 1, result: "timeout" });
+			routine.replies = ["reset"];
+			routine.seen.length = 0;
+			const reset = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
+			assert.deepEqual({ ok: reset.ok, tries: reset.tries, result: reset.result }, { ok: false, tries: 1, result: "network_error" });
+			assert.equal(routine.seen.length, 1);
+		} finally {
+			await routine.close();
+		}
+	});
+
+	test("a connect error is retried in the poll; a bad certificate is not", async () => {
+		const routine = await fakeRoutine([200]);
+		const origin = routine.origin;
+		await routine.close(); // nothing listens on that port now
+		const path = await writeConfig(await tmp(), { url: `${origin}/hook`, key: "k" });
+		const t = createTransport("webhook", async () => {}, { configPath: path });
+		assert.ok(t.ok);
+		const refused = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
+		assert.deepEqual({ ok: refused.ok, tries: refused.tries, result: refused.result }, { ok: false, tries: 3, result: "connect_error" });
+
+		const live = await fakeRoutine([200]);
+		try {
+			const untrusted = createTransport("webhook", async () => {}, { configPath: await writeConfig(await tmp(), { url: `${live.origin}/hook`, key: "k" }) });
+			assert.ok(untrusted.ok);
+			const tls = await deliver(untrusted.transport, wakePayload(), { sleep: async () => {} });
+			assert.deepEqual({ ok: tls.ok, tries: tls.tries, result: tls.result }, { ok: false, tries: 1, result: "tls_error" });
+			assert.equal(live.seen.length, 0);
+		} finally {
+			await live.close();
+		}
+	});
+
+	test("errors are classed by code only", () => {
+		const err = (code: string) => Object.assign(new Error(`getaddrinfo ${code} secret-host.example`), { code });
+		assert.deepEqual(classifySendError(err("ENOTFOUND")), { ok: false, result: "dns_error", retry: true });
+		assert.deepEqual(classifySendError(err("EAI_AGAIN")), { ok: false, result: "dns_error", retry: true });
+		assert.deepEqual(classifySendError(err("ECONNREFUSED")), { ok: false, result: "connect_error", retry: true });
+		assert.deepEqual(classifySendError(err("ECONNRESET")), { ok: false, result: "network_error", retry: false });
+		assert.deepEqual(classifySendError(err("DEPTH_ZERO_SELF_SIGNED_CERT")), { ok: false, result: "tls_error", retry: false });
+		assert.deepEqual(classifySendError(err("ABORT_ERR")), { ok: false, result: "timeout", retry: false });
 	});
 });
 
@@ -167,5 +344,35 @@ describe("install docs", () => {
 			assert.ok(readme.includes(`rm -rf "$HOME/${rel}"`), `README removes ${rel}`);
 			assert.ok(plist.includes(`__HOME__/${rel}`), `plist uses ${rel}`);
 		}
+	});
+
+	test("README hookup steps match the plist, the flags and the config path", async () => {
+		const { WEBHOOK_CONFIG } = await import("../io.mts");
+		const readme = await readFile(join(here, "README.md"), "utf8");
+		const plist = await readFile(join(here, "com.everyfield.actionable-watch.plist"), "utf8");
+		const run = await readFile(join(here, "run.mts"), "utf8");
+		const args = [...plist.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
+		assert.deepEqual(args.slice(2), ["--transport", "dry-run"], "ProgramArguments.3 is the transport");
+		// Run the README's own switch and rollback lines on a copy of the template and read the result back.
+		const switches = readme.split("\n").filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l)).map((l) => l.trim());
+		assert.equal(switches.length, 2, "one switch to webhook, one rollback to dry-run");
+		const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
+		await writeFile(copy, plist);
+		for (const [line, want] of [[switches[0], "webhook"], [switches[1], "dry-run"]]) {
+			await new Promise<void>((resolve, reject) =>
+				execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) => (e ? reject(e) : resolve())),
+			);
+			const now = await readFile(copy, "utf8");
+			const got = [...now.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
+			assert.deepEqual(got.slice(2), ["--transport", want], line);
+		}
+		assert.ok(readme.includes("plutil -extract ProgramArguments.0 raw"));
+		const rel = WEBHOOK_CONFIG.replace(/^.*?\/Library\//, "Library/");
+		assert.ok(readme.includes(`install -m 600 /dev/null "$HOME/${rel}"`));
+		assert.ok(readme.includes(`rm -f "$HOME/${rel}"`));
+		assert.ok(readme.includes("--test-wake --transport webhook"));
+		assert.match(run, /"test-wake": \{ type: "boolean"/);
+		assert.match(readme, /BUILT\/TESTED, AWAITING LIVE RECEPTION/);
+		assert.doesNotMatch(readme, /pending the contract/);
 	});
 });
