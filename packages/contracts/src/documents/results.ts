@@ -202,8 +202,15 @@ export const churchDocument = z.strictObject({
 		)
 		.max(20),
 });
-/** What a reader gets: the document and what the PDF paints for it. */
-export const churchDocumentView = churchDocument.extend({ brand: docBrand });
+/**
+ * What the editor gets: the document and both looks the PDF can paint for it. `church` is the church theme, null when
+ * the church has no brand kit with a primary color to paint; `plain` is the Everyfield-neutral theme. The document's
+ * `useChurchBranding` picks one, so the page can follow the branding switch without another read.
+ */
+export const churchDocumentView = churchDocument.extend({
+	brands: z.strictObject({ church: docBrand.nullable(), plain: docBrand }),
+});
+export type DocBrands = z.infer<typeof churchDocumentView>["brands"];
 export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),

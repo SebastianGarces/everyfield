@@ -68,6 +68,28 @@ export async function saveChurchDocument(
 	}
 }
 
+export type BrandingResult =
+	{ status: "saved"; useChurchBranding: boolean } | { status: "refused"; message: string } | { status: "lost" };
+
+/**
+ * Turns church branding on or off for one Church Document: one audited write and no new revision, so later previews and
+ * exports follow it and saved exports keep their bytes. The actor is read again here and the write statement checks
+ * the seat, so a Member or a deleted document is refused with nothing written.
+ */
+export async function setChurchBranding(documentId: string, useChurchBranding: boolean): Promise<BrandingResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.setBranding(db, actor, { documentId, useChurchBranding });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+		return { status: "saved", useChurchBranding: reply.value.useChurchBranding };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "branding_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
 /** Deletes a Church Document after the person confirmed, then returns to the library without it. */
 export async function deleteChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
 	const actor = await documentActor();
