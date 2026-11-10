@@ -18,6 +18,7 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { nativeFromText } from "../../../packages/contracts/src/documents/native.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
@@ -163,6 +164,19 @@ try {
 		return r.value.id;
 	};
 	const policyDocument = await churchDocument("conflict-of-interest-policy");
+	// OPS-87: a plain native document of the church plant, saved through the producer the native page's Save calls.
+	const saveWritten = async (body, documentId, expectedRevision = "0") => {
+		const actor = await RequestActor.resolve(runtime, owner.sessionId);
+		const r = await documentsWriter.saveNative(runtime, actor, {
+			title: "Welcome",
+			body,
+			documentId,
+			expectedRevision,
+		});
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	const writtenDocument = await saveWritten(nativeFromText("Welcome to the church plant."));
 	const person = async (displayName) => {
 		const r = await runtime.transaction((tx) =>
 			peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName, stage: "prospect" } }),
@@ -373,6 +387,8 @@ try {
 		["GET /documents/church (member)", "/documents/church", member.cookie],
 		["GET /documents/church/[documentId]", `/documents/church/${policyDocument}`, owner.cookie],
 		["GET /documents/church/[documentId]/file", `/documents/church/${policyDocument}/file?format=pdf`, member.cookie],
+		["GET /documents/written/[documentId]", `/documents/written/${writtenDocument.id}`, owner.cookie],
+		["GET /documents/written/[documentId] (member)", `/documents/written/${writtenDocument.id}`, member.cookie],
 		// The landing route answers with a redirect.
 		["GET /home", "/home", owner.cookie, 307],
 		["GET /meetings", "/meetings", owner.cookie],
@@ -804,6 +820,12 @@ try {
 		]);
 		assert.equal(declined.status, "ok", JSON.stringify(declined));
 	}
+	// The native page's body grows to many blocks before the second read: its count stays the same.
+	await saveWritten(
+		nativeFromText(Array.from({ length: 400 }, (_, i) => `Line ${i + 1}`).join("\n")),
+		writtenDocument.id,
+		writtenDocument.revision,
+	);
 	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
 
 	server.kill("SIGTERM");

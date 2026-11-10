@@ -4,6 +4,7 @@ import * as c from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
+import { optedOutAtSql } from "./opt-out.ts";
 import {
 	administers,
 	command,
@@ -146,6 +147,7 @@ function reachableSql(plantId: string) {
 	return sql`(SELECT count(*)::int FROM mail m
 		JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
+			AND m.refusal IS NULL
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
 /** A held (scheduled) recipient is not sent when the email service accepts it, only when it goes out. */
@@ -349,6 +351,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 							cursor.epoch,
 							cursor.id,
 						)},
+						'emailOptOutAt', CASE WHEN ${reader.role} <> 'member' THEN ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`${input.personId}::uuid`)} END,
 						'lastConfirmedContactAt', (
 							SELECT ${stamp(sql`max(o.occurred_at)`)} FROM contact_outcome o
 							WHERE o.plant_id = ${reader.plantId}::uuid AND o.person_id = ${input.personId}::uuid
@@ -373,6 +376,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 			asOf: z.string(),
 			items: z.array(rawItem),
 			lastConfirmedContactAt: z.string().nullable(),
+			emailOptOutAt: z.string().nullable(),
 			contacts: z.array(contactRow),
 		})
 		.parse(asJson(raw.payload));
@@ -380,6 +384,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 		...pageValue(limit, payload),
 		personId: input.personId,
 		lastConfirmedContactAt: payload.lastConfirmedContactAt,
+		emailOptOutAt: payload.emailOptOutAt,
 		contacts: payload.contacts,
 	});
 }
@@ -397,6 +402,7 @@ const totalsShape = z.object({
 	bounced: z.number().int(),
 	failed: z.number().int(),
 	suppressed: z.number().int(),
+	unsubscribed: z.number().int(),
 	unknown: z.number().int(),
 	cancelled: z.number().int(),
 	cancelOpen: z.number().int(),
@@ -437,7 +443,8 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						'opened', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.opened_at IS NOT NULL),
 						'clicked', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.clicked_at IS NOT NULL),
 						'bounced', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NOT NULL),
-						'failed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('refused', 'failed')),
+						'failed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('refused', 'failed') AND m.refusal IS NULL),
+						'unsubscribed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.refusal = 'unsubscribed'),
 						'suppressed', (SELECT count(*)::int FROM mail m WHERE ${on} AND EXISTS (
 							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)),
 						'unknown', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('unknown', 'dispatched')
@@ -517,7 +524,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 							SELECT jsonb_agg(jsonb_build_object(
 								'personId', m.recipient_person_id, 'mailId', m.id,
 								'sealedAddress', m.recipient_address_encrypted, 'currentEmail', p.email,
-								'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END,
+								'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END,
 								'sentAt', ${stamp(sql`m.sent_at`)}, 'deliveredAt', ${stamp(sql`m.delivered_at`)},
 								'openedAt', ${stamp(sql`m.opened_at`)}, 'clickedAt', ${stamp(sql`m.clicked_at`)}
 							) ORDER BY m.created_at, m.id)
@@ -583,7 +590,7 @@ export async function listHistoryRecipients(tx: Tx, authority: RequestActor, req
 						SELECT jsonb_agg(to_jsonb(s) ORDER BY s.epoch, s."mailId")
 						FROM (
 							SELECT m.recipient_person_id AS "personId", p.display_name AS name, m.id AS "mailId",
-								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END AS "deliveryStatus",
+								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS "deliveryStatus",
 								m.recipient_address_encrypted AS sealed,
 								extract(epoch FROM m.created_at)::text AS epoch
 							FROM mail m
@@ -642,7 +649,7 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 					coalesce((
 						SELECT jsonb_agg(jsonb_build_object(
 							'personId', p.id, 'name', p.display_name,
-							'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END
+							'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END
 						) ORDER BY p.display_name, p.id)
 						FROM communication c
 						JOIN mail m ON m.tenant_id = c.plant_id AND m.purpose = 'communication'

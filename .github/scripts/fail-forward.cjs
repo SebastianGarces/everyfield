@@ -82,7 +82,8 @@ module.exports = async function report({ github, context, core }, options = {}) 
   let source, sha, url, detail;
   if (context.eventName === 'workflow_run') {
     const run = context.payload.workflow_run;
-    if (run.event !== 'push' || run.head_branch !== branch || run.path !== workflowPath ||
+    // A push to main and the nightly scheduled run on main (T-41) share one CI incident.
+    if (!['push', 'schedule'].includes(run.event) || run.head_branch !== branch || run.path !== workflowPath ||
         run.head_repository?.full_name !== 'SebastianGarces/everyfield') return;
     if (run.conclusion === 'success') return recover({ github, context, core }, run, options);
     if (!['failure', 'timed_out', 'startup_failure'].includes(run.conclusion)) return;

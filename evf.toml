@@ -4,8 +4,21 @@
 # Trial path approved by Sebastian (chat t537u / widget Retire pr-body…).
 # Roles set by Sebastian's Nov 6 2026 approval: "Yes, switch all evf-v2 roles to Opus 5.5 medium now."
 
-# No heavy evf checks for this trial — GitHub required check `ci` still runs on the PR.
-# A later owner decision can add format/typecheck checks when ready.
+# A check slot starts with no node_modules, so setup installs them. It reruns only when the lockfile changes.
+[setup]
+name = "install"
+run = ["corepack", "pnpm", "install", "--frozen-lockfile"]
+inputs = ["pnpm-lock.yaml"]
+
+# fast-check runs first, so a set with a format, lint or type error fails in seconds, before any long check.
+# Any check declared after it still runs after it on every set it passes, and the next set after rework runs every
+# check again. Nothing is skipped. GitHub's required check `ci` stays the full run on the PR.
+# fast-check diffs from merge-base origin/main HEAD, which on a slot is the base head, so it sees the branch's changes.
+# It reads the whole tree (no inputs), because its scope is the branch diff.
+[[check]]
+name = "fast-check"
+run = ["bin/dev", "fast-check"]
+timeout_minutes = 10
 
 # Owner gates. Sebastian, Nov 6 2026, 11:54 AM ET: "Yes, keep my OK on all five, including CI and agent settings".
 # A path ending in "/" is a prefix. Anything else is an exact path.
