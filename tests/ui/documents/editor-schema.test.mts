@@ -1,4 +1,5 @@
 // WP-036 slice 2: the editor's free parts and its schema. No browser, no database.
+//   AC:CASE-DOC-016: the plain document editor (OPS-87) holds a native body unchanged and has no template-only node.
 //   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package; no private registry.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
 //   T-20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
@@ -7,7 +8,12 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { docDocument, FORMAT_SCHEMA, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
+import {
+	docDocument,
+	FORMAT_SCHEMA,
+	forkTemplate,
+	nativeBody,
+} from "../../../packages/contracts/src/documents/index.ts";
 import { DOC_TEMPLATES } from "../../../packages/domain/src/documents/doc-templates.ts";
 import {
 	clean,
@@ -15,7 +21,7 @@ import {
 	editorContent,
 } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
-import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
+import { editorSchema, nativeSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { conditionIssue } from "../../../apps/web/src/features/documents/church/editor/condition-extension.ts";
 import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
@@ -193,4 +199,50 @@ test("T-20: the editor refuses conditional text where the format refuses it, eac
 		],
 	];
 	for (const [json, reason] of cases) assert.match(conditionIssue(schema.nodeFromJSON(json)) ?? "", reason);
+});
+
+test("AC:CASE-DOC-016: the plain document editor holds a native body unchanged, and its JSON is a native body", () => {
+	const native = nativeSchema();
+	const text = (value: string, marks?: unknown[]) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+	const body = {
+		type: "doc",
+		content: [
+			{ type: "heading", attrs: { level: 1 }, content: [text("Our values")] },
+			{
+				type: "paragraph",
+				content: [
+					text("We ", [{ type: "bold" }, { type: "italic" }]),
+					text("serve", [{ type: "underline" }]),
+					{ type: "hardBreak" },
+					text("Austin", [{ type: "link", attrs: { href: "mailto:hello@example.org" } }]),
+				],
+			},
+			{ type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [text("One")] }] }] },
+			{
+				type: "orderedList",
+				content: [{ type: "listItem", content: [{ type: "paragraph", content: [text("Two")] }] }],
+			},
+			{ type: "quote", content: [{ type: "paragraph", content: [text("Love")] }] },
+			{ type: "divider" },
+			{ type: "paragraph" },
+		],
+	};
+	const json = clean(native.nodeFromJSON(body).toJSON());
+	assert.deepEqual(json, body);
+	assert.equal(nativeBody.safeParse(json).success, true);
+	for (const name of [
+		"slot",
+		"field",
+		"image",
+		"table",
+		"columns",
+		"box",
+		"writeIn",
+		"pageHeader",
+		"spacer",
+		"pageBreak",
+		"if",
+	])
+		assert.equal(native.nodes[name], undefined, `the plain editor has a ${name} node`);
+	assert.equal(native.marks.tag, undefined);
 });

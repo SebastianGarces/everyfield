@@ -10,6 +10,10 @@ on:
     branches: [main]
   # Dormant until this repository can use a merge queue (OPS-56): the `ci` check then also runs on the queue commit.
   merge_group:
+  # One full run on main every night (T-41): everything local selection may skip. GitHub runs a schedule on the
+  # default branch only, and fail-forward reports a failed scheduled run as it does a failed push.
+  schedule:
+    - cron: "17 7 * * *"
 
 permissions:
   contents: read

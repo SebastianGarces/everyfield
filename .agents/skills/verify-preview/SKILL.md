@@ -8,7 +8,7 @@ description: "Apply when you verify a change as the independent Opus verifier. R
 You prove the change works. The author's summary is not evidence, but the author's proof is: read the
 diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
 Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
-wrong. You own the verdict. The Experience section may use the author's recorded
+wrong. Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
 measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
 local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
@@ -77,6 +77,11 @@ mode 0600 config outside the repository, prints no value and refuses to start wh
 `DATABASE_URL` is not the shared development database.
 The supervisor runs four previews at a time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
 preview only when its PR is merged or closed, and say so in your report.
+
+Setup timing: `preview.mjs` and `bin/dev stack up` record each install and build as one JSON file in
+`$(git rev-parse --path-format=absolute --git-common-dir)/evf-setup-steps` (or `EVF_SETUP_STEPS_DIR`), with the
+build's `.next/cache` state. `node scripts/setup-step.mjs report [--json]` gives weekly totals and hit rates per step.
+`node tools/ci/ci-timing.ts --last <n> [--json]` splits GitHub CI jobs into queue, setup and run time with cache hits.
 
 The development database is shared and may be wiped and reseeded at any time:
 `corepack pnpm --filter @everyfield/db reset:dev`. Never point a check at production. Never print

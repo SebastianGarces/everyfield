@@ -66,7 +66,8 @@ import { BUTTON_ICON, MENU_ITEM } from "./tiptap/styles.ts";
 
 // The main toolbar. The primitives, the mark buttons, the Undo and Redo buttons and the link popover are Tiptap's free
 // ready-made parts (see tiptap/README.md); the text-style, list, block and insert controls use the same primitives.
-// Every control has a name and a tooltip. A control that cannot apply is disabled, not hidden.
+// Every control has a name and a tooltip. A control that cannot apply is disabled, not hidden. A plain document (no
+// `church` prop) gets the prose controls only: text style, marks, link, lists, quote, divider, move and delete block.
 
 const glyph = (icon: IconSvgElement) => <Icon icon={icon} size={18} className={BUTTON_ICON} />;
 
@@ -161,17 +162,21 @@ const PAGE_NUMBERS = [
 	{ format: "page-of-total", label: "Page N of M" },
 ] as const;
 
+/** The text styles a plain document offers: body text and the three heading levels. */
+const NATIVE_STYLES = new Set<string>(["body", "h1", "h2", "h3"]);
+
 export function EditorToolbar({
 	editor,
-	brand,
-	mergeValues,
-	pageSetup,
+	church,
 }: {
 	editor: Editor;
-	brand: DocBrand;
-	/** The church's current value of each merge field Insert offers, by key. */
-	mergeValues: Record<string, string>;
-	pageSetup: { open: boolean; controls: string; toggle: () => void };
+	/** The template parts of a Church Document; a plain native document has none. */
+	church?: {
+		brand: DocBrand;
+		/** The church's current value of each merge field Insert offers, by key. */
+		mergeValues: Record<string, string>;
+		pageSetup: { open: boolean; controls: string; toggle: () => void };
+	};
 }) {
 	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
 	// Bold, Italic, Underline and Link show on load, not after the first click.
@@ -188,6 +193,12 @@ export function EditorToolbar({
 		selector: ({ editor: e }) => {
 			const state = e.state;
 			const empty = currentBlock(state) === null;
+			// A plain document's schema has no layout, slot or field nodes, so only the divider can be inserted.
+			const insertable = (
+				church
+					? Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)]))
+					: { divider: canInsert(state, "divider") }
+			) as Record<InsertKind, boolean>;
 			return {
 				style: currentTextStyle(state),
 				numbered: isNumbered(state),
@@ -195,8 +206,8 @@ export function EditorToolbar({
 				up: canMove(state, -1),
 				down: canMove(state, 1),
 				hasBlock: !empty,
-				tag: e.isActive("tag"),
-				canTag: e.can().toggleMark("tag"),
+				tag: church ? e.isActive("tag") : false,
+				canTag: church ? e.can().toggleMark("tag") : false,
 				styles: Object.fromEntries(TEXT_STYLES.map((t) => [t.style, canSetTextStyle(e, t.style)])),
 				region: regionAt(state),
 				canWrap: canWrap(state),
@@ -205,16 +216,14 @@ export function EditorToolbar({
 				values: liveValues(state.doc),
 				// The document's fields, as the root node holds them now: conditional text needs at least one to read.
 				fields: (state.doc.attrs.fields as FieldDecl[] | undefined) ?? [],
-				insertable: Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)])) as Record<
-					InsertKind,
-					boolean
-				>,
+				insertable,
 			};
 		},
 	});
 	const current = TEXT_STYLES.find((t) => t.style === s.style);
 	const fields = s.fields;
 	const noFields = noConditionReason(fields);
+	const styles = church ? TEXT_STYLES : TEXT_STYLES.filter((t) => NATIVE_STYLES.has(t.style));
 	return (
 		<Toolbar aria-label="Document formatting">
 			<ToolbarGroup>
@@ -239,7 +248,7 @@ export function EditorToolbar({
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent portal align="start" aria-label="Text style">
-						{TEXT_STYLES.map((t) => (
+						{styles.map((t) => (
 							<DropdownMenuItem
 								key={t.style}
 								className={MENU_ITEM}
@@ -254,28 +263,32 @@ export function EditorToolbar({
 						))}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				<Action
-					editor={editor}
-					label="Numbered heading"
-					icon={TextNumberSignIcon}
-					active={s.numbered}
-					disabled={!s.canNumber}
-					run={() => toggleNumbered(editor)}
-				/>
+				{church ? (
+					<Action
+						editor={editor}
+						label="Numbered heading"
+						icon={TextNumberSignIcon}
+						active={s.numbered}
+						disabled={!s.canNumber}
+						run={() => toggleNumbered(editor)}
+					/>
+				) : null}
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
 				<MarkButton editor={editor} type="bold" />
 				<MarkButton editor={editor} type="italic" />
 				<MarkButton editor={editor} type="underline" />
-				<Action
-					editor={editor}
-					label="Tag"
-					icon={Tag01Icon}
-					active={s.tag}
-					disabled={!s.canTag}
-					run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
-				/>
+				{church ? (
+					<Action
+						editor={editor}
+						label="Tag"
+						icon={Tag01Icon}
+						active={s.tag}
+						disabled={!s.canTag}
+						run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
+					/>
+				) : null}
 				<LinkPopover editor={editor} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
@@ -293,139 +306,145 @@ export function EditorToolbar({
 					disabled={!s.insertable.divider}
 					run={() => insertBlock(editor, "divider")}
 				/>
-				<Action
-					editor={editor}
-					label="Spacer"
-					icon={ParagraphSpacingIcon}
-					disabled={!s.insertable.spacer}
-					run={() => insertBlock(editor, "spacer")}
-				/>
-				<Action
-					editor={editor}
-					label="Page break"
-					icon={Scissor01Icon}
-					disabled={!s.insertable.pageBreak}
-					run={() => insertBlock(editor, "pageBreak")}
-				/>
+				{church ? (
+					<>
+						<Action
+							editor={editor}
+							label="Spacer"
+							icon={ParagraphSpacingIcon}
+							disabled={!s.insertable.spacer}
+							run={() => insertBlock(editor, "spacer")}
+						/>
+						<Action
+							editor={editor}
+							label="Page break"
+							icon={Scissor01Icon}
+							disabled={!s.insertable.pageBreak}
+							run={() => insertBlock(editor, "pageBreak")}
+						/>
+					</>
+				) : null}
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							type="button"
-							data-style="ghost"
+				{church ? (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								data-style="ghost"
+								aria-label="Insert block"
+								tooltip="Insert block after this one"
+								onMouseDown={(event) => event.preventDefault()}
+							>
+								{glyph(Add01Icon)}
+								<span>Insert</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							portal
+							align="start"
 							aria-label="Insert block"
-							tooltip="Insert block after this one"
-							onMouseDown={(event) => event.preventDefault()}
+							collisionPadding={8}
+							// Radix measures the room around the button, so the list scrolls inside the window however far
+							// down the page the toolbar sits, and its notes wrap on a narrow screen.
+							className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
 						>
-							{glyph(Add01Icon)}
-							<span>Insert</span>
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent
-						portal
-						align="start"
-						aria-label="Insert block"
-						collisionPadding={8}
-						// Radix measures the room around the button, so the list scrolls inside the window however far
-						// down the page the toolbar sits, and its notes wrap on a narrow screen.
-						className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
-					>
-						{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
-							const image = k.group === "images" ? (k.kind as ImageKind) : null;
-							const asset = image ? brand.assets[image] : null;
-							const divide = i > 0 && shown[i - 1]?.group !== k.group;
-							const conditional = k.kind === "if";
-							return (
-								<Fragment key={k.kind}>
-									{i === 0 || divide ? <MenuLabel>{GROUP_LABEL[k.group]}</MenuLabel> : null}
+							{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
+								const image = k.group === "images" ? (k.kind as ImageKind) : null;
+								const asset = image ? church.brand.assets[image] : null;
+								const divide = i > 0 && shown[i - 1]?.group !== k.group;
+								const conditional = k.kind === "if";
+								return (
+									<Fragment key={k.kind}>
+										{i === 0 || divide ? <MenuLabel>{GROUP_LABEL[k.group]}</MenuLabel> : null}
+										<DropdownMenuItem
+											className={MENU_ITEM}
+											disabled={(image !== null && !asset) || (conditional && noFields !== null)}
+											title={
+												conditional ? (noFields ?? "Text that prints only when a field's condition holds") : undefined
+											}
+											onSelect={() =>
+												conditional
+													? insertBlock(editor, "if", "", firstCondition(fields) ?? undefined)
+													: insertBlock(editor, k.kind, asset?.alt ?? "")
+											}
+										>
+											{k.label}
+										</DropdownMenuItem>
+										{conditional && noFields ? <p className="px-2.5 pb-1.5 text-sm text-text-2">{noFields}</p> : null}
+										{image && !asset ? (
+											<div className="px-2.5 pb-1.5 text-sm text-text-2">
+												<p>
+													{church.brand.palette.themed
+														? `Your brand kit has no ${IMAGE_KINDS[image]}.`
+														: "This document uses the Everyfield theme, which prints no church images."}
+												</p>
+												<DropdownMenuItem
+													asChild
+													className={cn(MENU_ITEM, "inline-flex px-0 py-0.5 text-sm font-medium underline")}
+												>
+													<a href="/settings/brand" target="_blank" rel="noreferrer">
+														Open the brand kit
+													</a>
+												</DropdownMenuItem>
+											</div>
+										) : null}
+									</Fragment>
+								);
+							})}
+							<MenuLabel>Doctrinal section</MenuLabel>
+							<DropdownMenuItem
+								className={MENU_ITEM}
+								disabled={!s.insertable.slot}
+								onSelect={() => insertBlock(editor, "slot")}
+							>
+								Doctrinal section
+							</DropdownMenuItem>
+							{!s.insertable.slot ? (
+								<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
+									{s.hasSlot
+										? "This document already has one. Delete it first to add a new one."
+										: "Put the cursor in the body to add one."}
+								</p>
+							) : null}
+							<MenuLabel>Merge fields</MenuLabel>
+							{INSERTABLE_FIELDS.map((field) => {
+								const shown = s.values[field.key] ?? church.mergeValues[field.key] ?? `[${field.label.toLowerCase()}]`;
+								return (
 									<DropdownMenuItem
-										className={MENU_ITEM}
-										disabled={(image !== null && !asset) || (conditional && noFields !== null)}
-										title={
-											conditional ? (noFields ?? "Text that prints only when a field's condition holds") : undefined
-										}
-										onSelect={() =>
-											conditional
-												? insertBlock(editor, "if", "", firstCondition(fields) ?? undefined)
-												: insertBlock(editor, k.kind, asset?.alt ?? "")
-										}
+										key={field.key}
+										className={cn(MENU_ITEM, "flex-col items-start gap-0")}
+										disabled={!s.canField}
+										onSelect={() => insertField(editor, field, church.mergeValues[field.key])}
 									>
-										{k.label}
+										<span>{field.label}</span>
+										<span className="max-w-[240px] truncate text-sm text-text-2">{shown || "Prints nothing"}</span>
 									</DropdownMenuItem>
-									{conditional && noFields ? <p className="px-2.5 pb-1.5 text-sm text-text-2">{noFields}</p> : null}
-									{image && !asset ? (
-										<div className="px-2.5 pb-1.5 text-sm text-text-2">
-											<p>
-												{brand.palette.themed
-													? `Your brand kit has no ${IMAGE_KINDS[image]}.`
-													: "This document uses the Everyfield theme, which prints no church images."}
-											</p>
-											<DropdownMenuItem
-												asChild
-												className={cn(MENU_ITEM, "inline-flex px-0 py-0.5 text-sm font-medium underline")}
-											>
-												<a href="/settings/brand" target="_blank" rel="noreferrer">
-													Open the brand kit
-												</a>
-											</DropdownMenuItem>
-										</div>
-									) : null}
-								</Fragment>
-							);
-						})}
-						<MenuLabel>Doctrinal section</MenuLabel>
-						<DropdownMenuItem
-							className={MENU_ITEM}
-							disabled={!s.insertable.slot}
-							onSelect={() => insertBlock(editor, "slot")}
-						>
-							Doctrinal section
-						</DropdownMenuItem>
-						{!s.insertable.slot ? (
-							<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
-								{s.hasSlot
-									? "This document already has one. Delete it first to add a new one."
-									: "Put the cursor in the body to add one."}
-							</p>
-						) : null}
-						<MenuLabel>Merge fields</MenuLabel>
-						{INSERTABLE_FIELDS.map((field) => {
-							const shown = s.values[field.key] ?? mergeValues[field.key] ?? `[${field.label.toLowerCase()}]`;
-							return (
-								<DropdownMenuItem
-									key={field.key}
-									className={cn(MENU_ITEM, "flex-col items-start gap-0")}
-									disabled={!s.canField}
-									onSelect={() => insertField(editor, field, mergeValues[field.key])}
-								>
-									<span>{field.label}</span>
-									<span className="max-w-[240px] truncate text-sm text-text-2">{shown || "Prints nothing"}</span>
-								</DropdownMenuItem>
-							);
-						})}
-						{!s.canField ? (
-							<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
-								Put the cursor in a line of text to add a field.
-							</p>
-						) : null}
-						{s.region ? (
-							<>
-								<MenuLabel>Page number</MenuLabel>
-								{PAGE_NUMBERS.map((p) => (
-									<DropdownMenuItem
-										key={p.format}
-										className={MENU_ITEM}
-										onSelect={() => insertPageNumber(editor, p.format)}
-									>
-										{p.label}
-									</DropdownMenuItem>
-								))}
-							</>
-						) : null}
-					</DropdownMenuContent>
-				</DropdownMenu>
+								);
+							})}
+							{!s.canField ? (
+								<p className="max-w-[260px] px-2.5 pb-1.5 text-sm text-pretty text-text-2">
+									Put the cursor in a line of text to add a field.
+								</p>
+							) : null}
+							{s.region ? (
+								<>
+									<MenuLabel>Page number</MenuLabel>
+									{PAGE_NUMBERS.map((p) => (
+										<DropdownMenuItem
+											key={p.format}
+											className={MENU_ITEM}
+											onSelect={() => insertPageNumber(editor, p.format)}
+										>
+											{p.label}
+										</DropdownMenuItem>
+									))}
+								</>
+							) : null}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				) : null}
 				<Action
 					editor={editor}
 					label="Move block up"
@@ -450,7 +469,7 @@ export function EditorToolbar({
 					disabled={!s.hasBlock}
 					run={() => deleteBlock(editor)}
 				/>
-				{s.region ? null : (
+				{!church || s.region ? null : (
 					<WrapAction
 						editor={editor}
 						reason={noFields ?? (s.canWrap ? null : "This block cannot become conditional text here.")}
@@ -461,22 +480,26 @@ export function EditorToolbar({
 					/>
 				)}
 			</ToolbarGroup>
-			<ToolbarSeparator />
-			<ToolbarGroup>
-				<Button
-					type="button"
-					data-style="ghost"
-					data-active-state={pageSetup.open ? "on" : "off"}
-					aria-label="Page setup"
-					aria-expanded={pageSetup.open}
-					aria-controls={pageSetup.controls}
-					tooltip="Page setup: paper, margins, cards per sheet, header and footer"
-					onClick={pageSetup.toggle}
-				>
-					{glyph(File02Icon)}
-					<span>Page setup</span>
-				</Button>
-			</ToolbarGroup>
+			{church ? (
+				<>
+					<ToolbarSeparator />
+					<ToolbarGroup>
+						<Button
+							type="button"
+							data-style="ghost"
+							data-active-state={church.pageSetup.open ? "on" : "off"}
+							aria-label="Page setup"
+							aria-expanded={church.pageSetup.open}
+							aria-controls={church.pageSetup.controls}
+							tooltip="Page setup: paper, margins, cards per sheet, header and footer"
+							onClick={church.pageSetup.toggle}
+						>
+							{glyph(File02Icon)}
+							<span>Page setup</span>
+						</Button>
+					</ToolbarGroup>
+				</>
+			) : null}
 		</Toolbar>
 	);
 }
