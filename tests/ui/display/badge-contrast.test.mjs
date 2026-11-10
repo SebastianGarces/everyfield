@@ -43,7 +43,9 @@ function describeChips(els) {
 		if (el.dataset.dir) {
 			const arrow = el.querySelector(":scope > [aria-hidden='true']")?.className ?? "";
 			const risk = el.dataset.dir === "up" && arrow.includes("magenta");
-			return ["DeltaChip", el.dataset.dir, risk ? "risk" : "", /\bh-6\b/.test(cls) ? "sm" : ""].filter(Boolean).join(" ");
+			return ["DeltaChip", el.dataset.dir, risk ? "risk" : "", /\bh-6\b/.test(cls) ? "sm" : ""]
+				.filter(Boolean)
+				.join(" ");
 		}
 		if (el.dataset.stage) return `StageChip ${el.dataset.stage}`;
 		if (!cls.includes("rounded-md")) return null;
@@ -58,39 +60,43 @@ function describeChips(els) {
 	return els.map((el) => ({ name: nameOf(el), label: labelOf(el) }));
 }
 
-test(`INV-contrast: every badge and chip label on /design/display reads at ${AA}:1 in the dark theme (Chromium, 1440 and 390 px)`, {
-	timeout: 180_000,
-}, async () => {
-	await withPage(chromium, async (page, context) => {
-		await context.addCookies([{ name: "ef-theme", value: "dark", url: BASE }]);
-		await page.goto(`${BASE}/design/display`);
-		await hydrated(page);
-		assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "the gallery shows its dark theme");
-		const section = page.getByRole("region", { name: SECTION });
-		// The chips sit in the specimens' wrapping rows. Avatars are images (or hidden in a group) and are not measured.
-		const chips = section.locator(".flex-wrap > span:not([role='img']):not([aria-hidden='true'])");
-		await chips.first().waitFor();
-		const found = await chips.evaluateAll(describeChips);
-		const unnamed = found.filter((chip) => !chip.name).map((chip) => chip.label);
-		assert.deepEqual(unnamed, [], "every chip in the section is a StatusBadge, DeltaChip, Tag or StageChip");
-		const names = found.map((chip) => chip.name);
-		assert.deepEqual(
-			GALLERY.filter((name) => !names.includes(name)),
-			[],
-			"the gallery still renders every badge and chip variant",
-		);
+test(
+	`INV-contrast: every badge and chip label on /design/display reads at ${AA}:1 in the dark theme (Chromium, 1440 and 390 px)`,
+	{
+		timeout: 180_000,
+	},
+	async () => {
+		await withPage(chromium, async (page, context) => {
+			await context.addCookies([{ name: "ef-theme", value: "dark", url: BASE }]);
+			await page.goto(`${BASE}/design/display`);
+			await hydrated(page);
+			assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "the gallery shows its dark theme");
+			const section = page.getByRole("region", { name: SECTION });
+			// The chips sit in the specimens' wrapping rows. Avatars are images (or hidden in a group) and are not measured.
+			const chips = section.locator(".flex-wrap > span:not([role='img']):not([aria-hidden='true'])");
+			await chips.first().waitFor();
+			const found = await chips.evaluateAll(describeChips);
+			const unnamed = found.filter((chip) => !chip.name).map((chip) => chip.label);
+			assert.deepEqual(unnamed, [], "every chip in the section is a StatusBadge, DeltaChip, Tag or StageChip");
+			const names = found.map((chip) => chip.name);
+			assert.deepEqual(
+				GALLERY.filter((name) => !names.includes(name)),
+				[],
+				"the gallery still renders every badge and chip variant",
+			);
 
-		const failures = [];
-		for (const width of [1440, 390]) {
-			await page.setViewportSize({ width, height: 900 });
-			for (const [i, { name, label }] of found.entries()) {
-				const measured = await contrastOf(chips.nth(i));
-				const seen = `${name} "${label}", ${width} px, dark theme: ${measured.ratio}:1, text ${measured.text} on ${measured.background}, threshold ${AA}:1`;
-				console.log(`INV-contrast ${seen}`);
-				if (SHOTS) writeFileSync(`${SHOTS}/${name.replaceAll(" ", "-")}-${width}-dark.png`, measured.shot);
-				if (measured.ratio < AA) failures.push(seen);
+			const failures = [];
+			for (const width of [1440, 390]) {
+				await page.setViewportSize({ width, height: 900 });
+				for (const [i, { name, label }] of found.entries()) {
+					const measured = await contrastOf(chips.nth(i));
+					const seen = `${name} "${label}", ${width} px, dark theme: ${measured.ratio}:1, text ${measured.text} on ${measured.background}, threshold ${AA}:1`;
+					console.log(`INV-contrast ${seen}`);
+					if (SHOTS) writeFileSync(`${SHOTS}/${name.replaceAll(" ", "-")}-${width}-dark.png`, measured.shot);
+					if (measured.ratio < AA) failures.push(seen);
+				}
 			}
-		}
-		assert.deepEqual(failures, [], `every badge and chip label reads at ${AA}:1 or more`);
-	});
-});
+			assert.deepEqual(failures, [], `every badge and chip label reads at ${AA}:1 or more`);
+		});
+	},
+);
