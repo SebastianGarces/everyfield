@@ -278,14 +278,18 @@ export default function NativeEditor({
 			importKey.current = null;
 			const value = result.value;
 			created(value.id);
-			// The imported text is the saved revision now: it lands as editable paragraphs and the page reads "Saved".
+			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists and links.
 			editor.chain().setMeta("addToHistory", false).setContent(value.body).run();
 			savedDoc.current = editor.state.doc;
 			setBodyChanged(false);
 			setSaved({ id: value.id, revision: value.revision, title: value.title, kind: value.kind });
 			setTitle(value.title);
 			setTextRevision(false);
-			setNote("The file's text is now this document's saved version. Each line is a paragraph you can edit.");
+			setNote(
+				format === "docx"
+					? "The Word file is now this document's saved version. Its headings, lists and links came across, ready to edit."
+					: "The file's text is now this document's saved version. Each line is a paragraph you can edit.",
+			);
 		})();
 	}
 
