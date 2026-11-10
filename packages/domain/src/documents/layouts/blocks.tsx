@@ -20,6 +20,8 @@ export type Ctx = {
 	log: ContrastLog;
 	/** The meeting an agenda prints from. Absent: the agenda is the blank sheet. */
 	meeting?: AgendaMeeting;
+	/** The sending network's statement of faith a template preview prints in its `statement-of-faith` slot (D-417). */
+	statement?: string | null;
 };
 
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
