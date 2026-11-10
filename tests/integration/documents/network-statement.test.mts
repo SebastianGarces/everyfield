@@ -2,9 +2,9 @@
 // from a template starts with the sending network's statement of faith in its `statement-of-faith` slot, read once at
 // creation. A plant with no network, or whose network has not written it, gets the marked blank.
 //
-// No built-in createFromTemplate template has a slot yet (Bylaws is T-56's, D-89, D-110). Until it lands, this file
-// adds fixture templates, the conflict policy with slots, to the loaded template list (D-117, D-126), so every step
-// runs through the real createFromTemplate, readChurch, history and export path.
+// Every case creates from the built-in Bylaws, whose "Statement of faith" slot carries the key (T-56, D-110). The key
+// test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
+// Every step runs through the real createFromTemplate, readChurch, history and export path.
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
@@ -84,16 +84,15 @@ const policy = docTemplateById("conflict-of-interest-policy");
 const withSlots = (id, slots) => {
 	const t = structuredClone(policy);
 	t.id = id;
-	t.title = "Synthetic Bylaws";
+	t.title = "Synthetic mixed slots";
 	// After the masthead and its divider: the slot sits between two of the policy's own sections.
 	t.body.content.splice(4, 0, ...slots);
 	return loadTemplate(id, t);
 };
-const BYLAWS = "t84-keyed-slot";
+const BYLAWS = "bylaws";
 const MIXED = "t84-mixed-slots";
 const AUTHORED = "The church writes its vision here.";
 DOC_TEMPLATES.push(
-	withSlots(BYLAWS, [{ type: "slot", attrs: { label: LABEL, key: "statement-of-faith" }, content: [] }]),
 	withSlots(MIXED, [
 		{ type: "slot", attrs: { label: LABEL, key: "statement-of-faith" }, content: [] },
 		{ type: "slot", attrs: { label: "Doctrinal notes" }, content: [] },
@@ -220,11 +219,8 @@ async function assertNetworkText(who, documentId, paragraphs = PARAGRAPHS, revis
 }
 /** The empty slot: the template's own, the marked blank in both files and no doctrinal words. */
 async function assertMarkedBlank(who, doc) {
-	assert.deepEqual(keyedSlot(doc.body), {
-		type: "slot",
-		attrs: { label: LABEL, key: "statement-of-faith" },
-		content: [],
-	});
+	assert.deepEqual(keyedSlot(doc.body), keyedSlot(docTemplateById(BYLAWS)), "the slot as Bylaws authored it");
+	assert.deepEqual(keyedSlot(doc.body).content ?? [], [], "an empty slot");
 	assert.deepEqual(keyedSlot(await revisionOne(who, doc.id)), keyedSlot(doc.body));
 	for (const text of await exportsOf(who, doc.id)) {
 		assert.match(text, /statement of faith/i);
@@ -262,11 +258,7 @@ after(async () => {
 describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
 	test("statementParagraphs: one paragraph per blank-line-separated block, a single line break kept", () => {
 		assert.deepEqual(statementParagraphs(TEXT), PARAGRAPHS);
-		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [
-			para("One."),
-			para("Two."),
-			para("Three."),
-		]);
+		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [para("One."), para("Two."), para("Three.")]);
 	});
 
 	test("fillStatementSlots leaves a document unchanged with no statement", () => {
