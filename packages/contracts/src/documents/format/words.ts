@@ -185,12 +185,10 @@ function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
 
 /** The word marks of two versions of the same part, each a list of blocks or a plain string (the title). */
 function compareSides(mine: readonly Rec[] | string, theirs: readonly Rec[] | string): WordChanges {
-	const a =
-		typeof mine === "string" ? walk([{ type: "paragraph", content: [{ type: "text", text: mine }] }]) : walk(mine);
-	const b =
-		typeof theirs === "string"
-			? walk([{ type: "paragraph", content: [{ type: "text", text: theirs }] }])
-			: walk(theirs);
+	const blocks = (side: readonly Rec[] | string) =>
+		typeof side === "string" ? [{ type: "paragraph", content: [{ type: "text", text: side }] }] : side;
+	const a = walk(blocks(mine));
+	const b = walk(blocks(theirs));
 	if (a.table || b.table || a.lines.length === 0 || a.lines.length !== b.lines.length) return { show: "whole" };
 	if (a.shape.join() !== b.shape.join()) return { show: "whole" };
 	const settings = a.settings.join() !== b.settings.join();
