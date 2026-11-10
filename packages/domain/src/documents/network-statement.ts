@@ -1,11 +1,33 @@
-import type { BlockNode, DocDocument, InlineNode, ParagraphNode } from "@everyfield/contracts/documents";
+import type { BlockNode, ChurchBlock, DocDocument, InlineNode, ParagraphNode } from "@everyfield/contracts/documents";
+import { sql } from "@everyfield/db/query";
 
 // DOC-020, CASE-DOC-020 `network-fills-slot`: a Church Document made from a template starts with the sending
 // network's statement of faith in each slot keyed `statement-of-faith` (D-106). The text is read once, at creation
-// (D-109): a later change to the network's text never reaches a document that already exists.
+// (D-109): a later change to the network's text never reaches a document that already exists. A preview or a saved
+// file of the template prints the text as it stands when that action runs (T-85, D-417, D-418).
 
 /** The slot key the network's statement of faith fills. */
 const STATEMENT_OF_FAITH_KEY = "statement-of-faith";
+
+/**
+ * A scalar subquery for a SELECT list: the statement of the plant's earliest-accepted active affiliation whose
+ * organization has one (D-108). An ended affiliation never fills. The database never holds blank text.
+ */
+export const networkStatementSql = (plantId: string) =>
+	sql`SELECT o.statement_of_faith FROM affiliation a JOIN organization o ON o.id = a.organization_id
+		WHERE a.plant_id = ${plantId}::uuid AND a.ended_at IS NULL AND o.statement_of_faith IS NOT NULL
+		ORDER BY a.accepted_at, a.id LIMIT 1`;
+
+/**
+ * A template preview's body with every `statement-of-faith` slot holding the network's text, which the layout prints
+ * one paragraph per blank-line-separated block. With no text the body is returned unchanged: the marked blank.
+ */
+export function fillStatementBlocks(body: ChurchBlock[], statement: string | null): ChurchBlock[] {
+	if (statement === null) return body;
+	return body.map((block) =>
+		block.kind === "slot" && block.slotId === STATEMENT_OF_FAITH_KEY ? { ...block, text: statement } : block,
+	);
+}
 
 /**
  * The network's text as paragraphs: one per blank-line-separated block, a single line break kept as a break. The
