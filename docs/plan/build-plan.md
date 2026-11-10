@@ -73,8 +73,8 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
-| WP-036 | Document template and format contracts | 27 | 5 | 16 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 27 | 19 | 29 | 3 | 2.5 |
+| WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
+| WP-037 | Generated files and native owned documents | 27 | 19 | 30 | 3 | 2.5 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 6 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |

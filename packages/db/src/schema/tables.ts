@@ -2706,6 +2706,7 @@ export const organization = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		statement_of_faith: text("statement_of_faith"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "organization_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -2721,6 +2722,10 @@ export const organization = pgTable(
 		check("organization_ck_2", sql`(length(btrim(name)) > 0)`),
 		check("organization_ck_3", sql`(id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("organization_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
+		check(
+			"organization_statement_of_faith",
+			sql`((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))`,
+		),
 	],
 );
 export const organization_person_removal = pgTable(
