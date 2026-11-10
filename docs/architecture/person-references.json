@@ -484,6 +484,30 @@
       ]
     },
     {
+      "table": "person_email_opt_out",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-028"
+      ],
+      "meaning": "A CRM person's opt-out from one church's Messages email (D-284). Only the person's own token writes it.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the opt-out.",
+      "merge_policy": "Keep the opt-out on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays unsubscribed while merged.",
+      "inverse_policy": "Unmerge does not move an opt-out, because the merge did not move it.",
+      "retirement_policy": "A retired person gets no Messages email anyway. The opt-out stays under that person.",
+      "privacy_policy": "An opt-out never transfers account grants, account notification preferences or marketing consent.",
+      "immutable_evidence_policy": "Who, which church and when stay as written; only the person's one-hour undo stamps undone_at.",
+      "future_case_ids": [
+        "CASE-NTF-016"
+      ]
+    },
+    {
       "table": "mail",
       "columns": [
         "recipient_person_id",

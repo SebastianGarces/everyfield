@@ -30,7 +30,8 @@
 	"scripts": {
 		"test:unit": "node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/contracts/common/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} src/identity/*.test.mts src/branding/*.test.mts",
 		"typecheck": "tsc --noEmit",
-		"lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/wiki"
+		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"lint": "cd ../.. && packages/contracts/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/wiki"
 	},
 	"dependencies": {
 		"sanitize-html": "2.17.3",
@@ -39,8 +40,7 @@
 	"devDependencies": {
 		"@types/node": "^24",
 		"@types/sanitize-html": "2.16.1",
-		"eslint": "^9.39.0",
 		"typescript": "6.0.3",
-		"typescript-eslint": "^8.57.0"
+		"oxlint": "1.92.0"
 	}
 }

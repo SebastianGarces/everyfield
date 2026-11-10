@@ -10,6 +10,10 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev stack up [--mode development|production] [--project <path>]    waits for a free preview slot, then starts it
   dev stack status|check|down [--project <path>]
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
+  dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
+        checks.json record outside the repo and prints its path
+  dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
+        time; skips when the machine is loaded or no preview slot is free
   dev traces                               says what to read instead: no trace reader exists yet
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
@@ -115,6 +119,11 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return stack(args);
 		case "logs":
 			return logs(args);
+		// Loaded on use: the other commands, and copies of bin/dev in tests, need none of the selection code.
+		case "check":
+			return (await import("./check.ts")).checkCommand(args, root);
+		case "nightly":
+			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
 		case "hooks":

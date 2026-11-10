@@ -4575,6 +4575,33 @@
     ]
   },
   {
+    "id": "NTF-016",
+    "title": "Per-church, per-person Messages email opt-out for CRM people",
+    "module": "notifications",
+    "behavior": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
+    "spec_file": "docs/product/communications-notifications.md#notification-product",
+    "requirement_ids": [
+      "REQ-NTF-016"
+    ],
+    "operations": [
+      "communication.applyMessagesOptOut",
+      "communication.describeMessagesOptOut",
+      "communication.undoMessagesOptOut"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-016--NTF-016"
+    ],
+    "case_ids": [
+      "CASE-NTF-016"
+    ],
+    "work_packages": [
+      "WP-028"
+    ],
+    "routes": [
+      "/unsubscribe/[token]"
+    ]
+  },
+  {
     "id": "DOC-001",
     "title": "Document template library, filtering and contextual entry points",
     "module": "documents",

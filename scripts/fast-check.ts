@@ -22,7 +22,9 @@ export type Report = { ok: boolean; base: { ref: string; sha: string }; files: s
 
 export class FastCheckError extends Error {}
 
-type Lint = { cwd: string; eslint: string; config?: string; roots: string[] };
+type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string };
+/** A package's lint: Oxlint first, then ESLint for the rules Oxlint lacks (T-43), each one optional, over the same roots. */
+type Lint = { cwd: string; linters: Linter[]; roots: string[] };
 type Pkg = { name: string; dir: string; lint?: Lint; typecheck: boolean };
 
 const LINTED = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
@@ -56,25 +58,29 @@ function formatGlobs(root: string): string[] {
 	return [...script.matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
 }
 
-/** Reads a package's `lint` script: `[cd <dir> &&] <eslint> [--config <file>] [flags] <roots...>`. */
+/** Reads a package's `lint` script: `[cd <dir> &&] [<oxlint> ... &&] [<eslint> ...] [&& other checks]`, each linter as
+ * `<bin> [--config <file>] [flags] <roots...>`. */
 function parseLint(dir: string, script: string | undefined): Lint | undefined {
 	if (!script) return undefined;
 	const parts = script.split("&&").map((part) => part.trim());
 	let cwd = dir;
 	if (parts[0]?.startsWith("cd ")) cwd = resolve(dir, parts.shift()!.slice(3).trim());
-	const [bin, ...args] = (parts[0] ?? "").split(/\s+/);
-	if (!bin || !/(^|\/)eslint$/.test(bin)) return undefined;
-	const lint: Lint = {
-		cwd,
-		eslint: bin === "eslint" ? join(dir, "node_modules/.bin/eslint") : resolve(cwd, bin),
-		roots: [],
-	};
-	for (let at = 0; at < args.length; at++) {
-		const arg = args[at]!;
-		if (arg === "--config" || arg === "-c") lint.config = args[++at];
-		else if (!arg.startsWith("-")) lint.roots.push(resolve(cwd, arg));
+	const lint: Lint = { cwd, linters: [], roots: [] };
+	for (const part of parts) {
+		const [bin, ...args] = part.split(/\s+/);
+		const tool = /(^|\/)(oxlint|eslint)$/.exec(bin ?? "")?.[2] as Linter["tool"] | undefined;
+		if (!bin || !tool) break;
+		const linter: Linter = { tool, bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin) };
+		const roots: string[] = [];
+		for (let at = 0; at < args.length; at++) {
+			const arg = args[at]!;
+			if (arg === "--config" || arg === "-c") linter.config = args[++at];
+			else if (!arg.startsWith("-")) roots.push(resolve(cwd, arg));
+		}
+		lint.linters.push(linter);
+		if (!lint.roots.length) lint.roots = roots;
 	}
-	return lint;
+	return lint.linters.length ? lint : undefined;
 }
 
 /** Workspace packages from the `- <dir>/*` entries of pnpm-workspace.yaml. */
@@ -152,11 +158,21 @@ type EslintResult = {
 	messages: { line?: number; column?: number; ruleId?: string | null; message: string }[];
 };
 
-async function lintPackage(root: string, lint: Lint, files: string[]): Promise<Omit<Step, "name" | "ms"> | "missing"> {
-	if (!existsSync(lint.eslint)) return "missing";
-	const config = lint.config ? ["--config", lint.config] : [];
-	const local = files.map((file) => relative(lint.cwd, join(root, file)));
-	const ran = await run(lint.cwd, lint.eslint, [
+type OxlintReport = {
+	diagnostics: {
+		message: string;
+		code?: string;
+		filename: string;
+		labels?: { span: { line: number; column: number } }[];
+	}[];
+};
+
+type Linted = Omit<Step, "name" | "ms">;
+
+async function eslintFiles(root: string, cwd: string, linter: Linter, files: string[]): Promise<Linted> {
+	const config = linter.config ? ["--config", linter.config] : [];
+	const local = files.map((file) => relative(cwd, join(root, file)));
+	const ran = await run(cwd, linter.bin, [
 		...config,
 		"--max-warnings=0",
 		"--no-warn-ignored",
@@ -173,11 +189,11 @@ async function lintPackage(root: string, lint: Lint, files: string[]): Promise<O
 	}
 	const bad = results.filter((result) => result.errorCount + result.warningCount > 0);
 	const failing = bad.map((result) => relative(root, result.filePath));
-	const at = relative(root, lint.cwd);
-	const fixFiles = bad.map((result) => relative(lint.cwd, result.filePath));
+	const at = relative(root, cwd);
+	const fixFiles = bad.map((result) => relative(cwd, result.filePath));
 	const fix = at
 		? command(["pnpm", "--dir", at, "exec", "eslint", ...config, "--fix", ...fixFiles])
-		: command([relative(root, lint.eslint), ...config, "--fix", ...fixFiles]);
+		: command([relative(root, linter.bin), ...config, "--fix", ...fixFiles]);
 	const detail = bad
 		.flatMap((result) =>
 			result.messages.map(
@@ -187,6 +203,57 @@ async function lintPackage(root: string, lint: Lint, files: string[]): Promise<O
 		)
 		.join("\n");
 	return { status: "failed", files: failing, fix, detail: detail || ran.stderr.trim() };
+}
+
+async function oxlintFiles(root: string, cwd: string, linter: Linter, files: string[]): Promise<Linted> {
+	const config = linter.config ? ["-c", linter.config] : [];
+	const local = files.map((file) => relative(cwd, join(root, file)));
+	const ran = await run(cwd, linter.bin, [
+		...config,
+		"--max-warnings=0",
+		"--no-error-on-unmatched-pattern",
+		"--format",
+		"json",
+		...local,
+	]);
+	if (ran.status === 0) return { status: "passed", files: [] };
+	let report: OxlintReport;
+	try {
+		report = JSON.parse(ran.stdout);
+	} catch {
+		return { status: "failed", files, detail: (ran.stdout + ran.stderr).trim() };
+	}
+	const failing = [...new Set(report.diagnostics.map((d) => relative(root, resolve(cwd, d.filename))))];
+	const at = relative(root, cwd);
+	const fixFiles = failing.map((file) => relative(cwd, join(root, file)));
+	const fix = at
+		? command(["pnpm", "--dir", at, "exec", "oxlint", ...config, "--fix", ...fixFiles])
+		: command([relative(root, linter.bin), ...config, "--fix", ...fixFiles]);
+	const detail = report.diagnostics
+		.map((d) => {
+			const span = d.labels?.[0]?.span;
+			return `${relative(root, resolve(cwd, d.filename))}:${span?.line ?? 0}:${span?.column ?? 0} ${d.message} (${d.code ?? "oxlint"})`;
+		})
+		.join("\n");
+	return { status: "failed", files: failing.length ? failing : files, fix, detail: detail || ran.stderr.trim() };
+}
+
+async function lintPackage(root: string, lint: Lint, files: string[]): Promise<Linted | "missing"> {
+	if (lint.linters.some((linter) => !existsSync(linter.bin))) return "missing";
+	const results = await Promise.all(
+		lint.linters.map((linter) => (linter.tool === "oxlint" ? oxlintFiles : eslintFiles)(root, lint.cwd, linter, files)),
+	);
+	const failed = results.filter((result) => result.status === "failed");
+	if (!failed.length) return { status: "passed", files: [] };
+	return {
+		status: "failed",
+		files: [...new Set(failed.flatMap((result) => result.files))],
+		fix: failed
+			.map((result) => result.fix)
+			.filter(Boolean)
+			.join(" && "),
+		detail: failed.map((result) => result.detail).join("\n"),
+	};
 }
 
 async function lint(root: string, packages: Pkg[], changed: string[]): Promise<Step> {
@@ -202,7 +269,7 @@ async function lint(root: string, packages: Pkg[], changed: string[]): Promise<S
 	const started = Date.now();
 	const results = await Promise.all(plans.map(({ lint, files }) => lintPackage(root, lint, files)));
 	const ms = Date.now() - started;
-	if (results.includes("missing")) return missing("lint", "ESLint", started);
+	if (results.includes("missing")) return missing("lint", "Oxlint or ESLint", started);
 	const failed = results.filter((result) => result !== "missing" && result.status === "failed") as Omit<
 		Step,
 		"name" | "ms"

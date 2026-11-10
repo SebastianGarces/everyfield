@@ -67,7 +67,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
 | WP-027 | Communication composition/templates | 14 | 17 | 5 | 3 | 2 |
-| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 25 | 7 | 2.5 |
+| WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 26 | 8 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
 | WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
@@ -125,11 +125,11 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
-| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1170 | 0 | 14.5 |
+| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1171 | 0 | 14.5 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1170 | 4 | 14.5 |
+| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1171 | 4 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 | WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
 | WP-104 | Church brand kit | 7 | 6 | 9 | 1 | 1.5 |
