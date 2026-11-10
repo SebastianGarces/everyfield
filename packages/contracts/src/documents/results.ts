@@ -306,10 +306,22 @@ export const savedExport = z.strictObject({
 export const savedExportList = z.strictObject({ documentId: recordId, exports: z.array(savedExport).max(100) });
 export const deletedExport = z.strictObject({ exportId: recordId, deleted: z.literal(true) });
 export type SavedExport = z.infer<typeof savedExport>;
+const differenceList = z
+	.array(
+		z.custom<DocDifference>(
+			(v) => !!v && typeof v === "object" && "id" in v && "part" in v && "kind" in v,
+			"a difference",
+		),
+	)
+	.max(10_000);
+const listKey = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 /**
- * A Church Document beside the current version of its template: every difference in reading order, and the text each
- * merge field prints on both sides (the document's frozen values, then what an accepted new field would print).
- * `behind` is true when the template hash the document records is not the current template's.
+ * A Church Document beside the current version of its template, as two lists in reading order (D-423), and the text
+ * each merge field prints on both sides (the document's frozen values, then what an accepted new field would print).
+ * `changes` ("Template changes") holds only what the template changed since `baseVersion`, the version the document
+ * records; both are null when that version is not stored. `differences` ("All differences") holds every difference
+ * from the current version. `keys` names each list for an accept. `behind` is true when the template hash the
+ * document records is not the current template's.
  */
 export const churchCompare = z.strictObject({
 	documentId: recordId,
@@ -319,16 +331,12 @@ export const churchCompare = z.strictObject({
 	churchTemplate: z.boolean(),
 	templateVersion: z.int().min(1),
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	baseVersion: z.int().min(1).nullable(),
 	behind: z.boolean(),
 	values: z.record(z.string(), z.string()),
-	differences: z
-		.array(
-			z.custom<DocDifference>(
-				(v) => !!v && typeof v === "object" && "id" in v && "part" in v && "kind" in v,
-				"a difference",
-			),
-		)
-		.max(10_000),
+	changes: differenceList.nullable(),
+	differences: differenceList,
+	keys: z.strictObject({ changes: listKey.nullable(), all: listKey }),
 });
 export type ChurchCompare = z.infer<typeof churchCompare>;
 export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });

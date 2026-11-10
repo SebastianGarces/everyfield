@@ -102,7 +102,7 @@ test("AC:DOC-COMPARE-CHURCH: a document from the church's template compares with
 		await openCompare(page, state.docPath);
 		const view = compareView(page);
 		await view.getByText(`your church’s own template “${NAME}”, version 1`, { exact: false }).waitFor();
-		await view.getByText("No differences from the current template", { exact: true }).waitFor();
+		await view.getByText("Your document has every template change", { exact: true }).waitFor();
 		assert.equal(await button(view, "Accept all").count(), 0, "no Accept controls");
 		await shots(context, page, "c3-no-differences", (p) => openCompare(p, state.docPath));
 
@@ -143,7 +143,7 @@ test("AC:DOC-COMPARE-CHURCH: a document from the church's template compares with
 		// Compare lists the new paragraph as in the template only, beside the church template's name.
 		await openCompare(page, state.docPath);
 		await view.getByText(`your church’s own template “${NAME}”, version 2`, { exact: false }).waitFor();
-		const items = view.getByRole("list", { name: "Differences" }).getByRole("listitem");
+		const items = view.getByRole("list", { name: "Template changes" }).getByRole("listitem");
 		assert.equal(await items.count(), 1);
 		await items.first().getByText("In template only", { exact: true }).waitFor();
 		await items.first().getByText(MARK).waitFor();
