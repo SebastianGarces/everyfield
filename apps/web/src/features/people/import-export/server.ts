@@ -2,7 +2,12 @@ import "server-only";
 import { requestDatabase } from "@/server/database";
 import { drainPeopleImports } from "@/server/people/imports";
 import { getViewer } from "@/server/request-context";
-import { exportPeopleRequest, importReceiptRequest, type PeopleReply } from "@everyfield/contracts/people";
+import {
+	exportPeopleRequest,
+	importLimits,
+	importReceiptRequest,
+	type PeopleReply,
+} from "@everyfield/contracts/people";
 import { executeBulkImport, peopleCsv } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
@@ -32,8 +37,8 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
-/** The file limit plus form overhead. */
-const BODY_LIMIT = MAX_BYTES + 64 * 1024;
+/** The file limit, the reviewed choice of every row the contract allows (about 31 bytes each as JSON) and form overhead. */
+const BODY_LIMIT = MAX_BYTES + importLimits.rows * 48 + 64 * 1024;
 /**
  * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
  * read into memory. A declared Content-Length above the limit is refused without reading at all.

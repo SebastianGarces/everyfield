@@ -56,7 +56,7 @@ function create(v: z.infer<typeof env>) {
 			await sendOnboardingRelationships(tx, inputs, mail);
 		},
 		async enqueue(tx, input, command) {
-			mail.append(
+			await mail.append(
 				tx,
 				{
 					owner: { kind: "account", id: input.accountId },
