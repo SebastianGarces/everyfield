@@ -5,12 +5,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { BASE, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 export const PAPER = ".ef-paper .ProseMirror";
 export const MOD = "ControlOrMeta";
+
+/** The text of a stored cell. */
+export const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 
 /** Clicks the Download button named `label`, as a person does, and returns the bytes of the file it saves. */
 export async function clickDownload(page, label) {
@@ -21,24 +23,10 @@ export async function clickDownload(page, label) {
 	return new Uint8Array(await readFile(await download.path()));
 }
 
-/**
- * What a fork freezes for the seeded church: the People seed names it Harvest Point, and the Settings seed leaves it no
- * brand kit and no senior pastor, so only the church name has a source.
- */
-const SEEDED_CHURCH = {
-	churchName: "Harvest Point",
-	pastorName: null,
-	tagline: null,
-	legalName: null,
-	contactLine: null,
-	meetingDate: null,
-};
-
-/** The stored form of each template the tests fork, with the merge values the fork froze, for `documentFrom`. */
+/** The stored form of each template the tests fork, for `documentFrom`. */
 export const bases = {};
 export async function baseOf(id) {
-	const template = docTemplateById(id);
-	return (bases[id] ??= await forkTemplate(template, { data: frozenData(template.fields, SEEDED_CHURCH).data }));
+	return (bases[id] ??= await forkTemplate(docTemplateById(id), { data: {} }));
 }
 
 /** The title the library lists a template under. */
@@ -64,7 +52,9 @@ export function onFork(engine, templateId, run, { size, who = "owner", blank = f
 			await page.waitForURL(/\/documents\/church\/[0-9a-f-]{36}$/, { timeout: 120_000 });
 			await page.locator(PAPER).waitFor({ timeout: 120_000 });
 			await page.getByRole("button", { name: "Undo", exact: true }).waitFor();
-			const ctx = helpers(page, base);
+			// The fork freezes the church's merge values into `data`, so the stored form is the template plus those values.
+			const data = await page.locator(PAPER).evaluate((el) => el.editor.getJSON().attrs?.data);
+			const ctx = helpers(page, data === undefined ? base : { ...base, data });
 			if (blank) await ctx.deleteAll();
 			await run(page, context, ctx);
 		},
@@ -125,6 +115,7 @@ function helpers(page, base) {
 		await settle();
 	}
 	async function save() {
+		// The save status line, not the "Saved exports" list below the page.
 		const saved = page.getByRole("status").filter({ hasText: /^Saved/ });
 		await button("Save").click();
 		await saved.waitFor({ timeout: 60_000 });
@@ -186,30 +177,25 @@ function helpers(page, base) {
 		revision: (
 			await page
 				.getByRole("status")
-				.filter({ hasText: /^Saved/ })
+				.filter({ hasText: /Revision \d+/ })
+				.first()
 				.innerText()
 		).match(/Revision (\d+)/)?.[1],
 	});
-	/** The bytes for the saved revision. `download` is what Download gives: it saves one export of the revision, then
-	 * fetches that export's stored bytes (D-78). Else the file route the preview reads. */
+	/** The bytes the file route gives for the saved revision. `download` is the Download link, else the preview. */
 	async function file(format, { download = true } = {}) {
 		const { id, revision } = await where();
-		const { request } = page.context();
-		if (!download) {
-			const response = await request.get(`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}`);
-			return { status: response.status(), bytes: new Uint8Array(await response.body()) };
-		}
-		const saved = await request.post(`${BASE}/documents/church/${id}/exports`, {
-			data: { revision: String(revision), format, requestKey: crypto.randomUUID() },
-		});
-		const reply = await saved.json();
-		if (reply.status !== "saved") return { status: saved.status(), bytes: new Uint8Array() };
-		const response = await request.get(`${BASE}/documents/church/${id}/exports/${reply.saved.id}`);
+		const response = await page
+			.context()
+			.request.get(
+				`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
+			);
 		return { status: response.status(), bytes: new Uint8Array(await response.body()) };
 	}
 	const rowsDom = (n = 0) => page.locator(`${PAPER} [data-ef-node="table"]`).nth(n).locator('[data-ef-node="row"]');
 	const reasons = () => page.locator("[data-table-reasons]");
 	return {
+		base,
 		amount,
 		computed,
 		typeAmount,

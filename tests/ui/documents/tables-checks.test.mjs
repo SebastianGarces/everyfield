@@ -2,15 +2,14 @@
 // tooltips, cursors, keyboard, 390 px, a Member). Seed People, then Settings, as tables.test.mjs says.
 //   AC:WP-036-14 every action of criteria 1 to 9 with Undo and Redo      AC:WP-036-15 access and the narrow screen
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { clean } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
-import { baseOf, clickDownload, MOD, onFork, PAPER } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const kind = (page, value) => page.getByRole("combobox", { name: "Column kind" }).selectOption(value);
 
 for (const [name, engine] of ENGINES) {
@@ -152,7 +151,7 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WP-036-14 (${name}): a template's table, loaded and saved with no edit, keeps its stored form and shows no unsaved change`, async () => {
 		for (const id of ["budget-worksheet", "guest-sign-in-sheet", "commitment-card", "conflict-of-interest-policy"])
 			await onFork(engine, id, async (page, context, t) => {
-				const base = await baseOf(id);
+				const { base } = t;
 				// Look at every field of the table without changing anything.
 				const head = page.locator(".ef-head-cell");
 				for (let i = 0; i < (await head.count()); i++) {
@@ -322,8 +321,13 @@ for (const [name, engine] of ENGINES) {
 			for (const label of ["Insert block", "Save", "Add row below", "Add line item", "Delete all content"])
 				assert.equal(await page.getByRole("button", { name: label }).count(), 0, `no ${label}`);
 			assert.equal(await page.locator("input.ef-vinput, input.ef-head-cell").count(), 0, "no field to type in");
-			const pdf = await clickDownload(page, "Download PDF");
-			assert.equal(new TextDecoder().decode(pdf.slice(0, 5)), "%PDF-", "the Member downloads the PDF");
+			// Download saves an export, then the browser downloads its stored bytes.
+			const [download] = await Promise.all([
+				page.waitForEvent("download"),
+				page.getByRole("button", { name: "Download PDF" }).click(),
+			]);
+			const bytes = readFileSync(await download.path());
+			assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-", "the Member downloads the PDF");
 			assert.equal(
 				await page.getByRole("button", { name: "Download Excel" }).count(),
 				1,

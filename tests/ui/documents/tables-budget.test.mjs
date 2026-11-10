@@ -7,10 +7,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ENGINES } from "../setup.mjs";
 import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
-import { MOD, onFork, PAPER } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const roles = (table) => (table.content ?? []).map((r) => r.attrs?.role ?? "item");
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const labels = (table) => (table.content ?? []).map((r) => textOf(r.content[0]));
 
 for (const [name, engine] of ENGINES) {
@@ -137,6 +136,8 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:WP-036-9 (${name}): totals update on each keystroke with no request, hold no typed total, and equal what the PDF prints`, async () => {
 		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			// The page's own load requests (the Save as template dialog reads the church's templates) finish first.
+			await page.waitForLoadState("networkidle");
 			const requests = [];
 			page.on("request", (r) => {
 				// The navigation bar's link prefetches run on their own schedule, whatever the person types.

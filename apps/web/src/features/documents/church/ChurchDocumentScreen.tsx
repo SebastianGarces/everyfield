@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import type { DocBrands, DocDocument, SavedExport } from "@everyfield/contracts/documents";
+import { exportsFor, type DocBrands, type DocDocument, type SavedExport } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
@@ -225,6 +225,8 @@ export function ChurchDocumentScreen({
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
 						setRevision(next);
+						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
+						setFormats(exportsFor(document.exports, document.body));
 						setCurrent((now) => ({
 							document,
 							revision: next,

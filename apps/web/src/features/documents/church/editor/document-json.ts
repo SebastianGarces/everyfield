@@ -121,13 +121,13 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 	// The merge fields and their values the editor holds; `data` stays out when the document never had any.
 	const data = attrs ? attrs.data : base.data;
 	const next = { type: "doc", ...(body.length ? { content: body } : {}) } as DocDocument["body"];
-	// Excel follows the body: `exports` lists it only while the body holds a budget table.
 	return {
 		...without(base as unknown as Json, "data"),
 		fields: attrs?.fields ?? base.fields,
 		...(data === undefined ? {} : { data }),
 		page,
 		body: next,
+		// Excel follows the body: `exports` lists it only while the body holds a budget table.
 		exports: exportsFor(base.exports, next),
 	} as unknown as DocDocument;
 }

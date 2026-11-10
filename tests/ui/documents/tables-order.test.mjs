@@ -8,9 +8,8 @@ import { test } from "node:test";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import { SP } from "../../../packages/domain/src/documents/theme.ts";
 import { ENGINES } from "../setup.mjs";
-import { MOD, onFork, PAPER } from "./tables-support.mjs";
+import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const labelsOf = (table) => table.attrs.columns.map((c) => c.label);
 const firstCol = (table) => (table.content ?? []).map((r) => textOf(r.content[0]));
 

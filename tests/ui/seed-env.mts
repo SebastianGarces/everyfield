@@ -14,7 +14,15 @@ import { fixturePath } from "./setup.mjs";
 
 const ENV_FILE = fileURLToPath(new URL("../../apps/web/.env.local", import.meta.url));
 /** Every seed that writes a fixture. The position gives each seed its own loopback block for admission limits. */
-export const SEEDS = ["people", "invitation", "meetings", "followups", "communication", "settings", "intelligence"] as const;
+export const SEEDS = [
+	"people",
+	"invitation",
+	"meetings",
+	"followups",
+	"communication",
+	"settings",
+	"intelligence",
+] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
 const ROLE = /^ui_[a-f0-9]{12}(_auth)?$/;
@@ -52,6 +60,17 @@ function adminUrl() {
 		throw Error("Approved shared development database required");
 	source.searchParams.set("sslmode", "verify-full");
 	return source;
+}
+
+/**
+ * The development bucket's settings from the seed's own environment, so the preview can store brand images and saved
+ * exports (Download saves one first). None when any is missing; the production bucket is never copied.
+ */
+function devStorage(): string[] {
+	const names = ["AWS_BUCKET_NAME", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3", "AWS_REGION"];
+	const bucket = process.env.AWS_BUCKET_NAME;
+	if (!bucket || bucket === "everyfield" || names.slice(0, 4).some((name) => !process.env[name])) return [];
+	return names.filter((name) => process.env[name]).map((name) => `${name}=${process.env[name]}`);
 }
 
 /** The environment a previous seed wrote, or null when there is none. Refuses an env file this module did not write. */
@@ -119,6 +138,7 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_MAIL_KEY=${env.mailKey}`,
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
+				...devStorage(),
 				"",
 			].join("\n"),
 			{ mode: 0o600 },

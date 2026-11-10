@@ -24,10 +24,9 @@ import { makePalette, NEUTRAL_THEME, tokenColor } from "../../../packages/domain
 import { clean, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { ENGINES } from "../setup.mjs";
-import { baseOf, onFork, PAPER } from "./tables-support.mjs";
+import { baseOf, onFork, PAPER, textOf } from "./tables-support.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
 const palette = makePalette(NEUTRAL_THEME);
 
 /** Opens an Excel file in LibreOffice and returns its first sheet as rows of cells (raw values, formulas computed). */
