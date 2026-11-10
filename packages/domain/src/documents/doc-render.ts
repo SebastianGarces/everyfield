@@ -1,4 +1,4 @@
-import type { EveryfieldDoc } from "@everyfield/contracts/documents";
+import { ledgerTables, type EveryfieldDoc } from "@everyfield/contracts/documents";
 import { renderDocumentWithLayout } from "@formepdf/core";
 import type { ExportTheme } from "./church-theme.ts";
 import { renderDocDocx } from "./doc-docx.ts";
@@ -6,7 +6,7 @@ import { fieldValues } from "./doc-values.ts";
 import { PROBE_MARK, docElement, needsSplit, type FlowMode } from "./layouts/doc.tsx";
 import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
-import { buildLedgerWorkbook, ledgerTables } from "./xlsx.ts";
+import { buildLedgerWorkbook } from "./xlsx.ts";
 
 type LaidElement = { bookmark?: string; children?: LaidElement[] };
 
@@ -49,7 +49,7 @@ export type DocFormat = "pdf" | "docx" | "xlsx";
 
 /** The formats a document offers: PDF and Word always, Excel when the body holds a ledger table (a budget). */
 export function docFormats(doc: EveryfieldDoc): DocFormat[] {
-	return ledgerTables(doc).length ? ["pdf", "docx", "xlsx"] : ["pdf", "docx"];
+	return ledgerTables(doc.body).length ? ["pdf", "docx", "xlsx"] : ["pdf", "docx"];
 }
 
 /**

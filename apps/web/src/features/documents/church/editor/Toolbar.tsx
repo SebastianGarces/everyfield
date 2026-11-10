@@ -113,6 +113,7 @@ const GROUP_LABEL = {
 	layout: "Layout",
 	lines: "Lines to fill in",
 	images: "Brand kit images",
+	tables: "Tables",
 	sections: "Sections",
 } as const;
 
@@ -311,7 +312,7 @@ export function EditorToolbar({
 							portal
 							align="start"
 							aria-label="Insert block"
-							className="max-h-[min(75vh,560px)] overflow-y-auto"
+							className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] overflow-y-auto"
 						>
 							{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
 								const image = k.group === "images" ? (k.kind as ImageKind) : null;

@@ -4,6 +4,7 @@ import type { DocDocument, DocTemplate, EveryfieldDoc } from "./types.ts";
 
 export * from "./types.ts";
 export { FORMAT_SCHEMA } from "./schema.ts";
+export { columnWidths, exportsFor, formatNumber, ledgerTables, parseAmount, TABLE_LIMITS } from "./table.ts";
 export {
 	acceptDifferences,
 	compareWithTemplate,
@@ -13,14 +14,17 @@ export {
 } from "./compare.ts";
 export {
 	attrsOf,
+	attrIssue,
 	computeTable,
 	forkTemplate,
+	formulaDeps,
 	pageBox,
 	parseFormula,
 	templateFromDocument,
 	templateHash,
 	tileBox,
 	type Formula,
+	tableIssue,
 } from "./rules.ts";
 
 /**
