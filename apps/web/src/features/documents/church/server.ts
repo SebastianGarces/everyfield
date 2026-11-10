@@ -11,13 +11,7 @@ import {
 } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
-import {
-	documentsWriter,
-	docTemplateSummaries,
-	sheetOf,
-	templateStatus,
-	type DocTemplateSummary,
-} from "@everyfield/domain/documents";
+import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
@@ -41,7 +35,7 @@ export type ChurchView = {
 	page: { width: number; height: number; perSheet: number };
 };
 /** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
-export type TemplateState = Awaited<ReturnType<typeof templateStatus>>;
+export type TemplateState = "behind" | "current" | null;
 /**
  * One saved revision as the Revisions list shows it: its number, when it was saved and who saved it. `savedBy` is null
  * once the saver no longer holds a seat in this church plant (D-105).
@@ -102,14 +96,16 @@ export async function loadChurchDocument(
 				? documentsWriter.readChurchForEdit(db, authority, { documentId })
 				: documentsWriter
 						.readChurch(db, authority, { documentId })
-						.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {} } } : r)),
+						.then((r) =>
+							r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
+						),
 			documentsWriter.listExports(db, authority, { documentId }),
 			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
 		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
-		const template = d.brands ? await templateStatus(d.body) : null;
+		const template = d.brands ? d.template : null;
 		return {
 			status: "ok",
 			value: {

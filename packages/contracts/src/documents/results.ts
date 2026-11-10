@@ -224,6 +224,11 @@ export const churchDocument = z.strictObject({
 export const churchDocumentView = churchDocument.extend({
 	brands: z.strictObject({ church: docBrand.nullable(), plain: docBrand }),
 	mergeValues: z.record(z.string().max(60), z.string().max(2000)),
+	/**
+	 * Where the document stands against the current version of its template, built-in or the church's own: "behind"
+	 * when the template hash it records is not the current one's; null when there is nothing to compare with.
+	 */
+	template: z.enum(["behind", "current"]).nullable(),
 });
 export type DocBrands = z.infer<typeof churchDocumentView>["brands"];
 export const churchRevisionSummary = z.strictObject({
@@ -310,6 +315,8 @@ export const churchCompare = z.strictObject({
 	documentId: recordId,
 	revision: revisionToken,
 	templateTitle: z.string().min(1).max(200),
+	/** True when the template is the church's own ("Save as template"), false for one of Everyfield's. */
+	churchTemplate: z.boolean(),
 	templateVersion: z.int().min(1),
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
 	behind: z.boolean(),
