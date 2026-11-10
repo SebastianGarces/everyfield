@@ -140,6 +140,11 @@ async function measureTheme(theme) {
 			await page.setViewportSize({ width, height: 900 });
 			await page.reload();
 			await hydrated(page);
+			// For a few hundred ms after a load Chromium still repaints the page. A repaint that falls between
+			// contrastOf's two shots redraws a StatusBadge dot's edge with other anti-aliasing, and those pixels read
+			// as glyphs on the dot's color. Measure once the page has been quiet for 500 ms and has painted twice more.
+			await page.waitForLoadState("networkidle");
+			await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
 			for (const { name, label, at } of found) {
 				// The app shell's sticky header and bars cover the viewport's edges, so each label is measured mid-screen.
 				await at.evaluate((el) => el.scrollIntoView({ block: "center", inline: "center" }));
