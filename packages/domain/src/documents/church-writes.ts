@@ -12,6 +12,7 @@ import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
@@ -369,6 +370,9 @@ export const churchWriter = {
 				{ personId: null, meetingId: null, teamId: null },
 			);
 			// The brand kit and, for a church template, its body: one statement. Another church's template reads as none.
+			// D-108, D-109, D-417: the plant read above holds the network's statement of faith, read now, once. The
+			// earliest-accepted active network with a statement fills each `statement-of-faith` slot; with none, the slot
+			// stays the marked blank.
 			const kitRows = await rowsOf<{
 				kit: Record<string, unknown> | null;
 				church_template: { title: string; body: string } | null;
@@ -397,7 +401,10 @@ export const churchWriter = {
 					source: cleaned.values[field.key] ? "override" : (frozen.from[field.key] ?? "absent").slice(0, 40),
 				}));
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
-			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
+			const forked = fillStatementSlots(
+				await c.forkTemplate(template, { id: `doc-${docId}`, data }),
+				plant.open && plant.subjectOk ? plant.statement : null,
+			);
 			const checked = c.docDocument.safeParse({ ...forked, title });
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);

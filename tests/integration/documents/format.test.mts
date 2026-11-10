@@ -221,3 +221,20 @@ test("the validator names each structural fault and each size limit", () => {
 		);
 	}
 });
+
+test("D-106: a slot takes an optional key, a lowercase slug, and keeps it through a parse and a fork", async () => {
+	const template = read("examples/conflict-of-interest-policy.json");
+	const keyed = { type: "slot", attrs: { label: "Statement of faith", key: "statement-of-faith" }, content: [] };
+	const unkeyed = { type: "slot", attrs: { label: "Statement of faith" }, content: [] };
+	template.body.content.push(keyed, unkeyed);
+	assert.deepEqual(issues(template), []);
+	const doc = await forkTemplate(template, { data: { church_name: "Harbor City Church" } });
+	const parsed = docDocument.parse(JSON.parse(JSON.stringify(doc)));
+	const slots = parsed.body.content!.filter((b) => b.type === "slot");
+	assert.deepEqual(slots, [keyed, unkeyed], "the key stays as stored, and no key is added where none was");
+	for (const bad of ["Statement of faith", "statement_of_faith", ""]) {
+		const withBad = read("examples/conflict-of-interest-policy.json");
+		withBad.body.content.push({ type: "slot", attrs: { key: bad }, content: [] });
+		assert.match(issues(withBad).join("\n"), /is not an id \(lowercase letters, digits and hyphens\)/, bad);
+	}
+});

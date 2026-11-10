@@ -11,7 +11,14 @@ import {
 	FileAddIcon,
 	ViewIcon,
 } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
+import {
+	LEGAL_NOTICE,
+	pageBox,
+	tileBox,
+	type DocBrand,
+	type DocDocument,
+	type ExportFormat,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -60,7 +67,8 @@ type Props = {
 	/** The church's current value of each merge field Insert offers, by key. */
 	mergeValues: Record<string, string>;
 	revision: string;
-	onRevision: (revision: string) => void;
+	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
+	onRevision: (revision: string, formats: ExportFormat[]) => void;
 	/** The saved revisions, newest first, as Version history lists them. */
 	revisions: RevisionRow[];
 	/** The preview address of one revision in one format: the preview and history read it. */
@@ -189,7 +197,7 @@ export default function ChurchEditor({
 				savedDoc.current = doc;
 				base.current = body;
 				setShownRevision(result.revision);
-				onRevision(result.revision);
+				onRevision(result.revision, body.exports);
 				// Edits typed while the request ran keep the "Unsaved changes" status.
 				setStatus((editor.state.doc.eq(doc) ? { kind: "saved" } : { kind: "dirty" }) satisfies SaveStatus);
 				return true;
@@ -222,6 +230,22 @@ export default function ChurchEditor({
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
+
+	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
+	const [refused, setRefused] = useState(false);
+	useEffect(() => {
+		if (!editor) return;
+		const show = () => setRefused(true);
+		const hide = () => setRefused(false);
+		editor.on("tableChangeRefused", show);
+		editor.on("update", hide);
+		editor.on("selectionUpdate", hide);
+		return () => {
+			editor.off("tableChangeRefused", show);
+			editor.off("update", hide);
+			editor.off("selectionUpdate", hide);
+		};
+	}, [editor]);
 
 	const leave = useLeaveGuard(editor, unsaved);
 
@@ -390,6 +414,11 @@ export default function ChurchEditor({
 									}}
 								/>
 								<BlockControls editor={editor} palette={brand.palette} />
+								{refused ? (
+									<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
+										That change would break a table, so nothing changed. Select the whole table, or text in one cell.
+									</p>
+								) : null}
 							</>
 						) : (
 							<div className="h-[49px]" />

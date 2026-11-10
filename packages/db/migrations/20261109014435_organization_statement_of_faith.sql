@@ -1,0 +1,2 @@
+ALTER TABLE "organization" ADD COLUMN "statement_of_faith" text;--> statement-breakpoint
+ALTER TABLE "organization" ADD CONSTRAINT "organization_statement_of_faith" CHECK (((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000))));
