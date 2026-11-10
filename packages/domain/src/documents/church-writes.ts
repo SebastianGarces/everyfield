@@ -12,6 +12,7 @@ import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
@@ -322,14 +323,20 @@ export const churchWriter = {
 				{ ...scope, plantId: scope.tenantId },
 				{ personId: null, meetingId: null, teamId: null },
 			);
-			// The brand kit and, for a church template, its body: one statement. Another church's template reads as none.
+			// The brand kit, for a church template its body, and the network's statement of faith: one statement. Another
+			// church's template reads as none. D-108, D-109: the statement is read now, once. The earliest-accepted active
+			// network with a statement fills each `statement-of-faith` slot; with none, the slot stays the marked blank.
 			const kitRows = await rowsOf<{
 				kit: Record<string, unknown> | null;
 				church_template: { title: string; body: string } | null;
+				statement: string | null;
 			}>(
 				db,
 				sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit,
-					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template
+					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template,
+					(SELECT o.statement_of_faith FROM affiliation a JOIN organization o ON o.id = a.organization_id
+						WHERE a.plant_id = ${scope.tenantId}::uuid AND a.ended_at IS NULL AND o.statement_of_faith IS NOT NULL
+						ORDER BY a.accepted_at, a.id LIMIT 1) AS statement
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
 			);
 			const sources = mergeSources(plant, kitRows[0]?.kit ? dataFromRow(kitRows[0].kit) : null);
@@ -351,7 +358,10 @@ export const churchWriter = {
 					source: cleaned.values[field.key] ? "override" : (frozen.from[field.key] ?? "absent").slice(0, 40),
 				}));
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
-			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
+			const forked = fillStatementSlots(
+				await c.forkTemplate(template, { id: `doc-${docId}`, data }),
+				kitRows[0]?.statement ?? null,
+			);
 			const checked = c.docDocument.safeParse({ ...forked, title });
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);

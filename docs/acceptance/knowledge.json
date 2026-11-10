@@ -2623,7 +2623,7 @@
         "AC-DOC-020--DOC-020"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Preview a bylaws template whose doctrinal section no one has filled.",
@@ -2707,6 +2707,18 @@
               "section": "statement-of-faith",
               "filled_by_network": true,
               "network_text": "Network statement of faith."
+            },
+            "network": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network",
+              "statement_of_faith": "Network statement of faith."
+            },
+            "affiliation-P-N": {
+              "fixture_type": "affiliation",
+              "plant": "P",
+              "organization": "N",
+              "active": true
             }
           },
           "actor": {
@@ -2719,24 +2731,68 @@
             "zone": "America/Chicago"
           },
           "action": {
-            "operation": "documents.preview",
+            "operation": "documents.createFromTemplate",
             "arguments": {
               "template": "bylaws",
-              "format": "pdf",
               "merge_fields": {
                 "church_name": "Harvest Point"
-              }
+              },
+              "request_key": "CASE-DOC-020-network-fills-slot"
             }
           },
           "expected": {
             "state": {},
             "result": {
+              "revision": 1,
               "doctrinal_section": "network_text",
-              "everyfield_doctrinal_text": false
+              "slot_text": "Network statement of faith.",
+              "everyfield_doctrinal_text": false,
+              "slot_blank_note": false
             },
             "event": null
           },
           "name": "network-fills-slot"
+        },
+        {
+          "given": {
+            "slot": {
+              "fixture_type": "doctrinal_slot",
+              "template": "bylaws",
+              "section": "statement-of-faith",
+              "filled_by_network": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.createFromTemplate",
+            "arguments": {
+              "template": "bylaws",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              },
+              "request_key": "CASE-DOC-020-no-network-blank-slot"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "revision": 1,
+              "doctrinal_section": "visible_blank",
+              "everyfield_doctrinal_text": false,
+              "default_text_inserted": false,
+              "slot_blank_note": true
+            },
+            "event": null
+          },
+          "name": "no-network-blank-slot"
         }
       ]
     },
