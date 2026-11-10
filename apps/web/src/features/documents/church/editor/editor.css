@@ -48,6 +48,47 @@
 .ef-paper.ef-snippet .ProseMirror > :last-child {
 	margin-block-end: 0;
 }
+/* Word marks in the template compare (T-82): a removed word is struck through, an added one underlined, each on a
+   light tint with a dark ink of its hue, the same on the white paper and on a title in either theme. The hidden words
+   tell a screen reader where each mark starts and ends. */
+.ef-word {
+	border-radius: 2px;
+	padding-inline: 1px;
+	text-decoration-thickness: 1.5px;
+	box-decoration-break: clone;
+}
+.ef-word-removed {
+	background: #ffe5e9;
+	color: #8f1f3a;
+	text-decoration-line: line-through;
+}
+.ef-word-added {
+	background: #cafbdc;
+	color: #0b5c38;
+	text-decoration-line: underline;
+	text-underline-offset: 2px;
+}
+.ef-word::before,
+.ef-word::after {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+.ef-word-removed::before {
+	content: " removed: ";
+}
+.ef-word-added::before {
+	content: " added: ";
+}
+.ef-word-removed::after {
+	content: " end removed ";
+}
+.ef-word-added::after {
+	content: " end added ";
+}
 .ef-paper .ProseMirror {
 	display: flex;
 	flex-direction: column;
