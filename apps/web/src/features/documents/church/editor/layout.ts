@@ -152,7 +152,10 @@ type PageIssue = { path: string; message: string };
 
 /** Checks a page setup against the whole format, with the body and the regions the editor holds now. */
 export function pageIssues(editor: Editor, base: DocDocument, candidate: PageWithoutRegions): PageIssue[] {
-	const json = { ...editor.getJSON(), attrs: { page: candidate } };
+	// The root's other attributes (the merge fields and values the editor holds now) stay, so a field inserted since the
+	// last save is still declared when the candidate is checked.
+	const current = editor.getJSON();
+	const json = { ...current, attrs: { ...current.attrs, page: candidate } };
 	const parsed = docDocument.safeParse(documentFrom(base, json));
 	if (parsed.success) return [];
 	const issues: PageIssue[] = [];

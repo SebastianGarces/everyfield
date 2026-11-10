@@ -182,12 +182,13 @@ export default function NativeEditor({
 		setNote(null);
 		const base = savedRef.current;
 		const run = (async () => {
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveOwnedDocument({
 				title: nextTitle,
 				body,
 				expectedRevision: base.revision,
 				...(base.id ? { documentId: base.id } : {}),
-			});
+			}).catch(() => ({ status: "lost" }) as const);
 			if (result.status !== "ok") {
 				const conflict = result.status === "refused" && result.code === "conflict";
 				setPhase({
@@ -263,7 +264,7 @@ export default function NativeEditor({
 				expectedRevision: base.revision,
 				requestKey: key,
 				...(base.id ? { documentId: base.id } : {}),
-			});
+			}).catch(() => ({ status: "lost" }) as const);
 			setPhase({ kind: "idle" });
 			if (result.status !== "ok") {
 				if (result.status === "refused") importKey.current = null;
@@ -297,7 +298,7 @@ export default function NativeEditor({
 		const base = savedRef.current;
 		if (!base.id) return;
 		setPhase({ kind: "saving" });
-		const result = await designateOwnedDocument(base.id, base.revision);
+		const result = await designateOwnedDocument(base.id, base.revision).catch(() => ({ status: "lost" }) as const);
 		setPhase({ kind: "idle" });
 		if (result.status !== "ok")
 			return setNote(

@@ -102,7 +102,7 @@ function unzip(bytes: Uint8Array, started: number) {
 		declared += uncompressed;
 		if (declared > EXPANDED_MAX) throw new ImportRejected("The Word file expands past 40 MiB.");
 		const raw = Buffer.from(bytes.subarray(dataAt, dataEnd));
-		const data = method === 0 ? raw : inflate(raw);
+		const data = method === 0 ? raw : inflate(raw, uncompressed);
 		if (data.length !== uncompressed) throw new ImportRejected("The Word file is not a valid document.");
 		if (crc32(data) >>> 0 !== crc) throw new ImportRejected("The Word file is not a valid document.");
 		entries.set(name, data);
@@ -112,9 +112,11 @@ function unzip(bytes: Uint8Array, started: number) {
 	return entries;
 }
 
-function inflate(raw: Buffer) {
+/** Inflates one entry, stopping at the size its header declares: the 40 MiB cap counts declared sizes, so an entry
+ * that inflates past its own declaration is refused before the extra bytes are allocated. */
+function inflate(raw: Buffer, declared: number) {
 	try {
-		return inflateRawSync(raw);
+		return inflateRawSync(raw, { maxOutputLength: Math.max(1, declared) });
 	} catch {
 		throw new ImportRejected("The Word file is not a valid document.");
 	}

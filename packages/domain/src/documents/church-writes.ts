@@ -57,6 +57,8 @@ type Provenance = { key: string; value: string | null; source: string }[];
  * The name of the church template a Church Document `d` was made from, or null for a built-in template. A deleted
  * template keeps its row, so a document made from it still names it.
  */
+/** The most revisions one list answers: the newest ones, matching the contract's bound on churchRevisionList. */
+const REVISION_LIST_MAX = 1000;
 const TEMPLATE_NAME = sql`(SELECT t.title FROM document t WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template'
 	AND 'church-' || t.id::text = d.template_id)`;
 /**
@@ -674,7 +676,7 @@ export const churchWriter = {
 					(gd.source_document_id = ${input.documentId}::uuid AND gd.source_revision_id = r.id AND gd.format = ${input.format}) AS prior_same
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}
 				LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.tenantId}::uuid
@@ -1512,9 +1514,10 @@ export const churchWriter = {
 					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
-				ORDER BY r.version_number`,
+				ORDER BY r.version_number DESC
+				LIMIT ${REVISION_LIST_MAX}`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
@@ -1522,6 +1525,7 @@ export const churchWriter = {
 				documentId: input.documentId,
 				revisions: found
 					.filter((row) => row.id)
+					.reverse()
 					.map((row) => ({
 						id: row.id,
 						number: row.version_number,
@@ -1553,7 +1557,7 @@ export const churchWriter = {
 					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash, r.body
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}`,
 			);
@@ -1605,7 +1609,8 @@ async function renderRevision(
 		{ name: church, kit: row.kit ? dataFromRow(row.kit) : null },
 		body.class,
 		row.use_church_branding === true,
-		imageSources(body.body),
+		// The page header and footer are regions of the page setup, outside the body, and may hold an image too.
+		imageSources(body.page.footer, imageSources(body.page.header, imageSources(body.body))),
 	);
 	try {
 		const bytes = await renderDocFile(body, format, theme, new Date(row.recorded_at ?? 0));

@@ -188,7 +188,8 @@ export default function ChurchEditor({
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
 		const run = (async () => {
-			const result = await saveChurchDocument(docId, revision.current, body);
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
+			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
 			if (result.status === "saved") {
 				revision.current = result.revision;
 				savedDoc.current = doc;
@@ -491,18 +492,21 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
-			<SaveAsTemplateDialog
-				key={templateDialog.opening}
-				open={templateDialog.open}
-				onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
-				docId={docId}
-				title={title}
-				revision={shownRevision}
-				unsaved={status.kind !== "saved"}
-				saving={status.kind === "saving"}
-				onSaveFirst={save}
-				onSaved={setSavedTemplate}
-			/>
+			{/* Mounted from its first opening on: the dialog reads the church templates when it mounts. */}
+			{templateDialog.opening > 0 ? (
+				<SaveAsTemplateDialog
+					key={templateDialog.opening}
+					open={templateDialog.open}
+					onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
+					docId={docId}
+					title={title}
+					revision={shownRevision}
+					unsaved={status.kind !== "saved"}
+					saving={status.kind === "saving"}
+					onSaveFirst={save}
+					onSaved={setSavedTemplate}
+				/>
+			) : null}
 		</EditorContext.Provider>
 	);
 }

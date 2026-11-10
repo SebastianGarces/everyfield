@@ -23,16 +23,19 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 	useEffect(() => {
 		if (!enabled) return;
 		let cancel = false;
-		listSavedDocuments().then((result) => {
-			if (cancel) return;
-			if (result.status !== "ok") {
-				setEntries([]);
-				setFailed(true);
-				return;
-			}
-			setFailed(false);
-			setEntries(result.value);
-		});
+		// A call that never reached the server reads as a failed load, with its Retry, not an endless skeleton.
+		listSavedDocuments()
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => {
+				if (cancel) return;
+				if (result.status !== "ok") {
+					setEntries([]);
+					setFailed(true);
+					return;
+				}
+				setFailed(false);
+				setEntries(result.value);
+			});
 		return () => {
 			cancel = true;
 		};

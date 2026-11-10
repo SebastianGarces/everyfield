@@ -587,6 +587,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
 			"unavailable",
 		);
+		// BUG: a deleted document was still exported and its revisions still read by anyone who kept its id.
+		refused(await exportDoc(MEMBER, sign.id, 1, "pdf", "wp036-export-after-delete"), "unavailable");
+		refused(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: sign.id }), "unavailable");
+		refused(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: sign.id, revision: 1 }),
+			"unavailable",
+		);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 });
 	});
 
 	test("AC:CASE-DOC-020-EDIT a doctrinal slot saves blank, takes the church's words and deletes; history keeps each revision", async () => {
