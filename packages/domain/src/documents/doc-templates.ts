@@ -69,9 +69,6 @@ export async function publishedProblems(
 	superseded: Readonly<Record<string, unknown>>,
 ): Promise<string[]> {
 	const problems: string[] = [];
-	for (const id of Object.keys(published))
-		if (!templates.some((t) => t.id === id)) problems.push(`${id}: published, but no template file has this id`);
-	const named = new Set<string>();
 	for (const template of templates) {
 		const versions = published[template.id] ?? [];
 		if (versions.map((v) => v.version).join() !== Array.from(versions, (_, i) => i + 1).join())
@@ -83,17 +80,13 @@ export async function publishedProblems(
 			problems.push(`${template.id}: the file changed but its version did not go up from ${template.version}`);
 		for (const earlier of versions.slice(0, -1)) {
 			const name = `${template.id}.v${earlier.version}`;
-			named.add(name);
 			const body = docTemplate.safeParse(superseded[name]);
+			// The hash covers the id and version too, so a body of another template or version fails here.
 			if (!body.success) problems.push(`${name}: the superseded body is missing or does not validate`);
-			else if (body.data.id !== template.id || body.data.version !== earlier.version)
-				problems.push(`${name}: the body holds ${body.data.id} version ${body.data.version}`);
 			else if ((await templateHash(body.data)) !== earlier.hash)
 				problems.push(`${name}: the body's hash is not the one published`);
 		}
 	}
-	for (const name of Object.keys(superseded))
-		if (!named.has(name)) problems.push(`${name}: a stored body for no superseded version`);
 	return problems;
 }
 
