@@ -276,6 +276,8 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 						<NoDifferences behind={load.compare.behind} busy={busy !== null} onMark={() => void accept("all")} />
 					) : (
 						<Differences
+							// Each snippet's editor keeps the content it was made with, so another view mounts afresh.
+							key={view}
 							view={view}
 							items={listOf(load.compare, view) ?? []}
 							compare={load.compare}

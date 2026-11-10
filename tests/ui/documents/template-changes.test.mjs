@@ -38,7 +38,8 @@ const status = (page) =>
 		.filter({ hasText: /Saved|Unsaved|Saving/ })
 		.first();
 
-async function shots(context, page, name, open) {
+/** Full-page shots at both widths and themes; with `part`, that element on its own too. */
+async function shots(context, page, name, open, part) {
 	if (!SHOTS) return;
 	for (const theme of ["light", "dark"]) {
 		await context.addCookies([{ name: "ef-theme", value: theme, url: BASE }]);
@@ -46,6 +47,7 @@ async function shots(context, page, name, open) {
 			await page.setViewportSize({ width, height: 900 });
 			await open(page);
 			await page.screenshot({ path: `${SHOTS}/${name}-${width}-${theme}.png`, fullPage: true });
+			if (part) await part(page).screenshot({ path: `${SHOTS}/${name}-part-${width}-${theme}.png` });
 		}
 	}
 	await context.addCookies([{ name: "ef-theme", value: "light", url: BASE }]);
@@ -169,7 +171,13 @@ test("AC:DOC-TEMPLATE-CHANGES: Template changes lists only the template's change
 		await changes.nth(1).getByText("In template only", { exact: true }).waitFor();
 		await changes.nth(1).getByText(CLOSING).waitFor();
 		assert.equal(await compareView(page).getByText(OWN).count(), 0, "the church's own edit is not listed");
-		await shots(context, page, "t14-template-changes", (p) => openCompare(p, docPath));
+		await shots(
+			context,
+			page,
+			"t14-template-changes",
+			(p) => openCompare(p, docPath),
+			(p) => list(p, "Template changes").first(),
+		);
 
 		// All differences: T-19's full list, with the church's own edit.
 		await viewSwitch(page, "All differences").click();
@@ -177,6 +185,9 @@ test("AC:DOC-TEMPLATE-CHANGES: Template changes lists only the template's change
 		assert.equal(await all.count(), 3);
 		const own = all.filter({ hasText: OWN });
 		await own.getByText("Changed", { exact: true }).waitFor();
+		// Its template side is the template's paragraph, drawn afresh after the switch, not the other list's item.
+		await own.getByText(INTEREST).waitFor();
+		assert.equal(await own.getByText(CLOSING).count(), 0);
 		await shots(context, page, "t14-all-differences", (p) => openCompare(p, docPath, "All differences"));
 
 		// Accepting the template's version of that paragraph from All differences writes one revision.
