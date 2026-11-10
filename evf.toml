@@ -4,23 +4,49 @@
 # Trial path approved by Sebastian (chat t537u / widget Retire pr-body…).
 # Roles set by Sebastian's Nov 6 2026 approval: "Yes, switch all evf-v2 roles to Opus 5.5 medium now."
 
-# No heavy evf checks for this trial — GitHub required check `ci` still runs on the PR.
-# A later owner decision can add format/typecheck checks when ready.
+# A check slot starts with no node_modules, so setup installs them. It reruns only when the lockfile changes.
+[setup]
+name = "install"
+run = ["corepack", "pnpm", "install", "--frozen-lockfile"]
+inputs = ["pnpm-lock.yaml"]
+
+# fast-check runs first, so a set with a format, lint or type error fails in seconds, before any long check.
+# Any check declared after it still runs after it on every set it passes, and the next set after rework runs every
+# check again. Nothing is skipped. GitHub's required check `ci` stays the full run on the PR.
+# fast-check diffs from merge-base origin/main HEAD, which on a slot is the base head, so it sees the branch's changes.
+# It reads the whole tree (no inputs), because its scope is the branch diff.
+[[check]]
+name = "fast-check"
+run = ["bin/dev", "fast-check"]
+timeout_minutes = 10
 
 # Owner gates. Sebastian, Nov 6 2026, 11:54 AM ET: "Yes, keep my OK on all five, including CI and agent settings".
 # A path ending in "/" is a prefix. Anything else is an exact path.
 
+# document-templates: created from Sebastian's Oct 30 2026 words ("I want to approve them one by one"),
+# narrowed by his Nov 8 2026 words (quote below) to the template content files only, not document code.
+# A new template JSON or *-content.ts file must be added here by exact path: evf cannot match globs such as *.json.
 [[policy.class]]
 name = "document-templates"
 paths = [
-  "docs/reference/document-templates.ts",
-  "docs/catalog/document-templates.json",
-  "packages/domain/src/documents/",
-  "packages/domain/src/branding/theme.ts",
+  "packages/domain/src/documents/templates/agenda-content.ts",
+  "packages/domain/src/documents/templates/budget-worksheet.json",
+  "packages/domain/src/documents/templates/bylaws.json",
+  "packages/domain/src/documents/templates/card-content.ts",
+  "packages/domain/src/documents/templates/checklists-content.ts",
+  "packages/domain/src/documents/templates/church-content.ts",
+  "packages/domain/src/documents/templates/commitment-card.json",
+  "packages/domain/src/documents/templates/conflict-of-interest-policy.json",
+  "packages/domain/src/documents/templates/follow-up-letter.json",
+  "packages/domain/src/documents/templates/guest-sign-in-sheet.json",
+  "packages/domain/src/documents/templates/launch-team-commitment.json",
+  "packages/domain/src/documents/templates/member-expectations.json",
+  "packages/domain/src/documents/templates/prayer-letter.json",
+  "packages/domain/src/documents/templates/text-content.ts",
 ]
 outcome = "owner"
-quote = "I want to approve them one by one"
-quoted_at = "2026-10-30T15:51:00Z"
+quote = "when I meant document-template code I meant the actual templates... if you are talking about functionality, I don't necessarily have to approve it. I was referring to actual templates themselves"
+quoted_at = "2026-11-09T04:16:00Z"
 
 [[policy.class]]
 name = "landing-marketing"

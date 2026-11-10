@@ -294,7 +294,6 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.card = card;
 		state.budget = budget;
 		const before = await counts();
-		refused(await create(OWNER, "bylaws", "wp036-old"), "unavailable");
 		refused(await create(OWNER, "not-a-template", "wp036-none"), "unavailable");
 		refused(await create(OWNER, "budget-worksheet", "wp036-foreign", { pastor_name: "X" }), "invalid_input");
 		assert.deepEqual(await counts(), before);
@@ -378,11 +377,23 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		const doc = state.policy;
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
 		assert.equal(edit.id, doc.id);
-		assert.equal(edit.brand.palette.themed, true, "the kit has a primary color and the document uses church branding");
-		assert.equal(edit.brand.palette.primary, "#1F4E79");
-		assert.equal(edit.brand.palette.accent, "#C9A227");
-		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
-		const { brand: _brand, ...document } = edit;
+		assert.equal(edit.useChurchBranding, true);
+		const church = edit.brands.church;
+		assert.ok(church, "the kit has a primary color, so the church look exists");
+		assert.equal(church.palette.themed, true);
+		assert.equal(church.palette.primary, "#1F4E79");
+		assert.equal(church.palette.accent, "#C9A227");
+		assert.deepEqual(church.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		assert.equal(edit.brands.plain.palette.themed, false, "the plain look is the Everyfield-neutral theme");
+		assert.deepEqual(edit.brands.plain.assets, { logo: null, mark: null, photo: null });
+		// T-17: the church's current value of each merge field Insert offers; a field with no value now is left out.
+		assert.deepEqual(edit.mergeValues, {
+			church_name: "Harvest Point",
+			pastor_name: "Pastor Ada",
+			church_tagline: "A church for the whole city.",
+			contact_line: "harvestpoint.church  ·  (555) 010-0100",
+		});
+		const { brands: _brands, mergeValues: _values, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -391,6 +402,92 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
 			"access_denied",
 		);
+	});
+
+	test("AC:DOC-EDIT-SLOT AC:DOC-EDIT-HISTORY a doctrinal section prints blank, then filled, then not at all; history names each saver", async () => {
+		let doc = state.policy;
+		const STATEMENT = "We believe in one God, Father, Son and Holy Spirit.";
+		const headingText = (node: any) => (node.content ?? []).map((n: any) => n.text ?? "").join("");
+		const original = doc.body;
+		const withSlot = (content?: unknown[]) => {
+			const body = structuredClone(original);
+			const at = body.body.content.findIndex((n: any) => n.type === "heading" && headingText(n) === "Yearly statement");
+			assert.ok(at > 0, "the policy has a Yearly statement heading");
+			body.body.content.splice(at, 0, {
+				type: "slot",
+				attrs: { label: "Statement of faith" },
+				...(content ? { content } : {}),
+			});
+			return body;
+		};
+		const texts = async (revision: string) => {
+			const pdf = await policyText(ok(await fileOf(MEMBER, doc.id, "pdf", Number(revision))));
+			const docx = docxParts(bytesFrom(ok(await fileOf(MEMBER, doc.id, "docx", Number(revision)))));
+			return { pdf: pdf.replace(/\s+/g, " "), word: wordText(docx["word/document.xml"]) };
+		};
+		const BLANK = "Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+
+		// An empty section that was not deleted prints the marked blank, never default text.
+		const empty = ok(await save(ADMIN, doc.id, doc.revision, withSlot()));
+		let out = await texts(empty.revision);
+		for (const text of [out.pdf, out.word]) {
+			assert.match(text, /statement of faith/i);
+			assert.ok(text.includes(BLANK), "the marked blank prints");
+		}
+		// Filled, it prints the church's statement in that section.
+		doc = empty;
+		const filled = ok(
+			await save(
+				OWNER,
+				doc.id,
+				doc.revision,
+				withSlot([{ type: "paragraph", content: [{ type: "text", text: STATEMENT }] }]),
+			),
+		);
+		out = await texts(filled.revision);
+		assert.match(
+			out.pdf,
+			new RegExp(`statement of faith ${STATEMENT}`, "i"),
+			"the PDF prints the statement in its section",
+		);
+		assert.ok(
+			out.word.includes(STATEMENT) && !out.word.includes(BLANK),
+			"the Word file prints the statement, no blank",
+		);
+		// Deleted, neither file has the section, its label or a blank; the text after it follows straight on.
+		doc = filled;
+		const gone = ok(await save(ADMIN, doc.id, doc.revision, original));
+		out = await texts(gone.revision);
+		for (const [name, text] of [
+			["PDF", out.pdf],
+			["Word", out.word],
+		]) {
+			assert.doesNotMatch(text, /statement of faith/i, `the ${name} has no section label`);
+			assert.ok(!text.includes(STATEMENT) && !text.includes(BLANK), `the ${name} has no section and no blank`);
+			assert.match(text, /left the room\. (08 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
+		}
+		// The revision saved before the delete keeps its section.
+		assert.ok((await texts(filled.revision)).word.includes(STATEMENT), "the earlier revision still prints it");
+
+		// History lists every revision with who saved it (the auth user's name).
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		const last = history.revisions.slice(-3);
+		assert.deepEqual(
+			last.map((r: any) => [String(r.number), r.authorName]),
+			[
+				[empty.revision, "Synthetic"],
+				[filled.revision, "Synthetic"],
+				[gone.revision, "Synthetic"],
+			],
+		);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), {
+				documentId: doc.id,
+				revision: Number(filled.revision),
+			}),
+		);
+		assert.equal(one.authorName, "Synthetic");
+		state.policy = gone;
 	});
 
 	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
@@ -616,5 +713,471 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(plain.theme, { kind: "everyfield-neutral", primary: null });
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
+	});
+	// T-54: a Download saves one export (D-78); the page lists the saved exports and a list download is the stored bytes.
+	const listExports = async (who, documentId) => documentsWriter.listExports(db, await authority(who), { documentId });
+	const exportFile = async (who, documentId, exportId) =>
+		documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage);
+	const deleteExport = async (who, documentId, exportId) =>
+		documentsWriter.deleteExport(db, await authority(who), { documentId, exportId });
+	const exportDeletes = (id) =>
+		countOf("audit_event", `WHERE action = 'documents.export_deleted' AND subject_id = '${id}'::uuid`);
+	/** The object cleanup jobs a deleted export queued for its stored file. */
+	const cleanups = (id) =>
+		rowsOf(
+			sql`SELECT j.subject_record_id::text AS object_id, j.state FROM job j
+				WHERE j.kind = 'object_cleanup' AND j.producer_key = ${`export-deleted/${id}`}`,
+		);
+	const objectOf = async (id) =>
+		(await rowsOf(sql`SELECT object_id::text FROM generated_document WHERE id = ${id}::uuid`))[0].object_id;
+
+	test("AC:CASE-DOC-023 T-54 an export of revision 2 lists first with its revision, format, time and author", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Max Member' WHERE id = ${actors[MEMBER].user}::uuid`);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t54-policy"));
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, [], "no export yet");
+		const edited = structuredClone(doc.body);
+		edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision two." }] });
+		ok(await save(OWNER, doc.id, "1", edited));
+		const before = await countOf("generated_document");
+		const pdf = ok(await exportDoc(OWNER, doc.id, 2, "pdf", "t54-pdf"));
+		const again = ok(await exportDoc(OWNER, doc.id, 2, "pdf", "t54-pdf"));
+		assert.equal(again.id, pdf.id, "the same request key returns the same export");
+		assert.equal(await countOf("generated_document"), before + 1, "a retry makes one saved export");
+		const word = ok(await exportDoc(MEMBER, doc.id, 2, "docx", "t54-docx"));
+		const listed = ok(await listExports(MEMBER, doc.id)).exports;
+		assert.deepEqual(
+			listed.map((e) => [e.id, e.revision, e.format, e.creatorName, e.digest]),
+			[
+				[word.id, 2, "docx", "Max Member", word.digest],
+				[pdf.id, 2, "pdf", "Olivia Owner", pdf.digest],
+			],
+			"newest first, each with its own format",
+		);
+		assert.equal(listed[1].generatedAt, pdf.generatedAt);
+		assert.equal(listed[1].downloadName, "conflict-of-interest-policy-revision-2.pdf");
+		const file = ok(await exportFile(MEMBER, doc.id, pdf.id));
+		assert.equal(sha256(bytesFrom(file)), pdf.digest, "the download is the saved bytes");
+		assert.equal(file.mediaType, "application/pdf");
+		assert.equal(file.revision, 2);
+		const docx = ok(await exportFile(OWNER, doc.id, word.id));
+		assert.equal(sha256(bytesFrom(docx)), word.digest);
+		assert.equal(docx.downloadName, "conflict-of-interest-policy-revision-2.docx");
+		state.saved = { doc, pdf, word };
+	});
+
+	test("AC:CASE-DOC-023 T-54 after a new revision, the branding switch and a kit color change, a Member gets the identical file", async () => {
+		const { doc, pdf } = state.saved;
+		const owner = await authority(OWNER);
+		const fresh = ok(await fileOf(MEMBER, doc.id, "pdf", 2));
+		assert.equal(fresh.digest, pdf.digest, "before any change the fresh render and the saved export agree");
+		const current = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: current.revision,
+				patch: { primaryColor: "#7A1F4E" },
+			}),
+		);
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: false }));
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: true }));
+		const latest = ok(await documentsWriter.readChurch(db, owner, { documentId: doc.id }));
+		const third = structuredClone(latest.body);
+		third.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision three." }] });
+		ok(await save(OWNER, doc.id, latest.revision, third));
+		const rerendered = ok(await fileOf(MEMBER, doc.id, "pdf", 2));
+		assert.notEqual(rerendered.digest, pdf.digest, "a fresh render of revision 2 now paints the new kit color");
+		const file = ok(await exportFile(MEMBER, doc.id, pdf.id));
+		assert.equal(sha256(bytesFrom(file)), pdf.digest, "the saved export keeps its first bytes, not a new render");
+		assert.deepEqual(bytesFrom(file), await bytesOf(pdf), "they are the stored object, byte for byte");
+		// Put the kit color back, so the later suites see the kit the theme test set.
+		const changed = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: changed.revision,
+				patch: { primaryColor: current.primaryColor },
+			}),
+		);
+	});
+
+	test("T-54 a saved-export download refuses another church plant, a seatless account and an unknown id", async () => {
+		const { doc, pdf } = state.saved;
+		refused(await exportFile(OTHER, doc.id, pdf.id), "unavailable");
+		refused(await exportFile(4, doc.id, pdf.id), "access_denied");
+		refused(await exportFile(MEMBER, doc.id, randomUUID()), "unavailable");
+		refused(await exportFile(MEMBER, state.card.id, pdf.id), "unavailable", "the export belongs to another document");
+		refused(await listExports(OTHER, doc.id), "unavailable");
+		refused(await listExports(4, doc.id), "access_denied");
+	});
+
+	test("T-54 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row and releases its file in the same statement", async () => {
+		const { doc, pdf, word } = state.saved;
+		const before = await counts();
+		refused(await deleteExport(MEMBER, doc.id, pdf.id), "access_denied");
+		refused(await deleteExport(OTHER, doc.id, pdf.id), "unavailable");
+		assert.deepEqual(await counts(), before, "nothing is written");
+		assert.equal(await exportDeletes(pdf.id), 0);
+		assert.deepEqual(await cleanups(pdf.id), [], "a refused delete queues no cleanup");
+		assert.ok(
+			ok(await listExports(MEMBER, doc.id)).exports.some((e) => e.id === pdf.id),
+			"the row is still listed",
+		);
+
+		const [pdfObject, wordObject] = [await objectOf(pdf.id), await objectOf(word.id)];
+		assert.deepEqual(ok(await deleteExport(ADMIN, doc.id, word.id)), { exportId: word.id, deleted: true });
+		assert.deepEqual(ok(await deleteExport(OWNER, doc.id, pdf.id)), { exportId: pdf.id, deleted: true });
+		assert.equal(await exportDeletes(pdf.id), 1, "one audit row");
+		assert.equal(await exportDeletes(word.id), 1);
+		// The stored file is released in the same statement: one cleanup job each, which the worker runs once the row is gone.
+		assert.deepEqual(await cleanups(pdf.id), [{ object_id: pdfObject, state: "ready" }], "one cleanup job");
+		assert.deepEqual(await cleanups(word.id), [{ object_id: wordObject, state: "ready" }]);
+		assert.deepEqual(await counts(), { ...before, generated: before.generated - 2, audits: before.audits + 2 });
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, [], "the rows leave the list");
+		refused(await exportFile(OWNER, doc.id, pdf.id), "unavailable", "its download stops working");
+		refused(await deleteExport(OWNER, doc.id, pdf.id), "unavailable");
+		assert.equal(await exportDeletes(pdf.id), 1, "a second delete writes nothing");
+		assert.equal((await cleanups(pdf.id)).length, 1, "and queues no second cleanup");
+	});
+
+	test("T-54 a render failure saves no export and leaves the list unchanged", async () => {
+		const { doc } = state.saved;
+		// A revision whose stored body cannot render, written beside the editor's revisions.
+		await admin.execute(
+			sql`INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
+				VALUES (${randomUUID()}::uuid, ${P}::uuid, ${doc.id}::uuid, 99, 'not a document', ${sha("not a document")}, clock_timestamp(), clock_timestamp())`,
+		);
+		const before = await counts();
+		refused(await exportDoc(OWNER, doc.id, 99, "pdf", "t54-broken"), "render_failed");
+		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "unavailable");
+		assert.deepEqual(await counts(), before, "no file and no saved export");
+		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
+	});
+
+	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".
+	const TEXT_TEMPLATES = [
+		"member-expectations",
+		"launch-team-commitment",
+		"follow-up-letter",
+		"bylaws",
+		"prayer-letter",
+	];
+
+	test("T-56 Save for your church makes one saved file of each text template and no Church Document", async () => {
+		const owner = await authority(OWNER);
+		for (const templateId of TEXT_TEMPLATES) {
+			const before = await counts();
+			const saved = ok(
+				await documentsWriter.generate(
+					db,
+					owner,
+					{ templateId, format: "pdf", requestKey: `t56-save-${templateId}` },
+					storage,
+				),
+			);
+			const bytes = await bytesOf(saved);
+			assert.equal(sha256(bytes), saved.digest, templateId);
+			assert.ok((await pdfPages(bytes)).join(" ").includes("Harvest Point"), `${templateId} prints the church name`);
+			const after = await counts();
+			assert.equal(after.documents, before.documents, `${templateId} makes no Church Document`);
+			assert.equal(after.revisions, before.revisions, templateId);
+			assert.equal(after.generated, before.generated + 1, `${templateId} stores one saved file`);
+			assert.equal(after.files, before.files + 1, templateId);
+			// The same request key gives the same file and stores nothing more.
+			const again = ok(
+				await documentsWriter.generate(
+					db,
+					owner,
+					{ templateId, format: "pdf", requestKey: `t56-save-${templateId}` },
+					storage,
+				),
+			);
+			assert.equal(again.id, saved.id, templateId);
+			assert.deepEqual(await counts(), after, templateId);
+		}
+	});
+
+	test("T-56 Create Church Document makes an editable Church Document of each text template with the church name", async () => {
+		for (const templateId of TEXT_TEMPLATES) {
+			const before = await counts();
+			const doc = ok(await create(OWNER, templateId, `t56-create-${templateId}`));
+			assert.equal(doc.templateId, templateId);
+			assert.equal(doc.revision, "1");
+			assert.equal(doc.title, docTemplateById(templateId).title);
+			assert.deepEqual(doc.formats, ["pdf", "docx"]);
+			assert.equal(doc.body.data.church_name, "Harvest Point");
+			assert.equal(doc.body.data.pastor_name, "Pastor Ada");
+			const after = await counts();
+			assert.equal(after.documents, before.documents + 1, templateId);
+			assert.equal(after.generated, before.generated, `${templateId} makes no saved file`);
+			const text = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
+			assert.ok(text.includes("Harvest Point"), `${templateId} prints the church name`);
+			assert.ok(!text.includes("{church_name}"), templateId);
+			// Editable: the Owner saves an edited body as revision 2.
+			const edited = structuredClone(doc.body);
+			edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Edited by the church." }] });
+			assert.equal(ok(await save(OWNER, doc.id, "1", edited)).revision, "2", templateId);
+			const two = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
+			assert.ok(two.includes("Edited by the church."), templateId);
+		}
+	});
+
+	// D-129 (Sebastian, 2026-11-08): the Bylaws "Statement of faith" slot carries the key T-84 fills from the network.
+	test("D-129 a Church Document from Bylaws keeps the keyed Statement of faith slot; Save and the export print the marked blank", async () => {
+		const doc = ok(await create(OWNER, "bylaws", "d129-bylaws"));
+		const slots = doc.body.body.content.filter((n) => n.type === "slot");
+		assert.deepEqual(slots, [{ type: "slot", attrs: { label: "Statement of faith", key: "statement-of-faith" } }]);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.deepEqual(
+			one.body.body.content.filter((n) => n.type === "slot"),
+			slots,
+			"revision 1 keeps the key",
+		);
+
+		const exported = await pdfPages(await bytesOf(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "d129-pdf"))));
+		const word = docxParts(await bytesOf(ok(await exportDoc(OWNER, doc.id, 1, "docx", "d129-docx"))));
+		const saved = await pdfPages(
+			await bytesOf(
+				ok(
+					await documentsWriter.generate(
+						db,
+						await authority(OWNER),
+						{ templateId: "bylaws", format: "pdf", requestKey: "d129-save" },
+						storage,
+					),
+				),
+			),
+		);
+		for (const [name, text] of [
+			["export pdf", exported.join(" ")],
+			["export docx", wordText(word["word/document.xml"])],
+			["saved file", saved.join(" ")],
+		]) {
+			assert.match(text, /statement of faith/i, name);
+			assert.ok(text.includes(SLOT_BLANK_NOTE), `${name} prints the marked blank`);
+			assert.equal(text.includes("statement-of-faith"), false, `${name} never prints the key`);
+		}
+	});
+
+	test("AC:CASE-DOC-023 T-83 an older revision exports its own content once, keeps its bytes and refuses a revision it lacks", async () => {
+		const owner = await authority(OWNER);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t83-policy"));
+		// Revision 2 rewrites the first line of text, so its first words are only in revision 1; revision 3 adds a line.
+		const second = structuredClone(doc.body);
+		const firstText = (function find(node) {
+			if (node.type === "text" && node.text.trim().split(/\s+/).length >= 3) return node;
+			for (const child of node.content ?? []) {
+				const hit = find(child);
+				if (hit) return hit;
+			}
+			return null;
+		})(second.body);
+		assert.ok(firstText, "the template has a line of text");
+		const onlyInOne = firstText.text.trim().split(/\s+/).slice(0, 3).join(" ");
+		firstText.text = "Rewritten in revision two.";
+		ok(await save(OWNER, doc.id, "1", second));
+		const third = structuredClone(second);
+		third.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Only in revision three." }] });
+		ok(await save(OWNER, doc.id, "2", third));
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			history.revisions.map((r) => r.number),
+			[1, 2, 3],
+			"a Member reads every revision",
+		);
+
+		const before = await countOf("generated_document");
+		const [pdf, again] = await Promise.all([
+			exportDoc(MEMBER, doc.id, 1, "pdf", "t83-pdf"),
+			exportDoc(MEMBER, doc.id, 1, "pdf", "t83-pdf"),
+		]);
+		assert.equal(ok(again).id, ok(pdf).id, "a double click is one saved export");
+		const saved = ok(pdf);
+		assert.equal(await countOf("generated_document"), before + 1);
+		assert.equal(saved.source.revision, 1);
+		const text = (await pdfPages(await bytesOf(saved))).join(" ").replace(/\s+/g, " ");
+		assert.ok(text.includes(onlyInOne), `revision 1's words "${onlyInOne}" are in the PDF`);
+		assert.equal(text.includes("Rewritten in revision two."), false);
+		assert.equal(text.includes("Only in revision three."), false, "the current revision's text is not");
+
+		const word = ok(await exportDoc(OWNER, doc.id, 1, "docx", "t83-docx"));
+		const words = wordText(docxParts(await bytesOf(word))["word/document.xml"]).replace(/\s+/g, " ");
+		assert.ok(words.includes(onlyInOne));
+		assert.equal(words.includes("Only in revision three."), false);
+		const listed = ok(await listExports(MEMBER, doc.id)).exports;
+		assert.deepEqual(
+			listed.map((e) => [e.id, e.revision, e.format, e.digest]),
+			[
+				[word.id, 1, "docx", word.digest],
+				[saved.id, 1, "pdf", saved.digest],
+			],
+		);
+		assert.equal(listed[1].downloadName, "conflict-of-interest-policy-revision-1.pdf");
+
+		// A kit change, the branding switch and a new revision later, the list download is still the first bytes.
+		const kit = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, { expectedRevision: kit.revision, patch: { primaryColor: "#2E7A1F" } }),
+		);
+		ok(await documentsWriter.setBranding(db, owner, { documentId: doc.id, useChurchBranding: false }));
+		const fourth = structuredClone(third);
+		fourth.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Revision four." }] });
+		ok(await save(OWNER, doc.id, "3", fourth));
+		const file = ok(await exportFile(MEMBER, doc.id, saved.id));
+		assert.equal(sha256(bytesFrom(file)), saved.digest, "byte-identical to the first download");
+		assert.equal(sha256(bytesFrom(ok(await exportFile(OWNER, doc.id, word.id)))), word.digest);
+		assert.notEqual(ok(await fileOf(MEMBER, doc.id, "pdf", 1)).digest, saved.digest, "a fresh render differs now");
+
+		// A revision the document lacks, and another church plant's document, are not found and save nothing.
+		const counted = await counts();
+		refused(await exportDoc(OWNER, doc.id, 42, "pdf", "t83-missing"), "unavailable");
+		refused(await exportDoc(OTHER, doc.id, 1, "pdf", "t83-foreign"), "unavailable");
+		assert.deepEqual(await counts(), counted, "nothing is written");
+		const changed = ok(await brandReader.get(db, owner, {}));
+		ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: changed.revision,
+				patch: { primaryColor: kit.primaryColor },
+			}),
+		);
+	});
+
+	test("T-86 each revision names its saver while they hold a seat here, else a former member (D-105)", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Ada Admin' WHERE id = ${actors[ADMIN].user}::uuid`);
+		await admin.execute(sql`UPDATE auth_user SET name = 'Quinn Elsewhere' WHERE id = ${actors[OTHER].user}::uuid`);
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t86-savers"));
+		let body = doc.body;
+		for (const [who, at] of [
+			[ADMIN, "1"],
+			[OWNER, "2"],
+			[ADMIN, "3"],
+			[OWNER, "4"],
+		]) {
+			body = structuredClone(body);
+			body.body.content.push({ type: "paragraph", content: [{ type: "text", text: `Saved after ${at}.` }] });
+			ok(await save(who, doc.id, at, body));
+		}
+		const names = async (who) =>
+			ok(await documentsWriter["history.list"](db, await authority(who), { documentId: doc.id })).revisions.map((r) => [
+				r.number,
+				r.authorName,
+			]);
+		assert.deepEqual(
+			await names(MEMBER),
+			[
+				[1, "Olivia Owner"],
+				[2, "Ada Admin"],
+				[3, "Olivia Owner"],
+				[4, "Ada Admin"],
+				[5, "Olivia Owner"],
+			],
+			"each revision names the person who saved it",
+		);
+
+		// Revision 4's saver is seated only in another church plant, and revision 5's account is gone.
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = ${actors[OTHER].id}::uuid
+				WHERE document_id = ${doc.id}::uuid AND version_number = 4`,
+		);
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = NULL WHERE document_id = ${doc.id}::uuid AND version_number = 5`,
+		);
+		// The Admin's seat here ends, so revision 2, which they saved, reads as a former member.
+		await admin.execute(
+			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+		);
+		try {
+			const expected = [
+				[1, "Olivia Owner"],
+				[2, null],
+				[3, "Olivia Owner"],
+				[4, null],
+				[5, null],
+			];
+			assert.deepEqual(await names(MEMBER), expected, "an ended seat, a seat elsewhere and a gone account name no one");
+			assert.deepEqual(await names(OWNER), expected, "an Owner reads the same names");
+			const reply = JSON.stringify(
+				ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id })),
+			);
+			for (const gone of ["Ada Admin", "Quinn Elsewhere", `${actors[ADMIN].id}@example.test`])
+				assert.equal(reply.includes(gone), false, `the reply does not carry ${gone}`);
+			const get = async (revision) =>
+				ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision }))
+					.authorName;
+			assert.deepEqual([await get(1), await get(2), await get(4), await get(5)], ["Olivia Owner", null, null, null]);
+		} finally {
+			await admin.execute(
+				sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
+			);
+		}
+	});
+
+	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
+		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
+		const forEdit = async () =>
+			ok(await documentsWriter.readChurchForEdit(db, await authority(OWNER), { documentId: doc.id }));
+		const switched = () =>
+			rowsOf(
+				sql`SELECT actor_id, after_value FROM audit_event
+					WHERE action = 'documents.branding_changed' AND subject_id = ${doc.id}::uuid ORDER BY recorded_at`,
+			);
+		const setBy = async (who, useChurchBranding) =>
+			documentsWriter.setBranding(db, await authority(who), { documentId: doc.id, useChurchBranding });
+		// A new document starts with church branding on, and a Member's read carries the value too.
+		assert.equal((await forEdit()).useChurchBranding, true);
+		assert.equal((await read(MEMBER)).useChurchBranding, true);
+		assert.equal(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-branded-pdf")).theme.kind, "church");
+
+		const before = await counts();
+		assert.deepEqual(ok(await setBy(OWNER, false)), { documentId: doc.id, useChurchBranding: false });
+		const off = await forEdit();
+		assert.equal(off.useChurchBranding, false);
+		assert.equal(off.revision, "1", "the switch makes no revision");
+		assert.ok(off.brands.church, "the church look stays known, so the page can turn branding back on");
+		assert.equal((await read(MEMBER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 }, "one audit row and nothing else");
+		assert.deepEqual(await switched(), [{ actor_id: actors[OWNER].id, after_value: { useChurchBranding: false } }]);
+		const plainPdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-plain-pdf"));
+		assert.deepEqual(plainPdf.theme, { kind: "everyfield-neutral", primary: null });
+		const plainWord = ok(await fileOf(OWNER, doc.id, "docx", 1));
+		assert.equal(plainWord.downloadName, "conflict-of-interest-policy-revision-1.docx");
+		const word = docxParts(bytesFrom(plainWord));
+		assert.equal(word["word/styles.xml"].includes("1F4E79"), false, "no church color in the Word file");
+		assert.equal(word["word/document.xml"].includes("Harvest Point Church logo"), false, "no church logo");
+
+		// A Member can't change it: the write is refused and the stored value and the audit stay.
+		const held = await counts();
+		refused(await setBy(MEMBER, true), "access_denied");
+		assert.equal((await read(OWNER)).useChurchBranding, false);
+		assert.deepEqual(await counts(), held);
+
+		assert.deepEqual(ok(await setBy(ADMIN, true)), { documentId: doc.id, useChurchBranding: true });
+		const on = await forEdit();
+		assert.equal(on.useChurchBranding, true);
+		assert.equal(on.revision, "1");
+		assert.deepEqual(
+			(await switched()).map((r) => r.after_value),
+			[{ useChurchBranding: false }, { useChurchBranding: true }],
+		);
+		assert.deepEqual(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-again-pdf")).theme, {
+			kind: "church",
+			primary: "#1F4E79",
+		});
+		assert.ok(docxParts(bytesFrom(ok(await fileOf(OWNER, doc.id, "docx", 1))))["word/styles.xml"].includes("1F4E79"));
+
+		// A deleted document refuses the switch with the page's "not available" message.
+		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
+		refused(await setBy(OWNER, false), "unavailable");
+		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
+	});
+
+	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
+		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
+		assert.equal(edit.useChurchBranding, true);
+		assert.equal(edit.brands.church, null, "no brand kit, so the page shows the note and paints the plain look");
+		assert.equal(edit.brands.plain.palette.themed, false);
 	});
 });

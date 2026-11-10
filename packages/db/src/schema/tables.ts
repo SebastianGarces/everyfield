@@ -1193,7 +1193,9 @@ export const document = pgTable(
 			.notNull()
 			.default(sql`gen_random_uuid()`),
 		tenant_id: uuid("tenant_id").notNull(),
-		kind: text("kind", { enum: ["native", "core_values", "launch_summary", "church_document"] }).notNull(),
+		kind: text("kind", {
+			enum: ["native", "core_values", "launch_summary", "church_document", "church_template"],
+		}).notNull(),
 		title: text("title").notNull(),
 		current_revision_id: uuid("current_revision_id"),
 		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
@@ -1207,6 +1209,7 @@ export const document = pgTable(
 		document_class: text("document_class", { enum: ["formal/legal", "outward-facing", "operational"] }),
 		use_church_branding: boolean("use_church_branding"),
 		input_provenance: jsonb("input_provenance"),
+		description: text("description"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -1238,7 +1241,11 @@ export const document = pgTable(
 		check("document_ck_0", sql`(revision >= 1)`),
 		check(
 			"document_ck_1",
-			sql`(kind = ANY (ARRAY['native'::text, 'core_values'::text, 'launch_summary'::text, 'church_document'::text]))`,
+			sql`(kind = ANY (ARRAY['native'::text, 'core_values'::text, 'launch_summary'::text, 'church_document'::text, 'church_template'::text]))`,
+		),
+		check(
+			"document_church_template",
+			sql`((kind <> 'church_template') OR ((copied_from_revision_id IS NOT NULL) AND (copied_from_hash IS NOT NULL)))`,
 		),
 		check("document_ck_2", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check(
@@ -2156,8 +2163,11 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
+		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
+		refusal: text("refusal", { enum: ["unsubscribed"] }),
 	},
 	(table): PgTableExtraConfigValue[] => [
+		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
 		foreignKey({ name: "mail_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
@@ -5300,7 +5310,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -5375,6 +5385,43 @@ export const person_merge = pgTable(
 			.on(t.source_id)
 			.where(sql`unmerged_at IS NULL`),
 		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
+	],
+);
+/**
+ * A CRM person's opt-out from one church's Messages email (REQ-NTF-016, D-284): per church and per person, keyed by
+ * the Person, never by the address. Only the person's own token writes it: the opt-out page inserts the row and its
+ * one-hour undo sets `undone_at`. Staff read it on the person's record but have no write path, and the runtime login
+ * cannot delete it or change any other column. A merge leaves it on the Person who unsubscribed; Messages reads the
+ * merge lineage, so the survivor stays unsubscribed.
+ */
+export const person_email_opt_out = pgTable(
+	"person_email_opt_out",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		person_id: uuid("person_id").notNull(),
+		opted_out_at: timestamp("opted_out_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		undone_at: timestamp("undone_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_email_opt_out_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "person_email_opt_out_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		check("person_email_opt_out_undone", sql`((undone_at IS NULL) OR (undone_at >= opted_out_at))`),
+		// One current opt-out per Person.
+		uniqueIndex("person_email_opt_out_current")
+			.on(t.person_id)
+			.where(sql`undone_at IS NULL`),
+		index("person_email_opt_out_plant").on(t.plant_id, t.person_id),
 	],
 );
 /**

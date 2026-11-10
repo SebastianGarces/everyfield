@@ -8,7 +8,7 @@ export const CLASS_LABEL: Record<ChurchDocument["documentClass"], string> = {
 	operational: "Operational",
 };
 
-const FORMAT_LABEL = { pdf: "PDF", docx: "Word", xlsx: "Excel" } as const;
+export const FORMAT_LABEL = { pdf: "PDF", docx: "Word", xlsx: "Excel" } as const;
 
 /** "PDF, Word and Excel", in that order. */
 export function formatList(formats: readonly (keyof typeof FORMAT_LABEL)[]) {
@@ -36,4 +36,15 @@ export function paperText(page: { width: number; height: number; perSheet: numbe
 export function updatedText(iso: string) {
 	const date = new Date(iso);
 	return `Updated ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+}
+
+/** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
+export function savedAt(iso: string) {
+	return new Date(iso).toLocaleString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
 }

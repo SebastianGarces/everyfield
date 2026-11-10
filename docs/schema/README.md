@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 102 tables, 1193 columns, 360 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 103 tables, 1200 columns, 362 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -60,6 +60,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `person_email_opt_out` | WP-028 Messages delivery records a Messages opt-out from the person's own token. | WP-028 |
 | `person_import` | WP-013 People CSV import job payload through Drizzle Kit. | WP-013 |
 | `person_merge` | WP-015 People merge and record correction storage through Drizzle Kit. | WP-015 |
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
@@ -204,7 +205,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 
 ## Coverage
 
-Capability inventories cover 305 feature IDs and 125 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
+Capability inventories cover 306 feature IDs and 126 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
 
 ## Design rules used
 1. Each table names the capabilities that require it. There is no table for a behavior-only helper or derived dashboard.

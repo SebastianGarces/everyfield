@@ -18,7 +18,7 @@ import { db as admin, runtime, runtimeSettings, setup, teardown } from "../jobs/
 
 const secret = "cron-" + randomUUID();
 const clock = { at: new Date() };
-const sent: { to: string; subject: string; text: string }[] = [];
+const sent: { to: string; subject: string; text: string; headers?: Readonly<Record<string, string>> }[] = [];
 let mail: ReturnType<typeof createMailService>;
 let worker: ReturnType<typeof createDigestWorker>;
 let tick: (request: Request) => Promise<Response>;
@@ -45,9 +45,10 @@ before(async () => {
 		addressKey: randomBytes(32),
 		from: "digests@example.test",
 		authorize: authorizeDigestMail,
+		unsubscribe: { origin: "https://everyfield.test", keys: { current: optOutKey } },
 		transport: {
 			async send(payload) {
-				sent.push({ to: payload.to, subject: payload.subject, text: payload.text });
+				sent.push({ to: payload.to, subject: payload.subject, text: payload.text, headers: payload.headers });
 				return { kind: "accepted", id: randomUUID() };
 			},
 			async lookup() {
@@ -461,4 +462,68 @@ test("INV-budget: one delivered digest sends a fixed number of statements, howev
 	}
 	// claim 1; BEGIN, timeout, claim fence, recipient read, compile, write, finish, COMMIT 8.
 	assert.deepEqual(counts, [9, 9]);
+});
+
+test("T-25 criterion 5: each digest email carries the Unsubscribe link and headers of its own digest, and unsubscribing stops that digest only", async () => {
+	const plant = await church("Unsubscribe Church", "UTC", { weekday: 1, hour: 8 });
+	const network = await organization("Unsubscribe Network", "UTC");
+	const linked = await church("Linked Church", "UTC", { weekday: 0, hour: 16 });
+	await link(network, linked, true);
+	const planter = await person("uma", { "planter_digest:cadence": "daily", "planter_digest:in_app": true });
+	const overseer = await person("ugo", { "oversight_digest:email": true });
+	await seat(planter.id, { plant });
+	await seat(overseer.id, { organization: network });
+	await task(plant, planter.id, "Print the flyers", "2026-10-30");
+	// 06:59 UTC on Monday 2026-11-02: coverage starts for both digests.
+	await run("2026-11-02T06:59:00Z");
+	await activity(linked, "2026-11-01T15:00:00Z", 2);
+	await run("2026-11-02T08:00:00Z");
+	await dispatchAll();
+	const emails = (who: { email: string }) => sent.filter((m) => m.to === who.email);
+	const token = (m: (typeof sent)[number] | undefined) => {
+		const header = /^<https:\/\/everyfield\.test\/email-preferences\/([\w-]+)\/one-click>$/.exec(
+			m?.headers?.["List-Unsubscribe"] ?? "",
+		)?.[1];
+		assert.ok(m && header, m?.subject);
+		assert.equal(m.headers?.["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+		assert.ok(m.text.includes(`\nUnsubscribe: https://everyfield.test/email-preferences/${header}\n`), m.text);
+		return header;
+	};
+	const [church_] = emails(planter);
+	const [oversight] = emails(overseer);
+	assert.match(church_?.subject ?? "", /^Church digest/);
+	assert.match(oversight?.subject ?? "", /^Oversight digest/);
+	for (const [m, who, category] of [
+		[church_, planter, "planter_digest"],
+		[oversight, overseer, "oversight_digest"],
+	] as const) {
+		const described = await feedApi.describeEmailOptOut(runtime, undefined as never, { token: token(m) });
+		assert.equal(described.status, "ok", JSON.stringify(described));
+		assert.equal((described as { value: { category: string } }).value.category, category, who.email);
+	}
+	// One-click from the church digest's header: the church digest stops emailing and its bell entry keeps coming. No
+	// other category changes, and the oversight digest still emails.
+	const off = await feedApi.applyEmailOptOut(runtime, { token: token(church_), oneClick: true });
+	assert.equal(off.status, "ok", JSON.stringify(off));
+	const prefs = await admin.execute(
+		sql`SELECT category,channel,enabled FROM notification_preference WHERE account_id=${planter.id} AND channel='email' ORDER BY category`,
+	);
+	assert.deepEqual(
+		prefs.rows.map((r) => [r.category, r.enabled]),
+		[["planter_digest", false]],
+	);
+	await activity(linked, "2026-11-02T15:00:00Z", 1);
+	await run("2026-11-03T08:00:00Z");
+	await dispatchAll();
+	assert.equal(emails(planter).length, 1);
+	assert.equal((await notices(planter.id)).length, 2);
+	assert.equal(emails(overseer).length, 2);
+	// One-click from the latest oversight email stops that digest too; its bell entry keeps coming.
+	const off2 = await feedApi.applyEmailOptOut(runtime, { token: token(emails(overseer).at(-1)), oneClick: true });
+	assert.equal(off2.status, "ok", JSON.stringify(off2));
+	await activity(linked, "2026-11-03T15:00:00Z", 1);
+	await run("2026-11-04T08:00:00Z");
+	await dispatchAll();
+	assert.equal(emails(overseer).length, 2);
+	assert.equal((await notices(overseer.id)).length, 3);
 });

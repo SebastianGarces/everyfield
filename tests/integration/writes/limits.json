@@ -9,9 +9,15 @@
 		"limit": 2
 	},
 	"GET /documents/church/[documentId]": {
-		"limit": 2
+		"limit": 4
 	},
 	"GET /documents/church/[documentId]/file": {
+		"limit": 2
+	},
+	"GET /documents/written/[documentId]": {
+		"limit": 2
+	},
+	"GET /documents/written/[documentId] (member)": {
 		"limit": 2
 	},
 	"GET /home": {
@@ -367,6 +373,9 @@
 		"limit": 13,
 		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
 	},
+	"documents.acceptTemplateChanges": {
+		"limit": 3
+	},
 	"documents.archive": {
 		"limit": 1
 	},
@@ -376,11 +385,20 @@
 	"documents.deleteChurch": {
 		"limit": 1
 	},
+	"documents.deleteChurchTemplate": {
+		"limit": 1
+	},
+	"documents.deleteExport": {
+		"limit": 1
+	},
 	"documents.designateCoreValues": {
 		"limit": 1
 	},
 	"documents.download": {
 		"limit": 9
+	},
+	"documents.editChurchTemplate": {
+		"limit": 1
 	},
 	"documents.exportNative": {
 		"limit": 22,
@@ -400,6 +418,9 @@
 		"limit": 14,
 		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
 	},
+	"documents.listCopySources": {
+		"limit": 1
+	},
 	"documents.preview": {
 		"limit": 1
 	},
@@ -416,6 +437,9 @@
 	"documents.resolveContext": {
 		"limit": 1
 	},
+	"documents.saveChurchTemplate": {
+		"limit": 3
+	},
 	"documents.saveNative": {
 		"limit": 1
 	},
@@ -431,8 +455,12 @@
 	"documents.templates.list": {
 		"limit": 1
 	},
+	"documents.updateChurchTemplate": {
+		"limit": 3
+	},
 	"documents.useForChurch": {
-		"limit": 1
+		"limit": 1,
+		"retry": 4
 	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,

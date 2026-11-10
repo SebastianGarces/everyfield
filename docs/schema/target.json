@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 102,
-  "column_count": 1193,
-  "foreign_key_count": 360,
+  "table_count": 103,
+  "column_count": 1200,
+  "foreign_key_count": 362,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -217,7 +217,8 @@
       "native",
       "core_values",
       "launch_summary",
-      "church_document"
+      "church_document",
+      "church_template"
     ],
     "document.document_class": [
       "formal/legal",
@@ -390,6 +391,9 @@
       "sent",
       "cancelled",
       "failed"
+    ],
+    "mail.refusal": [
+      "unsubscribed"
     ],
     "mail_attempt.outcome": [
       "in_flight",
@@ -1377,11 +1381,16 @@
       "documents.copied",
       "documents.created_from_template",
       "documents.designated",
+      "documents.export_deleted",
       "documents.exported",
       "documents.generated",
       "documents.imported",
       "documents.purged",
       "documents.saved",
+      "documents.template_deleted",
+      "documents.template_details_changed",
+      "documents.template_saved",
+      "documents.template_updated",
       "evry.conversation_created",
       "evry.proposal_approved",
       "evry.proposal_cancelled",
@@ -6797,6 +6806,30 @@
       ]
     },
     {
+      "table": "person_email_opt_out",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-028"
+      ],
+      "meaning": "A CRM person's opt-out from one church's Messages email (D-284). Only the person's own token writes it.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the opt-out.",
+      "merge_policy": "Keep the opt-out on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays unsubscribed while merged.",
+      "inverse_policy": "Unmerge does not move an opt-out, because the merge did not move it.",
+      "retirement_policy": "A retired person gets no Messages email anyway. The opt-out stays under that person.",
+      "privacy_policy": "An opt-out never transfers account grants, account notification preferences or marketing consent.",
+      "immutable_evidence_policy": "Who, which church and when stay as written; only the person's one-hour undo stamps undone_at.",
+      "future_case_ids": [
+        "CASE-NTF-016"
+      ]
+    },
+    {
       "table": "mail",
       "columns": [
         "recipient_person_id",
@@ -11695,7 +11728,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -16899,6 +16932,12 @@
           "name": "input_provenance",
           "type": "jsonb",
           "nullable": true
+        },
+        {
+          "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
+          "name": "description",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -16985,8 +17024,9 @@
       ],
       "checks": [
         "((kind = 'church_document') = (template_id IS NOT NULL)) AND ((kind = 'church_document') = (template_version IS NOT NULL)) AND ((kind = 'church_document') = (document_class IS NOT NULL)) AND ((kind = 'church_document') = (use_church_branding IS NOT NULL)) AND ((kind = 'church_document') = (input_provenance IS NOT NULL)) AND ((template_version IS NULL) OR (template_version >= 1)) AND ((input_provenance IS NULL) OR (octet_length(input_provenance::text) <= 65536))",
+        "((kind <> 'church_template') OR ((copied_from_revision_id IS NOT NULL) AND (copied_from_hash IS NOT NULL)))",
         "(revision >= 1)",
-        "kind in ('native', 'core_values', 'launch_summary', 'church_document')",
+        "kind in ('native', 'core_values', 'launch_summary', 'church_document', 'church_template')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
       ],
       "indexes": {
@@ -17058,6 +17098,7 @@
         "checks": [
           "document_ck_0",
           "document_ck_1",
+          "document_church_template",
           "document_ck_2",
           "document_church"
         ]
@@ -22050,6 +22091,12 @@
           "name": "address_hash",
           "type": "text",
           "nullable": true
+        },
+        {
+          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead.",
+          "name": "refusal",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -22219,7 +22266,8 @@
         "((frozen_payload IS NOT NULL) OR (state = ANY (ARRAY['unknown'::text, 'refused'::text, 'accepted'::text, 'scheduled'::text, 'sent'::text, 'cancelled'::text, 'failed'::text])))",
         "((frozen_payload IS NULL) = (address_hash IS NULL))",
         "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
-        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))"
+        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))",
+        "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
       ],
       "indexes": {
         "mail_ref_1": {
@@ -22362,6 +22410,7 @@
           "mail_fk_7"
         ],
         "checks": [
+          "mail_refusal",
           "mail_ck_0",
           "mail_ck_1",
           "mail_ck_2",
@@ -27785,6 +27834,183 @@
           "person_ck_7",
           "person_ck_8",
           "person_ck_9"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "person_email_opt_out",
+      "domain": "communication",
+      "purpose": "A CRM person's opt-out from one church's Messages email (D-284): per church and per person, keyed by the Person and never by the address. The person's own token writes it from the Unsubscribe page or the one-click header; its undo sets undone_at within one hour. Messages refuses an opted-out person, and a merged-away Person's opt-out still covers the survivor through merge lineage.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-046"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-028"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-028"
+        ],
+        "rule": "WP-028 Messages delivery records a Messages opt-out from the person's own token."
+      },
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-016--NTF-016"
+      ],
+      "future_case_ids": [],
+      "scope": "communication",
+      "invariants": [
+        "At most one current (undone_at IS NULL) opt-out per Person.",
+        "Only the person's token writes it; no staff operation clears or rewrites it, and the runtime login cannot delete it or change any column except undone_at.",
+        "An address change on the Person does not lift it.",
+        "It never changes account notification preferences, marketing consent or any other CRM field."
+      ],
+      "revision": "No revision column; an opt-out is one row, and its undo stamps undone_at once.",
+      "idempotency": "A second unsubscribe while one is current changes nothing; an undo token names the opt-out row it can undo.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Opt-out identity; an undo token names it.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church whose Messages email the person stopped.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The CRM Person who unsubscribed. Not moved by a merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the person unsubscribed.",
+          "name": "opted_out_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "When the person undid it from the opt-out page, within one hour; null while current.",
+          "name": "undone_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "person_id"
+          ],
+          "where": "undone_at IS NULL"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The opt-out goes with its Person in the church purge. The runtime login cannot delete it."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "((undone_at IS NULL) OR (undone_at >= opted_out_at))"
+      ],
+      "indexes": {
+        "person_email_opt_out_current": {
+          "name": "person_email_opt_out_current",
+          "isUnique": true,
+          "where": "undone_at IS NULL",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_email_opt_out_plant": {
+          "name": "person_email_opt_out_plant",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "person_email_opt_out_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "person_email_opt_out_plant_id_plant_id_fk",
+          "person_email_opt_out_person"
+        ],
+        "checks": [
+          "person_email_opt_out_undone"
         ]
       },
       "policies": {},

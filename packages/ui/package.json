@@ -20,7 +20,8 @@
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
-		"lint": "eslint --max-warnings=0 ."
+		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
 	},
 	"dependencies": {
 		"@hugeicons/core-free-icons": "4.3.5",
@@ -37,11 +38,10 @@
 	"devDependencies": {
 		"@types/react": "19.3.0",
 		"@types/react-dom": "19.3.0",
-		"eslint": "^9.39.0",
 		"next": "16.4.1",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"typescript": "6.0.3",
-		"typescript-eslint": "^8.57.0"
+		"oxlint": "1.92.0"
 	}
 }

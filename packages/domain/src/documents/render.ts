@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { renderDocumentWithLayout } from "@formepdf/core";
+import { findTextRegions, renderDocumentWithLayout } from "@formepdf/core";
+import { PLACEHOLDER } from "./doc-values.ts";
 import { hash } from "../operations/canonical.ts";
 import type { AgendaMeeting } from "./agenda-meeting.ts";
 import type { CatalogTemplate } from "./catalog.ts";
@@ -75,8 +76,12 @@ export type PdfRender = {
 	fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[];
 };
 
-/** Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). */
-export async function renderPdfElement(element: unknown): Promise<PdfRender> {
+/**
+ * Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). With `placeholders`, each
+ * bracketed placeholder ([date], [number]) the PDF prints gets the placeholder highlight, found in the laid-out PDF
+ * itself so it sits exactly under the printed text.
+ */
+export async function renderPdfElement(element: unknown, { placeholders = false } = {}): Promise<PdfRender> {
 	const laid = await renderDocumentWithLayout(element as never);
 	const text = laid.layout.pages.map((page) => {
 		const lines: string[] = [];
@@ -87,7 +92,10 @@ export async function renderPdfElement(element: unknown): Promise<PdfRender> {
 		for (const node of page.elements) walk(node as never);
 		return lines;
 	});
-	const done = await finishForm(laid.pdf);
+	const highlights = placeholders
+		? await findTextRegions(laid.pdf, [{ pattern: PLACEHOLDER.source, pattern_type: "Regex" }])
+		: [];
+	const done = await finishForm(laid.pdf, highlights);
 	return { bytes: finish(done.bytes), pages: laid.layout.pages.length, text, fields: done.fields };
 }
 

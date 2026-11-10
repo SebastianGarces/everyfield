@@ -1,4 +1,5 @@
 import { getViewer } from "@/server/request-context";
+import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -34,6 +35,7 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			canPreview={loaded.canPreview}
 			canEdit={canEditDocuments(viewer.authority)}
 			canStore={canStoreDocuments()}
+			textTemplates={TEXT_TEMPLATE_IDS}
 			written={writtenScope(viewer.authority)}
 		/>
 	);

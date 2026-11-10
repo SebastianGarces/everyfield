@@ -35,6 +35,22 @@ frozen record, so it does not show work landed since the cutover. Global kickoff
 separate from milestone readiness. G-WORKFLOW closes when W0 to W5 merge and one task runs end to end through Phase 7.
 This document does not claim that closure.
 
+## Changes to evf itself
+
+File a change to evf as a task in the evf-v2 project (`~/dev/evf-v2`), not in this repo. That project uses the local
+forge with base `main`, so a landed evf task moves evf-v2's `main`. Once `main` moves, evf installs itself. It builds
+that commit, backs up `~/.cargo/bin/evf`, swaps the new binary in, restarts every evf service, including this repo's
+`:4384`, and checks that each one is healthy on the new commit. If any step fails, it puts the old binary back. Nobody
+runs an install step by hand. `evf --version` names the commit the binary in use was built from. A failed install shows
+a notice on the dashboard. `~/dev/evf-v2/README.md` ("Self-install") gives the backups, the logs and the way to turn it
+off.
+
+Coming with evf-v2 branch `evf/t94-carry-proof` (`050dc0a`, T-94), and not in the evf in use until evf-v2 task T-1 lands
+it on evf-v2 `main` and self-install deploys it: a merge or rebase of main that leaves a task's own lines alone keeps its
+proofs and the owner's approval, even when main edited a line next to the task's hunk and the change id moved (T-79 lost
+26 proofs that way). Checks and the review still run again. Any edit to the task's own lines voids both. `DESIGN.md`
+("A carry") on that branch gives the rule. Self-install is the deploy. Nobody swaps the binary by hand.
+
 ## Tools that moved
 
 | Need | Use |

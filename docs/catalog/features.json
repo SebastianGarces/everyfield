@@ -4575,6 +4575,33 @@
     ]
   },
   {
+    "id": "NTF-016",
+    "title": "Per-church, per-person Messages email opt-out for CRM people",
+    "module": "notifications",
+    "behavior": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
+    "spec_file": "docs/product/communications-notifications.md#notification-product",
+    "requirement_ids": [
+      "REQ-NTF-016"
+    ],
+    "operations": [
+      "communication.applyMessagesOptOut",
+      "communication.describeMessagesOptOut",
+      "communication.undoMessagesOptOut"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-016--NTF-016"
+    ],
+    "case_ids": [
+      "CASE-NTF-016"
+    ],
+    "work_packages": [
+      "WP-028"
+    ],
+    "routes": [
+      "/unsubscribe/[token]"
+    ]
+  },
+  {
     "id": "DOC-001",
     "title": "Document template library, filtering and contextual entry points",
     "module": "documents",
@@ -10230,7 +10257,7 @@
     "id": "DOC-020",
     "title": "Doctrinal sections as network-filled slots",
     "module": "documents",
-    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill but cannot delete. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
+    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill or delete, and the block menu can add it back. A deleted slot is left out of later revisions and their exports entirely; earlier revisions keep it. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
     "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
     "requirement_ids": [
       "REQ-DOC-020"
@@ -10281,7 +10308,7 @@
     "id": "DOC-022",
     "title": "Church Documents from editable templates",
     "module": "documents",
-    "behavior": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF.",
+    "behavior": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF. An Owner or Admin can also save one saved revision of a Church Document as the church's own template (\"Save as template\"). A church template is a full copy of that revision's page setup, fields and body without its origin and frozen merge values. A document made from it resolves the church's current details once, as above, and records the church template's id, name and the version it was made from. The template keeps the document class, so a template saved from a formal/legal document keeps the DOC-019 notice. Editing or deleting the document it was saved from, or a document made from it, never changes the template. Only a current Owner or Admin of the church plant saves, deletes or uses a church template in \"New from template\". A Member does not see it, and no other church plant sees or uses it. Deleting a church template removes it from \"New from template\" and leaves the documents already made from it unchanged. An Owner or Admin can also save a saved revision of any of the church's Church Documents over one of its live church templates (\"Update a template\"). The template keeps its name and description and gains its next version: v1 becomes v2, v2 becomes v3. The request names the version it replaces, so an update from a version that is no longer current is refused as a conflict and writes nothing, and the same request key makes one version. Every earlier version stays stored unchanged, and \"New from template\" copies the newest. A document made from an earlier version keeps its content, revisions, saved exports, origin and recorded version. A version saved from a formal/legal document keeps the formal/legal class and the DOC-019 notice. Each update writes one `documents.template_updated` audit event naming the actor, the template, the version it replaced, the new version and the source document and revision. An Owner or Admin can also rename a live church template or change its description, from its card in \"New from template\" (a pencil button beside Delete). The name and description belong to the template row and keep the limits of \"Save as template\": a name of 1 to 200 characters and a description of up to 500 characters, which may be cleared. An edit makes no new version: the version, every stored revision and every document made earlier stay as they were. A document made after the edit takes the new name as its title. Earlier documents keep their own title, revisions, stored origin and exports, and their \"from\" line in the library and the document header shows the template's current name with the version they were made from. A later update carries the current name and description into the next version. The same request key makes one change, the same key with another template, name or description is refused as a conflict, a save that changes nothing writes nothing, and the last write wins. An edit from a Member, from another church plant's seat, of another church's template or of a deleted template is refused and writes nothing. Each edit writes one `documents.template_details_changed` audit event naming the actor and the template, with the name and description before and after.",
     "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
     "requirement_ids": [
       "REQ-DOC-022"
@@ -10306,7 +10333,7 @@
     "id": "DOC-023",
     "title": "Church Document export as PDF and Word",
     "module": "documents",
-    "behavior": "A user who can read a template-made Church Document exports one revision as a PDF or a DOCX. The PDF comes from the Forme engine with PDF/UA tagging. Both formats use the theme that `resolveDocumentTheme(church, documentClass)` returns, the \"use church branding\" toggle and the Everyfield-neutral fallback. The DOCX carries the theme's logo with alt text, fonts, colors and letterhead footer where Word can show them. Each export saves one `generated_document` under DOC-003. That record holds the document id and revision as frozen provenance. A later download returns the exact saved bytes after later edits, brand kit changes or template changes. The DOC-002 limits apply to the export (8 MiB and 1,000 content blocks), and a render failure is truthful. Only a Church Document made from a template exports, because only these documents carry a document class.",
+    "behavior": "A user who can read a template-made Church Document exports one revision as a PDF or a DOCX. The PDF comes from the Forme engine with PDF/UA tagging. Both formats use the theme that `resolveDocumentTheme(church, documentClass)` returns, the \"use church branding\" toggle and the Everyfield-neutral fallback. The DOCX carries the theme's logo with alt text, fonts, colors and letterhead footer where Word can show them. Each export saves one `generated_document` under DOC-003. That record holds the document id and revision as frozen provenance. A later download returns the exact saved bytes after later edits, brand kit changes or template changes. The DOC-002 limits apply to the export (8 MiB and 1,000 content blocks), and a render failure is truthful. Only a Church Document made from a template exports, because only these documents carry a document class. On the document's page each Download saves one export of the shown revision and then downloads that export's stored bytes; the live preview stays a fresh render and saves nothing. The page lists the latest 100 saved exports newest first with revision, format, date and time and who exported it, and any seat downloads a row. Only an Owner or Admin deletes a saved export, after a confirm, with one audit row.",
     "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
     "requirement_ids": [
       "REQ-DOC-023"

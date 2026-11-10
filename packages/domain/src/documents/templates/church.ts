@@ -40,9 +40,7 @@ export const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
 	{ key: "pastor_name", label: "Pastor name", required: false, autoFill: "pastor_name" },
 ];
 
-/** The visible blank an unfilled doctrinal slot prints, in the PDF and the DOCX. It is never doctrinal text. */
-export const SLOT_BLANK_NOTE =
-	"Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
+export { SLOT_BLANK_NOTE } from "../doc-values.ts";
 
 /** How a merge value with no source reads in the text. It is never an invented name. */
 const blankFor = (key: string) => `[${(MERGE_FIELDS.find((f) => f.key === key)?.label ?? key).toLowerCase()}]`;
@@ -160,6 +158,12 @@ export const CHURCH_TEMPLATES: ChurchTemplate[] = [
 		body: PRAYER_LETTER_BODY,
 	},
 ];
+
+/**
+ * The authored text templates. On Documents each offers both ways to make a document: "Save for your church" (a saved
+ * file, `documents.generate`) and "Create Church Document" (`documents.createFromTemplate`). Sebastian, 2026-11-04.
+ */
+export const TEXT_TEMPLATE_IDS: readonly string[] = CHURCH_TEMPLATES.map((template) => template.id);
 
 export const churchTemplate = (id: string) => CHURCH_TEMPLATES.find((template) => template.id === id);
 

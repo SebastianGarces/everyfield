@@ -153,15 +153,15 @@ after(async () => {
 });
 
 describe("WP-036/api document templates", { concurrency: 1 }, () => {
-	test("CASE-DOC-001 the library lists 11 templates and 11 formats, and a retired id does not resolve", async () => {
+	test("CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
 		const owner = await authority(0);
 		const discovery = await authority(4);
 		assert.equal(discovery.actor.context.kind, "account");
 		const page = ok(await documentsReader["templates.list"](db, owner, {}));
 		const discovered = ok(await documentsReader["templates.list"](db, discovery, {}));
-		assert.equal(page.templateCount, 11);
-		assert.equal(page.formatCount, 11);
-		assert.equal(discovered.templateCount, 11);
+		assert.equal(page.templateCount, 13);
+		assert.equal(page.formatCount, 13);
+		assert.equal(discovered.templateCount, 13);
 		assert.deepEqual(
 			page.templates.map((template) => template.id),
 			discovered.templates.map((template) => template.id),
@@ -169,7 +169,8 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const frozen = await loadStarter();
 		assert.deepEqual(
 			page.templates.map((template) => template.id),
-			frozen.catalogs.documents.map((template) => template.id),
+			// The frozen catalog rows, then the text templates authored in code.
+			[...frozen.catalogs.documents.map((template) => template.id), "bylaws", "prayer-letter"],
 		);
 		assert.equal(page.version, await referenceArtifactSha256());
 		for (const template of page.templates) {
@@ -228,7 +229,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const { templates } = await library();
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			11,
+			13,
 		);
 		for (const template of templates) {
 			for (const format of template.formats) {
@@ -353,10 +354,11 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 
 	test("GAP-REF-003 REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
 		const { templates, version } = await library();
-		assert.equal(templates.length, 11);
+		// The 11 frozen catalog rows, then Bylaws and Prayer Letter, authored in code.
+		assert.equal(templates.length, 13);
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			11,
+			13,
 		);
 		assert.equal(version, await referenceArtifactSha256());
 		const card = templates.find((template) => template.id === "commitment-card");
