@@ -1,10 +1,21 @@
-import type { ChurchBlock } from "@everyfield/contracts/documents";
+import type { ChurchBlock, InlineNode } from "@everyfield/contracts/documents";
 import type { ReactNode } from "react";
 import { H2, H3, Page } from "@formepdf/react";
 import { FONT, SIZE, SP } from "../theme.ts";
 import { SLOT_BLANK_NOTE, type ChurchTemplate } from "../templates/church.ts";
 import { Cellfield, DataTable, Field, Footer, LogoSlot, SectionHead, T, Title, View, type Ctx } from "./blocks.tsx";
 import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
+import { statementParagraphs } from "../network-statement.ts";
+
+/** A paragraph's text, split at each hard break. */
+function lineTexts(content: readonly InlineNode[]) {
+	const lines = [""];
+	for (const node of content) {
+		if (node.type === "hardBreak") lines.push("");
+		else if (node.type === "text") lines[lines.length - 1] += node.text;
+	}
+	return lines;
+}
 
 function list(ctx: Ctx, block: Extract<ChurchBlock, { items: string[] }>, key: number) {
 	const { p } = ctx;
@@ -29,7 +40,11 @@ function list(ctx: Ctx, block: Extract<ChurchBlock, { items: string[] }>, key: n
 function slot(ctx: Ctx, template: ChurchTemplate, block: Extract<ChurchBlock, { kind: "slot" }>, key: number) {
 	const { p } = ctx;
 	const label = template.slots.find((s) => s.id === block.slotId)?.label ?? block.slotId;
-	const lines = block.text.split("\n").filter((line) => line.trim());
+	// One paragraph per blank-line-separated block, a single line break kept as a line: the same split a Church Document
+	// made from the template holds (network-statement.ts), so the preview and its revision 1 print the same paragraphs.
+	const paragraphs = statementParagraphs(block.text).map((para) =>
+		lineTexts(para.content ?? []).filter((line) => line.trim()),
+	);
 	return (
 		<View
 			key={key}
@@ -37,10 +52,12 @@ function slot(ctx: Ctx, template: ChurchTemplate, block: Extract<ChurchBlock, { 
 			style={{ borderWidth: 1, borderColor: p.fieldBorder, padding: SP[3], marginVertical: SP[2], minHeight: 72 }}
 		>
 			{T(ctx, label, { size: SIZE.xs, weight: 700, color: p.mutedText, use: "doctrinal slot label", caps: true })}
-			{lines.length
-				? lines.map((line, i) => (
+			{paragraphs.length
+				? paragraphs.map((lines, i) => (
 						<View key={i} style={{ marginTop: SP[1] }}>
-							{T(ctx, line, { size: SIZE.base, color: p.ink, use: "doctrinal slot text" })}
+							{lines.map((line, j) => (
+								<View key={j}>{T(ctx, line, { size: SIZE.base, color: p.ink, use: "doctrinal slot text" })}</View>
+							))}
 						</View>
 					))
 				: T(ctx, SLOT_BLANK_NOTE, { size: SIZE.sm, color: p.mutedText, use: "doctrinal slot blank" })}

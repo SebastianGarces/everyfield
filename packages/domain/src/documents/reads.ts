@@ -135,7 +135,7 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 		deny("invalid_subject");
 	const done = resolved(loaded, template, input.format, cleaned.values, viewer.plantId, row);
 	if (!withArtifact) return c.contextResult.parse(done.value);
-	const bytes = await rendered(template, input.format, done.merge, agendaFor ? row.meeting : null);
+	const bytes = await rendered(template, input.format, done.merge, agendaFor ? row.meeting : null, row.statement);
 	return c.previewResult.parse({
 		...done.value,
 		artifact: bytes ? bytes.toString("base64") : null,
@@ -176,16 +176,20 @@ function resolved(
 	return { value, merge };
 }
 
-/** Bytes, or null when a required field is missing. A meeting's rows print only when `printFrom` is given. */
+/**
+ * Bytes, or null when a required field is missing. A meeting's rows print only when `printFrom` is given. The network's
+ * statement of faith fills a `statement-of-faith` slot.
+ */
 async function rendered(
 	template: CatalogTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	merge: Extract<ResolvedMerge, { ok: true }>,
 	printFrom: MeetingRead | null,
+	statement: string | null = null,
 ) {
 	try {
 		const meeting = printFrom ? agendaMeetingOf(printFrom, new Date().getUTCFullYear()) : undefined;
-		return await renderPreview(template, format, merge, undefined, meeting);
+		return await renderPreview(template, format, merge, undefined, meeting, statement);
 	} catch (error) {
 		if (error instanceof RenderFailed) deny("render_failed");
 		throw error;

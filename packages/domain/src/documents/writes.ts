@@ -174,7 +174,9 @@ const generatedWriter = {
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
 			let bytes: Buffer | null;
 			try {
-				bytes = await renderPreview(template, input.format, resolved);
+				// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the
+				// same key returns the file saved earlier.
+				bytes = await renderPreview(template, input.format, resolved, undefined, undefined, plant.statement);
 			} catch (error) {
 				if (error instanceof RenderFailed) deny("render_failed");
 				throw error;
