@@ -86,15 +86,14 @@ export async function accountOpen(db: Reader, authority: RequestActor) {
 }
 
 export type PlantFacts = { churchName: string | null; pastorName: string | null; launchDate: string | null };
-/** The sending network's statement of faith for the plant (D-108), read with the plant (D-417), or null. */
-export type NetworkStatement = { statement: string | null };
 export type PlantRead =
 	| { open: false }
 	| { open: true; subjectOk: false }
-	| ({ open: true; subjectOk: true } & PlantFacts &
-			NetworkStatement & {
+	| ({ open: true; subjectOk: true } & PlantFacts & {
 				/** The live meeting named as the subject, with its agenda and list; null for no meeting or a retired one. */
 				meeting: MeetingRead | null;
+				/** The sending network's statement of faith (D-108), read with the plant (D-417), or null. */
+				statement: string | null;
 			});
 
 function asText(value: unknown) {
