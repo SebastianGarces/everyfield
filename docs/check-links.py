@@ -10,6 +10,8 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 # These source-relative links are retained verbatim in an upstream skill, which is not editable here.
+# Schemes a document may link: the web, and the in-page ones the HTML prototypes use.
+WEB_SCHEMES = {'http', 'https', 'mailto', 'tel', 'data', 'javascript'}
 UPSTREAM_LINKS = {
     ('.agents/skills/principle-explain-the-number/SKILL.md', '../benchmark-checklist/SKILL.md'),
     ('.agents/skills/vercel-react-best-practices/AGENTS.md', './async-defer-await.md'),
@@ -54,6 +56,10 @@ def main():
             urls = parser.links
         for url in urls:
             parts = urlsplit(url)
+            # A link to another tool's private address (such as a retired harness note) can never open from the repo.
+            if parts.scheme and parts.scheme not in WEB_SCHEMES:
+                errors.append(f'{relative}: {url} (only web links leave the repository)')
+                continue
             if parts.scheme or parts.netloc or not parts.path or parts.path.startswith('/'):
                 continue
             if (relative, url) in UPSTREAM_LINKS:
