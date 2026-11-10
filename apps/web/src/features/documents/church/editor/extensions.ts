@@ -11,51 +11,23 @@ import Text from "@tiptap/extension-text";
 import Underline from "@tiptap/extension-underline";
 import { UndoRedo } from "@tiptap/extensions";
 import { closeHistory } from "@tiptap/pm/history";
-import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
+import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type ViewMutationRecord } from "@tiptap/pm/view";
 import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
+import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
 // mapping layer for prose. An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a
-// document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot,
-// table and the inline field) load, show, move, delete and save unchanged.
+// document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot
+// and the inline field) load, show, move, delete and save unchanged.
 
-type Kind = "string" | "number" | "boolean" | "json";
-type Attrs = Record<string, unknown>;
-
-/** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */
-function attr(name: string, kind: Kind = "string") {
-	const html = `data-ef-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
-	return {
-		default: undefined as unknown,
-		parseHTML: (el: HTMLElement) => {
-			const raw = el.getAttribute(html);
-			if (raw === null) return undefined;
-			if (kind === "number") return Number(raw);
-			if (kind === "boolean") return raw === "true";
-			if (kind === "json") return JSON.parse(raw) as unknown;
-			return raw;
-		},
-		renderHTML: (attrs: Attrs) => {
-			const value = attrs[name];
-			if (value === undefined) return {};
-			return {
-				[html]: kind === "json" || kind === "number" || kind === "boolean" ? JSON.stringify(value) : String(value),
-			};
-		},
-	};
-}
-const attrsOfSpec = (spec: Record<string, Kind>) =>
-	Object.fromEntries(Object.entries(spec).map(([name, kind]) => [name, attr(name, kind)]));
-
-const BLOCKS = "block colblock boxblock";
 /** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
 const REGION_BLOCKS = "(colblock | columns)*";
-const px = (pt: number) => `${((pt * 4) / 3).toFixed(2)}px`;
 
 // ---------------------------------------------------------------- prose
 
@@ -345,108 +317,6 @@ export const EfPageNumber = Node.create({
 		node.attrs.format === "page" ? "Page 1" : "Page 1 of 1",
 	],
 });
-
-// ---------------------------------------------------------------- later-slice blocks
-
-const KIND_LABEL: Record<string, (attrs: Attrs) => string> = {
-	columns: () => "Columns",
-	box: () => "Box",
-	image: (a) => `Image · ${String(a.source ?? "logo")}`,
-	writeIn: (a) => (a.kind === "signature" ? "Signature line" : a.kind === "date" ? "Date line" : "Write-in line"),
-	table: () => "Table",
-};
-export const blockLabel = (node: PMNode) => KIND_LABEL[node.type.name]?.(node.attrs) ?? node.type.name;
-
-function laterNode(
-	name: string,
-	options: {
-		group?: string;
-		content?: string;
-		attrs: Record<string, Kind>;
-		atom?: boolean;
-		leaf?: (node: PMNode) => string;
-	},
-) {
-	return Node.create({
-		name,
-		group: options.group,
-		content: options.content,
-		atom: options.atom ?? false,
-		isolating: true,
-		addAttributes: () => attrsOfSpec(options.attrs),
-		parseHTML: () => [{ tag: `div[data-ef-node="${name}"]` }],
-		renderHTML({ node, HTMLAttributes }) {
-			const attrs = mergeAttributes(HTMLAttributes, { "data-ef-node": name });
-			if (options.leaf) return ["div", attrs, options.leaf(node)];
-			return ["div", attrs, 0];
-		},
-		// A block with content is shown read-only: its kind as a label, and its content drawn by the same rules.
-		addNodeView: options.atom && options.content ? () => readOnlyView : undefined,
-	});
-}
-
-function readOnlyView({ node, editor }: { node: PMNode; editor: Editor }) {
-	const serializer = DOMSerializer.fromSchema(editor.schema);
-	const dom = document.createElement("div");
-	dom.className = "ef-block";
-	dom.setAttribute("data-ef-node", node.type.name);
-	dom.contentEditable = "false";
-	const draw = (current: PMNode) => {
-		dom.replaceChildren();
-		const label = document.createElement("span");
-		label.className = "ef-block-label";
-		label.textContent = blockLabel(current);
-		const body = document.createElement("div");
-		body.className = "ef-block-body";
-		// A table's header cells come from its column list, and its blank write-in rows from `writeInRows`.
-		if (current.type.name === "table") body.append(...tableExtras(current, "header"));
-		for (let i = 0; i < current.childCount; i++) body.append(serializer.serializeNode(current.child(i)));
-		if (current.type.name === "table") body.append(...tableExtras(current, "blank"));
-		dom.append(label, body);
-	};
-	draw(node);
-	return {
-		dom,
-		update(next: PMNode) {
-			if (next.type !== node.type) return false;
-			draw(next);
-			return true;
-		},
-		ignoreMutation: () => true,
-	};
-}
-
-function tableExtras(table: PMNode, part: "header" | "blank"): HTMLElement[] {
-	const columns = (table.attrs.columns as { label?: string }[] | undefined) ?? [];
-	const row = (cells: string[], header: boolean) => {
-		const dom = document.createElement("div");
-		dom.setAttribute("data-ef-node", "row");
-		if (header) dom.setAttribute("data-ef-header", "");
-		for (const text of cells) {
-			const cell = document.createElement("div");
-			cell.setAttribute("data-ef-node", "cell");
-			cell.textContent = text;
-			dom.append(cell);
-		}
-		return dom;
-	};
-	if (part === "header")
-		return table.attrs.header === false
-			? []
-			: [
-					row(
-						columns.map((c) => c.label ?? ""),
-						true,
-					),
-				];
-	const blank = typeof table.attrs.writeInRows === "number" ? table.attrs.writeInRows : 0;
-	return Array.from({ length: Math.min(blank, 8) }, () =>
-		row(
-			columns.map(() => ""),
-			false,
-		),
-	);
-}
 
 // ---------------------------------------------------------------- layout blocks
 
@@ -745,25 +615,6 @@ function isBlankSlot(node: PMNode) {
 	return !field && node.textContent.trim() === "";
 }
 
-export const EfTable = laterNode("table", {
-	group: BLOCKS,
-	content: "row*",
-	attrs: {
-		columns: "json",
-		style: "string",
-		header: "boolean",
-		headerFill: "string",
-		zebra: "boolean",
-		writeInRows: "number",
-		rowHeight: "number",
-		source: "string",
-		sheet: "string",
-	},
-	atom: true,
-});
-export const EfRow = laterNode("row", { content: "cell+", attrs: { role: "string", sign: "string" } });
-export const EfCell = laterNode("cell", { content: "inline*", attrs: { value: "number", checked: "boolean" } });
-
 // ---------------------------------------------------------------- placeholders
 
 /** The placeholder spans of a document: each bracketed prompt such as [date] in its text, read from the text itself. */
@@ -968,6 +819,7 @@ export function editorExtensions(assets: Assets | null = null) {
 		EfTable,
 		EfRow,
 		EfCell,
+		EfValueCell,
 		HardBreak,
 		EfField,
 		EfPageNumber,
@@ -980,6 +832,8 @@ export function editorExtensions(assets: Assets | null = null) {
 		HeadingNumbers,
 		Placeholders,
 		LayoutRules,
+		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
+		TableRules,
 	];
 }
 
