@@ -89,6 +89,8 @@ function joinText(nodes: unknown[]) {
 }
 
 const key = (value: unknown) => JSON.stringify(normal(value));
+/** Two values are the same when their comparable forms are: schema defaults filled, undeclared attributes dropped. */
+export const sameKey = key;
 
 /** A header or footer with no blocks prints nothing, so it counts as no region. */
 const region = (value: Region | null | undefined): Region | null => (value?.content?.length ? value : null);

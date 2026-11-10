@@ -14,6 +14,7 @@ export {
 	type DocDifference,
 	type PageLayout,
 } from "./compare.ts";
+export { wordChanges, type ChangeNote, type WordChanges, type WordRun } from "./words.ts";
 export {
 	attrsOf,
 	attrIssue,

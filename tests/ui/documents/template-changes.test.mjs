@@ -8,6 +8,7 @@
 // Seed the People fixture first (tests/ui/people/seed.mts). SHOT_DIR (outside the repository) collects screenshots at
 // 390 and 1440 px in light and dark mode.
 //   AC:DOC-TEMPLATE-CHANGES  criteria 5, 8 and 14 (both views, a mark for each kind, accept from All differences)
+//   T-82 criterion 11: the reworded paragraph's removed and added words carry their marks on each side.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
@@ -168,6 +169,15 @@ test("AC:DOC-TEMPLATE-CHANGES: Template changes lists only the template's change
 		await both.getByText("Template, new version", { exact: true }).waitFor();
 		await both.getByText(OURS).waitFor();
 		await both.getByText(THEIRS).waitFor();
+		// T-82: the words that differ are marked on each side; the words both share are not.
+		const marks = (side, tag) =>
+			both
+				.locator(`div:has(> p:text-is("${side}")) .ef-paper ${tag}`)
+				.evaluateAll((els) => els.map((el) => el.textContent));
+		assert.deepEqual(await marks("Your document", "del"), ["Our"]);
+		assert.deepEqual(await marks("Your document", "ins"), []);
+		assert.deepEqual(await marks("Template, new version", "ins"), ["The", "plant and keeps those decisions fair"]);
+		assert.deepEqual(await marks("Template, new version", "del"), []);
 		await changes.nth(1).getByText("In template only", { exact: true }).waitFor();
 		await changes.nth(1).getByText(CLOSING).waitFor();
 		assert.equal(await compareView(page).getByText(OWN).count(), 0, "the church's own edit is not listed");

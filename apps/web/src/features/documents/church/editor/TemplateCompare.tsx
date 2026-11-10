@@ -1,14 +1,17 @@
 "use client";
 
 import { ArrowLeft01Icon, CheckmarkCircle02Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
-import type {
-	BlockNode,
-	ChurchCompare,
-	CompareView,
-	DocBrand,
-	DocDifference,
-	DocDocument,
-	PageLayout,
+import {
+	wordChanges,
+	type BlockNode,
+	type ChangeNote,
+	type ChurchCompare,
+	type CompareView,
+	type DocBrand,
+	type DocDifference,
+	type DocDocument,
+	type PageLayout,
+	type WordRun,
 } from "@everyfield/contracts/documents";
 import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
@@ -16,12 +19,14 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
+import { WORD_MARK, wordMarks } from "./word-marks.ts";
 
 // "Compare with template": the document's saved revision beside the current template, block by block, in reading
 // order, as two lists (D-423). "Template changes" opens first: only what the template changed since the version the
 // document records, so the church's own edits are not listed. "All differences" lists every difference (T-19). The
 // person picks the items to take; accepting saves them as one new revision. Each item says what it is in words, so
-// the color only repeats the label.
+// the color only repeats the label. Inside a changed item the words that differ are marked on each side (T-82): only
+// to read the change, since accepting takes the whole block.
 
 type Props = {
 	docId: string;
@@ -62,6 +67,13 @@ const KIND: Record<DocDifference["kind"], { label: string; take: string; chip: s
 		take: "Use the template's version",
 		chip: "bg-violet-100 text-violet-600",
 	},
+};
+
+/** What changed beside the words, said on the item. */
+const NOTE: Record<ChangeNote, string> = {
+	formatting: "Formatting changed",
+	spacing: "Spacing changed",
+	settings: "Settings changed",
 };
 
 const VIEW_LABEL: Record<CompareView, string> = { changes: "Template changes", all: "All differences" };
@@ -429,11 +441,16 @@ function DifferenceCard({
 	onToggle: (on: boolean) => void;
 }) {
 	const kind = KIND[d.kind];
+	const words = useMemo(() => wordChanges(d), [d]);
+	const notes = words && words.show !== "whole" ? words.notes : [];
 	// A block the template removed after the church changed it: the template's side says so in words.
 	const goneFromTemplate = d.kind === "both" && d.template === null;
+	const marked = (side: "document" | "template") => (words?.show === "words" ? words[side] : null);
 	const sides = [
-		d.document !== null ? { who: "Your document", value: d.document } : null,
-		d.template !== null ? { who: d.kind === "both" ? "Template, new version" : "Template", value: d.template } : null,
+		d.document !== null ? { who: "Your document", value: d.document, lines: marked("document") } : null,
+		d.template !== null
+			? { who: d.kind === "both" ? "Template, new version" : "Template", value: d.template, lines: marked("template") }
+			: null,
 	].filter((side) => side !== null);
 	return (
 		<li
@@ -445,12 +462,17 @@ function DifferenceCard({
 					{kind.label}
 				</span>
 				<span className="text-sm font-medium text-ink">{partLabel(d)}</span>
+				{notes.map((note) => (
+					<span key={note} className="text-sm text-text-2">
+						&middot; {NOTE[note]}
+					</span>
+				))}
 			</div>
 			<div className={sides.length === 2 || goneFromTemplate ? "grid gap-3 app-md:grid-cols-2" : "grid gap-3"}>
 				{sides.map((side) => (
 					<div key={side.who} className="flex min-w-0 flex-col gap-1.5">
 						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">{side.who}</p>
-						<Side difference={d} value={side.value} values={values} brand={brand} />
+						<Side difference={d} value={side.value} lines={side.lines} values={values} brand={brand} />
 					</div>
 				))}
 				{goneFromTemplate ? (
@@ -470,19 +492,39 @@ function DifferenceCard({
 	);
 }
 
-/** One side of a difference: the title or page setup in words, or the blocks as the paper page shows them. */
+/**
+ * One side of a difference: the title or page setup in words, or the blocks as the paper page shows them. `lines` are
+ * the side's word marks, one list of runs per text line, or null to show the side unmarked.
+ */
 function Side({
 	difference: d,
 	value,
+	lines,
 	values,
 	brand,
 }: {
 	difference: DocDifference;
 	value: unknown;
+	lines: WordRun[][] | null;
 	values: FieldValues;
 	brand: DocBrand;
 }) {
-	if (d.part === "title") return <p className="text-[15px] text-ink">{value as string}</p>;
+	if (d.part === "title")
+		return (
+			<p className="text-[15px] text-ink">
+				{lines
+					? lines[0]!.map((run) => {
+							if (run.op === "kept") return run.text;
+							const Mark = WORD_MARK[run.op].nodeName;
+							return (
+								<Mark key={run.from} className={WORD_MARK[run.op].class}>
+									{run.text}
+								</Mark>
+							);
+						})
+					: (value as string)}
+			</p>
+		);
 	if (d.part === "page")
 		return (
 			<ul className="text-[15px] text-ink">
@@ -501,12 +543,25 @@ function Side({
 						content: (value as { content: unknown[] }).content,
 					},
 				];
-	return <Snippet content={content} values={values} brand={brand} />;
+	return <Snippet content={content} lines={lines} values={values} brand={brand} />;
 }
 
 /** Blocks on a strip of white paper, drawn by the editor's own nodes, read only. */
-function Snippet({ content, values, brand }: { content: unknown[]; values: FieldValues; brand: DocBrand }) {
-	const extensions = useMemo(() => editorExtensions(brand.assets), [brand.assets]);
+function Snippet({
+	content,
+	lines,
+	values,
+	brand,
+}: {
+	content: unknown[];
+	lines: WordRun[][] | null;
+	values: FieldValues;
+	brand: DocBrand;
+}) {
+	const extensions = useMemo(
+		() => [...editorExtensions(brand.assets), ...(lines ? [wordMarks(lines)] : [])],
+		[brand.assets, lines],
+	);
 	// Fields read their values from the root node, so the snippet's root carries the printed values as data.
 	const fields = Object.keys(values).map((key) => ({ key, type: "string", label: key }));
 	const editor = useEditor({
