@@ -76,6 +76,11 @@ const onPage = (run, size, who = "owner") =>
 		size,
 	);
 
+// Tiptap's focus() waits for a frame, so a key sent straight after a scripted cursor move lands on the page body and is
+// lost. People focus with a real click, which is synchronous. Every helper that sets the cursor waits here.
+const frames = (page) =>
+	page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+
 /** Sets the brand kit through the Brand kit screen: colors, then each named image (full_logo, mark, cover_photo). */
 async function brandKit(page, { colors = true, images = [] } = {}) {
 	await page.goto(`${BASE}/settings/brand`, { waitUntil: "networkidle" });
@@ -139,6 +144,7 @@ async function cursorIn(page, starts, offset = -1) {
 		},
 		[starts, offset],
 	);
+	await frames(page);
 }
 
 /** Puts the cursor in the first text block inside the n-th node of `type` (document order). */
@@ -165,6 +171,7 @@ async function cursorInside(page, type, n = 0) {
 		},
 		[type, n],
 	);
+	await frames(page);
 }
 
 /** The columns block these tests add: the one right after the paragraph "The board makes decisions". */
@@ -202,6 +209,7 @@ async function cursorInColumn(page, k) {
 		if (target === null) throw new Error(`no column ${column} in our columns block`);
 		ed.chain().focus().setTextSelection(target).run();
 	}, k);
+	await frames(page);
 }
 
 /** Puts the cursor at the end of the last text block of the page header or footer. */
@@ -219,6 +227,7 @@ async function cursorInRegion(page, type) {
 		if (end === null) throw new Error(`no ${t}`);
 		ed.chain().focus().setTextSelection(end).run();
 	}, type);
+	await frames(page);
 }
 
 /** Selects the n-th node of `type` as a block (a divider, an image, a write-in line). */
@@ -238,6 +247,7 @@ async function selectNode(page, type, n = 0) {
 		},
 		[type, n],
 	);
+	await frames(page);
 }
 
 /**
@@ -1215,6 +1225,8 @@ test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its curs
 
 		await t.test("at 390 px the page setup panel and each block control fit with no sideways scroll", async () => {
 			await page.setViewportSize({ width: 390, height: 844 });
+			// For a frame after the resize the page still measures its old layout (599 px, then 375 px).
+			await frames(page);
 			const fits = async (what) => {
 				const [scroll, width, wide] = await page.evaluate(() => [
 					document.documentElement.scrollWidth,

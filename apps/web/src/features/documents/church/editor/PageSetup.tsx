@@ -17,7 +17,7 @@ import {
 	type PageWithoutRegions,
 	type RegionKey,
 } from "./layout.ts";
-import { Segmented, Tip } from "./LayoutControls.tsx";
+import { Segmented, Tip } from "./ControlParts.tsx";
 
 // The page setup panel: paper size, orientation, the four margins, cards per sheet with cut marks, and the header and
 // footer. Each change applies at once as one step of the editor's history, after the format has checked it. A value the

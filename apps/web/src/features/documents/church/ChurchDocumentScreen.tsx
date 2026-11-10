@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import type { DocBrands, DocDocument, SavedExport } from "@everyfield/contracts/documents";
+import { exportsFor, type DocBrands, type DocDocument, type SavedExport } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
@@ -73,6 +73,8 @@ export function ChurchDocumentScreen({
 		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
 		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
 	};
+	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
+	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
 	const [current, setCurrent] = useState(() => ({
 		document: editable?.document ?? null,
@@ -156,7 +158,7 @@ export function ChurchDocumentScreen({
 				}
 				actions={
 					<>
-						{DOWNLOADS.filter((d) => doc.formats.includes(d.format)).map((d, i) => (
+						{DOWNLOADS.filter((d) => formats.includes(d.format)).map((d, i) => (
 							<Button
 								key={d.format}
 								variant={i === 0 ? "primary" : "secondary"}
@@ -213,13 +215,18 @@ export function ChurchDocumentScreen({
 					brand={brand}
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
-					onRevision={setRevision}
+					onRevision={(next, offered) => {
+						setRevision(next);
+						setFormats(offered);
+					}}
 					revisions={revisions}
 					file={file}
 					template={current.template}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
 						setRevision(next);
+						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
+						setFormats(exportsFor(document.exports, document.body));
 						setCurrent((now) => ({
 							document,
 							revision: next,
