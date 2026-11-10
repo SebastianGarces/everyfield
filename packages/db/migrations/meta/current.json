@@ -5783,12 +5783,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "current_revision_id": {
           "name": "current_revision_id",
           "type": "uuid",
@@ -5847,6 +5841,12 @@
         "input_provenance": {
           "name": "input_provenance",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
@@ -9355,6 +9355,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "refusal": {
+          "name": "refusal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9625,6 +9631,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "mail_refusal": {
+          "name": "mail_refusal",
+          "value": "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+        },
         "mail_ck_0": {
           "name": "mail_ck_0",
           "value": "(revision >= 1)"
@@ -13538,6 +13548,130 @@
         "person_ck_9": {
           "name": "person_ck_9",
           "value": "(source = ANY (ARRAY['personal_referral'::text, 'social_media'::text, 'vision_meeting'::text, 'website'::text, 'event'::text, 'partner_church'::text, 'meeting_guest_list'::text, 'other'::text]))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.person_email_opt_out": {
+      "name": "person_email_opt_out",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opted_out_at": {
+          "name": "opted_out_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "person_email_opt_out_current": {
+          "name": "person_email_opt_out_current",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "undone_at IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_email_opt_out_plant": {
+          "name": "person_email_opt_out_plant",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "person_email_opt_out_plant_id_plant_id_fk": {
+          "name": "person_email_opt_out_plant_id_plant_id_fk",
+          "tableFrom": "person_email_opt_out",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "person_email_opt_out_person": {
+          "name": "person_email_opt_out_person",
+          "tableFrom": "person_email_opt_out",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "person_email_opt_out_pkey": {
+          "name": "person_email_opt_out_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "person_email_opt_out_undone": {
+          "name": "person_email_opt_out_undone",
+          "value": "((undone_at IS NULL) OR (undone_at >= opted_out_at))"
         }
       },
       "isRLSEnabled": false

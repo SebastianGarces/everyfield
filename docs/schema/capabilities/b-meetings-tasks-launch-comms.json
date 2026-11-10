@@ -1493,6 +1493,33 @@
         "follow_up_outcome"
       ],
       "notes": "docs/product/communications-notifications.md, COM-001/002/004. Reads/search/filters need no duplicate recipient delivery ledger or contact log. Source facts are the typed contact, composition, mail-ledger and provider-receipt capabilities; public RSVP projection is narrower."
+    },
+    {
+      "id": "CAP-B-046",
+      "name": "Per-church Messages email opt-out for CRM people",
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "persists": true,
+      "entities": [
+        "Messages email opt-out"
+      ],
+      "facts": [
+        "Church, CRM Person, opt-out time and the one-hour undo time; never the address, an account or marketing consent."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Per church and per person; staff can see it but can't clear it (D-284). Only the person's own token writes it.",
+        "An address change does not lift it, and one church's opt-out never affects another church.",
+        "A merged-away Person's opt-out still covers the survivor; it never changes account notification preferences or CRM fields."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "person_email_opt_out",
+        "mail"
+      ],
+      "notes": "docs/product/communications-notifications.md, NTF-016. The token is sealed under a Messages subkey of the NOTIFICATION_OPT_OUT_KEYS ring."
     }
   ],
   "observations": [

@@ -27,9 +27,11 @@ import {
 	hubStates,
 	outcomeText,
 	rateText,
+	refusedAllText,
 	replaceText,
 	rescheduleText,
 	sentNote,
+	unsubscribedNote,
 	type ContactRow,
 	type DeliveryReport,
 	type DetailRecipient,
@@ -88,6 +90,7 @@ function deliveryName(status: string): string {
 		pending: "Waiting",
 		scheduled: "Scheduled",
 		refused: "Refused",
+		unsubscribed: "Unsubscribed",
 		failed: "Failed",
 		cancelled: "Cancelled",
 		unknown: "Unknown",
@@ -290,6 +293,7 @@ function Totals({ view }: { view: MessageView }) {
 				{ label: "Bounced", value: totals.bounced },
 				{ label: "Failed", value: totals.failed },
 				{ label: "Suppressed", value: totals.suppressed },
+				{ label: "Unsubscribed", value: totals.unsubscribed },
 				{ label: "Unknown", value: totals.unknown },
 			],
 		},
@@ -301,7 +305,10 @@ function Totals({ view }: { view: MessageView }) {
 				<Tile label="Reachable" value={totals.reachable} />
 				<Tile label="Delivered" value={totals.delivered} />
 				<Tile label="Opened" value={totals.opened} />
-				<Tile label="Not delivered" value={totals.bounced + totals.failed + totals.suppressed + totals.unknown} />
+				<Tile
+					label="Not delivered"
+					value={totals.bounced + totals.failed + totals.suppressed + totals.unsubscribed + totals.unknown}
+				/>
 			</div>
 			{groups.map((group) => (
 				<div key={group.title} className="flex flex-col gap-3">
@@ -352,7 +359,7 @@ type ScheduledActions = {
 
 /** The handoff counts every scheduled state names. Refused here is the email service's refusal, never a bounce. */
 const handoffCounts = (totals: MessageView["totals"]) =>
-	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.`;
+	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
 
 /** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
 function heldStatus(view: MessageView): { title: string; body: string } {
@@ -367,7 +374,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "not_scheduled":
 			return {
 				title: "Not scheduled",
-				body: `The email service refused all ${totals.failed}. ${handoffCounts(totals)} The message stays saved.`,
+				body: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "cancel_unconfirmed":
 			return {
@@ -387,7 +394,10 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "failed":
 			return {
 				title: "Not sent",
-				body: `The email service refused all ${totals.failed}. The message stays saved.`,
+				body:
+					totals.unsubscribed === 0
+						? `The email service refused all ${totals.failed}. The message stays saved.`
+						: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "unknown":
 			return { title: "Not confirmed", body: `The email service gave no answer. ${handoffCounts(totals)}` };
@@ -1106,6 +1116,22 @@ function Browser({
 	);
 }
 
+/**
+ * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it: only
+ * the person can undo it, from the page their Unsubscribe link opens.
+ */
+function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
+	return (
+		<div className="flex flex-col gap-1 rounded-md bg-surface-2 px-3.5 py-3">
+			<p className="font-medium text-ink">Unsubscribed from email</p>
+			<p className="text-sm text-text-2">
+				They unsubscribed from {churchName.trim() || "this church"}&rsquo;s email on {when(at)}. Messages are not sent
+				to them. Only they can undo this, from the Unsubscribe link in an email.
+			</p>
+		</div>
+	);
+}
+
 function ContactLog({
 	contacts,
 	lastConfirmedContactAt,
@@ -1179,6 +1205,7 @@ export function History({
 	const [query, setQuery] = useState("");
 	const [contacts, setContacts] = useState<ContactRow[] | null>(null);
 	const [lastContact, setLastContact] = useState<string | null>(null);
+	const [optOutAt, setOptOutAt] = useState<string | null>(null);
 	const [tracking, setTracking] = useState<TrackingRow[] | null>(null);
 	const [scopeNote, setScopeNote] = useState<string | null>(null);
 
@@ -1218,6 +1245,7 @@ export function History({
 			if (!cursor && result.status === "ok") {
 				setContacts(result.value.contacts);
 				setLastContact(result.value.lastConfirmedContactAt);
+				setOptOutAt(result.value.emailOptOutAt);
 			}
 			return result;
 		}
@@ -1350,7 +1378,10 @@ export function History({
 				keepScope={keepScope}
 				header={
 					scope.kind === "person" && contacts ? (
-						<ContactLog contacts={contacts} lastConfirmedContactAt={lastContact} />
+						<div className="flex flex-col gap-4">
+							{optOutAt ? <OptOutNote at={optOutAt} churchName={churchName} /> : null}
+							<ContactLog contacts={contacts} lastConfirmedContactAt={lastContact} />
+						</div>
 					) : scope.kind === "meeting" && tracking ? (
 						<div className="flex flex-col gap-3">
 							<h2 className="text-sm font-medium text-ink-2">Recipient tracking</h2>

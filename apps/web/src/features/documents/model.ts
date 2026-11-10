@@ -180,7 +180,31 @@ export type SavedFile = Pick<
 	"id" | "savedTemplateName" | "format" | "generatedAt" | "downloadName"
 >;
 
-export type OwnedView = Pick<z.infer<typeof ownedDocument>, "id" | "kind" | "title" | "body" | "revision" | "archived">;
+/** One row of the written-documents list. The list links to the document's own page and carries no body. */
+export type OwnedView = Pick<z.infer<typeof ownedDocument>, "id" | "kind" | "title" | "archived">;
+/** A plain native document on its own page: the body node, its revision, and where it came from. */
+export type WrittenView = Pick<
+	z.infer<typeof ownedDocument>,
+	"id" | "kind" | "title" | "body" | "revision" | "archived" | "textRevision"
+> & {
+	/** True for a church copy made with Use for this church. */
+	copied: boolean;
+};
+/** What the native page shows of a stored document. The tenant and the hashes stay on the server. */
+export function writtenView(value: z.infer<typeof ownedDocument>): WrittenView {
+	return {
+		id: value.id,
+		kind: value.kind,
+		title: value.title,
+		body: value.body,
+		revision: value.revision,
+		archived: value.archived,
+		textRevision: value.textRevision,
+		copied: value.copiedFromHash !== null,
+	};
+}
+/** One of your account documents Use for this church can copy. */
+export type CopySource = { id: string; title: string; revisionId: string };
 
 /**
  * A sentence for a refused document action. Invalid input keeps the server's problem.

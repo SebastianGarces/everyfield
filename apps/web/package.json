@@ -6,8 +6,9 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs && node scripts/check-corners.mjs",
+		"lint": "oxlint -c .oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs && node scripts/check-corners.mjs",
 		"typecheck": "tsc --noEmit",
+		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"share-images": "node scripts/render-share-images.mjs",
 		"mesh-images": "node scripts/render-mesh-images.mjs",
 		"test:unit": "node --conditions=react-server --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts ../../tests/ui/tasks/model.test.mjs ../../tests/ui/phases/model.test.mjs ../../tests/ui/intelligence/model.test.mjs ../../tests/ui/intelligence/signals-model.test.mjs ../../tests/ui/teams/model.test.mjs ../../tests/ui/meetings/model.test.mjs ../../tests/ui/communication/body.test.mts ../../tests/ui/communication/capture.test.mts ../../tests/ui/communication/route.test.mts ../../tests/ui/save/record-dialog-focus-lint.test.mjs ../../tests/ui/settings/brand-model.test.mts ../../tests/ui/settings/brand-assets.test.mts ../../tests/ui/marketing/evry-follow.test.mjs ../../tests/ui/documents/editor-schema.test.mts",
@@ -62,6 +63,8 @@
 		"sharp": "0.35.5",
 		"tailwindcss": "4.3.3",
 		"typescript": "6.0.3",
-		"@typescript/native-preview": "7.0.0-dev.20260707.2"
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"oxlint": "1.92.0",
+		"eslint-plugin-oxlint": "1.92.0"
 	}
 }
