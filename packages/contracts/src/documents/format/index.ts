@@ -8,6 +8,8 @@ export { columnWidths, exportsFor, formatNumber, ledgerTables, parseAmount, TABL
 export {
 	acceptDifferences,
 	compareWithTemplate,
+	acceptTemplateChanges,
+	templateChanges,
 	missingFields,
 	type DocDifference,
 	type PageLayout,

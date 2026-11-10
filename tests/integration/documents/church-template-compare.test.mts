@@ -330,6 +330,8 @@ describe("T-80 compare a document with the church's own template", { concurrency
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: [1, 2, 3],
 			}),
 		);
@@ -370,11 +372,14 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(shape(ok(await compare(ADMIN, doc.id)).differences), [[0, "body", "changed"]]);
 
 		// Accept all on another document gives version 2's body.
+		const otherFound = ok(await compare(OWNER, other.id));
 		const all = ok(
 			await accept(OWNER, {
 				documentId: other.id,
 				expectedRevision: "1",
-				templateHash: found.templateHash,
+				templateHash: otherFound.templateHash,
+				view: "all",
+				key: otherFound.keys.all,
 				accept: "all",
 			}),
 		);
@@ -424,6 +429,8 @@ describe("T-80 compare a document with the church's own template", { concurrency
 				documentId: doc.id,
 				expectedRevision: "1",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 		);
@@ -450,6 +457,8 @@ describe("T-80 compare a document with the church's own template", { concurrency
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 		);
@@ -469,7 +478,14 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		const found = ok(await compare(ADMIN, doc.id));
 		// Another tab saves revision 3 after the compare opened.
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));
-		const request = { documentId: doc.id, expectedRevision: "2", templateHash: found.templateHash, accept: [0] };
+		const request = {
+			documentId: doc.id,
+			expectedRevision: "2",
+			templateHash: found.templateHash,
+			view: "all",
+			key: found.keys.all,
+			accept: [0],
+		};
 		let before = await counts();
 		refused(await accept(ADMIN, request), "conflict");
 		assert.deepEqual(await counts(), before);
@@ -479,7 +495,12 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		await versionTwo(template);
 		before = await counts();
 		refused(
-			await accept(ADMIN, { ...request, expectedRevision: "3", templateHash: reloaded.templateHash }),
+			await accept(ADMIN, {
+				...request,
+				expectedRevision: "3",
+				templateHash: reloaded.templateHash,
+				key: reloaded.keys.all,
+			}),
 			"conflict",
 		);
 		assert.deepEqual(await counts(), before);
@@ -499,6 +520,8 @@ describe("T-80 compare a document with the church's own template", { concurrency
 				documentId: doc.id,
 				expectedRevision: "1",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 			"unavailable",
@@ -516,7 +539,14 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		const template = await churchTemplate(OWNER, "Private board policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));
-		const request = { documentId: doc.id, expectedRevision: "1", templateHash: found.templateHash, accept: "all" };
+		const request = {
+			documentId: doc.id,
+			expectedRevision: "1",
+			templateHash: found.templateHash,
+			view: "all",
+			key: found.keys.all,
+			accept: "all",
+		};
 		const before = await counts();
 
 		// A Member: no editor read (so no notice), no compare, no accept.
@@ -547,6 +577,8 @@ describe("T-80 compare a document with the church's own template", { concurrency
 				documentId: own.id,
 				expectedRevision: forged.revision,
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 		]) {

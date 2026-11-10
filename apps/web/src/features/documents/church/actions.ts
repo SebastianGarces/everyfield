@@ -4,6 +4,7 @@ import { requestDatabase } from "@/server/database";
 import {
 	saveChurchRequest,
 	type ChurchCompare,
+	type CompareView,
 	type ChurchTemplateSummary,
 	type DocDocument,
 } from "@everyfield/contracts/documents";
@@ -294,13 +295,16 @@ export type AcceptResult =
 	| { status: "lost" };
 
 /**
- * Accepts the chosen differences (or all of them) as the next revision. The write checks the seat, the revision the
- * compare read and the template it compared with, so a Member, a stale compare or a newer template writes nothing.
+ * Accepts the chosen items of one list (or all of them) as the next revision. The write checks the seat, the revision
+ * the compare read, the template it compared with and the list's key, so a Member, a stale compare, a newer template or
+ * ids from the other list write nothing.
  */
 export async function acceptTemplateChanges(
 	documentId: string,
 	expectedRevision: string,
 	templateHash: string,
+	view: CompareView,
+	key: string,
 	accept: number[] | "all",
 ): Promise<AcceptResult> {
 	const actor = await documentActor();
@@ -311,6 +315,8 @@ export async function acceptTemplateChanges(
 			documentId,
 			expectedRevision,
 			templateHash,
+			view,
+			key,
 			accept,
 		});
 		if (reply.status !== "ok")

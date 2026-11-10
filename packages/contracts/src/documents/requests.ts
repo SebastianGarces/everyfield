@@ -127,14 +127,20 @@ export const listExportsRequest = z.strictObject({ documentId: recordId });
 export const exportRequest = z.strictObject({ documentId: recordId, exportId: recordId });
 /** Compare a Church Document's current revision with the current version of its template. */
 export const churchCompareRequest = z.strictObject({ documentId: recordId });
+/** The compare's two lists (D-423): "Template changes" since the document's base, and "All differences". */
+export const compareView = z.enum(["changes", "all"]);
+export type CompareView = z.infer<typeof compareView>;
 /**
- * Accept differences from the current template as the next revision. The ids are the compare's numbers, which hold for
- * the expected revision and the template hash the compare named; a newer revision or template is a conflict.
+ * Accept items of one list from the current template as the next revision. The ids are the numbers of the list `view`
+ * names, which hold for the expected revision and the template hash the compare named; a newer revision or template
+ * is a conflict. `key` is the key the compare gave that list, so ids from the other list are a conflict too.
  */
 export const acceptTemplateRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	view: compareView,
+	key: z.string().regex(/^sha256:[0-9a-f]{64}$/),
 	accept: z.union([z.literal("all"), z.array(z.int().min(0).max(100_000)).min(1).max(10_000)]),
 });
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
