@@ -97,6 +97,12 @@ describe("T-82 the word compare", () => {
 			notes: [],
 		});
 		assert.deepEqual(body(p(t("Come  and see.")), p(t("Come and see."))), { show: "notes", notes: ["spacing"] });
+		// An inserted phrase is marked from its first word to its last, not from the space before it.
+		assert.deepEqual(words(body(p(t("Come and see.")), p(t("Come and see for yourself.")))), {
+			document: [["=Come and see."]],
+			template: [["=Come and see ", "+for yourself", "=."]],
+			notes: [],
+		});
 	});
 
 	test("criterion 10, 5: formatting only (bold, a link) marks no word and says formatting changed", () => {

@@ -68,6 +68,14 @@
 	text-decoration-line: underline;
 	text-underline-offset: 2px;
 }
+/* A numbered heading is a flex row, which would make each mark an item of its own with a gap before it; a marked one in
+   the compare flows inline, the number before the text as on the page. */
+.ef-paper.ef-snippet .ef-heading-numbered:has(.ef-word) {
+	display: block;
+}
+.ef-paper.ef-snippet .ef-heading-numbered:has(.ef-word) .ef-heading-number {
+	margin-right: 8px;
+}
 .ef-word::before,
 .ef-word::after {
 	position: absolute;

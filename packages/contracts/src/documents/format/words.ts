@@ -131,18 +131,8 @@ function absorbSpaces(ops: readonly Op[]): Op[] {
 	const out: Op[] = [];
 	let stretch: Op[] = [];
 	const flush = () => {
-		const removed = stretch.filter((o) => o.op === "removed");
-		const added = stretch.filter((o) => o.op === "added");
+		out.push(...stretch.filter((o) => o.op === "removed"), ...stretch.filter((o) => o.op === "added"));
 		stretch = [];
-		// A space both sides start or end the stretch with is kept, so a mark starts and ends on a word.
-		const space = (o: Op | undefined) => o !== undefined && !o.unit.word;
-		const lead: Op[] = [];
-		const trail: Op[] = [];
-		while (space(removed[0]) && space(added[0]))
-			lead.push({ op: "kept", unit: removed.shift()!.unit, twin: added.shift()!.unit });
-		while (removed.length > 1 && added.length > 1 && space(removed.at(-1)) && space(added.at(-1)))
-			trail.unshift({ op: "kept", unit: removed.pop()!.unit, twin: added.pop()!.unit });
-		out.push(...lead, ...removed, ...added, ...trail);
 	};
 	ops.forEach((op, k) => {
 		const changed = (o: Op | undefined) => o !== undefined && o.op !== "kept";
@@ -161,18 +151,33 @@ function absorbSpaces(ops: readonly Op[]): Op[] {
 	return out;
 }
 
-/** One side's runs of a line: its own units, kept or changed, joined and placed. */
+/**
+ * One side's runs of a line: its own units, kept or changed, joined and placed. A space at either end of a changed
+ * stretch reads as kept, so a mark starts and ends on a word.
+ */
 function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
+	const own = ops
+		.filter((op) => op.op === "kept" || op.op === side)
+		.map((op) => ({ op: op.op, unit: op.op === "kept" && side === "added" ? op.twin : op.unit }));
+	const changed = (k: number) => own[k] !== undefined && own[k].op !== "kept";
+	for (let k = 0; k < own.length; k++) {
+		if (!changed(k) || own[k]!.unit.word) continue;
+		let start = k;
+		while (changed(start - 1) && !own[start - 1]!.unit.word) start--;
+		let end = k;
+		while (changed(end + 1) && !own[end + 1]!.unit.word) end++;
+		// Only spaces from here to a stretch's edge are peeled; a space between two marked words stays marked.
+		if (!changed(start - 1) || !changed(end + 1)) for (let i = start; i <= end; i++) own[i]!.op = "kept";
+		k = end;
+	}
 	const out: WordRun[] = [];
 	let at = 0;
-	for (const op of ops) {
-		if (op.op !== "kept" && op.op !== side) continue;
-		const unit = op.op === "kept" && side === "added" ? op.twin : op.unit;
+	for (const { op, unit } of own) {
 		const last = out.at(-1);
-		if (last && last.op === op.op) {
+		if (last && last.op === op) {
 			last.text += unit.text;
 			last.to += unit.size;
-		} else out.push({ op: op.op, text: unit.text, from: at, to: at + unit.size });
+		} else out.push({ op, text: unit.text, from: at, to: at + unit.size });
 		at += unit.size;
 	}
 	return out;
