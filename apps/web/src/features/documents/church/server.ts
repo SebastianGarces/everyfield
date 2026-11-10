@@ -89,8 +89,8 @@ export async function loadChurchDocument(
 	if (!db) return { status: "failed" };
 	try {
 		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
-		// a Member reads the document alone, with its branding value, and gets no editor. Every seat reads the saved exports
-		// and the revisions (D-141).
+		// a Member reads the document alone, with its branding value, and gets no editor and no template status, so a
+		// Member's page never learns of a template update. Every seat reads the saved exports and the revisions (D-141).
 		const [reply, saved, history] = await Promise.all([
 			canManageChurch(authority)
 				? documentsWriter.readChurchForEdit(db, authority, { documentId })
@@ -104,8 +104,6 @@ export async function loadChurchDocument(
 		]);
 		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
-		// Only an Owner or Admin compares with the template, so a Member's page never learns of a template update.
-		const template = d.brands ? d.template : null;
 		return {
 			status: "ok",
 			value: {
@@ -128,7 +126,7 @@ export async function loadChurchDocument(
 				revisions: history.value.revisions
 					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName }))
 					.toSorted((a, b) => b.number - a.number),
-				template,
+				template: d.template,
 			},
 		};
 	} catch (error) {
