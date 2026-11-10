@@ -166,7 +166,20 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 				<h2 id={headingId} className="font-display text-2xl text-ink">
 					Compare with template
 				</h2>
-				{load.kind === "ready" ? (
+				{load.kind === "ready" && load.compare.churchTemplate ? (
+					<>
+						<p className="mt-2">
+							<span className="inline-flex h-[26px] items-center rounded-md bg-surface-sunken px-2.5 text-sm font-semibold text-ink shadow-[0_0_0_1px_var(--ef-line)]">
+								Your church&rsquo;s template
+							</span>
+						</p>
+						<p className="mt-2 text-sm text-pretty text-text-2">
+							Your saved document, revision <span className="tabular-nums">{load.compare.revision}</span>, beside your
+							church&rsquo;s own template &ldquo;{load.compare.templateTitle}&rdquo;, version{" "}
+							<span className="tabular-nums">{load.compare.templateVersion}</span>.
+						</p>
+					</>
+				) : load.kind === "ready" ? (
 					<p className="mt-1 text-sm text-pretty text-text-2">
 						Your saved document, revision <span className="tabular-nums">{load.compare.revision}</span>, beside the
 						current {load.compare.templateTitle} template, version{" "}

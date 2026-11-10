@@ -222,6 +222,7 @@ export function ChurchDocumentScreen({
 					revisions={revisions}
 					file={file}
 					template={current.template}
+					templateName={doc.templateName}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
 						setRevision(next);
