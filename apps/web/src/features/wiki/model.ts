@@ -1,4 +1,12 @@
-import { fenceAt, fenceContent, type Diagram, type WikiArticle } from "@everyfield/contracts/wiki";
+import {
+	fenceAt,
+	fenceContent,
+	humanCredit,
+	parseDiagram,
+	type Diagram,
+	type HierarchyNode,
+	type WikiArticle,
+} from "@everyfield/contracts/wiki";
 import { z } from "zod";
 
 // View models for the wiki screens. The producer is the authority for entitlement.
@@ -158,14 +166,6 @@ function letters(name: string): string {
 	const raw = words.length >= 2 ? `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}` : name.slice(0, 2);
 	const text = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 	return text.slice(0, 2) || "SO";
-}
-
-/** A credit that names a person or church. Internal ids, source paths and digests never reach a reader. */
-export function humanCredit(credit: string): string | null {
-	if (!credit || /^(church|network|global):/i.test(credit)) return null;
-	if (uuid.safeParse(credit).success) return null;
-	if (/\.(json|mdx?|ya?ml)\b|\bdocs\/|@[0-9a-f]{7,}|\b[0-9a-f]{40,}\b/i.test(credit)) return null;
-	return credit;
 }
 
 export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, string>): SourceRow[] {
@@ -505,14 +505,17 @@ export function editPath(slug: string): string {
 	return `${articlePath(slug)}/edit`;
 }
 
+/** A block the editor shows as the reader renders it and saves unchanged. */
+export type FixedBlock = Extract<Block, { kind: "table" | "callout" | "code" | "diagram" }>;
+
 export type EditorBlock =
 	| { kind: "paragraph"; text: string }
 	| { kind: "heading"; level: 2 | 3; text: string }
 	| { kind: "quote"; text: string }
-	| { kind: "list"; ordered: boolean; text: string };
+	| { kind: "list"; ordered: boolean; text: string }
+	| { kind: "fixed"; block: FixedBlock };
 
 const EDITOR_FORMAT = "everyfield-editor-v1";
-export const EDITOR_BODY_LIMIT = 20000;
 
 function inlineText(value: unknown): string {
 	if (!Array.isArray(value)) return "";
@@ -546,6 +549,9 @@ function contractToReader(value: unknown): Block | null {
 		level?: number;
 		text?: string;
 		ordered?: boolean;
+		label?: unknown;
+		info?: unknown;
+		source?: unknown;
 		children?: unknown;
 		items?: unknown;
 		rows?: unknown;
@@ -567,7 +573,16 @@ function contractToReader(value: unknown): Block | null {
 		return { kind: "list", ordered: node.ordered === true, items };
 	}
 	if (node.type === "code" && typeof node.text === "string" && node.text.trim()) {
-		return { kind: "paragraph", text: node.text.trim() };
+		return { kind: "code", text: node.text };
+	}
+	if (node.type === "callout") {
+		const text = inlineText(node.children).trim();
+		if (!text) return null;
+		return { kind: "callout", label: typeof node.label === "string" ? node.label : "", text };
+	}
+	if (node.type === "diagram" && typeof node.info === "string" && typeof node.source === "string") {
+		const parsed = parseDiagram(node.info, node.source);
+		return parsed.ok ? { kind: "diagram", diagram: parsed.diagram } : { kind: "code", text: node.source };
 	}
 	if (node.type === "table" && Array.isArray(node.rows)) {
 		const rows = node.rows
@@ -579,22 +594,28 @@ function contractToReader(value: unknown): Block | null {
 	return null;
 }
 
-/** A diagram as plain lines for the editor, which has no diagram block: its title, then each node label. */
-function diagramLines(diagram: Diagram): string[] {
-	const labels = (nodes: readonly { label: string; children?: readonly unknown[] }[]): string[] =>
-		nodes.flatMap((node) => [node.label, ...labels((node.children ?? []) as typeof nodes)]);
-	return [diagram.title, ...labels(diagram.nodes)];
+/** A diagram back as the source of its fence, which `parseDiagram` reads as the same diagram. */
+function diagramSource(diagram: Diagram): { info: string; source: string } {
+	const node = (n: { label: string; detail?: string; note?: string }, depth: number) =>
+		`${"  ".repeat(depth)}- ${[n.label, n.detail ?? "", n.note ?? ""].join(" | ").replace(/( \| )+$/, "")}`;
+	const lines = [`title: ${diagram.title}`, ...(diagram.loop ? [`loop: ${diagram.loop}`] : [])];
+	if (diagram.type === "hierarchy") {
+		const walk = (nodes: readonly HierarchyNode[], depth: number): void =>
+			nodes.forEach((n) => {
+				lines.push(node(n, depth));
+				walk(n.children, depth + 1);
+			});
+		walk(diagram.nodes, 0);
+	} else diagram.nodes.forEach((n) => lines.push(node(n, 0)));
+	return { info: `diagram ${diagram.type}`, source: lines.join("\n") };
 }
 
 function readerToEditor(block: Block): EditorBlock {
 	if (block.kind === "heading") return { kind: "heading", level: block.level, text: block.text };
 	if (block.kind === "quote") return { kind: "quote", text: block.text };
 	if (block.kind === "list") return { kind: "list", ordered: block.ordered, text: block.items.join("\n") };
-	if (block.kind === "table") return { kind: "paragraph", text: block.rows.map((row) => row.join(" · ")).join("\n") };
-	if (block.kind === "callout")
-		return { kind: "paragraph", text: block.label ? `${block.label}: ${block.text}` : block.text };
-	if (block.kind === "diagram") return { kind: "paragraph", text: diagramLines(block.diagram).join("\n") };
-	return { kind: "paragraph", text: block.text };
+	if (block.kind === "paragraph") return { kind: "paragraph", text: block.text };
+	return { kind: "fixed", block };
 }
 
 function editorFromContract(value: unknown): EditorBlock[] | null {
@@ -620,8 +641,18 @@ export function editorBlocksFromBody(contentType: string, body: string): EditorB
 	return articleBlocks(contentType, body).map(readerToEditor);
 }
 
+const run = (text: string) => [{ type: "text", text, marks: [] }];
+
+function fixedNode(block: FixedBlock): unknown {
+	if (block.kind === "table") return { type: "table", rows: block.rows.map((row) => row.map(run)) };
+	if (block.kind === "callout") return { type: "callout", label: block.label, children: run(block.text) };
+	if (block.kind === "code") return { type: "code", language: "text", text: block.text };
+	return { type: "diagram", ...diagramSource(block.diagram) };
+}
+
 function contractBlock(block: EditorBlock): unknown {
-	const text = [{ type: "text", text: block.text, marks: [] }];
+	if (block.kind === "fixed") return fixedNode(block.block);
+	const text = run(block.text);
 	if (block.kind === "heading") return { type: "heading", level: block.level, children: text };
 	if (block.kind === "quote") return { type: "quote", children: text };
 	if (block.kind === "list") {
@@ -629,12 +660,8 @@ function contractBlock(block: EditorBlock): unknown {
 			.split("\n")
 			.map((item) => item.trim())
 			.filter(Boolean)
-			.map((item) => [{ type: "text", text: item, marks: [] }]);
-		return {
-			type: "list",
-			ordered: block.ordered,
-			items: items.length ? items : [[{ type: "text", text: "", marks: [] }]],
-		};
+			.map(run);
+		return { type: "list", ordered: block.ordered, items: items.length ? items : [run("")] };
 	}
 	return { type: "paragraph", children: text };
 }
@@ -656,7 +683,7 @@ export function editorWriteBody(initialBody: string | null, initialContentType: 
 }
 
 export function editorHasText(blocks: EditorBlock[]): boolean {
-	return blocks.some((block) => block.text.trim().length > 0);
+	return blocks.some((block) => block.kind === "fixed" || block.text.trim().length > 0);
 }
 
 export function changedSectionLabels(before: EditorBlock[], after: EditorBlock[]): string[] {
