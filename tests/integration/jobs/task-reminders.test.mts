@@ -90,7 +90,9 @@ async function put(name, t) {
 	const names = t.assignees ?? (t.assignee ? [t.assignee] : []);
 	await db.execute(sql`DELETE FROM task_assignee WHERE task_id=${id}`);
 	for (const name of names)
-		await db.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${tenant},${id},${people[name].id})`);
+		await db.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${tenant},${id},${people[name].id})`,
+		);
 	return {
 		plantId: tenant,
 		taskId: id,

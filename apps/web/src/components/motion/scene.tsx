@@ -50,10 +50,6 @@ export function useTo(t: MotionValue<number>, f: (t: number) => Frame) {
 export function useText(t: MotionValue<number>, f: (t: number) => string) {
 	return useTransform(t, f);
 }
-/** A counter: the rounded value as text. */
-export function useCount(t: MotionValue<number>, f: (t: number) => number) {
-	return useTransform(t, (v) => String(Math.round(f(v))));
-}
 
 /** Writes a data attribute from a clock in Motion's render step (EvryBot's mood). */
 export function useDataAttr(ref: RefObject<HTMLElement | null>, name: string, value: MotionValue<string>) {

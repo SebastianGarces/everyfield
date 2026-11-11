@@ -41,8 +41,10 @@ function normal(value: unknown): unknown {
 	if (!isRec(value)) return value;
 	const spec = typeof value.type === "string" ? FORMAT_SCHEMA.nodes[value.type] : undefined;
 	const out: Rec = {};
-	for (const key of Object.keys(value).sort()) {
-		if (value[key] === undefined) continue;
+	// A node the schema knows always gets its `attrs` step, so a block with no `attrs` at all still fills the defaults.
+	const keys = new Set(Object.keys(value));
+	if (spec) keys.add("attrs");
+	for (const key of [...keys].sort()) {
 		if (key === "attrs" && spec) {
 			const attrs: Rec = {};
 			const given = isRec(value.attrs) ? value.attrs : {};
@@ -53,6 +55,7 @@ function normal(value: unknown): unknown {
 			if (Object.keys(attrs).length) out.attrs = attrs;
 			continue;
 		}
+		if (value[key] === undefined) continue;
 		if (key === "marks" && Array.isArray(value.marks)) {
 			const marks = value.marks.filter(isRec).map((mark) => {
 				const declared = FORMAT_SCHEMA.marks[String(mark.type)]?.attrs ?? {};
