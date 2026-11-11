@@ -42,7 +42,7 @@ import {
 import { entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { readImport } from "../../../packages/domain/src/documents/unpack.ts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import { docxParts, hasSoffice, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
+import { docxParts, pdfPages, sofficeTest, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
 
 const CHURCH = "Harborlight Church";
@@ -431,11 +431,6 @@ describe("WP-037 Word export", () => {
 		const text = nativeText(readImport(bytes, "docx"));
 		for (const phrase of ["Bylaws", "Name and purpose", "Harborlight Church", "Board member"])
 			assert.ok(text.includes(phrase), phrase);
-		if (hasSoffice()) {
-			const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
-			for (const phrase of ["Name and purpose", "Statement of faith", "Template, not legal advice"])
-				assert.ok(pdf.includes(phrase), phrase);
-		}
 		const outPy = execFileSync(
 			"python3",
 			[
@@ -446,5 +441,11 @@ describe("WP-037 Word export", () => {
 			{ input: bytes },
 		);
 		assert.equal(outPy.toString().trim(), "[Content_Types].xml");
+	});
+
+	sofficeTest("DOC-023: LibreOffice opens the Word file", async () => {
+		const pdf = (await pdfPages(sofficeToPdf(renderChurchDocx(input("bylaws", brandTheme()))))).join(" ");
+		for (const phrase of ["Name and purpose", "Statement of faith", "Template, not legal advice"])
+			assert.ok(pdf.includes(phrase), phrase);
 	});
 });

@@ -1,5 +1,5 @@
 // WP-036 criteria 8 and 9: the Word file and the ledger workbook are tree walkers over the same document as the PDF.
-// LibreOffice headless opens each file independently of the writers; the tests skip that step when it is missing.
+// LibreOffice headless opens each file independently of the writers; outside CI those checks skip when it is missing.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -20,7 +20,7 @@ import { docFormats, renderDocFile } from "../../../packages/domain/src/document
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { fieldValues } from "../../../packages/domain/src/documents/doc-values.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
-import { docxParts, hasSoffice, pdfOperators, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
+import { docxParts, pdfOperators, pdfPages, sofficeTest, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
 	render: NEUTRAL_THEME,
@@ -32,7 +32,6 @@ const SAVED = new Date("2026-11-01T12:00:00Z");
 const DATA = { church_name: "Harbor City Church", church_legal_name: "Harbor City Church, Inc." };
 const fork = async (id: string) => forkTemplate(docTemplateById(id)!, { data: DATA });
 const squash = (text: string) => text.replace(/\s+/g, " ").trim();
-const soffice = hasSoffice();
 
 /** The heading and paragraph texts of a body, with field values filled in, in reading order. */
 function proseOf(doc: DocDocument) {
@@ -66,9 +65,8 @@ const words = (text: string) =>
 		.replace(/[‐-―]/g, "-")
 		.replace(/ ([.,;:])/g, "$1");
 
-test(
+sofficeTest(
 	"WP-036 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const doc = await fork("conflict-of-interest-policy");
 		const pdf = words((await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED))).join(" "));
@@ -137,9 +135,8 @@ test("WP-036 the Word file has heading styles, a footer with PAGE and NUMPAGES, 
 	assert.deepEqual(again, await renderDocFile(await fork("conflict-of-interest-policy"), "docx", THEME, SAVED));
 });
 
-test(
+sofficeTest(
 	"WP-036 the card sheet opens in LibreOffice as one sheet and the sign-in sheet with its headings",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		for (const id of ["commitment-card", "guest-sign-in-sheet"]) {
 			const doc = await fork(id);
@@ -196,9 +193,8 @@ test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals 
 	await assert.rejects(() => renderDocFile(policy, "xlsx", THEME, SAVED), /render_failed/);
 });
 
-test(
+sofficeTest(
 	"WP-036 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const { doc, table } = await seededBudget();
 		const xlsx = await renderDocFile(doc, "xlsx", THEME, SAVED);

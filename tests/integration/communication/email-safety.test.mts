@@ -733,7 +733,7 @@ function unguardedSenders(root) {
 			if (text.includes("api.resend.com") || RESEND_IMPORT.test(text)) found.push(name);
 		}
 	};
-	for (const top of ["apps", "packages", "tools"]) walk(join(root, top));
+	for (const top of ["apps", "ops", "packages", "scripts", "tools"]) walk(join(root, top));
 	return found.sort();
 }
 
@@ -753,10 +753,14 @@ test("AC:WP-029-13 only the guarded senders can reach Resend, and the scan fails
 	plant("packages/domain/test/mailer.ts", 'import { Resend } from "resend";');
 	plant("tools/qa/send.sh", "curl https://api.resend.com/emails");
 	plant("packages/domain/src/local.ts", 'import { createResendTransport } from "./resend.ts";');
+	plant("ops/maintenance/notify.mts", 'import { Resend } from "resend";');
+	plant("scripts/notify.ts", 'import { Resend } from "resend";');
 	assert.deepEqual(unguardedSenders(planted), [
 		"apps/web/src/server/jobs/required.cjs",
 		"apps/web/src/server/jobs/worker.ts",
+		"ops/maintenance/notify.mts",
 		"packages/domain/src/mailer.ts",
+		"scripts/notify.ts",
 		"tools/qa/send.mjs",
 		"tools/qa/send.sh",
 	]);

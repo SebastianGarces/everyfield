@@ -1,5 +1,5 @@
 // The Evry panel's core loop on a seeded preview (WP-051/ui), in both engines at phone width. It needs the People seed
-// (tests/ui/people/seed.mts) and a preview started with EVRY_SCRIPTED_MODEL=1 in its apps/web/.env.local.
+// (tests/ui/people/seed.mts), whose env file selects the scripted model.
 //   AC:UI45-005 AC:EVRY-RETRY-CANCEL INV-request-key: a message whose reply is lost after the server saved it is sent
 //     again with the same key and saved once, and focus stays in the composer (BUG #197 F2); the streamed card follows; Esc returns focus to Ask Evry and
 //     Ctrl+J reopens the same conversation.

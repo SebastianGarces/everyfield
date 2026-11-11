@@ -1,5 +1,5 @@
 // The Evry review card's approval on a seeded preview (WP-053/ui), in both engines at phone width. It needs the People
-// seed (tests/ui/people/seed.mts) and a preview started with EVRY_SCRIPTED_MODEL=1 in its apps/web/.env.local.
+// seed (tests/ui/people/seed.mts), whose env file selects the scripted model.
 //   AC:UI45-002 AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: revising a reviewed value makes revision 2, which is
 //     the one approved and saved.
 //   AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: an approval whose reply is lost after the server saved it shows
