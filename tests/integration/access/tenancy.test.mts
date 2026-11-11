@@ -44,11 +44,15 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { readBrandAssetIfChanged } from "../../../packages/domain/src/branding/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
+import { phasesCases, seedPhases } from "./tenancy-phases.mts";
+import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
+import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -668,6 +672,14 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
+		[
+			"branding:readBrandAssetIfChanged",
+			{
+				run: () => readBrandAssetIfChanged(f.db, storage, who.actor, key(), () => true),
+				// The seed stores no brand asset, so church A has nothing to read back either.
+				expected: { refused: "unavailable", control: null },
+			},
+		],
 		// Only a sending church's own Owner or Admin has pipeline choices; a church's owner, even naming a church A id as
 		// the connection, gets none, and church A has no sending-church connection for the control to read.
 		[
@@ -680,6 +692,9 @@ function cases(who) {
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
+		...teamsCases(t, who),
+		...tasksCases(t, who),
+		...phasesCases(t, who),
 	]);
 }
 
@@ -699,6 +714,9 @@ before(async () => {
 	await seedMeetings(t);
 	await seedFollowUps(t);
 	await seedDocuments(t);
+	await seedTeams(t);
+	await seedTasks(t);
+	await seedPhases(t);
 });
 after(() => f?.close());
 

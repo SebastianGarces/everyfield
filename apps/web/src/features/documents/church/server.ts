@@ -37,10 +37,15 @@ export type ChurchView = {
 /** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
 export type TemplateState = "behind" | "current" | null;
 /**
- * One saved revision as the Revisions list shows it: its number, when it was saved and who saved it. `savedBy` is null
- * once the saver no longer holds a seat in this church plant (D-105).
+ * One saved revision as the Revisions list shows it: its number, when it was saved, who saved it and the formats that
+ * revision offers. `savedBy` is null once the saver no longer holds a seat in this church plant (D-105).
  */
-export type RevisionRow = { number: number; recordedAt: string; savedBy: string | null };
+export type RevisionRow = {
+	number: number;
+	recordedAt: string;
+	savedBy: string | null;
+	formats: readonly ChurchDocument["formats"][number][];
+};
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -126,7 +131,7 @@ export async function loadChurchDocument(
 				mergeValues: d.mergeValues,
 				exports: saved.value.exports,
 				revisions: history.value.revisions
-					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName }))
+					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName, formats: r.formats }))
 					.toSorted((a, b) => b.number - a.number),
 				revisionsTruncated: history.value.truncated,
 				template: d.template,

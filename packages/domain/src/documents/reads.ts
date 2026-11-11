@@ -129,13 +129,9 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 	const template = loaded.templates.find((item) => item.id === input.templateId);
 	if (!template) deny();
 	if (!template.formats.includes(input.format)) rejectInput("format", "Format is not on this template.");
-	// An agenda prints only from a live meeting of its own kind. Any other meeting reads as no subject at all.
-	const agendaFor = agendaTemplateKind(template.id);
-	if (agendaFor && input.meetingId && (!row.meeting || agendaKindOf(row.meeting) !== agendaFor))
-		deny("invalid_subject");
-	const done = resolved(loaded, template, input.format, cleaned.values, viewer.plantId, row);
+	const done = forSubject(loaded, template, input.format, cleaned.values, viewer.plantId, row, input.meetingId);
 	if (!withArtifact) return c.contextResult.parse(done.value);
-	const bytes = await rendered(template, input.format, done.merge, agendaFor ? row.meeting : null, row.statement);
+	const bytes = await done.render();
 	return c.previewResult.parse({
 		...done.value,
 		artifact: bytes ? bytes.toString("base64") : null,
@@ -146,6 +142,30 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 
 type Loaded = Awaited<ReturnType<typeof library>>;
 type OpenRead = Extract<PlantRead, { subjectOk: true }>;
+
+/**
+ * One template resolved for one subject, and its render: the merge values (a meeting's date fills meeting_date) and,
+ * for an agenda, the meeting's rows. The preview and generate both call this, so a generated file holds the bytes its
+ * preview showed for the same template, format, overrides and subject. An agenda prints only from a live meeting of its
+ * own kind; any other meeting reads as no subject at all.
+ */
+export function forSubject(
+	loaded: Loaded,
+	template: CatalogTemplate,
+	format: "pdf" | "docx" | "xlsx",
+	overrides: Record<string, string>,
+	plantId: string,
+	row: OpenRead,
+	meetingId: string | undefined,
+) {
+	const agendaFor = agendaTemplateKind(template.id);
+	if (agendaFor && meetingId && (!row.meeting || agendaKindOf(row.meeting) !== agendaFor)) deny("invalid_subject");
+	const done = resolved(loaded, template, format, overrides, plantId, row);
+	return {
+		...done,
+		render: () => rendered(template, format, done.merge, agendaFor ? row.meeting : null, row.statement),
+	};
+}
 
 function resolved(
 	loaded: Loaded,
