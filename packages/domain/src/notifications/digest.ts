@@ -184,14 +184,14 @@ type OversightDigestLine = z.infer<typeof oversightLine>;
 const compiled = <T extends z.ZodType>(line: T) =>
 	z.object({ live: z.boolean(), total: z.number().int().nonnegative(), lines: z.array(line).max(DIGEST_LINES) });
 
-/**
- * The church digest's open items for one recipient (REQ-NTF-007): their open dated tasks due on or before `through`
- * (overdue ones included) and the church's meetings still ahead that fall on or before `through`. One statement.
- */
 /** The title the app shows for meeting m (meetingTitle in contracts), built in SQL from the same type names. */
 const meetingTitleSql = sql`coalesce(nullif(btrim(m.title), ''),
 	(${JSON.stringify(MEETING_TYPE_TITLE)}::jsonb ->> m.type) || coalesce(' #' || nullif(m.vision_number, 0), ''))`;
 
+/**
+ * The church digest's open items for one recipient (REQ-NTF-007): their open dated tasks due on or before `through`
+ * (overdue ones included) and the church's meetings still ahead that fall on or before `through`. One statement.
+ */
 export async function compilePlanterDigest(
 	db: Execute,
 	input: { plant: string; recipient: string; asOf: string; through: string },
