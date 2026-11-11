@@ -87,8 +87,6 @@ function current() {
 	return mount;
 }
 
-export type { RawEntry } from "@everyfield/domain/onboarding";
-
 export async function onboardingEntry() {
 	const m = current();
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;

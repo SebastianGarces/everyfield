@@ -86,7 +86,3 @@ export const launchAnswer = z.discriminatedUnion("answer", [
 	z.strictObject({ answer: z.literal("skip") }),
 ]);
 export const declareJourneyRequest = commandEnvelope(z.strictObject({ journey: journeyAnswer, launch: launchAnswer }));
-export type CreatePlantRequest = z.infer<typeof createPlantRequest>;
-export type ConvertDiscoveryRequest = z.infer<typeof convertDiscoveryRequest>;
-export type AnswerLeadRequest = z.infer<typeof answerLeadRequest>;
-export type DeclareJourneyRequest = z.infer<typeof declareJourneyRequest>;

@@ -83,6 +83,12 @@
 	"GET /settings/brand": {
 		"limit": 3
 	},
+	"GET /settings/sharing": {
+		"limit": 2
+	},
+	"GET /settings/sharing (plant)": {
+		"limit": 9
+	},
 	"GET /signin (signed out)": {
 		"limit": 0
 	},
