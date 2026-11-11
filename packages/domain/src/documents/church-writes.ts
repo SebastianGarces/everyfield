@@ -883,14 +883,17 @@ export const churchWriter = {
 				}
 			}
 			// The same request key finished first: answer with its record when it is the same export.
-			const raced = await rowsOf<{ id: string; same: boolean }>(
-				db,
-				sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
-					AND gd.format = ${input.format}) AS same
-				FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
-			);
-			if (raced[0]?.same) return exportRecord(db, scope, raced[0].id);
-			deny("conflict");
+			// It runs as the retry of this write, so the statement budgets count it as one.
+			return rerun(db, async (bound) => {
+				const raced = await rowsOf<{ id: string; same: boolean }>(
+					bound,
+					sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
+						AND gd.format = ${input.format}) AS same
+					FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
+				);
+				if (raced[0]?.same) return exportRecord(bound, scope, raced[0].id);
+				deny("conflict");
+			});
 		});
 	},
 
