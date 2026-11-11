@@ -131,6 +131,10 @@ export function attemptBudget(db: Database, key: string) {
  UPDATE admission_attempt SET state='cleared',trusted_ip_hash=NULL WHERE id=${literal(r.id)}::uuid`,
 		);
 	}
+	/** Gives a reservation back unspent, for an attempt whose outcome is unknown and so must not cost a try. */
+	async function release(reservation: Awaited<ReturnType<typeof reserve>>) {
+		await db.delete(tables.admission_attempt).where(eq(tables.admission_attempt.id, reservation.id));
+	}
 	async function rememberRegistration(id: string, email: string, kind: string, intent: string) {
 		await db
 			.update(tables.admission_attempt)
@@ -157,5 +161,5 @@ export function attemptBudget(db: Database, key: string) {
 			.limit(1);
 		return row[0]?.workspace_key;
 	}
-	return { reserve, finish, rememberRegistration, registrationIntent };
+	return { reserve, finish, release, rememberRegistration, registrationIntent };
 }

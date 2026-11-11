@@ -109,7 +109,8 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 		S.sectionResult.parse({
 			section: "notifications",
 			accountId: account,
-			revision: "5",
+			// Your account and notification choices share the account's one revision, as on the server.
+			revision: "3",
 			values: {
 				choices:
 					persona === "network"
@@ -312,6 +313,16 @@ export function createFixturePort(
 		return row?.section === "account" ? row.personalTimezone : { status: "unconfirmed" };
 	};
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
+	/**
+	 * Stores an account or notifications row and gives the other one its revision: both carry the account's one
+	 * revision, so a save of either (or of your photo or time zone) refuses the other's stale revision with `conflict`.
+	 */
+	const setAccountScope = (row: Extract<SectionResult, { section: "account" | "notifications" }>) => {
+		store.sections.set(row.section, row);
+		const other = store.sections.get(row.section === "account" ? "notifications" : "account");
+		if (other?.section === "account" || other?.section === "notifications")
+			store.sections.set(other.section, { ...other, revision: row.revision });
+	};
 	const canAdminPlant = persona === "owner" || persona === "admin";
 
 	const port: SettingsPort = {
@@ -410,7 +421,8 @@ export function createFixturePort(
 				case "teams":
 					return refuse("unavailable");
 			}
-			store.sections.set(key, next);
+			if (next.section === "account" || next.section === "notifications") setAccountScope(next);
+			else store.sections.set(key, next);
 			return ok(S.savedSectionResult, {
 				current: next,
 			});
@@ -522,7 +534,7 @@ export function createFixturePort(
 						status: "available",
 						avatar: { accountId: ACCOUNT[persona], versionId },
 					});
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				async removeAvatar(raw) {
@@ -531,7 +543,7 @@ export function createFixturePort(
 					const row = store.sections.get("account");
 					if (!row || row.section !== "account") return refuse("invalid_input");
 					const avatar = S.avatarResult.parse({ status: "absent" });
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				avatarSrc(avatar) {
@@ -595,7 +607,7 @@ export function createFixturePort(
 					timeZone: request.input.timeZone,
 					revision: bump(current),
 				});
-				store.sections.set("account", { ...row, personalTimezone: preference });
+				setAccountScope({ ...row, personalTimezone: preference, revision: bump(row.revision) as typeof row.revision });
 				return ok(N.personalTimezoneResult, { preference });
 			},
 			async requestAccountDeletion(raw) {

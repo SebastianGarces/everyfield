@@ -118,7 +118,7 @@ export function SettingsProvider({
 		[],
 	);
 	const remember = useCallback(
-		(cacheKey: string, value: SectionResult) => setSections((all) => new Map(all).set(cacheKey, value)),
+		(cacheKey: string, value: SectionResult) => setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
 		[],
 	);
 	const value = useMemo(
@@ -150,6 +150,20 @@ export function SettingsProvider({
 	}, [anyDirty]);
 
 	return <Store value={value}>{children}</Store>;
+}
+
+/**
+ * Your account and your notification choices carry the account's one revision, so a save of either changes the
+ * revision the other must send next. A copy of the cache with the new revision on the other cached section, whose
+ * other fields stay as they were.
+ */
+function shareAccountRevision(all: Map<string, SectionResult>, value: SectionResult): Map<string, SectionResult> {
+	const next = new Map(all);
+	if (value.section !== "account" && value.section !== "notifications") return next;
+	for (const [key, cached] of all)
+		if ((cached.section === "account" || cached.section === "notifications") && cached.section !== value.section)
+			next.set(key, { ...cached, revision: value.revision });
+	return next;
 }
 
 function dirtyKeys(
