@@ -148,6 +148,55 @@ const point = (p: z.infer<typeof pointRow>) => ({
 });
 const pointColumns = sql`m.id, m.type, m.title, m.vision_number, ${here} AS occurred_at, m.local_date::text AS local_date`;
 
+/**
+ * The attendance list of meeting alias `m`, as columns: its revisions, whether `accountId` leads its team, and one page
+ * of its current guests. listAttendance and the meeting page's one guest read (meetingsReader.pageGuests) share it.
+ */
+export const attendanceColumns = (i: z.infer<typeof c.attendanceListRequest>, accountId: string) =>
+	sql`m.attendance_revision::text AS attendance_revision, m.finalized_at,
+				(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
+					WHERE t.id = m.team_id AND t.plant_id = m.plant_id AND t.archived_at IS NULL AND lp.state = 'live'
+					AND lp.linked_account_id = ${accountId}::uuid)) AS leads,
+				m.finalized_revision::text AS finalized_revision,
+				(SELECT count(*)::int FROM participation g WHERE g.meeting_id = m.id AND g.removed_at IS NULL) AS matched,
+				(SELECT coalesce(json_agg(x ORDER BY x.n), '[]') FROM (SELECT g.id, g.revision::text AS revision, g.person_id,
+					g.presence, coalesce(g.rsvp, 'pending') AS rsvp, g.card_response IS NOT NULL AS has_card, g.removed_at,
+					g.classification, g.classification_stage,
+					g.classification_person_revision::text AS classification_person_revision, g.classification_as_of,
+					g.prior_vision_id, g.actual_occurrence_at, p.display_name, p.state AS person_state,
+					row_number() OVER (ORDER BY p.display_name, g.id) AS n
+					FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL
+					ORDER BY p.display_name, g.id LIMIT ${i.limit} OFFSET ${(i.page - 1) * i.limit}) x) AS items`;
+/** The attendance list from the row of attendanceColumns. */
+export function attendanceValue(
+	row: Record<string, unknown>,
+	i: z.infer<typeof c.attendanceListRequest>,
+	viewer: { admin: boolean },
+) {
+	const f = z
+		.object({
+			attendance_revision: z.string(),
+			leads: z.boolean(),
+			finalized_at: date.nullable(),
+			finalized_revision: z.string().nullable(),
+			matched: z.number().int(),
+			items: z.array(guestRow),
+		})
+		.parse(row);
+	return c.attendanceList.parse({
+		meetingId: i.meetingId,
+		attendanceRevision: f.attendance_revision,
+		finalized: f.finalized_at ? { at: f.finalized_at.toISOString(), revision: f.finalized_revision } : null,
+		items: f.items.map(attendee),
+		matched: f.matched,
+		returned: f.items.length,
+		page: i.page,
+		next: i.page * i.limit < f.matched ? i.page + 1 : null,
+		completeness: "complete",
+		viewerCanMarkAttendance: viewer.admin || f.leads,
+	});
+}
+
 export const attendanceReader = {
 	/**
 	 * The guest list with presence and finalized classification, by name; members read it too. It also says whether the
@@ -161,45 +210,9 @@ export const attendanceReader = {
 			false,
 			c.attendanceListRequest,
 			raw,
-			(plant, i) => sql`SELECT m.attendance_revision::text AS attendance_revision, m.finalized_at,
-				(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
-					WHERE t.id = m.team_id AND t.plant_id = m.plant_id AND t.archived_at IS NULL AND lp.state = 'live'
-					AND lp.linked_account_id = ${authority.actor.accountId}::uuid)) AS leads,
-				m.finalized_revision::text AS finalized_revision,
-				(SELECT count(*)::int FROM participation g WHERE g.meeting_id = m.id AND g.removed_at IS NULL) AS matched,
-				(SELECT coalesce(json_agg(x ORDER BY x.n), '[]') FROM (SELECT g.id, g.revision::text AS revision, g.person_id,
-					g.presence, coalesce(g.rsvp, 'pending') AS rsvp, g.card_response IS NOT NULL AS has_card, g.removed_at,
-					g.classification, g.classification_stage,
-					g.classification_person_revision::text AS classification_person_revision, g.classification_as_of,
-					g.prior_vision_id, g.actual_occurrence_at, p.display_name, p.state AS person_state,
-					row_number() OVER (ORDER BY p.display_name, g.id) AS n
-					FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL
-					ORDER BY p.display_name, g.id LIMIT ${i.limit} OFFSET ${(i.page - 1) * i.limit}) x) AS items
-				FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
-			(row, i, viewer) => {
-				const f = z
-					.object({
-						attendance_revision: z.string(),
-						leads: z.boolean(),
-						finalized_at: date.nullable(),
-						finalized_revision: z.string().nullable(),
-						matched: z.number().int(),
-						items: z.array(guestRow),
-					})
-					.parse(row);
-				return c.attendanceList.parse({
-					meetingId: i.meetingId,
-					attendanceRevision: f.attendance_revision,
-					finalized: f.finalized_at ? { at: f.finalized_at.toISOString(), revision: f.finalized_revision } : null,
-					items: f.items.map(attendee),
-					matched: f.matched,
-					returned: f.items.length,
-					page: i.page,
-					next: i.page * i.limit < f.matched ? i.page + 1 : null,
-					completeness: "complete",
-					viewerCanMarkAttendance: viewer.admin || f.leads,
-				});
-			},
+			(plant, i) =>
+				sql`SELECT ${attendanceColumns(i, authority.actor.accountId)} FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
+			(row, i, viewer) => attendanceValue(row, i, viewer),
 		);
 	},
 	/** Presence and classification counts of the current guest list; attended Persons count once. */

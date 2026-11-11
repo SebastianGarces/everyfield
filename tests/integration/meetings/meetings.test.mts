@@ -10,6 +10,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import {
 	answerRsvpToken,
+	attendanceReader,
 	createRsvpToken,
 	describeRsvpToken,
 	guestsWriter as guests,
@@ -985,6 +986,16 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 		[[casey, "not_interested", null]],
 	);
 	assert.equal(ok(await reads.listCards(db, await viewer(), { meetingId: m.id })).cards[0].notes, "PRAYER-CANARY");
+	// The meeting page reads its guests, cards and attendance once; each part equals its own read, for both roles.
+	for (const who of [await viewer(), await viewer(1)]) {
+		const page = ok(await reads.pageGuests(db, who, { meetingId: m.id }));
+		assert.deepEqual(page.guests, ok(await reads.listGuests(db, who, { meetingId: m.id })));
+		assert.deepEqual(page.cards, ok(await reads.listCards(db, who, { meetingId: m.id })));
+		assert.deepEqual(
+			page.attendance,
+			ok(await attendanceReader.listAttendance(db, who, { meetingId: m.id, limit: 500 })),
+		);
+	}
 	const history = await count(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE (before_value::text LIKE '%PRAYER-CANARY%' OR after_value::text LIKE '%PRAYER-CANARY%' OR result::text LIKE '%PRAYER-CANARY%')`,
 	);
