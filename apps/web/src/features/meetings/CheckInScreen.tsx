@@ -304,7 +304,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				<footer className="sticky bottom-0 flex flex-col gap-2 bg-frame px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))]">
 					{finalizer ? null : (
 						<p className="text-center text-sm text-text-2">
-							An Owner, an Admin or the ministry's leader finalizes attendance.
+							An Owner, an Admin or the ministry&rsquo;s leader finalizes attendance.
 						</p>
 					)}
 					<div className={finalizer ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>

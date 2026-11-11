@@ -827,7 +827,10 @@ async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
-			whenLive(communicationAccess(reader, reader.session, true), sql`SELECT ${audiencePeople(reader.plantId, input)} AS people`),
+			whenLive(
+				communicationAccess(reader, reader.session, true),
+				sql`SELECT ${audiencePeople(reader.plantId, input)} AS people`,
+			),
 		),
 	) as { allowed: boolean; people: unknown };
 	requireAllowed(raw.allowed);

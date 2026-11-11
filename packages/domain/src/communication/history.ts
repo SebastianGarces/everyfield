@@ -22,8 +22,6 @@ const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
 const STAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
 
-type Reader = { session: string; accountId: string; plantId: string; seatId: string; role: Command["actor"]["role"] };
-
 function requireAllowed(value: boolean) {
 	if (value !== true) deny("access_denied");
 }
