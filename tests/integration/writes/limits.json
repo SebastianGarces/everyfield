@@ -456,7 +456,8 @@
 		"limit": 1
 	},
 	"documents.updateChurchTemplate": {
-		"limit": 3
+		"limit": 2,
+		"retry": 5
 	},
 	"documents.useForChurch": {
 		"limit": 1,

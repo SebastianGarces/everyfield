@@ -699,6 +699,8 @@ function block(r: R, node: BlockNode, key: number): ReactNode {
 			return slot(r, node, key);
 		case "table":
 			return table(r, node, key);
+		case "if":
+			throw new Error("conditional text resolves before the PDF is laid out (printedDoc)");
 	}
 }
 

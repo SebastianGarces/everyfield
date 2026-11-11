@@ -1,6 +1,6 @@
 // The everyfield.doc/1 schema: a port of design/doc-format/approach-a/schema.json. Each node lists its group, its
 // attributes and the nodes it may hold. Units are points (72 per inch). Colors are theme tokens, never hex values.
-// A test keeps this object equal to the design file.
+// A test keeps this object equal to the design file, plus the later `if` node the design names (conditional text).
 import type { FormatSchema } from "./types.ts";
 
 export const FORMAT_SCHEMA: FormatSchema = {
@@ -595,6 +595,26 @@ export const FORMAT_SCHEMA: FormatSchema = {
 				allow: ["row"],
 				min: 0,
 				max: 1000,
+			},
+		},
+		if: {
+			group: "block",
+			attrs: {
+				field: {
+					type: "key",
+				},
+				test: {
+					type: "enum",
+					values: ["has-value", "is-empty", "more-than"],
+				},
+				value: {
+					type: "int",
+					optional: true,
+				},
+			},
+			content: {
+				allow: ["block"],
+				min: 0,
 			},
 		},
 		row: {

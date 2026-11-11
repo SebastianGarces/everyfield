@@ -70,6 +70,23 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null }]);
 });
 
+test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words (D-434)", async () => {
+	await person("José Núñez", "jn@accent.test");
+	await person("Liam O'Brien", "liam@obrien.test");
+	await person("Nora O\u2019Brien", "nora.ob@typo.test");
+	const names = async (query) =>
+		ok(await read("readRecipients", { query }))
+			.people.map((p) => p.displayName)
+			.sort();
+	assert.deepEqual(await names("jose"), ["José Núñez"]);
+	assert.deepEqual(await names("JOSÉ"), ["José Núñez"]);
+	assert.deepEqual(await names("brien"), ["Liam O'Brien", "Nora O\u2019Brien"]);
+	assert.deepEqual(await names("o'brien"), ["Liam O'Brien", "Nora O\u2019Brien"]);
+	assert.deepEqual(await names("o\u2019brien"), ["Liam O'Brien", "Nora O\u2019Brien"]);
+	assert.deepEqual(await names("obrien"), []);
+	assert.deepEqual(await names("typo"), []);
+});
+
 test("AC:CASE-COM-004 audience returns named reachable recipients, capped at 200", async () => {
 	const ids = [];
 	for (let i = 0; i < 3; i += 1) ids.push(await person(`Named ${String(i).padStart(3, "0")}`, `named${i}@aud.test`));
