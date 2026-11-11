@@ -168,7 +168,7 @@ const audits = (subjectIds) =>
 	rows(sql`SELECT * FROM audit_event WHERE subject_id=ANY(${sql.param(subjectIds)}::uuid[])
  AND action IN ('people.merged','people.unmerged','people.corrected') ORDER BY occurred_at,id`);
 
-test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE AC:PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE AC:PERSONREF-ACCOUNT-LINK-MERGE AC:ROLE43-011 reviewed merge moves every people reference to the survivor, and Unmerge restores both people exactly", async () => {
+test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE AC:PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE AC:PERSONREF-ACCOUNT-LINK-MERGE AC:ROLE43-011 INV-merge-choices reviewed merge moves every people reference to the survivor, and Unmerge restores both people exactly", async () => {
 	// D is account-linked and survives; S is its unlinked duplicate with its own records, tags, note and household.
 	const d = await person("Dana Ruiz", { email: "dana@example.test", stage: "attendee" });
 	const s = await person("Dana R.", { email: "DANA@example.test ", phone: "555 010 2000", stage: "core_group" });
@@ -488,7 +488,7 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 	}
 });
 
-test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
+test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
 	const a = await person("Avery Stone", { email: "avery@example.test" }),
 		b = await person("Avery Stone"),
 		c = await person("Avery S.");
@@ -574,7 +574,7 @@ const correct = (recordType, personId, recordId, expectedRevision, changes, who 
 const corrections = (personId, who = 0) =>
 	tx((t) => recordCorrections.listRecordCorrections(t, ctx(who), { personId }));
 
-test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompute the total, never move the stage and keep old and new values out of audit", async () => {
+test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep the recorder, recompute the total, never move the stage, clear a note sent as null and keep old and new values out of audit", async () => {
 	const p = await person("Morgan Hale", { stage: "leader" });
 	const a = ok(
 		await tx((t) =>
@@ -736,6 +736,28 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			["commitment_corrected", card.id],
 			["interview_corrected", i.id],
 			["assessment_corrected", a.id],
+		],
+	);
+	// A cleared note is sent as null: it stores no note, and the history records the old value going to null.
+	ok(await correct("assessment", p.id, a.id, "2", { committed: { score: 5, notes: null } }));
+	ok(await correct("interview", p.id, i.id, "2", { nextSteps: "Call on Tuesday" }));
+	ok(await correct("interview", p.id, i.id, "3", { nextSteps: null }));
+	ok(await correct("commitment", p.id, card.id, "3", { notes: null }));
+	const cleared = await tx(async (t) => [
+		ok(await assessments.getAssessments(t, ctx(), { personId: p.id })).latest.committed,
+		ok(await interviews.getInterviews(t, ctx(), { personId: p.id })).latest.nextSteps,
+		ok(await commitments.getCommitments(t, ctx(), { personId: p.id })).items.find((x) => x.id === card.id).notes,
+	]);
+	assert.deepEqual(cleared, [{ score: 5, notes: null }, null, null]);
+	assert.deepEqual(
+		ok(await corrections(p.id))
+			.items.slice(0, 4)
+			.map((x) => [x.recordId, x.changes]),
+		[
+			[card.id, [{ field: "notes", old: "Signed at the picnic", new: null }]],
+			[i.id, [{ field: "nextSteps", old: "Call on Tuesday", new: null }]],
+			[i.id, [{ field: "nextSteps", old: null, new: "Call on Tuesday" }]],
+			[a.id, [{ field: "committed", old: { score: 5, notes: "Corrected note" }, new: { score: 5, notes: null } }]],
 		],
 	);
 });

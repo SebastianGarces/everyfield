@@ -1740,6 +1740,8 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
+	// While the request is pending, the same login reaches no viewer.
+	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const measured = async (body) => {
 		statements.length = 0;
@@ -1758,4 +1760,8 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(cancelled.value.status, "cancelled");
 	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
 	assert.deepEqual([status.count, cancelled.count], [5, 6]);
+	// Kept: the original email and password sign in again to a working account.
+	const fresh = await login(a);
+	assert.notEqual(await viewerOf(fresh), null);
+	ok(await section(fresh, { section: "account" }));
 });

@@ -127,7 +127,7 @@ const cases = [
 	["an omitted reason is saved as no reason", {}, null],
 ] as const;
 for (const [name, reason, stored] of cases)
-	test(`AC:TARGET-PPL-015 an edit where ${name}`, async () => {
+	test(`AC:TARGET-PPL-015 INV-optional-reason an edit where ${name}`, async () => {
 		const { p, a } = await assessed(name);
 		ok(await edit(p.id, a, reason));
 		oneEntry(await history(p.id), a, stored);

@@ -368,7 +368,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 	}
 });
 
-test("INV-request-page: revoked membership refuses writes from a stale viewer", async (test) => {
+test("INV-pages INV-request-page: a page past the end reads the last page; revoked membership refuses writes from a stale viewer", async (test) => {
 	const f = await fixture();
 	test.after(() => f.close());
 	const native = f.native();
@@ -427,6 +427,15 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 		ids.slice(0, 24),
 	);
 	assert.equal(list.data.page.total, 25);
+	// D67: a page number past the end reads the last page of the same filtered list, and names that page.
+	const beyond = await pageRead((tx, ctx) =>
+		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("q=Request+Person&page=9999"))),
+	);
+	assert.equal(beyond.data.kind, "list");
+	assert.deepEqual(
+		[beyond.query.page, beyond.query.search, beyond.data.page.items.map((p) => p.id), beyond.data.page.next],
+		[2, "Request Person", [ids[24]], null],
+	);
 	const person = await pageRead((tx, ctx) => readPersonPage(tx, ctx, ids[0]));
 	assert.equal(person.status, "ok");
 	assert.equal(person.value.found.person.displayName, "Request Person 00");
