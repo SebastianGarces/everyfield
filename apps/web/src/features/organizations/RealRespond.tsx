@@ -6,14 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { loadInvitation } from "./actions";
 import { InvitationResponse } from "./InvitationResponse";
-import type { PendingInvitation } from "./port";
+import type { Invitation } from "./port";
 import { createNames, realRun } from "./real";
 
 type State =
 	| { kind: "loading" }
 	| { kind: "signed_out"; returnTo: string }
 	| { kind: "unavailable" }
-	| { kind: "invitation"; invitation: PendingInvitation; names: Record<string, string>; proof: string };
+	| { kind: "invitation"; invitation: Invitation; names: Record<string, string>; zone: string; proof: string };
 
 const KEEP = "ef-relationship-proof";
 
@@ -46,8 +46,9 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 				if (r.kind !== "invitation") return setState({ kind: "unavailable" });
 				setState({
 					kind: "invitation",
-					invitation: C.invitationResult.omit({}).parse(r.invitation) as PendingInvitation,
+					invitation: C.invitationResult.parse(r.invitation),
 					names: r.names,
+					zone: r.zone,
 					proof,
 				});
 			},
@@ -87,7 +88,7 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 						invitation={state.kind === "invitation" ? state.invitation : null}
 						proof={state.kind === "invitation" ? state.proof : ""}
 						nameOf={names.nameOf}
-						zone="UTC"
+						zone={state.kind === "invitation" ? state.zone : "UTC"}
 						run={realRun}
 						connectionsHref="/settings/sharing"
 					/>

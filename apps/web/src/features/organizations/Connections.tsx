@@ -14,7 +14,7 @@ import { kindLabel, subjectOf } from "./model";
 import { formatDay } from "../shared/dates.ts";
 import { ProblemLine } from "./parts";
 import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
-import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
+import type { History, NameOf, Invitation, Relationship, Run } from "./port";
 
 /**
  * One read of the list: the first history page with the current connections, the requests still waiting, and for a
@@ -22,7 +22,7 @@ import type { History, NameOf, PendingInvitation, Relationship, Run } from "./po
  */
 export type ConnectionsData = {
 	history: { status: "unavailable" } | History;
-	pending: PendingInvitation[];
+	pending: Invitation[];
 	sharing: Record<string, SharingRow>;
 };
 
@@ -65,7 +65,7 @@ export function Connections({
 	const [status, setStatus] = useState("");
 	const fetch = useCallback(() => load(), [load]);
 	const { state, reload, update, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load", initial);
-	const changePending = (change: (p: PendingInvitation[]) => PendingInvitation[]) =>
+	const changePending = (change: (p: Invitation[]) => Invitation[]) =>
 		update((d) => ({ ...d, pending: change(d.pending) }));
 
 	const subject = side === "subject";
@@ -367,13 +367,13 @@ function PendingList({
 	onStale,
 	stale,
 }: {
-	invitations: PendingInvitation[];
+	invitations: Invitation[];
 	canManage: boolean;
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
 	/** A confirmed command: what to say, and the list as it is now. */
-	onChange: (status: string, change: (list: PendingInvitation[]) => PendingInvitation[]) => void;
+	onChange: (status: string, change: (list: Invitation[]) => Invitation[]) => void;
 	/** After an unconfirmed command: read the list again. */
 	onStale: () => void;
 	stale: boolean;
@@ -385,7 +385,7 @@ function PendingList({
 	const busy = resend.pending ?? withdraw.pending;
 	const held = resend.held ?? withdraw.held;
 
-	const act = async (action: Action, invitation: PendingInvitation) => {
+	const act = async (action: Action, invitation: Invitation) => {
 		setLast(action);
 		const make = (requestKey: string) =>
 			invitationCommandRequest.parse({
