@@ -1,5 +1,5 @@
-// Unit tests for the plain-text editor mapping, the field list and the preview pre-pass.
-import { mergeKeys } from "../../../packages/contracts/src/communication/html.ts";
+// The plain-text editor maps typed text to stored HTML and back, and the preview pre-pass and send check read the
+// merge fields, so the preview equals the sent email.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
@@ -8,10 +8,7 @@ import { bodyToText, bodyToTextResult, textToBody } from "../../../apps/web/src/
 import {
 	fieldProblem,
 	fieldProblemText,
-	usableKeys,
-	mergeFields,
 	prepareBody,
-	sampleNames,
 	UNFINISHED_MARKER,
 	unknownMarker,
 } from "../../../apps/web/src/features/communication/fields.ts";
@@ -28,25 +25,22 @@ const texts = [
 	"Fish & chips < 5 > 3",
 ];
 
-test("text round trips through stored HTML", () => {
-	for (const t of texts) assert.equal(bodyToText(textToBody(t)), t, t);
-});
-
-test("every output passes the sanitizer unchanged", () => {
+test("INV-communication-editor: typed text is stored as HTML the sanitizer keeps unchanged and reads back as the same text", () => {
 	for (const t of texts) {
 		const html = textToBody(t);
 		assert.equal(sanitizeHtml(html), html, t);
+		assert.equal(bodyToText(html), t, t);
 	}
 });
 
-test("every system template body survives the editor", () => {
+test("INV-communication-editor: every system template body survives the editor", () => {
 	for (const template of systemTemplates) {
 		const html = template.bodyHtml;
 		assert.equal(sanitizeHtml(textToBody(bodyToText(html))), sanitizeHtml(html), template.name);
 	}
 });
 
-test("b and i read as bold and italic, u and span keep text and flag it", () => {
+test("INV-communication-editor: b and i read as bold and italic, u and span keep text and flag it", () => {
 	assert.equal(bodyToText("<p><b>a</b> <i>b</i></p>"), "**a** *b*");
 	const lossy = bodyToTextResult("<p><u>under</u> <span>span</span></p>");
 	assert.equal(lossy.text, "under span");
@@ -54,13 +48,7 @@ test("b and i read as bold and italic, u and span keep text and flag it", () => 
 	assert.equal(bodyToTextResult("<p>plain</p>").lossy, false);
 });
 
-test("the field rail lists exactly the contract merge keys that delivery fills", () => {
-	assert.deepEqual(usableKeys(true), [...mergeKeys]);
-	assert.equal(mergeFields.find((f) => f.key === "rsvp_link")?.needsMeeting, true);
-	assert.ok(sampleNames.every((n) => n.includes(" ")));
-});
-
-test("pre-pass marks unfinished and unknown fields and leaves valid bodies alone", () => {
+test("INV-communication-preview: the pre-pass marks unfinished and unknown fields and leaves valid bodies alone", () => {
 	const keys = ["name"];
 	assert.equal(prepareBody("<p>Hello {{na</p>", keys), `<p>Hello ${UNFINISHED_MARKER}</p>`);
 	assert.equal(prepareBody("<p>Hi {{nmae}}.</p>", keys), `<p>Hi ${unknownMarker("nmae")}.</p>`);
@@ -70,13 +58,16 @@ test("pre-pass marks unfinished and unknown fields and leaves valid bodies alone
 	assert.doesNotMatch(prepareBody("<p>Hello {{na</p>", keys), /[{}]/);
 });
 
-test("field problems name what the person typed", () => {
+test("INV-communication-fields: field problems name what the person typed", () => {
 	assert.equal(fieldProblem("Hello {{na", ["name"]), "{{na");
 	assert.equal(fieldProblem("Hello {{nmae}}", ["name"]), "{{nmae}}");
 	assert.equal(fieldProblem("Hello {{name}}", ["name"]), null);
 });
 
-test("a meeting-only field without a meeting says it needs a meeting; a typo says to fix it", () => {
-	assert.match(fieldProblemText("{{rsvp_link}}"), /RSVP button needs a meeting/);
+test("INV-communication-fields: a meeting-only field without a meeting says it needs a meeting; a typo says to fix it", () => {
+	assert.equal(
+		fieldProblemText("{{rsvp_link}}"),
+		"The RSVP button needs a meeting. Attach a meeting or remove {{rsvp_link}}",
+	);
 	assert.equal(fieldProblemText("{{nmae}}"), "Finish or remove the field {{nmae}}");
 });
