@@ -65,7 +65,7 @@ export async function seedOrganizations(t) {
 		decision: "accept",
 	});
 	assert.equal(accepted.status, "accepted", JSON.stringify(accepted));
-	a.pair = accepted.pair ?? invitation.pair;
+	a.pair = invitation.pair;
 }
 
 export function organizationsCases(t, who) {

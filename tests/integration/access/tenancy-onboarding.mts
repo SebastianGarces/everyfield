@@ -58,6 +58,9 @@ const fresh = (plant) => ({
 	values: "missing",
 });
 
+/** The entry a planter's church just created through onboarding answers with. */
+const entryOf = (p) => ({ kind: "plant", plantName: p.name, resume: fresh(p.plant) });
+
 export function onboardingCases(t, who) {
 	const owner = who === t.ownerA ? planters.a : planters.b;
 	const entry = () =>
@@ -79,13 +82,8 @@ export function onboardingCases(t, who) {
 			{
 				run: async () => ({ status: "ok", value: await entry() }),
 				expected: {
-					value: { kind: "plant", plantName: owner.name, resume: fresh(owner.plant) },
-					control: (value) =>
-						assert.deepEqual(value, {
-							kind: "plant",
-							plantName: `${t.MARK} onboarding church`,
-							resume: fresh(planters.a.plant),
-						}),
+					value: entryOf(owner),
+					control: (value) => assert.deepEqual(value, entryOf(planters.a)),
 				},
 			},
 		],
