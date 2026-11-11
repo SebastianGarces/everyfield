@@ -190,7 +190,10 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 		const key = attempt.current.key;
 		setCopying(source.id);
 		setProblem(null);
-		const result = await copyToChurch({ documentId: source.id, revisionId: source.revisionId, requestKey: key });
+		// A call that never reached the server reads as a lost reply, so the same choice retries with the same key.
+		const result = await copyToChurch({ documentId: source.id, revisionId: source.revisionId, requestKey: key }).catch(
+			() => ({ status: "lost" }) as const,
+		);
 		if (result.status === "ok") {
 			attempt.current = null;
 			router.push(`/documents/written/${result.value.id}`);

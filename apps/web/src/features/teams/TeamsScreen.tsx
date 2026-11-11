@@ -35,7 +35,7 @@ import type { TeamView, TeamsView } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { SetupDialog } from "./Setup.tsx";
 
-export type TeamsTab = "teams" | "chart";
+type TeamsTab = "teams" | "chart";
 const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "team", state: "forming", reason: "" };
 
 /**
