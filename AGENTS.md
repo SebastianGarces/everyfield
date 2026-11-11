@@ -71,7 +71,7 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
-| Previews | `.agents/skills/portless-preview/SKILL.md` |
+| Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
 | Browser runs, preview stack, logs | `bin/dev help` |
 | QA previews | `docs/runbooks/qa-preview.md` |

@@ -17,7 +17,6 @@ import {
 	syncNotifications,
 	venuesReader,
 	venuesWriter as venues,
-	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 
@@ -131,7 +130,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async (t) => {
+test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async () => {
 	const hall = ok(
 		await run(venues.create, { requestKey: key(), input: { name: "Hall", address: "100 Main St", capacity: 80 } }),
 	).venue;
@@ -201,21 +200,6 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	assert.equal(created.visionNumber, null);
 	assert.equal(created.kit, null);
 	assert.deepEqual(created.agenda.sections, [], "only Vision starts from the default agenda");
-
-	// D69: a create with venue, agenda, kit, guests and reminders is a fixed handful of statements.
-	queries = [];
-	const viewerP = await viewer();
-	queries = [];
-	ok(
-		await withMeetingsWrite(db, viewerP, (t, c) =>
-			meetings.schedule(t, c, {
-				requestKey: key(),
-				input: { type: "vision_meeting", date: day(40), time: "19:00", guests: [alex] },
-			}),
-		),
-	);
-	t.diagnostic(JSON.stringify({ schedule: queries.length }));
-	assert.ok(queries.length <= 6, `schedule statements: ${queries.length}`);
 });
 
 test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {

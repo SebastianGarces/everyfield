@@ -18,6 +18,7 @@ import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/i
 import { deliveryText, hubLabel, scheduleText } from "../../../apps/web/src/features/communication/model.ts";
 import { POST as oneClick } from "../../../apps/web/src/features/communication/unsubscribeOneClick.ts";
 import { resendRecorder } from "./resend-recorder.mts";
+import { atSendTime } from "./scheduled-support.mts";
 
 let f, churchA, churchB, ownerA, ownerB, memberA;
 const origin = "https://app.example.test";
@@ -85,6 +86,8 @@ async function send(who, people, { mode = "now", meetingId = null, body = "<p>He
 			keys,
 		);
 	const result = ok(await handOff());
+	// A scheduled email waits in Everyfield; the minute runner hands it off at its send time (T-241).
+	if (mode !== "now") await atSendTime(f.admin, f.db, saved.communicationId, resend.transport, keys);
 	return { id: saved.communicationId, result, resend, handOff };
 }
 const batches = (resend) => resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST");
@@ -304,7 +307,9 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	const all = ok(
 		await f.db.transaction((t) => communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: none.id })),
 	);
-	assert.equal(hubLabel[all.state], "Not sent");
+	// Nobody got it because everyone unsubscribed: its own state, not an error or a cancel (T-241).
+	assert.equal(all.state, "unsubscribed");
+	assert.equal(hubLabel[all.state], "Not sent: unsubscribed");
 	assert.deepEqual([all.failed, all.unsubscribed, all.delivered], [0, 2, 0]);
 	const text = deliveryText(none.result);
 	assert.equal(
