@@ -55,7 +55,6 @@ export type Held = { proof: string; workspaceName: string } & (
 );
 
 export const tabStore = {
-	/** Keeps the link's proof in this tab and removes it from the address bar and history. */
 	/** The proof from the link's fragment (#proof=...), or the one this tab kept after it cleaned the address. */
 	proof(): string | null {
 		return new URLSearchParams(window.location.hash.slice(1)).get("proof") ?? sessionStorage.getItem(PROOF);
