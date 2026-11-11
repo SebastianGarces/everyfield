@@ -131,8 +131,14 @@ test("INV-migration-artifacts: the last audit_action list keeps every action an 
 		await mkdir(directory + "/meta");
 		await writeFile(directory + "/frozen.json", JSON.stringify({ files: [] }));
 		await writeFile(directory + "/meta/_journal.json", JSON.stringify({ entries: [] }));
-		await writeFile(directory + "/20261101000000_first.sql", actions("person.created", "person.updated", "wiki.hidden"));
-		await writeFile(directory + "/20261102000000_second.sql", actions("person.created", "person.updated", "wiki.hidden"));
+		await writeFile(
+			directory + "/20261101000000_first.sql",
+			actions("person.created", "person.updated", "wiki.hidden"),
+		);
+		await writeFile(
+			directory + "/20261102000000_second.sql",
+			actions("person.created", "person.updated", "wiki.hidden"),
+		);
 		await writeFile(directory + "/20261103000000_last.sql", actions("person.created"));
 		await assert.rejects(
 			checkMigrationArtifacts(url),

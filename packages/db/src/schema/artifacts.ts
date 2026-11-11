@@ -70,7 +70,6 @@ function assertAdditiveAuditActions(lists: { name: string; actions: string[] }[]
 	const kept = new Set(last.actions);
 	for (const earlier of lists.slice(0, -1)) {
 		const dropped = earlier.actions.filter((action) => !kept.has(action));
-		if (dropped.length)
-			throw Error(`${last.name} drops audit actions ${earlier.name} allowed: ${dropped.join(", ")}`);
+		if (dropped.length) throw Error(`${last.name} drops audit actions ${earlier.name} allowed: ${dropped.join(", ")}`);
 	}
 }
