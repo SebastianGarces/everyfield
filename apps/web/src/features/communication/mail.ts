@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { mailEnv } from "../../server/mail-env.ts";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
@@ -15,9 +16,7 @@ import { settleCaptured } from "./settle.ts";
 // returned at handoff. A missing id or answer is unknown, never a fabricated acceptance.
 
 const env = z.object({
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 	IDENTITY_ORIGIN: z.url(),
 	RESEND_API_KEY: z.string().trim().min(1).optional(),
 });

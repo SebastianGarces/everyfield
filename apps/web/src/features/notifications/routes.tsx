@@ -6,17 +6,12 @@ import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
 import { call, loadFeedPage, notificationActor, notificationsMount } from "./server.ts";
+import { params } from "../shared/search-params.ts";
 
 // The notification routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading
 // and their states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [k, v] of Object.entries(raw)) for (const one of [v ?? []].flat()) out.append(k, one);
-	return out;
-};
-
 export const notificationsMetadata: Metadata = { title: "Notifications", robots: { index: false, follow: false } };
 
 /** The feed page: the first page and the unread count of its filter, read on the server (REQ-NTF-003). */

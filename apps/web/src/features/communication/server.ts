@@ -10,13 +10,13 @@ import {
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, deliveryTransport, mailReady, type MailReady } from "./mail.ts";
+import { canWrite } from "../shared/seat-role.ts";
 
 // The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
 // inside the write statement. A member may read drafts and templates. Audience, preview and writes need an Owner or Admin.
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
-export const canWrite = (viewer: Viewer) => viewer.role === "owner" || viewer.role === "admin";
 
 /** The request's plant seat. Signed out, no plant seat, and a setup failure stay distinct. */
 export async function communicationViewer() {

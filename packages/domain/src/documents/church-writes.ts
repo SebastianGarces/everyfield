@@ -23,6 +23,7 @@ import {
 	iso,
 	plantScope,
 	postgresCode,
+	rerun,
 	rowsOf,
 	storeBytes,
 	type Scope,
@@ -882,14 +883,17 @@ export const churchWriter = {
 				}
 			}
 			// The same request key finished first: answer with its record when it is the same export.
-			const raced = await rowsOf<{ id: string; same: boolean }>(
-				db,
-				sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
-					AND gd.format = ${input.format}) AS same
-				FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
-			);
-			if (raced[0]?.same) return exportRecord(db, scope, raced[0].id);
-			deny("conflict");
+			// It runs as the retry of this write, so the statement budgets count it as one.
+			return rerun(db, async (bound) => {
+				const raced = await rowsOf<{ id: string; same: boolean }>(
+					bound,
+					sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
+						AND gd.format = ${input.format}) AS same
+					FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
+				);
+				if (raced[0]?.same) return exportRecord(bound, scope, raced[0].id);
+				deny("conflict");
+			});
 		});
 	},
 
@@ -1271,7 +1275,8 @@ export const churchWriter = {
 	 * written, so documents made from them keep what they recorded. One read finds the seat, the source revision, the
 	 * template and an earlier request on the key; one statement writes the revision, moves the row to it and writes one
 	 * audit row. A template no longer at the named version is a conflict. The same request key returns the version it
-	 * made; a race on it, or on the version number, meets a unique key and reads what the winner wrote.
+	 * made; a race on it, or on the version number, meets a unique key or writes nothing, then reads what the winner
+	 * wrote as a retry run.
 	 */
 	async updateTemplate(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -1381,13 +1386,13 @@ export const churchWriter = {
 				// A race on the same request key meets the stable revision id; another update from the same version meets the
 				// unique version number. The first gets what the winner wrote, the second has no request of its own: a conflict.
 				if (postgresCode(error) !== "23505") throw error;
-				return sameUpdate(db, scope, input.requestKey, requestHash);
+				return rerun(db, (bound) => sameUpdate(bound, scope, input.requestKey, requestHash));
 			}
 			const row = found[0];
 			if (!row?.ok) deny("access_denied");
 			// Nothing written: the template or the source changed after the read. When it was this request on the same key
-			// that landed first, answer with what it made; anything else is a conflict.
-			if (!row.id) return sameUpdate(db, scope, input.requestKey, requestHash);
+			// that landed first, answer with what it made; anything else is a conflict. Both race answers run as retries.
+			if (!row.id) return rerun(db, (bound) => sameUpdate(bound, scope, input.requestKey, requestHash));
 			return (
 				templateSummary({
 					id: row.id,
