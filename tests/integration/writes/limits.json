@@ -402,7 +402,8 @@
 	},
 	"documents.exportNative": {
 		"limit": 22,
-		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write."
+		"retry": 26,
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun: its largest run, on the unique-key path, is 9 read, 10 transaction, 4 locked read, 3 write."
 	},
 	"documents.generate": {
 		"limit": 15,
@@ -1348,6 +1349,11 @@
 	"people/core.withPeopleWrite:people.changeStatus": {
 		"limit": 11,
 		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 6 locked read, 3 write."
+	},
+	"people/core.withPeopleWrite:people.removeFromHousehold": {
+		"limit": 7,
+		"retry": 9,
+		"reason": "Leave-and-delete: the last member leaves and the empty household is deleted in one transaction, two producer writes (people.removeFromHousehold, people.deleteHousehold) at the revision the leave answers. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write. A plain leave stays within the pattern."
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
 		"limit": 13,
