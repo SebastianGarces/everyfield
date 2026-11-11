@@ -103,7 +103,7 @@ async function readAll(who: EvryActor, id: string) {
 	return (await readConversation(db, who, id)).events;
 }
 
-test("INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
+test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const emitted: number[] = [];
@@ -243,7 +243,7 @@ test("INV-stream-access: an observer whose seat ends mid-stream gets no more tex
 	}
 });
 
-test("INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
+test("INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const seen: Seen[] = [];

@@ -1213,8 +1213,8 @@
 	},
 	"people.correctAdultClassification": {
 		"limit": 9,
-		"retry": 5,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
+		"retry": 6,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal (an occurredOn after today in the church's timezone) also reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1291,8 +1291,8 @@
 	},
 	"people.recordAdultClassification": {
 		"limit": 9,
-		"retry": 5,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
+		"retry": 6,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal (an occurredOn after today in the church's timezone) also reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
 	},
 	"people.removeFromHousehold": {
 		"limit": 4
