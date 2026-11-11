@@ -2490,7 +2490,17 @@ export const notice = pgTable(
 		tenant_id: uuid("tenant_id").notNull(),
 		recipient_id: uuid("recipient_id").notNull(),
 		category: text("category", {
-			enum: ["task", "meeting", "phase", "insight", "relationship", "reference_update", "digest", "launch", "communication"],
+			enum: [
+				"task",
+				"meeting",
+				"phase",
+				"insight",
+				"relationship",
+				"reference_update",
+				"digest",
+				"launch",
+				"communication",
+			],
 		}).notNull(),
 		purpose: text("purpose", {
 			enum: [

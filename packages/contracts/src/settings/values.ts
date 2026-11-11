@@ -77,10 +77,8 @@ export const notificationCategory = z.enum([
  */
 export const inAppOnlyCategories = ["wiki_upstream_review", "scheduled_email_unsubscribe"] as const;
 /** The channels a category offers: every reader, writer and setting row uses this one rule. */
-export function notificationChannels(category: z.infer<typeof notificationCategory>) {
-	return (inAppOnlyCategories as readonly string[]).includes(category)
-		? (["in_app"] as const)
-		: (["email", "in_app"] as const);
+export function notificationChannels(category: z.infer<typeof notificationCategory>): readonly ("email" | "in_app")[] {
+	return (inAppOnlyCategories as readonly string[]).includes(category) ? ["in_app"] : ["email", "in_app"];
 }
 /**
  * A channel's state for a person who never saved a choice. Every reader and every sender uses this one rule. The

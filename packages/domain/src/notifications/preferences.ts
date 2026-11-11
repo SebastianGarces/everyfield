@@ -8,7 +8,10 @@ import {
 	setPreferenceRequest,
 	setPreferencesRequest,
 } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled as defaultEnabled, notificationChannels as channels } from "@everyfield/contracts/settings";
+import {
+	defaultChannelEnabled as defaultEnabled,
+	notificationChannels as channels,
+} from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
