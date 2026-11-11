@@ -7,10 +7,14 @@ export const NEON_PROJECT = "cool-math-76767811";
 export const DEV_ENDPOINT = "ep-autumn-dew";
 export const PROD_ENDPOINT = "ep-gentle-dust";
 
+/** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
+export const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
+
 /**
  * The known QA logins. They exist only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision).
  * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126), then a second
- * Member whose seat a tester may remove and a fresh sign-up with no church yet (Nora QA 2026-11-04).
+ * Member whose seat a tester may remove and a fresh sign-up with no church yet (Nora QA 2026-11-04), then the Owner of
+ * the second church, Riverside (QA) (T-255).
  */
 export const QA_PASSWORD = "Everyfield-QA-preview-1";
 export const QA_LOGINS = {
@@ -21,6 +25,7 @@ export const QA_LOGINS = {
 	sending: "delivered+qa-sending-director@resend.dev",
 	member2: "delivered+qa-member-2@resend.dev",
 	signup: "delivered+qa-signup@resend.dev",
+	riverside: "delivered+qa-riverside-owner@resend.dev",
 } as const;
 
 /** The two app logins the QA seed creates on a QA branch, one for each app database role. */
