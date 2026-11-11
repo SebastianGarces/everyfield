@@ -4,7 +4,6 @@ import {
 	humanCredit,
 	parseDiagram,
 	type Diagram,
-	type HierarchyNode,
 	type WikiArticle,
 } from "@everyfield/contracts/wiki";
 import { z } from "zod";
@@ -206,7 +205,8 @@ export type Block =
 	| { kind: "table"; rows: string[][] }
 	| { kind: "callout"; label: string; text: string }
 	| { kind: "code"; text: string }
-	| { kind: "diagram"; diagram: Diagram };
+	/** `info` and `source` are the fence as written, so a save keeps the diagram as its author wrote it. */
+	| { kind: "diagram"; diagram: Diagram; info: string; source: string };
 
 function headingId(text: string, used: Map<string, number>): string {
 	const base =
@@ -240,7 +240,8 @@ export function markdownBlocks(body: string): Block[] {
 		const fence = fenceAt(lines, index);
 		if (fence) {
 			// Fence lines are never markdown.
-			blocks.push(fenceContent(fence));
+			const content = fenceContent(fence);
+			blocks.push(content.kind === "diagram" ? { ...content, info: fence.info, source: fence.body } : content);
 			index = fence.end;
 			continue;
 		}
@@ -582,7 +583,9 @@ function contractToReader(value: unknown): Block | null {
 	}
 	if (node.type === "diagram" && typeof node.info === "string" && typeof node.source === "string") {
 		const parsed = parseDiagram(node.info, node.source);
-		return parsed.ok ? { kind: "diagram", diagram: parsed.diagram } : { kind: "code", text: node.source };
+		return parsed.ok
+			? { kind: "diagram", diagram: parsed.diagram, info: node.info, source: node.source }
+			: { kind: "code", text: node.source };
 	}
 	if (node.type === "table" && Array.isArray(node.rows)) {
 		const rows = node.rows
@@ -592,22 +595,6 @@ function contractToReader(value: unknown): Block | null {
 		return { kind: "table", rows };
 	}
 	return null;
-}
-
-/** A diagram back as the source of its fence, which `parseDiagram` reads as the same diagram. */
-function diagramSource(diagram: Diagram): { info: string; source: string } {
-	const node = (n: { label: string; detail?: string; note?: string }, depth: number) =>
-		`${"  ".repeat(depth)}- ${[n.label, n.detail ?? "", n.note ?? ""].join(" | ").replace(/( \| )+$/, "")}`;
-	const lines = [`title: ${diagram.title}`, ...(diagram.loop ? [`loop: ${diagram.loop}`] : [])];
-	if (diagram.type === "hierarchy") {
-		const walk = (nodes: readonly HierarchyNode[], depth: number): void =>
-			nodes.forEach((n) => {
-				lines.push(node(n, depth));
-				walk(n.children, depth + 1);
-			});
-		walk(diagram.nodes, 0);
-	} else diagram.nodes.forEach((n) => lines.push(node(n, 0)));
-	return { info: `diagram ${diagram.type}`, source: lines.join("\n") };
 }
 
 function readerToEditor(block: Block): EditorBlock {
@@ -647,7 +634,7 @@ function fixedNode(block: FixedBlock): unknown {
 	if (block.kind === "table") return { type: "table", rows: block.rows.map((row) => row.map(run)) };
 	if (block.kind === "callout") return { type: "callout", label: block.label, children: run(block.text) };
 	if (block.kind === "code") return { type: "code", language: "text", text: block.text };
-	return { type: "diagram", ...diagramSource(block.diagram) };
+	return { type: "diagram", info: block.info, source: block.source };
 }
 
 function contractBlock(block: EditorBlock): unknown {
