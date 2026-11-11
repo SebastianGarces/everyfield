@@ -113,9 +113,13 @@ async function apply(tx: Transaction, eventId: string) {
 		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	return "applied" as const;
 }
+/** Read at most 16 KB, verify the signature once, then apply those verified bytes. */
 export async function receiveMailCallback(db: Database, request: Request, secret: string) {
 	const raw = await boundedBytes(request, 16_384);
-	const key = verifyCallback(raw, request.headers, secret);
+	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
+}
+/** Store a durable safe receipt for already verified callback bytes, then try to apply it. */
+export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
 	const v = wire.parse(JSON.parse(new TextDecoder().decode(raw)));
 	const kind = z.enum(kinds).parse(v.type.slice(6));
 	const hash = createHash("sha256").update(raw).digest("hex");
