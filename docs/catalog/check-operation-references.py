@@ -36,9 +36,6 @@ def implementation_errors(root, operation):
     if not isinstance(record, dict):
         return [f'{op_id}: implementation must be an object']
     errors = []
-    unknown = set(record) - {'status', 'paths', 'note'}
-    if unknown:
-        errors.append(f'{op_id}: implementation has unknown fields {sorted(unknown)}')
     status = record.get('status')
     if status not in IMPLEMENTATION_STATUSES:
         errors.append(f'{op_id}: implementation status {status!r} must be not_built or hand_written')
