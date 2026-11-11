@@ -32,6 +32,8 @@ let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
+/** A trusted IP per session, for a test that must not share the default IP's budget with earlier tests. */
+const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
 const ok = (r) => {
@@ -169,7 +171,7 @@ before(async () => {
 				email: v.principal.email,
 				verified: v.principal.verified,
 			};
-			return { request, trustedIp: "198.51.100.21", viewer };
+			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
 		deliverVerification: async (_tx, i) => {
@@ -1286,6 +1288,18 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal((await call("changePassword", b, { ...input, currentPassword: b.password })).status, "refused");
 	const old = await login(b);
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
+});
+
+test("people/peo-31 an email change whose send throws is unknown and gives its try back", async () => {
+	const a = await credentialActor();
+	trustedIps.set(a.session, "198.51.100.31");
+	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
+	const live = ingress.get(a.session);
+	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
+	ingress.set(a.session, live);
+	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
 });
 
 test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
