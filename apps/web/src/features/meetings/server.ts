@@ -6,7 +6,7 @@ import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
-import { isFiltered, listRequest, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
+import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
 // The meetings screens' data access. Every producer read is one statement without locks, so a page sends its reads
@@ -80,7 +80,7 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 	const list = (q: MeetingsQuery) => read(viewer, (db, a) => meetingsReader.list(db, a, listRequest(q)));
 	const [first, upcoming] = await Promise.all([
 		list(query),
-		read(viewer, (db, a) => meetingsReader.list(db, a, { window: "upcoming", limit: 1 })),
+		read(viewer, (db, a) => meetingsReader.list(db, a, NEXT_REQUEST)),
 	]);
 	let page = first;
 	if (page.status === "ok" && page.value.items.length === 0 && query.page > pageCount(page.value.total)) {

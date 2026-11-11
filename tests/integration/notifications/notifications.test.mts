@@ -686,3 +686,65 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	);
 	assert.equal(seen.recipientIds.includes(adminSeat.id), false);
 });
+
+test("T-159 C13: a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {
+	const witness = async (kind, subject) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+			witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${id},${kind},${subject},
+			${kind === "plant" ? subject : null},1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),
+			statement_timestamp()+interval '720 hours')`);
+		return () => admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${id}`);
+	};
+	// A church with its Owner, and a network the church is linked to, with its Owner.
+	const church = await plant("Witnessed");
+	const planter = await identity(church);
+	const network = await organization("sending_network", "Witness Network");
+	const overseer = await identity(network);
+	await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${randomUUID()},${church.id},${network.id},clock_timestamp(),false,false,false,false,false,true,false)`);
+	const meeting = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO meeting(id,plant_id,type,title,creator_id,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision',${planter.id},'2026-10-13','18:00','America/Chicago','2026-10-13T23:00:00Z','1','completed',1)`,
+	);
+	const churchReader = await actor(planter.session);
+	const networkReader = await actor(overseer.session);
+	const plantReads = {
+		meetingAudience: () => api.readMeetingAudience(db, churchReader, { plantId: church.id, meetingId: meeting }),
+		planterDigest: () => api.readPlanterDigest(db, churchReader, { plantId: church.id }),
+	};
+	const networkReads = {
+		associationAudience: () =>
+			api.readAssociationAudience(db, networkReader, { organizationId: network.id, discoveryAccountId: planter.id }),
+		associationReceipt: () =>
+			api.readAssociationReceipt(db, networkReader, { organizationId: network.id, operationId: randomUUID() }),
+		oversightDigest: () =>
+			api.readOversightDigest(db, networkReader, {
+				organizationId: network.id,
+				organizationKind: "sending_network",
+				period: "current",
+			}),
+	};
+	for (const read of [...Object.values(plantReads), ...Object.values(networkReads)]) ok(await read());
+
+	// The church is pending deletion: its reads refuse, and the network's digest no longer counts it.
+	let clear = await witness("plant", church.id);
+	try {
+		for (const [name, read] of Object.entries(plantReads)) denied(await read(), "access_denied", name);
+		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
+			VALUES(${church.id},${planter.id},'tasks.changed','edit','record',${church.id},'{}'::jsonb)`);
+		assert.deepEqual(ok(await networkReads.oversightDigest()).plants, []);
+	} finally {
+		await clear();
+	}
+	assert.deepEqual(ok(await networkReads.oversightDigest()).plants, [church.id]);
+
+	// The network Owner's own account is pending deletion: every one of their reads refuses.
+	clear = await witness("account", overseer.id);
+	try {
+		for (const [name, read] of Object.entries(networkReads)) denied(await read(), "access_denied", name);
+	} finally {
+		await clear();
+	}
+	for (const read of Object.values(networkReads)) ok(await read());
+});
