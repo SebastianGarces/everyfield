@@ -1,56 +1,18 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only shared development direct endpoint allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-export const schema = "wp007_" + randomUUID().replaceAll("-", "");
-export const db = createDatabase({
-	connectionString: source.href,
-	max: 8,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-const role = "wp007_" + randomBytes(8).toString("hex"),
-	password = randomBytes(32).toString("hex"),
-	runtimeUrl = new URL(source);
-runtimeUrl.username = role;
-runtimeUrl.password = password;
-export const runtime = createDatabase({
-	connectionString: runtimeUrl.href,
-	max: 8,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-export async function setup() {
-	await db.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
-	await db.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await db.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-}
-export async function teardown() {
-	await closeDatabase(runtime);
-	await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	await db.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	await closeDatabase(db);
-}
+// The schema exists from import on; `teardown` drops it.
+const database = await testDatabase({ prefix: "wp007", max: 8 });
+export const { schema, admin: db } = database;
+export const runtime = database.pools.runtime;
+export const teardown = database.close;
 export async function tx<T>(
 	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
 ): Promise<T> {

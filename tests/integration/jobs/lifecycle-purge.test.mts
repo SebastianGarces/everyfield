@@ -1,8 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createSettingsProducer, createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
@@ -17,26 +16,13 @@ import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 // settings operation; once the cancellation deadline has passed, the every-minute scheduled run claims the purge job and
 // purges on the cleanup login. Runs on a suite schema of the shared development (or disposable CI) database, with three
 // logins (runtime, cleanup, auth) and a synthetic private bucket.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "t128_" + randomUUID().replaceAll("-", ""),
-	role = "t128_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
+const database = await testDatabase({
+	prefix: "t128",
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 });
-let db, cleanupDb, authDb, api, onboarding, credentials, signInAuth;
+const { admin } = database;
+const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
+let api, onboarding, credentials, signInAuth;
 const origin = "http://purge.localhost";
 const secret = randomBytes(40).toString("hex"),
 	cron = "cron-" + randomUUID();
@@ -76,33 +62,6 @@ const command = (input = {}, expectedRevision = "1") => ({ input, expectedRevisi
 const ctx = (a, selected = { kind: "account", id: a.id }) => ({ session: a.session, selected });
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [suffix, cap] of [
-		["", "everyfield_runtime"],
-		["_cleanup", "everyfield_cleanup"],
-		["_auth", "everyfield_auth"],
-	]) {
-		const password = randomBytes(32).toString("hex"),
-			name = role + suffix;
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${cap} TO ${name}`));
-		const url = new URL(source);
-		url.username = name;
-		url.password = password;
-		const client = createDatabase({
-			connectionString: url.href,
-			max: 4,
-			options: `-c search_path=${schema},pg_catalog,pg_temp`,
-		});
-		if (suffix === "") db = client;
-		else if (suffix === "_cleanup") cleanupDb = client;
-		else authDb = client;
-	}
 	const organizationEffects = {
 		invitation: async () => {},
 		invalidate: (tx) => queueJobs(tx, []),
@@ -155,16 +114,7 @@ before(async () => {
 	});
 	tick = scheduledJobs({ secret: cron, db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
 });
-after(async () => {
-	for (const client of [db, cleanupDb, authDb]) if (client) await closeDatabase(client);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const suffix of ["", "_cleanup", "_auth"])
-			await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role + suffix}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-});
+after(database.close);
 
 const signIn = (a) => signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
 /** A signed-up account with a password and a live session, as Better Auth creates it. */

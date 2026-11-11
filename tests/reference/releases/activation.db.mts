@@ -1,9 +1,8 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { referenceService, ReferenceRefusal } from "../../../packages/reference/src/server.ts";
 import type { ReferenceAuthority, ReferenceDependencies } from "../../../packages/reference/src/server.ts";
 import { promotion } from "../../../packages/contracts/src/reference/release.ts";
@@ -11,24 +10,8 @@ import type { Promotion } from "../../../packages/contracts/src/reference/releas
 import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import { fixture } from "./fixtures.mts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only shared development or disposable CI endpoint permitted");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp032_test_" + randomUUID().replaceAll("-", "");
-const db = createDatabase({
-	connectionString: source.href,
-	max: 6,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp032_test", roles: {}, max: 6 });
+const { admin: db } = database;
 const actor = randomUUID(),
 	user = randomUUID(),
 	session = randomUUID(),
@@ -84,8 +67,6 @@ async function refused(cmd: Promotion, code: string) {
 	);
 }
 before(async () => {
-	await db.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
 	await db.execute(
 		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
 	);
@@ -103,10 +84,7 @@ before(async () => {
 	await db.execute(querySql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind)
     VALUES(${querySql.param(plant)},'Keep edited title','launch_prep','medium','in_progress',now(),'undated')`);
 });
-after(async () => {
-	await db.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	await closeDatabase(db);
-});
+after(database.close);
 
 test("AC:REFREL-001 initial install, exact replay and changed immutable hash refuse without rewriting originals", async () => {
 	const cmd = command("R1", "0");

@@ -1,8 +1,13 @@
 # Evry evals
 
 Recorded evals of Evry on the real model. Each `<name>.cases.json` holds labelled cases. Each `<name>.recorded.json`
-holds the real model's answers, keyed by a hash of the exact provider call (prompt, tools, tool choice, reasoning,
-output limit, response format, provider options). CI replays the recordings: no paid call, no network, no API key.
+holds the real model's answers. CI replays the recordings: no paid call, no network, no API key.
+
+All four suites replay through `recorder("<name>")` in `golden-harness.mts`. Its `model()` is the replay model: it
+serves the recorded `doGenerate` and `doStream` calls and throws `MissingRecording` for a call the file does not hold.
+Its `save()` writes the file on a recording run. Every call is keyed by `callKey`: a hash of the exact provider call
+(prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
+`model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
 | Suite                 | Cases                                                                                                                   | What it scores                                                                        |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -18,8 +23,10 @@ output limit, response format, provider options). CI replays the recordings: no 
 expected answer, must-not) plus an `eval` block with its checks. A test fails if an approved case is missing,
 duplicated or changed. `adapters.cases.json` holds the cases added beyond the golden set (`"extra": true`, IDs
 `ADP-…`): 5 to 10 natural questions per adapter in `packages/evry/src/adapters`, including near-misses, and cases
-for the catalog's own tools (`"adapter": "catalog"`, such as `evry.selectReturnedRows`). A test fails when an adapter
-has no such questions, or an adapter operation or catalog tool has no case.
+for the catalog's own tools (`"adapter": "catalog"`, such as `evry.selectReturnedRows`). `golden.test.mts` fails when
+an adapter has no such questions or a question names an operation outside its adapter.
+`tests/workflow/evry-evals-coverage.test.mjs` is the one coverage test: it fails when an adapter operation or catalog
+tool has no case in any `*.cases.json`.
 
 Each case is one turn, asked the way `runTurn` asks it (`golden-harness.mts`). First comes `evry.classifyRequest`.
 Then the real system prompt runs with the actor's read tools, `select_returned_rows` and `propose_change`. Reads are
@@ -60,21 +67,26 @@ target, the judge's grades and the recording keys. Keep reports outside the repo
 ### Re-record
 
 A changed prompt, catalog, tool schema, fixture result or case text changes the provider call. That call then has no
-recording, and the case fails until it is recorded again on the real `EVRY_MODEL`:
+recording, and the case fails until it is recorded again on the real `EVRY_MODEL`. Each suite records its own file:
 
 ```sh
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
 EVRY_EVAL_RECORD=1 EVRY_EVAL_CASES=SAF-04,PIP-03 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
+EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/classify.test.mts
+EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/households.test.mts
+EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/followups.test.mts
 ```
 
-Recording asks the model only for calls the file does not hold yet. A full run drops recordings no case uses. A run
-limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the env file. It must hold `EVRY_MODEL` and
+Recording asks the model only for calls the file does not hold yet. A full run drops recordings no case uses. A golden
+run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the env file. It must hold `EVRY_MODEL` and
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
 **Cost.** Recording all 124 cases on `gpt-6-luna` from scratch is 481 calls, about $0.19
-(`spend.allMicroUsd` in `golden.recorded.json`). Re-recording only the changed cases costs a fraction of a cent per
-case. If a run would cost more than $1, ask the owner first.
+(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under half a
+cent (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
+token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
+fraction of a cent per case. If a run would cost more than $1, ask the owner first.
 
 ### A new capability (OPS-102)
 

@@ -1,11 +1,10 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readSharingDisclosure, createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
-before(S.setup);
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
 test("INV-consent: first approval defaults on while rejoin preserves independent saved choices", async () => {

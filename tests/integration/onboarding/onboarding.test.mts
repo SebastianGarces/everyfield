@@ -4,8 +4,7 @@ import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/n
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
@@ -16,26 +15,10 @@ import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp009_" + randomUUID().replaceAll("-", ""),
-	role = "wp009_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 6,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db, api, mail;
+const database = await testDatabase({ prefix: "wp009", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
+let api, mail;
 let faults = false;
 const ok = (r) => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
@@ -102,17 +85,6 @@ async function resume(f) {
 	return value;
 }
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -154,13 +126,7 @@ before(async () => {
 	});
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-029 AC:DC-031 creation is atomic, ungated, leader bootstrap and replay never demote", async () => {
