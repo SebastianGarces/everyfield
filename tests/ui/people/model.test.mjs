@@ -246,11 +246,14 @@ test("INV-activity-entry: a saved change joins the top, replaces its own entry, 
 
 // AC:TARGET-PPL-018 D-516: "Add, review later" needs a Person to pair the row with, an existing match or the earlier
 // row it repeats while that row imports. Without one the import refuses the whole file, so the screen drops the choice.
-test("AC:TARGET-PPL-018 D-516: a repeat of a skipped row loses \"Add, review later\"; other duplicates keep it", async () => {
-	const { canReview, withReviewTargets } = await import(
-		"../../../apps/web/src/features/people/import-export/model.ts"
-	);
-	const row = (n, of, existing = []) => ({ row: n, status: "valid", withinFileDuplicateOf: of, existingDuplicates: existing });
+test('AC:TARGET-PPL-018 D-516: a repeat of a skipped row loses "Add, review later"; other duplicates keep it', async () => {
+	const { canReview, withReviewTargets } = await import("../../../apps/web/src/features/people/import-export/model.ts");
+	const row = (n, of, existing = []) => ({
+		row: n,
+		status: "valid",
+		withinFileDuplicateOf: of,
+		existingDuplicates: existing,
+	});
 	const rows = [row(1, null), row(2, 1), row(3, null), row(4, 3), row(5, null, [{ personId: "p" }]), row(6, null)];
 	const preview = { rows };
 	const choices = (...pairs) => new Map(pairs);
