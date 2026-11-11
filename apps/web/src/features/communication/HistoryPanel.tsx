@@ -1132,8 +1132,9 @@ function Browser({
 }
 
 /**
- * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it: only
- * the person can undo it, from the page their Unsubscribe link opens.
+ * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it. The
+ * Unsubscribe page offered the person an Undo for one hour after they pressed Unsubscribe; opening the link again later
+ * only shows that they are unsubscribed.
  */
 function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 	return (
@@ -1141,7 +1142,8 @@ function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 			<p className="font-medium text-ink">Unsubscribed from email</p>
 			<p className="text-sm text-text-2">
 				They unsubscribed from {churchName.trim() || "this church"}&rsquo;s email on {when(at)}. Messages are not sent
-				to them. Only they can undo this, from the Unsubscribe link in an email.
+				to them. They could undo it for one hour on the page their Unsubscribe link opened; it can&rsquo;t be undone
+				here.
 			</p>
 		</div>
 	);

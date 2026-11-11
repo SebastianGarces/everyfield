@@ -344,7 +344,9 @@ function ToField({
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
 			<div className="relative">
+				{/* A pointer shortcut into the search field, which keeps the keyboard path; the box itself is no control. */}
 				<div
+					role="presentation"
 					onClick={() => input.current?.focus()}
 					className="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]"
 				>

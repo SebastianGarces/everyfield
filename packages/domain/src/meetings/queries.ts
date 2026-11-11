@@ -284,7 +284,7 @@ export const meetingsReader = {
 				meetingId: i.meetingId,
 				guestId: g.id,
 				rsvp: g.rsvp,
-				responseAllowed: ["planning", "ready", "in_progress"].includes(g.status),
+				responseAllowed: c.answeringStatuses.includes(g.status),
 				revision: g.revision,
 			});
 		});

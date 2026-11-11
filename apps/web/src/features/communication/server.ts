@@ -9,7 +9,7 @@ import {
 } from "@everyfield/domain/communication";
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
-import { appOrigin, deliveryTransport, mailReady, type MailReady } from "./mail.ts";
+import { appOrigin, mailReady, type MailReady } from "./mail.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
 // The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
@@ -96,8 +96,6 @@ export async function deliver<T>(
 		return { status: "lost" };
 	}
 }
-
-export { deliveryTransport };
 
 /** Templates, teams and the church name for the page. A member skips the team read. */
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
