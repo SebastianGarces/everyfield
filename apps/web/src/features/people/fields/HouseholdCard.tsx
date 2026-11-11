@@ -369,7 +369,7 @@ export function HouseholdCard({
 									...membership("household-leave", (key, rev) =>
 										leaveHousehold(key, rev, {
 											personId: person.id,
-											deleteEmpty: v.deleteEmpty ? h.household.id : null,
+											deleteEmpty: v.deleteEmpty,
 										}),
 									),
 								},
