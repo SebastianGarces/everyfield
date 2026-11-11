@@ -758,7 +758,7 @@ try {
 	// (apps/web/next.config.ts), which only a running server shows. Setup requests: they carry no budget.
 	//  - A Word import of exactly IMPORT_BYTES_MAX passes the proxy (proxyClientMaxBodySize) and the import route whole and
 	//    lands as the document's first revision; a file one byte over gets the stated limit, not a dropped connection,
-	//    with a length header and without one (the route counts the bytes as they arrive).
+	//    with a length header and without one (the route counts the bytes as they arrive, before it reads anything else).
 	//  - A written-document save and a Church Document save whose body JSON is near BODY_JSON_MAX (over 3 MB of UTF-8)
 	//    pass the server-action limit (serverActions.bodySizeLimit) and are stored whole.
 	async function documentHostLimits() {
@@ -793,15 +793,17 @@ try {
 		};
 		const tooLarge = { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." };
 		assert.equal(IMPORT_TOO_LARGE, tooLarge.problem);
+		// The route counts the bytes before anything reads the request: with an empty title too, the answer is the size
+		// limit. The domain refuses an oversized file as well, but it states the title's problem first.
 		const over = wordFile(IMPORT_BYTES_MAX + 1, "Just over");
-		assert.deepEqual(await importFile(over, "Just over"), tooLarge, "a length header just over the limit");
+		assert.deepEqual(await importFile(over, ""), tooLarge, "a length header just over the limit");
 		const streamed = new ReadableStream({
 			start(controller) {
 				for (let at = 0; at < over.length; at += 1024 * 1024) controller.enqueue(over.subarray(at, at + 1024 * 1024));
 				controller.close();
 			},
 		});
-		assert.deepEqual(await importFile(streamed, "Just over", { duplex: "half" }), tooLarge, "no length header");
+		assert.deepEqual(await importFile(streamed, "", { duplex: "half" }), tooLarge, "no length header");
 		const marker = `Exactly ten ${randomUUID()}`;
 		const exact = await importFile(wordFile(IMPORT_BYTES_MAX, marker), "Exactly the limit");
 		assert.equal(exact.status, "ok", JSON.stringify(exact));
