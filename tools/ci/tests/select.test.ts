@@ -13,6 +13,8 @@ type Context = import("../select.ts").Context;
 const NOW = new Date("2026-11-09T12:00:00Z");
 const TESTS = [
 	".github/scripts/fail-forward.test.cjs",
+	"ops/actionable-watch/test/io.test.mts",
+	"ops/actionable-watch/test/observe.test.mts",
 	"tests/workflow/dev.test.mjs",
 	"tests/workflow/evry-evals-coverage.test.mjs",
 	"tests/workflow/nightly.test.ts",
@@ -50,6 +52,8 @@ const map = {
 	createdAt: "2026-11-08T03:00:00Z",
 	tests: {
 		".github/scripts/fail-forward.test.cjs": [".github/scripts/fail-forward.cjs"],
+		"ops/actionable-watch/test/io.test.mts": ["ops/actionable-watch/io.mts", "ops/actionable-watch/observe.mts"],
+		"ops/actionable-watch/test/observe.test.mts": ["ops/actionable-watch/observe.mts"],
 		"tests/workflow/dev.test.mjs": ["scripts/browser.ts", "scripts/dev.ts"],
 		// What a map built before the read tracer holds: V8 coverage alone sees nothing these tests read as text.
 		"tests/workflow/evry-evals-coverage.test.mjs": [],
@@ -133,6 +137,18 @@ test("T-41 selection table: docs, one package, tools, lockfile, workflow file, u
 		assertSelected(selectChecks(["tools/ci/tests/fixture.json"], map, context), {
 			checks: { "tools-ci": "runs tools/ci/tests/select.test.ts" },
 			tests: { "tools/ci/tests/select.test.ts": "CI tool test support: tools/ci/tests/fixture.json" },
+		}),
+	);
+	await t.test("an actionable watcher source change runs the whole ops-watch suite and nothing else", () =>
+		assertSelected(selectChecks(["ops/actionable-watch/io.mts"], map, context), {
+			checks: {
+				"ops-watch": "runs ops/actionable-watch/test/io.test.mts; runs ops/actionable-watch/test/observe.test.mts",
+			},
+			tests: {
+				"ops/actionable-watch/test/io.test.mts":
+					"reached ops/actionable-watch/io.mts; actionable watcher: ops/actionable-watch/io.mts",
+				"ops/actionable-watch/test/observe.test.mts": "actionable watcher: ops/actionable-watch/io.mts",
+			},
 		}),
 	);
 	await t.test("the lockfile runs everything", () =>

@@ -1,8 +1,13 @@
 import { safeLinkAddress } from "@everyfield/contracts/common";
-import { FORMAT_SCHEMA, nativeFromText, type DocNode } from "@everyfield/contracts/documents";
+import {
+	FORMAT_SCHEMA,
+	IMPORT_BYTES_MAX,
+	IMPORT_TOO_LARGE,
+	nativeFromText,
+	type DocNode,
+} from "@everyfield/contracts/documents";
 import { crc32, inflateRawSync } from "node:zlib";
 
-const UPLOAD_MAX = 10 * 1024 * 1024;
 const EXPANDED_MAX = 40 * 1024 * 1024;
 const ENTRY_MAX = 2000;
 const TEXT_MAX = 2_000_000;
@@ -24,7 +29,7 @@ export class ImportRejected extends Error {
  * against the format rules.
  */
 export function readImport(bytes: Uint8Array, format: "text" | "docx"): DocNode {
-	if (bytes.length > UPLOAD_MAX) throw new ImportRejected("The file must be 10 MiB or smaller.");
+	if (bytes.length > IMPORT_BYTES_MAX) throw new ImportRejected(IMPORT_TOO_LARGE);
 	if (isOle(bytes)) throw new ImportRejected("Legacy Word documents are not accepted.");
 	if (format === "text") return nativeFromText(readText(bytes));
 	return readDocx(bytes);

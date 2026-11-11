@@ -31,11 +31,10 @@ export function createNotificationProducer(config: NotificationConfig) {
 	const keys = optOutRing(config);
 	const now = () => config.now?.() ?? new Date();
 	return {
-		readFeed,
+		readFeed: (database: Database, authority: RequestActor, raw: unknown) => readFeed(database, authority, raw, now),
 		readUnreadCount,
 		getPreferences,
-		describeEmailOptOut: (database: Database, _authority: RequestActor, raw: unknown) =>
-			emailOptOut(database, keys, now, raw, "describe"),
+		describeEmailOptOut: (database: Database, raw: unknown) => emailOptOut(database, keys, now, raw, "describe"),
 		readOversightDigest,
 		readPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
 			readPlanterDigest(database, authority, raw, now),
