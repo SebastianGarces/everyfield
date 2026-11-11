@@ -1,18 +1,22 @@
 "use client";
 
 import {
+	ArrowTurnBackwardIcon,
 	Calendar03Icon,
+	Cancel01Icon,
 	CheckListIcon,
 	Clock01Icon,
 	Link04Icon,
 	UserGroupIcon,
+	Tick02Icon,
 	UserIcon,
 } from "@hugeicons/core-free-icons";
-import { Checkbox } from "@everyfield/ui/controls";
+import { Checkbox, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge, type Status as Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { PointerEvent, ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
+import type { StatusAction } from "./actions.ts";
 import { originText } from "../followups/model.ts";
 import { When } from "../people/parts.tsx";
 import {
@@ -21,6 +25,7 @@ import {
 	blockedText,
 	dueText,
 	isSettled,
+	OPEN_STATUSES,
 	ownerText,
 	PRIORITY_LABEL,
 	STATUS_LABEL,
@@ -30,7 +35,7 @@ import {
 
 // Small pieces the task row and the task panel share.
 
-export const RELATION_ICON: Record<NonNullable<TaskItem["relation"]>["kind"], IconSvgElement> = {
+const RELATION_ICON: Record<NonNullable<TaskItem["relation"]>["kind"], IconSvgElement> = {
 	person: UserIcon,
 	meeting: Calendar03Icon,
 	team: UserGroupIcon,
@@ -218,4 +223,48 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 	const shown = parts.filter(Boolean);
 	if (!shown.length) return null;
 	return <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-3">{shown}</div>;
+}
+
+/** The status choices for one task, shared by the row menu and the task panel. */
+export function StatusItems({
+	task,
+	disabled = false,
+	onAction,
+}: {
+	task: Pick<TaskItem, "status">;
+	/** The task's last save is in flight or unknown (C68). */
+	disabled?: boolean;
+	onAction: (a: StatusAction) => void;
+}) {
+	if (isSettled(task.status))
+		return (
+			<MenuItem icon={ArrowTurnBackwardIcon} disabled={disabled} onSelect={() => onAction({ kind: "reopen" })}>
+				Reopen
+			</MenuItem>
+		);
+	return (
+		<>
+			<MenuItem icon={Tick02Icon} disabled={disabled} onSelect={() => onAction({ kind: "complete" })}>
+				Mark done
+			</MenuItem>
+			<MenuLabel>Status</MenuLabel>
+			<MenuRadioGroup
+				value={task.status}
+				onValueChange={(v) => {
+					const status = OPEN_STATUSES.find((s) => s === v);
+					if (status && status !== task.status) onAction({ kind: "status", status });
+				}}
+			>
+				{OPEN_STATUSES.map((s) => (
+					<MenuRadioItem key={s} value={s} disabled={disabled}>
+						{STATUS_LABEL[s]}
+					</MenuRadioItem>
+				))}
+			</MenuRadioGroup>
+			<MenuSeparator />
+			<MenuItem icon={Cancel01Icon} disabled={disabled} onSelect={() => onAction({ kind: "waive", reason: null })}>
+				Close as no longer needed
+			</MenuItem>
+		</>
+	);
 }

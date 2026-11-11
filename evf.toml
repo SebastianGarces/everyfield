@@ -20,6 +20,55 @@ name = "fast-check"
 run = ["bin/dev", "fast-check"]
 timeout_minutes = 10
 
+# full-check is `bin/dev check --full`, the verifier's run: lint, typecheck, unit, docs, ci-coverage and the workflow,
+# tools-ci, tools-qa and github-scripts suites. None of them needs Postgres. A full run takes 3 to 7 minutes on this
+# Mac; the timeout leaves room for a loaded machine. Sebastian, Nov 11 2026: "Yes, file the evf tasks and the
+# ci.yml/evf.toml changes; I'll do the GitHub App".
+[[check]]
+name = "full-check"
+run = ["bin/dev", "check", "--full"]
+timeout_minutes = 25
+
+# The db packages and the census, as the `db` and `domain (census part N)` jobs in .github/workflows/ci.yml run them.
+# They stay inert (commented out) until evf gives each check slot its own throwaway Postgres (the evf-v2 slot-Postgres
+# task, ruling D-633). Turned on, they must use that slot's DATABASE_URL, never the shared dev database or Neon.
+# [[check]]
+# name = "db-packages"
+# run = ["sh", "-c", "pnpm db:migrate && python3 packages/db/src/schema/generate.py --check && pnpm --filter @everyfield/db test:db && pnpm --filter @everyfield/reference test:db && pnpm --filter @everyfield/evry test:db"]
+# timeout_minutes = 25
+#
+# [[check]]
+# name = "census"
+# run = ["sh", "-c", "pnpm db:migrate && NEXT_TELEMETRY_DISABLED=1 pnpm build && pnpm --filter @everyfield/domain test:db"]
+# timeout_minutes = 45
+
+# Check slots run these commands; seats do not. Each pattern becomes a `Bash(<pattern>)` deny rule in the seat's
+# settings exactly as written, so every form is spelled out: bare, by path, behind env, through npx, pnpm exec,
+# pnpm dlx and corepack pnpm, and with pnpm's -r and --filter. `pnpm build` runs `next build`.
+# A pattern starts with the command or with `*/`, so a commit message or an `evf ask` that names them stays allowed.
+[guards]
+heavy = [
+  # tsc
+  "tsc", "tsc *", "*/tsc", "*/tsc *", "env *tsc", "env *tsc *",
+  "npx *tsc", "npx *tsc *", "pnpm *tsc", "pnpm *tsc *", "corepack pnpm *tsc", "corepack pnpm *tsc *",
+  # tsgo
+  "tsgo", "tsgo *", "*/tsgo", "*/tsgo *", "env *tsgo", "env *tsgo *",
+  "npx *tsgo", "npx *tsgo *", "pnpm *tsgo", "pnpm *tsgo *", "corepack pnpm *tsgo", "corepack pnpm *tsgo *",
+  # next build
+  "next build", "next build *", "*/next build", "*/next build *", "env *next build", "env *next build *",
+  "npx *next build", "npx *next build *", # through pnpm and corepack pnpm: the `pnpm * build` patterns below
+  # pnpm typecheck, with run, -r or --filter <pkg>
+  "pnpm *typecheck*", "*/pnpm *typecheck*", "env *pnpm *typecheck*", "npx *pnpm *typecheck*", "corepack pnpm *typecheck*",
+  # test:db, with run, -r or --filter <pkg>
+  "pnpm *test:db*", "*/pnpm *test:db*", "env *pnpm *test:db*", "npx *pnpm *test:db*", "corepack pnpm *test:db*",
+  # pnpm build, with run, -r or --filter <pkg>
+  "pnpm build", "pnpm build *", "pnpm * build", "pnpm * build *",
+  "*/pnpm build", "*/pnpm build *", "*/pnpm * build", "*/pnpm * build *",
+  "env *pnpm build", "env *pnpm build *", "env *pnpm * build", "env *pnpm * build *",
+  "npx *pnpm build", "npx *pnpm build *", "npx *pnpm * build", "npx *pnpm * build *",
+  "corepack pnpm build", "corepack pnpm build *", "corepack pnpm * build", "corepack pnpm * build *",
+]
+
 # Owner gates. Sebastian, Nov 6 2026, 11:54 AM ET: "Yes, keep my OK on all five, including CI and agent settings".
 # A path ending in "/" is a prefix. Anything else is an exact path.
 

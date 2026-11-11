@@ -338,7 +338,7 @@ export function Compose({
 				? ({ kind: "reviewed", communicationId: form.communicationId } as const)
 				: ({ kind: "draft", input: draftPayload(form) } as const);
 		const steps = { save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") };
-		// Send now hands off at once; Schedule hands off with the send time, so the email service holds the email.
+		// Send now hands off at once; Schedule keeps the email in Everyfield until the minute runner sends it at its time.
 		const result = await handOff(steps, form.revision, target, plan.kind === "now" ? null : plan.at.toISOString());
 		keys.settle("save", result);
 		keys.settle("schedule", result);

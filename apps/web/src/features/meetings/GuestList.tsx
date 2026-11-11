@@ -36,6 +36,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
+import { answeringStatuses } from "@everyfield/contracts/meetings";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
 import { flushSync } from "react-dom";
 import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -108,7 +109,6 @@ type Form = (
 ) & { problem?: string };
 
 const STATE_NOTE = { retired: "Retired", merged: "Merged", live: null } as const;
-const ACCEPTS_REPLIES = ["planning", "ready", "in_progress"];
 const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
 const EMPTY_ADD: AddDraft = {
 	mode: "existing",
@@ -206,7 +206,7 @@ export function GuestList({
 	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
-	const open = ACCEPTS_REPLIES.includes(meeting.status);
+	const open = answeringStatuses.includes(meeting.status);
 	const busy = lane.wait !== null;
 
 	/**

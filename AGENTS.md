@@ -37,6 +37,9 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
+- The repository is public. PR bodies, commit messages and committed docs never describe an unfixed security
+  weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
+  "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
@@ -76,7 +79,7 @@ Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
-| Previews | `.agents/skills/portless-preview/SKILL.md` |
+| Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
 | Browser runs, preview stack, logs | `bin/dev help` |
 | QA previews | `docs/runbooks/qa-preview.md` |

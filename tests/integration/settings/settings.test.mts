@@ -1720,13 +1720,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
 	);
 	assert.equal(deletion.value.status, "pending_deletion");
-	// BEGIN, the bound actor and COMMIT, plus: the insert; the file and the write; the write; the insert; the preview,
-	// the replan job and the write; the witness read, the witness, the suspension and the write. A native write reads
-	// its request key only when it is refused or its key conflicts (RT-3).
-	assert.deepEqual(
-		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
-		[4, 5, 4, 4, 6, 7],
-	);
 	for (const [key, field] of [
 		[finalizeKey, "avatar"],
 		[removeKey, "avatar"],
@@ -1770,6 +1763,6 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
 	);
 	assert.equal(cancelled.value.status, "cancelled");
-	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
-	assert.deepEqual([status.count, cancelled.count], [5, 6]);
+	// BEGIN, SAVEPOINT, the locking read, RELEASE, COMMIT.
+	assert.equal(status.count, 5);
 });

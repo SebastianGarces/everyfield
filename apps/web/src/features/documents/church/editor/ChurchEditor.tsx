@@ -187,9 +187,9 @@ export default function ChurchEditor({
 		return () => void editor.off("update", sync);
 	}, [editor, isSaved]);
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const doc = editor.state.doc;
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
@@ -222,6 +222,22 @@ export default function ChurchEditor({
 		inflight.current = run;
 		return run;
 	}, [editor, docId, onRevision]);
+
+	/**
+	 * Saves the document on screen. A save already in flight sent the document as it was when it started, so after it
+	 * resolves, edits typed meanwhile get a save of their own. True only when what is on screen is saved; a failed save
+	 * keeps its reason on the page.
+	 */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		let joined = false;
+		while (inflight.current) {
+			joined = true;
+			if (!(await inflight.current)) return false;
+		}
+		if (joined && isSaved(editor.state.doc)) return true;
+		return saveNow();
+	}, [editor, isSaved, saveNow]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
