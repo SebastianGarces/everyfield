@@ -2759,6 +2759,59 @@
               "fixture_type": "doctrinal_slot",
               "template": "bylaws",
               "section": "statement-of-faith",
+              "filled_by_network": true,
+              "network_text": "Network statement of faith."
+            },
+            "network": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network",
+              "statement_of_faith": "Network statement of faith."
+            },
+            "affiliation-P-N": {
+              "fixture_type": "affiliation",
+              "plant": "P",
+              "organization": "N",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.preview",
+            "arguments": {
+              "template": "bylaws",
+              "format": "pdf",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "doctrinal_section": "network_text",
+              "slot_text": "Network statement of faith.",
+              "everyfield_doctrinal_text": false,
+              "slot_blank_note": false
+            },
+            "event": null
+          },
+          "name": "network-fills-preview"
+        },
+        {
+          "given": {
+            "slot": {
+              "fixture_type": "doctrinal_slot",
+              "template": "bylaws",
+              "section": "statement-of-faith",
               "filled_by_network": false
             }
           },

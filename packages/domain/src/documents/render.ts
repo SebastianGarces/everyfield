@@ -105,8 +105,9 @@ export function renderContext(
 	theme: RenderTheme,
 	documentClass: RenderClass,
 	meeting?: AgendaMeeting,
+	statement: string | null = null,
 ): Ctx {
-	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting };
+	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting, statement };
 }
 
 const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
@@ -115,41 +116,56 @@ const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
 	return values;
 };
 
-/** A template's PDF with its layout details. The theme is an input; the default is the Everyfield-neutral theme. */
+/**
+ * A template's PDF with its layout details. The theme is an input; the default is the Everyfield-neutral theme. The
+ * network's statement of faith fills a template's `statement-of-faith` slot; null leaves the marked blank.
+ */
 export async function renderTemplatePdf(
 	template: Pick<CatalogTemplate, "id">,
 	values: Record<string, string>,
 	theme?: RenderTheme,
 	meeting?: AgendaMeeting,
+	statement: string | null = null,
 ) {
 	const entry = entryFor(template.id);
 	if (!entry || entry.format !== "pdf") throw new RenderFailed();
 	const church = values.church_name ?? "";
-	if (Object.values(values).some(unsafe) || unsafe(church) || (meeting && unsafeMeeting(meeting)))
+	if (
+		Object.values(values).some(unsafe) ||
+		unsafe(church) ||
+		(meeting && unsafeMeeting(meeting)) ||
+		(statement !== null && unsafe(statement))
+	)
 		throw new RenderFailed();
 	const use = theme ?? NEUTRAL_THEME;
 	try {
-		return await renderPdfElement(entry.build(renderContext(church, values, use, entry.documentClass, meeting)));
+		return await renderPdfElement(
+			entry.build(renderContext(church, values, use, entry.documentClass, meeting, statement)),
+		);
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed();
 	}
 }
 
-/** Null when a required field is missing. Bytes come only from the template registry and the resolved fields. */
+/**
+ * Null when a required field is missing. Bytes come only from the template registry, the resolved fields and the
+ * network's statement of faith, read when the action runs (D-109, D-417).
+ */
 export async function renderPreview(
 	template: CatalogTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	resolved: Extract<ResolvedMerge, { ok: true }>,
 	theme?: RenderTheme,
 	meeting?: AgendaMeeting,
+	statement: string | null = null,
 ) {
 	if (!resolved.complete) return null;
 	const entry = entryFor(template.id);
 	if (!entry || entry.format !== format) throw new RenderFailed();
 	const values = valuesOf(resolved);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
-	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting)).bytes;
+	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting, statement)).bytes;
 	const church = values.church_name ?? "";
 	const use = theme ?? NEUTRAL_THEME;
 	return finish(buildBudget(entry.budget, church, use));

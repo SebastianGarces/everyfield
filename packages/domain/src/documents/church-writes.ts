@@ -9,7 +9,7 @@ import { dataFromRow } from "../branding/kit.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
 import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
-import { docTemplateById, sheetOf } from "./doc-templates.ts";
+import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
 import { fillStatementSlots } from "./network-statement.ts";
@@ -59,6 +59,19 @@ type Provenance = { key: string; value: string | null; source: string }[];
  */
 const TEMPLATE_NAME = sql`(SELECT t.title FROM document t WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template'
 	AND 'church-' || t.id::text = d.template_id)`;
+/**
+ * The church template a Church Document `d` (current revision `r`) was made from, while it is live: its name (the
+ * row's, D-171), the body of its current version, and `base`, the body of the version the document's origin records
+ * (D-148: version n is the template's revision n, D-422). Null for a built-in template and for a deleted one, which
+ * offers no compare (D-133). Only the document's own church plant is read.
+ */
+const FOLLOWED_CHURCH_TEMPLATE = sql`(SELECT json_build_object('title', t.title, 'body', tr.body,
+		'base', (SELECT b.body FROM document_revision b WHERE b.document_id = t.id AND b.tenant_id = t.tenant_id
+			AND b.version_number::text = r.body::jsonb #>> '{origin,version}'))
+	FROM document t
+	JOIN document_revision tr ON tr.id = t.current_revision_id AND tr.tenant_id = t.tenant_id
+	WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template' AND t.archived_at IS NULL
+		AND 'church-' || t.id::text = d.template_id)`;
 /**
  * The name of `account` while they hold a seat in the church plant of document `d`, else null, which reads "A former
  * member" (D-105). A seat in another plant does not count. Saved exports name their creator and revisions their saver by it.
@@ -123,16 +136,22 @@ function followedVersion(
 
 /**
  * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
- * statement: the kit joins the same read. With `withSources`, it also reads the plant's name and senior pastor, the values
- * the editor's merge fields offer.
+ * statement: the kit joins the same read. With `sources`, it also reads the plant's name and senior pastor, the values
+ * the editor's merge fields offer; with `template`, the church template it was made from, for a compare.
  */
-async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false, withSources = false) {
+async function readChurchWithKit(
+	db: Database,
+	scope: Scope,
+	documentId: string,
+	{ admin = false, sources: withSources = false, template = false } = {},
+) {
 	const found = await rowsOf<
 		ChurchRow & {
 			ok: boolean;
 			kit: Record<string, unknown> | null;
 			church_name: string | null;
 			pastor_name: string | null;
+			church_template: StoredChurchTemplate | null;
 		}
 	>(
 		db,
@@ -140,7 +159,8 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
 			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name,
 			${withSources ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
-			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
+			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name,
+			${template ? FOLLOWED_CHURCH_TEMPLATE : sql`NULL::json`} AS church_template
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
@@ -173,12 +193,12 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		contactLine: contactLine(kit),
 		meetingDate: null,
 	};
-	return { doc, kit, sources };
+	return { doc, kit, sources, churchTemplate: row.church_template };
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
 async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
-	return (await readChurchWithKit(db, scope, documentId, admin))?.doc ?? null;
+	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
 function safeJson(text: string): unknown {
@@ -264,18 +284,82 @@ function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): M
 	};
 }
 
-/** Finds the current version of a built-in template. A test passes its own to compare with a template version 2. */
-type TemplateLookup = (id: string) => c.DocTemplate | undefined;
+/**
+ * The built-in templates a compare reads: the current version of each, and a published version by its id and hash
+ * (D-421). A test passes its own to compare with a template version 2.
+ */
+type TemplateSource = {
+	current: (id: string) => c.DocTemplate | undefined;
+	published: (id: string, hash: string) => c.DocTemplate | undefined;
+};
+const BUILT_IN: TemplateSource = { current: docTemplateById, published: publishedTemplate };
+
+/** A church template as the document read finds it: its name, its current body and the base's body, if stored. */
+type StoredChurchTemplate = { title: string; body: string; base: string | null };
 
 /**
- * Where a document stands against its template: "behind" when the template hash it records is not the current
- * template's, "current" when it is, and null when there is nothing to compare with (a blank document, or a template
- * that no longer exists).
+ * The template a document follows: its current version, its name, whether it is the church's own, and its base,
+ * the version the document's origin records (D-422), or null when that version is not stored.
  */
-export async function templateStatus(body: c.DocDocument, templates: TemplateLookup = docTemplateById) {
-	const template = body.origin ? templates(body.origin.template) : undefined;
-	if (!body.origin || !template) return null;
-	return (await c.templateHash(template)) === body.origin.hash ? ("current" as const) : ("behind" as const);
+type Followed = { template: c.DocTemplate; base: c.DocTemplate | null; title: string; church: boolean };
+
+/**
+ * The template a document follows: a built-in template, or the church's own template the document was made from,
+ * read with the document (`stored`, D-133). Null when there is nothing to compare with: a blank document, a template
+ * that no longer exists, or an origin naming a church template other than the row's. A base whose version or hash is
+ * not the one the origin records is not stored.
+ */
+async function followedTemplate(
+	body: c.DocDocument,
+	madeFrom: string | null,
+	stored: StoredChurchTemplate | null,
+	templates: TemplateSource,
+): Promise<Followed | null> {
+	const { origin } = body;
+	if (!origin) return null;
+	const recorded = async (base: c.DocTemplate | null | undefined) =>
+		base &&
+		base.id === origin.template &&
+		base.version === origin.version &&
+		(await c.templateHash(base)) === origin.hash
+			? base
+			: null;
+	if (c.churchTemplateRecord(origin.template)) {
+		const template = origin.template === madeFrom && stored ? storedTemplate(stored.body) : null;
+		return template && stored && template.id === origin.template
+			? { template, base: await recorded(storedTemplate(stored.base)), title: stored.title, church: true }
+			: null;
+	}
+	const template = templates.current(origin.template);
+	if (!template) return null;
+	return {
+		template,
+		base: await recorded(templates.published(origin.template, origin.hash)),
+		title: template.title,
+		church: false,
+	};
+}
+
+/**
+ * Where a document stands against its template (D-425): "behind" while at least one change the template made since
+ * the base is not in the document, else "current". With no stored base, "behind" when the template hash the document
+ * records is not the current template's (D-75).
+ */
+async function statusAgainst(body: c.DocDocument, followed: Followed | null) {
+	if (!body.origin || !followed) return null;
+	const behind = followed.base
+		? c.templateChanges(body, followed.base, followed.template).length > 0
+		: (await c.templateHash(followed.template)) !== body.origin.hash;
+	return behind ? ("behind" as const) : ("current" as const);
+}
+
+/**
+ * Where a document stands against its built-in template: "behind", "current", or null when there is nothing to
+ * compare with (a blank document, or a template that no longer exists). A church template is read with the document,
+ * so the editor read carries its status.
+ */
+export async function templateStatus(body: c.DocDocument, templates: TemplateSource = BUILT_IN) {
+	return statusAgainst(body, await followedTemplate(body, null, null, templates));
 }
 
 /**
@@ -297,14 +381,31 @@ async function addedValues(db: Database, scope: Scope, body: c.DocDocument, temp
 }
 
 /** The document and its template for a compare or an accept: an Owner or Admin, a fork of a template that exists. */
-async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateLookup) {
-	const found = await readChurchWithKit(db, scope, documentId, true);
+async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateSource) {
+	const found = await readChurchWithKit(db, scope, documentId, { admin: true, template: true });
 	if (!found) deny("unavailable");
 	const { body } = found.doc;
-	const template = body.origin ? templates(body.origin.template) : undefined;
-	if (!body.origin || !template) deny("unavailable");
-	return { ...found, body, origin: body.origin, template, hash: await c.templateHash(template) };
+	const followed = await followedTemplate(body, found.doc.templateId, found.churchTemplate, templates);
+	if (!body.origin || !followed) deny("unavailable");
+	const { template, base } = followed;
+	// Both lists, each with a key that names it (D-423): an accept names its list by the key it was shown.
+	const all = c.compareWithTemplate(body, template);
+	const changes = base ? c.templateChanges(body, base, template) : null;
+	return {
+		...found,
+		body,
+		origin: body.origin,
+		followed,
+		template,
+		hash: await c.templateHash(template),
+		lists: { all, changes },
+		keys: { all: listKey("all", all), changes: changes ? listKey("changes", changes) : null },
+	};
 }
+
+/** What names one list as the compare showed it: its view and its items. */
+const listKey = (view: c.CompareView, items: readonly c.DocDifference[]) =>
+	`sha256:${hashOf(JSON.stringify([view, items]))}`;
 
 export const churchWriter = {
 	/** CASE-DOC-022: revision 1 holds the template body with the merge values resolved once. It makes no file. */
@@ -323,20 +424,17 @@ export const churchWriter = {
 				{ ...scope, plantId: scope.tenantId },
 				{ personId: null, meetingId: null, teamId: null },
 			);
-			// The brand kit, for a church template its body, and the network's statement of faith: one statement. Another
-			// church's template reads as none. D-108, D-109: the statement is read now, once. The earliest-accepted active
-			// network with a statement fills each `statement-of-faith` slot; with none, the slot stays the marked blank.
+			// The brand kit and, for a church template, its body: one statement. Another church's template reads as none.
+			// D-108, D-109, D-417: the plant read above holds the network's statement of faith, read now, once. The
+			// earliest-accepted active network with a statement fills each `statement-of-faith` slot; with none, the slot
+			// stays the marked blank.
 			const kitRows = await rowsOf<{
 				kit: Record<string, unknown> | null;
 				church_template: { title: string; body: string } | null;
-				statement: string | null;
 			}>(
 				db,
 				sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit,
-					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template,
-					(SELECT o.statement_of_faith FROM affiliation a JOIN organization o ON o.id = a.organization_id
-						WHERE a.plant_id = ${scope.tenantId}::uuid AND a.ended_at IS NULL AND o.statement_of_faith IS NOT NULL
-						ORDER BY a.accepted_at, a.id LIMIT 1) AS statement
+					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
 			);
 			const sources = mergeSources(plant, kitRows[0]?.kit ? dataFromRow(kitRows[0].kit) : null);
@@ -360,7 +458,7 @@ export const churchWriter = {
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
 			const forked = fillStatementSlots(
 				await c.forkTemplate(template, { id: `doc-${docId}`, data }),
-				kitRows[0]?.statement ?? null,
+				plant.open && plant.subjectOk ? plant.statement : null,
 			);
 			const checked = c.docDocument.safeParse({ ...forked, title });
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
@@ -547,60 +645,73 @@ export const churchWriter = {
 	},
 
 	/**
-	 * "Compare with template": every difference between the current revision and the current version of its template,
-	 * and the text each merge field prints on both sides. An Owner or Admin only. One statement reads the document and
-	 * the brand kit; a document that lacks some template fields reads the church plant too, for what they would print.
+	 * "Compare with template": both lists of the current revision beside the current version of its template (D-423).
+	 * "Template changes" holds only what the template changed since the base, the version the revision records; it is
+	 * null when that version is not stored. "All differences" holds every difference (T-19). With the text each merge
+	 * field prints on both sides. An Owner or Admin only. One statement reads the document, the brand kit and a church
+	 * template's versions; a document that lacks some template fields reads the church plant too, for what they print.
 	 */
-	async readTemplateCompare(
-		db: Database,
-		authority: RequestActor,
-		raw: unknown,
-		templates: TemplateLookup = docTemplateById,
-	) {
+	async readTemplateCompare(db: Database, authority: RequestActor, raw: unknown, templates: TemplateSource = BUILT_IN) {
 		return settle(async () => {
 			const input = parse(c.churchCompareRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, origin, template, hash, kit } = await compareSubject(db, scope, input.documentId, templates);
+			const { doc, body, origin, followed, template, hash, kit, lists, keys } = await compareSubject(
+				db,
+				scope,
+				input.documentId,
+				templates,
+			);
 			const added = await addedValues(db, scope, body, template, kit);
 			const missing = c.missingFields(body, template);
 			return c.churchCompare.parse({
 				documentId: doc.id,
 				revision: doc.revision,
-				templateTitle: template.title,
+				templateTitle: followed.title,
+				churchTemplate: followed.church,
 				templateVersion: template.version,
 				templateHash: hash,
+				baseVersion: followed.base?.version ?? null,
 				behind: hash !== origin.hash,
 				values: fieldValues({ ...body, fields: [...body.fields, ...missing], data: { ...body.data, ...added } }),
-				differences: c.compareWithTemplate(body, template),
+				changes: lists.changes,
+				differences: lists.all,
+				keys,
 			});
 		});
 	},
 
 	/**
-	 * Accept differences from the current template: one new revision through the expected-revision save, recording the
-	 * current template version and hash. A template field the document lacked freezes the church's value now, else the
-	 * template's fallback. A newer revision or template than the compare named is a conflict and writes nothing.
+	 * Accept items of one list from the current template: one new revision through the expected-revision save,
+	 * recording the current template version and hash (D-76), which becomes the next compare's base. A template field
+	 * the document lacked freezes the church's value now, else the template's fallback. A newer revision or template
+	 * than the compare named, or a list other than the one the key names, is a conflict and writes nothing.
 	 */
 	async acceptTemplateChanges(
 		db: Database,
 		authority: RequestActor,
 		raw: unknown,
-		templates: TemplateLookup = docTemplateById,
+		templates: TemplateSource = BUILT_IN,
 	) {
 		return settle(async () => {
 			const input = parse(c.acceptTemplateRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, template, hash, kit } = await compareSubject(db, scope, input.documentId, templates);
+			const { doc, body, template, hash, kit, followed, lists, keys } = await compareSubject(
+				db,
+				scope,
+				input.documentId,
+				templates,
+			);
 			if (BigInt(doc.revision) !== BigInt(input.expectedRevision) || hash !== input.templateHash) deny("conflict");
-			const count = c.compareWithTemplate(body, template).length;
+			if (keys[input.view] !== input.key) deny("conflict");
+			const count = (lists[input.view] ?? []).length;
 			if (input.accept !== "all" && input.accept.some((id) => id >= count))
 				rejectInput("accept", "That change is not in the compare.");
 			const added = await addedValues(db, scope, body, template, kit);
+			const options = { origin: { template: template.id, version: template.version, hash }, values: added };
 			const next = c.docDocument.safeParse(
-				c.acceptDifferences(body, template, input.accept, {
-					origin: { template: template.id, version: template.version, hash },
-					values: added,
-				}),
+				input.view === "changes" && followed.base
+					? c.acceptTemplateChanges(body, followed.base, template, input.accept, options)
+					: c.acceptDifferences(body, template, input.accept, options),
 			);
 			if (!next.success) rejectInput("accept", (next.error.issues[0]?.message ?? "invalid").slice(0, 200));
 			return churchWriter.saveChurch(
@@ -949,11 +1060,17 @@ export const churchWriter = {
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, {
+				sources: true,
+				template: true,
+			});
 			if (!found) return deny("unavailable");
 			const church = documentBrand(found.kit, true);
+			const { body, templateId } = found.doc;
+			const followed = await followedTemplate(body, templateId, found.churchTemplate, BUILT_IN);
 			return c.churchDocumentView.parse({
 				...found.doc,
+				template: await statusAgainst(body, followed),
 				brands: { church: church.palette.themed ? church : null, plain: documentBrand(null, false) },
 				mergeValues: insertableValues(found.sources),
 			});

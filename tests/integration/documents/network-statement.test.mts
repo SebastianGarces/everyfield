@@ -1,6 +1,8 @@
 // DOC-020, CASE-DOC-020 `network-fills-slot` and `no-network-blank-slot` (D-106 to D-109): a Church Document made
 // from a template starts with the sending network's statement of faith in its `statement-of-faith` slot, read once at
 // creation. A plant with no network, or whose network has not written it, gets the marked blank.
+// T-85, CASE-DOC-020 base case and `network-fills-preview` (D-417, D-418): a Bylaws preview and a file saved through
+// "Save for your church" print the network's text as it stands when the action runs, and the marked blank otherwise.
 //
 // Every case creates from the built-in Bylaws, whose "Statement of faith" slot carries the key (T-56, D-110). The key
 // test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
@@ -10,7 +12,7 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { fillStatementSlots, statementParagraphs } from "../../../packages/domain/src/documents/network-statement.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
@@ -355,5 +357,144 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		);
 		assert.equal(saved.revision, "2");
 		assert.deepEqual(slotsOf(await current(who, doc.id)), slotsOf(doc.body));
+	});
+});
+
+// ---------------------------------------------------------------- preview and "Save for your church" (T-85)
+
+/** The Bylaws preview's PDF text, as `documents.preview` returns it. */
+async function previewText(who) {
+	const value = ok(await documentsReader.preview(db, await who.authority(), { templateId: BYLAWS, format: "pdf" }));
+	assert.ok(value.artifact, "a preview artifact");
+	return (await pdfPages(Buffer.from(value.artifact, "base64"))).join(" ");
+}
+/** The file `documents.generate` stored for Bylaws on this key, as PDF text, and its record id. */
+async function savedText(who, requestKey = randomUUID()) {
+	const generated = ok(
+		await documentsWriter.generate(
+			db,
+			await who.authority(),
+			{ templateId: BYLAWS, format: "pdf", requestKey },
+			storage,
+		),
+	);
+	return { id: generated.id, text: await storedPdfText(generated.id) };
+}
+async function storedPdfText(generatedId) {
+	const [file] = (
+		await admin.execute(
+			sql`SELECT f.opaque_key FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${generatedId}::uuid`,
+		)
+	).rows;
+	const bytes = client.objects.get(file.opaque_key);
+	assert.ok(bytes, "the bytes are in private storage");
+	return (await pdfPages(bytes)).join(" ");
+}
+/** The statement-of-faith section: what prints after the slot's label and before the next heading, "Members". */
+function sectionOf(text) {
+	const end = text.search(/\bMembers\b/);
+	assert.ok(end > 0, "the heading after the section");
+	const head = text.slice(0, end);
+	const labels = [...head.matchAll(/statement of faith/gi)];
+	assert.ok(labels.length, "the slot's label");
+	const last = labels.at(-1);
+	return head
+		.slice(last.index + last[0].length)
+		.replace(/\s*\d+\.?\s*$/, "")
+		.trim();
+}
+const wordsOf = (paragraphs) =>
+	paragraphs.flatMap((p) => p.content.filter((n) => n.type === "text").map((n) => n.text)).join(" ");
+function assertSectionHolds(text, paragraphs = PARAGRAPHS) {
+	assert.equal(sectionOf(text), wordsOf(paragraphs), "the network's exact text, block by block, under the label");
+	assert.equal(text.includes(SLOT_BLANK_NOTE), false, "no marked blank");
+}
+function assertSectionBlank(text) {
+	assert.equal(sectionOf(text), SLOT_BLANK_NOTE, "the marked blank");
+	assert.equal(DOCTRINAL.test(text), false, `doctrinal words: ${DOCTRINAL.exec(text)?.[0]}`);
+	assert.equal(text.includes("network's own"), false);
+}
+
+describe("DOC-020 network text in a Bylaws preview and a saved file", { concurrency: 1 }, () => {
+	test("AC:CASE-DOC-020 network-fills-preview: preview and the saved file print the network's text in the section", async () => {
+		const who = await plantWithOwner("Preview Plant");
+		await affiliate(who.plant, await organization("sending_network", TEXT));
+		assertSectionHolds(await previewText(who));
+		assertSectionHolds((await savedText(who)).text);
+	});
+
+	test("DOC-020: the preview's section text equals the PDF export of revision 1 of a document made from Bylaws", async () => {
+		const who = await plantWithOwner("Parity Plant");
+		await affiliate(who.plant, await organization("sending_network", TEXT));
+		const preview = sectionOf(await previewText(who));
+		const [exported] = await exportsOf(who, (await create(who)).id);
+		assert.equal(preview, wordsOf(PARAGRAPHS));
+		assert.equal(preview, sectionOf(exported));
+	});
+
+	test("AC:CASE-DOC-020: a plant with no network previews and saves the marked blank, with no doctrinal words", async () => {
+		const who = await plantWithOwner("Blank Preview Plant");
+		assertSectionBlank(await previewText(who));
+		assertSectionBlank((await savedText(who)).text);
+	});
+
+	test("DOC-020: an unset, a cleared or an ended network statement previews and saves the marked blank", async () => {
+		const unset = await plantWithOwner("Unset Preview Plant");
+		await affiliate(unset.plant, await organization("sending_network"));
+
+		const cleared = await plantWithOwner("Cleared Preview Plant");
+		const network = await organization("sending_network", TEXT);
+		await affiliate(cleared.plant, network);
+		await setStatement(network, null);
+
+		const ended = await plantWithOwner("Ended Preview Plant");
+		const affiliation = await affiliate(ended.plant, await organization("sending_network", TEXT));
+		await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${affiliation}::uuid`);
+
+		for (const who of [unset, cleared, ended]) {
+			assertSectionBlank(await previewText(who));
+			assertSectionBlank((await savedText(who)).text);
+		}
+	});
+
+	test("DOC-020, D-108: with two active networks, the earliest-accepted one with a statement fills preview and save", async () => {
+		const who = await plantWithOwner("Two Networks Preview");
+		const earlier = await organization("sending_network");
+		const later = await organization("sending_network", "The later network's words.");
+		await affiliate(who.plant, earlier, "2026-01-01T00:00:00Z");
+		await affiliate(who.plant, later, "2026-03-01T00:00:00Z");
+		await affiliate(who.plant, await organization("sending_church"), "2025-01-01T00:00:00Z");
+
+		const laterOnly = [para("The later network's words.")];
+		assertSectionHolds(await previewText(who), laterOnly);
+		assertSectionHolds((await savedText(who)).text, laterOnly);
+		await setStatement(earlier, "The earlier network's words.");
+		const earlierOnly = [para("The earlier network's words.")];
+		assertSectionHolds(await previewText(who), earlierOnly);
+		assertSectionHolds((await savedText(who)).text, earlierOnly);
+	});
+
+	test("DOC-020, D-109, D-418: the text is read when the action runs; a replay on the same key returns the earlier file", async () => {
+		const who = await plantWithOwner("Changing Preview Plant");
+		const network = await organization("sending_network", TEXT);
+		await affiliate(who.plant, network);
+		const key = randomUUID();
+		const first = await savedText(who, key);
+		assertSectionHolds(first.text);
+
+		await setStatement(network, "Our newer words.");
+		const newer = [para("Our newer words.")];
+		assertSectionHolds(await previewText(who), newer);
+		const second = await savedText(who);
+		assertSectionHolds(second.text, newer);
+		assert.notEqual(second.id, first.id);
+
+		const replay = await savedText(who, key);
+		assert.equal(replay.id, first.id, "the same key returns the earlier file");
+		assertSectionHolds(replay.text);
+		assertSectionHolds(await storedPdfText(first.id));
+		const [{ inputs }] = (await admin.execute(sql`SELECT inputs FROM generated_document WHERE id = ${first.id}::uuid`))
+			.rows;
+		assert.equal(JSON.stringify(inputs).includes("network's own"), false, "the statement is not an input");
 	});
 });

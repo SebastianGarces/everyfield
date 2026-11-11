@@ -78,6 +78,8 @@ type Props = {
 	file: (format: string, revision: string) => string;
 	/** Where the document stands against its template; null when there is nothing to compare with. */
 	template: "behind" | "current" | null;
+	/** The church template's name when the document was made from one; null for a built-in template. */
+	templateName: string | null;
 	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
 	onAccepted: (document: DocDocument, revision: string, taken: number) => void;
 	/** What the last accept did, shown in the status line until the next edit. */
@@ -95,6 +97,7 @@ export default function ChurchEditor({
 	revisions,
 	file,
 	template,
+	templateName,
 	onAccepted,
 	accepted = null,
 }: Props) {
@@ -401,7 +404,9 @@ export default function ChurchEditor({
 						/>
 					</div>
 				) : null}
-				{template === "behind" && mode === "edit" ? <TemplateNotice onCompare={() => void compare()} /> : null}
+				{template === "behind" && mode === "edit" ? (
+					<TemplateNotice churchTemplate={templateName} onCompare={() => void compare()} />
+				) : null}
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
@@ -536,8 +541,11 @@ function LockGlyph() {
 	);
 }
 
-/** The template this document came from has changed since: a plain notice with the way to compare. */
-function TemplateNotice({ onCompare }: { onCompare: () => void }) {
+/**
+ * The template this document came from has changed since: a plain notice with the way to compare. A church template
+ * is named, so the notice says it is the church's own.
+ */
+function TemplateNotice({ churchTemplate, onCompare }: { churchTemplate: string | null; onCompare: () => void }) {
 	return (
 		<section
 			aria-label="Template updated"
@@ -548,7 +556,14 @@ function TemplateNotice({ onCompare }: { onCompare: () => void }) {
 					Template updated
 				</span>
 				<span className="min-w-0 flex-[1_1_14rem] text-pretty text-text-2">
-					The template this document came from has changed. Compare to choose which changes to take.
+					{churchTemplate ? (
+						<>
+							Your church&rsquo;s template &ldquo;{churchTemplate}&rdquo; has changed since this document was made from
+							it. Compare to choose which changes to take.
+						</>
+					) : (
+						"The template this document came from has changed. Compare to choose which changes to take."
+					)}
 				</span>
 			</p>
 			<Button variant="primary" size="sm" icon={FileSyncIcon} onClick={onCompare}>
