@@ -16,9 +16,9 @@ import {
 } from "./server.ts";
 
 // GET /follow-ups/read: the follow-up screens' reads after the first paint (more of the contact log, eligible owners,
-// a handoff preview and a fresh copy after a revision conflict). The seats a handoff can start from are /tasks/read?what=seats. A GET handler, not
-// a server action, so a read never waits for a save or holds one up. Every read rechecks the live seat inside its
-// statement (C13).
+// a handoff preview and a fresh copy after a revision conflict). The seats a handoff can start from are
+// /tasks/read?what=seats. A GET handler, not a server action, so a read never waits for a save or holds one up. Every
+// read rechecks the live seat inside its statement (C13).
 
 const answer = (body: Outcome<unknown>) => Response.json(body, { headers: { "cache-control": "private, no-store" } });
 const invalid = { status: "refused", code: "invalid_input" } as const;

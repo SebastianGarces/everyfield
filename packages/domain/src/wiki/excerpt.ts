@@ -1,14 +1,12 @@
 // The Guide and reference excerpt (WP-034). A section is read as markdown blocks and cut only between blocks, at a
 // sentence end or at a word end, so the cut never splits a table row, a list item, an MDX component or an inline span.
 // The blocks come from `wikiBlocks`, the one block reader the wiki reader, the PDF and the print export also call.
-import { fenceMarker, wikiBlocks, type WikiBlock } from "@everyfield/contracts/wiki";
+import { fenceMarker, wikiBlocks, type WikiBlock as Block } from "@everyfield/contracts/wiki";
 
 /** The excerpt limit. A body this long or longer ends with a whole table row. */
 const LIMIT = 500;
 /** A table that starts inside the limit stays whole up to this length. */
 const TABLE_CEILING = 1500;
-
-type Block = WikiBlock;
 
 /** The character ranges of inline spans: code, links and images, bold, italic and inline tags. */
 function spans(text: string): [number, number][] {

@@ -143,18 +143,18 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	]);
 	if (meeting.status === "failed") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
-	const guests = value(people)?.guests;
+	const page = value(people);
 	return {
 		status: "found",
 		meeting: meeting.value.meeting,
 		agendaTemplate,
-		guests: guests?.guests ?? null,
+		guests: page?.guests.guests ?? null,
 		/** Owners and Admins: the first email open per guest Person. Shown apart from RSVP and attendance. */
-		emailOpens: guests?.emailOpens ?? [],
+		emailOpens: page?.guests.emailOpens ?? [],
 		kit: value(kit),
-		cards: value(people)?.cards.cards ?? null,
+		cards: page?.cards.cards ?? null,
 		own: value(own),
-		attendance: value(people)?.attendance ?? null,
+		attendance: page?.attendance ?? null,
 		analytics: analytics ? value(analytics) : null,
 		evaluation: evaluation ? value(evaluation) : null,
 		now: new Date().toISOString(),
