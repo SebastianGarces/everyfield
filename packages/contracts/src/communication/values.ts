@@ -2,6 +2,8 @@ import { z } from "zod";
 import { meetingTemplateTypes, templateCategories } from "./catalog.ts";
 
 export const communicationStates = ["draft", "reviewed", "scheduled"] as const;
+/** The most people one message reaches. One provider request holds at most this many emails (REQ-COM-005). */
+export const AUDIENCE_LIMIT = 100;
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
 
 /** A closed group token is a string. An unknown token matches nobody. */

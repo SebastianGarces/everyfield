@@ -24,8 +24,7 @@ const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
 	) ORDER BY o.person_id), '[]') FROM (
 		SELECT ml.recipient_person_id AS person_id, min(ml.opened_at) AS opened_at
 		FROM communication cm
-		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.purpose = 'communication'
-			AND ml.logical_key LIKE 'communication/' || cm.id::text || '/%'
+		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.communication_id = cm.id
 		WHERE cm.plant_id = m.plant_id AND cm.meeting_id = m.id
 			AND ml.opened_at IS NOT NULL AND ml.recipient_person_id IS NOT NULL
 		GROUP BY ml.recipient_person_id

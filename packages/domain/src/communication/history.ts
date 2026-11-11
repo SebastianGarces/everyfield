@@ -106,7 +106,7 @@ function stamp(column: SQL) {
 	return sql`to_char(${column} AT TIME ZONE 'UTC', ${STAMP})`;
 }
 function mailOn(plantId: string) {
-	return sql`m.tenant_id = ${plantId}::uuid AND m.purpose = 'communication' AND m.logical_key LIKE 'communication/' || c.id::text || '/%'`;
+	return sql`m.tenant_id = ${plantId}::uuid AND m.communication_id = c.id`;
 }
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
@@ -427,45 +427,48 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'state', ${hubState(reader.plantId)},
-						'selected', GREATEST(
-							(SELECT count(*)::int FROM mail m WHERE ${on}),
-							jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))
-						),
-						'reachable', CASE WHEN (SELECT count(*) FROM mail m WHERE ${on}) > 0 THEN ${reachableSql(reader.plantId)}
+						'selected', GREATEST(t.total, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
+						'reachable', CASE WHEN t.total > 0 THEN ${reachableSql(reader.plantId)}
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 									AND jsonb_exists(c.audience->'personIds', p.id::text)) END,
-						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')),
-						'accepted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
-							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL)),
-						'sent', (SELECT count(*)::int FROM mail m WHERE ${on} AND (m.state = 'sent' OR m.sent_at IS NOT NULL)),
-						'delivered', ${deliveredSql(reader.plantId)},
-						'opened', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.opened_at IS NOT NULL),
-						'clicked', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.clicked_at IS NOT NULL),
-						'bounced', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NOT NULL),
-						'failed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('refused', 'failed') AND m.refusal IS NULL),
-						'unsubscribed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.refusal = 'unsubscribed'),
-						'suppressed', (SELECT count(*)::int FROM mail m WHERE ${on} AND EXISTS (
-							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)),
-						'unknown', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('unknown', 'dispatched')
-							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL),
-						'cancelled', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state = 'cancelled'),
-						'cancelOpen', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.cancel_requested_at IS NOT NULL
-							AND m.state IN ('accepted', 'unknown', 'dispatched')),
+						'attempted', t.attempted, 'accepted', t.accepted, 'sent', t.sent, 'delivered', t.delivered,
+						'opened', t.opened, 'clicked', t.clicked, 'bounced', t.bounced, 'failed', t.failed,
+						'unsubscribed', t.unsubscribed, 'suppressed', t.suppressed, 'unknown', t.unknown,
+						'cancelled', t.cancelled, 'cancelOpen', t.cancel_open,
 						'asOf', ${stamp(sql`clock_timestamp()`)},
-						'outcomes', coalesce((
-							SELECT jsonb_agg(w.word ORDER BY w.ord)
-							FROM (
-								SELECT DISTINCT ${word} AS word,
-									CASE ${word} WHEN 'accepted' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END AS ord
-								FROM mail m WHERE ${on}
-							) w
-						), '[]'::jsonb),
-						'sentForAll', (SELECT count(*) FROM mail m WHERE ${on}) > 0
-							AND NOT EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state <> 'sent' AND m.delivered_at IS NULL)
+						'outcomes', (SELECT coalesce(jsonb_agg(o.word ORDER BY o.ord), '[]'::jsonb)
+							FROM (VALUES ('accepted', 1, t.word_accepted), ('unknown', 2, t.word_unknown), ('rejected', 3, t.word_rejected)) o(word, ord, n)
+							WHERE o.n > 0),
+						'sentForAll', t.total > 0 AND t.not_sent = 0
 					) END AS payload
 				FROM (SELECT 1) seed
-				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid`,
+				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
+				LEFT JOIN LATERAL (
+					SELECT count(*)::int AS total,
+						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled'))::int AS attempted,
+						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
+							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
+						count(*) FILTER (WHERE m.state = 'sent' OR m.sent_at IS NOT NULL)::int AS sent,
+						count(*) FILTER (WHERE m.delivered_at IS NOT NULL)::int AS delivered,
+						count(*) FILTER (WHERE m.opened_at IS NOT NULL)::int AS opened,
+						count(*) FILTER (WHERE m.clicked_at IS NOT NULL)::int AS clicked,
+						count(*) FILTER (WHERE m.bounced_at IS NOT NULL)::int AS bounced,
+						count(*) FILTER (WHERE m.state IN ('refused', 'failed') AND m.refusal IS NULL)::int AS failed,
+						count(*) FILTER (WHERE m.refusal = 'unsubscribed')::int AS unsubscribed,
+						count(*) FILTER (WHERE EXISTS (
+							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))::int AS suppressed,
+						count(*) FILTER (WHERE m.state IN ('unknown', 'dispatched')
+							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL)::int AS unknown,
+						count(*) FILTER (WHERE m.state = 'cancelled')::int AS cancelled,
+						count(*) FILTER (WHERE m.cancel_requested_at IS NOT NULL
+							AND m.state IN ('accepted', 'unknown', 'dispatched'))::int AS cancel_open,
+						count(*) FILTER (WHERE m.state <> 'sent' AND m.delivered_at IS NULL)::int AS not_sent,
+						count(*) FILTER (WHERE ${word} = 'accepted')::int AS word_accepted,
+						count(*) FILTER (WHERE ${word} = 'unknown')::int AS word_unknown,
+						count(*) FILTER (WHERE ${word} = 'rejected')::int AS word_rejected
+					FROM mail m WHERE ${on}
+				) t ON c.id IS NOT NULL`,
 			),
 		),
 	) as { allowed: boolean; found: boolean | null; payload: unknown };
@@ -530,8 +533,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 							) ORDER BY m.created_at, m.id)
 							FROM mail m
 							LEFT JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-							WHERE m.tenant_id = c.plant_id AND m.purpose = 'communication'
-								AND m.logical_key LIKE 'communication/' || c.id::text || '/%'
+							WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
 						), '[]'::jsonb)
 					) END AS payload
 				FROM (SELECT 1) seed
@@ -595,8 +597,7 @@ export async function listHistoryRecipients(tx: Tx, authority: RequestActor, req
 								extract(epoch FROM m.created_at)::text AS epoch
 							FROM mail m
 							LEFT JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-							WHERE m.tenant_id = ${reader.plantId}::uuid AND m.purpose = 'communication'
-								AND m.logical_key LIKE 'communication/' || ${input.communicationId}::text || '/%'
+							WHERE m.tenant_id = ${reader.plantId}::uuid AND m.communication_id = ${input.communicationId}::uuid
 								AND (${cursor.epoch}::text IS NULL OR m.created_at > to_timestamp(${cursor.epoch}::numeric)
 									OR (m.created_at = to_timestamp(${cursor.epoch}::numeric) AND m.id > ${cursor.id}::uuid))
 							ORDER BY m.created_at, m.id
@@ -652,8 +653,7 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 							'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END
 						) ORDER BY p.display_name, p.id)
 						FROM communication c
-						JOIN mail m ON m.tenant_id = c.plant_id AND m.purpose = 'communication'
-							AND m.logical_key LIKE 'communication/' || c.id::text || '/%'
+						JOIN mail m ON m.tenant_id = c.plant_id AND m.communication_id = c.id
 						JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
 						WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
 					), '[]'::jsonb) AS items`,
@@ -737,8 +737,7 @@ function resendDoc(plantId: string, communicationId: string, selection: string) 
 		),
 		'confirmed', EXISTS (
 			SELECT 1 FROM mail d
-			WHERE d.tenant_id = c.plant_id AND d.purpose = 'communication'
-				AND d.logical_key LIKE 'communication/' || c.id::text || '/%' AND d.delivered_at IS NOT NULL
+			WHERE d.tenant_id = c.plant_id AND d.communication_id = c.id AND d.delivered_at IS NOT NULL
 		),
 		'people', coalesce((
 			SELECT jsonb_agg(jsonb_build_object('id', picked.id, 'name', picked.name, 'eligible', picked.eligible)
@@ -747,8 +746,7 @@ function resendDoc(plantId: string, communicationId: string, selection: string) 
 				SELECT DISTINCT ON (p.id) p.id, p.display_name AS name, ${eligible} AS eligible
 				FROM mail m
 				JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-				WHERE m.tenant_id = c.plant_id AND m.purpose = 'communication'
-					AND m.logical_key = 'communication/' || c.id::text || '/' || p.id::text
+				WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
 				ORDER BY p.id, m.created_at DESC
 			) picked
 		), '[]'::jsonb)

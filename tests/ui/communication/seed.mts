@@ -69,9 +69,9 @@ async function up() {
 		await admin.execute(sql`INSERT INTO communication (id, plant_id, revision, state, subject, body_html, body_text, audience, scheduled_at)
 			VALUES (${id}::uuid, ${people.plant}::uuid, 1, 'scheduled', ${subject}, '<p>Hello {{name}}.</p>', 'Hello {{name}}.',
 			${JSON.stringify({ groups: [], teamIds: [], personIds: [sara] })}::jsonb, ${mail.at}::timestamptz)`);
-		await admin.execute(sql`INSERT INTO mail (tenant_id, recipient_person_id, purpose, logical_key, payload_hash, audience_hash,
+		await admin.execute(sql`INSERT INTO mail (tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
 			scheduled_at, state, provider_message_id, accepted_at, sent_at, cancel_requested_at, cancel_confirmed_at, created_at)
-			VALUES (${people.plant}::uuid, ${sara}::uuid, 'communication', ${`communication/${id}/${sara}`}, 'seed', 'seed',
+			VALUES (${people.plant}::uuid, ${sara}::uuid, 'communication', ${id}::uuid, ${`communication/${id}/${sara}`}, 'seed', 'seed',
 			${mail.at}::timestamptz, ${mail.state}, ${`seed-${id}`}, clock_timestamp(),
 			${mail.sent ? mail.at : null}::timestamptz,
 			${mail.cancelRequested ? sql`clock_timestamp()` : null},

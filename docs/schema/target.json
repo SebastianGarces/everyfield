@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 103,
-  "column_count": 1200,
-  "foreign_key_count": 362,
+  "column_count": 1201,
+  "foreign_key_count": 363,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -22097,6 +22097,12 @@
           "name": "refusal",
           "type": "text",
           "nullable": true
+        },
+        {
+          "note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix.",
+          "name": "communication_id",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -22256,6 +22262,24 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "A message with recipient sends is never deleted; only drafts are, and a draft has no mail. A foreign key grants no current access."
+          },
+          "columns": [
+            "communication_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "communication",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
         }
       ],
       "checks": [
@@ -22389,6 +22413,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "mail_communication": {
+          "name": "mail_communication",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "communication_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -22407,6 +22452,7 @@
           "mail_fk_4",
           "mail_fk_5",
           "mail_fk_6",
+          "mail_fk_8",
           "mail_fk_7"
         ],
         "checks": [
