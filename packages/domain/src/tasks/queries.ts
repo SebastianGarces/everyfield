@@ -348,7 +348,7 @@ export const taskReader = {
 				sql`SELECT ${columns}, ${views}, row_number() OVER (ORDER BY t.id) AS ord ${joins}
 				WHERE t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL AND t.id=ANY(${sql.param(v.taskIds)}::uuid[])`,
 			);
-			const asOf = v.asOf ?? now();
+			const asOf = now();
 			return c.taskRows.parse({
 				items: z
 					.array(taskRow)

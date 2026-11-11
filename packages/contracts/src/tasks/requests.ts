@@ -79,7 +79,6 @@ export const taskRowsRequest = z.strictObject({
 		.min(1)
 		.max(100)
 		.refine((ids) => new Set(ids).size === ids.length),
-	asOf: instant.optional(),
 });
 export const statusHistoryRequest = z.strictObject({
 	taskId: recordId,
