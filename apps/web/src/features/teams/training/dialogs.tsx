@@ -230,7 +230,7 @@ export function CompletionDialog({
 }
 
 type RosterPreview = Outcome<{ revision: string; rosterDigest: string }>;
-type Check = { state: "checking" } | { state: "ready" } | { state: "failed"; message: string };
+type Check = { state: "checking" } | { state: "ready" } | { state: "failed"; message: string; retry: boolean };
 
 /**
  * The form keeps the program revision the list showed and the digest of the people now selected. The dialog reads
@@ -241,6 +241,7 @@ function useRosterCheck(
 	f: AssignForm,
 	preview: (personIds: string[]) => Promise<RosterPreview>,
 	setDigest: (digest: string) => void,
+	onStale: () => void,
 ) {
 	const [check, setCheck] = useState<Check>({ state: "checking" });
 	const [attempt, setAttempt] = useState(0);
@@ -250,22 +251,28 @@ function useRosterCheck(
 		const n = ++asked.current;
 		setCheck({ state: "checking" });
 		const ids = selection ? selection.split(",") : [];
-		const fail = (message: string) => n === asked.current && setCheck({ state: "failed", message });
+		const fail = (message: string, retry = false) =>
+			n === asked.current && setCheck({ state: "failed", message, retry });
+		const lost = "The required list could not be checked. Try again.";
+		const stale = () => {
+			fail(problemText("conflict"));
+			onStale();
+		};
 		const timer = setTimeout(() => {
 			preview(ids).then(
 				(result) => {
 					if (n !== asked.current) return;
-					if (result.status === "refused") return fail(problemText(result.code));
-					if (result.status !== "ok") return fail("The required list could not be checked. Try again.");
-					if (result.value.revision !== f.revision) return fail(problemText("conflict"));
+					if (result.status === "refused") return result.code === "conflict" ? stale() : fail(problemText(result.code));
+					if (result.status !== "ok") return fail(lost, true);
+					if (result.value.revision !== f.revision) return stale();
 					setDigest(result.value.rosterDigest);
 					setCheck({ state: "ready" });
 				},
-				() => fail("The required list could not be checked. Try again."),
+				() => fail(lost, true),
 			);
 		}, 200);
 		return () => clearTimeout(timer);
-		// The preview runs again only when the selection or the retry changes.
+		// The preview runs again only when the selection or the retry changes, not when a callback is new.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selection, attempt]);
 	return { check, retry: () => setAttempt((n) => n + 1) };
@@ -278,6 +285,7 @@ export function AssignDialog({
 	problem,
 	wait,
 	preview,
+	onStale,
 	onClose,
 	onSubmit,
 }: {
@@ -287,14 +295,19 @@ export function AssignDialog({
 	problem?: string;
 	wait: Wait;
 	preview: (personIds: string[]) => Promise<RosterPreview>;
+	/** The list this dialog opened from is out of date. */
+	onStale: () => void;
 	onClose: () => void;
 	onSubmit: (form: AssignForm) => void;
 }) {
 	const [f, setF] = useState(form);
 	const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
 	const [tooMany, setTooMany] = useState(false);
-	const { check, retry } = useRosterCheck(f, preview, (rosterDigest) =>
-		setF((current) => ({ ...current, rosterDigest })),
+	const { check, retry } = useRosterCheck(
+		f,
+		preview,
+		(rosterDigest) => setF((current) => ({ ...current, rosterDigest })),
+		onStale,
 	);
 	const selected = new Set(f.personIds);
 	const known = new Map([...directory, ...extra].map((person) => [person.id, person.name]));
@@ -330,9 +343,11 @@ export function AssignDialog({
 			{check.state === "failed" ? (
 				<div role="alert" className="flex flex-col items-start gap-2">
 					<p className="text-sm font-medium text-magenta-600">{check.message}</p>
-					<Button variant="outline" onClick={retry}>
-						Check again
-					</Button>
+					{check.retry ? (
+						<Button variant="outline" onClick={retry}>
+							Check again
+						</Button>
+					) : null}
 				</div>
 			) : check.state === "checking" ? (
 				<p role="status" className="flex items-center gap-2 text-sm text-text-3">

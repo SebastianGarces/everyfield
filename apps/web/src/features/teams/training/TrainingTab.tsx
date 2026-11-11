@@ -371,6 +371,7 @@ export function TrainingTab({
 					rosterKnown={rosterKnown}
 					problem={lane.problem}
 					wait={lane.wait}
+					onStale={reload}
 					onClose={lane.close}
 					onSubmit={submit}
 				/>
@@ -464,6 +465,7 @@ function TrainingDialogs({
 	rosterKnown,
 	problem,
 	wait,
+	onStale,
 	onClose,
 	onSubmit,
 }: {
@@ -473,6 +475,7 @@ function TrainingDialogs({
 	rosterKnown: boolean;
 	problem?: string;
 	wait: ReturnType<typeof useSaveIntent<Flow>>["wait"];
+	onStale: () => void;
 	onClose: () => void;
 	onSubmit: (form: Flow) => void;
 }) {
@@ -494,6 +497,7 @@ function TrainingDialogs({
 				problem={problem}
 				wait={wait}
 				preview={(personIds) => previewRoster(editing.programId, personIds)}
+				onStale={onStale}
 				onClose={onClose}
 				onSubmit={onSubmit}
 			/>
