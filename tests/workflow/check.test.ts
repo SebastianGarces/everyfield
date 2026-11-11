@@ -55,6 +55,7 @@ function repo(t: { after(fn: () => void): void }, change: Record<string, string>
 			"tools/ci/tests/a.test.ts": [],
 			".github/scripts/a.test.cjs": [],
 			"tools/qa/tests/a.test.ts": [],
+			"ops/actionable-watch/test/a.test.mts": [],
 		},
 	};
 	writeFileSync(join(home, "coverage-map.json"), JSON.stringify(map));
@@ -192,7 +193,11 @@ test("T-41 a non-empty diff that selects no checks fails, and so does a check th
 });
 
 test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs every check", (t) => {
-	const { root, home } = repo(t, { "docs/a.md": "b\n" }, { "tools/qa/tests/a.test.ts": "\n" });
+	const { root, home } = repo(
+		t,
+		{ "docs/a.md": "b\n" },
+		{ "tools/qa/tests/a.test.ts": "\n", "ops/actionable-watch/test/a.test.mts": "\n" },
+	);
 	const selected = check({ root, full: false, home, run: fake().run }).record;
 	assert.deepEqual(ran(selected), ["docs"]);
 	const { run, commands } = fake();
@@ -209,6 +214,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"tools-ci",
 		"tools-qa",
 		"github-scripts",
+		"ops-watch",
 	]);
 	assert.ok(commands.includes("corepack pnpm -r --if-present run lint"), commands.join("\n"));
 	assert.ok(
@@ -220,6 +226,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		record.tests.map((x) => [x.file, x.run, x.result]),
 		[
 			[".github/scripts/a.test.cjs", true, "passed"],
+			["ops/actionable-watch/test/a.test.mts", true, "passed"],
 			["tests/workflow/dev.test.mjs", true, "passed"],
 			["tools/ci/tests/a.test.ts", true, "passed"],
 			["tools/qa/tests/a.test.ts", true, "passed"],
