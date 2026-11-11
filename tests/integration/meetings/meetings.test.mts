@@ -1,11 +1,10 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
@@ -29,26 +28,9 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp020_" + randomUUID().replaceAll("-", ""),
-	role = "wp020_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp020", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 let queries = [];
 
 // Plant P (Chicago): 0 Owner, 1 Member with an own linked Person, 2 Admin. Plant Q: 3 Admin.
@@ -111,17 +93,6 @@ const guestOf = async (meetingId, personId, who = 0) =>
 	ok(await reads.listGuests(db, await viewer(who), { meetingId })).guests.find((g) => g.person.personId === personId);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
@@ -158,13 +129,7 @@ before(async () => {
 		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async (t) => {

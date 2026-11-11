@@ -55,30 +55,8 @@ export type Recorded = {
 	calls: Record<string, Call>;
 };
 
-const RECORDED = new URL("golden.recorded.json", import.meta.url);
-/** EVRY_EVAL_RECORD=1 records the calls the file does not hold yet (a new or changed case) and drops unused ones. */
+/** EVRY_EVAL_RECORD=1 records the calls a file does not hold yet (a new or changed case) and drops unused ones. */
 export const recording = process.env.EVRY_EVAL_RECORD === "1";
-let loaded: Recorded | null = (() => {
-	try {
-		return JSON.parse(readFileSync(RECORDED, "utf8"));
-	} catch {
-		// No file yet: replay fails each call as unrecorded; a recording run starts one.
-		return null;
-	}
-})();
-const used = new Map<string, Call>();
-let fresh: Usage[] = [];
-let price: Price | null = null;
-let real: LanguageModelV4 | null = null;
-function realModel() {
-	if (real) return real;
-	const selected = selectQualifiedModel({ ...process.env, EVRY_SCRIPTED_MODEL: "" });
-	if (selected.status !== "qualified" || !selected.spend) throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
-	if (loaded && loaded.model !== selected.id)
-		throw Error(`golden.recorded.json holds ${loaded.model}; delete it to record on ${selected.id}`);
-	price = selected.spend.price;
-	return (real = selected.model);
-}
 
 /** What the provider observes of one call: a different value is a different call. */
 export const callKey = ({
@@ -106,69 +84,6 @@ const zeroUsage: LanguageModelV4Usage = {
 
 export class MissingRecording extends Error {}
 
-/** The model for one conversation: it serves recorded calls and, only while recording, asks the real model for new ones. */
-function evalModel(keys: string[]): LanguageModelV4 {
-	const known = (key: string) => used.get(key) ?? loaded?.calls[key];
-	const missing = (key: string): never => {
-		throw new MissingRecording(
-			`no recording for provider call ${key}: a prompt, catalog, tool schema or case changed. Record it again (tests/evry/evals/README.md)`,
-		);
-	};
-	return {
-		specificationVersion: "v4",
-		provider: "recorded",
-		modelId: loaded?.model ?? "recording",
-		supportedUrls: {},
-		async doGenerate(options) {
-			const key = callKey(options);
-			keys.push(key);
-			let call = known(key);
-			if (!call && recording) {
-				const out = await realModel().doGenerate(options);
-				call = { kind: "generate", content: out.content.filter((c) => c.type === "text"), usage: usageOf(out.usage) };
-				fresh.push(call.usage);
-			}
-			if (!call || call.kind !== "generate") return missing(key);
-			used.set(key, call);
-			return {
-				content: call.content,
-				finishReason: { unified: "stop", raw: undefined },
-				usage: zeroUsage,
-				warnings: [],
-			};
-		},
-		async doStream(options) {
-			const key = callKey(options);
-			keys.push(key);
-			const call = known(key);
-			if (call?.kind === "stream") {
-				used.set(key, call);
-				return { stream: new ReadableStream({ start: (c) => (call.parts.forEach((p) => c.enqueue(p)), c.close()) }) };
-			}
-			if (!recording) return missing(key);
-			const out = await realModel().doStream(options);
-			const parts: LanguageModelV4StreamPart[] = [];
-			const saved: Call = { kind: "stream", parts, usage: { input: 0, output: 0 } };
-			return {
-				...out,
-				stream: out.stream.pipeThrough(
-					new TransformStream({
-						transform(part, controller) {
-							parts.push(part);
-							if (part.type === "finish") {
-								saved.usage = usageOf(part.usage);
-								fresh.push(saved.usage);
-								used.set(key, saved);
-							}
-							controller.enqueue(part);
-						},
-					}),
-				),
-			};
-		},
-	};
-}
-
 const DELTAS = new Set(["text-delta", "reasoning-delta", "tool-input-delta"]);
 function merged(parts: LanguageModelV4StreamPart[]) {
 	const out: LanguageModelV4StreamPart[] = [];
@@ -188,35 +103,132 @@ function merged(parts: LanguageModelV4StreamPart[]) {
 	return out;
 }
 
-/** Writes the calls this run used (a recording run only). */
-export function saveRecording() {
-	if (!recording) return;
-	realModel(); // the price of the recorded model, also when every call was already recorded
-	const cost = (u: Usage) => (price ? callCostMicroUsd(price, u.input, u.output) : 0);
-	// A run limited to some cases (EVRY_EVAL_CASES) keeps every other recording; a full run drops the unused ones.
-	const kept = process.env.EVRY_EVAL_CASES ? Object.entries(loaded?.calls ?? {}) : [];
-	const calls = Object.fromEntries([...kept, ...used.entries()].sort(([a], [b]) => a.localeCompare(b)));
-	const all = Object.values(calls).map((c) => c.usage);
-	const out: Recorded = {
-		model: loaded?.model || (process.env.EVRY_MODEL ?? ""),
-		recordedAt: fresh.length ? new Date().toISOString() : (loaded?.recordedAt ?? new Date().toISOString()),
-		spend: {
-			// A run that needed no new call keeps the last paid run's figures.
-			newCalls: fresh.length || (loaded?.spend.newCalls ?? 0),
-			newMicroUsd: fresh.length ? fresh.reduce((s, u) => s + cost(u), 0) : (loaded?.spend.newMicroUsd ?? 0),
-			allCalls: all.length,
-			allMicroUsd: all.reduce((s, u) => s + cost(u), 0),
-		},
-		calls,
-	};
-	// Consecutive deltas of one text or tool input are merged: replay streams the same text and input, so every later
-	// call (and its key) is unchanged.
-	for (const call of Object.values(out.calls)) if (call.kind === "stream") call.parts = merged(call.parts);
-	writeFileSync(RECORDED, JSON.stringify(out, null, "\t") + "\n");
-	loaded = out;
-	return out.spend;
+/**
+ * The recorded calls of one eval file, `<name>.recorded.json` in this folder. `model(keys)` serves recorded calls and,
+ * only while recording, asks the real model for new ones; `save()` writes the calls this run used (a recording run only).
+ */
+export function recorder(name: string) {
+	const file = new URL(`${name}.recorded.json`, import.meta.url);
+	let loaded: Recorded | null = (() => {
+		try {
+			return JSON.parse(readFileSync(file, "utf8"));
+		} catch {
+			// No file yet: replay fails each call as unrecorded; a recording run starts one.
+			return null;
+		}
+	})();
+	const used = new Map<string, Call>();
+	const fresh: Usage[] = [];
+	let price: Price | null = null;
+	let real: LanguageModelV4 | null = null;
+	function realModel() {
+		if (real) return real;
+		const selected = selectQualifiedModel({ ...process.env, EVRY_SCRIPTED_MODEL: "" });
+		if (selected.status !== "qualified" || !selected.spend)
+			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
+		if (loaded && loaded.model !== selected.id)
+			throw Error(`${name}.recorded.json holds ${loaded.model}; delete it to record on ${selected.id}`);
+		price = selected.spend.price;
+		return (real = selected.model);
+	}
+
+	/** The model for one conversation; each provider call's key is pushed to `keys`. */
+	function model(keys: string[] = []): LanguageModelV4 {
+		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
+		const missing = (key: string): never => {
+			throw new MissingRecording(
+				`no recording for provider call ${key} in ${name}.recorded.json: a prompt, catalog, tool schema or case changed. Record it again (tests/evry/evals/README.md)`,
+			);
+		};
+		return {
+			specificationVersion: "v4",
+			provider: "recorded",
+			modelId: loaded?.model ?? "recording",
+			supportedUrls: {},
+			async doGenerate(options) {
+				const key = callKey(options);
+				keys.push(key);
+				let call = known(key);
+				if (!call && recording) {
+					const out = await realModel().doGenerate(options);
+					call = { kind: "generate", content: out.content.filter((c) => c.type === "text"), usage: usageOf(out.usage) };
+					fresh.push(call.usage);
+				}
+				if (!call || call.kind !== "generate") return missing(key);
+				used.set(key, call);
+				return {
+					content: call.content,
+					finishReason: { unified: "stop", raw: undefined },
+					usage: zeroUsage,
+					warnings: [],
+				};
+			},
+			async doStream(options) {
+				const key = callKey(options);
+				keys.push(key);
+				const call = known(key);
+				if (call?.kind === "stream") {
+					used.set(key, call);
+					return { stream: new ReadableStream({ start: (c) => (call.parts.forEach((p) => c.enqueue(p)), c.close()) }) };
+				}
+				if (!recording) return missing(key);
+				const out = await realModel().doStream(options);
+				const parts: LanguageModelV4StreamPart[] = [];
+				const saved: Call = { kind: "stream", parts, usage: { input: 0, output: 0 } };
+				return {
+					...out,
+					stream: out.stream.pipeThrough(
+						new TransformStream({
+							transform(part, controller) {
+								parts.push(part);
+								if (part.type === "finish") {
+									saved.usage = usageOf(part.usage);
+									fresh.push(saved.usage);
+									used.set(key, saved);
+								}
+								controller.enqueue(part);
+							},
+						}),
+					),
+				};
+			},
+		};
+	}
+
+	/** Writes the calls this run used (a recording run only). */
+	function save() {
+		if (!recording) return;
+		realModel(); // the price of the recorded model, also when every call was already recorded
+		const cost = (u: Usage) => (price ? callCostMicroUsd(price, u.input, u.output) : 0);
+		// A run limited to some cases (EVRY_EVAL_CASES) keeps every other recording; a full run drops the unused ones.
+		const kept = process.env.EVRY_EVAL_CASES ? Object.entries(loaded?.calls ?? {}) : [];
+		const calls = Object.fromEntries([...kept, ...used.entries()].sort(([a], [b]) => a.localeCompare(b)));
+		const all = Object.values(calls).map((c) => c.usage);
+		const out: Recorded = {
+			model: loaded?.model || (process.env.EVRY_MODEL ?? ""),
+			recordedAt: fresh.length ? new Date().toISOString() : (loaded?.recordedAt ?? new Date().toISOString()),
+			spend: {
+				// A run that needed no new call keeps the last paid run's figures.
+				newCalls: fresh.length || (loaded?.spend.newCalls ?? 0),
+				newMicroUsd: fresh.length ? fresh.reduce((s, u) => s + cost(u), 0) : (loaded?.spend.newMicroUsd ?? 0),
+				allCalls: all.length,
+				allMicroUsd: all.reduce((s, u) => s + cost(u), 0),
+			},
+			calls,
+		};
+		// Consecutive deltas of one text or tool input are merged: replay streams the same text and input, so every later
+		// call (and its key) is unchanged.
+		for (const call of Object.values(out.calls)) if (call.kind === "stream") call.parts = merged(call.parts);
+		writeFileSync(file, JSON.stringify(out, null, "\t") + "\n");
+		loaded = out;
+		return out.spend;
+	}
+	return { model, save, file: () => loaded };
 }
-export const recordedFile = () => loaded;
+
+const golden = recorder("golden");
+export const saveRecording = golden.save;
+export const recordedFile = golden.file;
 
 export type Turn = { user: string } | { assistant: string };
 export type ToolCall = { operation: string; input: any; result?: SourceResult; error?: string };
@@ -235,7 +247,7 @@ const MAX_STEPS = LIMITS.toolCalls + 1;
 export async function converse(as: ActorName, text: string, history: Turn[] = []): Promise<Conversation> {
 	const { actor, church } = ACTORS[as];
 	const keys: string[] = [];
-	const model = evalModel(keys);
+	const model = golden.model(keys);
 	const catalog = readCatalog(actor);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
@@ -372,7 +384,7 @@ export async function judge(input: {
 }): Promise<Grade> {
 	const keys: string[] = [];
 	const { output } = await generateText({
-		model: evalModel(keys),
+		model: golden.model(keys),
 		maxRetries: 0,
 		maxOutputTokens: 1_000,
 		output: Output.object({ schema: gradeSchema }),
