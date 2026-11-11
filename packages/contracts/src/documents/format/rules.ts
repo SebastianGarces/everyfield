@@ -303,6 +303,8 @@ type Ctx = {
 	fieldRefs: { key: unknown; path: string; list?: boolean }[];
 	ledgers: number;
 	region: string | null;
+	/** The node types around the node being checked, outermost first. */
+	ancestors: string[];
 };
 
 const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
@@ -314,6 +316,7 @@ const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
 	fieldRefs: [],
 	ledgers: 0,
 	region: null,
+	ancestors: [],
 });
 
 /** The first fault the format finds in one table, or null. The editor asks this before it applies a change to a table. */
@@ -433,6 +436,13 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 	}
 	const type = String(node.type);
 	const where = `${path} (${type})`;
+	if (type === "if" && !allowed.includes("block")) {
+		fail(
+			where,
+			`conditional text can sit only in the body, a column or a box, not in a ${ctx.ancestors.at(-1) ?? "page"}`,
+		);
+		return;
+	}
 	if (!allowed.includes(spec.group) && !allowed.includes(type)) {
 		fail(where, `a ${type} node is not allowed here; this place takes ${allowed.join(" or ")}`);
 		return;
@@ -494,9 +504,12 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 			const { min = 0, max } = spec.content;
 			if (content.length < min) fail(where, `a ${type} node needs at least ${min} child node${min === 1 ? "" : "s"}`);
 			if (max !== undefined && content.length > max) fail(where, `a ${type} node holds at most ${max} child nodes`);
-			const childDeny = [...(spec.content.deny ?? []), ...(type === "column" || type === "box" ? deny : [])];
+			const passDeny = type === "column" || type === "box" || type === "if";
+			const childDeny = [...(spec.content.deny ?? []), ...(passDeny ? deny : [])];
 			const allow = spec.content.allow;
+			ctx.ancestors.push(type);
 			content.forEach((child, i) => checkNode(child, `${path}.content[${i}]`, ctx, allow, childDeny));
+			ctx.ancestors.pop();
 		}
 	}
 
@@ -510,6 +523,34 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 		else ctx.writeIns.set(attrs.key, where);
 	}
 	if (type === "table" && Array.isArray(attrs.columns)) checkTable(node, attrs, where, ctx);
+	if (type === "if") checkCondition(node, attrs, where, ctx);
+	if (ctx.ancestors.includes("if")) {
+		if (type === "slot") fail(where, "a section slot cannot sit inside conditional text");
+		if (type === "table" && attrs.style === "ledger")
+			fail(where, "a budget table cannot sit inside conditional text; the Excel file prints no conditions");
+	}
+}
+
+/** The rules of conditional text: where it sits, what it holds, and a condition on a declared field that fits its type. */
+function checkCondition(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
+	const { fail } = ctx;
+	if (ctx.region) fail(where, `conditional text cannot sit in the page ${ctx.region}; it prints in the body only`);
+	if (ctx.ancestors.includes("if")) fail(where, "conditional text cannot hold another conditional text");
+	if (list(node.content).length === 0) fail(where, "conditional text holds at least one block");
+	const field = ctx.fields.get(attrs.field);
+	if (typeof attrs.field === "string" && !field)
+		fail(where, `the condition reads the field "${attrs.field}", which is not declared in "fields"`);
+	if (attrs.test === "more-than") {
+		if (field && field.type !== "number" && field.type !== "list")
+			fail(
+				where,
+				`a more-than condition compares a number or a list; "${String(attrs.field)}" is a ${String(field.type)} field`,
+			);
+		if (attrs.value === undefined) fail(where, "a more-than condition needs a value: a whole number from 0");
+		else if (typeof attrs.value === "number" && attrs.value < 0)
+			fail(where, `the condition's value is ${attrs.value}; a more-than condition compares with a whole number from 0`);
+	} else if (attrs.value !== undefined)
+		fail(where, `only a more-than condition has a value; this condition tests "${String(attrs.test)}"`);
 }
 
 function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {

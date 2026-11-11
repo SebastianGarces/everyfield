@@ -22,9 +22,11 @@ const issues = (doc: unknown) => {
 };
 const ledgerOf = (doc: any) => doc.body.content.find((b: any) => b.type === "table" && b.attrs.style === "ledger");
 
-test("the schema object is the design schema.json", () => {
+test("the schema object is the design schema.json plus the later `if` node the design names", () => {
 	const { $comment: _comment, ...file } = read("schema.json");
-	assert.deepEqual(JSON.parse(JSON.stringify(FORMAT_SCHEMA)), file);
+	const { if: conditional, ...nodes } = JSON.parse(JSON.stringify(FORMAT_SCHEMA.nodes));
+	assert.deepEqual({ ...JSON.parse(JSON.stringify(FORMAT_SCHEMA)), nodes }, file);
+	assert.deepEqual(Object.keys(conditional.attrs), ["field", "test", "value"]);
 });
 
 test("the four examples parse and each invalid sample fails with its exact message", () => {
