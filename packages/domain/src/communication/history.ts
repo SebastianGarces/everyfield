@@ -439,7 +439,9 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 									AND jsonb_exists(c.audience->'personIds', p.id::text)) END,
-						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')),
+						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
+						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')
+							AND m.refusal IS NULL),
 						'accepted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL)),
 						'sent', (SELECT count(*)::int FROM mail m WHERE ${on} AND (m.state = 'sent' OR m.sent_at IS NOT NULL)),
@@ -462,7 +464,8 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 							FROM (
 								SELECT DISTINCT ${word} AS word,
 									CASE ${word} WHEN 'accepted' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END AS ord
-								FROM mail m WHERE ${on}
+								-- Only what the email service answered: not a recipient still waiting, nor one skipped for an opt-out.
+								FROM mail m WHERE ${on} AND m.state <> 'scheduled' AND m.refusal IS NULL
 							) w
 						), '[]'::jsonb),
 						'sentForAll', (SELECT count(*) FROM mail m WHERE ${on}) > 0

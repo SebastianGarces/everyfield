@@ -441,10 +441,11 @@ function ToField({
 										event.preventDefault();
 										if (!disabled) add(person);
 									}}
-									className="flex min-h-[40px] items-center justify-between gap-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
+									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
 								>
 									<span className="min-w-0 truncate">{person.displayName}</span>
-									<span className="min-w-0 truncate text-sm text-text-3">
+									{/* The reason and its date always show in full; on a narrow screen it wraps below the name. */}
+									<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
 										{!person.email
 											? "No email address"
 											: person.unsubscribedAt

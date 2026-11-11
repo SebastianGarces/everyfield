@@ -137,6 +137,9 @@ test("AC:CASE-NTF-016 T-241 Done 1-3: Ana unsubscribes after the email is schedu
 	assert.equal(before.totals.reachable, 2);
 	assert.equal(before.item.reachable, 2);
 	assert.equal(before.totals.unsubscribed, 1);
+	// Nothing was handed to the email service yet, and a skip is not an answer from it.
+	assert.equal(before.totals.attempted, 0);
+	assert.deepEqual(before.totals.outcomes, []);
 
 	// Done 1: at the send time Ben and Cy get it, Ana gets nothing.
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
