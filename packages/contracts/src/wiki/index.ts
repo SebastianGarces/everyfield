@@ -269,7 +269,7 @@ export const organizationArticleResult = z.strictObject({
  */
 export const ORGANIZATION_BODY_LIMIT = { visible: 20_000, stored: 100_000 } as const;
 
-/** The characters a reader sees: every text value of everyfield-editor-v1 nodes and diagram source, else the string. */
+/** The characters a reader sees: the text, callout labels and diagram source of everyfield-editor-v1 nodes, else the string. */
 export function visibleBodyLength(body: string): number {
 	let parsed: unknown;
 	try {
@@ -284,7 +284,7 @@ export function visibleBodyLength(body: string): number {
 		if (Array.isArray(value)) return value.forEach(walk);
 		if (!value || typeof value !== "object") return;
 		for (const [key, child] of Object.entries(value)) {
-			if (typeof child === "string" && (key === "text" || key === "source")) length += child.length;
+			if (typeof child === "string" && (key === "text" || key === "label" || key === "source")) length += child.length;
 			else walk(child);
 		}
 	};

@@ -84,6 +84,11 @@ test("T-156: inline markdown markers never print; code keeps its text verbatim",
 	const body = [
 		"Read **bold**, _italic_, *also*, `code` and [the guide](/wiki/guide) <Badge>tag</Badge> now.",
 		"- A **listed** item",
+		"",
+		"Sign here: ____ date: ____",
+		"",
+		"Use __init__ now",
+		"",
 		"| **Week** | [Plan](https://example.com) |",
 		"```",
 		"keep **these** _marks_ [x](y)",
@@ -91,14 +96,18 @@ test("T-156: inline markdown markers never print; code keeps its text verbatim",
 	].join("\n");
 	const blocks = bodyBlocks("safe_mdx", body);
 	const lines = shownLines(helveticaPdf("Markers", blocks, meta));
-	assert.deepEqual(lines.slice(2, 6), [
+	assert.deepEqual(lines.slice(2, 8), [
 		"Read bold, italic, also, code and the guide tag now.",
 		"• A listed item",
+		// Underscore runs are fill-in blanks or names, not emphasis.
+		"Sign here: ____ date: ____",
+		"Use __init__ now",
 		"Week | Plan",
 		"keep **these** _marks_ [x](y)",
 	]);
 	const html = printHtml("Markers", blocks, meta);
 	assert.ok(html.includes("<p>Read bold, italic, also, code and the guide tag now.</p>"));
+	assert.ok(html.includes("<p>Sign here: ____ date: ____</p><p>Use __init__ now</p>"), html);
 	assert.ok(html.includes("<pre><code>keep **these** _marks_ [x](y)</code></pre>"));
 });
 

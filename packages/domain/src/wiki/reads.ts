@@ -216,14 +216,14 @@ function plainText(text: SQL): SQL {
 	)})`;
 }
 /**
- * The words of a body for search: every text value of organization nodes, so node types and keys are never indexed,
- * else the markdown itself. Older organization text that is not JSON is read as markdown.
+ * The words of a body for search: the text, callout labels and diagram source of organization nodes, in document
+ * order, so node types and keys are never indexed; else the markdown itself. Older organization text that is not JSON is read as markdown.
  */
 function searchBodySql(): SQL {
 	return sql`CASE
 		WHEN p.content_type = 'safe_nodes' AND pg_input_is_valid(p.body, 'jsonb') THEN (
 			SELECT string_agg(t #>> '{}', E'\n')
-			FROM jsonb_path_query(p.body::jsonb, 'strict $.**.text ? (@.type() == "string")', '{}', true) t
+			FROM jsonb_path_query(p.body::jsonb, 'strict $.** ? (@.type() == "object").keyvalue() ? ((@.key == "text" || @.key == "label" || @.key == "source") && @.value.type() == "string").value', '{}', true) t
 		)
 		ELSE p.body
 	END`;

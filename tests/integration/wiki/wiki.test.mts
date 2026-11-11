@@ -2117,6 +2117,8 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 			{ type: "heading", level: 2, children: words("Welcome plan") },
 			{ type: "paragraph", children: words("Greet each zebrafinch guest by name.") },
 			{ type: "list", ordered: false, items: [words("Coffee"), words("Name tags")] },
+			{ type: "callout", label: "Kiwilabel", children: words("Smile.") },
+			{ type: "diagram", info: "diagram hierarchy", source: "title: Leaders\n- Pastor | Vision\n  - Wombatdirector" },
 		]);
 		const slugs = async (query) =>
 			(ok(await api.search(db, reader, { query })).results ?? [])
@@ -2132,6 +2134,8 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		);
 		assert.match(found[0].snippet, /Greet each <b>zebrafinch<\/b> guest by name/);
 		assert.doesNotMatch(found[0].snippet, /type|children|format/);
+		// A callout label and a diagram's words are visible text too.
+		for (const query of ["kiwilabel", "wombatdirector"]) assert.deepEqual(await slugs(query), ["t156/silent"], query);
 
 		const exported = ok(await plain.exportPdf(db, reader, { articleId: silent }));
 		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");

@@ -124,14 +124,17 @@ function plainInline(text: string): string {
 		.split(/(`+[^`]*?`+)/)
 		.map((part, index) => {
 			if (index % 2 === 1) return part.replace(/^(`+)\s?([\s\S]*?)\s?\1$/, "$2");
-			return part
-				.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-				.replace(/<\/?[A-Za-z][^>]*>/g, "")
-				.replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, "$2")
-				.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
-				.replace(/(?<![\w*])\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, "$1")
-				.replace(/(?<!\w)_(?=\S)([\s\S]*?\S)_(?!\w)/g, "$1")
-				.replace(/\\([!-/:-@[-`{-~])/g, "$1");
+			return (
+				part
+					.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+					.replace(/<\/?[A-Za-z][^>]*>/g, "")
+					.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1")
+					.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
+					.replace(/(?<![\w*])\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, "$1")
+					// One underscore each side, so fill-in blanks (`____`) and `__dunder__` words stay as written.
+					.replace(/(?<![\w_])_(?=[^\s_])([\s\S]*?[^\s_])_(?![\w_])/g, "$1")
+					.replace(/\\([!-/:-@[-`{-~])/g, "$1")
+			);
 		})
 		.join("");
 }
