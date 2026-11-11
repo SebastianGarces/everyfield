@@ -54,8 +54,6 @@ const RETRY: Record<ErrorCode, "never" | "refresh" | "same_request" | "reconcile
 	idempotency_conflict: "never",
 };
 
-export const DECLARATION_REASON = "Declared at setup — where this plant already was when it joined EveryField.";
-
 const id = () => crypto.randomUUID();
 
 const now = () => new Date().toISOString();

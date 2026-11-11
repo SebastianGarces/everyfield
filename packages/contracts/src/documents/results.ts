@@ -174,6 +174,8 @@ export const docBrand = z.strictObject({
 		primary: hexColor,
 		accent: hexColor,
 		accentLine: hexColor,
+		/** Primary as text on white, as the PDF prints the title, numbered heading numbers and links. */
+		primaryText: hexColor,
 		/** The text color the PDF prints on a box filled with each token. */
 		on: z.strictObject({
 			ink: hexColor,

@@ -4,11 +4,13 @@
 //   AC:CASE-BRD-005 (client half): a malformed EIN, website or email is refused with the contract's own schema.
 //   AC:CASE-BRD-003 (client half): the pale yellow primary reads "fails text" and no preview text uses it.
 //   AC:CASE-BRD-006: the email button of the full kit is the primary color with white text; no kit is neutral.
+//   T-123: the preview's text on a brand fill is the color the PDF renderer prints there (#767676 included).
 //   INV-brand-patch: a save sends only changed fields, and a cleared optional field is null.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_BODY_FONT, DEFAULT_HEADING_FONT } from "../../../packages/contracts/src/branding/values.ts";
-import { colorView } from "../../../packages/domain/src/branding/color.ts";
+import { colorView, DOCUMENT_INK, textOn } from "../../../packages/domain/src/branding/color.ts";
+import { makePalette } from "../../../packages/domain/src/documents/theme.ts";
 import {
 	colorOf,
 	formOf,
@@ -167,6 +169,20 @@ test("CASE-BRD-006: the full kit's email button is the primary color with white 
 		assert.equal(neutral.kind, "everyfield-neutral");
 		assert.equal(neutral.churchName, "Harvest Point Church");
 	}
+});
+
+test("T-123: on #767676 the preview sets the text the PDF prints: white, by the renderer's rule and ink", () => {
+	for (const fill of ["#767676", "#1F4E79", "#D4A017", "#FFF3B0", "#9CA3AF", "#E5E7EB"]) {
+		const palette = makePalette({ name: "church", primary: fill, accent: fill });
+		assert.equal(DOCUMENT_INK, palette.ink, "the preview's ink is the renderer's");
+		// The cover band of the outward-facing preview: textOn(band, DOCUMENT_INK).
+		assert.equal(textOn(fill, DOCUMENT_INK), palette.onPrimary, `text on ${fill}`);
+		const operational = themeOf("Harvest Point Church", { ...defaults, primaryColor: fill }, "operational");
+		assert.ok(operational.layout.documentClass === "operational");
+		assert.equal(operational.layout.tableHeader.text, palette.onAccent, `table header text on ${fill}`);
+		assert.equal(operational.layout.checkbox.text, palette.onAccent);
+	}
+	assert.equal(textOn("#767676", DOCUMENT_INK), "#FFFFFF");
 });
 
 test("INV-brand-patch: only changed fields are sent, and a cleared optional field is null", () => {
