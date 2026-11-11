@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import {
 	responsibilityReader,
@@ -20,27 +19,10 @@ import {
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw new Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp018_" + randomUUID().replaceAll("-", "");
-const roleName = "wp018_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp018", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -148,19 +130,6 @@ async function addVersion(referenceKey) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
@@ -201,13 +170,7 @@ before(async () => {
 	}
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:B01-028 preview stores nothing and one selected line stays the only active line", async () => {
@@ -571,7 +534,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	);
 	const missing = await offerInput(team.id, "accept", [technology[0].key], (await offerOf(team.id)).revision);
 	missing.input.teamId = randomUUID();
-	refused(await run(responsibilityWriter.offerResponsibilities, missing), "access_denied");
+	refused(await run(responsibilityWriter.offerResponsibilities, missing), "unavailable");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), forgedBefore);
 
 	const lead = await person("Team Lead", actors[1].id);
@@ -671,7 +634,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 			responsibilityWriter.offerResponsibilities,
 			await offerInput(team.id, "accept", [], (await offerOf(team.id)).revision),
 		),
-		"access_denied",
+		"unavailable",
 	);
 	refused(
 		await run(responsibilityWriter.completeResponsibility, {
@@ -679,8 +642,66 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 			expectedRevision: done.revision,
 			input: { responsibilityId: row.id, done: false },
 		}),
-		"access_denied",
+		"unavailable",
 	);
+	refused(
+		await run(responsibilityWriter.addResponsibility, {
+			requestKey: key(),
+			expectedRevision: (await offerOf(team.id)).revision,
+			input: { teamId: team.id, text: "After archive" },
+		}),
+		"unavailable",
+	);
+});
+
+test("REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
+	const gone = (result) => refused(result, "unavailable");
+	const foreign = ok(await run(teamsWriter.create, { requestKey: key(), input: { name: "Foreign duties" } }, 3)).team;
+	// Another church's line, written directly: the writer is not under test for that church.
+	const foreignLine = { id: randomUUID(), revision: "1" };
+	await admin.execute(sql`INSERT INTO responsibility (id, plant_id, team_id, source_version_id, source_line, text, sort_order)
+		VALUES (${foreignLine.id}, ${Q}, ${foreign.id}, (SELECT id FROM reference_version ORDER BY id LIMIT 1),
+			${"custom:" + foreignLine.id}, 'Foreign line', 1)`);
+	const foreignRevision = (await admin.execute(sql`SELECT revision::text AS r FROM team WHERE id=${foreign.id}`))
+		.rows[0].r;
+	for (const [teamId, responsibilityId] of [
+		[randomUUID(), randomUUID()],
+		[foreign.id, foreignLine.id],
+	]) {
+		gone(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId }));
+		gone(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId }));
+		gone(
+			await run(responsibilityWriter.offerResponsibilities, {
+				requestKey: key(),
+				expectedRevision: foreignRevision,
+				input: {
+					teamId,
+					decision: "decline",
+					selected: [],
+					expectedVersion: freeze.artifactSha256,
+					reviewDigest: "0".repeat(64),
+				},
+			}),
+		);
+		gone(
+			await run(responsibilityWriter.addResponsibility, {
+				requestKey: key(),
+				expectedRevision: foreignRevision,
+				input: { teamId, text: "Probe" },
+			}),
+		);
+		for (const [op, input] of [
+			[responsibilityWriter.editResponsibility, { responsibilityId, text: "Probe" }],
+			[responsibilityWriter.completeResponsibility, { responsibilityId, done: true }],
+			[responsibilityWriter.deleteResponsibility, { responsibilityId }],
+		])
+			gone(await run(op, { requestKey: key(), expectedRevision: foreignLine.revision, input }));
+	}
+	const stored = (
+		await admin.execute(sql`SELECT text, completed_on, removed_at FROM responsibility WHERE id=${foreignLine.id}`)
+	).rows[0];
+	assert.deepEqual([stored.text, stored.completed_on, stored.removed_at], ["Foreign line", null, null]);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE text='Probe'`), 0);
 });
 
 test("a custom team and administration have no Playbook lines", async () => {

@@ -16618,6 +16618,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "proposal_ref_0": {
+          "name": "proposal_ref_0",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -17303,6 +17324,27 @@
             },
             {
               "expression": "corrected_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "record_correction_ref_0": {
+          "name": "record_correction_ref_0",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -18278,7 +18320,53 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "relationship_invitation_ref_0": {
+          "name": "relationship_invitation_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_1": {
+          "name": "relationship_invitation_ref_1",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_2": {
+          "name": "relationship_invitation_ref_2",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "relationship_invitation_account_id_fkey": {
           "name": "relationship_invitation_account_id_fkey",

@@ -6,6 +6,7 @@ import {
 	invalidSessionReturn,
 	landingFor,
 	safeReturn,
+	seatMutationResult,
 } from "@everyfield/contracts/identity";
 
 test("INV-identity: safe navigation rejects authority changes and expired-session recovery loops", () => {
@@ -67,4 +68,17 @@ test("WP-005: landingFor sends a signed-in person to a safe returnTo, else onboa
 		assert.equal(landingFor({ status: "active", plant: "incomplete", returnTo }), "/onboarding", returnTo);
 		assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
 	}
+});
+
+test("BUG-551 (people/peo-21, packages/pac-1): a seat change that leaves a duty remaining is partial, never changed", () => {
+	const result = (outcome: string, status: string) => ({
+		seatId: "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60",
+		revision: "4",
+		outcome,
+		duties: [{ status, dutyId: "1c7d4f2a-3b8e-4d4c-8a6f-2e3d4c5b6a71" }],
+	});
+	assert.equal(seatMutationResult.safeParse(result("changed", "remaining")).success, false);
+	assert.equal(seatMutationResult.safeParse(result("noop", "remaining")).success, false);
+	assert.equal(seatMutationResult.safeParse(result("partial", "remaining")).success, true);
+	assert.equal(seatMutationResult.safeParse(result("changed", "needs_owner")).success, true);
 });

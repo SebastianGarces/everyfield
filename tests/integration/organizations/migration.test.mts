@@ -1,4 +1,4 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,29 +10,15 @@ import { pathToFileURL } from "node:url";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 
 test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_teams and preserve existing consent", async () => {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if (
-		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Only shared development direct endpoint allowed");
-	if (!ci) source.searchParams.set("sslmode", "verify-full");
-	const schema = "wp007upgrade_" + randomUUID().replaceAll("-", ""),
-		fresh = "wp007fresh_" + randomUUID().replaceAll("-", ""),
-		db = createDatabase({ connectionString: source.href, max: 2 });
+	const database = await testDatabase({ prefix: "wp007upgrade", roles: {}, migrate: false, max: 2 });
+	const { schema, admin: db } = database,
+		fresh = await database.createSchema("wp007fresh_" + randomUUID().replaceAll("-", ""));
 	const old = await mkdtemp(tmpdir() + "/wp007-migrations-"),
 		migrations = new URL("../../../packages/db/migrations/", import.meta.url);
 	try {
 		for (const name of await readdir(migrations))
 			if (/^\d{4}_.*\.sql$/.test(name) && Number(name.slice(0, 4)) < 5)
 				await copyFile(new URL(name, migrations), old + "/" + name);
-		await db.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-		await db.execute(sql.raw(`CREATE SCHEMA ${fresh}`));
 		await migrate(db, schema, pathToFileURL(old + "/"));
 		const p = randomUUID(),
 			o = randomUUID();
@@ -90,9 +76,7 @@ test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_
 		);
 		assert.deepEqual(await migrate(db, schema), []);
 	} finally {
-		await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${fresh} CASCADE`));
-		await closeDatabase(db);
+		await database.close();
 		await rm(old, { recursive: true, force: true });
 	}
 });

@@ -1,37 +1,20 @@
 // One isolated schema on the shared development database (or the disposable CI database), migrated from scratch, with
 // synthetic accounts, seats, plants and people. Each suite drops its schema and login role afterwards.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry/src/index.ts";
 import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp051_" + randomUUID().replaceAll("-", "");
+// The schema and role exist from import on; `setup` seeds them and `teardown` drops them.
+const database = await testDatabase({ prefix: "wp051", max: 6 });
 /** The suite's own runtime login; tests scope lock-wait checks to its sessions. */
-export const role = "wp051_" + randomBytes(8).toString("hex");
-export const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-export let db: ReturnType<typeof createDatabase>;
+export const role = database.logins.runtime.name;
+export const { admin } = database;
+export const db = database.pools.runtime;
 /** Every statement the runtime role sent, for statement counts. */
 export const queries: string[] = [];
 
@@ -85,17 +68,6 @@ async function person(tenant: string, name: string, city: string | null, positio
 }
 
 export async function setup() {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args: unknown[]) {
@@ -138,15 +110,7 @@ export async function setup() {
 		SELECT ${otherPlant}::uuid,${otherPlant}::uuid,'Neighbor '||n,'other',clock_timestamp(),'attendee','unknown','unknown',10+n,'live' FROM generate_series(1,2500) n`);
 }
 
-export async function teardown() {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-}
+export const teardown = database.close;
 
 /** Counts of rows a test must see unchanged, read by the admin connection. */
 export async function counts() {

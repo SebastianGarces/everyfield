@@ -1,4 +1,4 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -10,34 +10,16 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 
 // WP-023 F07b criterion 1: the migration that turns the single task assignee into a set keeps every assignment.
 const NEW = "task_assignees.sql";
-const schema = "wp023_test_" + randomUUID().replaceAll("-", "");
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development direct endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 2,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp023_test", roles: {}, migrate: false, max: 2 });
+const { admin, schema } = database;
 const run = (q: ReturnType<typeof querySql>) => admin.execute(q);
 let directory = "";
 before(async () => {
-	await run(querySql.raw(`CREATE SCHEMA ${schema}`));
 	directory = await mkdtemp(tmpdir() + "/evf-task-assignees-");
 });
 after(async () => {
-	await run(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`)).catch(() => {});
 	await rm(directory, { recursive: true, force: true });
-	await closeDatabase(admin);
+	await database.close();
 });
 
 test("AC:TARGET-TSK-002 criterion 1: each task keeps its single assignee after the migration, and an unassigned task gets none", async () => {
