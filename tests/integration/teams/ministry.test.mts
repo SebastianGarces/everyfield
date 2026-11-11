@@ -6,12 +6,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
-import {
-	teamsReader,
-	teamsWriter,
-	trainingReader,
-	trainingWriter,
-} from "../../../packages/domain/src/teams/index.ts";
+import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import {
 	createRsvpToken,
 	describeRsvpToken,

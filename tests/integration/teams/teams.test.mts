@@ -799,11 +799,21 @@ function assertXref(pdf) {
 	const start = Number(/startxref\n(\d+)\n%%EOF$/.exec(pdf)[1]);
 	assert.equal(bytes.subarray(start, start + 4).toString(), "xref");
 	const [, size] = /^xref\n0 (\d+)\n/.exec(pdf.slice(start));
-	const rows = pdf.slice(start).split("\n").slice(3, 2 + Number(size));
+	const rows = pdf
+		.slice(start)
+		.split("\n")
+		.slice(3, 2 + Number(size));
 	assert.equal(rows.length, Number(size) - 1);
 	rows.forEach((row, index) => {
 		const offset = Number(row.slice(0, 10));
-		assert.equal(bytes.subarray(offset).toString().startsWith(`${index + 1} 0 obj\n`), true, row);
+		assert.equal(
+			bytes
+				.subarray(offset)
+				.toString()
+				.startsWith(`${index + 1} 0 obj\n`),
+			true,
+			row,
+		);
 	});
 	for (const [, length, stream] of pdf.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g))
 		assert.equal(Buffer.byteLength(stream), Number(length));
@@ -863,7 +873,8 @@ test("AC:TARGET-TEAM-012 a chart of 60 ministries fits every line inside the PDF
 		pages.flat().map((line) => line.text),
 		lines,
 	);
-	for (const line of pages.flat()) assert.equal(line.y >= 36 && line.y <= height - 20, true, `${line.text} at ${line.y}`);
+	for (const line of pages.flat())
+		assert.equal(line.y >= 36 && line.y <= height - 20, true, `${line.text} at ${line.y}`);
 	const svg = drawingSvg(lines);
 	const svgHeight = Number(/<svg [^>]*height="(\d+)"/.exec(svg)[1]);
 	const ys = [...svg.matchAll(/<text x="50" y="(\d+)">/g)].map((m) => Number(m[1]));
