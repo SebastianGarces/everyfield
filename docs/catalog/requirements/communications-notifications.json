@@ -1141,7 +1141,7 @@
         },
         {
           "operation": "notifications.enqueue",
-          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
         }
       ]
     },
@@ -1218,7 +1218,7 @@
         },
         {
           "operation": "notifications.feed",
-          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
         },
         {
           "operation": "notifications.markAllVisibleRead",
@@ -1284,11 +1284,11 @@
         },
         {
           "operation": "notifications.preferences.set",
-          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
+          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor and scheduled email unsubscribe notices in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
         },
         {
           "operation": "notifications.preferences.set",
-          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
         },
         {
           "operation": "notifications.preferences.set",
