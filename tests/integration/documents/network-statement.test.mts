@@ -17,7 +17,7 @@ import { fillStatementSlots, statementParagraphs } from "../../../packages/domai
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import test, { after, before, describe } from "node:test";
+import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
@@ -213,7 +213,6 @@ async function assertMarkedBlank(who, doc) {
 	}
 }
 
-before(async () => {});
 after(async () => {
 	await database.close();
 });

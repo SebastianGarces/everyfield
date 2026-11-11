@@ -12,7 +12,6 @@ import { owner, sessionId } from "../../../packages/contracts/src/common/index.t
 const database = await testDatabase({ prefix: "wp007", max: 8 });
 export const { schema, admin: db } = database;
 export const runtime = database.pools.runtime;
-export async function setup() {}
 export const teardown = database.close;
 export async function tx<T>(
 	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
