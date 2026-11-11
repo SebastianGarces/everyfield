@@ -1160,9 +1160,6 @@ export function HistoryDialog({
 }
 
 // -------------------------------------------------------------------------------------------------------------
-// Attendee note
-
-// -------------------------------------------------------------------------------------------------------------
 // Small parts used by the guest list and the check-in screen
 
 /** A guest's presence and, once final, how they counted. */

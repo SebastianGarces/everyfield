@@ -30,17 +30,15 @@ async function assertRenderedClean(article, label) {
 }
 
 /**
- * The body rows of `table` as cell texts. The sheet appends "…" to a body of 500 characters or more; after a table row
- * the app's renderer shows it as one extra last cell, so that cell, and only there, is the sheet's and is dropped.
+ * The body rows of `table` as cell texts. Every row has the header's cells: the sheet adds no ellipsis of its own, so a
+ * whole last table row gains no extra "…" cell.
  */
 async function bodyRows(table) {
 	const rows = await table
 		.locator("tr")
 		.evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll("th, td")].map((td) => td.textContent.trim())));
 	const [head, ...body] = rows;
-	for (const row of body.slice(0, -1)) assert.equal(row.length, head.length, row.join(" | "));
-	const last = body.at(-1);
-	if (last.length > head.length) assert.deepEqual(last.splice(head.length), ["…"]);
+	for (const row of body) assert.equal(row.length, head.length, row.join(" | "));
 	return body;
 }
 
@@ -118,12 +116,8 @@ for (const [name, engine] of ENGINES) {
 				"/intelligence",
 			]) {
 				const article = await openGuide(page, context, path);
-				let text = await assertRenderedClean(article, path);
-				if (/\s…$/.test(text)) {
-					// The sheet's own ellipsis after a whole last table row (bodyRows checks that cell).
-					await bodyRows(article.locator("table").last());
-					text = text.replace(/\s…$/, "");
-				}
+				const text = await assertRenderedClean(article, path);
+				if ((await article.locator("table").count()) > 0) await bodyRows(article.locator("table").last());
 				assert.match(text, /([.!?:)]|[\p{L}\p{N}]…|[\p{L}\p{N}])$/u, `${path}: ${text.slice(-40)}`);
 			}
 		});

@@ -767,7 +767,7 @@ test("INV-statements: page reads are one statement and generated work costs the 
 	};
 	// Each generated task is dated and assigned, so each one also gets its two reminders.
 	const [one, five] = [await batch(1), await batch(5)];
-	assert.ok(one > 0);
+	assert.equal(one, 8);
 	assert.equal(five, one);
 	assert.deepEqual(
 		await rows(

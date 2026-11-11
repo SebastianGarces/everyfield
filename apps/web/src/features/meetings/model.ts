@@ -67,8 +67,6 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 }
 
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
-/** The types a new meeting can be. Planning one takes an Owner or Admin; a team meeting also names its ministry. */
-export const NEW_TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
 export const TYPE_LABEL: Record<MeetingType, string> = {
 	vision_meeting: "Vision meeting",
 	orientation: "Orientation",
@@ -287,13 +285,6 @@ export function untilText(m: { localDate: string; zone: string }, now: string): 
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
 	return `in ${Math.round(days / 7)} weeks`;
-}
-
-/** The offset a fold choice carries, in words: "1:30 am (CDT)" style hints are zone-specific, so show UTC offsets. */
-export function offsetText(offsetSeconds: number): string {
-	const sign = offsetSeconds < 0 ? "−" : "+";
-	const abs = Math.abs(offsetSeconds);
-	return `UTC${sign}${Math.floor(abs / 3600)}${abs % 3600 ? `:${String((abs % 3600) / 60).padStart(2, "0")}` : ""}`;
 }
 
 /** RSVP counts from the guest list. */

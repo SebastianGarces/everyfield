@@ -1,4 +1,3 @@
-import type { RequestActor } from "@everyfield/domain/access";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -51,12 +50,11 @@ export async function OptOutPage({ params: route }: { params: Promise<{ token: s
 
 async function describe(token: string): Promise<OptOutView> {
 	if (!notificationsMount()?.optOut) return { state: "unavailable" };
-	// The token is the authority; describe never reads a session. The producer's signature still names one.
-	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, NO_SESSION, { token }));
+	// The token is the authority; describe never reads a session.
+	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, { token }));
 	if (r.status === "lost") return { state: "unavailable" };
 	if (r.status === "refused") return { state: "invalid" };
 	if (r.value.purpose !== "disable") return { state: "invalid" };
 	if (r.value.expired) return { state: "expired", category: r.value.category };
 	return { state: "open", category: r.value.category, emailEnabled: r.value.emailEnabled };
 }
-const NO_SESSION = undefined as unknown as RequestActor;
