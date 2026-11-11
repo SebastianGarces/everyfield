@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 	// A deployment without opt-out keys has no email preferences: the link is not found here, and nothing changes.
 	if (!notificationsMount()?.optOut) return reply(404);
 	const token = (await params).token;
-	const r = await call(({ db, producer }) => producer.applyEmailOptOut(db, { token, oneClick: true }));
+	const r = await call(({ db, producer }) => producer.applyEmailOptOut(db, { token }));
 	if (r.status === "lost") return reply(503);
 	if (r.status === "refused") return reply(r.code === "invalid_input" ? 400 : 403);
 	return reply(r.value.expired ? 410 : 200);

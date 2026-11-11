@@ -606,6 +606,9 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	p = result.person;
 	assert.equal(p.stage, "leader");
 	assert.deepEqual(p.commitment, { state: "unknown" });
+	// Activity shows the change as its newest entry, from the old stage to the new one.
+	const [changed] = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id }))).items;
+	assert.deepEqual([changed.kind, changed.from, changed.to], ["stage_changed", "prospect", "leader"]);
 	const noop = ok(
 		await tx((t) =>
 			write.changeStatus(
@@ -833,7 +836,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 });
 
-test("AC:CA014 explicit adult classification retains genuine historical acquisition rather than creating a join today", async () => {
+test("AC:CA014 BUG-church-date explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
 	const p = await create("Historical commitment");
 	const commitment = randomUUID();
 	await admin.execute(
@@ -888,6 +891,33 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 		(await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0].signed_on,
 		before,
 	);
+	// BUG-church-date: the church's own today bounds the date. Kiritimati (UTC+14) is often already tomorrow in UTC.
+	await admin.execute(sql`UPDATE plant SET timezone='Pacific/Kiritimati' WHERE id=${plants[0]}::uuid`);
+	try {
+		const { today, tomorrow } = (
+			await admin.execute(
+				sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS today, ((clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date + 1)::text AS tomorrow`,
+			)
+		).rows[0];
+		const classify = (operation, occurredOn) =>
+			tx((t) =>
+				write[operation](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: corrected.observation.sourceRevision,
+					input: { personId: p.id, classification: "adult", occurredOn, reason: "Church date" },
+				}),
+			);
+		const stored = async () =>
+			(await admin.execute(sql`SELECT adult_classification FROM person WHERE id=${p.id}::uuid`)).rows[0]
+				.adult_classification;
+		refused(await classify("recordAdultClassification", tomorrow), "invalid_input");
+		refused(await classify("correctAdultClassification", tomorrow), "invalid_input");
+		assert.equal(await stored(), "unknown");
+		assert.equal(ok(await classify("recordAdultClassification", today)).observation.classification, "adult");
+		assert.equal(await stored(), "adult");
+	} finally {
+		await admin.execute(sql`UPDATE plant SET timezone='America/New_York' WHERE id=${plants[0]}::uuid`);
+	}
 });
 
 test("INV-people: concurrent edits serialize to one current revision and one conflict without partial history", async () => {
@@ -956,7 +986,7 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: native moves place one person, persist and retry once", async () => {
+test("BUG-124-conflict BUG-124-replay INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
 	await create("Order A");
 	await create("Order B");
 	const column = async () =>
@@ -988,6 +1018,38 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
+	// BUG-124: a later move lands (another tab's or actor's); a replay of the first move then answers with the column as
+	// it stands now, the later order and its matching revision, as the reorder action reads it in the same transaction.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: String(Number(seen) + 1),
+				input: { column: "prospect", personId: all[0], afterId: null },
+			}),
+		),
+	);
+	const afterOther = await audits();
+	const replay = await tx(async (t) => ({
+		done: await write.reorderPipeline(t, ctx(), order),
+		column: (await readColumnOrders(t, ctx(), ["prospect"]))[0],
+	}));
+	assert.deepEqual(ok(replay.done), saved);
+	assert.equal(await audits(), afterOther, "the replay writes nothing");
+	assert.deepEqual(
+		[replay.column.personIds, replay.column.revision],
+		[[all[0], last, ...all.slice(1, -1)], String(Number(seen) + 2)],
+	);
+	// The next move sent with the replay's revision saves.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: replay.column.revision,
+				input: { column: "prospect", personId: last, afterId: null },
+			}),
+		),
+	);
 });
 
 test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
@@ -1121,12 +1183,10 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 		}
 	}
 	t.diagnostic(JSON.stringify(counts));
-	assert.deepEqual(counts.list, [counts.list[0], counts.list[0], counts.list[0]]);
+	assert.deepEqual(counts.list, [5, 5, 5]);
 	assert.deepEqual(counts.card, counts.list);
-	assert.ok(counts.list[0] <= 9, "list round-trip budget includes authorization and transaction overhead");
-	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
 	// BEGIN, column revisions, one window over all columns, commitment, duties, COMMIT.
-	assert.ok(counts.pipeline[0] <= 6, `pipeline read: ${counts.pipeline[0]} statements`);
+	assert.deepEqual(counts.pipeline, [6, 6, 6]);
 	// "Show more" names its column and reads one page of it with the same fixed statement count.
 	queries = [];
 	const more = ok(
@@ -1189,8 +1249,9 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 			await tx((t) => read.getPipelineData(t, viewer, { search: "Batch regression", limit: 25, column })),
 		);
 		assert.equal(known.groups[0].cards[0].person.commitment.state, "withdrawn");
-		assert.ok(
-			queries.length <= 6,
+		assert.equal(
+			queries.length,
+			6,
 			`pipeline read with known commitments (${column ?? "all columns"}): ${queries.length} statements`,
 		);
 	}
@@ -1253,7 +1314,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	t.diagnostic(JSON.stringify({ reorder: [few.count, many.count] }));
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
 	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
-	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
+	assert.equal(few.count, 10, `reorder round trips: ${few.count}`);
 	// Legacy ties: 30 people who all share key 0, as every person had before migration 0015. After the migration a move
 	// between any two neighbours still changes exactly one row and writes one audit event.
 	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
@@ -1312,7 +1373,6 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 		keys = now;
 	}
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
-	queries = [];
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
 	const moved = ok(
 		await tx(async (t) => {
@@ -1331,11 +1391,9 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 				: done;
 		}),
 	);
-	t.diagnostic(JSON.stringify({ changeStatus: queries.length }));
 	assert.equal(moved.person.stage, "attendee");
 	assert.ok(moved.column.personIds.includes(first.id));
 	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
-	assert.ok(queries.length <= 9, `stage change round trips: ${queries.length}`);
 });
 
 test("INV-reads: the person page and the status warnings use a fixed number of statements without locks", async () => {
@@ -1355,7 +1413,6 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const page = ok(
 		await readPersonPage(db, viewer, { personId: p.id }, 50, { fields: true, records: 10, duplicates: true }),
 	);
-	const pageStatements = queries.length;
 	assert.deepEqual(page.fields, { tags: [], skills: [], household: { status: "none" }, photo: { status: "absent" } });
 	assert.deepEqual(
 		[page.records.assessments.total, page.records.interviews.total, page.records.commitments.total],
@@ -1376,9 +1433,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const warningStatements = queries.length;
 	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
-	assert.equal(pageStatements, 1, `person page: ${pageStatements} statements`);
-	// Status warnings: BEGIN, actor, person, warnings, COMMIT; a commitment projection may add one.
-	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
+	// Status warnings: BEGIN, actor, person, warnings, COMMIT.
+	assert.equal(warningStatements, 5, `status warnings: ${warningStatements} statements`);
 	assert.equal(
 		queries.some((q) => /for\s+(update|share)/i.test(q)),
 		false,

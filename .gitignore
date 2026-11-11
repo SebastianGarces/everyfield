@@ -36,6 +36,9 @@ npm-debug.log*
 .intent/
 .playwright-mcp/
 
+# Local security audit notes; the repository is public (T-222)
+.audit-review/
+
 # Written by next dev (Next.js agent hints); not project instructions
 apps/web/AGENTS.md
 

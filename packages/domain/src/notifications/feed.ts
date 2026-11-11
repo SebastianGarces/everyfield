@@ -80,11 +80,16 @@ function feedSql(
 			) page), '[]'::json) AS items`;
 }
 
-export async function readFeed(db: Database, authority: RequestActor, raw: unknown) {
+export async function readFeed(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	now: () => Date = () => new Date(),
+) {
 	return readReply(async () => {
 		const input = parse(readFeedRequest, raw);
 		const cursor = input.cursor?.split("|");
-		const asOf = input.asOf ?? new Date().toISOString();
+		const asOf = now().toISOString();
 		const result = await db.execute(
 			feedSql(
 				authority.session,

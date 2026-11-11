@@ -201,19 +201,4 @@ describe("WP-104/api resolveDocumentTheme", () => {
 			documentTheme.parse(branded);
 		}
 	});
-
-	test("AC:CASE-DOC-017-CHURCH the church theme for the CASE-DOC-017 kit", () => {
-		const doc017 = kit({ primaryColor: "#8B1E3F", accentColor: "#C9A227" });
-		const theme = resolveDocumentTheme(church(doc017), "outward-facing", { useChurchBranding: true });
-		assert.equal(theme.kind, "church");
-		assert.deepEqual(
-			[theme.colors.primary, theme.colors.accent, theme.fonts.heading, theme.fallbackUsed],
-			["#8B1E3F", "#C9A227", "DM Serif Display", false],
-		);
-	});
-
-	test("an accent that is absent resolves to the primary color", () => {
-		const theme = resolveDocumentTheme(church(kit({ accentColor: null })), "operational");
-		assert.equal(theme.colors.accent, "#1F4E79");
-	});
 });

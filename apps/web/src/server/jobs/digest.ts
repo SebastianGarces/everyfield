@@ -288,7 +288,7 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 			from: v.data.IDENTITY_MAIL_FROM,
 			authorize: authorizeDigestMail,
 			unsubscribe: mailUnsubscribe(),
-			// WP-031 owns dispatch; no real provider is configured here.
+			// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
 			transport: {
 				async send() {
 					return { kind: "refused", retryable: true };
