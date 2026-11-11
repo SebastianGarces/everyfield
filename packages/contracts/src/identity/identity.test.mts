@@ -24,6 +24,9 @@ test("INV-identity: safe navigation rejects authority changes and expired-sessio
 		"/a/..//evil.test",
 		"/path\nnext",
 		"/%0d%0aLocation:evil",
+		// INV-boundary: double-encoded backslash and newline stay refused.
+		"/%255cforeign",
+		"/%250aheader",
 	]) {
 		assert.equal(safeReturn(value), null, String(value));
 	}
