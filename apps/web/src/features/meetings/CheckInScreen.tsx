@@ -52,8 +52,8 @@ export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boole
 }
 
 /**
- * `admin` is an Owner or Admin. A team meeting's leader (not admin) marks people here and checks in someone already in
- * People; adding a new person and finalizing stay with Owners and Admins (C74).
+ * `admin` is an Owner or Admin. A team meeting's current leader (not admin) marks people here, checks in someone already
+ * in People and finishes check-in (REQ-MTG-010, D-562); adding a new person stays with Owners and Admins (C74).
  */
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
@@ -69,6 +69,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
+	// Who finalizes: the attendance read answers by the write's rule (Owner, Admin or this team meeting's leader).
+	const finalizer = admin || data.attendance?.viewerCanMarkAttendance === true;
 	/** The latest guests and attendance after a refusal as out of date. Resolves true once they show. */
 	const stale = () =>
 		reloadCheckIn(m.id).then(
@@ -273,7 +275,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 									? "Nobody is here yet. Tap a name when they arrive."
 									: here.length < guests.length
 										? "Tap a name to check them in. Tap again to undo."
-										: `Everyone on the list is here.${admin ? " Finish check-in when you are ready." : ""}`}
+										: `Everyone on the list is here.${finalizer ? " Finish check-in when you are ready." : ""}`}
 							</p>
 						)}
 						<ul
@@ -300,12 +302,12 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 
 			{final ? null : (
 				<footer className="sticky bottom-0 flex flex-col gap-2 bg-frame px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))]">
-					{admin ? null : (
+					{finalizer ? null : (
 						<p className="text-center text-sm text-text-2">
-							An Owner or Admin finalizes attendance on the meeting page.
+							An Owner, an Admin or the ministry&rsquo;s leader finalizes attendance.
 						</p>
 					)}
-					<div className={admin ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+					<div className={finalizer ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
 						<Button
 							variant="outline"
 							icon={UserAdd01Icon}
@@ -315,7 +317,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						>
 							Add a walk-in
 						</Button>
-						{admin ? (
+						{finalizer ? (
 							<Button
 								variant="primary"
 								icon={CheckListIcon}
