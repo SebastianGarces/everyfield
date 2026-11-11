@@ -286,7 +286,34 @@ export async function readAuthorizedObject(
 	authorize: ResourceAuthorizer,
 	id: string,
 ): Promise<Uint8Array> {
+	return fetchAuthorized(db, storage, authorize, await authorized(db, authorize, id, "read"));
+}
+/**
+ * The authorized file's stored SHA-256 and media type from the authorizing statement, and its bytes only when `current`
+ * says the caller does not hold that version. `bytes` is null when the caller's copy is current: no storage read runs.
+ */
+export async function readAuthorizedObjectIfChanged(
+	db: Database,
+	storage: PrivateStorage,
+	authorize: ResourceAuthorizer,
+	id: string,
+	current: (sha256: string) => boolean,
+): Promise<{ sha256: string; mediaType: string; bytes: Uint8Array | null }> {
 	const file = await authorized(db, authorize, id, "read");
+	// A ready file always has its SHA-256 (file_object_ck_4).
+	if (!file.sha256) throw unavailable();
+	const stored = { sha256: file.sha256, mediaType: file.media_type };
+	if (current(file.sha256)) return { ...stored, bytes: null };
+	return { ...stored, bytes: await fetchAuthorized(db, storage, authorize, file) };
+}
+/** One storage read of an authorized file, checked against its stored size and SHA-256, then authorized again. */
+async function fetchAuthorized(
+	db: Database,
+	storage: PrivateStorage,
+	authorize: ResourceAuthorizer,
+	file: FileObjectRow,
+): Promise<Uint8Array> {
+	const id = file.id;
 	const result = await storage.client
 		.send(new GetObjectCommand({ Bucket: storage.bucket, Key: file.opaque_key }))
 		.catch(providerFailure);
