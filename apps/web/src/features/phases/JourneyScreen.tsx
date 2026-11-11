@@ -91,12 +91,8 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 		setJourney(pendingMove(before, draft.to, checked.reason, actor, new Date().toISOString()));
 		const intent = ["move", before.state.revision, draft.to, draft.reason] as const;
 		const r = await sent(() => movePhase(keys.keyFor(intent), before.state.revision, draft.to, draft.reason));
-		if (r.status === "lost") {
-			setJourney(before);
-			setLostMove({ ...draft, error: null, changed: null });
-			return toast({ message: refusalMessage(r), tone: "error" });
-		}
-		keys.settle(intent);
+		if (r.status === "lost") setLostMove({ ...draft, error: null, changed: null });
+		else keys.settle(intent);
 		if (r.status === "ok") {
 			if (r.value.outcome === "noop") return setReceipt(`No change: already in Phase ${r.value.state.phase}.`);
 			return setJourney(withEntry(before, r.value.state, r.value.entry));
