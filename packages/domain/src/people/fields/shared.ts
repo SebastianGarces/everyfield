@@ -51,12 +51,12 @@ export type PersonFacts = z.infer<typeof factRow>;
 /**
  * The Person columns these fields read and write. A missing or foreign Person is unavailable. A write passes the related
  * row it also needs (a household, tags, an upload) as `extra`, a scalar subquery that may name the outer `person`, so
- * both come back in one round trip.
+ * both come back in one round trip. `id` may be a scalar subquery that finds the Person, such as from one of its skills.
  */
 export async function personFacts(
 	tx: Tx,
 	plant: string,
-	id: string,
+	id: string | SQL,
 	extra?: SQL,
 	visible?: SQL,
 ): Promise<PersonFacts & { extra: unknown }> {
