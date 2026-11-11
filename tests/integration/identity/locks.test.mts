@@ -26,13 +26,13 @@ const outcome = (p) =>
 		(value) => ({ value }),
 		(error) => ({ error }),
 	);
+/** Waits on Postgres lock state until a session waits for `pid`, bounded by a poll count rather than a clock. */
 async function waitingOn(pid) {
-	for (let n = 0; n < 100; n++) {
+	for (let n = 0; n < 50_000; n++) {
 		const r = await f.admin.execute(
 			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`,
 		);
 		if (r.rows[0].n > 0) return;
-		await new Promise((resolve) => setTimeout(resolve, 10));
 	}
 	assert.fail("Competing operation did not reach the held lock");
 }
@@ -83,7 +83,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	});
 	await f.admin
 		.update(t.invitation)
-		.set({ created_at: new Date(Date.now() - 120000) })
+		.set({ created_at: sql`clock_timestamp()-interval '120 seconds'` })
 		.where(eq(t.invitation.id, pending.invitation.invitationId));
 	const ids = Array.from({ length: 250 }, () => key());
 	await insertTasks(
@@ -218,22 +218,32 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 			handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", recipientAccountId: s.sender.id }],
 		},
 	};
-	// A real Postgres statement deadline after the writes, not a fake thrown database error.
+	// A real Postgres statement cancel (57014, as a statement deadline raises) after the writes, not a fake thrown
+	// error: the receipt insert waits on a row this test holds, and the test cancels it once Postgres shows it waiting.
+	await f.admin.execute(sql`CREATE TABLE stall_gate(id int PRIMARY KEY)`);
+	await f.admin.execute(sql`INSERT INTO stall_gate VALUES(1)`);
 	await f.admin.execute(
-		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(11); RETURN NEW; END $$`,
+		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN PERFORM 1 FROM stall_gate FOR UPDATE; RETURN NEW; END $$`,
 	);
 	await f.admin.execute(
 		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
 	);
 	try {
-		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders), (error) => {
-			assert.equal(error.value?.code, "temporary");
+		await f.admin.transaction(async (gate) => {
+			const [{ pid }] = (await gate.execute(sql`SELECT pg_backend_pid() AS pid FROM stall_gate FOR UPDATE`)).rows;
+			const removal = outcome(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders));
+			await waitingOn(pid);
+			await gate.execute(
+				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
+			);
+			const { error } = await removal;
+			assert.equal(error?.value?.code, "temporary", String(error));
 			assert.equal(error.value.retry, "same_request");
-			return true;
 		});
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
+		await f.admin.execute(sql`DROP TABLE stall_gate`);
 	}
 	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
 	assert.deepEqual(await assigneesOf(f.admin, duty), [s.recipient.id]);
@@ -329,18 +339,15 @@ test("INV-identity: current actor preserves authority in one database round trip
 	});
 	for (const c of cases) {
 		await test.test(`INV-identity: ${c.name}`, async () => {
-			const times = [];
 			const trips = [];
 			for (let n = 0; n < 3; n++) {
 				await f.db.transaction(async (tx) => {
 					statements = [];
 					recording = true;
-					const start = performance.now();
 					let result;
 					try {
 						result = await currentActor(tx, sessionId.parse(c.account.session), owner.parse(c.selected));
 					} finally {
-						times.push(performance.now() - start);
 						recording = false;
 					}
 					assert.deepEqual(result, c.expected);
@@ -348,7 +355,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 				});
 			}
 			test.diagnostic(
-				JSON.stringify({ actor: c.name, roundTrips: statements.length, milliseconds: times.map((n) => Math.round(n)) }),
+				JSON.stringify({ actor: c.name, roundTrips: statements.length }),
 			);
 			assert.deepEqual(trips, [1, 1, 1], `${c.name}: ${trips.join(", ")} round trips, expected one statement each`);
 
