@@ -13,7 +13,6 @@ import {
 	Undo02Icon,
 } from "@hugeicons/core-free-icons";
 import { localDate } from "@everyfield/contracts/common";
-import { statusTransitions } from "@everyfield/contracts/meetings";
 import {
 	Button,
 	buttonVariants,
@@ -93,6 +92,7 @@ import {
 	rsvpCounts,
 	RSVP_LABEL,
 	STATUS_ACTION,
+	statusMoves,
 	statusView,
 	TYPE_LABEL,
 	whenText,
@@ -231,7 +231,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		onStale: () => stale(),
 	});
 	const final = data.attendance?.finalized != null;
-	// Owners, Admins and the leader of a team meeting mark attendance (C74); the server read says who may.
+	// Owners, Admins and the leader of a team meeting mark, finalize and correct attendance (C74, REQ-MTG-010, D-562);
+	// the server read says who may.
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
 	function submitSettle(input: SettleInput) {
 		const mode = settleLane.editing!.mode;
@@ -371,7 +372,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const history = useEvaluationHistory(m.id);
 	const [historyOpen, setHistoryOpen] = useState(false);
 
-	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
+	const moves = statusMoves(m.type, m.status);
 	const held = m.occurrence.heldAt !== null;
 	// The next step (next-step.ts): one primary action and at most two secondary buttons.
 	const guestList = view.guests ?? [];
@@ -386,6 +387,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		status: m.status,
 		canWrite,
 		checkIn: marker && !final && canSettle,
+		canFinalize: marker,
 		guestCount: guestList.length,
 		final,
 		canSettle,
@@ -692,7 +694,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									meeting={m}
 									attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
 									analytics={data.analytics}
-									canWrite={canWrite}
+									canSettle={marker}
 									lane={settleLane}
 									blocked={presence.busy}
 									headerFinalize={next.primary === "finalize" || next.secondary.includes("finalize")}
@@ -759,24 +761,24 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					onRetry={() => history.load(saved.revision)}
 				/>
 			) : null}
+			{marker && data.attendance && data.guests && settleLane.editing ? (
+				<NoticeInDialog {...settleLane.noticeProps}>
+					<SettleDialog
+						open
+						mode={settleLane.editing.mode}
+						meeting={m}
+						guests={data.guests}
+						attendance={data.attendance}
+						onSeats={warmSeats}
+						initial={settleLane.editing.input}
+						problem={settleLane.problem}
+						onClose={settleLane.close}
+						onSubmit={submitSettle}
+					/>
+				</NoticeInDialog>
+			) : null}
 			{canWrite ? (
 				<>
-					{data.attendance && data.guests && settleLane.editing ? (
-						<NoticeInDialog {...settleLane.noticeProps}>
-							<SettleDialog
-								open
-								mode={settleLane.editing.mode}
-								meeting={m}
-								guests={data.guests}
-								attendance={data.attendance}
-								onSeats={warmSeats}
-								initial={settleLane.editing.input}
-								problem={settleLane.problem}
-								onClose={settleLane.close}
-								onSubmit={submitSettle}
-							/>
-						</NoticeInDialog>
-					) : null}
 					{vision && evaluationLane.editing ? (
 						<NoticeInDialog {...evaluationLane.noticeProps}>
 							<EvaluationDialog

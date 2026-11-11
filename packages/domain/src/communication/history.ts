@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
-import { liveRead } from "../access/session.ts";
+import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import {
@@ -22,42 +22,6 @@ const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
 const STAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
 
-type Reader = { session: string; accountId: string; plantId: string; seatId: string; role: Command["actor"]["role"] };
-
-function accessOf(authority: RequestActor) {
-	const reader = readerOf(authority);
-	return {
-		reader,
-		access: { session: reader.session, owner: reader.owner, seatId: reader.seatId, role: reader.role },
-	};
-}
-function sessionActor(reader: Reader, admin: boolean) {
-	return sql`EXISTS (SELECT 1 FROM live_session(${reader.session}::uuid) i
-		JOIN account a ON a.id = i.account_id AND a.id = ${reader.accountId}::uuid AND a.auth_user_id IS NOT NULL
-		JOIN seat st ON st.account_id = a.id AND st.id = ${reader.seatId}::uuid AND st.plant_id = ${reader.plantId}::uuid
-			AND st.ended_at IS NULL AND st.accepted_at <= clock_timestamp() AND st.role = ${reader.role}
-			AND (${admin}::boolean = false OR st.role <> 'member')
-		WHERE i.registration_state = 'active' AND i.expires_at > clock_timestamp())`;
-}
-function allowed(
-	access: { session: string; owner: ReturnType<typeof readerOf>["owner"]; seatId: string; role: Reader["role"] },
-	reader: Reader,
-	admin: boolean,
-) {
-	return sql`${liveRead(access, admin)} AND ${sessionActor(reader, admin)}`;
-}
-function actorBound(actor: Command["actor"], session: string) {
-	return sessionActor(
-		{ session, accountId: actor.accountId, plantId: actor.plantId, seatId: actor.seatId, role: actor.role },
-		false,
-	);
-}
-function writeBound(actor: Command["actor"], session: string) {
-	return sessionActor(
-		{ session, accountId: actor.accountId, plantId: actor.plantId, seatId: actor.seatId, role: actor.role },
-		true,
-	);
-}
 function requireAllowed(value: boolean) {
 	if (value !== true) deny("access_denied");
 }
@@ -267,11 +231,11 @@ async function readPage(
 	found: SQL,
 	extra: SQL,
 ) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT ${found} AS found,
 					CASE WHEN ${found} THEN jsonb_build_object(
 						'asOf', ${stamp(sql`clock_timestamp()`)},
@@ -287,7 +251,7 @@ async function readPage(
 
 export async function listHistory(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.historyQuery, request ?? {});
-	const { reader } = accessOf(authority);
+	const reader = readerOf(authority);
 	const meetingId = uuidOrNull(input.meetingId);
 	const personId = uuidOrNull(input.personId);
 	const page = await readPage(
@@ -308,7 +272,7 @@ export async function listHistory(tx: Tx, authority: RequestActor, request: unkn
 
 export async function listForMeeting(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.meetingHistoryRequest, request);
-	const plantId = accessOf(authority).reader.plantId;
+	const plantId = readerOf(authority).plantId;
 	const page = await readPage(
 		tx,
 		authority,
@@ -333,13 +297,13 @@ const contactRow = z.object({
 
 export async function listForPerson(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.personHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const limit = limitOf(input.limit);
 	const cursor = decodeCursor(input.cursor);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM person parent WHERE parent.id = ${input.personId}::uuid AND parent.tenant_id = ${reader.plantId}::uuid) AS found,
 					CASE WHEN EXISTS (SELECT 1 FROM person parent WHERE parent.id = ${input.personId}::uuid AND parent.tenant_id = ${reader.plantId}::uuid)
@@ -417,7 +381,7 @@ const totalsShape = z.object({
 
 export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.deliveryTotalsRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const on = mailOn(reader.plantId);
 	const word = sql`CASE
 		WHEN m.bounced_at IS NOT NULL OR m.state IN ('refused', 'failed', 'cancelled') THEN 'rejected'
@@ -427,7 +391,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'state', ${hubState(reader.plantId)},
@@ -517,11 +481,11 @@ const detailShape = z.object({
 
 export async function getDetail(tx: Tx, authority: RequestActor, request: unknown, keys?: DeliveryKeys) {
 	const input = parse(c.recordRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'id', c.id, 'revision', c.revision::text, 'state', c.state, 'subject', c.subject,
@@ -585,13 +549,13 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 
 export async function listHistoryRecipients(tx: Tx, authority: RequestActor, request: unknown, keys?: DeliveryKeys) {
 	const input = parse(c.recipientHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const limit = limitOf(input.limit);
 	const cursor = decodeCursor(input.cursor);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS found,
 					coalesce((
@@ -646,22 +610,26 @@ export async function listHistoryRecipients(tx: Tx, authority: RequestActor, req
 
 export async function listMeetingTracking(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.meetingHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM meeting parent WHERE parent.id = ${input.meetingId}::uuid AND parent.plant_id = ${reader.plantId}::uuid) AS found,
 					coalesce((
-						SELECT jsonb_agg(jsonb_build_object(
-							'personId', p.id, 'name', p.display_name,
-							'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END
-						) ORDER BY p.display_name, p.id)
-						FROM communication c
-						JOIN mail m ON m.tenant_id = c.plant_id AND m.communication_id = c.id
-						JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-						WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
+						SELECT jsonb_agg(jsonb_build_object('personId', t.id, 'name', t.display_name, 'deliveryStatus', t.status)
+							ORDER BY t.display_name, t.id)
+						FROM (
+							-- One row per person: a person emailed by several of the meeting's messages shows their latest mail.
+							SELECT DISTINCT ON (p.id) p.id, p.display_name,
+								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS status
+							FROM communication c
+							JOIN mail m ON m.tenant_id = c.plant_id AND m.communication_id = c.id
+							JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
+							WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
+							ORDER BY p.id, m.created_at DESC, m.id DESC
+						) t
 					), '[]'::jsonb) AS items`,
 			),
 		),
@@ -673,7 +641,7 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 
 export async function getExecutionResult(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.executionRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const bucket = sql`CASE
 		WHEN m.bounced_at IS NOT NULL OR m.state IN ('refused', 'failed', 'cancelled') THEN 'refused'
 		WHEN m.state IN ('unknown', 'dispatched', 'pending') AND m.accepted_at IS NULL AND m.sent_at IS NULL AND m.delivered_at IS NULL THEN 'unknown'
@@ -683,7 +651,7 @@ export async function getExecutionResult(tx: Tx, authority: RequestActor, reques
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'accepted', (SELECT count(*)::int FROM mail m WHERE ${mailOn(reader.plantId)} AND ${bucket} = 'accepted'),
@@ -791,10 +759,10 @@ function namesOf(people: z.infer<typeof resendPerson>[], eligible: boolean) {
 
 export async function listResendCandidates(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.resendCandidatesRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const loaded = await loadResend(
 		tx,
-		allowed(access, reader, true),
+		communicationAccess(reader, reader.session, true),
 		reader.plantId,
 		input.communicationId,
 		input.selection,
@@ -847,7 +815,7 @@ export async function executeResend(tx: Tx, context: CommunicationContext, raw: 
 		if (!administers(cmd.actor)) deny("access_denied");
 		const loaded = await loadResend(
 			tx,
-			writeBound(cmd.actor, context.session),
+			communicationAccess(cmd.actor, context.session, true),
 			cmd.actor.plantId,
 			input.input.communicationId,
 			input.input.selection,
@@ -864,7 +832,7 @@ export async function executeResend(tx: Tx, context: CommunicationContext, raw: 
 				SELECT ${id}::uuid, ${cmd.actor.plantId}::uuid, ${cmd.actor.accountId}::uuid, 1, 'reviewed', ${source.subject},
 					${source.body_html}, ${source.body_text}, ${`lineage:${source.id}`}, ${source.meeting_id}::uuid,
 					${JSON.stringify(audience)}::jsonb
-				WHERE ${writeBound(cmd.actor, context.session)}`,
+				WHERE ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
 		pushEvent(cmd, {
 			id: cmd.id,
@@ -904,7 +872,7 @@ export async function recordContactFromTask(tx: Tx, context: CommunicationContex
 		const rawRow = one(
 			await tx.execute(
 				whenLive(
-					actorBound(cmd.actor, context.session),
+					communicationAccess(cmd.actor, context.session, false),
 					sql`SELECT (t.id IS NOT NULL) AS found,
 						(t.id IS NOT NULL AND t.status = 'complete' AND t.person_id IS NOT NULL AND t.deleted_at IS NULL AND t.parent_id IS NULL) AS task_ok,
 						o.id AS outcome_id, o.outcome, o.revision::text AS revision,
@@ -980,7 +948,7 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 		const rawRow = one(
 			await tx.execute(
 				whenLive(
-					actorBound(cmd.actor, context.session),
+					communicationAccess(cmd.actor, context.session, false),
 					sql`SELECT o.id, o.revision::text AS revision, o.person_id, o.task_id, o.outcome,
 						${stamp(sql`o.occurred_at`)} AS occurred_at,
 						o.voided_at IS NOT NULL AS voided,
@@ -1025,18 +993,18 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 		cmd.writes.push(
 			sql`UPDATE contact_outcome SET voided_at = ${old.db_now}::timestamptz, revision = revision + 1
 				WHERE id = ${old.id}::uuid AND plant_id = ${plant}::uuid AND revision = ${old.revision}::bigint
-					AND ${actorBound(cmd.actor, context.session)}`,
+					AND ${communicationAccess(cmd.actor, context.session, false)}`,
 		);
 		cmd.writes.push(
 			sql`INSERT INTO contact_outcome (id, plant_id, person_id, task_id, outcome, occurred_at, recorded_at, supersedes_id, revision, completes_task)
 				SELECT ${nextId}::uuid, ${plant}::uuid, ${old.person_id}::uuid, ${old.task_id}::uuid, ${nextOutcome},
 					${occurred}::timestamptz, ${old.db_now}::timestamptz, ${old.id}::uuid, 1, false
-				WHERE ${occurred}::timestamptz <= ${old.db_now}::timestamptz AND ${actorBound(cmd.actor, context.session)}`,
+				WHERE ${occurred}::timestamptz <= ${old.db_now}::timestamptz AND ${communicationAccess(cmd.actor, context.session, false)}`,
 		);
 		if (old.outcome === "contacted" || nextOutcome === "contacted") {
 			cmd.writes.push(
 				sql`UPDATE plant SET material_revision = material_revision + 1
-					WHERE id = ${plant}::uuid AND ${actorBound(cmd.actor, context.session)}`,
+					WHERE id = ${plant}::uuid AND ${communicationAccess(cmd.actor, context.session, false)}`,
 			);
 		}
 		pushEvent(cmd, {

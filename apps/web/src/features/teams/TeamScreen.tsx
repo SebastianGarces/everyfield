@@ -100,8 +100,6 @@ import type { TeamView } from "./server.ts";
 // One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
 // organization view and its history. Every change shows at once, then settles from the write's own answer through the
 // same step (page-state.ts); a refusal puts the page back and says why. Nothing reloads the page.
-//
-// The tabs are a list so the responsibilities (WP-018) and training (WP-019) tabs join it without reshaping the page.
 
 type Confirm =
 	| { kind: "archive" }

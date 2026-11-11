@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { plainText } from "@everyfield/contracts/communication";
+import { plainText } from "../../../packages/contracts/src/communication/html.ts";
 
 test("plainText decodes each entity the sanitizer writes into text", () => {
 	assert.equal(plainText("<p>Tom &amp; Ann</p>"), "Tom & Ann");

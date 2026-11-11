@@ -1723,3 +1723,28 @@ test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminder
 	);
 	assert.deepEqual(await live(t.id), both);
 });
+
+test("T-159 AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder mail", async () => {
+	const t = await create(owner, {
+		title: "Print the programs",
+		assigneeIds: [member.id],
+		due: { kind: "local_date", date: "2099-02-15" },
+	});
+	const mailRows = await rows(
+		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
+	);
+	assert.equal(mailRows.length, 2);
+	const allowed = () => f.db.transaction((tx) => authorizeTaskReminders(tx, mailRows));
+	assert.equal((await allowed()).size, 2);
+	const [seat] = await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
+		AND ended_at IS NULL`);
+	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day' WHERE id=${seat.id}`);
+	try {
+		assert.equal((await allowed()).size, 0, "the seat is not accepted yet");
+		const recipients = await f.db.transaction((tx) => reminderRecipients(tx, plant.id, [member.id]));
+		assert.equal(recipients.size, 0);
+	} finally {
+		await f.admin.execute(sql`UPDATE seat SET accepted_at=${seat.accepted_at} WHERE id=${seat.id}`);
+	}
+	assert.equal((await allowed()).size, 2);
+});

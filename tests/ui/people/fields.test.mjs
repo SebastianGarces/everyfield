@@ -4,7 +4,12 @@
 //     viewed person comes only from the members list, so after leaving the card shows no household.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { householdChange, membershipOf } from "../../../apps/web/src/features/people/fields/model.ts";
+import {
+	householdChange,
+	membershipOf,
+	photoProblem,
+	takeFile,
+} from "../../../apps/web/src/features/people/fields/model.ts";
 
 const santos = (role) => ({ householdId: "h1", name: "Santos household", role });
 
@@ -30,4 +35,23 @@ test("AC:TARGET-PPL-009 a person who left reads as in no household, even though 
 	assert.deepEqual(membershipOf(left, "maria"), santos("head"));
 	assert.equal(membershipOf(left, "james"), null);
 	assert.equal(membershipOf({ status: "none" }, "maria"), null);
+});
+
+test("T-137 choosing the same refused photo twice reaches the check twice", () => {
+	// A browser picker fires change only when its value differs from the one it holds.
+	const picker = { files: null, value: "" };
+	const checked = [];
+	const choose = (file) => {
+		const value = `C:\\fakepath\\${file.name}`;
+		if (picker.value === value) return;
+		picker.value = value;
+		picker.files = [file];
+		const taken = takeFile(picker);
+		if (taken) checked.push(photoProblem(taken));
+	};
+	const big = { name: "big.jpg", size: 4 * 1024 * 1024, type: "image/jpeg" };
+	choose(big);
+	choose(big);
+	assert.deepEqual(checked, ["Choose a photo smaller than 3 MB.", "Choose a photo smaller than 3 MB."]);
+	assert.equal(picker.value, "");
 });

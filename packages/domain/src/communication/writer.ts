@@ -15,7 +15,7 @@ import {
 } from "@everyfield/contracts/communication";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { liveRead } from "../access/session.ts";
+import { communicationAccess } from "./access.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
@@ -151,12 +151,12 @@ function draftSelect(actor: Command["actor"], session: string, id: string) {
 	return sql`SELECT id, revision::text AS revision, state, subject, body_html, body_text, template_id, template_source,
 		meeting_id, audience, to_char(scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
 		review_digest
-		FROM communication WHERE id = ${id}::uuid AND plant_id = ${actor.plantId}::uuid AND ${writeBound(actor, session)} FOR UPDATE`;
+		FROM communication WHERE id = ${id}::uuid AND plant_id = ${actor.plantId}::uuid AND ${communicationAccess(actor, session, true)} FOR UPDATE`;
 }
 function templateSelect(actor: Command["actor"], session: string, id: string) {
 	return sql`SELECT id, revision::text AS revision, source_key, name, description, category, meeting_type, subject, body_html,
 		to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS archived_at
-		FROM message_template WHERE id = ${id}::uuid AND plant_id = ${actor.plantId}::uuid AND ${writeBound(actor, session)} FOR UPDATE`;
+		FROM message_template WHERE id = ${id}::uuid AND plant_id = ${actor.plantId}::uuid AND ${communicationAccess(actor, session, true)} FOR UPDATE`;
 }
 async function lockDraft(
 	tx: Tx,
@@ -188,7 +188,7 @@ async function subjects(
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				writeBound(actor, session),
+				communicationAccess(actor, session, true),
 				sql`SELECT
 					(${meetingId}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}::uuid AND m.plant_id = ${actor.plantId}::uuid)) AS meeting_ok,
 					(${templateId}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${templateId}::uuid AND t.plant_id = ${actor.plantId}::uuid)) AS template_ok`,
@@ -222,52 +222,6 @@ function templateBody(input: c.TemplateDraft) {
 		bodyHtml,
 		bodyText: plainText(bodyHtml),
 	};
-}
-function accessOf(authority: RequestActor) {
-	const reader = readerOf(authority);
-	return {
-		reader,
-		access: { session: reader.session, owner: reader.owner, seatId: reader.seatId, role: reader.role },
-	};
-}
-/**
- * C13. live_session joins account.auth_user_id to auth_session.user_id.
- * The runtime role cannot read auth_session, so this statement binds that account to the claimed actor.
- */
-function sessionActor(
-	reader: { session: string; accountId: string; plantId: string; seatId: string; role: Command["actor"]["role"] },
-	admin: boolean,
-) {
-	return sql`EXISTS (SELECT 1 FROM live_session(${reader.session}::uuid) i
-		JOIN account a ON a.id = i.account_id AND a.id = ${reader.accountId}::uuid AND a.auth_user_id IS NOT NULL
-		JOIN seat st ON st.account_id = a.id AND st.id = ${reader.seatId}::uuid AND st.plant_id = ${reader.plantId}::uuid
-			AND st.ended_at IS NULL AND st.accepted_at <= clock_timestamp() AND st.role = ${reader.role}
-			AND (${admin}::boolean = false OR st.role <> 'member')
-		WHERE i.registration_state = 'active' AND i.expires_at > clock_timestamp())`;
-}
-function allowed(
-	access: {
-		session: string;
-		owner: ReturnType<typeof readerOf>["owner"];
-		seatId: string;
-		role: Command["actor"]["role"];
-	},
-	reader: { session: string; accountId: string; plantId: string; seatId: string; role: Command["actor"]["role"] },
-	admin: boolean,
-) {
-	return sql`${liveRead(access, admin)} AND ${sessionActor(reader, admin)}`;
-}
-function writeBound(actor: Command["actor"], session: string) {
-	return sessionActor(
-		{
-			session,
-			accountId: actor.accountId,
-			plantId: actor.plantId,
-			seatId: actor.seatId,
-			role: actor.role,
-		},
-		true,
-	);
 }
 function requireAllowed(allowed: boolean) {
 	if (allowed !== true) deny("access_denied");
@@ -463,7 +417,7 @@ async function saveDraft(tx: Tx, context: CommunicationContext, raw: unknown): P
 				audience = ${JSON.stringify(next.audience)}::jsonb, meeting_id = ${next.meeting_id}::uuid, template_id = ${next.template_id}::uuid,
 				template_source = ${next.template_source}, revision = ${next.revision}::bigint, updated_at = clock_timestamp()
 				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND state = 'draft'
-				AND ${writeBound(cmd.actor, context.session)}`);
+				AND ${communicationAccess(cmd.actor, context.session, true)}`);
 			audit(
 				cmd,
 				fact(
@@ -499,7 +453,7 @@ async function saveDraft(tx: Tx, context: CommunicationContext, raw: unknown): P
 			.push(sql`INSERT INTO communication (id, plant_id, author_id, revision, state, subject, body_html, body_text, template_id, template_source, meeting_id, audience)
 			SELECT ${id}::uuid, ${cmd.actor.plantId}::uuid, ${cmd.actor.accountId}::uuid, 1, 'draft', ${created.subject}, ${created.body_html}, ${created.body_text},
 				${created.template_id}::uuid, ${created.template_source}, ${created.meeting_id}::uuid, ${JSON.stringify(created.audience)}::jsonb
-			WHERE ${writeBound(cmd.actor, context.session)}`);
+			WHERE ${communicationAccess(cmd.actor, context.session, true)}`);
 		audit(cmd, fact(cmd, "communication", "create", id, null, "1", "communication.saveDraft", null, created));
 		return asDraft(created);
 	});
@@ -543,7 +497,7 @@ async function mutateDraft(tx: Tx, context: CommunicationContext, raw: unknown, 
 			["draft"],
 		);
 		cmd.writes.push(
-			sql`DELETE FROM communication WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND state = 'draft' AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`,
+			sql`DELETE FROM communication WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND state = 'draft' AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
 		audit(
 			cmd,
@@ -572,7 +526,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			const peopleRaw = one(
 				await tx.execute(
 					whenLive(
-						writeBound(cmd.actor, context.session),
+						communicationAccess(cmd.actor, context.session, true),
 						sql`SELECT ${audiencePeople(cmd.actor.plantId, current.audience)} AS people,
 							${meetingOpen(current.meeting_id, cmd.actor.plantId)} AS meeting_open`,
 					),
@@ -596,7 +550,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			};
 			cmd.writes.push(sql`UPDATE communication SET state = 'scheduled', scheduled_at = ${at.toISOString()}::timestamptz,
 				review_digest = ${digest}, revision = ${revision}::bigint, updated_at = clock_timestamp()
-				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`);
 			audit(
 				cmd,
 				fact(cmd, "communication", "edit", current.id, current.revision, revision, operation, current, scheduled),
@@ -614,7 +568,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 		const moved = { ...current, revision, scheduled_at: at.toISOString() };
 		cmd.writes
 			.push(sql`UPDATE communication SET scheduled_at = ${at.toISOString()}::timestamptz, revision = ${revision}::bigint, updated_at = clock_timestamp()
-			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND state = 'scheduled' AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND state = 'scheduled' AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`);
 		audit(cmd, fact(cmd, "communication", "edit", current.id, current.revision, revision, operation, current, moved));
 		return c.scheduleResult.parse({
 			...asDraft(moved),
@@ -635,7 +589,7 @@ async function createTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 		cmd.writes
 			.push(sql`INSERT INTO message_template (id, plant_id, name, description, category, meeting_type, subject, body_html, body_text)
 			SELECT ${id}::uuid, ${cmd.actor.plantId}::uuid, ${body.name}, ${body.description}, ${body.category}, ${body.meetingType}, ${body.subject}, ${body.bodyHtml}, ${body.bodyText}
-			WHERE ${writeBound(cmd.actor, context.session)}`);
+			WHERE ${communicationAccess(cmd.actor, context.session, true)}`);
 		const created = {
 			id,
 			revision: "1",
@@ -659,13 +613,13 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 	return command(tx, context, "communication.templates.fork", input, async (cmd) => {
 		if (!administers(cmd.actor)) deny("access_denied");
 		await tx.execute(
-			sql`SELECT pg_advisory_xact_lock(hashtext(${cmd.actor.plantId}), hashtext(${source.sourceKey})) WHERE ${writeBound(cmd.actor, context.session)}`,
+			sql`SELECT pg_advisory_xact_lock(hashtext(${cmd.actor.plantId}), hashtext(${source.sourceKey})) WHERE ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
 		const existing = templateRow.safeParse(
 			one(
 				await tx.execute(sql`SELECT id, revision::text AS revision, source_key, name, description, category, meeting_type, subject, body_html,
 					to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS archived_at
-					FROM message_template WHERE plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey} AND ${writeBound(cmd.actor, context.session)}`),
+					FROM message_template WHERE plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey} AND ${communicationAccess(cmd.actor, context.session, true)}`),
 			),
 		);
 		if (existing.success && !existing.data.archived_at) return asTemplate(existing.data);
@@ -674,7 +628,7 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 			const current = existing.data;
 			const revision = bump(current.revision);
 			cmd.writes.push(sql`UPDATE message_template SET archived_at = NULL, revision = ${revision}::bigint
-				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`);
 			const next = { ...current, revision, archived_at: null };
 			audit(
 				cmd,
@@ -698,7 +652,7 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 			.push(sql`INSERT INTO message_template (id, plant_id, source_key, name, description, category, meeting_type, subject, body_html, body_text)
 			SELECT ${id}::uuid, ${cmd.actor.plantId}::uuid, ${source.sourceKey}, ${source.name}, ${source.description}, ${source.category}, ${source.meetingType},
 				${source.subject}, ${source.bodyHtml}, ${bodyText}
-			WHERE ${writeBound(cmd.actor, context.session)}
+			WHERE ${communicationAccess(cmd.actor, context.session, true)}
 			ON CONFLICT (id) DO NOTHING`);
 		const created = {
 			id,
@@ -726,7 +680,7 @@ async function updateTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 		cmd.writes
 			.push(sql`UPDATE message_template SET name = ${body.name}, description = ${body.description}, category = ${body.category},
 			meeting_type = ${body.meetingType}, subject = ${body.subject}, body_html = ${body.bodyHtml}, body_text = ${body.bodyText}, revision = ${revision}::bigint
-			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`);
 		const next = {
 			...current,
 			revision,
@@ -762,7 +716,7 @@ async function archiveTemplate(tx: Tx, context: CommunicationContext, raw: unkno
 		const revision = bump(current.revision);
 		cmd.writes
 			.push(sql`UPDATE message_template SET archived_at = coalesce(archived_at, clock_timestamp()), revision = ${revision}::bigint
-			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+			WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`);
 		const next = { ...current, revision, archived_at: current.archived_at ?? new Date().toISOString() };
 		audit(
 			cmd,
@@ -789,7 +743,7 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 		const used = one(
 			await tx.execute(
 				whenLive(
-					writeBound(cmd.actor, context.session),
+					communicationAccess(cmd.actor, context.session, true),
 					sql`SELECT EXISTS (SELECT 1 FROM communication c WHERE c.template_id = ${current.id}::uuid AND c.plant_id = ${cmd.actor.plantId}::uuid) AS referenced`,
 				),
 			),
@@ -797,7 +751,7 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 		if (used.allowed !== true) deny("access_denied");
 		if (used.referenced) deny("referenced");
 		cmd.writes.push(
-			sql`DELETE FROM message_template WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`,
+			sql`DELETE FROM message_template WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
 		audit(
 			cmd,
@@ -819,12 +773,12 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 
 async function preview(tx: Tx, authority: RequestActor, request: unknown, previewOrigin?: string) {
 	const input = parse(c.previewRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const audience = input.audience ?? emptyAudience;
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, true),
+				communicationAccess(reader, reader.session, true),
 				sql`SELECT
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
 					${meetingOpen(input.meetingId ?? null, reader.plantId)} AS meeting_open,
@@ -873,10 +827,13 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 }
 async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.resolveAudienceRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
-			whenLive(allowed(access, reader, true), sql`SELECT ${audiencePeople(reader.plantId, input)} AS people`),
+			whenLive(
+				communicationAccess(reader, reader.session, true),
+				sql`SELECT ${audiencePeople(reader.plantId, input)} AS people`,
+			),
 		),
 	) as { allowed: boolean; people: unknown };
 	requireAllowed(raw.allowed);
@@ -884,11 +841,11 @@ async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 }
 async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.searchRecipientsRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, true),
+				communicationAccess(reader, reader.session, true),
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), ''),
 						'unsubscribedAt', ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`found.id`)}))
@@ -919,20 +876,20 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 }
 async function merge(tx: Tx, authority: RequestActor, raw: unknown) {
 	const input = parse(c.resolveMergeRequest, raw);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const found = z
 		.object({ allowed: z.boolean() })
-		.parse(one(await tx.execute(sql`SELECT ${allowed(access, reader, true)} AS allowed`)));
+		.parse(one(await tx.execute(sql`SELECT ${communicationAccess(reader, reader.session, true)} AS allowed`)));
 	requireAllowed(found.allowed);
 	const bodyHtml = renderBody(input.bodyHtml, input.merge);
 	return c.mergeResult.parse({ bodyHtml, bodyText: plainText(bodyHtml) });
 }
 async function templates(tx: Tx, authority: RequestActor) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object(
 						'id', id, 'revision', revision::text, 'source_key', source_key, 'name', name, 'description', description,
@@ -960,11 +917,11 @@ async function templates(tx: Tx, authority: RequestActor) {
 }
 async function template(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.recordRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (
 					SELECT jsonb_build_object(
 						'id', id, 'revision', revision::text, 'source_key', source_key, 'name', name, 'description', description,
@@ -995,11 +952,11 @@ async function meetingTemplate(tx: Tx, authority: RequestActor, raw: unknown) {
 }
 async function getDraft(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.recordRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (
 					SELECT jsonb_build_object(
 						'id', id, 'revision', revision::text, 'state', state, 'subject', subject, 'body_html', body_html, 'body_text', body_text,
@@ -1017,11 +974,11 @@ async function getDraft(tx: Tx, authority: RequestActor, request: unknown) {
 	return asDraft(found.row);
 }
 async function listDrafts(tx: Tx, authority: RequestActor) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object(
 						'id', id, 'revision', revision::text, 'state', state, 'subject', subject, 'body_html', body_html, 'body_text', body_text,
@@ -1039,11 +996,11 @@ async function listDrafts(tx: Tx, authority: RequestActor) {
 }
 /** The church name for the Messages chrome. Any seat that may read messages may read it. */
 async function churchName(tx: Tx, authority: RequestActor) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name`,
 			),
 		),
@@ -1052,11 +1009,11 @@ async function churchName(tx: Tx, authority: RequestActor) {
 	return c.churchNameResult.parse({ churchName: raw.name });
 }
 async function teams(tx: Tx, authority: RequestActor) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, true),
+				communicationAccess(reader, reader.session, true),
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object('id', id, 'name', name) ORDER BY sort_order, name)
 					FROM team WHERE plant_id = ${reader.plantId}::uuid AND state IN ('active', 'forming') AND archived_at IS NULL
