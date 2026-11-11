@@ -85,11 +85,13 @@ for (const [name, engine] of ENGINES) {
 			await signIn(context, owner());
 			await open(page, "/communication");
 			await page.getByRole("button", { name: "New message" }).first().waitFor();
-			// A server render of the page is a document load or an RSC fetch. Server actions are POSTs and stay out.
+			// A server render of this page is a document load or an RSC fetch of /communication. Server actions are
+			// POSTs, and a production build prefetches the other nav routes as RSC, so both stay out.
 			const pageRequests = [];
 			page.on("request", (r) => {
+				if (r.method() !== "GET" || new URL(r.url()).pathname !== "/communication") return;
 				const rsc = r.headers()["rsc"] !== undefined || /[?&]_rsc=/.test(r.url());
-				if (r.method() === "GET" && (rsc || r.resourceType() === "document")) pageRequests.push(r.url());
+				if (rsc || r.resourceType() === "document") pageRequests.push(r.url());
 			});
 			const section = (label) => page.getByRole("radio", { name: label });
 			await section("Templates").click();
