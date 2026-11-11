@@ -17,10 +17,11 @@ import {
 	type DocTemplate,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
+import { renderDocFile, renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
 import { renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
+import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
-import { pdfPages } from "./fixtures/readers.mts";
+import { docxParts, pdfPages, wordText } from "./fixtures/readers.mts";
 
 const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const folder = new URL("../../../packages/domain/src/documents/templates/", import.meta.url);
@@ -31,6 +32,13 @@ const DATA = {
 	contact_line: "harborcity.church  ·  (555) 010-0199",
 };
 const fork = async (id: string) => forkTemplate(docTemplateById(id)!, { data: DATA });
+const THEME = {
+	render: NEUTRAL_THEME,
+	fonts: { heading: "DM Serif Display", body: "DM Sans" },
+	kind: "everyfield-neutral" as const,
+	primary: null,
+};
+const SAVED = new Date("2026-11-01T12:00:00Z");
 const count = (text: string, part: string) => text.split(part).length - 1;
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -121,7 +129,7 @@ test("T-56 each text template's Church Document prints the same pages as its tem
 	}
 });
 
-test("WP-036 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {
+test("AC:DOC-LAYOUT-CARDS WP-036 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {
 	const pdf = await renderDocPdf(await fork("commitment-card"));
 	assert.equal(pdf.pages, 1);
 	const [page] = await pdfPages(pdf.bytes);
@@ -476,7 +484,7 @@ function everyNode(): DocDocument {
 	return docDocument.parse(doc);
 }
 
-test("WP-036 every node, mark and page setup part of the design node table prints", async () => {
+test("AC:DOC-LAYOUT-FILES AC:DOC-EDIT-FIELDS WP-036 every node, mark and page setup part of the design node table prints", async () => {
 	const doc = everyNode();
 	const pdf = await renderDocPdf(doc);
 	const pages = await pdfPages(pdf.bytes);
@@ -530,6 +538,32 @@ test("WP-036 every node, mark and page setup part of the design node table print
 	assert.ok(
 		[...fonts].some((f) => /Italic/.test(f)),
 		`the italic mark uses an italic face: ${[...fonts]}`,
+	);
+
+	// The Word file follows the same page setup and prints the text inside columns, the box, the header and the footer.
+	const word = docxParts(await renderDocFile(doc, "docx", THEME, SAVED));
+	const body = word["word/document.xml"]!;
+	assert.match(
+		body,
+		/<w:pgSz w:w="16840" w:h="11900" w:orient="landscape"\/>/,
+		"A4 landscape, 842 by 595 points in twips",
+	);
+	for (const words of ["FULL NAME", "Words on the primary fill.", "Title of Harbor City Church", "Chairs", "Lights"])
+		assert.ok(wordText(body).toUpperCase().includes(words.toUpperCase()), `Word prints "${words}"`);
+	const header = Object.keys(word).filter((k) => /^word\/header\d+\.xml$/.test(k));
+	assert.deepEqual(
+		header.map((k) => wordText(word[k]!)),
+		["Running header"],
+	);
+	assert.match(word["word/footer1.xml"]!, /w:instr=" PAGE "/, "the footer's page number is a PAGE field");
+	assert.match(wordText(word["word/footer1.xml"]!), /^Footer /);
+	const legal = structuredClone(doc);
+	legal.page.size = "legal";
+	const legalWord = docxParts(await renderDocFile(docDocument.parse(legal), "docx", THEME, SAVED));
+	assert.match(
+		legalWord["word/document.xml"]!,
+		/<w:pgSz w:w="20160" w:h="12240" w:orient="landscape"\/>/,
+		"Legal landscape is 14 by 8.5 inches",
 	);
 });
 
