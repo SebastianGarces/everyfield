@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import type { accountId, Owner, sessionId } from "../common/values.ts";
 import type { lockedPersonReference } from "./references.ts";
-import type { OrganizationExport, RemovalResult } from "./removal.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
@@ -148,46 +147,4 @@ export interface AccountPersonProducer<Tx> {
 		context: PeopleWriteContext,
 		input: z.infer<typeof request.guestSelection>,
 	): Promise<PeopleReply<z.infer<typeof lockedPersonReference>>>;
-}
-export interface OrganizationPeopleProducer<Tx> {
-	read(
-		tx: Tx,
-		context: PeopleContext,
-		input: z.infer<typeof request.personRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.organizationPerson>>>;
-	retire(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.retirePersonRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.organizationPersonMutationResult>>>;
-	restore(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.restorePersonRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.organizationPersonMutationResult>>>;
-
-	create(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.createOrganizationPersonRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.organizationPersonMutationResult>>>;
-	update(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.updateOrganizationPersonRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.organizationPersonMutationResult>>>;
-	// Production AND download recheck exact Owner/Admin, source and consent.
-	export(
-		tx: Tx,
-		context: PeopleContext & { purpose: "native" | "export" },
-		input: z.infer<typeof request.exportOrganizationPersonRequest>,
-	): Promise<PeopleReply<OrganizationExport>>;
-	// Revoke links/source access and purge unneeded bodies. Retain only independently
-	// needed org facts with scope-local attribution; reapply witness before recovery.
-	// Retirement is separate. No account 30-day hold or new retention period.
-	remove(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.removeOrganizationPersonRequest>,
-	): Promise<PeopleReply<RemovalResult>>;
 }
