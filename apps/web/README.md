@@ -85,8 +85,7 @@ Production mode builds a disposable local snapshot, not a deployment. It refuses
 worktree. Status prints the preview ID, URL, mode and commit as JSON. Check additionally
 asserts readiness, the current commit, and HTTP 200 at the preview URL. It does not prove
 application acceptance. Open the returned URL in a browser and exercise the task behavior.
-Use `portless preview logs ID` to investigate a failed start. With `EVF_RUNTIME_DIR` set, the
-commands also keep a `stack.json` receipt there and clear it on down.
+Use `portless preview logs ID` to investigate a failed start.
 
 The configuration lives in `scripts/preview.json`. `bin/dev stack` wraps these commands, and
 they call no paid providers.
