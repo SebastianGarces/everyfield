@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";

@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
