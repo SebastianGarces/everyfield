@@ -402,7 +402,8 @@
 	},
 	"documents.exportNative": {
 		"limit": 22,
-		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write."
+		"retry": 26,
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun: its largest run, on the unique-key path, is 9 read, 10 transaction, 4 locked read, 3 write."
 	},
 	"documents.generate": {
 		"limit": 15,
