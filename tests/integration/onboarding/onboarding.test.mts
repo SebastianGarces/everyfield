@@ -7,7 +7,11 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import {
+	createOnboardingProducer,
+	readOnboardingEntry,
+	withOnboardingWrite,
+} from "../../../packages/domain/src/onboarding/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
@@ -1421,7 +1425,7 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "either", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ seatlessEntryStatements: statements.length }));
-	assert.ok(statements.length <= 6, `seatless entry: ${statements.length} statements`);
+	assert.equal(statements.length, 5, `seatless entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,
@@ -1470,7 +1474,7 @@ test("INV-reads: a pending account's onboarding entry reads only its account row
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "discovery", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ pendingEntryStatements: statements.length }));
-	assert.ok(statements.length <= 1, `pending entry: ${statements.length} statements`);
+	assert.equal(statements.length, 1, `pending entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,
@@ -1556,4 +1560,97 @@ test("C13 onboarding reads: a request actor whose seat or session ended reads no
 		kind: "elsewhere",
 		reason: "unavailable",
 	});
+});
+
+test("RT-6 answerLead, declareJourney and complete each write the plant once, and their saved times are that write's clock", async () => {
+	const f = await makePlant();
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	// The plant UPDATEs one command sends. The declaration's phase move is part of its WITH statement, not one of them.
+	async function plantWrites(name, q) {
+		statements.length = 0;
+		recording = true;
+		const value = ok(await call(name, f.a, q, f.p));
+		recording = false;
+		return { value, writes: statements.filter((s) => /^\s*update\s+("[^"]+"\.)?"plant"\s/i.test(s)) };
+	}
+	const stored = async () => {
+		const [row] = await admin
+			.select({ plant: t.plant, setup: t.onboarding_setup })
+			.from(t.plant)
+			.innerJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
+			.where(eq(t.plant.id, f.p.id));
+		return row;
+	};
+	let r = await resume(f);
+
+	const lead = await plantWrites("answerLead", command({ answer: "no" }, r.revision));
+	assert.equal(lead.writes.length, 1, lead.writes.join("\n"));
+	assert.match(lead.writes[0], /clock_timestamp\(\)/);
+	let row = await stored();
+	assert.equal(row.plant.lead_answer, "no");
+	assert.equal(row.plant.revision, lead.value.revision);
+	assert.equal(BigInt(lead.value.revision), BigInt(r.revision) + 1n);
+	assert.equal(BigInt(row.plant.material_revision), BigInt(r.materialRevision) + 1n);
+	assert.deepEqual(row.setup.lead, lead.value.lead);
+	r = await resume(f);
+	assert.deepEqual(r.lead, lead.value.lead);
+
+	const journey = await plantWrites(
+		"declareJourney",
+		command(
+			{
+				journey: { answer: "existing", phase: 3 },
+				launch: { answer: "planned", date: "2026-11-10", expectedScheduleRevision: "1" },
+			},
+			r.revision,
+		),
+	);
+	assert.equal(journey.writes.length, 1, journey.writes.join("\n"));
+	assert.equal(journey.value.currentPhase, 3);
+	assert.equal(journey.value.journey.savedAt, journey.value.launch.savedAt);
+	assert.ok(journey.value.journey.savedAt > lead.value.lead.savedAt);
+	row = await stored();
+	assert.equal(row.plant.journey_answer, "existing");
+	assert.equal(row.plant.launch_answer, "planned");
+	assert.equal(row.plant.phase, 3);
+	assert.equal(row.plant.revision, journey.value.revision);
+	assert.deepEqual(row.setup.journey, journey.value.journey);
+	assert.deepEqual(row.setup.launch, journey.value.launch);
+
+	const done = await plantWrites("complete", command({}, journey.value.revision));
+	assert.equal(done.writes.length, 1, done.writes.join("\n"));
+	row = await stored();
+	assert.equal(done.value.completion.completedAt, row.plant.onboarding_completed_at.toISOString());
+	assert.equal(row.plant.revision, done.value.revision);
+	assert.equal(done.value.completion.materialRevision, row.plant.material_revision);
+	assert.equal(row.setup.completed_material_revision, row.plant.material_revision);
+
+	// A second completion changes no plant row and records a noop.
+	const again = await plantWrites("complete", command({}, done.value.revision));
+	assert.equal(again.writes.length, 0, again.writes.join("\n"));
+	assert.deepEqual(again.value.completion, done.value.completion);
+	assert.deepEqual(await stored(), row);
+	const noops = await admin
+		.select()
+		.from(t.audit_event)
+		.where(and(eq(t.audit_event.tenant_id, f.p.id), eq(t.audit_event.kind, "noop")));
+	assert.equal(noops.length, 1);
+
+	// A resume inside a bound write reads through the same entry statement and gives the same answer.
+	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	const inside = await withOnboardingWrite(db, viewer.authority, ctx(f.a, f.p), (tx) =>
+		api.getResume(tx, ctx(f.a, f.p), {}),
+	);
+	assert.deepEqual(ok(inside), await resume(f));
 });

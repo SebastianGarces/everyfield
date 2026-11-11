@@ -25,7 +25,7 @@ async function resetProof(email: string) {
 	return token;
 }
 
-test("AC:WP005-API-STAGED pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
+test("AC:WP005-API-STAGED INV-nonenumeration pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
 	f.setIp("127.0.0.11");
 	const first = await register(f, "staged@example.test");
 	assert.equal(first.status, 200);
@@ -145,7 +145,7 @@ test("INV-identity: a rate-limited refusal names the end of the budget window it
 	f.setIp(null);
 });
 
-test("AC:WP005-API-RESET real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
+test("AC:WP005-API-RESET AC:TARGET-IDN-009 INV-proof-link real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
 	f.setIp("127.0.0.14");
 	await register(f, "reset@example.test");
 	const c1 = cookie(await signIn(f, "reset@example.test")),
@@ -222,7 +222,7 @@ test("AC:WP005-API-RESET real single-use reset consumes one proof, rejects uncha
 	);
 });
 
-test("INV-identity: recovery is nonenumerating through outbox failure and unknown provider acceptance; tokens never reach security diagnostics", async () => {
+test("AC:TARGET-IDN-009 INV-nonenumeration INV-identity: recovery is nonenumerating through outbox failure and unknown provider acceptance; tokens never reach security diagnostics", async () => {
 	f.setIp("127.0.0.15");
 	await register(f, "notice@example.test");
 	const missing = await f.req("request-password-reset", { email: "missing-notice@example.test" });
@@ -280,7 +280,27 @@ test("INV-identity: real database session renews, expired/revoked/deleted identi
 	assert.equal((await f.req("resume-registration", { requestKey: randomUUID() }, c4)).status, 401);
 });
 
-test("INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns", async () => {
+test("AC:TARGET-IDN-001 INV-nonenumeration: sign-in refuses a wrong password and an unknown address alike, and a deleting account gets no session", async () => {
+	f.setIp("127.0.0.23");
+	await register(f, "enum@example.test");
+	const refusal = async (r: Response) => {
+		const { correlationId, ...body } = await r.json();
+		assert.ok(correlationId);
+		return [r.status, cookie(r), body];
+	};
+	const expected = [401, "", { code: "invalid_credentials", details: {}, retry: "never" }];
+	assert.deepEqual(await refusal(await signIn(f, "enum@example.test", "Wrong-password-1")), expected);
+	assert.deepEqual(await refusal(await signIn(f, "nobody-enum@example.test", "Wrong-password-1")), expected);
+	const s = await (await f.req("get-session", undefined, cookie(await signIn(f, "enum@example.test")))).json();
+	await f.db
+		.execute(querySql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until)
+    VALUES('account',${s.accountId},1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	// The correct password of a deleting account opens nothing.
+	const blocked = await signIn(f, "enum@example.test");
+	assert.deepEqual(await refusal(blocked), [401, "", { code: "unauthenticated", details: {}, retry: "never" }]);
+});
+
+test("INV-proof-link INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns", async () => {
 	f.setIp("127.0.0.17");
 	await register(f, "boundary@example.test");
 	for (const origin of ["", "https://evil.example", f.origin.replace("http:", "https:")])

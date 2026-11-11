@@ -115,7 +115,7 @@ after(async () => {
 });
 
 describe("WP-036/api document templates", { concurrency: 1 }, () => {
-	test("CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
+	test("INV-doc-format CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
 		const owner = await authority(0);
 		const discovery = await authority(4);
 		assert.equal(discovery.actor.context.kind, "account");
@@ -222,6 +222,12 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 				}
 			}
 		}
+		// A format the template does not offer is refused, as a former Word template's docx is.
+		const word = refused(
+			await documentsReader.preview(db, owner, previewInput("vision-meeting-agenda", "docx")),
+			"invalid_input",
+		);
+		assert.equal(word.details.issues[0].problem, "Format is not on this template.");
 		const agenda = ok(await documentsReader.resolveContext(db, member, previewInput("vision-meeting-agenda", "pdf")));
 		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").value, "Pastor Ada");
 		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").source, "pastor_name");

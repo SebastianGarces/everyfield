@@ -1,10 +1,12 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	devParent,
+	FULL_ADDRESS,
 	NEON_PROJECT,
 	QA_LOGINS,
 	QA_ROLES,
@@ -12,13 +14,14 @@ import {
 	type NeonBranch,
 	type NeonEndpoint,
 } from "./qa-guard.ts";
-import { addPreview, fail, readPreviews, removePreview, setDeployment } from "./store.ts";
+import { addPreview, driverLogPath, fail, readPreviews, removePreview, setDeployment, setDriver } from "./store.ts";
 
 /**
  * OPS-106: on-demand QA previews. `qa up <branch>` makes a Neon branch off the development branch, migrates and
  * seeds it with the branch's own code, deploys that head to a Vercel preview with per-deployment database and identity
- * settings, and gives it a stable alias, the one origin the deployment trusts. `qa list` shows open previews; `qa down`
- * removes the alias, the deployment and the Neon branch.
+ * settings, and gives it a stable alias, the one origin the deployment trusts. It then starts the preview's
+ * scheduled-send driver (cron-driver.ts, T-255), because Vercel runs crons on production only. `qa list` shows open
+ * previews; `qa down` stops the driver and removes the alias, the deployment and the Neon branch.
  *
  * Secrets pass from neonctl to child processes in memory only. qa prints, logs and stores names, never a connection
  * string, key or password: child output reaches the screen only on failure, through `redact`.
@@ -106,7 +109,21 @@ function resolveHead(root: string, branch: string): string {
 	fail(`No branch ${branch} on origin or in this checkout.`);
 }
 
-export function qaUp(root: string, branch: string): number {
+/**
+ * The `--test-recipients` list: one or more full addresses, comma-separated, or what to fix. The value goes only to this
+ * one deployment (EMAIL_TEST_RECIPIENTS) and to the seed (QA_TEST_RECIPIENTS); it is never stored.
+ */
+export function parseTestRecipients(raw: string): string[] | string {
+	const entries = raw.split(",").map((entry) => entry.trim());
+	if (!raw.trim())
+		return "--test-recipients needs one or more full addresses, comma-separated: --test-recipients a@example.com";
+	const bad = entries.filter((entry) => !FULL_ADDRESS.test(entry));
+	if (bad.length)
+		return `--test-recipients takes full addresses only, comma-separated, with no empty entry, bare domain or wildcard. Fix: ${bad.map((b) => JSON.stringify(b)).join(", ")}`;
+	return entries;
+}
+
+export function qaUp(root: string, branch: string, recipients: string[] = []): number {
 	if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("-")) fail(`${branch} is not a branch name.`);
 	const redactor = new Redactor();
 	const head = resolveHead(root, branch);
@@ -129,6 +146,7 @@ export function qaUp(root: string, branch: string): number {
 		deployment: null,
 		created_at: new Date().toISOString(),
 	});
+	let cron = "";
 	console.error(`qa up: ${id} for ${branch} at ${head.slice(0, 12)}, Neon branch off ${parent.name}.`);
 	try {
 		const created = json<{ branch: NeonBranch }>(
@@ -150,7 +168,8 @@ export function qaUp(root: string, branch: string): number {
 		};
 		const direct = cs(),
 			pooled = cs("--pooled");
-		deployCheckout(root, redactor, { id, head, url, direct, pooled });
+		const { deployment, cronSecret } = deployCheckout(root, redactor, { id, head, url, direct, pooled, recipients });
+		cron = startDriver(root, id, deployment, cronSecret);
 	} catch (error) {
 		console.error(`qa up: ${id} failed; removing what it made.`);
 		try {
@@ -162,16 +181,72 @@ export function qaUp(root: string, branch: string): number {
 	}
 	console.log(`QA preview ${id}\n${url}`);
 	console.error(
-		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
 	);
+	console.error(
+		recipients.length
+			? `Real mail on this preview also reaches: ${recipients.join(", ")}. Ana Lee uses ${recipients[0]} in both churches. Other addresses go to /api/dev/outbox.`
+			: "Real mail on this preview reaches no extra address: only delivered+...@resend.dev. Other addresses go to /api/dev/outbox.",
+	);
+	console.error(cron);
 	return 0;
+}
+
+const DRIVER = join(dirname(fileURLToPath(import.meta.url)), "cron-driver.ts");
+/** How long `qa up` waits for the driver's first call of /api/cron/jobs to answer. */
+const FIRST_RUN_WAIT_MS = 90_000;
+
+/**
+ * Starts the preview's scheduled-send driver, detached so it outlives `qa up`, records its pid and waits for its first
+ * call. Returns the line to print: whether scheduled sends run, and where the log is. A failed first call leaves the
+ * preview and the driver up, since the next minute may succeed, and says what to check.
+ */
+function startDriver(root: string, id: string, deployment: string, secret: string): string {
+	const log = driverLogPath(root, id);
+	writeFileSync(log, "", { mode: 0o600 });
+	const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", DRIVER, root, id, deployment], {
+		detached: true,
+		stdio: ["ignore", "ignore", openSync(log, "a")],
+		env: { ...process.env, QA_CRON_SECRET: secret },
+	});
+	child.unref();
+	if (!child.pid) fail("The scheduled-send driver did not start.");
+	setDriver(root, id, child.pid);
+	let first = "";
+	for (let waited = 0; waited < FIRST_RUN_WAIT_MS && !first; waited += 250) {
+		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+		first =
+			readFileSync(log, "utf8")
+				.split("\n")
+				.find((line) => / (ok|failed): /.test(line)) ?? "";
+	}
+	const where = `/api/cron/jobs runs every minute from this Mac until bin/qa down. Log: ${log}`;
+	if (/ ok: /.test(first)) return `Scheduled sends: on. ${where}`;
+	if (!first) return `Scheduled sends: the first run has not answered yet. ${where}`;
+	return `Scheduled sends: the first run FAILED (${first.split(" failed: ")[1]}). The driver keeps trying. ${where}`;
+}
+
+/** Stops a preview's scheduled-send driver: only that process, checked by its command line, then removes its log. */
+function stopDriver(root: string, id: string, pid: number | undefined): boolean {
+	let stopped = false;
+	const command = (p: number) =>
+		spawnSync("ps", ["-p", String(p), "-o", "command="], { encoding: "utf8" }).stdout.trim();
+	if (pid && command(pid).includes(DRIVER) && command(pid).includes(id)) {
+		process.kill(pid, "SIGTERM");
+		for (let waited = 0; waited < 5_000 && command(pid); waited += 100)
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+		if (command(pid)) process.kill(pid, "SIGKILL");
+		stopped = true;
+	}
+	rmSync(driverLogPath(root, id), { force: true });
+	return stopped;
 }
 
 function deployCheckout(
 	root: string,
 	redactor: Redactor,
-	p: { id: string; head: string; url: string; direct: string; pooled: string },
-): void {
+	p: { id: string; head: string; url: string; direct: string; pooled: string; recipients: string[] },
+): { deployment: string; cronSecret: string } {
 	const checkout = mkdtempSync(join(tmpdir(), "evf-qa-"));
 	tool(redactor, "git", ["-C", root, "worktree", "add", "--quiet", "--detach", checkout, p.head]);
 	try {
@@ -188,15 +263,26 @@ function deployCheckout(
 		// preview must run with the same two values.
 		const mailKeys = { IDENTITY_MAIL_KEY: key(), IDENTITY_ADDRESS_KEY: key() };
 		redactor.add(rolePassword, ...Object.values(mailKeys));
-		console.error("qa up: seeding the test church.");
+		console.error("qa up: seeding the test churches.");
 		tool(
 			redactor,
 			"corepack",
 			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
-			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword, ...mailKeys } },
+			{
+				cwd: checkout,
+				env: {
+					...dbEnv,
+					QA_ROLE_PASSWORD: rolePassword,
+					...mailKeys,
+					QA_TEST_RECIPIENTS: p.recipients.length ? p.recipients.join(",") : undefined,
+				},
+			},
 		);
-		// Per-deployment settings: this preview's database and its own identity keys. Shared credentials (mail,
-		// storage, cron, Langfuse, Evry) come from the Vercel Preview environment.
+		// Per-deployment settings: this preview's database, its own identity keys, its own cron secret for the driver
+		// (T-255) and, when given, the extra addresses that get real mail. The cleanup login points at this branch too, so
+		// the cron's purges stay in it. Shared credentials (mail, storage, Langfuse, Evry) come from the Vercel Preview
+		// environment, which qa never changes.
+		const cronSecret = key();
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
@@ -206,8 +292,12 @@ function deployCheckout(
 			IDENTITY_SECRET: key(),
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
+			CRON_SECRET: cronSecret,
+			LIFECYCLE_CLEANUP_DATABASE_URL: p.direct,
+			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
-		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (k === "IDENTITY_ORIGIN" ? [] : [v])));
+		const notSecret = new Set(["IDENTITY_ORIGIN", "EMAIL_TEST_RECIPIENTS"]);
+		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (notSecret.has(k) ? [] : [v])));
 		mkdirSync(join(checkout, ".vercel"));
 		writeFileSync(join(checkout, ".vercel/project.json"), JSON.stringify(VERCEL));
 		const flags = Object.entries(settings).flatMap(([k, v]) => ["-e", `${k}=${v}`, "-b", `${k}=${v}`]);
@@ -222,6 +312,7 @@ function deployCheckout(
 		if (!deployment) fail("vercel deploy printed no deployment URL.");
 		setDeployment(root, p.id, deployment);
 		tool(redactor, "vercel", ["alias", "set", deployment, aliasHost(p.id), "--scope", VERCEL.orgId], { cwd: checkout });
+		return { deployment, cronSecret };
 	} finally {
 		spawnSync("git", ["-C", root, "worktree", "remove", "--force", checkout], { encoding: "utf8" });
 		rmSync(checkout, { recursive: true, force: true });
@@ -256,6 +347,7 @@ export function qaDown(root: string, id: string): number {
 	const redactor = new Redactor();
 	const row = readPreviews(root).find((r) => r.id === id);
 	const removed: string[] = [];
+	if (stopDriver(root, id, row?.driver_pid)) removed.push("scheduled-send driver");
 	if (row?.deployment) {
 		tool(redactor, "vercel", ["alias", "rm", aliasHost(id), "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
 		tool(redactor, "vercel", ["remove", row.deployment, "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
