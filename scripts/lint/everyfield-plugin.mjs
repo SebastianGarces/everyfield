@@ -1,5 +1,5 @@
 // Everyfield's own lint rules, loaded by Oxlint as a JS plugin. The configs that load it (.oxlintrc.json,
-// apps/web/.oxlintrc.json and scripts/lint/tools.oxlintrc.json) say which files each rule covers and which it spares.
+// apps/web/.oxlintrc.json and tools/.oxlintrc.json) say which files each rule covers and which it spares.
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
