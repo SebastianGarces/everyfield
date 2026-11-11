@@ -10,13 +10,11 @@ const ci = readFileSync(new URL(".github/workflows/ci.yml", root), "utf8");
 const scripts = JSON.parse(readFileSync(new URL("package.json", root), "utf8")).scripts;
 const workflowTests = new Set(readdirSync(new URL("tests/workflow/", root)).filter((n) => /\.test\.(mjs|ts)$/.test(n)));
 
-/** The tests/workflow files named by a command, following `pnpm <script>` into package.json once. */
+/** The tests/workflow files named by a command, following `pnpm <script>` into package.json. */
 function workflowFiles(command) {
 	const named = [...command.matchAll(/tests\/workflow\/([\w.-]+\.test\.(?:mjs|ts))/g)].map((m) => m[1]);
 	const script = command.match(/\bpnpm\s+(?:run\s+)?([\w:-]+)/)?.[1];
-	return script && scripts[script] && script !== "test:workflow"
-		? [...named, ...workflowFiles(scripts[script])]
-		: named;
+	return script && scripts[script] ? [...named, ...workflowFiles(scripts[script])] : named;
 }
 
 // Each `run:` line of ci.yml is one step's command.
