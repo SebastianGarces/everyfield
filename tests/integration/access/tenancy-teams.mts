@@ -18,8 +18,8 @@ import {
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 
 /**
- * The Worship ministry from the setup catalog, renamed with a reason, with a role, a leader, a member, a former member,
- * a responsibility and a required training program that Avery completed.
+ * The Worship ministry from the setup catalog, renamed with a reason, with a role, a leader, a member, a responsibility
+ * and a required training program that Avery completed.
  */
 export async function seedTeams(t) {
 	const { a, MARK, key, ok } = t;
@@ -43,29 +43,17 @@ export async function seedTeams(t) {
 			input: { teamId: a.ministry, name: `${MARK} worship`, description: `${MARK} ministry`, reason: `${MARK} why` },
 		}),
 	);
-	const role = (name) =>
-		write(teamsWriter.createRole, {
+	const role = ok(
+		await write(teamsWriter.createRole, {
 			requestKey: key(),
-			input: { teamId: a.ministry, name: `${MARK} ${name}`, desiredSkills: `${MARK} skills` },
-		});
-	const roles = [ok(await role("singer")).role, ok(await role("drummer")).role];
-	const dana = await t.personA("Dana Former");
-	for (const [slot, personId] of [
-		[roles[0], a.blair],
-		[roles[1], dana.id],
-	])
-		ok(
-			await write(teamsWriter.assignRole, {
-				requestKey: key(),
-				expectedRevision: slot.revision,
-				input: { roleId: slot.id, teamId: a.ministry, personId },
-			}),
-		);
+			input: { teamId: a.ministry, name: `${MARK} singer`, desiredSkills: `${MARK} skills` },
+		}),
+	).role;
 	ok(
-		await write(teamsWriter.endMembership, {
+		await write(teamsWriter.assignRole, {
 			requestKey: key(),
-			expectedRevision: await revision(a.ministry),
-			input: { teamId: a.ministry, personId: dana.id },
+			expectedRevision: role.revision,
+			input: { roleId: role.id, teamId: a.ministry, personId: a.blair },
 		}),
 	);
 	ok(
