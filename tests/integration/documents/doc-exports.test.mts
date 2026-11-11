@@ -71,7 +71,8 @@ sofficeTest(
 		const doc = await fork("conflict-of-interest-policy");
 		const pdf = words((await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED))).join(" "));
 		const docx = await renderDocFile(doc, "docx", THEME, SAVED);
-		const converted = words((await pdfPages(sofficeToPdf(docx))).join(" "));
+		const pages = await pdfPages(sofficeToPdf(docx));
+		const converted = words(pages.join(" "));
 		const { headings, paragraphs } = proseOf(doc);
 		assert.equal(headings.length, 10);
 		assert.ok(paragraphs.length >= 15);
@@ -80,11 +81,15 @@ sofficeTest(
 			assert.ok(converted.includes(words(line)), `the Word file has "${line}"`);
 		}
 		assert.match(converted, /01 Purpose/);
-		assert.match(converted, /Page 1 of 2/, "LibreOffice fills PAGE and NUMPAGES");
-		assert.equal(
-			converted.split("Template, not legal advice").length - 1,
-			2,
-			"the notice is in the footer of both pages",
+		// LibreOffice breaks pages a little differently from our PDF, so the count comes from its own output.
+		assert.ok(pages.length >= 2, "the policy runs past one page");
+		assert.match(converted, new RegExp(`Page 1 of ${pages.length}`), "LibreOffice fills PAGE and NUMPAGES");
+		pages.forEach((page, i) =>
+			assert.equal(
+				words(page).split("Template, not legal advice").length - 1,
+				1,
+				`the notice is in the footer of page ${i + 1}`,
+			),
 		);
 	},
 );
