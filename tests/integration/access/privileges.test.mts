@@ -24,7 +24,7 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 	try {
 		for (const name of ["0001_early_access.sql", "0002_baseline.sql"])
 			await cp(new URL("../../../packages/db/migrations/" + name, import.meta.url), dir + "/" + name);
-		await db.admin.execute(querySql.raw(`CREATE SCHEMA ${other}`));
+		await db.createSchema(other);
 		await migrate(db.admin, other, pathToFileURL(dir + "/"));
 		const oldACL = await permissions(db.admin, other);
 		assert.equal(

@@ -1,8 +1,7 @@
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import {
 	createInvitationService,
 	createSeatService,
@@ -17,55 +16,15 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 export const key = randomUUID;
 export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if (
-		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved development or disposable CI database required");
-	if (!ci) source.searchParams.set("sslmode", "verify-full");
-	const schema = "wp008_" + key().replaceAll("-", ""),
-		role = "wp008_" + randomBytes(8).toString("hex"),
-		options = `-c search_path=${schema},pg_catalog,pg_temp`;
-	const admin = createDatabase({ connectionString: source.href, options, max: 8 });
-	let db;
+	const database = await testDatabase({ prefix: "wp008", max: 8 });
+	const { admin, schema } = database;
+	const db = database.connect("runtime", { options: `-c lock_timeout=${lockTimeout}` });
+	const runtimeUrl = database.logins.runtime.url;
 	const effects = [];
 	let mailFault = false;
 	// A real transport a test can put behind the recording one, so the email goes to a recorded email service.
 	let relay = null;
 	const addressKey = mailKeys?.addressKey ?? randomBytes(32);
-	let runtimeUrl;
-	try {
-		await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-		await migrate(admin, schema);
-		const password = randomBytes(32).toString("hex");
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-		const runtime = new URL(source);
-		runtime.username = role;
-		runtime.password = password;
-		runtimeUrl = new URL(runtime);
-		runtimeUrl.searchParams.set("options", options);
-		db = createDatabase({
-			connectionString: runtime.href,
-			options: options + ` -c lock_timeout=${lockTimeout}`,
-			max: 8,
-		});
-	} catch {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-		await closeDatabase(admin);
-		throw Error("Invitation fixture setup failed");
-	}
 	const hash = (address) => createHmac("sha256", addressKey).update(address).digest("hex");
 	const mail = createMailService({
 		db,
@@ -291,10 +250,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 			relay = transport;
 		},
 		async close() {
-			await closeDatabase(db);
-			await admin.execute(sql.raw(`DROP SCHEMA ${schema} CASCADE`));
-			await admin.execute(sql.raw(`DROP ROLE ${role}`));
-			await closeDatabase(admin);
+			await database.close();
 		},
 	};
 }
