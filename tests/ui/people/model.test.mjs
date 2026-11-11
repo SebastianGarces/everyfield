@@ -190,6 +190,15 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
 });
 
+// Ids a loose uuid test accepts and the contract's recordId refuses: version nibble 0, and variant c.
+const VERSION_0 = "0b0f6a7e-1d6f-0f7e-8c35-5b8f5c0f4d21",
+	VARIANT_C = "0b0f6a7e-1d6f-4f7e-cc35-5b8f5c0f4d21";
+test("BUG-551 (people/peo-18): a tag id the contract refuses drops out of the address and the valid tag stays", () => {
+	const q = parseQuery(url(`tag=${VERSION_0}&tag=${T1}&tag=${VARIANT_C}`));
+	assert.deepEqual(q.tags, [T1]);
+	assert.deepEqual(listRequest(q).tags, [T1], "the list request carries only the id it can send");
+});
+
 test("AC:TARGET-PPL-007 INV-move-revisions (D68): after reorder, away and back, a card keeps its newest revision and the saved order", () => {
 	const card = (id, stage, revision) => ({ person: { id, stage, revision } });
 	// The server copy: A and B follow up, C attends.
