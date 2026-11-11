@@ -635,23 +635,30 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
 });
 
-test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
-	const leaderOf = async (teamId) =>
-		(
-			await admin.execute(
-				sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
-					revision::text AS revision FROM team WHERE id=${teamId}`,
-			)
-		).rows[0];
-	const editRole = async (role, fields) =>
-		ok(
-			await run(teamsWriter.editRole, {
-				requestKey: key(),
-				expectedRevision: await rev("team_role", role.id),
-				input: { roleId: role.id, ...fields },
-			}),
-		);
+const leaderOf = async (teamId) =>
+	(
+		await admin.execute(
+			sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
+				revision::text AS revision FROM team WHERE id=${teamId}`,
+		)
+	).rows[0];
+const editRole = async (role, fields) =>
+	ok(
+		await run(teamsWriter.editRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, ...fields },
+		}),
+	);
+const lastEdit = async (roleId) =>
+	(
+		await admin.execute(
+			sql`SELECT before_value AS before, after_value AS after FROM audit_event
+				WHERE subject_id=${roleId} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
+		)
+	).rows[0];
 
+test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
 	// Role-derived from this role: the leader steps down with the role.
 	const derived = await makeTeam("Derived leader");
 	const lead = await makeRole(derived.id, "Derived lead", { leadership: true });
@@ -664,12 +671,7 @@ test("turning leadership off a role clears only the leader that role made, and t
 	const cleared = await leaderOf(derived.id);
 	assert.deepEqual([cleared.personId, cleared.source, cleared.roleId], [null, null, null]);
 	assert.equal(BigInt(cleared.revision), BigInt(held.revision) + 1n);
-	const event = (
-		await admin.execute(
-			sql`SELECT before_value AS before, after_value AS after FROM audit_event
-				WHERE subject_id=${lead.id} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
-		)
-	).rows[0];
+	const event = await lastEdit(lead.id);
 	assert.deepEqual([event.before, event.after], [{ leadership: true }, { leadership: false }]);
 
 	// An explicit leader stays.
@@ -698,6 +700,88 @@ test("turning leadership off a role clears only the leader that role made, and t
 	assert.deepEqual([kept.personId, kept.source, kept.roleId], [firstHolder, "role_derived", first.id]);
 	await editRole(second, { leadership: false });
 	assert.deepEqual(await leaderOf(shared.id), kept);
+});
+
+test("turning leadership on a role fills an empty leader from its occupant and never replaces one", async () => {
+	// No leader and an occupant: the occupant becomes the role-derived leader, and the history names them.
+	const empty = await makeTeam("Promotes occupant");
+	const role = await makeRole(empty.id, "Coordinator");
+	const holder = await person("Promoted Holder");
+	await assign(empty, role, holder);
+	const unled = await leaderOf(empty.id);
+	assert.deepEqual([unled.personId, unled.source, unled.roleId], [null, null, null]);
+	const edited = await editRole(role, { leadership: true });
+	assert.equal(edited.role.leadership, true);
+	const led = await leaderOf(empty.id);
+	assert.deepEqual([led.personId, led.source, led.roleId], [holder, "role_derived", role.id]);
+	assert.equal(BigInt(led.revision), BigInt(unled.revision) + 1n);
+	const promotedEvent = await lastEdit(role.id);
+	assert.deepEqual(
+		[promotedEvent.before, promotedEvent.after],
+		[
+			{ leadership: false, leaderPersonId: null },
+			{ leadership: true, leaderPersonId: holder },
+		],
+	);
+
+	// An explicit leader stays, and the history names no new leader.
+	const explicit = await makeTeam("Explicit stays");
+	const chosen = await person("Chosen Leader");
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: await rev("team", explicit.id),
+			input: { teamId: explicit.id, personId: chosen },
+		}),
+	);
+	const explicitRole = await makeRole(explicit.id, "Helper");
+	await assign(explicit, explicitRole, await person("Explicit Helper"));
+	const appointed = await leaderOf(explicit.id);
+	assert.equal(appointed.source, "explicit");
+	await editRole(explicitRole, { leadership: true });
+	assert.deepEqual(await leaderOf(explicit.id), appointed);
+	const keptEvent = await lastEdit(explicitRole.id);
+	assert.deepEqual([keptEvent.before, keptEvent.after], [{ leadership: false }, { leadership: true }]);
+
+	// A leader derived from another role stays.
+	const shared = await makeTeam("Derived stays");
+	const first = await makeRole(shared.id, "First lead", { leadership: true });
+	const second = await makeRole(shared.id, "Second helper");
+	const firstHolder = await person("First Lead Holder");
+	await assign(shared, first, firstHolder);
+	await assign(shared, second, await person("Second Helper Holder"));
+	const derived = await leaderOf(shared.id);
+	assert.deepEqual([derived.personId, derived.source, derived.roleId], [firstHolder, "role_derived", first.id]);
+	await editRole(second, { leadership: true });
+	assert.deepEqual(await leaderOf(shared.id), derived);
+
+	// An unoccupied role leaves the leader empty and the team revision unchanged.
+	const vacant = await makeTeam("Vacant role");
+	const vacantRole = await makeRole(vacant.id, "Open seat");
+	const vacantBefore = await leaderOf(vacant.id);
+	await editRole(vacantRole, { leadership: true });
+	assert.deepEqual(await leaderOf(vacant.id), vacantBefore);
+	assert.equal(vacantBefore.personId, null);
+
+	// An edit that leaves leadership alone promotes no one, even when the team has no leader.
+	const renamed = await makeTeam("Rename only");
+	const leadRole = await makeRole(renamed.id, "Old lead", { leadership: true });
+	const occupant = await person("Rename Occupant");
+	await assign(renamed, leadRole, occupant);
+	// Removing a leader's seat leaves this state (REQ-IDN-019): an occupied leadership role and no leader.
+	await admin.execute(
+		sql`UPDATE team SET leader_person_id=NULL, leader_source=NULL, leader_role_id=NULL WHERE id=${renamed.id}`,
+	);
+	const leaderless = await leaderOf(renamed.id);
+	assert.equal(leaderless.personId, null);
+	await editRole(leadRole, { name: "New lead" });
+	assert.deepEqual(await leaderOf(renamed.id), leaderless);
+	const renameEvent = await lastEdit(leadRole.id);
+	assert.deepEqual([renameEvent.before, renameEvent.after], [{ name: "Old lead" }, { name: "New lead" }]);
+	// Resending leadership the role already has is a noop.
+	const again = await editRole(leadRole, { leadership: true });
+	assert.equal(again.outcome, "noop");
+	assert.deepEqual(await leaderOf(renamed.id), leaderless);
 });
 
 test("REQ-IDN-005 an unknown or another church's team, role or tenure is unavailable to the teams writer", async () => {
