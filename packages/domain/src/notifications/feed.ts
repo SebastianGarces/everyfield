@@ -36,6 +36,7 @@ const itemRow = z.object({
 	read: z.boolean(),
 	dueLocalDate: z.string().nullable(),
 	overdue: z.boolean(),
+	subject: z.unknown(),
 	cursorAt: z.string(),
 });
 const pageRow = z.object({ account_id: z.uuid().nullable(), items: z.array(itemRow) });
@@ -47,6 +48,24 @@ const markRow = z.object({
 	visible_ids: z.array(z.uuid()),
 	changed: z.boolean(),
 });
+
+/**
+ * The record an entry is about, from what the notice already stores (D-733): the scheduled email, task or meeting is
+ * its source record. A Wiki review names the published global revision in its key; the entry links to that article by
+ * the revision's slug. Every other category, and a review whose revision is not a published global one, has none.
+ */
+const subjectSql = sql`CASE split_part(n.logical_key,'/',2)
+	WHEN 'scheduled_email_unsubscribe' THEN json_build_object('kind','communication','id',n.source_record_id)
+	WHEN 'task_due' THEN json_build_object('kind','task','id',n.source_record_id)
+	WHEN 'task_overdue' THEN json_build_object('kind','task','id',n.source_record_id)
+	WHEN 'meeting_announcement' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'meeting_reminder' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'wiki_upstream_review' THEN (
+		SELECT json_build_object('kind','article','id',r.article_id,'slug',r.slug) FROM article_revision r
+		WHERE r.id = CASE WHEN split_part(n.logical_key,'/',3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+				THEN split_part(n.logical_key,'/',3)::uuid END
+			AND r.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid AND r.published_at IS NOT NULL)
+	END`;
 
 function feedSql(
 	session: string,
@@ -70,6 +89,7 @@ function feedSql(
 					'read', n.read_at IS NOT NULL,
 					'dueLocalDate', n.schedule_date,
 					'overdue', ${overdueSql(asOf)},
+					'subject', ${subjectSql},
 					'cursorAt', to_char(n.eligible_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
 				) AS item, n.eligible_at AS sort_at, n.id AS sort_id
 				FROM notice n
@@ -87,7 +107,7 @@ function feedValue(items: z.infer<typeof itemRow>[]) {
 	const visible = more ? items.slice(0, PAGE) : items;
 	const last = visible.at(-1);
 	return feedResult.parse({
-		items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue }) => ({
+		items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue, subject }) => ({
 			id,
 			category,
 			title,
@@ -96,6 +116,7 @@ function feedValue(items: z.infer<typeof itemRow>[]) {
 			read,
 			dueLocalDate,
 			overdue,
+			subject,
 		})),
 		nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
 	});
