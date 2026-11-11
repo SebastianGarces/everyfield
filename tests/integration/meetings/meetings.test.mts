@@ -1231,12 +1231,8 @@ test("T-159: the Next card's read skips a sooner cancelled or completed meeting 
 test("T-159 C13: a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
 	const guest = await person("Wren", { plant: Q });
 	const m = await schedule({ guests: [guest] }, 3);
-	const token = await tx(async (t) => {
-		const writes = [];
-		const issued = await createRsvpToken(t, ctx(3), { meetingId: m.id, personId: guest }, writes);
-		await executeWrites(t, writes);
-		return issued.token;
-	});
+	const token = await issueRsvpToken(admin, Q, m.id, guest);
+	assert.ok(token, "the guest row took the link");
 	assert.equal((await describeRsvpToken(db, { token })).state, "pending");
 	const witness = randomUUID();
 	await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
