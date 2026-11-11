@@ -17,7 +17,6 @@ export function Menu({ modal = false, ...props }: ComponentPropsWithRef<typeof D
 	return <DropdownMenu.Root modal={modal} {...props} />;
 }
 export const MenuTrigger = DropdownMenu.Trigger;
-export const MenuGroup = DropdownMenu.Group;
 
 /**
  * Menu (components.md): Label, Item, Separator and Kbd, with a danger item. WAI-ARIA menu button: Enter, Space or
