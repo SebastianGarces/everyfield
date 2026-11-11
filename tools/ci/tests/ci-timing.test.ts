@@ -25,6 +25,11 @@ const route = args.filter((a) => !a.startsWith('-') && a !== 'api' && a !== 'GET
 const fixture = JSON.parse(fs.readFileSync(path.join(process.env.FAKE_GH, 'routes.json'), 'utf8'))[route];
 if (!fixture) { process.stderr.write('gh: Not Found (HTTP 404)\\n'); process.exit(1); }
 if (fixture.status) { process.stderr.write('gh: ' + fixture.status + ' (HTTP ' + fixture.status + ')\\n'); process.exit(1); }
+// Like gh 2.103, refuse to print terminal escape sequences unless allowed.
+if (typeof fixture.body === 'string' && fixture.body.includes('\\x1b') && !args.includes('--allow-escape-sequences')) {
+  process.stderr.write('the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway\\n');
+  process.exit(1);
+}
 process.stdout.write(typeof fixture.body === 'string' ? fixture.body : JSON.stringify(fixture.body));
 `;
 
@@ -95,7 +100,7 @@ function fixture() {
 				"2026-11-04T12:00:05Z Cache restored from key: node-cache-Linux-x64-pnpm-abc",
 				"2026-11-04T12:00:08Z Cache not found for input keys: next-Linux-abc, next-Linux-",
 				"2026-11-04T12:00:09Z Cache restored from key: next-Linux-abc",
-				"2026-11-04T12:00:10Z unrelated line",
+				"2026-11-04T12:00:10Z \x1b[36;1munrelated coloured line\x1b[0m",
 			].join("\n"),
 		},
 		// Expired log.
@@ -108,7 +113,13 @@ function fixture() {
 						name: "app",
 						created_at: t(0),
 						started_at: t(4),
-						steps: [step("Set up job", 4, 6), step("Types", 6, 16)],
+						// The step names since T-251: corepack's pnpm and the pnpm store cache are setup.
+						steps: [
+							step("Set up job", 4, 6),
+							step("pnpm from corepack (retries registry errors)", 6, 7),
+							step("pnpm store cache", 7, 8),
+							step("Types", 8, 18),
+						],
 					},
 					{
 						id: 22,
@@ -156,13 +167,13 @@ test("T-39: ci-timing splits queue, setup and run per job, counts cache lines an
 					id: 2,
 					createdAt: t(0),
 					jobs: [
-						{ id: 21, name: "app", queueMs: 4000, setupMs: 2000, runMs: 10_000, cacheHits: 0, cacheMisses: 2 },
+						{ id: 21, name: "app", queueMs: 4000, setupMs: 4000, runMs: 10_000, cacheHits: 0, cacheMisses: 2 },
 						{ id: 22, name: "docs", queueMs: 1000, setupMs: 1000, runMs: 3000, cacheHits: null, cacheMisses: null },
 					],
 				},
 			],
 			totals: [
-				{ name: "app", jobs: 2, queueMs: 6000, setupMs: 13_000, runMs: 60_000, cacheHits: 2, cacheMisses: 3 },
+				{ name: "app", jobs: 2, queueMs: 6000, setupMs: 15_000, runMs: 60_000, cacheHits: 2, cacheMisses: 3 },
 				// The missing run time and both missing logs are left out of the totals, never counted as 0.
 				{ name: "docs", jobs: 2, queueMs: 6000, setupMs: 3000, runMs: 3000, cacheHits: null, cacheMisses: null },
 			],
@@ -183,7 +194,7 @@ test("T-39: ci-timing prints no data for a missing signal, never 0", () => {
 		assert.match(docs, /cache hits no data misses no data$/);
 		assert.match(
 			lines.find((l) => l.includes("app (2)")) ?? "",
-			/queue +6\.0 s +setup +13\.0 s +run +1\.0 min +cache hits 2 misses 3$/,
+			/queue +6\.0 s +setup +15\.0 s +run +1\.0 min +cache hits 2 misses 3$/,
 		);
 		assert.match(lines.find((l) => l.includes("docs (2)")) ?? "", /run +3\.0 s +cache hits no data misses no data$/);
 	} finally {
@@ -199,7 +210,9 @@ test("T-39: ci-timing sends only GET reads to GitHub", () => {
 		assert.equal(calls.length, 7);
 		for (const call of calls) {
 			assert.deepEqual(call.slice(0, 3), ["api", "--method", "GET"]);
-			assert.equal(call.length, 4);
+			// A job log read also allows the log's colour codes; nothing else is added.
+			const isLog = call.at(-1)?.endsWith("/logs");
+			assert.deepEqual(call.slice(3, -1), isLog ? ["--allow-escape-sequences"] : []);
 		}
 		// The fake really refuses writes, so a write attempt cannot pass unnoticed.
 		for (const write of [
