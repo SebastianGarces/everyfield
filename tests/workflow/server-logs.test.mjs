@@ -2,11 +2,21 @@
 // put the password in the server log. The row starts the real dev server, calls both actions over HTTP as the browser
 // does, with synthetic passwords, and asserts that no log line carries them. Next.js records the arguments before the
 // action decides anything, so a signed-out call shows the leak as well as a signed-in one and needs no database.
+//
+// T-262: the run needs no network and no wall-clock luck, so parallel check slots cannot fail it. `next dev` fetched
+// every next/font/google stylesheet and font file from Google with a 3 s timeout; on a loaded machine one font file
+// missed it, the page failed to compile and the action never ran (D-678). Next's NEXT_FONT_GOOGLE_MOCKED_RESPONSES now
+// answers the stylesheets, and their font files come from a server this run owns on an ephemeral port.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createHttpServer } from "node:http";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import test from "node:test";
 
 const app = fileURLToPath(new URL("../../apps/web/", import.meta.url));
@@ -24,6 +34,33 @@ const freePort = () =>
 		server.on("error", reject);
 	});
 
+/**
+ * The stylesheet next/font/google requests for each loader call in the app, keyed by URL as Next.js looks it up, each
+ * with one font file on `fontOrigin`. Next's own helpers build the URLs, so a font added to the app needs no edit here.
+ */
+function googleFontsMock(fontOrigin) {
+	const require = createRequire(join(app, "package.json"));
+	const google = (file) => require(`next/dist/compiled/@next/font/dist/google/${file}`);
+	const { validateGoogleFontFunctionCall } = google("validate-google-font-function-call.js");
+	const { getFontAxes } = google("get-font-axes.js");
+	const { getGoogleFontsUrl } = google("get-google-fonts-url.js");
+	const mock = {};
+	for (const file of globSync("src/**/*.{ts,tsx}", { cwd: app })) {
+		const text = readFileSync(join(app, file), "utf8");
+		const imported = text.match(/import\s*\{([^}]*)\}\s*from\s*["']next\/font\/google["']/)?.[1] ?? "";
+		for (const name of imported.match(/\w+/g) ?? [])
+			for (const [, options] of text.matchAll(new RegExp(`\\b${name}\\((\\{[^)]*\\})\\)`, "g"))) {
+				const font = validateGoogleFontFunctionCall(name, vm.runInNewContext(`(${options})`));
+				const axes = getFontAxes(font.fontFamily, font.weights, font.styles, font.selectedVariableAxes);
+				mock[getGoogleFontsUrl(font.fontFamily, axes, font.display)] =
+					`/* latin */\n@font-face {\n  font-family: '${font.fontFamily}';\n  font-style: normal;\n  font-weight: 400;\n` +
+					`  font-display: swap;\n  src: url(${fontOrigin}/font.woff2) format('woff2');\n}\n`;
+			}
+	}
+	assert.ok(Object.keys(mock).length > 0, "found no next/font/google call in apps/web/src");
+	return mock;
+}
+
 /** The action id Next.js gave `name` in apps/web/src/features/settings/actions.ts. */
 function actionId(name) {
 	const manifest = JSON.parse(readFileSync(`${app}.next/dev/server/server-reference-manifest.json`, "utf8"));
@@ -35,12 +72,43 @@ function actionId(name) {
 }
 
 test("BUG-PR199: the dev server log never shows a password sent to a server action", { timeout: 240_000 }, async () => {
+	let fontRequests = 0;
+	const fonts = createHttpServer((_, response) => {
+		fontRequests++;
+		response.writeHead(200, { "content-type": "font/woff2" }).end();
+	});
+	await new Promise((r) => fonts.listen(0, "127.0.0.1", r));
+	const dir = mkdtempSync(join(tmpdir(), "server-logs-"));
+	const mockFile = join(dir, "google-fonts.cjs");
+	writeFileSync(
+		mockFile,
+		`module.exports = ${JSON.stringify(googleFontsMock(`http://127.0.0.1:${fonts.address().port}`))};\n`,
+	);
 	const port = await freePort();
 	const origin = `http://127.0.0.1:${port}`;
 	let log = "";
+	/** Resolves once `done(log)` holds, checked on each output chunk; the test's own timeout bounds the wait. */
+	const logged = (done) =>
+		new Promise((resolve) => {
+			const check = () => {
+				if (!done(log)) return;
+				server.stdout.off("data", check);
+				server.stderr.off("data", check);
+				resolve();
+			};
+			server.stdout.on("data", check);
+			server.stderr.on("data", check);
+			check();
+		});
 	const server = spawn(process.execPath, [next, "dev", "--hostname", "127.0.0.1", "--port", String(port)], {
 		cwd: app,
-		env: { ...process.env, NODE_ENV: "development", NEXT_TELEMETRY_DISABLED: "1", PORT: String(port) },
+		env: {
+			...process.env,
+			NODE_ENV: "development",
+			NEXT_TELEMETRY_DISABLED: "1",
+			NEXT_FONT_GOOGLE_MOCKED_RESPONSES: mockFile,
+			PORT: String(port),
+		},
 		stdio: ["ignore", "pipe", "pipe"],
 		detached: true,
 	});
@@ -77,9 +145,12 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			// The action ran: Next.js answers an action call, not the page or a missing-action refusal.
 			assert.match(response.headers.get("content-type") ?? "", /text\/x-component/, `${name} did not run:\n${log}`);
 		}
-		// The call log prints after the request finishes.
-		await new Promise((r) => setTimeout(r, 1_500));
-		assert.match(log, new RegExp(`POST ${PAGE}`), "the dev server logged no action request");
+		// Next.js logs a request, then its action arguments, after the response finishes. One more page request is the
+		// barrier: once its line is in the log, every line the action requests wrote is in too.
+		await fetch(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		await logged((text) => text.split(`GET ${PAGE}`).length > 2);
+		assert.equal(log.split(`POST ${PAGE}`).length - 1, calls.length, "the dev server logged each action request");
+		assert.ok(fontRequests > 0, "the page's fonts came from this run's font server, not from Google");
 		const shown = Object.keys(secrets).filter((key) => log.includes(secrets[key]));
 		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), log);
 		assert.deepEqual(shown, [], `the dev server log shows synthetic passwords:\n${masked}`);
@@ -87,5 +158,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		try {
 			process.kill(-server.pid, "SIGTERM");
 		} catch {}
+		fonts.close();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
