@@ -1,11 +1,10 @@
 // DOC-020, D-107: a sending network's Owner or Admin writes its statement of faith through the one organization
 // profile write. A church row cannot hold one, and every other seat is refused.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-before(S.setup);
 after(S.teardown);
 
 const statementOf = async (id: string) =>
