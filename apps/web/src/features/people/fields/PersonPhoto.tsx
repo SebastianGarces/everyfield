@@ -2,6 +2,7 @@
 
 import { Camera01Icon, Delete02Icon, ImageUpload01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { PHOTO_MAX_BYTES, photoMime } from "@everyfield/contracts/people";
 import {
 	Menu,
 	MenuContent,
@@ -27,14 +28,12 @@ import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.
 import { photoSrc, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-const TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX = 3 * 1024 * 1024;
 
 /** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
 export function photoProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
-	if (!TYPES.includes(file.type)) return "Use a JPG, PNG or WebP photo.";
-	if (file.size > MAX) return "Choose a photo smaller than 3 MB.";
+	if (!photoMime.safeParse(file.type).success) return "Use a JPG, PNG or WebP photo.";
+	if (file.size > PHOTO_MAX_BYTES) return "Choose a photo smaller than 3 MB.";
 	return null;
 }
 /** The words for a refused photo change. */
@@ -237,7 +236,7 @@ export function PersonPhoto({
 					<input
 						ref={input}
 						type="file"
-						accept={TYPES.join(",")}
+						accept={photoMime.options.join(",")}
 						className="sr-only"
 						tabIndex={-1}
 						aria-hidden="true"
