@@ -62,7 +62,7 @@ export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): Due
 		due_at: new Date(r.occurrence.instant),
 	};
 }
-export const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
+const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 	person_id: r?.kind === "person" ? r.id : null,
 	meeting_id: r?.kind === "meeting" ? r.id : null,
 	team_id: r?.kind === "team" ? r.id : null,
@@ -137,7 +137,7 @@ export async function references(
 
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
 /** The task columns a reminder reads: a task row, or a light locked read of the task table with the plant's zone. */
-export type ReminderRow = Pick<
+type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };

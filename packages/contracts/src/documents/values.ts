@@ -10,6 +10,14 @@ export const MERGE_BYTES_MAX = 16 * 1024;
 /** Keys accepted on one override map before the catalog check. */
 export const MERGE_KEY_MAX = 20;
 
+/**
+ * The largest .txt or .docx file a written document imports, in bytes. The browser check, the import route,
+ * the request contract and the domain read this one number, and the host must accept a body this size.
+ */
+export const IMPORT_BYTES_MAX = 10 * 1024 * 1024;
+/** The limit as people read it: "10 MB". */
+export const IMPORT_TOO_LARGE = `The file must be ${IMPORT_BYTES_MAX / (1024 * 1024)} MB or smaller.`;
+
 /** The notice every formal or legal document prints, in the PDF, the Word file and the editor. */
 export const LEGAL_NOTICE = "Template, not legal advice";
 

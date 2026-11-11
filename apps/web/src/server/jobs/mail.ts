@@ -100,7 +100,8 @@ const stored = z.object({
 });
 /**
  * Mail a reader may turn off (REQ-NTF-012): a notification email and the two digests. Security, invitation and receipt
- * mail never carries an Unsubscribe link. Messages to CRM people (`communication`) have no opt-out state yet.
+ * mail never carries an Unsubscribe link. Messages mail to CRM people (`communication`) is not listed here: it carries its own
+ * Unsubscribe link, built in `packages/domain/src/communication/delivery.ts`.
  */
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 /** The opt-out page's origin (scheme, host and port only) and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
