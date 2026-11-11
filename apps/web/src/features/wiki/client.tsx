@@ -507,12 +507,28 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 		const target: Element | Window = column ?? window;
 		target.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
-		// Leaving the page, or this article inside the app, saves the furthest point read since the last step.
-		window.addEventListener("pagehide", save);
+		// Leaving the page saves the furthest point read since the last step. A server action's fetch dies with the
+		// page, so this one is a keepalive request. Leaving the article inside the app saves through the action below.
+		const leave = () => {
+			if (seen.current <= sent.current) return;
+			sent.current = seen.current;
+			void fetch("/api/wiki/progress", {
+				method: "POST",
+				keepalive: true,
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					requestKey: crypto.randomUUID(),
+					articleId: props.articleId,
+					fraction: fractionText(seen.current),
+					...(props.plantId ? { plantId: props.plantId } : {}),
+				}),
+			}).catch(() => undefined);
+		};
+		window.addEventListener("pagehide", leave);
 		return () => {
 			target.removeEventListener("scroll", onScroll);
 			window.removeEventListener("resize", onScroll);
-			window.removeEventListener("pagehide", save);
+			window.removeEventListener("pagehide", leave);
 			window.clearTimeout(timer);
 			save();
 		};

@@ -506,3 +506,39 @@ export async function runSearch(
 		return "lost";
 	}
 }
+
+/**
+ * POST /api/wiki/progress: the reading progress a page saves while it unloads. A server action's fetch dies with the
+ * page, so the article client sends this one with `keepalive`. Same-origin only; the producer parses the input and
+ * checks the session and the article as it does for the action.
+ */
+export async function progressRoute(request: Request): Promise<Response> {
+	if (request.headers.get("sec-fetch-site") !== "same-origin") return new Response(null, { status: 403 });
+	const text = await request.text();
+	if (text.length > 1000) return new Response(null, { status: 413 });
+	let body: { requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown };
+	try {
+		body = JSON.parse(text);
+	} catch {
+		return new Response(null, { status: 400 });
+	}
+	const actor = await wikiActor();
+	const mount = wikiMount();
+	if (actor === "down" || !mount) return new Response(null, { status: 503 });
+	if (!actor) return new Response(null, { status: 401 });
+	try {
+		const reply = await mount.producer.updateProgress(mount.db, actor, {
+			requestKey: body.requestKey,
+			input: {
+				articleId: body.articleId,
+				fraction: body.fraction,
+				...(body.plantId ? { plantId: body.plantId } : {}),
+			},
+		});
+		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
+	} catch (error) {
+		// A malformed body fails the producer's parse.
+		console.error(JSON.stringify({ component: "wiki", outcome: "progress-beacon-failed", error: String(error) }));
+		return new Response(null, { status: 400 });
+	}
+}
