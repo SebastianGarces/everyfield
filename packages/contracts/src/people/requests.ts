@@ -102,7 +102,7 @@ export const classifyAdultRequest = commandEnvelope(
 export const reorderPipelineRequest = commandEnvelope(
 	z
 		.strictObject({
-			column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
+			column: pipelineColumn,
 			personId,
 			afterId: personId.nullable(),
 		})

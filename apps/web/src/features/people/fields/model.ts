@@ -2,6 +2,7 @@
 // change in Activity. No React and no server code, so they run the same in the browser, on the server and in node tests.
 
 import type * as people from "@everyfield/contracts/people";
+import { householdRole, proficiency, skillCategory } from "@everyfield/contracts/people";
 import type { Tone } from "@everyfield/ui/display";
 import type { z } from "zod";
 
@@ -25,7 +26,7 @@ export type PersonFields = {
 	photo: PhotoResult;
 };
 
-export const SKILL_CATEGORIES = ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"] as const;
+export const SKILL_CATEGORIES = skillCategory.options;
 export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	worship: "Worship",
 	tech: "Tech",
@@ -35,14 +36,14 @@ export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	leadership: "Leadership",
 	other: "Other",
 };
-export const PROFICIENCIES = ["beginner", "intermediate", "advanced", "expert"] as const;
+export const PROFICIENCIES = proficiency.options;
 export const PROFICIENCY_LABEL: Record<Proficiency, string> = {
 	beginner: "Beginner",
 	intermediate: "Intermediate",
 	advanced: "Advanced",
 	expert: "Expert",
 };
-export const ROLES = ["head", "spouse", "child", "other"] as const;
+export const ROLES = householdRole.options;
 export const ROLE_LABEL: Record<HouseholdRole, string> = {
 	head: "Head",
 	spouse: "Spouse",
