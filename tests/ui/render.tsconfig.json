@@ -3,6 +3,7 @@
 	"include": ["../../apps/web/src/**/*", "../../packages/*/src/**/*", "./**/*"],
 	"compilerOptions": {
 		"allowImportingTsExtensions": true,
-		"jsx": "react-jsx"
+		"jsx": "react-jsx",
+		"paths": { "@/*": ["../../apps/web/src/*"] }
 	}
 }
