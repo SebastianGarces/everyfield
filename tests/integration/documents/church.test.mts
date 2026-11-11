@@ -393,7 +393,9 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			church_tagline: "A church for the whole city.",
 			contact_line: "harvestpoint.church  ·  (555) 010-0100",
 		});
-		const { brands: _brands, mergeValues: _values, ...document } = edit;
+		// T-80: the editor read also says where the document stands against its template.
+		assert.ok(["current", "behind"].includes(edit.template));
+		const { brands: _brands, mergeValues: _values, template: _template, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),

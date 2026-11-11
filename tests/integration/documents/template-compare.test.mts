@@ -13,7 +13,11 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter, templateStatus } from "../../../packages/domain/src/documents/index.ts";
-import { DOC_TEMPLATES, docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import {
+	DOC_TEMPLATES,
+	docTemplateById,
+	publishedTemplate,
+} from "../../../packages/domain/src/documents/doc-templates.ts";
 import {
 	LEGAL_NOTICE,
 	acceptDifferences,
@@ -64,6 +68,15 @@ function versionTwo() {
 	});
 	blocks.splice(5, 1);
 	return docTemplate.parse(v2);
+}
+
+/** The built-in templates with `next` as the policy's current version, published beside the stored ones. */
+async function withVersion(next) {
+	const hash = await templateHash(next);
+	return {
+		current: (id) => (id === POLICY ? next : docTemplateById(id)),
+		published: (id, h) => (id === POLICY && h === hash ? next : publishedTemplate(id, h)),
+	};
 }
 
 describe("T-19 compare a document with its template (no database)", () => {
@@ -310,7 +323,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 
 	test("criteria 5, 6, 7, 9, 14: accepting some changes of a version 2 writes one revision with the exact body and origin", async () => {
 		const v2 = versionTwo();
-		const templates = (id) => (id === POLICY ? v2 : docTemplateById(id));
+		const templates = await withVersion(v2);
 		const doc = await create(OWNER, POLICY);
 		// The church's own edit: its lead paragraph.
 		const edited = structuredClone(doc.body);
@@ -339,7 +352,14 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		const accepted = ok(
 			await accept(
 				OWNER,
-				{ documentId: doc.id, expectedRevision: "2", templateHash: found.templateHash, accept: [1, 2, 3] },
+				{
+					documentId: doc.id,
+					expectedRevision: "2",
+					templateHash: found.templateHash,
+					view: "all",
+					key: found.keys.all,
+					accept: [1, 2, 3],
+				},
 				templates,
 			),
 		);
@@ -407,14 +427,21 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 
 	test("criterion 9: a church with no value for a new field prints the template's fallback", async () => {
 		const v2 = versionTwo();
-		const templates = (id) => (id === POLICY ? v2 : docTemplateById(id));
+		const templates = await withVersion(v2);
 		const doc = await create(OTHER, POLICY);
 		const found = ok(await compare(OTHER, doc.id, templates));
 		assert.equal(found.values.pastor_name, "our pastor");
 		const accepted = ok(
 			await accept(
 				OTHER,
-				{ documentId: doc.id, expectedRevision: "1", templateHash: found.templateHash, accept: "all" },
+				{
+					documentId: doc.id,
+					expectedRevision: "1",
+					templateHash: found.templateHash,
+					view: "all",
+					key: found.keys.all,
+					accept: "all",
+				},
 				templates,
 			),
 		);
@@ -439,6 +466,8 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 		);
@@ -458,16 +487,26 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(found.revision, "2");
 		// Another tab saves revision 3 after the compare opened.
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));
-		const request = { documentId: doc.id, expectedRevision: "2", templateHash: found.templateHash, accept: [0] };
+		const request = {
+			documentId: doc.id,
+			expectedRevision: "2",
+			templateHash: found.templateHash,
+			view: "all",
+			key: found.keys.all,
+			accept: [0],
+		};
 		refused(await accept(ADMIN, request), "conflict");
 		assert.equal(await revisionCount(doc.id), 3);
 		// A compare made for another template version is a conflict too.
 		const stale = { ...request, expectedRevision: "3", templateHash: `sha256:${"0".repeat(64)}` };
 		refused(await accept(ADMIN, stale), "conflict");
 		// A number the compare does not have is refused as invalid.
-		refused(await accept(ADMIN, { ...request, expectedRevision: "3", accept: [99] }), "invalid_input");
-		assert.equal(await revisionCount(doc.id), 3);
 		const reloaded = ok(await compare(ADMIN, doc.id));
+		refused(
+			await accept(ADMIN, { ...request, expectedRevision: "3", key: reloaded.keys.all, accept: [99] }),
+			"invalid_input",
+		);
+		assert.equal(await revisionCount(doc.id), 3);
 		assert.equal(reloaded.revision, "3");
 		assert.deepEqual(shape(reloaded.differences), [
 			[0, "title", "changed"],
@@ -484,13 +523,15 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "1",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 			"access_denied",
 		);
 		assert.equal(await revisionCount(doc.id), 1);
 
-		const gone = () => undefined;
+		const gone = { current: () => undefined, published: publishedTemplate };
 		assert.equal(await templateStatus(doc.body, gone), null);
 		refused(await compare(ADMIN, doc.id, gone), "unavailable");
 
@@ -503,6 +544,8 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 			"unavailable",
