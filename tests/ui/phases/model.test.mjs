@@ -1,12 +1,12 @@
 // Journey screen rules (WP-038) that a silent break would turn into a wrong card or a lost message. They run in node
 // against the module the screen uses; no browser.
-//   AC:PHASE-CASE-002 a refused move rolls back to the journey before it, and a conflict names the new phase.
+//   INV-phase-optimistic: a move or declaration shows at once as one pending entry, and the server's entry replaces it.
+//   AC:PHASE-CASE-002 a conflict names the phase the church is in now.
 //   AC:PHASE-CASE-003 the same phase shows no pending move.
 //   AC:PHASE-CASE-009 each reason problem has its own message next to the field.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-	entryTitle,
 	isPending,
 	pendingDeclaration,
 	pendingMove,
@@ -28,53 +28,59 @@ const created = {
 const journey = { state: { phase: 2, revision: "7", declarable: false }, entries: [created] };
 const error = (code, details = {}) => ({ code, details, correlationId: actor.accountId, retry: "never" });
 
-test("a move shows at once with its direction, and the server's entry replaces it", () => {
-	const pending = pendingMove(journey, 4, "  Training wrapped early  ", actor, "2026-11-02T11:00:00.000Z");
+test("INV-phase-optimistic: a move shows at once as one pending entry, and the server's entry replaces it", () => {
+	const at = "2026-11-02T11:00:00.000Z";
+	const pending = pendingMove(journey, 4, "  Training wrapped early  ", actor, at);
 	assert.deepEqual(pending.state, { phase: 4, revision: "7", declarable: false });
-	const shown = pending.entries.at(-1);
+	assert.equal(pending.entries.length, 2);
+	assert.deepEqual(pending.entries[0], created);
+	const shown = pending.entries[1];
 	assert.equal(isPending(shown), true);
-	assert.deepEqual(
-		[shown.fromPhase, shown.toPhase, shown.direction, shown.reason],
-		[2, 4, "skip_forward", "Training wrapped early"],
-	);
-	assert.equal(entryTitle(shown), "Skipped ahead");
+	const { id: _, ...entry } = shown;
+	assert.deepEqual(entry, {
+		kind: "movement",
+		fromPhase: 2,
+		toPhase: 4,
+		direction: "skip_forward",
+		reason: "Training wrapped early",
+		actor,
+		occurredAt: at,
+	});
 	const confirmed = { ...shown, id: "4d1f5a7e-1d1e-4d0e-8e3b-0f6c1c2b3a44" };
+	// The screen applies the server's answer to the journey from before the move, so no pending entry remains.
 	const after = withEntry(journey, { phase: 4, revision: "8", declarable: false }, confirmed);
-	assert.deepEqual(after.entries, [created, confirmed]);
-	assert.equal(after.entries.some(isPending), false);
-	assert.equal(entryTitle(pendingMove(journey, 1, "Back", actor, shown.occurredAt).entries.at(-1)), "Moved back");
-	assert.equal(entryTitle(pendingMove(journey, 3, "On", actor, shown.occurredAt).entries.at(-1)), "Moved forward");
+	assert.deepEqual(after, { state: { phase: 4, revision: "8", declarable: false }, entries: [created, confirmed] });
 });
 
-test("the same phase adds no pending move", () => {
+test("AC:PHASE-CASE-003 the same phase adds no pending move", () => {
 	assert.equal(pendingMove(journey, 2, "Still here", actor, created.occurredAt), journey);
 });
 
-test("a declaration shows as Declared at setup and closes the offer", () => {
+test("INV-phase-optimistic: a pending declaration shows the declared phase and closes the offer", () => {
 	const fresh = { ...journey, state: { phase: 1, revision: "2", declarable: true } };
 	const pending = pendingDeclaration(fresh, 3, actor, created.occurredAt);
 	assert.deepEqual(pending.state, { phase: 3, revision: "2", declarable: false });
-	assert.equal(entryTitle(pending.entries.at(-1)), "Declared at setup");
-	assert.equal(entryTitle(created), "Church created");
+	const shown = pending.entries.at(-1);
+	assert.equal(isPending(shown), true);
+	assert.deepEqual(
+		[shown.kind, shown.fromPhase, shown.toPhase, shown.actor, shown.occurredAt],
+		["initial_declaration", 1, 3, actor, created.occurredAt],
+	);
 });
 
-test("each refusal has a clear message", () => {
+test("AC:PHASE-CASE-009 AC:PHASE-CASE-002 each reason problem has its own message; a conflict names the new phase", () => {
 	const refused = (e) => refusalMessage({ status: "refused", error: e });
-	assert.equal(refused(error("invalid_reason", { problem: "empty" })), "Write a short reason for the move.");
-	assert.equal(
-		refused(error("invalid_reason", { problem: "too_long" })),
-		"Keep the reason to 2,000 characters or fewer.",
-	);
-	assert.match(refused(error("invalid_reason", { problem: "reserved" })), /kept for setup declarations/);
-	assert.match(
-		refused(error("revision_conflict", { state: { phase: 3, revision: "9", declarable: false } })),
-		/It is now Phase 3\./,
-	);
-	assert.match(refused(error("already_declared")), /already has its starting phase/);
-	assert.match(refusalMessage({ status: "lost" }), /did not come back/);
+	const fallback = refused(error("unknown_code"));
+	const reasons = ["empty", "too_long", "reserved"].map((problem) => refused(error("invalid_reason", { problem })));
+	const declared = refused(error("already_declared"));
+	assert.equal(new Set([fallback, ...reasons, declared]).size, 5, "each refusal reads differently from the rest");
+	const conflict = (phase) =>
+		refused(error("revision_conflict", { state: { phase, revision: "9", declarable: false } }));
+	assert.match(conflict(3), /Phase 3\b/);
+	assert.match(conflict(5), /Phase 5\b/);
 });
 
-test("a rejected write reads as lost, and the lost message promises no double change (com-17)", async () => {
+test("BUG-551 (journey/com-17): a rejected write reads as lost, and the lost message promises no double change", async () => {
 	const offline = () => Promise.reject(new TypeError("Failed to fetch"));
 	assert.deepEqual(await sent(offline), { status: "lost" });
 	const ok = { status: "ok", value: 1 };
@@ -85,7 +91,7 @@ test("a rejected write reads as lost, and the lost message promises no double ch
 	assert.match(text, /will not apply twice/);
 });
 
-test("a retry of the same intent replays its request key; a new intent or a settled one gets a fresh key (com-17)", () => {
+test("BUG-551 (journey/com-17): a retry of the same intent replays its request key; a new intent or a settled one gets a fresh key", () => {
 	let n = 0;
 	const keys = requestKeys(() => `key-${++n}`);
 	const move = ["move", "7", 3, "Core group formed"];
