@@ -1,6 +1,5 @@
 // WP-034/api: the Guide and reference excerpt cut rules. No database: sectionExcerpt is the pure cut both reads return.
-// tests/integration/wiki/excerpt.test.mts runs every check in CI; tests/ui/wiki/guide-excerpt.test.mjs runs each one
-// under its AC: marker beside the rendered Guide.
+// tests/integration/wiki/excerpt.test.mts runs every check in CI.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";

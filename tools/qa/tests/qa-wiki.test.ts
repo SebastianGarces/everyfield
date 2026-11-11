@@ -414,6 +414,8 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 			{ email: "delivered+qa-member-2@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-member@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-owner@resend.dev", name: "Harvest Point (QA)", role: "owner" },
+			// T-255's second church plant and its Owner.
+			{ email: "delivered+qa-riverside-owner@resend.dev", name: "Riverside (QA)", role: "owner" },
 		],
 	);
 	const ops106 = spawnSync(
