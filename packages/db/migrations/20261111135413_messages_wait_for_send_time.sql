@@ -1,0 +1,1 @@
+CREATE INDEX "mail_waiting" ON "mail" USING btree ("scheduled_at") WHERE ((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL));

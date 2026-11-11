@@ -110,7 +110,9 @@ function mailOn(plantId: string) {
 }
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
+ * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
+ * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
+ * unsubscribed from this church's email, so nothing goes out. A
  * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
  * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
  * done only when no accepted recipient is left open.
@@ -122,9 +124,11 @@ function hubState(plantId: string) {
 		WHEN c.state = 'draft' THEN 'draft'
 		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
 		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
+		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS DISTINCT FROM 'unsubscribed'`)} THEN 'unsubscribed'
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
 		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
