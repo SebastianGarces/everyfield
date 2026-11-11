@@ -7,7 +7,7 @@
 		"./tracing": "./src/runtime/trace.ts"
 	},
 	"scripts": {
-		"typecheck": "tsc --noEmit",
+		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 .",
 		"test:unit": "node --conditions=react-server --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/evry/catalog/catalog.test.mts ../../tests/evry/evals/classify.test.mts",

@@ -61,10 +61,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const due = dueText(task.due);
 
 	async function submit(form: HTMLFormElement) {
-		const parsed =
-			!open && draft.outcome === "no_longer_needed"
-				? ({ ok: false, errors: { outcome: "This follow-up is already finished. Choose what happened." } } as const)
-				: outcomeInput(draft, { completable: open });
+		const parsed = outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			focusFirstProblem(form);

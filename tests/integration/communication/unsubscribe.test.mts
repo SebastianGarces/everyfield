@@ -206,7 +206,7 @@ test("T-25 criteria 2, 4: one-click with the header's token turns off task-due e
 	const token = headerToken(email);
 	assert.ok(token);
 	// Opening the link shows the confirm page for task due and changes nothing (a GET reaches only this read).
-	const described = await producer.describeEmailOptOut(runtime, undefined as never, { token: pageToken(email) });
+	const described = await producer.describeEmailOptOut(runtime, { token: pageToken(email) });
 	assert.equal(described.status, "ok", JSON.stringify(described));
 	assert.deepEqual(
 		(({ category, emailEnabled, changed }) => ({ category, emailEnabled, changed }))(
@@ -216,10 +216,10 @@ test("T-25 criteria 2, 4: one-click with the header's token turns off task-due e
 	);
 	assert.equal(await emailPref("task_due"), null);
 	// The mail client's one-click POST: email off; a repeat is harmless.
-	const clicked = await producer.applyEmailOptOut(runtime, { token, oneClick: true });
+	const clicked = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(clicked.status, "ok", JSON.stringify(clicked));
 	assert.equal((clicked as { value: { changed: boolean; emailEnabled: boolean } }).value.changed, true);
-	const repeat = await producer.applyEmailOptOut(runtime, { token, oneClick: true });
+	const repeat = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(repeat.status, "ok", JSON.stringify(repeat));
 	assert.equal((repeat as { value: { changed: boolean; emailEnabled: boolean } }).value.emailEnabled, false);
 	assert.equal(await emailPref("task_due"), false);
