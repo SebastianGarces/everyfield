@@ -414,7 +414,10 @@ export function WikiEditor({
 					title="Hide this source?"
 					description="You can publish this source again later."
 					tone="danger"
-					consequences={["The default wiki skips this source.", "People can still open another published source."]}
+					consequences={[
+						"Readers of this source see that it is hidden, not its text.",
+						"People can still open another published source.",
+					]}
 					confirmLabel="Hide this source"
 					onConfirm={async () => {
 						const message = await commit("hide");

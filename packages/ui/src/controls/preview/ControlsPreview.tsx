@@ -465,8 +465,8 @@ const CURSOR_OWNERS = TAGS.owners.map((o, i) => (i === 1 ? { ...o, disabled: tru
 const PLAIN = "h-[34px] rounded-sm bg-surface-2 px-3 text-sm font-medium text-ink";
 
 /**
- * Enabled and disabled samples of the clickable controls, so the cursor test (tests/ui/controls/cursor.test.mjs) can
- * reach each one. The plain triggers use no asChild and no cursor class: the product-root rule gives them a pointer.
+ * Enabled and disabled samples of the clickable controls, so the preview shows the cursor each one gets. The plain
+ * triggers use no asChild and no cursor class: the product-root rule gives them a pointer.
  */
 function CursorSamples() {
 	const [view, setView] = useState("grid");

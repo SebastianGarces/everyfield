@@ -11,7 +11,7 @@
         "OPS-008"
       ],
       "text": "Development uses existing accounts/suitable free allowances. Any added paid plan or recurring service has an expected monthly cost proposal and explicit user approval before commitment; list usage assumptions and material limits rather than claim all development is guaranteed free.",
-      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "spec": "docs/architecture/execution.md#build-and-measured-load-gates",
       "operations": [],
       "acceptance_ids": [
         "AC-DOC-015--DOC-015",
@@ -40,7 +40,7 @@
         "OPS-007"
       ],
       "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate private Tigris encrypted daily bucket and measured ordinary 1h RPO/4h RTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
-      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "spec": "docs/architecture/execution.md#build-and-measured-load-gates",
       "operations": [],
       "acceptance_ids": [
         "AC-DOC-003--DOC-003",
@@ -71,7 +71,7 @@
         "OPS-001"
       ],
       "text": "Background work is durable, bounded and authenticated. Interrupted work resumes without losing owed scan-tail work or duplicating committed effects. A worker that loses ownership, is cancelled or uses stale sources cannot publish. Known retryable failures allow at most three backoffs; uncertain provider acceptance requires evidence-based reconciliation before another attempt. Assessment calls and cumulative usage obey the assessment contract. Operator recovery rechecks current scope and records its reason and evidence. Invocation duration, page size and concurrency fit the measured deployment. G-LOAD closes only after representative backlog and burst measurements prove fairness, urgent-work availability and recovery; it does not block the base executor. Worker ownership, storage and scheduling mechanisms follow Everyfield patterns.",
-      "spec": "docs/architecture/execution.md#claim-and-transaction-protocol",
+      "spec": "docs/architecture/execution.md#claims-and-outcomes",
       "operations": [
         "jobs.manualRun",
         "jobs.inspectLag",
@@ -111,7 +111,7 @@
         "OPS-007"
       ],
       "text": "Development uses suitable existing free allowances; before paid plans/services/spend obtain explicit approval of concrete measured low/expected/high monthly envelope, recovery/model retry costs, operator load and limits. Before real customer data actual config/key-exclusion/retention/expiry/coherent DB+byte restore and external-effect reconciliation proof must pass. Documentation/prices/selected destination do not authorize setup/restore or certify recovery.",
-      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "spec": "docs/architecture/execution.md#build-and-measured-load-gates",
       "operations": [
         "engineering.validateRequirements",
         "qa.verifyVerticalSlices"

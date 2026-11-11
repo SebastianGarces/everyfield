@@ -10,3 +10,12 @@ export function formatDay(instant: string, zone: string): string {
 		new Date(instant),
 	);
 }
+
+/** "UTC−5" or "UTC+5:30" for a UTC offset in seconds. A fold choice names its offset: zone abbreviations vary. */
+export function offsetText(seconds: number): string {
+	const sign = seconds < 0 ? "−" : "+";
+	const abs = Math.abs(seconds),
+		h = Math.floor(abs / 3600),
+		m = Math.round((abs % 3600) / 60);
+	return `UTC${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
+}
