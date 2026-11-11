@@ -24,8 +24,9 @@ timeout_minutes = 10
 # tools-ci, tools-qa and github-scripts suites. None of them needs Postgres. A full run takes 3 to 7 minutes on this
 # Mac; the timeout leaves room for a loaded machine. Sebastian, Nov 11 2026: "Yes, file the evf tasks and the
 # ci.yml/evf.toml changes; I'll do the GitHub App".
-# evf runs up to 6 check slots in parallel (`check_slots = 6` under [budget] in local.toml, T-262; Sebastian, Nov 11
-# 2026: "Yes, file a task to raise check slots to 6"). Each run is isolated: its own slot checkout with its own
+# local.toml asks evf for 6 check slots in parallel (`check_slots = 6` under [budget], T-262; Sebastian, Nov 11 2026:
+# "Yes, file a task to raise check slots to 6"). evf reads it live but runs only 3 slots today; evf-v2 T-37 tracks
+# that cap. Each run is isolated, so up to 6 can run at once: its own slot checkout with its own
 # node_modules, .next and build info, temp dirs from mkdtemp, ephemeral ports, a checks.json record per checkout and no
 # network fetch in next dev (tests/workflow/server-logs.test.mjs). Six full checks on one commit passed side by side.
 [[check]]
