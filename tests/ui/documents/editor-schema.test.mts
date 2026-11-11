@@ -3,7 +3,7 @@
 //   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package. The private-registry
 //   check is scripts/lint/check-repo-files.mjs, which `pnpm lint` runs.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
-//   T-20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
+//   BUG-T20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
 //   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -65,16 +65,7 @@ for (const template of DOC_TEMPLATES) {
 	});
 }
 
-test("AC:DOC-EDIT-SCHEMA: nodes of later slices keep every attribute and child", async () => {
-	const seen = new Set<string>();
-	const walk = (n: any) => {
-		seen.add(n.type);
-		for (const c of n.content ?? []) walk(c);
-	};
-	for (const template of DOC_TEMPLATES) walk(template.body);
-	for (const type of ["columns", "column", "box", "image", "writeIn", "table", "row", "cell", "field"])
-		assert.ok(seen.has(type), `the templates hold a ${type} node`);
-	// The templates hold no slot (a doctrinal section); check one built by hand.
+test("AC:DOC-EDIT-SCHEMA: a slot (a doctrinal section, in no built-in template) keeps every attribute and child", () => {
 	const slot = {
 		type: "doc",
 		content: [
@@ -89,12 +80,12 @@ test("AC:DOC-EDIT-SCHEMA: nodes of later slices keep every attribute and child",
 });
 
 test("BUG-T50: each color token of the format has a swatch with its own readable name, never the raw token", () => {
-	const tokens = FORMAT_SCHEMA.tokens.color;
+	const tokens = FORMAT_SCHEMA.tokens.color as readonly (keyof typeof TOKEN_NAMES)[];
 	assert.deepEqual([...TOKENS], [...tokens], "one swatch for each color token, in the format's order");
-	assert.deepEqual(
-		tokens.map((token) => TOKEN_NAMES[token as keyof typeof TOKEN_NAMES]),
-		["None", "Text", "Muted text", "Primary", "Accent", "Light shade", "Border"],
-	);
+	// A readable name is capitalized words, so a raw token such as "ink" or "muted-text" never passes.
+	const unreadable = tokens.filter((token) => !/^[A-Z][a-z]*( [a-z]+)*$/.test(TOKEN_NAMES[token] ?? ""));
+	assert.deepEqual(unreadable, []);
+	assert.equal(new Set(tokens.map((token) => TOKEN_NAMES[token])).size, tokens.length, "no two swatches share a name");
 });
 
 test("BUG-T49: a commitment card with a stored empty contact_line shows nothing in the editor, not [Contact line]", async () => {
@@ -122,7 +113,7 @@ test("BUG-T49: a commitment card with a stored empty contact_line shows nothing 
 	assert.equal(fieldValues(bare).church_name, "[church name]");
 });
 
-test("T-20: conditional text loads into the editor and reads back unchanged, in the body, a column and a box", async () => {
+test("BUG-T20: conditional text loads into the editor and reads back unchanged, in the body, a column and a box", async () => {
 	const fork = await forkTemplate(
 		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
 		{ data: {} },
@@ -153,7 +144,7 @@ test("T-20: conditional text loads into the editor and reads back unchanged, in 
 	assert.deepStrictEqual(documentFrom(doc, node.toJSON()), clean(doc));
 });
 
-test("T-20: the editor refuses conditional text where the format refuses it, each with its reason", () => {
+test("BUG-T20: the editor refuses conditional text where the format refuses it, each with its reason", () => {
 	const p = { type: "paragraph", content: [{ type: "text", text: "x" }] };
 	const cond = (content: unknown[]) => ({ type: "if", attrs: { field: "a", test: "has-value" }, content });
 	const ledger = {

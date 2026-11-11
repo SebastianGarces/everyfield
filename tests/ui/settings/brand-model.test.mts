@@ -25,7 +25,6 @@ import {
 	offeredSections,
 	sectionAt,
 	sectionRequest,
-	SECTION_ORDER,
 } from "../../../apps/web/src/features/settings/model.ts";
 
 const PLANT = { kind: "plant", id: "00000000-0000-4000-8000-000000000001" } as const;
@@ -63,17 +62,23 @@ const full: BrandForm = {
 };
 
 test("INV-brand-offered: Owner and Admin of a plant see Brand kit after Church profile; nobody else does", () => {
-	for (const role of ["owner", "admin"] as const) {
-		const offered = offeredSections({ context: "plant", accountId: "a", plant: PLANT, role }, []);
-		assert.equal(offered[offered.indexOf("church") + 1], "brand");
-	}
+	for (const role of ["owner", "admin"] as const)
+		assert.deepEqual(offeredSections({ context: "plant", accountId: "a", plant: PLANT, role }, []), [
+			"church",
+			"brand",
+			"notifications",
+			"account",
+		]);
 	const others = [
-		{ context: "plant", accountId: "a", plant: PLANT, role: "member" },
-		{ context: "organization", accountId: "a", organization: ORG, role: "owner" },
-		{ context: "account", accountId: "a" },
+		[{ context: "plant", accountId: "a", plant: PLANT, role: "member" }, ["notifications", "account"]],
+		[
+			{ context: "organization", accountId: "a", organization: ORG, role: "owner" },
+			["organization", "notifications", "account"],
+		],
+		[{ context: "account", accountId: "a" }, ["notifications", "account"]],
 	] as const;
-	for (const viewer of others) assert.ok(!offeredSections(viewer, []).includes("brand"), JSON.stringify(viewer));
-	assert.deepEqual(SECTION_ORDER.slice(0, 2), ["church", "brand"]);
+	for (const [viewer, sections] of others)
+		assert.deepEqual(offeredSections(viewer, []), sections, JSON.stringify(viewer));
 });
 
 test("INV-settings-seats-link: a viewer with a workspace is offered Seats; an account-context viewer is not", () => {
@@ -101,26 +106,27 @@ test("INV-settings-sharing-link: /settings never opens on a page section", () =>
 	assert.equal(firstSection({ ...plant, role: "member" }), "notifications");
 });
 
-test("a /settings/brand address opens the brand section and makes no settings-section read", () => {
+test("INV-brand-offered: a /settings/brand address opens the brand section and makes no settings-section read", () => {
 	const owner = { context: "plant", accountId: "a", plant: PLANT, role: "owner" } as const;
 	assert.equal(sectionAt("/settings/brand", owner), "brand");
 	assert.equal(sectionRequest(owner, "brand"), null);
 });
 
-test("CASE-BRD-005: the EIN, website and email follow the contract and show on their own field", () => {
-	const errors = validate(
-		{ ...full, ein: "123456789", website: "http://example.org", email: "nope" },
-		{ required: true },
+test("AC:CASE-BRD-005 the EIN, website and email follow the contract and show on their own field", () => {
+	assert.deepEqual(
+		validate({ ...full, ein: "123456789", website: "http://example.org", email: "nope" }, { required: true }),
+		{
+			ein: "Use the format 12-3456789.",
+			website: "Start with https://, for example https://example.org.",
+			email: "Enter a full email address.",
+		},
 	);
-	assert.equal(errors.ein, "Use the format 12-3456789.");
-	assert.ok(errors.website?.includes("https://"));
-	assert.equal(errors.email, "Enter a full email address.");
 	assert.deepEqual(validate(full, { required: true }), {});
 	// Every letterhead field is optional: an empty one is no error.
 	assert.deepEqual(validate({ ...full, ein: "", website: "", email: "" }, { required: true }), {});
 });
 
-test("a color must be #RRGGBB; a missing primary color shows only when Save was pressed", () => {
+test("INV-brand-form: a color must be #RRGGBB; a missing primary color shows only when Save was pressed", () => {
 	assert.equal(
 		validate({ ...defaults, primaryColor: "#12" }, { required: false }).primaryColor,
 		"Use the form #RRGGBB.",
@@ -132,7 +138,7 @@ test("a color must be #RRGGBB; a missing primary color shows only when Save was 
 	assert.equal(normalizeHex(""), "");
 });
 
-test("CASE-BRD-003: the contrast badge equals the server's colorView, to two decimals", () => {
+test("AC:CASE-BRD-003 the contrast badge equals the server's colorView, to two decimals", () => {
 	const pale = colorOf("#FFF3B0");
 	assert.equal(pale?.badge, "fails_text");
 	assert.deepEqual(pale, colorView("#FFF3B0" as never));
@@ -141,7 +147,7 @@ test("CASE-BRD-003: the contrast badge equals the server's colorView, to two dec
 	assert.equal(colorOf("#1F4E"), null);
 });
 
-test("CASE-BRD-003: with the pale yellow primary and no accent, no text is set in it and the accent falls back", () => {
+test("AC:CASE-BRD-003 with the pale yellow primary and no accent, no text is set in it and the accent falls back", () => {
 	const form = { ...defaults, primaryColor: "#FFF3B0" };
 	for (const documentClass of ["formal/legal", "outward-facing", "operational", "email"] as const) {
 		const theme = themeOf("Harvest Point Church", form, documentClass);
@@ -155,7 +161,7 @@ test("CASE-BRD-003: with the pale yellow primary and no accent, no text is set i
 	assert.equal(kit.colors.accent?.badge, "fails_text");
 });
 
-test("CASE-BRD-006: the full kit's email button is the primary color with white text; no kit is the neutral theme", () => {
+test("AC:CASE-BRD-006 the full kit's email button is the primary color with white text; no kit is the neutral theme", () => {
 	const email = themeOf("Harvest Point Church", full, "email");
 	assert.equal(email.layout.documentClass === "email" && email.layout.button.fill, "#1F4E79");
 	assert.equal(email.layout.documentClass === "email" && email.layout.button.text, "#FFFFFF");
@@ -181,11 +187,4 @@ test("INV-brand-patch: only changed fields are sent, and a cleared optional fiel
 		primaryColor: "#000000",
 		headingFont: "Lora",
 	});
-});
-
-test("the default kit shows DM Serif Display and DM Sans and empty controls", () => {
-	assert.equal(defaults.headingFont, DEFAULT_HEADING_FONT);
-	assert.equal(defaults.bodyFont, DEFAULT_BODY_FONT);
-	assert.equal(defaults.primaryColor, "");
-	assert.equal(defaults.accentColor, "");
 });

@@ -5,8 +5,8 @@
 //   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal or a changed payload
 //     gets a new key.
 //   INV-revision: an older revision never replaces a newer saved person.
-//   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the end of a fully loaded
-//     list, a known entry is replaced in place, and while later pages are unloaded the loaded pages stay as they are.
+//   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the top (newest first),
+//     a known entry is replaced in place, and that holds while older pages are still unloaded.
 //   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
 //     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";

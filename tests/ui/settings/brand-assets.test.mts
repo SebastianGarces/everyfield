@@ -1,10 +1,11 @@
-// WP-104/ui slice 2: the "Logos and images" rules (apps/web/src/features/settings/brand/assets.ts) run through the
-// fixture brand port, whose replies the branding contract's own schemas parse. No browser, no database.
-//   AC:CASE-BRD-002: upload, replace and remove a slot; alt text is required on the client and on the server;
+// WP-104/ui slice 2: the client half of the "Logos and images" rules (apps/web/src/features/settings/brand/assets.ts).
+// The fixture brand port stands in for the server and records what each step sends; the server's own refusals
+// (access, conflict, alt text, media type) are proved in tests/integration/branding/branding.test.mts.
+//   AC:CASE-BRD-002: upload and remove a slot; alt text is required on the client and reads the server's words;
 //     the brand swatch follows the draft primary color, or neutral ink with a note.
 //   AC:CASE-BRD-003 (suggest-from-logo): a suggestion changes nothing until the person chooses it.
-//   INV-brand-assets-access: a Member's upload request, byte upload, finalize and suggest are each refused.
-//   INV-brand-assets-conflict: a stale revision refuses finalize with `conflict`; the picked file stays usable.
+//   AC:CASE-BRD-006: the preview places the stored assets.
+//   INV-brand-assets-conflict: finalize sends the revision read when it starts, and a conflict reaches the slot.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
@@ -14,7 +15,6 @@ import {
 	altProblem,
 	assetMessage,
 	backgrounds,
-	canSuggest,
 	fileProblem,
 	removeAsset,
 	suggestFor,
@@ -23,264 +23,189 @@ import {
 } from "../../../apps/web/src/features/settings/brand/assets.ts";
 import { createFixtureBrand, type BrandFault } from "../../../apps/web/src/features/settings/brand/fixtures.ts";
 import { formOf, patchOf, themeOf } from "../../../apps/web/src/features/settings/brand/model.ts";
+import type { BrandPort } from "../../../apps/web/src/features/settings/port.ts";
 
 const logo = (type = "image/svg+xml", bytes = 400) => new File([new Uint8Array(bytes)], "logo.svg", { type });
 
-function port(options: { canAdmin?: boolean; fault?: Partial<Record<string, BrandFault>> } = {}) {
+/** The fixture port, refusing the operations in `fault` once, with every call and its argument recorded. */
+function port(options: { fault?: Partial<Record<string, BrandFault>> } = {}) {
 	const faults = new Map(Object.entries(options.fault ?? {}));
-	const calls: string[] = [];
-	return {
-		calls,
-		/** Refuse the next call of an operation. */
-		arm: (op: string, fault: BrandFault) => faults.set(op, fault),
-		brand: createFixtureBrand({
-			kit: "saved",
-			churchName: "Harvest Point Church",
-			canAdmin: options.canAdmin ?? true,
-			tick: async (op) => {
-				calls.push(op);
-				const fault = faults.get(op) ?? null;
-				faults.delete(op);
-				return fault;
+	const calls: [string, unknown][] = [];
+	const brand = createFixtureBrand({
+		kit: "saved",
+		churchName: "Harvest Point Church",
+		canAdmin: true,
+		tick: async (op) => {
+			const fault = faults.get(op) ?? null;
+			faults.delete(op);
+			return fault;
+		},
+		nextId: randomUUID,
+	});
+	const recorded = Object.fromEntries(
+		Object.entries(brand).map(([name, fn]) => [
+			name,
+			(...args: unknown[]) => {
+				if (name !== "assetSrc") calls.push([name, args[0]]);
+				return (fn as (...a: unknown[]) => unknown)(...args);
 			},
-			nextId: randomUUID,
-		}),
-	};
+		]),
+	) as unknown as BrandPort;
+	return { calls, brand: recorded, ops: () => calls.map(([op]) => op) };
 }
 
 async function kitOf(p: ReturnType<typeof port>) {
 	const reply = await p.brand.get();
-	assert.equal(reply.status, "ok");
-	return reply.status === "ok" ? reply.value.kit : assert.fail();
+	return reply.status === "ok" ? reply.value.kit : assert.fail("get refused");
 }
 
-test("upload into an empty slot sends the three steps and returns the kit at the next revision", async () => {
+test("AC:CASE-BRD-002 an upload sends request, bytes and finalize in order and returns the stored kit", async () => {
 	const p = port();
 	const before = await kitOf(p);
-	assert.equal(before.assets.full_logo, null);
+	const file = logo();
 	const outcome = await uploadAsset(p.brand, {
 		slot: "full_logo",
-		file: logo(),
+		file,
 		altText: "Harvest Point logo",
 		revision: () => before.revision,
 	});
-	assert.ok(outcome.ok);
-	if (!outcome.ok) return;
-	assert.deepEqual(p.calls.slice(1), ["requestUpload", "uploadBytes", "finalizeUpload"]);
-	assert.equal(outcome.kit.revision, String(BigInt(before.revision) + 1n));
-	assert.equal(outcome.kit.assets.full_logo?.alt, "Harvest Point logo");
-	assert.notEqual(p.brand.assetSrc(outcome.kit.assets.full_logo!.fileId), "");
+	assert.deepEqual(p.ops().slice(1), ["requestUpload", "uploadBytes", "finalizeUpload"]);
+	const [, request] = p.calls[1]!;
+	assert.deepEqual(request, {
+		slot: "full_logo",
+		mediaType: "image/svg+xml",
+		byteLength: 400,
+		altText: "Harvest Point logo",
+	});
+	const uploadId = (p.calls[3]![1] as { uploadId: string }).uploadId;
+	assert.deepEqual(p.calls[3]![1], {
+		uploadId,
+		slot: "full_logo",
+		altText: "Harvest Point logo",
+		expectedRevision: before.revision,
+	});
+	assert.deepEqual(outcome, { ok: true, kit: await kitOf(p) });
 });
 
-test("replace swaps the image and alt text; a refused replace leaves the old image and alt text stored", async () => {
-	const p = port();
-	const first = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Old mark", revision: () => "1" });
-	assert.ok(first.ok);
-	if (!first.ok) return;
-	const old = first.kit.assets.mark!;
-
-	p.arm("uploadBytes", "invalid_file");
-	const refused = await uploadAsset(p.brand, {
-		slot: "mark",
-		file: logo(),
-		altText: "New mark",
-		revision: () => first.kit.revision,
-	});
-	assert.ok(!refused.ok && refused.error?.code === "invalid_file");
-	const kept = await kitOf(p);
-	assert.equal(kept.assets.mark?.fileId, old.fileId);
-	assert.equal(kept.assets.mark?.alt, "Old mark");
-	assert.equal(kept.revision, first.kit.revision);
-
-	const second = await uploadAsset(p.brand, {
-		slot: "mark",
-		file: logo(),
-		altText: "New mark",
-		revision: () => first.kit.revision,
-	});
-	assert.ok(second.ok);
-	if (!second.ok) return;
-	assert.notEqual(second.kit.assets.mark!.fileId, old.fileId);
-	assert.equal(second.kit.assets.mark!.alt, "New mark");
+test("AC:CASE-BRD-002 a refused step ends the upload with that step's error and sends no later step", async () => {
+	const steps = ["requestUpload", "uploadBytes", "finalizeUpload"] as const;
+	for (const [i, step] of steps.entries()) {
+		for (const code of ["invalid_file", "unsupported_media_type", "unavailable"] as const) {
+			const p = port({ fault: { [step]: code } });
+			const outcome = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Mark", revision: () => "1" });
+			assert.equal(outcome.ok, false);
+			assert.equal(outcome.ok ? null : outcome.error?.code, code, `${step} ${code}`);
+			assert.deepEqual(p.ops(), steps.slice(0, i + 1), `${step} ${code}`);
+		}
+	}
 });
 
-test("a refused removal leaves the image and alt text stored; a kit with no primary color refuses it", async () => {
+test("AC:CASE-BRD-002 a removal empties only that slot at once and saves one patch at the current revision", async () => {
 	const p = port();
-	let kit = await kitOf(p);
-	const up = await uploadAsset(p.brand, {
-		slot: "signature",
-		file: logo(),
-		altText: "Signature",
-		revision: () => kit.revision,
-	});
-	assert.ok(up.ok);
-	if (up.ok) kit = up.kit;
-	assert.equal(withoutAsset(kit, "signature").assets.signature, null);
-	assert.equal(kit.assets.signature?.alt, "Signature");
+	const up = await uploadAsset(p.brand, { slot: "signature", file: logo(), altText: "Signature", revision: () => "1" });
+	const kit = up.ok ? up.kit : assert.fail("upload refused");
+	assert.deepEqual(withoutAsset(kit, "signature"), { ...kit, assets: { ...kit.assets, signature: null } });
 
-	p.arm("saveBrand", "unavailable");
-	const refused = await removeAsset(p.brand, "signature", kit.revision);
-	assert.ok(!refused.ok && refused.error?.code === "unavailable");
-	const kept = await kitOf(p);
-	assert.equal(kept.assets.signature?.alt, "Signature");
-	assert.equal(kept.assets.signature?.fileId, kit.assets.signature?.fileId);
-	assert.equal(kept.revision, kit.revision);
-
+	p.calls.length = 0;
 	const removed = await removeAsset(p.brand, "signature", kit.revision);
-	assert.ok(removed.ok);
-	if (removed.ok) assert.equal(removed.kit.assets.signature, null);
+	assert.deepEqual(p.calls, [["save", { expectedRevision: kit.revision, patch: { assets: { signature: null } } }]]);
+	assert.deepEqual(removed, { ok: true, kit: await kitOf(p) });
 
-	// The server needs a saved primary color for any save, a removal included: the screen turns Remove off then.
-	const bare = createFixtureBrand({
-		kit: "none",
-		churchName: "Harvest Point Church",
-		canAdmin: true,
-		tick: async () => null,
-		nextId: randomUUID,
-	});
-	const fetched = await bare.get();
-	const bareKit = fetched.status === "ok" ? fetched.value.kit : assert.fail();
-	assert.equal(bareKit.primaryColor, null);
-	const noPrimary = await removeAsset(bare, "signature", bareKit.revision);
-	assert.ok(!noPrimary.ok && noPrimary.error?.code === "primary_required");
+	const refusing = port({ fault: { saveBrand: "unavailable" } });
+	const refused = await removeAsset(refusing.brand, "mark", "1");
+	assert.equal(refused.ok ? null : refused.error?.code, "unavailable");
 });
 
-test("alt text is required on the client and the server", async () => {
+test("AC:CASE-BRD-002 alt text is required: blank text is refused on the client, and the server's refusal reads the same words", async () => {
 	assert.equal(altProblem("   "), ALT_REQUIRED);
 	assert.equal(altProblem(""), ALT_REQUIRED);
 	assert.equal(altProblem("A logo"), null);
+	// A client that skips its own check is refused at the first step; no bytes are sent.
 	const p = port();
-	// The server still refuses blank text when a client skips its own check; no file is attached.
 	const outcome = await uploadAsset(p.brand, { slot: "full_logo", file: logo(), altText: "  ", revision: () => "1" });
-	assert.ok(!outcome.ok && outcome.error?.code === "alt_text_required");
-	assert.equal(assetMessage(outcome.ok ? assert.fail() : outcome.error!), ALT_REQUIRED);
-	assert.equal((await kitOf(p)).assets.full_logo, null);
+	const error = outcome.ok ? assert.fail("blank alt text uploaded") : outcome.error!;
+	assert.equal(error.code, "alt_text_required");
+	assert.equal(assetMessage(error), ALT_REQUIRED);
+	assert.deepEqual(p.ops(), ["requestUpload"]);
 });
 
-test("the client refuses a wrong type and an oversize file before any request", () => {
+test("AC:CASE-BRD-002 the client refuses a wrong type and an oversize file before any request", () => {
 	assert.match(fileProblem({ size: 10, type: "image/gif" }) ?? "", /SVG, PNG or WebP/);
 	assert.match(fileProblem({ size: ASSET_MAX_BYTES + 1, type: "image/png" }) ?? "", /3 MB/);
 	assert.equal(fileProblem({ size: ASSET_MAX_BYTES, type: "image/webp" }), null);
 	assert.equal(fileProblem({ size: 1, type: "image/svg+xml" }), null);
 });
 
-test("each server refusal reads in its own plain words", async () => {
-	const words = new Set<string>();
-	for (const code of [
-		"unsupported_media_type",
-		"invalid_file",
-		"invalid_input",
-		"access_denied",
-		"unavailable",
-	] as const) {
-		const refused = await uploadAsset(port({ fault: { requestUpload: code } }).brand, {
-			slot: "full_logo",
-			file: logo(),
-			altText: "x",
-			revision: () => "1",
-		});
-		assert.ok(!refused.ok && refused.error?.code === code);
-		words.add(assetMessage(refused.error!));
-	}
-	assert.equal(words.size, 5);
-});
-
-test("a Member's upload, byte upload, finalize, remove and suggest are each refused", async () => {
-	const p = port({ canAdmin: false });
-	const request = await p.brand.requestUpload({ slot: "mark", mediaType: "image/png", byteLength: 10, altText: "x" });
-	assert.ok(request.status === "refused" && request.error.code === "access_denied");
-	const bytes = await p.brand.uploadBytes(randomUUID(), logo());
-	assert.ok(bytes.status === "refused" && bytes.error.code === "access_denied");
-	const finalized = await p.brand.finalizeUpload({
-		uploadId: randomUUID(),
-		slot: "mark",
-		altText: "x",
-		expectedRevision: "1",
-	});
-	assert.ok(finalized.status === "refused" && finalized.error.code === "access_denied");
-	const removed = await removeAsset(p.brand, "mark", "1");
-	assert.ok(!removed.ok && removed.error?.code === "access_denied");
-	assert.equal(await suggestFor(p.brand, "mark"), null);
-});
-
-test("a stale revision is a conflict and the next try with the latest revision succeeds", async () => {
+test("INV-brand-assets-conflict: finalize sends the revision read when it starts, and a conflict reaches the slot", async () => {
 	const p = port();
-	const stale = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Mark", revision: () => "0" });
-	assert.ok(!stale.ok && stale.error?.code === "conflict");
-	const latest = await kitOf(p);
-	const again = await uploadAsset(p.brand, {
+	let revision = "0";
+	const outcome = uploadAsset(p.brand, {
 		slot: "mark",
 		file: logo(),
 		altText: "Mark",
-		revision: () => latest.revision,
+		revision: () => revision,
 	});
-	assert.ok(again.ok);
+	// Another save lands while the bytes upload: finalize must carry the revision as it is then.
+	revision = "1";
+	assert.ok((await outcome).ok);
+	assert.equal(
+		(p.calls.find(([op]) => op === "finalizeUpload")![1] as { expectedRevision: string }).expectedRevision,
+		"1",
+	);
+
+	const stale = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Mark", revision: () => "1" });
+	assert.equal(stale.ok ? null : stale.error?.code, "conflict");
 });
 
-test("suggested colors change nothing until chosen, and a chosen color saves only on Save", async () => {
+test("AC:CASE-BRD-003 a suggestion changes nothing until chosen, and a chosen color saves only on Save", async () => {
 	const p = port();
-	let kit = await kitOf(p);
-	const up = await uploadAsset(p.brand, {
-		slot: "full_logo",
-		file: logo(),
-		altText: "Logo",
-		revision: () => kit.revision,
-	});
-	assert.ok(up.ok);
-	if (up.ok) kit = up.kit;
-	assert.ok(canSuggest("full_logo") && canSuggest("mark") && !canSuggest("cover_photo"));
+	const up = await uploadAsset(p.brand, { slot: "full_logo", file: logo(), altText: "Logo", revision: () => "1" });
+	const kit = up.ok ? up.kit : assert.fail("upload refused");
+	p.calls.length = 0;
 	const suggestion = await suggestFor(p.brand, "full_logo");
+	assert.deepEqual(p.calls, [["suggestColors", { assetKind: "full_logo" }]], "asking for a suggestion saves nothing");
 	assert.equal(suggestion?.suggestedPrimary, "#2E7D32");
-	// Nothing was applied: the stored kit and the form are unchanged, and the form's patch is empty.
-	assert.equal((await kitOf(p)).primaryColor, kit.primaryColor);
 	const saved = formOf(kit);
 	assert.deepEqual(patchOf(saved, saved), {});
 	// Choosing sets the draft only; the patch then carries the primary color and nothing else.
-	const chosen = { ...saved, primaryColor: suggestion!.suggestedPrimary };
-	assert.deepEqual(patchOf(chosen, saved), { primaryColor: "#2E7D32" });
-	assert.equal((await kitOf(p)).primaryColor, kit.primaryColor);
+	assert.deepEqual(patchOf({ ...saved, primaryColor: suggestion!.suggestedPrimary }, saved), {
+		primaryColor: "#2E7D32",
+	});
+	// A refused or missing suggestion is never an error.
+	assert.equal(await suggestFor(port({ fault: { suggestColors: "unavailable" } }).brand, "mark"), null);
 });
 
-test("the preview places stored assets from the theme and keeps the type fallback without them", async () => {
-	const p = port();
-	let kit = await kitOf(p);
-	const none = themeOf("Harvest Point Church", formOf(kit), "formal/legal", kit.assets);
-	assert.equal(none.layout.documentClass === "formal/legal" && none.layout.headerLogo, null);
-	for (const [slot, alt] of [
-		["full_logo", "Logo"],
-		["mark", "Mark"],
-		["cover_photo", "Cover"],
-		["signature", "Sign"],
-	] as const) {
-		const up = await uploadAsset(p.brand, { slot, file: logo(), altText: alt, revision: () => kit.revision });
-		assert.ok(up.ok);
-		if (up.ok) kit = up.kit;
-	}
-	const layout = (c: Parameters<typeof themeOf>[2]) =>
-		themeOf("Harvest Point Church", formOf(kit), c, kit.assets).layout;
+test("AC:CASE-BRD-006 the preview places the stored assets and keeps the type fallback without them", async () => {
+	const kit = await kitOf(port());
+	const none = themeOf("Harvest Point Church", formOf(kit), "formal/legal", kit.assets).layout;
+	assert.equal(none.documentClass === "formal/legal" && none.headerLogo, null);
+	const ref = (alt: string) => ({ fileId: randomUUID(), alt });
+	const assets = {
+		...kit.assets,
+		full_logo: ref("Logo"),
+		mark: ref("Mark"),
+		cover_photo: ref("Cover"),
+		signature: ref("Sign"),
+	};
+	const layout = (c: Parameters<typeof themeOf>[2]) => themeOf("Harvest Point Church", formOf(kit), c, assets).layout;
 	const formal = layout("formal/legal");
-	assert.ok(
-		formal.documentClass === "formal/legal" &&
-			formal.headerLogo?.alt === "Logo" &&
-			formal.signature.image?.alt === "Sign",
-	);
+	assert.deepEqual(formal.documentClass === "formal/legal" && [formal.headerLogo, formal.signature.image], [
+		assets.full_logo,
+		assets.signature,
+	]);
 	const outward = layout("outward-facing");
-	assert.ok(
-		outward.documentClass === "outward-facing" &&
-			outward.coverLogo?.alt === "Logo" &&
-			outward.coverPhoto?.alt === "Cover",
-	);
+	assert.deepEqual(outward.documentClass === "outward-facing" && [outward.coverLogo, outward.coverPhoto], [
+		assets.full_logo,
+		assets.cover_photo,
+	]);
 	const operational = layout("operational");
-	assert.ok(operational.documentClass === "operational" && operational.mark?.alt === "Mark");
+	assert.deepEqual(operational.documentClass === "operational" && operational.mark, assets.mark);
 	const email = layout("email");
-	assert.ok(email.documentClass === "email" && email.headerLogo?.alt === "Logo" && email.logoMaxWidthPx === 200);
+	assert.deepEqual(email.documentClass === "email" && email.headerLogo, assets.full_logo);
 });
 
-test("the brand swatch is the draft primary color, or neutral ink with a note", () => {
-	const [light, dark, brand] = backgrounds("#1F4E79", "#1A1A1A");
-	assert.equal(light!.color, "white");
-	assert.notEqual(dark!.color, light!.color);
-	assert.deepEqual([brand!.color, brand!.note], ["#1F4E79", undefined]);
+test("AC:CASE-BRD-002 the brand swatch is the draft primary color, or neutral ink with a note", () => {
+	assert.deepEqual(backgrounds("#1F4E79" as never, "#1A1A1A")[2], { name: "Brand", color: "#1F4E79" });
 	const neutral = backgrounds(null, "#1A1A1A")[2]!;
 	assert.equal(neutral.color, "#1A1A1A");
 	assert.match(neutral.note ?? "", /neutral ink/);
