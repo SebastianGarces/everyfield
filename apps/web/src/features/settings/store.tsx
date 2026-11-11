@@ -118,7 +118,8 @@ export function SettingsProvider({
 		[],
 	);
 	const remember = useCallback(
-		(cacheKey: string, value: SectionResult) => setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
+		(cacheKey: string, value: SectionResult) =>
+			setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
 		[],
 	);
 	const value = useMemo(

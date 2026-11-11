@@ -1,7 +1,16 @@
 "use client";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, CalloutLabel, CalloutText, Card, SegmentedControl, Skeleton, Spinner, Switch } from "@everyfield/ui/controls";
+import {
+	Button,
+	CalloutLabel,
+	CalloutText,
+	Card,
+	SegmentedControl,
+	Skeleton,
+	Spinner,
+	Switch,
+} from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { preferenceRows } from "../model";

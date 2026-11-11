@@ -16,7 +16,9 @@ const CONFLICT = "Someone changed this after you opened it.";
 async function open(page, section) {
 	await page.goto(`${BASE}/design/settings/${section}?as=owner&delay=150`, { waitUntil: "networkidle" });
 	await hydrated(page);
-	await page.getByRole("heading", { level: 2, name: section === "account" ? "Your account" : "Notifications" }).waitFor();
+	await page
+		.getByRole("heading", { level: 2, name: section === "account" ? "Your account" : "Notifications" })
+		.waitFor();
 }
 
 /** Every save so far was accepted: no refusal shows anywhere on the page. */
@@ -33,7 +35,9 @@ async function saveName(page, name) {
 	// The save landed when Save is disabled again with the name kept (a refusal leaves it enabled with an alert).
 	await page.waitForFunction(
 		() => {
-			const button = [...document.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent.trim() === "Save");
+			const button = [...document.querySelectorAll('[role="dialog"] button')].find(
+				(b) => b.textContent.trim() === "Save",
+			);
 			return button?.disabled || document.querySelector('[role="alert"]');
 		},
 		null,
@@ -76,7 +80,11 @@ async function chooseZone(page, search, city) {
 	await use.click();
 	await zoneDialog.waitFor({ state: "detached" });
 	await page.locator("[data-personal-zone]").filter({ hasText: city }).waitFor();
-	await page.getByRole("status").filter({ hasText: "Saving…" }).waitFor({ state: "detached" }).catch(() => undefined);
+	await page
+		.getByRole("status")
+		.filter({ hasText: "Saving…" })
+		.waitFor({ state: "detached" })
+		.catch(() => undefined);
 	// The section reads itself again after the save.
 	await page.waitForTimeout(400);
 	await noRefusal(page);
