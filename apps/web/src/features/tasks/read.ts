@@ -2,7 +2,7 @@ import * as c from "@everyfield/contracts/tasks";
 import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
-import { parseQuery, type Outcome } from "./model.ts";
+import { type Outcome } from "./model.ts";
 import { loadTask, read, reader, taskViewer, templates, type TaskViewer } from "./server.ts";
 
 // GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
