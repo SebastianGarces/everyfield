@@ -337,6 +337,26 @@ export const taskReader = {
 			});
 		});
 	},
+	/** The list rows of the named live tasks of the church, without the list's search, order or count. One statement. */
+	async listRows(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.taskRowsRequest, raw);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT ${columns}, ${views}, row_number() OVER (ORDER BY t.id) AS ord ${joins}
+				WHERE t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL AND t.id=ANY(${sql.param(v.taskIds)}::uuid[])`,
+			);
+			const asOf = v.asOf ?? now();
+			return c.taskRows.parse({
+				items: z
+					.array(taskRow)
+					.parse(found)
+					.map((row) => itemOf(row, asOf)),
+			});
+		});
+	},
 	/** Top-level tallies and checklist units over the list's scope. One statement. */
 	async count(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
