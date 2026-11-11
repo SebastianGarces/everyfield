@@ -126,6 +126,15 @@ describe("T-19 compare a document with its template (no database)", () => {
 		assert.deepEqual(compareWithTemplate(fork, v1), []);
 	});
 
+	test("criterion 3: a block that spells out its default attributes equals one that leaves them out", async () => {
+		// The editor writes the defaults once a person picks a style and picks the default back (Lead, then Body).
+		const fork = await forkTemplate(v1);
+		const at = fork.body.content.findIndex((block) => block.type === "paragraph" && !block.attrs);
+		assert.notEqual(at, -1, "the template has a paragraph with no attrs");
+		fork.body.content[at] = { ...fork.body.content[at], attrs: { align: "left", style: "body" } };
+		assert.deepEqual(compareWithTemplate(fork, v1), []);
+	});
+
 	test("criterion 5: accepting one difference applies only it; accept all gives the template's body", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);

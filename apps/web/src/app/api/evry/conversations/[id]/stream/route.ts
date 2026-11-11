@@ -12,13 +12,16 @@ export const maxDuration = 300;
  */
 export const GET = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
 	const { id } = await params;
-	const after = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? 0);
+	const given = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? 0);
+	// One cursor for the check and the stream: a malformed value reads from the start instead of opening a stream that
+	// then fails.
+	const after = Number.isInteger(given) && given >= 0 ? given : 0;
 	let db, actor;
 	try {
 		db = evryDatabase();
 		actor = await requestActor();
 		// A foreign or missing conversation answers like any other refused read, before the stream opens.
-		await readConversation(db, actor, id, Number.isInteger(after) && after >= 0 ? after : 0);
+		await readConversation(db, actor, id, after);
 	} catch (error) {
 		return errorResponse(error);
 	}
