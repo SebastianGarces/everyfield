@@ -42,6 +42,3 @@ export const changePasswordRequest = z
 	.refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords must match" });
 export const verifyEmailRequest = z.strictObject({ proof });
 export const selfSessionRequest = z.strictObject({});
-export const registrationContextRequest = z.strictObject({ invitationProof: proof.optional() });
-export type RegistrationRequest = z.infer<typeof registrationRequest>;
-export type ResumeRegistrationRequest = z.infer<typeof resumeRegistrationRequest>;
