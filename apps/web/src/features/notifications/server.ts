@@ -13,8 +13,10 @@ import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
 
-const MOUNT: unique symbol = Symbol.for("everyfield.web.notifications");
-const slot = globalThis as { [MOUNT]?: { url: string; mount: Mount } };
+// One producer per module instance, never shared on globalThis: Next loads this module once per layer (the read route
+// handler and the server actions), and the producer's write gate finds the request actor by its own module's identity.
+// A producer the read route made first refused every mark from an action as unavailable.
+let slot: { url: string; mount: Mount } | undefined;
 
 /**
  * The producer for this server. Email opt-out needs its own key ring in NOTIFICATION_OPT_OUT_KEYS (REQ-NTF-012: a
@@ -26,12 +28,12 @@ export function notificationsMount(): Mount | null {
 	const db = requestDatabase();
 	const url = process.env.IDENTITY_DATABASE_URL;
 	if (!db || !url) return null;
-	if (slot[MOUNT]?.url !== url) {
+	if (slot?.url !== url) {
 		const ring = parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS);
 		const producer = createNotificationProducer({ optOutKeys: ring ?? { current: randomBytes(32) } });
-		slot[MOUNT] = { url, mount: { db, producer, optOut: ring !== null } };
+		slot = { url, mount: { db, producer, optOut: ring !== null } };
 	}
-	return slot[MOUNT].mount;
+	return slot.mount;
 }
 
 /** The request's verified actor, or null when signed out. Any active account has a feed, with or without a seat. */

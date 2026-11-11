@@ -126,14 +126,21 @@ test("INV-counts: a confirmed change moves one task between tallies; a deleted t
 	};
 	const before = { status: "not_started", priority: "medium", category: "general" };
 	const done = countsAfter(counts, before, { ...before, status: "complete" });
-	assert.equal(done.topLevelTotal, 2);
-	assert.deepEqual(done.byStatus, [
-		{ value: "not_started", count: 1 },
-		{ value: "complete", count: 1 },
-	]);
+	assert.deepEqual(done, {
+		...counts,
+		byStatus: [
+			{ value: "not_started", count: 1 },
+			{ value: "complete", count: 1 },
+		],
+	});
 	const gone = countsAfter(done, { ...before, status: "complete" }, null);
-	assert.equal(gone.topLevelTotal, 1);
-	assert.deepEqual(gone.byStatus, [{ value: "not_started", count: 1 }]);
+	assert.deepEqual(gone, {
+		...counts,
+		topLevelTotal: 1,
+		byStatus: [{ value: "not_started", count: 1 }],
+		byPriority: [{ value: "medium", count: 1 }],
+		byCategory: [{ value: "general", count: 1 }],
+	});
 });
 
 test("INV-optimistic: changes in flight show at once; the confirmed rows stand when they fall away", () => {
@@ -313,7 +320,7 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
 
-test("com-21: an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
+test("BUG-551 (messages/com-21): an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
 	const text = problemText("owner_ineligible", "Ana Lee");
 	assert.match(text, /^Ana Lee cannot own follow-ups now/);
 	assert.doesNotMatch(text, /Your seat/);
@@ -321,7 +328,7 @@ test("com-21: an owner_ineligible refusal names the assignee, not the viewer's s
 	assert.match(problemText("access_denied"), /Your seat may have changed/);
 });
 
-test("com-21: an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
+test("BUG-551 (messages/com-21): an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
 	const refusal = {
 		status: "refused",
 		code: "owner_ineligible",
@@ -345,7 +352,7 @@ test("com-21: an owner_ineligible refusal forgets the cached assignee lists and 
 	assert.deepEqual(calls, [], "another refusal keeps the cached lists");
 });
 
-test("com-21: every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
+test("BUG-551 (messages/com-21): every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
 	const viewer = "acc-viewer";
 	// A new follow-up starts with the viewer, who is on no task yet.
 	assert.deepEqual(heldAssignees([viewer], { [viewer]: "Daniel Reyes" }, [], []), [
