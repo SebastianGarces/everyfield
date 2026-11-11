@@ -47,7 +47,11 @@ const serviceSpan = z.strictObject({
 	attendanceDays: days,
 	volunteerDays: days,
 });
-export const attestCompletionRequest = commandEnvelope(z.discriminatedUnion("kind", [programCredit, serviceSpan]));
+/** A program credit names the program revision the dialog read. */
+export const attestProgramRequest = commandEnvelope(programCredit);
+/** A service span has no record revision to compare, so it carries only the request key. */
+export const attestServiceRequest = z.strictObject({ requestKey, input: serviceSpan });
+export const attestCompletionRequest = z.union([attestProgramRequest, attestServiceRequest]);
 export const revokeCompletionRequest = commandEnvelope(z.strictObject({ personId, programId: recordId }));
 export const recompleteTrainingRequest = commandEnvelope(
 	z.strictObject({ personId, programId: recordId, earnedOn: localDate }),
