@@ -94,7 +94,7 @@ export const RULES: readonly Rule[] = [
 		],
 		checks: ["docs"],
 	},
-	// The docs check runs the wiki seed check. The wiki tool's own tests run in GitHub CI's wiki job only.
+	// The docs check runs the wiki seed check. The wiki tool's own tests run in GitHub CI's tooling job only.
 	{ name: "wiki tool", paths: ["tools/wiki/**"], checks: ["docs"] },
 	{
 		name: "role prompts and evf roles",
