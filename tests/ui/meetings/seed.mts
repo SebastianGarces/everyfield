@@ -63,7 +63,9 @@ async function up() {
 			if (guestNames.length) {
 				await admin.execute(sql`UPDATE participation SET presence = 'attended', revision = revision + 1
 					WHERE meeting_id = ${id}::uuid`);
-				await admin.execute(sql`UPDATE meeting SET attendance_revision = attendance_revision + 1 WHERE id = ${id}::uuid`);
+				await admin.execute(
+					sql`UPDATE meeting SET attendance_revision = attendance_revision + 1 WHERE id = ${id}::uuid`,
+				);
 			}
 			ids.push(id);
 		}
