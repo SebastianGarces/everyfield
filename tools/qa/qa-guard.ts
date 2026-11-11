@@ -7,6 +7,9 @@ export const NEON_PROJECT = "cool-math-76767811";
 export const DEV_ENDPOINT = "ep-autumn-dew";
 export const PROD_ENDPOINT = "ep-gentle-dust";
 
+/** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
+export const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
+
 /**
  * The known QA logins. They exist only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision).
  * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126), then a second

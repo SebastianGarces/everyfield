@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	devParent,
+	FULL_ADDRESS,
 	NEON_PROJECT,
 	QA_LOGINS,
 	QA_ROLES,
@@ -107,9 +108,6 @@ function resolveHead(root: string, branch: string): string {
 	}
 	fail(`No branch ${branch} on origin or in this checkout.`);
 }
-
-/** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
-const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
 
 /**
  * The `--test-recipients` list: one or more full addresses, comma-separated, or what to fix. The value goes only to this

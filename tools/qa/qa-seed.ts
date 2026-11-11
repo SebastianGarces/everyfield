@@ -44,7 +44,7 @@ import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { queueJobs } from "../../apps/web/src/server/jobs/queue.ts";
 import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
-import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
 const CHURCH = "Harvest Point (QA)";
 /** T-255: the second church plant, with its own Owner login, so one person can belong to two churches. */
@@ -131,8 +131,7 @@ class SeedRefusal extends Error {}
 function sharedAddress(env: Readonly<Record<string, string | undefined>>): string {
 	const first = (env.QA_TEST_RECIPIENTS ?? "").split(",")[0]!.trim();
 	if (!first) return address(SHARED.label);
-	if (!/^[^\s@*]+@[^\s@*]+\.[^\s@*]+$/.test(first))
-		throw new SeedRefusal("QA_TEST_RECIPIENTS must start with one full address.");
+	if (!FULL_ADDRESS.test(first)) throw new SeedRefusal("QA_TEST_RECIPIENTS must start with one full address.");
 	return first;
 }
 
