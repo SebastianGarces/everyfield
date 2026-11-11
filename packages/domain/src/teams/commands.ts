@@ -667,9 +667,7 @@ export const teamsWriter = {
 							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
 					// Turning leadership on fills an empty leader from the occupant and never replaces one (D-561).
 					const promoted =
-						!before.leadership && after.leadership && before.leaderPersonId === null
-							? before.occupantPersonId
-							: null;
+						!before.leadership && after.leadership && before.leaderPersonId === null ? before.occupantPersonId : null;
 					if (promoted)
 						audit.writes.push(sql`UPDATE team SET leader_person_id = ${promoted}::uuid,
 						leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
