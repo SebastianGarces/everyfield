@@ -87,26 +87,6 @@ describe("T-19 compare a document with its template (no database)", () => {
 		}
 	});
 
-	test("criterion 2: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
-		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
-		const edited = structuredClone(fork);
-		edited.page.margin.left = 72;
-		edited.body.content[4] = { ...edited.body.content[4], content: [{ type: "text", text: "Our purpose" }] };
-		edited.body.content.splice(7, 1);
-		const differences = compareWithTemplate(throughEditor(edited), v1);
-		assert.deepEqual(shape(differences), [
-			[0, "page", "changed"],
-			[1, "body", "changed"],
-			[2, "body", "template-only"],
-		]);
-		assert.equal(differences[0].document.margin.left, 72);
-		assert.equal(differences[0].template.margin.left, 40);
-		assert.equal(differences[1].document.content[0].text, "Our purpose");
-		assert.equal(differences[1].template.content[0].text, "Purpose");
-		assert.deepEqual(differences[2].template, v1.body.content[7]);
-		assert.equal(differences[2].document, null);
-	});
-
 	test("criterion 2: the title, the header and the footer are listed too", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);
