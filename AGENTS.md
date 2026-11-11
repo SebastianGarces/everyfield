@@ -37,6 +37,9 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
+- The repository is public. PR bodies, commit messages and committed docs never describe an unfixed security
+  weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
+  "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Decide reversible ambiguities and record them in task notes, using `decisions`.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
