@@ -1,11 +1,11 @@
 import { accountId as parseAccountId, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { type RequestActor } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
@@ -30,17 +30,23 @@ export function createSeatService(db: Database) {
 			seat = a.context;
 		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.refuse();
 		const column = v.workspace.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
-		const rows = z.array(seatListRow).parse(
-			(
-				await db.execute(sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
+		// The caller's seat must still be live when the roster is read, in the same statement (C13).
+		const found = await liveRows(
+			db,
+			liveRead(liveAccess(authority)),
+			sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
 					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at
 				FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 				LEFT JOIN invitation inv ON inv.id=s.invitation_id AND inv.tenant_id=${v.workspace.id}
 					AND inv.state='accepted' AND inv.accepted_account_id=s.account_id
 				WHERE ${column}=${v.workspace.id} ${v.after ? sql`AND s.id>${v.after}` : sql``}
-				ORDER BY s.id LIMIT 101`)
-			).rows,
+				ORDER BY s.id LIMIT 101`,
 		);
+		if (!found) d.refuse();
+		const rows = z
+			.array(seatListRow)
+			.parse(found)
+			.sort((x, y) => (x.id < y.id ? -1 : 1));
 		const items = rows.slice(0, 100).map((s) => ({
 			seatId: s.id,
 			displayName: s.display_name,
@@ -89,34 +95,6 @@ export function createSeatService(db: Database) {
 					: { status: "unavailable" },
 			);
 		});
-	}
-	async function eligible(tx: Transaction, selected: Owner, account: string) {
-		const [s] = await tx
-			.select({ id: t.seat.id })
-			.from(t.seat)
-			.innerJoin(t.account, eq(t.account.id, t.seat.account_id))
-			.where(
-				and(
-					inWorkspace(selected),
-					eq(t.seat.account_id, account),
-					isNull(t.seat.ended_at),
-					eq(t.account.registration_state, "active"),
-					sql`${t.seat.accepted_at}<=clock_timestamp()`,
-				),
-			)
-			.for("share", { of: [t.seat, t.account] });
-		if (!s) return null;
-		const blocked = await tx
-			.select({ id: t.lifecycle_witness.id })
-			.from(t.lifecycle_witness)
-			.where(
-				and(
-					or(eq(t.lifecycle_witness.opaque_subject_id, account), eq(t.lifecycle_witness.seat_id, s.id)),
-					notInArray(t.lifecycle_witness.state, ["active", "cancelled"]),
-				),
-			)
-			.for("share");
-		return blocked.length ? null : s;
 	}
 	/**
 	 * The open duties a removal must hand off (REQ-IDN-019), in one place for remove and its review (ruling D52).
@@ -211,22 +189,23 @@ export function createSeatService(db: Database) {
 				})),
 				...programs.map((p) => ({ dutyId: p.id, expectedRevision: p.revision, kind: "program", label: p.name })),
 			].map((x) => ({ ...x, needsRecipient: x.kind === "program" }));
-			const others = await tx
-				.select({ account_id: t.seat.account_id })
-				.from(t.seat)
-				.where(and(inWorkspace(selected), isNull(t.seat.ended_at)))
-				.orderBy(asc(t.seat.id));
-			// Every active seat is checked with the same eligibility rule remove uses, so no eligible person is hidden.
-			const able: string[] = [];
-			for (const o of others)
-				if (o.account_id !== s.account_id && (await eligible(tx, selected, o.account_id))) able.push(o.account_id);
-			if (duties.length > c.MAX_REMOVAL_ITEMS || able.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
-			const recipients = [];
-			for (const id of able) {
-				const info = await tx.execute(sql`SELECT * FROM seat_identity(${id}::uuid)`);
-				const name = z.object({ display_name: z.string() }).parse(info.rows[0]).display_name;
-				recipients.push({ accountId: id, displayName: name });
-			}
+			// The same eligibility rule remove applies under its locks, read here in one statement without locks.
+			const column = selected.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
+			const recipients = z
+				.array(z.object({ account_id: z.uuid(), display_name: z.string() }))
+				.parse(
+					(
+						await tx.execute(sql`SELECT s.account_id, i.display_name
+							FROM seat s JOIN account a ON a.id=s.account_id CROSS JOIN LATERAL seat_identity(s.account_id) i
+							WHERE ${column}=${selected.id}::uuid AND s.ended_at IS NULL AND s.account_id<>${s.account_id}::uuid
+								AND a.registration_state='active' AND s.accepted_at<=clock_timestamp()
+								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=s.account_id OR w.seat_id=s.id)
+									AND w.state NOT IN ('active','cancelled'))
+							ORDER BY s.id LIMIT ${c.MAX_REMOVAL_ITEMS + 1}`)
+					).rows,
+				)
+				.map((r) => ({ accountId: r.account_id, displayName: r.display_name }));
+			if (duties.length > c.MAX_REMOVAL_ITEMS || recipients.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 			return c.removalReviewResult.parse({
 				seatId: s.id,
 				expectedRevision: s.revision,

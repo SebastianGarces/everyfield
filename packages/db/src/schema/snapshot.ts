@@ -59,4 +59,3 @@ export const snapshotShape = z
 	.passthrough();
 export const declaredSnapshot = (declarations: Record<string, unknown>) =>
 	snapshotShape.parse(generateDrizzleJson(declarations));
-export type SchemaSnapshot = z.infer<typeof snapshotShape>;

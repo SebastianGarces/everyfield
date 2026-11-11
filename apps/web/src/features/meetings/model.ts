@@ -2,6 +2,7 @@ import { dateText, timeText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // Words, filters and dates for the meetings screens. Pure functions only: the server and the browser both import this.
 
@@ -65,8 +66,6 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 }
 
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
-/** The types a new meeting can be. Planning one takes an Owner or Admin; a team meeting also names its ministry. */
-export const NEW_TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
 export const TYPE_LABEL: Record<MeetingType, string> = {
 	vision_meeting: "Vision meeting",
 	orientation: "Orientation",
@@ -236,8 +235,6 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 // from those strings, never through the browser's zone, so the server and the browser print the same words.
 
 const LONG_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 function parts(localDate: string) {
 	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
 	return { y, m, d, weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
@@ -261,13 +258,6 @@ export function untilText(startsAt: string, now: string): string {
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
 	return `in ${Math.round(days / 7)} weeks`;
-}
-
-/** The offset a fold choice carries, in words: "1:30 am (CDT)" style hints are zone-specific, so show UTC offsets. */
-export function offsetText(offsetSeconds: number): string {
-	const sign = offsetSeconds < 0 ? "−" : "+";
-	const abs = Math.abs(offsetSeconds);
-	return `UTC${sign}${Math.floor(abs / 3600)}${abs % 3600 ? `:${String((abs % 3600) / 60).padStart(2, "0")}` : ""}`;
 }
 
 /** RSVP counts from the guest list. */

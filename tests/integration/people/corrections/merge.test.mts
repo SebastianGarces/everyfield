@@ -1,11 +1,10 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { createSignals } from "../../../../packages/domain/src/intelligence/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
@@ -24,26 +23,9 @@ import {
 } from "../../../../packages/domain/src/people/index.ts";
 
 // Duplicate review, merge, guarded Unmerge and record corrections through their public operations on a scratch schema.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp015_" + randomUUID().replaceAll("-", ""),
-	role = "wp015_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp015" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 let today;
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
@@ -97,17 +79,6 @@ const skillsOf = async (personId) =>
 	);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
@@ -135,13 +106,7 @@ before(async () => {
 	today = (await rows(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))[0].d;
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("REQ-PPL-024: a write racing a merge waits for it and never leaves a current reference on the retired source", async () => {
@@ -203,7 +168,7 @@ const audits = (subjectIds) =>
 	rows(sql`SELECT * FROM audit_event WHERE subject_id=ANY(${sql.param(subjectIds)}::uuid[])
  AND action IN ('people.merged','people.unmerged','people.corrected') ORDER BY occurred_at,id`);
 
-test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE AC:PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE AC:PERSONREF-ACCOUNT-LINK-MERGE AC:ROLE43-011 reviewed merge moves every people reference to the survivor, and Unmerge restores both people exactly", async () => {
+test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE AC:PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE AC:PERSONREF-ACCOUNT-LINK-MERGE AC:ROLE43-011 INV-merge-choices reviewed merge moves every people reference to the survivor, and Unmerge restores both people exactly", async () => {
 	// D is account-linked and survives; S is its unlinked duplicate with its own records, tags, note and household.
 	const d = await person("Dana Ruiz", { email: "dana@example.test", stage: "attendee" });
 	const s = await person("Dana R.", { email: "DANA@example.test ", phone: "555 010 2000", stage: "core_group" });
@@ -523,7 +488,7 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 	}
 });
 
-test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
+test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
 	const a = await person("Avery Stone", { email: "avery@example.test" }),
 		b = await person("Avery Stone"),
 		c = await person("Avery S.");
@@ -598,18 +563,28 @@ test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates 
 	);
 });
 
-const correct = (recordType, personId, recordId, expectedRevision, changes, who = 0, requestKey = key()) =>
+// `reason` is spread into the input: `{}` leaves the key out, as the browser does for a blank field.
+const correct = (
+	recordType,
+	personId,
+	recordId,
+	expectedRevision,
+	changes,
+	who = 0,
+	requestKey = key(),
+	reason: { reason?: string } = { reason: "Entered from the wrong form" },
+) =>
 	tx((t) =>
 		recordCorrections.correctPersonRecord(t, ctx(who), {
 			requestKey,
 			expectedRevision,
-			input: { recordType, personId, recordId, reason: "Entered from the wrong form", changes },
+			input: { recordType, personId, recordId, ...reason, changes },
 		}),
 	);
 const corrections = (personId, who = 0) =>
 	tx((t) => recordCorrections.listRecordCorrections(t, ctx(who), { personId }));
 
-test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompute the total, never move the stage and keep old and new values out of audit", async () => {
+test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reason corrections keep the recorder, recompute the total, never move the stage, take an optional reason, clear a note sent as null and keep old and new values out of audit", async () => {
 	const p = await person("Morgan Hale", { stage: "leader" });
 	const a = ok(
 		await tx((t) =>
@@ -634,6 +609,11 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 	refused(await correct("assessment", p.id, a.id, a.revision, { total: 20 }), "invalid_input");
 	refused(
 		await correct("assessment", p.id, a.id, a.revision, { recordedAt: new Date().toISOString() }),
+		"invalid_input",
+	);
+	// A reason over 5000 characters is refused.
+	refused(
+		await correct("assessment", p.id, a.id, a.revision, { committed: lens(5) }, 0, key(), { reason: "x".repeat(5001) }),
 		"invalid_input",
 	);
 	assert.equal(ok(await corrections(p.id)).total, 0);
@@ -685,7 +665,8 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			}),
 		),
 	).interview;
-	ok(await correct("interview", p.id, i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }));
+	// The reason is optional: an omitted one is saved as no reason.
+	ok(await correct("interview", p.id, i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }, 0, key(), {}));
 	refused(await correct("interview", p.id, i.id, "2", { occurredOn: day(-1) }), "invalid_input");
 	assert.equal((await personRow(p.id)).stage, "leader");
 
@@ -711,7 +692,8 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			}),
 		),
 	);
-	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }));
+	// A blank reason is saved as no reason too.
+	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }, 0, key(), { reason: " \n " }));
 	const history = ok(await corrections(p.id));
 	assert.deepEqual(
 		history.items.map((x) => [x.recordType, x.recordId, x.changes, x.actor.accountId]),
@@ -743,12 +725,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 	);
 	assert.deepEqual(
 		history.items.map((x) => x.reason),
-		[
-			"Entered from the wrong form",
-			"Correct source date",
-			"Entered from the wrong form",
-			"Entered from the wrong form",
-		],
+		[null, "Correct source date", null, "Entered from the wrong form"],
 	);
 	refused(await corrections(p.id, 1));
 	// The application role may move a correction to another Person on merge, never rewrite what it recorded.
@@ -771,6 +748,28 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			["commitment_corrected", card.id],
 			["interview_corrected", i.id],
 			["assessment_corrected", a.id],
+		],
+	);
+	// A cleared note is sent as null: it stores no note, and the history records the old value going to null.
+	ok(await correct("assessment", p.id, a.id, "2", { committed: { score: 5, notes: null } }));
+	ok(await correct("interview", p.id, i.id, "2", { nextSteps: "Call on Tuesday" }));
+	ok(await correct("interview", p.id, i.id, "3", { nextSteps: null }));
+	ok(await correct("commitment", p.id, card.id, "3", { notes: null }));
+	const cleared = await tx(async (t) => [
+		ok(await assessments.getAssessments(t, ctx(), { personId: p.id })).latest.committed,
+		ok(await interviews.getInterviews(t, ctx(), { personId: p.id })).latest.nextSteps,
+		ok(await commitments.getCommitments(t, ctx(), { personId: p.id })).items.find((x) => x.id === card.id).notes,
+	]);
+	assert.deepEqual(cleared, [{ score: 5, notes: null }, null, null]);
+	assert.deepEqual(
+		ok(await corrections(p.id))
+			.items.slice(0, 4)
+			.map((x) => [x.recordId, x.changes]),
+		[
+			[card.id, [{ field: "notes", old: "Signed at the picnic", new: null }]],
+			[i.id, [{ field: "nextSteps", old: "Call on Tuesday", new: null }]],
+			[i.id, [{ field: "nextSteps", old: null, new: "Call on Tuesday" }]],
+			[a.id, [{ field: "committed", old: { score: 5, notes: "Corrected note" }, new: { score: 5, notes: null } }]],
 		],
 	);
 });

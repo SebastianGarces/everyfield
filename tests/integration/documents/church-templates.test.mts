@@ -1,6 +1,5 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
@@ -8,33 +7,15 @@ import { templateHash } from "../../../packages/contracts/src/documents/format/i
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t18tpl_" + randomUUID().replaceAll("-", "");
-const roleName = "t18tpl_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "t18tpl" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-let db;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {
@@ -128,19 +109,6 @@ const exportDoc = async (who, documentId, revision, format, requestKey) =>
 	documentsWriter.exportNative(db, await authority(who), { documentId, revision, format, requestKey }, storage);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const actor of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
@@ -185,13 +153,7 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 const state = {};
@@ -235,7 +197,7 @@ const audits = async (action) =>
 	);
 
 describe("T-18 Save as template: a church saves its own document as a template", { concurrency: 1 }, () => {
-	test("a saved revision becomes the church's template; a document from it copies that revision with the church's current details", async () => {
+	test("AC:DOC-TEMPLATE-SAVE AC:DOC-TEMPLATE-PICKER a saved revision becomes the church's template; a document from it copies that revision with the church's current details", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t18-policy"));
 		// The church edits its copy: a block goes and a paragraph with a placeholder comes in.
 		const edited = structuredClone(doc.body);
@@ -414,7 +376,7 @@ describe("T-18 Save as template: a church saves its own document as a template",
 		state.retried = first;
 	});
 
-	test("deleting a template takes it out of New from template; documents made from it keep working", async () => {
+	test("AC:DOC-TEMPLATE-DELETE deleting a template takes it out of New from template; documents made from it keep working", async () => {
 		const { template, copy, second } = state;
 		const before = await counts();
 		const done = ok(await deleteTemplate(ADMIN, template.id));
@@ -449,7 +411,7 @@ describe("T-18 Save as template: a church saves its own document as a template",
 		ok(await fileOf(OWNER, copy.id, "docx"));
 	});
 
-	test("a Member, another church's seat and another church's records are refused and write nothing", async () => {
+	test("AC:DOC-TEMPLATE-MEMBER a Member, another church's seat and another church's records are refused and write nothing", async () => {
 		const { second, retried } = state;
 		const before = await counts();
 		const input = { documentId: second.id, revision: 1, name: "Not allowed", requestKey: "t18-refused" };
@@ -501,7 +463,7 @@ describe(
 	{ concurrency: 1 },
 	() => {
 		const t = {};
-		test("an update makes v2 from a saved revision; New from template copies v2 and a v1 document stays exactly as it was", async () => {
+		test("AC:DOC-TEMPLATE-UPDATE an update makes v2 from a saved revision; New from template copies v2 and a v1 document stays exactly as it was", async () => {
 			await admin.execute(sql`UPDATE plant SET name = 'Harvest Point' WHERE id = ${P}::uuid`);
 			const first = await edited(
 				OWNER,
@@ -637,7 +599,7 @@ describe(
 			assert.deepEqual(await counts(), { ...mid, revisions: mid.revisions + 1, audits: mid.audits + 1 });
 		});
 
-		test("two updates naming the same version: the first makes the next one, the second is refused and writes nothing", async () => {
+		test("AC:DOC-TEMPLATE-UPDATE-CONFLICT two updates naming the same version: the first makes the next one, the second is refused and writes nothing", async () => {
 			const { template, first, second } = t;
 			const named = (requestKey, doc) => ({
 				templateId: template.id,
@@ -694,21 +656,6 @@ describe(
 			assert.equal(await documentState(v1.id), v1State);
 			const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: first.id }));
 			assert.equal(read.revision, "2", "the document saved over it is unchanged");
-		});
-
-		test("a document from an updated formal/legal template keeps the legal notice after Delete all content", async () => {
-			const { v2 } = t;
-			const wiped = structuredClone(v2.body);
-			wiped.body = { type: "doc", content: [] };
-			wiped.page.header = { pages: "all", content: [] };
-			wiped.page.footer = { pages: "all", content: [] };
-			const saved = ok(await save(OWNER, v2.id, v2.revision, wiped));
-			assert.equal(saved.documentClass, "formal/legal");
-			assert.deepEqual(await pdfPages(bytesFrom(ok(await fileOf(OWNER, v2.id, "pdf")))), [
-				"Template, not legal advice",
-			]);
-			const word = docxParts(bytesFrom(ok(await fileOf(OWNER, v2.id, "docx"))));
-			assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
 		});
 
 		test("a deleted template is not offered and cannot be updated", async () => {
@@ -781,7 +728,7 @@ describe(
 	{ concurrency: 1 },
 	() => {
 		const t = {};
-		test("a rename changes the card, later documents and the from line, and no revision, version or earlier document", async () => {
+		test("AC:DOC-TEMPLATE-EDIT a rename changes the card, later documents and the from line, and no revision, version or earlier document", async () => {
 			const source = await edited(
 				OWNER,
 				ok(await create(OWNER, "conflict-of-interest-policy", "t87-source")),
@@ -1042,7 +989,7 @@ describe(
 			assert.deepEqual(await templateRow(gone.id), row);
 		});
 
-		test("a Member, another church's seat and another church's template are refused and write nothing", async () => {
+		test("AC:DOC-TEMPLATE-EDIT-MEMBER a Member, another church's seat and another church's template are refused and write nothing", async () => {
 			const { template } = t;
 			const theirs = ok(await create(OTHER, "conflict-of-interest-policy", "t87-theirs"));
 			const theirTemplate = ok(

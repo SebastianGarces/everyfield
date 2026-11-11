@@ -1,7 +1,7 @@
 {
   "version": 2,
   "as_of": "2026-10-17",
-  "scope": "Documentation-only full approved target including ADR-001 stages 1 and 2. Stages 3 and 4 are deferred. docs/build-progress.json stopped updating at the evf v2 cutover; evf v2's task records are the live state.",
+  "scope": "Documentation-only full approved target including ADR-001 stages 1 and 2. Stages 3 and 4 are deferred. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.",
   "resource_assumptions": {
     "engineers": 4,
     "qa_engineers": 1,
@@ -211,7 +211,7 @@
           "REQ-PPL-024": "People remain identifiable across change history and corrections."
         },
         "chapter_links": [
-          "docs/architecture/core.md#one-short-transaction-protocol",
+          "docs/architecture/core.md#transaction-boundary",
           "docs/architecture/audit.md",
           "docs/product/tasks.md#req-tsk-018",
           "docs/product/identity-access.md#req-idn-029",

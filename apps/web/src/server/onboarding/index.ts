@@ -1,6 +1,7 @@
 import { sendOnboardingRelationships } from "../jobs/notifications";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import type { Database } from "@everyfield/db/client";
 import { database } from "../database";
 import * as c from "@everyfield/contracts/onboarding";
@@ -19,9 +20,7 @@ type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.in
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 
 let mount: ReturnType<typeof create> | undefined;
@@ -56,7 +55,7 @@ function create(v: z.infer<typeof env>) {
 			await sendOnboardingRelationships(tx, inputs, mail);
 		},
 		async enqueue(tx, input, command) {
-			mail.append(
+			await mail.append(
 				tx,
 				{
 					owner: { kind: "account", id: input.accountId },

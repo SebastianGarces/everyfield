@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { database } from "../database";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService } from "../jobs/mail";
@@ -18,9 +19,7 @@ function identityMount() {
 			IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
 			IDENTITY_ORIGIN: z.url(),
 			IDENTITY_SECRET: z.string().min(32),
-			IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-			IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-			IDENTITY_MAIL_FROM: z.email(),
+			...mailEnv,
 		})
 		.safeParse(process.env);
 	if (!env.success) return null;
@@ -55,7 +54,7 @@ function identityMount() {
 						.map((m) => m.id),
 				);
 			},
-			// This mount issues intents only. WP-031 owns dispatch; no real provider is configured here.
+			// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
 			transport: {
 				async send() {
 					return { kind: "refused", retryable: true };

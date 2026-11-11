@@ -157,8 +157,6 @@ export const navigationResult = z.strictObject({
 			),
 		}),
 	),
-	breadcrumbs: z.array(z.strictObject({ articleId: z.uuid(), crumbs: z.array(z.string()) })),
-	relatedIds: z.array(z.uuid()),
 });
 export const neighborsResult = z.strictObject({
 	articles: z.array(
@@ -263,11 +261,57 @@ export const organizationArticleResult = z.strictObject({
 	invalidationCalls: z.number().int().nonnegative(),
 	state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
 });
+/**
+ * An organization body is capped on the text a reader sees, so editor JSON around a long seed article still saves.
+ * `stored` bounds the stored string itself.
+ */
+export const ORGANIZATION_BODY_LIMIT = { visible: 20_000, stored: 100_000 } as const;
+
+/** The characters a reader sees: the text, callout labels and diagram source of everyfield-editor-v1 nodes, else the string. */
+export function visibleBodyLength(body: string): number {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return body.length;
+	}
+	const doc = parsed as { format?: unknown } | null;
+	if (!doc || typeof doc !== "object" || doc.format !== "everyfield-editor-v1") return body.length;
+	let length = 0;
+	const walk = (value: unknown): void => {
+		if (Array.isArray(value)) return value.forEach(walk);
+		if (!value || typeof value !== "object") return;
+		for (const [key, child] of Object.entries(value)) {
+			if (typeof child === "string" && (key === "text" || key === "label" || key === "source")) length += child.length;
+			else walk(child);
+		}
+	};
+	walk(parsed);
+	return length;
+}
+
+/** A body within the stored bound and within the visible-text cap. */
+export function organizationBodyFits(body: string): boolean {
+	return body.length <= ORGANIZATION_BODY_LIMIT.stored && visibleBodyLength(body) <= ORGANIZATION_BODY_LIMIT.visible;
+}
+
+/**
+ * A credit that names a person or church. Internal ids, source paths, file names and digests never reach a reader,
+ * on screen, in a PDF footer or in print.
+ */
+export function humanCredit(credit: string | null | undefined): string | null {
+	const text = credit?.trim() ?? "";
+	if (!text || /^(church|network|global):/i.test(text)) return null;
+	if (z.uuid().safeParse(text).success) return null;
+	if (/\.(json|mdx?|ya?ml|txt|pdf)\b|\bdocs\/|@[0-9a-f]{7,}|\b[0-9a-f]{40,}\b/i.test(text)) return null;
+	return text;
+}
+
 export const organizationArticleCommand = commandEnvelope(
 	z.strictObject({
 		articleId: z.uuid(),
 		organizationId: z.string().min(1).max(80),
-		body: z.string().max(20000).optional(),
+		body: z.string().refine(organizationBodyFits, "The article is too long to save.").optional(),
 		adapter: z.enum(["Evry", "human"]).optional(),
 		cachePath: z.string().max(400).optional(),
 	}),

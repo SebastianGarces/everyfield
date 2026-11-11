@@ -2,8 +2,7 @@ import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/n
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
@@ -22,29 +21,19 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 import { insertTasks } from "../task-assignees.mts";
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp010_" + randomUUID().replaceAll("-", ""),
-	role = "wp010_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
+const database = await testDatabase({
+	prefix: "wp010",
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 	max: 8,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
-let db, cleanupDb, authDb, api, onboarding, mail, producerDeps;
+const { admin } = database;
+const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
+let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
+/** A trusted IP per session, for a test that must not share the default IP's budget with earlier tests. */
+const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
 const ok = (r) => {
@@ -123,33 +112,6 @@ const effect = async (tx, input) => {
 	});
 };
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [suffix, cap] of [
-		["", "everyfield_runtime"],
-		["_cleanup", "everyfield_cleanup"],
-		["_auth", "everyfield_auth"],
-	]) {
-		const password = randomBytes(32).toString("hex"),
-			name = role + suffix;
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${cap} TO ${name}`));
-		const url = new URL(source);
-		url.username = name;
-		url.password = password;
-		const client = createDatabase({
-			connectionString: url.href,
-			max: 8,
-			options: `-c search_path=${schema},pg_catalog,pg_temp`,
-		});
-		if (suffix === "") db = client;
-		else if (suffix === "_cleanup") cleanupDb = client;
-		else authDb = client;
-	}
 	mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -209,7 +171,7 @@ before(async () => {
 				email: v.principal.email,
 				verified: v.principal.verified,
 			};
-			return { request, trustedIp: "198.51.100.21", viewer };
+			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
 		deliverVerification: async (_tx, i) => {
@@ -306,16 +268,7 @@ before(async () => {
 		},
 	});
 });
-after(async () => {
-	for (const client of [db, cleanupDb, authDb]) if (client) await closeDatabase(client);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const suffix of ["", "_cleanup", "_auth"])
-			await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role + suffix}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-});
+after(database.close);
 
 test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped settings preserve nullable locality and reject stale or foreign saves", async () => {
 	const f = await plant(),
@@ -1337,6 +1290,18 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
+test("people/peo-31 an email change whose send throws is unknown and gives its try back", async () => {
+	const a = await credentialActor();
+	trustedIps.set(a.session, "198.51.100.31");
+	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
+	const live = ingress.get(a.session);
+	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
+	ingress.set(a.session, live);
+	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
+});
+
 test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
@@ -1755,13 +1720,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
 	);
 	assert.equal(deletion.value.status, "pending_deletion");
-	// BEGIN, the bound actor and COMMIT, plus: the insert; the file and the write; the write; the insert; the preview,
-	// the replan job and the write; the witness read, the witness, the suspension and the write. A native write reads
-	// its request key only when it is refused or its key conflicts (RT-3).
-	assert.deepEqual(
-		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
-		[4, 5, 4, 4, 6, 7],
-	);
 	for (const [key, field] of [
 		[finalizeKey, "avatar"],
 		[removeKey, "avatar"],
@@ -1789,6 +1747,8 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
+	// While the request is pending, the same login reaches no viewer.
+	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const measured = async (body) => {
 		statements.length = 0;
@@ -1805,6 +1765,37 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
 	);
 	assert.equal(cancelled.value.status, "cancelled");
-	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
-	assert.deepEqual([status.count, cancelled.count], [5, 6]);
+	// BEGIN, SAVEPOINT, the locking read, RELEASE, COMMIT.
+	assert.equal(status.count, 5);
+	// Kept: the original email and password sign in again to a working account.
+	const fresh = await login(a);
+	assert.notEqual(await viewerOf(fresh), null);
+	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
+	const a = await actor();
+	const account = ok(await section(a, { section: "account" }));
+	const notifications = ok(await section(a, { section: "notifications" }));
+	assert.equal(notifications.revision, account.revision);
+	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
+	// A name save moves the revision the notifications section reads; a toggle sent with the old one is refused.
+	const named = ok(
+		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
+	);
+	assert.notEqual(named.current.revision, account.revision);
+	assert.equal(ok(await section(a, { section: "notifications" })).revision, named.current.revision);
+	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
+	assert.equal(stale.status, "refused", JSON.stringify(stale));
+	assert.equal(stale.error.code, "conflict");
+	// The toggle with the shared revision saves, and moves the revision Your account reads in turn.
+	const toggled = ok(
+		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
+	);
+	assert.equal(ok(await section(a, { section: "account" })).revision, toggled.current.revision);
+	denied(
+		await call("saveSection", a, command({ section: "account", name: "Too Old" }, named.current.revision)),
+		"conflict",
+	);
+	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });

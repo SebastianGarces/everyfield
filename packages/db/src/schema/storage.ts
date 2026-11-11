@@ -102,9 +102,7 @@ export async function putPrivateObject(
 ) {
 	// uploadKey is the owning native effect/receipt's stable key, never an object path.
 	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new Error("invalid_upload_key");
-	const acl = await storage.client.send(new GetBucketAclCommand({ Bucket: storage.bucket })).catch(providerFailure);
-	if (!acl.Grants?.length || acl.Grants.some((grant) => /AllUsers|AuthenticatedUsers/.test(grant.Grantee?.URI ?? "")))
-		throw new Error("private_bucket_required");
+	await assertPrivateBucket(storage);
 	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
 	if (input.purpose === "commitment") await validateCommitment(input.bytes, input.mediaType);
 	const sha256 = hash(input.bytes);
@@ -240,7 +238,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 	return check;
 }
 /** How long a signed upload URL works. The pending file row lives longer (15 minutes), so the save can follow. */
-export const UPLOAD_URL_SECONDS = 300;
+const UPLOAD_URL_SECONDS = 300;
 /**
  * A five-minute PUT URL for one exact key, content type and length. If-None-Match makes the object write-once, so a
  * second PUT to the same URL gets 412. Signed locally: no network call after the first privacy check. The browser must

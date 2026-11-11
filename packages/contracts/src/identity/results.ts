@@ -93,15 +93,3 @@ export const retainedHistoryReference = z.strictObject({
 	}),
 	attribution: retainedAttribution,
 });
-// An incomplete purge has no completion timestamp. These are status contracts,
-// not permission to purge, an ownership classifier or a physical erasure claim.
-export const identityPurgeStatus = z.discriminatedUnion("status", [
-	z.strictObject({ status: z.literal("purging") }),
-	z
-		.strictObject({ status: z.literal("purged"), livePurgedAt: instant, copyExpiresAt: instant })
-		.refine(
-			(v) =>
-				Date.parse(v.copyExpiresAt) >= Date.parse(v.livePurgedAt) &&
-				Date.parse(v.copyExpiresAt) <= Date.parse(v.livePurgedAt) + 7 * 86400_000,
-		),
-]);

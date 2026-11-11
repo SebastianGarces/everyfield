@@ -32,7 +32,8 @@ import type {
 	TrackingRow,
 } from "./model.ts";
 import { loadMeeting } from "../meetings/server.ts";
-import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
@@ -128,8 +129,8 @@ export async function rescheduleReviewed(
 }
 
 /**
- * Hand a scheduled email to the email service: at once for `now`, held until its saved time for `held`. The provider
- * key is the domain idempotency key.
+ * Hand a scheduled email over: to the email service at once for `now`; for `held` Everyfield keeps it, and the minute
+ * runner hands it off at its saved time (T-241). The provider key is the domain idempotency key.
  */
 export async function sendReviewed(
 	requestKey: string,

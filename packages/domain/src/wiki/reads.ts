@@ -2,6 +2,7 @@ import {
 	contextGuideRequest,
 	getArticleRequest,
 	guideResult,
+	humanCredit,
 	listArticlesRequest,
 	listResult,
 	navigationRequest,
@@ -41,7 +42,7 @@ import {
 	visibleBodySql,
 	type CorpusAccess,
 } from "./corpus.ts";
-import { sectionExcerpt } from "./excerpt.ts";
+import { bodyBlocks, sectionExcerpt } from "./excerpt.ts";
 import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
@@ -178,10 +179,9 @@ export function getArticle(db: Database, authority: RequestActor, raw: unknown) 
 export function bookmarksList(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(listArticlesRequest, raw);
-		const owner = selectedOwner(authority);
 		const page = await readPage(
 			db,
-			accessFor(authority, owner.kind === "account" ? owner : selectedOwner(authority)),
+			accessFor(authority),
 			sourceOf(input.source),
 			input.page ?? 1,
 			sql`NOT p.hidden AND EXISTS (
@@ -214,6 +214,19 @@ function plainText(text: SQL): SQL {
 		text,
 	)})`;
 }
+/**
+ * The words of a body for search: the text, callout labels and diagram source of organization nodes, in document
+ * order, so node types and keys are never indexed; else the markdown itself. Older organization text that is not JSON is read as markdown.
+ */
+function searchBodySql(): SQL {
+	return sql`CASE
+		WHEN p.content_type = 'safe_nodes' AND pg_input_is_valid(p.body, 'jsonb') THEN (
+			SELECT string_agg(t #>> '{}', E'\n')
+			FROM jsonb_path_query(p.body::jsonb, 'strict $.** ? (@.type() == "object").keyvalue() ? ((@.key == "text" || @.key == "label" || @.key == "source") && @.value.type() == "string").value', '{}', true) t
+		)
+		ELSE p.body
+	END`;
+}
 export async function search(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(searchRequest, raw);
@@ -234,14 +247,15 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
-						SELECT p.*,
+						SELECT p.*, w.words,
 							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
+						CROSS JOIN LATERAL (SELECT ${searchBodySql()} AS words) w
 						CROSS JOIN LATERAL (
 							SELECT
 								setweight(to_tsvector('english', coalesce(p.title, '')), 'A')
 								|| setweight(to_tsvector('english', coalesce(p.excerpt, '')), 'B')
-								|| setweight(to_tsvector('english', coalesce(p.body, '')), 'C') AS vector
+								|| setweight(to_tsvector('english', coalesce(w.words, '')), 'C') AS vector
 						) v
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
@@ -253,7 +267,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 						COALESCE((
 							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
-								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(s.body, s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(s.words, s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
 								FROM (
 									SELECT * FROM scored
 									ORDER BY text_rank DESC, article_id
@@ -304,7 +318,6 @@ const navRow = z.object({
 	slug: z.string(),
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
-	relatedIds: z.array(z.uuid()),
 });
 export function navigation(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -330,8 +343,6 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 					phase: item.phase,
 				})),
 			})),
-			breadcrumbs: articles.map((item) => ({ articleId: item.articleId, crumbs: [item.sectionKey, item.title] })),
-			relatedIds: [...new Set(articles.flatMap((item) => item.relatedIds))],
 		});
 	});
 }
@@ -671,8 +682,12 @@ function deniedExport() {
 		fontFailureOffersPrintFallback: false,
 	});
 }
+/** The stored credit belongs to the global article, so only the global version prints it, and only a human one. */
 function exportMeta(article: WikiArticle) {
-	return { filename: pdfFilename(article.slug), source: article.credit };
+	return {
+		filename: pdfFilename(article.slug),
+		credit: article.sourceKind === "global" ? humanCredit(article.credit) : null,
+	};
 }
 async function visibleBody(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(getArticleRequest, raw);
@@ -692,8 +707,9 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
+		const blocks = bodyBlocks(article.contentType, article.body!);
 		try {
-			const bytes = Buffer.from(render(article.title, article.body!, meta)).toString("base64");
+			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return exportResult.parse({
 				bytes,
 				html: null,
@@ -703,7 +719,7 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		} catch {
 			return exportResult.parse({
 				bytes: null,
-				html: printHtml(article.title, article.body!, meta),
+				html: printHtml(article.title, blocks, meta),
 				errorCode: null,
 				fontFailureOffersPrintFallback: true,
 			});
@@ -717,7 +733,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, article.body!, meta),
+			html: printHtml(article.title, bodyBlocks(article.contentType, article.body!), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		});

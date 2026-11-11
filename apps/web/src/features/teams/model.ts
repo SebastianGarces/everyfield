@@ -17,6 +17,7 @@ import type { Tone } from "@everyfield/ui/controls";
 import type { Status } from "@everyfield/ui/display";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The teams screens' shared words and shapes. No React and no server code. The producer calls a team a ministry in
 // the product's words; code and contracts say team.
@@ -24,7 +25,12 @@ import type { z } from "zod";
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
 export type Member = z.infer<typeof c.memberRow>;
-export type ChartNode = z.infer<typeof c.chartNode>;
+/** A team as the list reads it, with its leader's name. */
+export type ListedTeam = z.infer<typeof c.listedTeam>;
+/** One ministry on the organization view, built from the list: its chosen icon shows on the chart. */
+export type ChartNode = Pick<ListedTeam, "id" | "name" | "icon" | "templateKey" | "archived" | "leaderName"> & {
+	parentId: ListedTeam["id"] | null;
+};
 export type HistoryEntry = z.infer<typeof c.historyEntry>;
 export type Catalog = z.infer<typeof c.catalogPage>;
 export type TeamState = Team["state"];
@@ -108,7 +114,6 @@ export function people(members: readonly Member[]): Person[] {
 	return [...byId.values()];
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** A LocalDate (YYYY-MM-DD) as "Jul 14, 2026". No time zone is involved: the date is the church's own day. */
 export function dayText(day: string): string {
 	const [y, m, d] = day.split("-").map(Number);

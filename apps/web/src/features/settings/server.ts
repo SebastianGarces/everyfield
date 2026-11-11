@@ -25,6 +25,7 @@ import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { mailEnv } from "../../server/mail-env.ts";
 import { database } from "@/server/database";
 import { createMailService } from "@/server/jobs/mail";
 import { enqueueJob, queueJobs } from "@/server/jobs/queue";
@@ -49,9 +50,7 @@ const env = z.object({
 	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
 	IDENTITY_SECRET: z.string().min(32),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
@@ -64,6 +63,7 @@ function create(v: z.infer<typeof env>) {
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
 	const effects = {
 		// A plant's digest schedule or time zone changed: the digest job plans the next sends again.
+		// It stays (D-520): replan is a domain effect the settings producer calls, even though the planner rereads every minute.
 		replan: (tx: Transaction, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
 				tenant: i.owner.id,
@@ -120,7 +120,7 @@ function create(v: z.infer<typeof env>) {
 					.map((m) => m.id),
 			);
 		},
-		// This mount issues intents only. WP-031 owns dispatch; no real provider is configured here.
+		// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
 		transport: {
 			async send() {
 				return { kind: "refused", retryable: true };

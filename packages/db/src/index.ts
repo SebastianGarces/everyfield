@@ -25,7 +25,7 @@ export async function expireAccessRequests(db: Database = database()) {
 	});
 }
 
-export const CSV_COLUMNS = [
+const CSV_COLUMNS = [
 	"id",
 	"created_at",
 	"kind",

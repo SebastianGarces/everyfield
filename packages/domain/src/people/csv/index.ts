@@ -389,10 +389,20 @@ type SavedRow = { row: number; reviewWith: string | null; values: Values };
  * One batch in one statement: the lease and the importer's live Owner/Admin seat, the new people, one people.created
  * audit row each tied to the import, and the pipeline and church revisions. A Person an earlier run wrote is left alone.
  */
-async function writeBatch(db: Database, lease: Lease, actorId: string, importId: string, batch: SavedRow[]) {
+async function writeBatch(
+	db: Database,
+	lease: Lease,
+	actorId: string,
+	importId: string,
+	batch: SavedRow[],
+	clock: { next: number },
+) {
 	const plant = lease.tenant_id,
 		church = owner.parse({ kind: "plant", id: plant }),
-		start = Date.now();
+		// Never earlier than the last row of the batch before: a batch that returns within its own span of milliseconds
+		// would otherwise start the next one inside it.
+		start = Math.max(Date.now(), clock.next);
+	clock.next = start + batch.length;
 	// Rows keep file order in the directory: each is recorded one millisecond after the one before it.
 	const people = batch.map((r, i) =>
 		newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
@@ -476,6 +486,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 		.map((r) => ({ ...r, values: values.get(r.row)! }));
 	const failed: FailedRow[] = [...loaded.failed];
 	let lost = false;
+	const clock = { next: 0 };
 	// Failed rows are saved at least every 10 s while a batch is split, and saved progress starts a fresh retry budget,
 	// as scanPage does: a run the platform stops never repeats saved rows, so even a file whose rows all fail finishes.
 	let saved = failed.length,
@@ -491,7 +502,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
-			if (!(await writeBatch(db, lease, actorId, loaded.id, batch))) lost = true;
+			if (!(await writeBatch(db, lease, actorId, loaded.id, batch, clock))) lost = true;
 		} catch (error) {
 			const why = rowFailure(error);
 			if (!why) throw error;
@@ -615,6 +626,25 @@ export const peopleCsv = {
 				// The byte order mark lets spreadsheets read the UTF-8 names correctly.
 				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
 				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
+			});
+		});
+	},
+	/**
+	 * What exportPeople would say about its file, without building it: the filename, the media type and the receipt.
+	 * One count(*) under the same filters and live access; it selects no contact value, note or person row. Evry uses it.
+	 */
+	async countExport(tx: Tx, ctx: Context, raw: unknown) {
+		return readReply(async () => {
+			plantId(ctx);
+			const filters = parse(c.exportPeopleRequest, raw);
+			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
+ (SELECT count(*)::int FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) AS matched`);
+			const state = z.object({ allowed: z.boolean(), matched: z.number().int() }).parse(result.rows[0]);
+			if (!state.allowed) deny();
+			return c.peopleExport.omit({ text: true }).parse({
+				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
+				mediaType: media,
+				receipt: { filters, matched: state.matched, returned: state.matched, completeness: "complete" },
 			});
 		});
 	},

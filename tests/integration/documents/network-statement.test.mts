@@ -7,42 +7,22 @@
 // Every case creates from the built-in Bylaws, whose "Statement of faith" slot carries the key (T-56, D-110). The key
 // test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
 // Every step runs through the real createFromTemplate, readChurch, history and export path.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { fillStatementSlots, statementParagraphs } from "../../../packages/domain/src/documents/network-statement.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import test, { after, before, describe } from "node:test";
+import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t84_" + randomUUID().replaceAll("-", "");
-const roleName = "t84_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "t84" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 
 class MemoryClient extends S3Client {
 	objects = new Map();
@@ -232,44 +212,11 @@ async function assertMarkedBlank(who, doc) {
 	}
 }
 
-before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-});
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
-	test("statementParagraphs: one paragraph per blank-line-separated block, a single line break kept", () => {
-		assert.deepEqual(statementParagraphs(TEXT), PARAGRAPHS);
-		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [para("One."), para("Two."), para("Three.")]);
-	});
-
-	test("fillStatementSlots leaves a document unchanged with no statement", () => {
-		const doc = {
-			body: { type: "doc", content: [{ type: "slot", attrs: { key: "statement-of-faith" }, content: [] }] },
-		};
-		assert.equal(fillStatementSlots(doc, null), doc);
-	});
-
 	test("AC:CASE-DOC-020 network-fills-slot: revision 1 holds the network's exact text under the label, in both exports", async () => {
 		const who = await plantWithOwner("Filled Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));

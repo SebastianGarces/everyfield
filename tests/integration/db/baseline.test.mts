@@ -1,4 +1,4 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -35,27 +35,15 @@ const require = createRequire(new URL("../../../packages/db/package.json", impor
 
 const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { S3Client } = require("@aws-sdk/client-s3");
-const schema = "wp004_test_" + randomUUID().replaceAll("-", "");
-const role = "wp004_" + randomBytes(8).toString("hex");
-const authRole = role + "_auth";
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development direct endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const admin = createDatabase({
-	connectionString: source.href,
+// The suite applies the migrations itself and checks what each run applied.
+const database = await testDatabase({
+	prefix: "wp004_test",
+	roles: { runtime: ["runtime"], auth: ["auth"] },
+	migrate: false,
 	max: 3,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
-let runtime, authDb;
+const { admin, schema } = database;
+const { runtime, auth: authDb } = database.pools;
 const p = randomUUID(),
 	q = randomUUID(),
 	a = randomUUID(),
@@ -97,7 +85,6 @@ const authorizer = async (tx, file) => {
 	return r.rowCount === 1 ? { kind: "account", actorId: a } : null;
 };
 before(async () => {
-	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
 	assert.deepEqual(
 		await migrate(admin, schema),
 		(await migrationArtifact()).map((m) => m.name),
@@ -110,40 +97,8 @@ before(async () => {
 	await admin.execute(
 		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(a)},${querySql.param(p)},'owner',now())`,
 	);
-	const password = randomBytes(32).toString("hex");
-	for (const [name, capability] of [
-		[role, "everyfield_runtime"],
-		[authRole, "everyfield_auth"],
-	]) {
-		await admin.execute(
-			querySql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(querySql.raw(`GRANT ${capability} TO ${name}`));
-	}
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	runtime = createDatabase({
-		connectionString: url.href,
-		max: 3,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	url.username = authRole;
-	authDb = createDatabase({
-		connectionString: url.href,
-		max: 2,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
 });
-after(async () => {
-	if (runtime) await closeDatabase(runtime);
-	if (authDb) await closeDatabase(authDb);
-	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
-	await closeDatabase(admin);
-});
+after(database.close);
 
 test("BUG-176 RT-2: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
 	// The worker's parser import takes 3.5 s, longer than the 3-second parse limit, as on a loaded runner or a cold start.
@@ -211,14 +166,14 @@ test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and up
 		const drop = await generateMigration(generateDrizzleJson(before), generateDrizzleJson(after));
 		assert.deepEqual(drop, ['ALTER TABLE "drop_probe" DROP COLUMN "obsolete";']);
 		await writeFile(new URL(createName, migrations), create.join(";\n"));
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(upgraded)}`);
+		await database.createSchema(upgraded);
 		assert.deepEqual(await migrate(admin, upgraded, migrations), [...frozen, createName]);
 		await admin.execute(
 			querySql`INSERT INTO ${querySql.identifier(upgraded)}.drop_probe VALUES (1, 'remove', 'preserve')`,
 		);
 		await writeFile(new URL(dropName, migrations), drop.join(";\n"));
 		assert.deepEqual(await migrate(admin, upgraded, migrations), [dropName]);
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(fresh)}`);
+		await database.createSchema(fresh);
 		assert.deepEqual(await migrate(admin, fresh, migrations), [...frozen, createName, dropName]);
 		const retained = await admin.execute(querySql`SELECT * FROM ${querySql.identifier(upgraded)}.drop_probe`);
 		assert.deepEqual(retained.rows, [{ id: 1, kept: "preserve" }]);
@@ -288,7 +243,7 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 	const schema = async () => {
 		const name = "merge_order_" + randomUUID().replaceAll("-", "");
 		schemas.push(name);
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(name)}`);
+		await database.createSchema(name);
 		return name;
 	};
 	const tables = async (name) =>
@@ -325,12 +280,8 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 });
 test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed batches roll back", async () => {
 	const other = "wp004_test_" + randomUUID().replaceAll("-", "");
-	await admin.execute(querySql.raw(`CREATE SCHEMA ${other}`));
-	const pool = createDatabase({
-		connectionString: source.href,
-		max: 2,
-		options: `-c search_path=${other},pg_catalog,pg_temp`,
-	});
+	await database.createSchema(other);
+	const pool = database.connect("admin", { schema: other, max: 2 });
 	try {
 		await pool.execute(
 			querySql.raw(
@@ -377,7 +328,6 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 		);
 		assert.deepEqual(await Promise.all([migrate(pool, other), migrate(pool, other)]), [[], []]);
 	} finally {
-		await closeDatabase(pool);
 		await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
 	}
 });
@@ -522,7 +472,7 @@ test("INV-document: private and plant bodies preserve exact immutable owner and 
 });
 test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history or run migrations", async () => {
 	const identity = (await runtime.execute(querySql`SELECT current_user`)).rows[0];
-	assert.equal(identity.current_user, role);
+	assert.equal(identity.current_user, database.logins.runtime.name);
 	assert.deepEqual(
 		(
 			await runtime.execute(

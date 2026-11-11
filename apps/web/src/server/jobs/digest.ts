@@ -12,6 +12,7 @@ import {
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
 import { owedPeriod } from "./calendar.ts";
 import { createMailService, mailUnsubscribe, type AuthorizeMail } from "./mail.ts";
@@ -270,9 +271,7 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 };
 
 const env = z.object({
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 	IDENTITY_ORIGIN: z.url(),
 });
 let mounted: DigestWorker | undefined;
@@ -289,7 +288,7 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 			from: v.data.IDENTITY_MAIL_FROM,
 			authorize: authorizeDigestMail,
 			unsubscribe: mailUnsubscribe(),
-			// WP-031 owns dispatch; no real provider is configured here.
+			// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
 			transport: {
 				async send() {
 					return { kind: "refused", retryable: true };

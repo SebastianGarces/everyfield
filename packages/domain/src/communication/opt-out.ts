@@ -109,7 +109,10 @@ async function readState(db: Database, value: Claim) {
 	return stateRow.parse(result.rows[0]);
 }
 
-/** Record the opt-out once. A second unsubscribe while one is current changes nothing and returns that one. */
+/**
+ * Record the opt-out once. A second unsubscribe while one is current changes nothing and returns that one. Every
+ * scheduled Messages email from this church that has not gone out yet skips them (T-241).
+ */
 async function writeOptOut(db: Database, value: Claim) {
 	const result = await db.execute(sql`WITH target AS (
 			SELECT p.id, p.tenant_id, pl.name FROM person p JOIN plant pl ON pl.id = p.tenant_id
@@ -120,6 +123,15 @@ async function writeOptOut(db: Database, value: Claim) {
 			SELECT tenant_id, id FROM target
 			ON CONFLICT (person_id) WHERE undone_at IS NULL DO NOTHING
 			RETURNING id, opted_out_at
+		), skipped AS (
+			-- A scheduled email still waiting in Everyfield skips them from now on, and the one-hour undo does not bring it
+			-- back. An email the email service already holds is cancelled there by the minute runner.
+			UPDATE mail m SET state = 'refused', refusal = 'unsubscribed'
+			FROM target t
+			WHERE m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
+				AND m.recipient_person_id IN (SELECT t.id UNION ALL
+					SELECT q.merged_into_person_id FROM person q WHERE q.id = t.id AND q.merged_into_person_id IS NOT NULL)
+			RETURNING m.id
 		), current AS (
 			SELECT id, opted_out_at FROM inserted
 			UNION ALL

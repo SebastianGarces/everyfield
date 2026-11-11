@@ -2,6 +2,7 @@
 // refusal and problem, and the export's filters in words. No React and no server code.
 
 import type * as csv from "@everyfield/contracts/people";
+import { importLimits } from "@everyfield/contracts/people";
 import type { z } from "zod";
 import {
 	CLASSIFICATION_LABEL,
@@ -21,7 +22,7 @@ export type ImportReceipt = z.infer<typeof csv.importReceipt>;
 export type RowProblem = z.infer<typeof csv.rowProblem>;
 
 /** The file size limit the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
-export const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_BYTES = importLimits.bytes;
 export const ROWS_PER_PAGE = 24;
 
 /** A valid row with an existing or earlier-row match: it needs a person's choice. */
@@ -128,8 +129,9 @@ export const plural = (n: number, one: string, many = `${one}s`) =>
 
 /** The rows a running or finished import still has to account for, as a fraction for the progress bar. */
 export function progressOf(r: ImportReceipt): { done: number; total: number } {
-	const total = r.counts.created + r.counts.skipped + r.counts.failed + r.counts.remaining;
-	return { done: total - r.counts.remaining, total };
+	// Counted from the rows: a row the job could not write is in both counts.failed and counts.remaining.
+	const total = r.rows.length;
+	return { done: r.rows.filter((row) => row.status !== "remaining").length, total };
 }
 
 /** The export's filters in words, from the same query the directory shows. */

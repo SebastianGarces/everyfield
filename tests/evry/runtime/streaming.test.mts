@@ -103,7 +103,7 @@ async function readAll(who: EvryActor, id: string) {
 	return (await readConversation(db, who, id)).events;
 }
 
-test("INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
+test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const emitted: number[] = [];
@@ -228,7 +228,7 @@ test("INV-stream-access: an observer whose seat ends mid-stream gets no more tex
 	}
 });
 
-test("INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
+test("INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const seen: Seen[] = [];
@@ -241,7 +241,9 @@ test("INV-stream-end: Stop keeps the partial text and ends the stream promptly",
 			{ gap: () => 50 },
 		),
 	);
-	for (let n = 0; n < 100 && lives(seen).length < 3; n++) await sleep(20);
+	// Stop keeps the text saved before it; live text skips the database (D81), so wait for the save, not for live parts.
+	for (let n = 0; n < 200 && !savedText(saved(seen)).startsWith("w0 w1 "); n++) await sleep(20);
+	assert.ok(savedText(saved(seen)).startsWith("w0 w1 "), "the partial text was saved before Stop");
 	const stoppedAt = Date.now();
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);
 	assert.equal(await running, "lost");

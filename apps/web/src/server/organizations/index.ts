@@ -3,7 +3,7 @@ import type { OrganizationOperations } from "@everyfield/contracts/organizations
 import * as C from "@everyfield/contracts/organizations";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import type { RequestActor } from "@everyfield/domain/access";
+import { liveAccess, type RequestActor } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction } from "@everyfield/domain/operations";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@everyfield/domain/organizations";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
 import { createMailService } from "../jobs/mail";
 import { queueJobs } from "../jobs/queue";
@@ -29,9 +30,7 @@ import { getViewer } from "../request-context";
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 
 export type Operation = keyof OrganizationOperations;
@@ -152,6 +151,7 @@ export async function viewerOf(): Promise<
 			accountId: s.accountId,
 			selected,
 			canManage: context.kind === "seat" ? context.role !== "member" : s.discovery,
+			access: liveAccess(authority),
 		},
 	};
 }

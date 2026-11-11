@@ -2,6 +2,7 @@
 
 import { ArrowLeft01Icon, FileEditIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { EDIT_REASON_MAX } from "@everyfield/contracts/people";
 import {
 	Button,
 	CalloutLabel,
@@ -546,7 +547,7 @@ function Frame({
 				<Field label="Reason for change" optional hint="It stays in this person's history.">
 					<Textarea
 						rows={2}
-						maxLength={2000}
+						maxLength={EDIT_REASON_MAX}
 						value={reason}
 						readOnly={state.pending}
 						onChange={(e) => onReason(e.target.value)}

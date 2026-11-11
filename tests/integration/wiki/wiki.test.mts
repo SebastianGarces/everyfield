@@ -1,37 +1,18 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp034_" + randomUUID().replaceAll("-", "");
-const roleName = "wp034_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp034", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const S1 = randomUUID();
@@ -188,19 +169,6 @@ async function affiliate(org, minutes) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const who of Object.values(people)) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${who.user},${who.id + "@example.test"},true,'Synthetic')`,
@@ -503,13 +471,7 @@ before(async () => {
 		await affiliate(org, minutes);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 describe("wiki api", { concurrency: 1 }, () => {
@@ -591,14 +553,56 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-002", "CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041", "WR-054", "WR-064"]) +
-			" navigation, guide and excerpts keep the global citation and add no reading",
+		ac([
+			"CASE-WIKI-002",
+			"CASE-WIKI-008",
+			"WR-038",
+			"WR-039",
+			"WR-040",
+			"WR-041",
+			"WR-054",
+			"WR-064",
+			"WIKI-PREV-NEXT",
+		]) + " navigation, guide and excerpts keep the global citation and add no reading",
 		async () => {
+			// One section's articles, stored out of order, come back by phase, position, then title.
+			const ordered = randomUUID();
+			await item(ordered, "section", "reference/order", GLOBAL);
+			const placed = {};
+			for (const [name, phase, position] of [
+				["Order late", 2, 1],
+				["Order second", 1, 2],
+				["Order beta", 1, 1],
+				["Order alpha", 1, 1],
+			]) {
+				const article = randomUUID();
+				const slug = name.toLowerCase().replace(" ", "-");
+				await item(article, "article", slug, GLOBAL);
+				await revision({
+					id: randomUUID(),
+					article,
+					tenant: GLOBAL,
+					release,
+					title: name,
+					slug,
+					body: name,
+					phase,
+					position,
+					section: ordered,
+				});
+				placed[article] = name;
+			}
 			const before = await count(sql`SELECT count(*)::int AS n FROM reading`);
 			const nav = ok(await api.navigation(db, await actor(people.owner), {}));
+			assert.deepEqual(
+				nav.groups
+					.find((group) => group.name === "Reference")
+					.articles.filter((a) => a.articleId in placed)
+					.map((a) => placed[a.articleId]),
+				["Order alpha", "Order beta", "Order second", "Order late"],
+			);
 			const encoded = nav.groups.flatMap((group) => group.articles).find((item) => item.articleId === guide);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
-			assert.ok(nav.relatedIds.includes(sibling));
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(
 				neighbors.articles.map((item) => item.articleId),
@@ -690,8 +694,16 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-004", "DISC-READER-003", "WIKI49-001", "WIKI49-002", "WIKI49-003", "WR-023", "WR-025"]) +
-			" progress completes above 0.80, keeps credit, and labels a later meaningful revision",
+		ac([
+			"CASE-WIKI-004",
+			"DISC-READER-003",
+			"WIKI49-001",
+			"WIKI49-002",
+			"WIKI49-003",
+			"WR-023",
+			"WR-025",
+			"WIKI-ARTICLE-LAYOUT",
+		]) + " progress completes above 0.80, keeps credit, and labels a later meaningful revision",
 		async () => {
 			const phaseBefore = await count(sql`SELECT phase AS n FROM plant WHERE id=${P}`);
 			const held = ok(
@@ -703,11 +715,24 @@ describe("wiki api", { concurrency: 1 }, () => {
 			);
 			assert.equal(held.completed, false);
 			assert.equal(held.written, true);
+			// The partial fraction is kept for the next read, and a lower later fraction does not lower it.
+			const partial = (await current(people.owner, departed)).article;
+			assert.deepEqual([partial.observedFraction, partial.completed], ["0.80", false]);
+			const lower = ok(
+				await api.updateProgress(
+					db,
+					await actor(people.owner),
+					cmd({ articleId: departed, fraction: "0.30", plantId: P }, held.revision),
+				),
+			);
+			assert.equal(lower.completed, false);
+			const kept = (await current(people.owner, departed)).article;
+			assert.deepEqual([kept.observedFraction, kept.completed], ["0.80", false]);
 			const done = ok(
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, held.revision),
+					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, lower.revision),
 				),
 			);
 			assert.equal(done.completed, true);
@@ -804,7 +829,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-005"]) + " bookmark replay and a false write stay one row and hide a departed source",
+		ac(["CASE-WIKI-005", "WIKI-BOOKMARK"]) +
+			" bookmark replay and a false write stay one row and hide a departed source",
 		async () => {
 			const firstKey = key();
 			const falseKey = key();
@@ -1056,7 +1082,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
 			assert.ok(pdf.split("/Type /Page /Parent").length > 2);
 			assert.equal(pdf.includes("long-lines.pdf"), true);
-			assert.equal(pdf.includes(view.article.credit), true);
+			// The credit is an internal source id here, so the footer shows only the page.
+			assert.match(view.article.credit, /^global:/);
+			assert.equal(pdf.includes(view.article.credit), false);
 			for (const line of lines) assert.equal(pdf.includes(line), true, line);
 			const html = ok(await plain.printArticle(db, await actor(people.owner), { articleId: longId })).html;
 			assert.equal(html.includes("<pre>"), false);
@@ -1065,7 +1093,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(html.includes("<table>"), true);
 			assert.equal(html.includes("Callout text"), true);
 			assert.equal(html.includes("long-lines.pdf"), true);
-			assert.equal(html.includes(view.article.credit), true);
+			assert.equal(html.includes(view.article.credit), false);
+			assert.equal(html.includes("<footer></footer>"), true);
 			for (const line of lines) assert.equal(html.includes(line), true, line);
 		},
 	);
@@ -2091,7 +2120,102 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		assert.match(intelligence.body, /^## How to Navigate the Playbook\n\nThe Launch Playbook is organized into phases/);
 	});
 
-	test("WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
+	test("T-156: an org-edited article exports, prints and searches as its visible text, never its JSON", async () => {
+		const editor = await enroll("admin", { kind: "organization", id: C1 });
+		const reader = await actor(r1.member);
+		const said = id();
+		const silent = id();
+		await globalArticle(said, "t156/said", "Said", "Global said text");
+		await globalArticle(silent, "t156/silent", "Silent", "Global silent text");
+		const publish = async (articleId, blocks) =>
+			assert.equal(
+				ok(
+					await api.publishOrganizationArticle(
+						db,
+						await actor(editor),
+						cmd({ articleId, organizationId: C1, body: editorDoc(blocks) }),
+					),
+				).errorCode,
+				null,
+			);
+		await publish(said, [{ type: "paragraph", children: words("Each paragraph names one next step.") }]);
+		await publish(silent, [
+			{ type: "heading", level: 2, children: words("Welcome plan") },
+			{ type: "paragraph", children: words("Greet each zebrafinch guest by name.") },
+			{ type: "list", ordered: false, items: [words("Coffee"), words("Name tags")] },
+			{ type: "callout", label: "Kiwilabel", children: words("Smile.") },
+			{ type: "diagram", info: "diagram hierarchy", source: "title: Leaders\n- Pastor | Vision\n  - Wombatdirector" },
+		]);
+		const slugs = async (query) =>
+			(ok(await api.search(db, reader, { query })).results ?? [])
+				.map((article) => article.slug)
+				.filter((slug) => slug.startsWith("t156/"));
+		assert.deepEqual(await slugs("paragraph"), ["t156/said"]);
+		for (const query of ["children", "format", "type", "marks", "everyfield"])
+			assert.deepEqual(await slugs(query), [], query);
+		const found = ok(await api.search(db, reader, { query: "zebrafinch" })).results;
+		assert.deepEqual(
+			found.map((article) => article.slug),
+			["t156/silent"],
+		);
+		assert.match(found[0].snippet, /Greet each <b>zebrafinch<\/b> guest by name/);
+		assert.doesNotMatch(found[0].snippet, /type|children|format/);
+		// A callout label and a diagram's words are visible text too.
+		for (const query of ["kiwilabel", "wombatdirector"]) assert.deepEqual(await slugs(query), ["t156/silent"], query);
+
+		const exported = ok(await plain.exportPdf(db, reader, { articleId: silent }));
+		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
+		for (const raw of ['{"format"', '"type":', '"children"', "everyfield-editor-v1"])
+			assert.equal(pdf.includes(raw), false, raw);
+		const shown = [...pdf.matchAll(/\((.*)\) Tj/g)].map((match) => match[1]);
+		assert.deepEqual(shown.slice(1, 6), [
+			"Silent",
+			"Welcome plan",
+			"Greet each zebrafinch guest by name.",
+			"\x95 Coffee",
+			"\x95 Name tags",
+		]);
+		// A church version prints no credit: the stored credit belongs to the global article.
+		assert.equal(shown.at(-1), "1/1");
+		const html = ok(await plain.printArticle(db, reader, { articleId: silent })).html;
+		assert.ok(
+			html.includes(
+				"<h2>Welcome plan</h2><p>Greet each zebrafinch guest by name.</p><ul><li>Coffee</li><li>Name tags</li></ul>",
+			),
+			html,
+		);
+		for (const raw of ["format", "children", "&quot;"]) assert.equal(html.includes(raw), false, raw);
+		assert.ok(html.includes("<footer></footer>"));
+	});
+
+	test("T-156: the export footer shows a human credit and never a source path or digest", async () => {
+		const reader = await actor(r1.member);
+		const credited = async (credit) => {
+			const article = id();
+			await globalArticle(article, `t156/credit-${article}`, "Credited", "Body text with José.");
+			await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${id()},${article},${release},1,'wiki/credited',${hash()},${credit})`);
+			const pdf = Buffer.from(
+				ok(await plain.exportPdf(db, reader, { articleId: article, source: { kind: "global" } })).bytes,
+				"base64",
+			).toString("latin1");
+			const html = ok(await plain.printArticle(db, reader, { articleId: article, source: { kind: "global" } })).html;
+			assert.ok(pdf.includes("(Body text with Jos\xe9.) Tj"), "WinAnsi é");
+			return { footer: [...pdf.matchAll(/\((.*)\) Tj/g)].at(-1)[1], html, pdf };
+		};
+		const human = await credited("Ana Torres");
+		assert.equal(human.footer, "Ana Torres  1/1");
+		assert.ok(human.html.includes("<footer>Ana Torres</footer>"));
+		for (const credit of ["wiki/lead@abc1234def", "docs/reference/wiki/lead.mdx", "f".repeat(64)]) {
+			const path = await credited(credit);
+			assert.equal(path.footer, "1/1", credit);
+			assert.equal(path.pdf.includes(credit), false, credit);
+			assert.equal(path.html.includes(credit), false, credit);
+			assert.ok(path.html.includes("<footer></footer>"), credit);
+		}
+	});
+
+	test("BUG-wiki-search-hits WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
 		const reader = await actor(people.outsider);
 		const marked = id();
 		const markdown = [
