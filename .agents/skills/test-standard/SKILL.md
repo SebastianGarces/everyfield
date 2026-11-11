@@ -57,9 +57,10 @@ message or partial receipt. Generic input validation gets no regression test.
   (`eligible_at`, `expires_at`, `created_at`) and compare with times the test set or read back from the database,
   such as a row's `created_at` or the transaction's `now()`. A race test holds a real lock and waits for the rival
   with `waitingOnLock`, which polls Postgres lock state. `Date.now()` may only place seeded rows days away from any
-  boundary. Two uses measure real time because that is their job, and each says so: the production latency proof in
-  `tests/integration/identity/timing.production.mts` and the `ms` field of `tests/integration/writes/counter.mjs`.
-  Any other exemption needs the owner's agreement.
+  boundary. Three uses keep real time, and each says why in a comment: the production latency proof in
+  `tests/integration/identity/timing.production.mts`, the `ms` field of `tests/integration/writes/counter.mjs`, and
+  the 3 s wait in INV-expiry of `tests/integration/identity/invitations.test.mts`, where only elapsed time shows that
+  an expiry check reads the clock after a lock wait. Any other exemption needs the owner's agreement.
 - Use browser tests only for critical flows: sign-in, one meeting end to end, Evry review and approve.
   Prove other UI behavior broadly now; protect its domain behavior with integration tests.
 - Use contract tests only when something outside our code consumes the shape: Evry tool schemas,

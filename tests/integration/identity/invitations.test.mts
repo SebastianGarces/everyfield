@@ -188,6 +188,8 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				blocked = Number(result.rows[0].n) > 0;
 			}
 			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
+			// Exempt from the no-sleep rule (test-standard, owner ruling D-704): the claim reads and locks the invitation
+			// before this wait, so only elapsed time shows the expiry check uses the clock read after the root lock (RT-6a).
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
