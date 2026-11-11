@@ -575,6 +575,81 @@ for (const [name, engine] of ENGINES) {
 		);
 	});
 
+	test(`AC:TARGET-PPL-001 BUG-search-focus (${name}): typing through a committed search keeps focus and every keystroke`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/people`);
+			const box = page.getByLabel("Search people");
+			const q = (term) =>
+				page.waitForFunction((t) => new URLSearchParams(location.search).get("q") === t, term, { timeout: 30_000 });
+			await box.click();
+			// A trailing space commits "Maria" and stays in the box: the box's own echo does not overwrite it.
+			await page.keyboard.type("Maria ", { delay: 40 });
+			await q("Maria");
+			await page.getByRole("main").getByText("Maria Santos").first().waitFor();
+			await page.waitForTimeout(500);
+			assert.equal(await box.inputValue(), "Maria ", "the echo of the box's own term keeps what was typed");
+			// More typing after the commit, then a pause so it commits too and the screen renders it.
+			await page.keyboard.type("Sa", { delay: 40 });
+			await q("Maria Sa");
+			await page.waitForTimeout(500);
+			assert.equal(await box.inputValue(), "Maria Sa");
+			assert.equal(
+				await box.evaluate((e) => e === document.activeElement),
+				true,
+				"the search box keeps focus through each commit",
+			);
+			// Typing while the commit is in flight loses nothing either.
+			await page.keyboard.type("nt", { delay: 120 });
+			await page.keyboard.type("os", { delay: 120 });
+			await q("Maria Santos");
+			await page.waitForTimeout(500);
+			assert.equal(await box.inputValue(), "Maria Santos");
+			assert.equal(await box.evaluate((e) => e === document.activeElement), true);
+		});
+	});
+
+	test(`AC:TARGET-PPL-001 BUG-search-outside (${name}): back, forward and Clear filters replace the box's value`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/people`);
+			const box = page.getByLabel("Search people");
+			const q = (term) =>
+				page.waitForFunction((t) => (new URLSearchParams(location.search).get("q") ?? "") === t, term, {
+					timeout: 30_000,
+				});
+			// A filter is a new history entry; the search then replaces that entry.
+			await page.getByRole("button", { name: /^Source/ }).click();
+			await page.getByRole("option", { name: "Other" }).click();
+			await page.waitForFunction(() => new URLSearchParams(location.search).get("source") === "other", null, {
+				timeout: 30_000,
+			});
+			await page.keyboard.press("Escape");
+			await box.fill("Tom");
+			await q("Tom");
+			// Back shows the entry without a search, so the box empties; forward brings the term back.
+			await page.goBack();
+			await q("");
+			await page.waitForFunction(() => !new URLSearchParams(location.search).get("source"), null, { timeout: 30_000 });
+			await page.waitForTimeout(300);
+			assert.equal(await box.inputValue(), "", "back replaces the box with the address's term");
+			await page.goForward();
+			await q("Tom");
+			await page.waitForTimeout(300);
+			assert.equal(await box.inputValue(), "Tom", "forward replaces the box with the address's term");
+			// Clear filters empties the box with the other filters, and the list is unfiltered again.
+			await box.fill("zz no such person");
+			await q("zz no such person");
+			const main = page.getByRole("main");
+			await main.getByText("No one matches").first().waitFor();
+			await main.getByRole("button", { name: "Clear filters" }).first().click();
+			await q("");
+			await page.waitForFunction(() => location.search === "", null, { timeout: 30_000 });
+			await main.getByText(/^Showing \d+/).waitFor();
+			await page.waitForTimeout(500);
+			assert.equal(await box.inputValue(), "", "Clear filters empties the search box");
+			assert.equal(await main.getByText("No one matches").count(), 0);
+		});
+	});
+
 	test(`AC:TARGET-PPL-001 BUG-132-view-switch (${name}): list to cards to list sends nothing; the pipeline loads once`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people?retired=include`);
