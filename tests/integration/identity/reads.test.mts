@@ -211,7 +211,7 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 	assert.equal(residency.value?.personId, person);
 	assert.equal(residency.value?.organization.id, s.w.id);
 	t.diagnostic(JSON.stringify({ residency: residency.statements.length }));
-	assert.ok(residency.statements.length <= 4, `residency read: ${residency.statements.length} statements`);
+	assert.equal(residency.statements.length, 4, `residency read: ${residency.statements.length} statements`);
 	assert.equal(
 		residency.statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
 		false,

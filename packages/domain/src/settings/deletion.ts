@@ -1,11 +1,7 @@
 import { accountId, sessionId } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
-import type {
-	DeletionProducer,
-	NativeSettingsContext,
-	SettingsWriteContext,
-} from "@everyfield/contracts/settings/server";
+import type { DeletionProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
 import { alias, and, eq, getTableColumns, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -182,15 +178,11 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 	return { w, clock };
 }
 export function deletionOperations(effects: DeletionEffects): DeletionProducer<Tx> {
-	async function request(
-		tx: Tx,
-		ctx: SettingsWriteContext | NativeSettingsContext,
-		raw: unknown,
-		kind: "account" | "plant",
-	) {
-		const v = kind === "account" ? parse(q.requestAccountDeletion, raw) : parse(q.requestWorkspaceDeletion, raw);
+	async function request(tx: Tx, ctx: SettingsContext, raw: unknown, kind: "account" | "plant") {
+		const plantRequest = kind === "plant" ? parse(q.requestWorkspaceDeletion, raw) : null;
+		const v = plantRequest ?? parse(q.requestAccountDeletion, raw);
 		// The bound write locked the account, its open seats and, for a workspace, the plant.
-		const workspace = kind === "plant" ? parse(q.requestWorkspaceDeletion, raw).input.plant : null;
+		const workspace = plantRequest?.input.plant ?? null;
 		const a = workspace ? await plantAdmin(tx, ctx, workspace, "command") : await self(tx, ctx);
 		const subject: DeletionSubject = workspace ?? { kind: "account", id: accountId.parse(a.account.id) };
 		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner")) deny();
