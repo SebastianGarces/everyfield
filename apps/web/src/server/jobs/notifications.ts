@@ -74,6 +74,8 @@ const policy = {
 		purpose: "reference_update",
 		source: "article_editor_state",
 	},
+	// Written with the Messages opt-out itself (T-242), never through this queue.
+	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
 } as const;
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;

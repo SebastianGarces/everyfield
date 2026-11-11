@@ -138,6 +138,10 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 	phase_milestone: { label: "Phase milestones", description: "A plant moves to its next phase" },
 	launch_milestone: { label: "Launch milestones", description: "Completed or reopened" },
 	wiki_upstream_review: { label: "Wiki review requests", description: "Changes waiting for your review" },
+	scheduled_email_unsubscribe: {
+		label: "Unsubscribes from scheduled email",
+		description: "Someone on an email you scheduled unsubscribes",
+	},
 };
 
 /**
@@ -151,6 +155,7 @@ const SENT: ReadonlySet<Category> = new Set([
 	"planter_digest",
 	"oversight_digest",
 	"phase_milestone",
+	"scheduled_email_unsubscribe",
 ]);
 
 /** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */

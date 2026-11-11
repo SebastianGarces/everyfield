@@ -127,6 +127,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 								{ category: "task_overdue", channel: "email", enabled: true },
 								{ category: "planter_digest", channel: "in_app", enabled: true },
 								{ category: "planter_digest", channel: "email", enabled: true },
+								{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true },
 							],
 				planterCadence: persona === "network" ? null : "weekly",
 				oversightCadence: persona === "network" ? "daily" : null,
