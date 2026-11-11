@@ -1,4 +1,4 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -10,11 +10,11 @@ import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const database = await testDatabase({ prefix: "wp034", max: 6 });
+const database = await fixture({ prefix: "wp034", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const P = randomUUID();
-const Q = randomUUID();
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other" })).id;
 const S1 = randomUUID();
 const S2 = randomUUID();
 const S3 = randomUUID();
@@ -39,11 +39,11 @@ const discovery = Array.from({ length: 6 }, () => randomUUID());
 const release = randomUUID();
 const links = {};
 const people = {
-	owner: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	member: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	lead: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	outsider: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	org: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
+	owner: database.actors.owner,
+	member: database.actors.member,
+	lead: database.actors.admin,
+	outsider: await database.actor({ kind: "plant", id: Q }, "admin"),
+	org: await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
 };
 let renders = 0;
 const api = createWikiProducer({
@@ -55,15 +55,6 @@ const api = createWikiProducer({
 const plain = createWikiProducer();
 const hash = () => randomBytes(32).toString("hex");
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-	return result.error;
-};
 const count = async (query) => Number((await admin.execute(query)).rows[0].n);
 const actor = async (who) => {
 	const resolved = await RequestActor.resolve(db, who.session);
@@ -169,30 +160,6 @@ async function affiliate(org, minutes) {
 }
 
 before(async () => {
-	for (const who of Object.values(people)) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${who.user},${who.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${who.id},${who.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${who.session},${who.user},${key()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES
-			(${P},'Synthetic','America/Chicago',7,14,1,8,1,1),(${Q},'Other','America/Chicago',7,14,1,8,1,1)`,
-	);
-	for (const [id, role, plant] of [
-		[people.owner, "owner", P],
-		[people.member, "member", P],
-		[people.lead, "admin", P],
-		[people.outsider, "admin", Q],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${id.id},${plant},${role},clock_timestamp())`,
-		);
 	for (const [id, kind, name] of [
 		[S1, "sending_church", "S1"],
 		[S2, "sending_church", "S2"],
@@ -201,12 +168,8 @@ before(async () => {
 		[N1, "sending_network", "N1"],
 		[N2, "sending_network", "N2"],
 	])
-		await admin.execute(
-			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${id},${kind},${name},'America/Chicago',1)`,
-		);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${people.org.id},${S1},'admin',clock_timestamp())`,
-	);
+		await database.organization(kind, { id, name, timezone: "America/Chicago" });
+	await database.seat(people.org, { kind: "organization", id: S1, organizationKind: "sending_church" }, "admin");
 	await item(section, "section", "framework/start", GLOBAL);
 	for (const [id, slug] of [
 		[lead, "lead"],
@@ -1684,9 +1647,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		`Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
 
 	async function plant(plantId, name, orgs) {
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES (${plantId},${name},'America/Chicago',7,14,1,8,1,1)`,
-		);
+		await database.plant({ id: plantId, name });
 		for (const org of orgs)
 			await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 				VALUES(${id()},${plantId},${org},clock_timestamp()-interval '10 minutes',false,false,false,false,true,false,false)`);
