@@ -490,7 +490,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
-					SELECT json_agg(${articleJson()} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
 					FROM recent p
 					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
@@ -599,7 +599,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where, { body: false }));
 		const row = z
 			.object({
 				allowed: z.boolean(),
