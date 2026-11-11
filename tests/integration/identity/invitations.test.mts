@@ -6,8 +6,17 @@ import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 let f;
+// The text of every statement this test's runtime pool sends.
+const sent = [];
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...q) {
+			sent.push(typeof q[0] === "string" ? q[0] : (q[0]?.text ?? ""));
+			return Reflect.apply(query, this, q);
+		};
+	});
 });
 after(async () => {
 	await f?.close();
@@ -490,31 +499,10 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
 });
 
-/** Runs `body` and returns its result with the text of every statement it sent through the runtime pool. */
+/** Runs `body` and returns its result with the text of every statement it sent. */
 async function statements(body) {
-	const pool = f.db.$client,
-		connect = pool.connect,
-		sent = [];
-	pool.connect = async function (...args) {
-		const client = await Reflect.apply(connect, this, args),
-			query = client.query;
-		client.query = function (...q) {
-			sent.push(typeof q[0] === "string" ? q[0] : (q[0]?.text ?? ""));
-			return Reflect.apply(query, this, q);
-		};
-		const release = client.release;
-		client.release = function (...r) {
-			client.query = query;
-			client.release = release;
-			return Reflect.apply(release, this, r);
-		};
-		return client;
-	};
-	try {
-		return { result: await body(), sent };
-	} finally {
-		pool.connect = connect;
-	}
+	const start = sent.length;
+	return { result: await body(), sent: sent.slice(start) };
 }
 
 test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are offered, in a fixed number of unlocked statements", async () => {
@@ -570,7 +558,7 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 			[witnessed.seat, witnessed.account.id],
 		]),
 	);
-	assert.deepEqual(few.result.recipients[0].displayName, "Synthetic person");
+	assert.equal(few.result.recipients[0].displayName, "Synthetic person");
 	// Four more eligible members cost no extra statement.
 	const more = [];
 	for (let n = 0; n < 4; n++) more.push(await member());
