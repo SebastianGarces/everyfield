@@ -5,7 +5,6 @@ import type { DocumentsError } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
 import {
-	writtenView,
 	type CopySource,
 	type Format,
 	type OwnedView,
@@ -208,20 +207,3 @@ export async function copyToChurch(input: {
 	});
 }
 
-/** Import UTF-8 text or a modern Word file into a written document. The original bytes stay private. */
-export async function importOwnedDocument(input: {
-	title: string;
-	format: "text" | "docx";
-	bytes: string;
-	documentId?: string;
-	expectedRevision: string;
-	requestKey: string;
-}): Promise<DocumentOutcome<WrittenView>> {
-	const storage = privateStorage();
-	if (!storage) return storageMissing;
-	return run(async (db, actor) => {
-		const reply = await documentsWriter.importTextOrWord(db, actor, input, storage);
-		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: writtenView(reply.value) };
-	});
-}

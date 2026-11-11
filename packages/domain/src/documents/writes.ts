@@ -448,7 +448,7 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const bytes = decodeImport(input.bytes);
+			const bytes = input.bytes;
 			let read: c.DocNode;
 			try {
 				read = readImport(bytes, input.format);
@@ -989,13 +989,6 @@ async function mutateOwned(
 		},
 		scope.tenantId,
 	);
-}
-
-function decodeImport(value: string) {
-	if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) rejectInput("bytes", "Bytes are not base64.");
-	const bytes = Buffer.from(value, "base64");
-	if (!bytes.length || bytes.length > 10 * 1024 * 1024) rejectInput("bytes", "The file must be 10 MiB or smaller.");
-	return bytes;
 }
 
 type Reply<T> = Promise<c.DocumentsReply<T>>;

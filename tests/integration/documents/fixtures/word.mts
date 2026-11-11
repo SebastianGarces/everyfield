@@ -64,7 +64,7 @@ export const rels = (...list) =>
 		)
 		.join("")}</Relationships>`;
 
-/** A .docx as base64: the body's paragraphs, with each optional part only when given (a string is the part's XML). */
+/** A .docx file's bytes: the body's paragraphs, with each optional part only when given (a string is the part's XML). */
 export function word(body, parts = {}) {
 	const entries = [
 		{
@@ -75,5 +75,5 @@ export function word(body, parts = {}) {
 	if (parts.styles !== undefined) entries.push({ name: "word/styles.xml", data: parts.styles });
 	if (parts.numbering !== undefined) entries.push({ name: "word/numbering.xml", data: parts.numbering });
 	if (parts.rels !== undefined) entries.push({ name: "word/_rels/document.xml.rels", data: parts.rels });
-	return storedZip(entries).toString("base64");
+	return storedZip(entries);
 }
