@@ -1,5 +1,6 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The Tasks screen rules that need no React: the address, labels, due-date words, counts after a change and the
 // due-date form value. The screens and the server page share them, and tests/ui/tasks runs them in node.
@@ -427,7 +428,6 @@ export function rangeText(q: TaskQuery, shown: number, total: number): string {
 // Due dates. A date-only task shows its church-local day; a deadline shows the wall time it was entered in the church
 // zone. Both are written in the church's own terms, so no browser time zone changes them.
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** "Tue Oct 14" for a church-local date, with the year when it is not `year`. */
 export function dayText(date: string, year?: number): string {
