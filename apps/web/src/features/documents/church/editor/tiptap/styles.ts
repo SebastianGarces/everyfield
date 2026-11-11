@@ -10,7 +10,7 @@
 export const BUTTON_BASE =
 	"inline-flex flex-none cursor-pointer items-center rounded-sm bg-transparent text-sm font-medium whitespace-nowrap text-ink select-none transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent data-[active-state=on]:bg-green-100 data-[active-state=on]:text-ink data-[state=open]:bg-hover";
 /** The default box of a button. A `className` on the button primitive replaces it (see `primitives/button.tsx`). */
-export const BUTTON_BOX = "h-9 min-w-9 justify-center gap-1.5 px-2";
+const BUTTON_BOX = "h-9 min-w-9 justify-center gap-1.5 px-2";
 export const BUTTON = `${BUTTON_BASE} ${BUTTON_BOX}`;
 export const BUTTON_GROUP = "flex items-center gap-0.5 data-[orientation=vertical]:flex-col";
 export const BUTTON_ICON = "flex-none";
@@ -26,7 +26,7 @@ export const POPOVER = `${SURFACE} min-w-[280px] max-w-[calc(100vw-24px)]`;
 export const MENU = `${SURFACE} min-w-[220px]`;
 export const MENU_ITEM_BASE =
 	"cursor-pointer rounded-sm text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[highlighted]:bg-hover data-[state=checked]:font-semibold";
-export const MENU_ITEM_ROW = "flex items-center gap-2 px-2.5 py-2 text-md";
+const MENU_ITEM_ROW = "flex items-center gap-2 px-2.5 py-2 text-md";
 export const MENU_ITEM = `${MENU_ITEM_BASE} ${MENU_ITEM_ROW}`;
 export const TOOLTIP =
 	"z-[60] flex items-center gap-2 rounded-sm bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink shadow-raised";

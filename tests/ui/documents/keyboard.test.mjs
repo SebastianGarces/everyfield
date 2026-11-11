@@ -9,13 +9,27 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
-import { closeMenu, escapeTo } from "./menus.mjs";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const chromium = ENGINES.find(([name]) => name === "chromium")?.[1];
 const PAPER = ".ef-paper .ProseMirror";
 const SHOTS = process.env.SHOT_DIR;
 const LINKED = "The board hears the facts";
+
+// Radix hands focus back to the button that opened a menu or popover in a timer after the overlay unmounts, so a step
+// that focuses the document right after Escape can lose focus to that button a moment later. These wait for it.
+const closeMenu = async (page) => {
+	await page.keyboard.press("Escape");
+	await page.getByRole("menu").waitFor({ state: "detached" });
+	await page.waitForFunction(() => {
+		const el = document.activeElement;
+		return el?.getAttribute("aria-haspopup") === "menu" && el.getAttribute("aria-expanded") === "false";
+	});
+};
+const escapeTo = async (page, opener) => {
+	await page.keyboard.press("Escape");
+	await page.waitForFunction((label) => document.activeElement?.getAttribute("aria-label") === label, opener);
+};
 
 const onPage = (run, size) =>
 	withPage(
