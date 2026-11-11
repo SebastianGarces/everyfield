@@ -46,7 +46,7 @@ function port(options: { fault?: Partial<Record<string, BrandFault>> } = {}) {
 		Object.entries(brand).map(([name, fn]) => [
 			name,
 			(...args: unknown[]) => {
-				if (name !== "assetSrc") calls.push([name, args[0]]);
+				calls.push([name, args[0]]);
 				return (fn as (...a: unknown[]) => unknown)(...args);
 			},
 		]),
