@@ -610,9 +610,10 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 		),
 	);
 	assert.equal(moved.body, "Welcome Alex.");
-	assert.equal(moved.rescheduleStatus, "unknown");
+	// The scheduled email still waits in Everyfield (T-241), so the time moves there and nothing is sent or asked.
+	assert.equal(moved.rescheduleStatus, "accepted");
 	assert.equal(moved.newCommunications, 0);
-	assert.equal(movePort.calls.send, 1);
+	assert.equal(movePort.calls.send, 0);
 	const [kept] = await rows(sql`SELECT body_html FROM communication WHERE id = ${move.saved.communicationId}`);
 	assert.equal(kept.body_html, "<p>Welcome Alex.</p>");
 	const afterCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
