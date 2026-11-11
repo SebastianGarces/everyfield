@@ -23,7 +23,10 @@ export function readTools(actor: EvryActor, run: ToolHandlers["read"]): ToolSet 
 			description: `Bounded ${domain} reads: ${allowed.map((a) => `${a.operation} (${a.description})`).join("; ")}`,
 			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
 			execute: async (call: { operation: string; input: unknown }) =>
-				run(allowed.find((a) => a.operation === call.operation)!, call.input),
+				run(
+					allowed.find((a) => a.operation === call.operation)!,
+					call.input,
+				),
 		});
 	}
 	return tools;
