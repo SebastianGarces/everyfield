@@ -111,7 +111,8 @@ export function capText(eligible: number): { text: string; over: boolean } {
 export function refusalText(code: string, details?: Readonly<Record<string, unknown>>): string {
 	switch (code) {
 		case "audience_too_large": {
-			const count = typeof details?.recipients === "number" ? `${details.recipients} people` : `more than ${AUDIENCE_LIMIT} people`;
+			const count =
+				typeof details?.recipients === "number" ? `${details.recipients} people` : `more than ${AUDIENCE_LIMIT} people`;
 			return `This message would go to ${count}. Messages go to at most ${AUDIENCE_LIMIT} people. Remove people in Who, then try again. Nothing was sent.`;
 		}
 		case "access_denied":
