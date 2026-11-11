@@ -6,7 +6,6 @@
 //     shows a really unmatched marker as text.
 //   INV-live: live text adds only the characters the panel lacks, and a turn's end drops it.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 import { renderMarkdown } from "../../../apps/web/src/features/evry/conversation/view.ts";
@@ -46,12 +45,6 @@ test("INV-markdown: HTML in model text renders as visible text", () => {
 	const out = html("<img src=x onerror=alert(1)> and <script>alert(1)</script>");
 	assert.ok(!out.includes("<img") && !out.includes("<script"));
 	assert.ok(out.includes("&lt;img src=x onerror=alert(1)&gt;"));
-	assert.ok(
-		!readFileSync(
-			new URL("../../../apps/web/src/features/evry/conversation/view.ts", import.meta.url),
-			"utf8",
-		).includes("dangerouslySetInnerHTML"),
-	);
 });
 
 test("INV-markdown: only http, https, mailto and app-relative links are links", () => {

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
+import { and, eq, inArray, isNotNull } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import { owner } from "@everyfield/contracts/common";
@@ -73,45 +73,6 @@ export async function ownReading(tx: Tx, accountId: string) {
 	return readingValue(accountId, await readingRows(tx, [accountId]));
 }
 
-export async function plantReading(tx: Tx, plantId: string) {
-	const [setup] = await tx
-		.select({ lead: t.onboarding_setup.lead })
-		.from(t.onboarding_setup)
-		.where(eq(t.onboarding_setup.plant_id, plantId));
-	const lead = c.leadSetup.parse(setup?.lead ?? { answer: "pending" });
-	const candidates = await tx
-		.select({
-			accountId: t.seat.account_id,
-			role: t.seat.role,
-			personId: t.person.id,
-			lead: sql<boolean>`EXISTS(SELECT FROM team_tenure tt JOIN team_role r ON r.id=tt.role_id AND r.plant_id=tt.plant_id JOIN team tm ON tm.id=r.team_id AND tm.plant_id=r.plant_id WHERE tt.person_id=${t.person.id} AND tt.plant_id=${plantId}::uuid AND tt.ended_on IS NULL AND r.leadership AND r.id=${lead.answer === "yes" ? lead.assignment.roleId : "00000000-0000-0000-0000-000000000000"}::uuid AND r.retired_at IS NULL AND tm.archived_at IS NULL)`,
-		})
-		.from(t.seat)
-		.innerJoin(t.account, and(eq(t.account.id, t.seat.account_id), eq(t.account.registration_state, "active")))
-		.leftJoin(
-			t.person,
-			and(
-				eq(t.person.linked_account_id, t.seat.account_id),
-				eq(t.person.plant_id, plantId),
-				eq(t.person.state, "live"),
-			),
-		)
-		.where(
-			and(
-				eq(t.seat.plant_id, plantId),
-				isNull(t.seat.ended_at),
-				lte(t.seat.accepted_at, sql`clock_timestamp()`),
-				sql`NOT EXISTS(SELECT FROM lifecycle_witness w LEFT JOIN seat ws ON ws.id=w.seat_id WHERE (w.opaque_subject_id=${t.seat.account_id} OR ws.account_id=${t.seat.account_id}) AND w.state NOT IN ('active','cancelled'))`,
-			),
-		);
-	const rows = candidates.length
-		? await readingRows(
-				tx,
-				candidates.map((c) => c.accountId),
-			)
-		: [];
-	return readingFrom(plantId, candidates, rows);
-}
 /** The plant's foundation reading from its current Owner and Admin lead candidates and their completed readings. */
 export function readingFrom(
 	plantId: string,

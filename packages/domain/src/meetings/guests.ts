@@ -357,7 +357,7 @@ export const guestsWriter = {
 						sql`(SELECT id FROM person WHERE tenant_id = m.plant_id AND linked_account_id = ${w.accountId}::uuid AND state = 'live')`,
 					);
 					const g = current(found);
-					if (!["planning", "ready", "in_progress"].includes(m.status)) deny("status_transition");
+					if (!c.answeringStatuses.includes(m.status)) deny("status_transition");
 					const noop = g.rsvp === input.input.rsvp && g.rsvp_source === "own" && !g.rsvp_token_open;
 					const set = setRsvp(g, input.input.rsvp, "own", now);
 					if (!noop) audit.writes.push(set.write);

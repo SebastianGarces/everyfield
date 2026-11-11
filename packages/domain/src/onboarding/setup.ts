@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
-import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { z } from "zod";
 import {
@@ -16,20 +16,18 @@ import {
 	readReply,
 	reply,
 	revision,
+	type Context,
 	type Tx,
 } from "./core.ts";
-import { liveAccess, liveRead, requestWrite } from "../access/session.ts";
+import { liveAccess, liveRead, readViewer, requestWrite } from "../access/session.ts";
+import { sessionId } from "@everyfield/contracts/common";
 import { declaration } from "../phases/declaration.ts";
 import { pending } from "./creation.ts";
-import { plantReading, readingFrom, foundationArticles, type ReadingRow } from "./reading.ts";
+import { readingFrom, foundationArticles, type ReadingRow } from "./reading.ts";
 
 const savedLead = c.leadAnswerResult.shape.lead;
 const savedJourney = c.journeyResult.shape.journey;
 const savedLaunch = c.journeyResult.shape.launch;
-async function stamp(tx: Tx, plantId: string) {
-	const [clock] = await tx.select({ at: now }).from(t.plant).where(eq(t.plant.id, plantId));
-	return clock!.at.toISOString();
-}
 async function assignLead(
 	tx: Tx,
 	plantId: string,
@@ -203,23 +201,20 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			const cx = await begin(tx, ctx, a.account.id, "identity.answerLeadOnboarding", q);
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
-			const at = await stamp(tx, a.plant.id);
 			const filled =
 				q.input.answer === "yes" && q.input.seniorPastor ? await fillSeniorPastor(tx, a.plant.id, person.id) : null;
-			const lead = savedLead.parse(
+			const answer =
 				q.input.answer === "yes"
 					? {
 							answer: "yes",
 							assignment: filled ?? (await assignLead(tx, a.plant.id, person.id, q.input.assignment)),
 							...(q.input.seniorPastor ? { seniorPastor: filled ? "filled" : "occupied" } : {}),
-							savedAt: at,
 						}
-					: { answer: q.input.answer, savedAt: at },
-			);
+					: { answer: q.input.answer };
+			const plant = await bump(tx, a.plant.id, { lead_answer: q.input.answer }),
+				lead = savedLead.parse({ ...answer, savedAt: plant.at });
 			await tx.update(t.onboarding_setup).set({ lead }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
-			await tx.update(t.plant).set({ lead_answer: q.input.answer }).where(eq(t.plant.id, a.plant.id));
-			const plant = await bump(tx, a.plant.id),
-				ids = [await event(tx, cx, a.plant.id, "attestation.recorded")];
+			const ids = [await event(tx, cx, a.plant.id, "attestation.recorded")];
 			if (lead.answer === "yes") ids.push(await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign"));
 			return finish(tx, cx, c.leadAnswerResult, () => ({
 				plant: ctx.selected,
@@ -235,10 +230,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				cx = await begin(tx, ctx, a.account.id, "onboarding.declareJourney", q);
 			if (cx.kind === "replay") return c.journeyResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
-			const ids = [],
-				at = await stamp(tx, a.plant.id);
-			const journey = savedJourney.parse({ status: "saved", value: q.input.journey, savedAt: at }),
-				launch = savedLaunch.parse({ status: "saved", value: q.input.launch, savedAt: at });
+			const ids = [];
 			if (q.input.journey.answer === "existing") {
 				// The one declaration writer (phases.declare): an empty `declared` means the slot or an ordinary move is used.
 				const { rows } = await tx.execute(sql`WITH src AS (SELECT id,phase FROM plant WHERE id=${a.plant.id}::uuid),
@@ -262,12 +254,13 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 					.returning({ revision: t.launch.revision });
 				ids.push(await event(tx, cx, a.plant.id, "launch.changed"));
 			}
+			const plant = await bump(tx, a.plant.id, {
+				journey_answer: q.input.journey.answer,
+				launch_answer: q.input.launch.answer,
+			});
+			const journey = savedJourney.parse({ status: "saved", value: q.input.journey, savedAt: plant.at }),
+				launch = savedLaunch.parse({ status: "saved", value: q.input.launch, savedAt: plant.at });
 			await tx.update(t.onboarding_setup).set({ journey, launch }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
-			await tx
-				.update(t.plant)
-				.set({ journey_answer: q.input.journey.answer, launch_answer: q.input.launch.answer })
-				.where(eq(t.plant.id, a.plant.id));
-			const plant = await bump(tx, a.plant.id);
 			ids.push(await event(tx, cx, a.plant.id, "attestation.recorded"));
 			return finish(tx, cx, c.journeyResult, () => ({
 				plant: ctx.selected,
@@ -288,21 +281,20 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				cx = await begin(tx, ctx, a.account.id, "onboarding.complete", q);
 			if (cx.kind === "replay") return c.completeOnboardingResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
-			let plant = a.plant;
+			let plant: Pick<typeof a.plant, "revision" | "material_revision" | "onboarding_completed_at"> = a.plant;
 			if (!plant.onboarding_completed_at) {
-				await tx.update(t.plant).set({ onboarding_completed_at: now }).where(eq(t.plant.id, plant.id));
-				plant = await bump(tx, plant.id);
+				plant = await bump(tx, a.plant.id, { onboarding_completed_at: now });
 				await tx
 					.update(t.onboarding_setup)
 					.set({ completed_material_revision: plant.material_revision })
-					.where(eq(t.onboarding_setup.plant_id, plant.id));
+					.where(eq(t.onboarding_setup.plant_id, a.plant.id));
 			}
 			const completion = {
 				status: "completed",
 				completedAt: plant.onboarding_completed_at!.toISOString(),
 				materialRevision: a.setup.completed_material_revision ?? plant.material_revision,
 			};
-			await event(tx, cx, plant.id, "attestation.recorded", a.plant.onboarding_completed_at ? "noop" : "complete");
+			await event(tx, cx, a.plant.id, "attestation.recorded", a.plant.onboarding_completed_at ? "noop" : "complete");
 			return finish(tx, cx, c.completeOnboardingResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
@@ -314,62 +306,27 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 		return readReply(async () => {
 			parse(c.getResumeRequest, raw);
 			if (ctx.selected.kind !== "plant") return c.resumeResult.parse({ status: "unavailable" });
-			// A request read (no bound write) reads every fact in one statement.
-			if (ctx instanceof OnboardingReadContext && !requestWrite(tx)) return (await plantEntry(tx, ctx)).resume;
-			const a = await plantOwner(tx, ctx, false);
-			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id));
-			const values = await tx
-				.select({ id: t.document.id })
-				.from(t.document)
-				.innerJoin(
-					t.document_revision,
-					and(
-						eq(t.document_revision.id, t.document.current_revision_id),
-						eq(t.document_revision.tenant_id, t.document.tenant_id),
-					),
-				)
-				.where(
-					and(
-						eq(t.document.tenant_id, a.plant.id),
-						eq(t.document.kind, "core_values"),
-						isNull(t.document.archived_at),
-						sql`length(btrim(${t.document_revision.body})) > 0`,
-						sql`${t.document_revision.import_state} IS DISTINCT FROM 'failed'`,
-					),
-				);
-			const [creation] = await tx
-				.select({ value: t.audit_event.result })
-				.from(t.audit_event)
-				.where(eq(t.audit_event.id, a.setup.creation_operation_id));
-			const original = z.object({ ownerSeat: z.object({ personId: z.string().uuid() }) }).parse(creation?.value);
-			const extraPeople = await tx
-				.select({ id: t.person.id })
-				.from(t.person)
-				.where(
-					and(
-						eq(t.person.plant_id, a.plant.id),
-						eq(t.person.state, "live"),
-						ne(t.person.id, original.ownerSeat.personId),
-					),
-				)
-				.limit(1);
-			return resumeFrom({
-				plant: ctx.selected,
-				revision: a.plant.revision,
-				materialRevision: a.plant.material_revision,
-				phase: a.plant.phase,
-				completedAt: a.plant.onboarding_completed_at,
-				setup: a.setup,
-				scheduledLaunchDate: schedule?.target_date ?? null,
-				scheduleRevision: schedule?.revision ?? "1",
-				extraPeople: extraPeople.length > 0,
-				reading: await plantReading(tx, a.plant.id),
-				values: values.length > 0,
-			});
+			return (await plantEntry(tx, await readContext(tx, ctx))).resume;
 		});
 	},
 };
 
+/**
+ * The read context plantEntry needs. A plain request context takes the bound write's authority for the same session,
+ * or one unlocked viewer read of it, and must select the plant that authority's seat holds.
+ */
+async function readContext(tx: Tx, ctx: Context) {
+	if (ctx instanceof OnboardingReadContext) return ctx;
+	const bound = requestWrite(tx);
+	const authority =
+		bound && bound.authority.session === ctx.session
+			? bound.authority
+			: (await readViewer(tx, sessionId.parse(ctx.session)))?.authority;
+	if (!authority) deny();
+	const read = new OnboardingReadContext(authority);
+	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny();
+	return read;
+}
 /** The resume reply from its facts. */
 function resumeFrom(f: {
 	plant: { kind: "plant"; id: string };
