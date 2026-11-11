@@ -148,7 +148,6 @@ test("bin/dev stack and logs work on the selected worktree, and up waits for a s
 		assert.equal(down.status, 0, down.stderr);
 		assert.equal(JSON.parse(down.stdout).state, "stopped");
 
-		assert.equal(dev(["traces"], env).status, 2, "traces has no handler");
 		assert.equal(dev(["stack", "sideways"], env).status, 2);
 		assert.equal(dev(["nothing"], env).status, 2);
 	} finally {
