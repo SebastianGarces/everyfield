@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ENGINES } from "../setup.mjs";
+import { closeMenu } from "./menus.mjs";
 import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { MOD, onFork, PAPER, textOf } from "./tables-support.mjs";
 
@@ -35,12 +36,12 @@ for (const [name, engine] of ENGINES) {
 			await t.button("Insert block").click();
 			assert.equal(await page.getByRole("menuitem", { name: "Table", exact: true }).count(), 1);
 			assert.equal(await page.getByRole("menuitem", { name: "Budget table", exact: true }).count(), 0);
-			await page.keyboard.press("Escape");
+			await closeMenu(page);
 			// In the body, Insert offers it.
 			await page.locator(PAPER).evaluate((el) => el.editor.chain().focus().setTextSelection(1).run());
 			await t.button("Insert block").click();
 			assert.equal(await page.getByRole("menuitem", { name: "Budget table", exact: true }).count(), 1);
-			await page.keyboard.press("Escape");
+			await closeMenu(page);
 		});
 	});
 

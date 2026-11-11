@@ -17,6 +17,7 @@ import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-valu
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { docxParts, pdfOperators, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+import { closeMenu } from "./menus.mjs";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const chromium = ENGINES.find(([name]) => name === "chromium")?.[1];
@@ -230,7 +231,7 @@ test("AC:DOC-EDIT-SLOT: fill, delete and add back a doctrinal section; its PDF a
 		await button(page, "Insert block").click();
 		assert.equal(await slotItem().getAttribute("aria-disabled"), "true", "a second section cannot be added");
 		await page.getByText("This document already has one.").waitFor();
-		await page.keyboard.press("Escape");
+		await closeMenu(page);
 
 		// An empty section saves and exports as the marked blank, never default text.
 		await save(page, 2);

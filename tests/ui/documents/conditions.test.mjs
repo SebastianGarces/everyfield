@@ -13,6 +13,7 @@ import { docTemplateById } from "../../../packages/domain/src/documents/doc-temp
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { pdfPages } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+import { closeMenu } from "./menus.mjs";
 import { clickDownload } from "./tables-support.mjs";
 
 const PAPER = ".ef-paper .ProseMirror";
@@ -417,7 +418,7 @@ for (const [name, engine] of ENGINES) {
 				1,
 				"offered: it goes after this one",
 			);
-			await page.keyboard.press("Escape");
+			await closeMenu(page);
 		});
 	});
 
@@ -436,7 +437,7 @@ for (const [name, engine] of ENGINES) {
 				0,
 				"the footer's Insert menu has no Conditional text",
 			);
-			await page.keyboard.press("Escape");
+			await closeMenu(page);
 			assert.equal(await t.button("Make block conditional").count(), 0, "the footer offers no Make block conditional");
 
 			const body = await t.body();
@@ -475,7 +476,7 @@ for (const [name, engine] of ENGINES) {
 				const item = page.getByRole("menuitem", { name: "Conditional text", exact: true });
 				assert.equal(await item.getAttribute("data-disabled"), "");
 				await page.getByRole("menu").getByText("This document has no fields for a condition to read.").waitFor();
-				await page.keyboard.press("Escape");
+				await closeMenu(page);
 			},
 			{ rewrite: noFields },
 		);

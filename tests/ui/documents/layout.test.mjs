@@ -23,6 +23,7 @@ import { makePalette, NEUTRAL_THEME } from "../../../packages/domain/src/documen
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { docxMedia, docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+import { closeMenu } from "./menus.mjs";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const chromium = ENGINES.find(([name]) => name === "chromium")?.[1];
@@ -350,8 +351,7 @@ const insert = async (page, item) => {
 const items = async (page) => {
 	await button(page, "Insert block").click();
 	const names = await page.getByRole("menuitem").allInnerTexts();
-	await page.keyboard.press("Escape");
-	await page.getByRole("menu").waitFor({ state: "detached" });
+	await closeMenu(page);
 	return names.map((n) => n.trim());
 };
 const radio = (page, name) => page.getByRole("radio", { name, exact: true });
@@ -416,7 +416,7 @@ test("AC:DOC-LAYOUT-MISSING: with no brand kit, Logo, Mark and Photo are disable
 		);
 		const link = page.getByRole("menuitem", { name: "Open the brand kit" }).first();
 		assert.equal(await link.getAttribute("href"), "/settings/brand");
-		await page.keyboard.press("Escape");
+		await closeMenu(page);
 		// With no brand kit the document prints in the Everyfield-neutral theme, and the paper paints that theme.
 		const colors = await paperColors(page);
 		assert.equal(hex(colors.fill), neutral.primary, "a primary box paints the neutral primary");
@@ -648,7 +648,7 @@ test("AC:DOC-LAYOUT-ACTIONS: every layout and page setup action is checked with 
 			);
 			await page.getByText("Your brand kit has no cover photo.").waitFor();
 			if (SHOTS) await page.screenshot({ path: `${SHOTS}/image-menu-missing-photo.png` });
-			await page.keyboard.press("Escape");
+			await closeMenu(page);
 			await checked(page, "image height", async () => {
 				await selectNode(page, "image", 0);
 				await page.getByLabel("Height (pt)").fill("60");
