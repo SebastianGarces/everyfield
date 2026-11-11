@@ -261,7 +261,7 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 			},
 			3,
 		),
-		"access_denied",
+		"unavailable",
 	);
 	refused(
 		await run(teamsWriter.edit, {
