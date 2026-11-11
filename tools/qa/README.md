@@ -10,5 +10,5 @@
 | `store.ts` | The preview records: `<git common dir>/qa/previews.json`, one file for every worktree, not tracked |
 | `qa-guard.ts` | The database rules every step obeys |
 | `qa-seed.ts` | The test church, run from the previewed branch's own code |
-| `tests/` | The tests. `.github/workflows/ci.yml` runs them in the `tools` job, with Docker |
+| `tests/` | The tests. `.github/workflows/ci.yml` runs them in the `tooling` job, with Docker |
 
