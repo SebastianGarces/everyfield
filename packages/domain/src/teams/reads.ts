@@ -3,7 +3,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { drawingLines, drawingPdf, drawingSvg } from "./chart.ts";
+import { drawingLines, drawingPdf, drawingSvg, withParents } from "./chart.ts";
 import { deny, one, parse, read, type Reader, type Viewer } from "./core.ts";
 import { TEMPLATES } from "./templates.ts";
 
@@ -32,6 +32,7 @@ const teamJson = sql`json_build_object(
 	'id', t.id, 'revision', t.revision::text, 'name', t.name, 'description', t.description, 'icon', t.icon,
 	'templateKey', t.template_key, 'state', t.state, 'archived', (t.archived_at IS NOT NULL), 'sortOrder', t.sort_order,
 	'leaderPersonId', t.leader_person_id, 'leaderSource', t.leader_source, 'leaderRoleId', t.leader_role_id,
+	'leaderName', (SELECT p.display_name FROM person p WHERE p.id = t.leader_person_id),
 	'activeCount', (SELECT count(*)::int FROM team_tenure tn
 		JOIN team_role r ON r.id = tn.role_id
 		JOIN person p ON p.id = tn.person_id AND p.state = 'live'
@@ -64,7 +65,7 @@ export const teamsReader = {
 				sql`SELECT coalesce((SELECT json_agg(${teamJson} ORDER BY t.sort_order, t.id)
 					FROM team t WHERE t.plant_id = ${viewer.plantId}::uuid), '[]'::json) AS items`,
 			);
-			const all = z.array(c.team).parse(found.items).slice(0, 200);
+			const all = z.array(c.listedTeam).parse(found.items).slice(0, 200);
 			const include = input.includeArchived === true;
 			return c.teamPage.parse({
 				items: all.filter((team) => include || !team.archived),
@@ -158,6 +159,19 @@ export const teamsReader = {
 				teamId: input.teamId,
 				roles: z.array(c.teamRole).parse(found.roles).slice(0, 100),
 			});
+		});
+	},
+	/** The ministry's current revision and nothing else: one statement, for a stale write to retry with. */
+	async readRevision(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			const input = parse(c.teamRevisionRequest, raw);
+			const found = await row(
+				db,
+				viewer,
+				sql`SELECT plant_id AS owner, revision::text AS revision FROM team WHERE id = ${input.teamId}::uuid`,
+			);
+			owner(viewer.plantId, found.owner);
+			return c.teamRevision.parse({ teamId: input.teamId, revision: found.revision });
 		});
 	},
 	async listMembers(db: Reader, authority: RequestActor, raw: unknown) {
@@ -295,8 +309,5 @@ async function chartNodes(db: Reader, viewer: Viewer, includeArchived: boolean) 
 		FROM team t WHERE t.plant_id = ${viewer.plantId}::uuid), '[]'::json) AS nodes`,
 	);
 	const all = chartRow.array().parse(found.nodes);
-	const visible = (includeArchived ? all : all.filter((node) => !node.archived)).slice(0, 200);
-	// An archived ministry is never a root: only a live Leadership-template ministry is (REQ-TEAM-012).
-	const root = visible.find((node) => node.templateKey === "leadership" && !node.archived);
-	return visible.map((node) => ({ ...node, parentId: root && node.id !== root.id ? root.id : null }));
+	return withParents((includeArchived ? all : all.filter((node) => !node.archived)).slice(0, 200));
 }
