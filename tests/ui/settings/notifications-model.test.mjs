@@ -13,7 +13,14 @@ const every = notificationCategory.options.flatMap((category) =>
 test("INV-notification-rows: only categories with a producer are offered, in matrix order", () => {
 	assert.deepEqual(
 		preferenceRows(every).map((row) => row.category),
-		["task_due", "task_overdue", "planter_digest", "oversight_digest", "phase_milestone", "scheduled_email_unsubscribe"],
+		[
+			"task_due",
+			"task_overdue",
+			"planter_digest",
+			"oversight_digest",
+			"phase_milestone",
+			"scheduled_email_unsubscribe",
+		],
 	);
 });
 
