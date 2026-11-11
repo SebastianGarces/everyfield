@@ -4,7 +4,7 @@ import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { deny, parse, writer, type MeetingsContext, type Reader, type Tx } from "./core.ts";
+import { deny, parse, plantVisible, writer, type MeetingsContext, type Reader, type Tx } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 // Public RSVP links (COM-010, REQ-MTG-009). The token is random, bound to one guest row (one meeting and one Person of
@@ -76,7 +76,10 @@ const viewRow = z.object({
 	venue_name: z.string().nullable(),
 	venue_address: z.string().nullable(),
 });
-/** What the public page shows for a link: only the meeting basics and the guest's own answer. Never writes. */
+/**
+ * What the public page shows for a link: only the meeting basics and the guest's own answer. Never writes. A plant that a
+ * lifecycle witness hides (pending deletion) shows nothing, as an unknown link does.
+ */
 export async function describeRsvpToken(db: Reader, raw: unknown) {
 	const input = c.describeRsvpTokenRequest.safeParse(raw);
 	if (!input.success) return c.rsvpTokenView.parse({ state: "unavailable" });
@@ -85,7 +88,8 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 			coalesce(g.rsvp, 'pending') AS rsvp, p.first_name, p.display_name, m.title, m.type, m.vision_number, m.starts_at,
 			m.local_date::text AS local_date, to_char(m.local_time, 'HH24:MI') AS local_time, m.timezone, m.venue_name, m.venue_address
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
-		WHERE g.rsvp_token_hash = ${rsvpTokenDigest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'`);
+		WHERE g.rsvp_token_hash = ${rsvpTokenDigest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'
+			AND ${plantVisible(sql`g.plant_id`)}`);
 	if (!r.rows[0]) return c.rsvpTokenView.parse({ state: "unavailable" });
 	const v = viewRow.parse(r.rows[0]);
 	return c.rsvpTokenView.parse({
@@ -129,7 +133,7 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 			SELECT g.id, g.plant_id, g.meeting_id, coalesce(g.rsvp, 'pending') AS rsvp FROM participation g
 			JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
 			WHERE g.rsvp_token_hash = ${rsvpTokenDigest(token)} AND g.rsvp_token_open AND g.rsvp_token_expires_at > clock_timestamp()
-			AND g.removed_at IS NULL AND ${meetingOpenSql("m")} AND p.state = 'live'
+			AND g.removed_at IS NULL AND ${meetingOpenSql("m")} AND p.state = 'live' AND ${plantVisible(sql`g.plant_id`)}
 			FOR UPDATE OF g
 		), answered AS (
 			UPDATE participation g SET rsvp = ${rsvp}, rsvp_source = 'token', rsvp_at = clock_timestamp(), rsvp_token_open = false,

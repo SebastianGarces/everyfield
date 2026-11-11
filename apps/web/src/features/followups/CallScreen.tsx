@@ -24,6 +24,7 @@ import {
 	OUTCOME_LABEL,
 	OUTCOMES,
 	outcomeInput,
+	recentAfter,
 	windowAt,
 	type Draft,
 	type DraftErrors,
@@ -89,7 +90,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 						? {
 								...c.recent,
 								lastConfirmedContactAt: value.lastConfirmedContactAt,
-								items: [value.record, ...c.recent.items].slice(0, 3),
+								items: recentAfter(c.recent.items, value),
 							}
 						: c.recent,
 				}));

@@ -890,3 +890,47 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 	assert.equal(seatPort.calls.send, 1);
 	assert.equal(seatPort.calls.lookup, 0);
 });
+
+test("T-159 C13: a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
+	const made = await scheduled("Wren", "wren-witness@example.test", AT);
+	const revision = ok(made.accepted).revision;
+	const id = made.saved.communicationId;
+	const carrier = port({
+		async send() {
+			return { outcome: "ids", ids: ["prov-witness"] };
+		},
+		async lookup() {
+			return { outcome: "ids", ids: ["prov-witness"] };
+		},
+	});
+	const witness = randomUUID();
+	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant.id},${plant.id},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		refused(await handoff(owner, id, revision, carrier), "access_denied");
+		refused(
+			await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
+				requestKey: key(),
+				expectedRevision: revision,
+				input: { communicationId: id },
+			}),
+			"access_denied",
+		);
+		refused(
+			await communicationWriter.cancelScheduledReviewed(
+				f.db,
+				owner.actor,
+				{ requestKey: key(), expectedRevision: revision, input: { communicationId: id } },
+				carrier,
+			),
+			"access_denied",
+		);
+		assert.equal(carrier.calls.send, 0);
+		assert.equal((await mailFor(id)).length, 0);
+	} finally {
+		await f.admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	ok(await handoff(owner, id, revision, carrier));
+	assert.equal(carrier.calls.send, 1);
+});
