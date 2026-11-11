@@ -349,7 +349,8 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={wrapper} onKeyDown={onKeyDown} className="app-md:hidden">
+		// Escape from the menu button or any panel link bubbles here and closes the menu; the wrapper is no control.
+		<div ref={wrapper} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}
