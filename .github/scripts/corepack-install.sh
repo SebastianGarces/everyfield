@@ -7,11 +7,8 @@
 set -u
 corepack enable
 pm=$(node -p 'require("./package.json").packageManager')
-install() {
-  corepack install -g "$pm" && corepack install
-}
 for wait in 10 20 40 80 last; do
-  install && break
+  corepack install -g "$pm" && break
   [ "$wait" = last ] && exit 1
   echo "corepack install failed; retrying in ${wait}s" >&2
   sleep "$wait"
