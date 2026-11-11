@@ -174,7 +174,7 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 		after: after ? Object.fromEntries(keys.map((key) => [key, after[key] ?? null])) : null,
 	};
 }
-export type TeamWrite =
+type TeamWrite =
 	| "teams.create"
 	| "teams.edit"
 	| "teams.archive"
