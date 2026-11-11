@@ -41,6 +41,25 @@ export function jobDatabase(): Database | null {
 }
 
 /**
+ * The cleanup login's pool (`everyfield_cleanup`), from LIFECYCLE_CLEANUP_DATABASE_URL, or null when the deployment has
+ * none. Only the scheduled purge uses it: it removes a deleted subject's content, which neither the runtime nor the job
+ * login may do. A purge statement removes every row a church owns, so statements end after 60 s, inside the cron
+ * route's 300 s. Other PGOPTIONS stay.
+ */
+export function cleanupDatabase(): Database | null {
+	const url = process.env.LIFECYCLE_CLEANUP_DATABASE_URL;
+	if (!url) return null;
+	const key = `${url}#cleanup`;
+	let pool = pools.get(key);
+	if (!pool) {
+		const options = `${process.env.PGOPTIONS ?? ""} -c statement_timeout=60s`.trim();
+		pool = createDatabase({ connectionString: url, max: 2, options });
+		pools.set(key, pool);
+	}
+	return pool;
+}
+
+/**
  * The most connections one request holds at once on the request pool: the person and meetings pages read on two in
  * parallel (RT-6c). Other pools (the auth login) stay at one: no measured request used two at once.
  */
