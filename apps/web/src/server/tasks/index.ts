@@ -2,6 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import { authorizeTaskReminders, createTaskWriter, reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
 import { createMailService } from "../jobs/mail";
 import { createNotificationService } from "../jobs/notifications";
@@ -13,9 +14,7 @@ import { taskReminders } from "./reminders";
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 
 let mount: ReturnType<typeof create> | undefined;
