@@ -83,7 +83,7 @@
 			"cantYet": true,
 			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet", "names the missing mon capability"],
+				"checks": ["calls only no tool", "names the missing mon capability"],
 				"note": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
 			}
 		}
@@ -520,7 +520,11 @@
 				"/\\b57\\b|more|partial|next page|at least|first 24|24\\+|\\bpages\\b|page 2/i"
 			],
 			"forbid": ["/\\b(rank|ranked|score|scored|top prospects?)\\b/i"],
-			"derivation": "Board columns: 57 prospect (paged at 24), 10 attendee, 4 following_up, 2 interviewed, 5 core_group."
+			"derivation": "Board columns: 57 prospect (paged at 24), 10 attendee, 4 following_up, 2 interviewed, 5 core_group.",
+			"finding": {
+				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
+				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group."
+			}
 		}
 	},
 	{

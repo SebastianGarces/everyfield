@@ -1,7 +1,9 @@
 # Evry evals
 
 Recorded evals of Evry on the real model. Each `<name>.cases.json` holds labelled cases. Each `<name>.recorded.json`
-holds the real model's answers. CI replays the recordings: no paid call, no network, no API key.
+holds the real model's answers. CI replays the recordings: no paid call, no network, no API key. The golden suite also
+needs Postgres: it runs in `@everyfield/evry`'s `test:db`, which CI runs with its own Postgres service. The other three
+suites run in `test:unit`.
 
 All four suites replay through `recorder("<name>")` in `golden-harness.mts`. Its `model()` is the replay model: it
 serves the recorded `doGenerate` and `doStream` calls and throws `MissingRecording` for a call the file does not hold.
@@ -22,25 +24,39 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 `golden.cases.json` holds the approved fields (case ID, scenario, actor, area, question, status, expected operation,
 expected answer, must-not) plus an `eval` block with its checks. A test fails if an approved case is missing,
 duplicated or changed. `adapters.cases.json` holds the cases added beyond the golden set (`"extra": true`, IDs
-`ADP-…`): 5 to 10 natural questions per adapter in `packages/evry/src/adapters`, including near-misses, and cases
-for the catalog's own tools (`"adapter": "catalog"`, such as `evry.selectReturnedRows`). `golden.test.mts` fails when
-an adapter has no such questions or a question names an operation outside its adapter.
-`tests/workflow/evry-evals-coverage.test.mjs` is the one coverage test: it fails when an adapter operation or catalog
-tool has no case in any `*.cases.json`.
+`ADP-…`): natural questions per adapter in `packages/evry/src/adapters`, including near-misses, and cases for the
+catalog's own tools (`"adapter": "catalog"`, such as `evry.selectReturnedRows`).
+`tests/workflow/evry-evals-coverage.test.mjs` is the one coverage test: it fails when an operation or catalog tool the
+package registers (its read domains, its reviewed writes and the catalog's exported tool names) has no case in any
+`*.cases.json`. Adding an operation needs its cases and nothing else: no count or list in a test.
 
 Each case is one turn, asked the way `runTurn` asks it (`golden-harness.mts`). First comes `evry.classifyRequest`.
-Then the real system prompt runs with the actor's read tools, `select_returned_rows` and `propose_change`. Reads are
-answered by an in-memory church (`golden-church.mts`, no database): Hope Fellowship, with 83 people, 8 households,
-tags, skills, an import receipt, and Owner, Admin, Member, organization-seat and empty-church actors.
-`propose_change` returns a review card only. Nothing is applied, and no tenant or database is touched, while
-recording or replaying.
+Then the real system prompt runs with the tools the turn gives the actor, built by the same function the turn uses
+(`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
+`propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
+`golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 83 live people,
+2 removed people, 8 households, tags, skills, notes, photos, open tasks, an import receipt, and Owner, Admin, Member,
+organization-seat and empty-church actors with live sessions and seats. A selection re-checks its rows with the real
+`verifyPeople`. `propose_change` prepares a real review card with `prepareProposal` in an open conversation. Nothing is
+approved and no effect job runs.
+
+Replay is exact: every id the model can see is pinned in the seed; the prompt's clock is `NOW` (the turn's `deps.now`);
+the host clock runs in `NOW`'s frame, because the export's filename carries the host's date; a card's proposal id and
+expiry, which the database assigns, reach the model pinned; and one step's tool calls run in call order. Inactivity is
+the real board's comparison against the database clock, so each live person's last contact is seeded relative to it
+(2 days for level none, 10 for warning, none for alert) and reads the same on every day the suite runs.
 
 ### Run it
 
 ```sh
-pnpm --filter @everyfield/evry test:unit          # all evals, replayed offline
+pnpm --filter @everyfield/evry test:db            # the golden suite, replayed offline on Postgres
+pnpm --filter @everyfield/evry test:unit          # classify, households and follow-ups, replayed offline
 EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
 ```
+
+The golden suite needs a database `testDatabase` accepts: the shared development database, or a throwaway local
+Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`, `CI=true`,
+`EARLY_ACCESS_TEST_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
 
 The report (and `/tmp/evry-golden.md.json`) shows, for every case: the case ID, scenario, actor, question, expected
 answer, observed answer, tool calls, review cards, each hard check with the text it passed or failed on, the alpha
@@ -49,13 +65,13 @@ target, the judge's grades and the recording keys. Keep reports outside the repo
 ### What a result means
 
 - **Hard failure (release-blocking).** A Supported, Not yet or extra case failed a hard check: a required name or
-  number from the fixture, a forbidden phrase or invented row, the expected tool, operation and key inputs, a review
+  number from the seeded church, a forbidden phrase or invented row, the expected tool, operation and key inputs, a review
   card instead of a write, or a global gate. The gates are: it gives an answer, never says a change was made, never
-  claims rows were withheld, and never prints contact values from the records. `test:unit` fails and names the case
+  claims rows were withheld, and never prints contact values from the records. `test:db` fails and names the case
   ID, the failed check, the observed answer, the tool calls and the recording keys.
 - **Known finding.** A case marked `"finding": { "checks": [...], "note": "..." }` failed the named checks when it
   was recorded. Only those checks are excused: they are reported, not blocking. Any other failing check (a global gate
-  included), an error such as a missing recording, or a named check that starts to pass still fails `test:unit`, so
+  included), an error such as a missing recording, or a named check that starts to pass still fails `test:db`, so
   the list only shrinks and the rest of the case stays guarded. Never add a check to a marker to hide a regression.
 - **Alpha gap.** A Partially case passed today's checks but not its full target from the approved file, such as
   SAF-05's phone and email for an Owner or Admin. Gaps are reported and never fail CI. Every Partially case must meet
@@ -66,8 +82,10 @@ target, the judge's grades and the recording keys. Keep reports outside the repo
 
 ### Re-record
 
-A changed prompt, catalog, tool schema, fixture result or case text changes the provider call. That call then has no
-recording, and the case fails until it is recorded again on the real `EVRY_MODEL`. Each suite records its own file:
+A changed prompt, catalog, tool schema, read result or case text changes the provider call. That call then has no
+recording, and the case fails until it is recorded again on the real `EVRY_MODEL`. A changed seed row a read returns
+does too. Each suite records its own file. The golden suite also needs the database variables above in the shell; they
+win over the env file's:
 
 ```sh
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
@@ -82,7 +100,7 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
-**Cost.** Recording all 124 cases on `gpt-6-luna` from scratch is 481 calls, about $0.19
+**Cost.** Recording all 124 cases on `gpt-6-luna` from scratch is 483 calls, about $0.20
 (`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under half a
 cent (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
 token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
