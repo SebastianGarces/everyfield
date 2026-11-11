@@ -19,6 +19,7 @@ import {
 	venuesReader,
 	venuesWriter as venues,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { NEXT_REQUEST } from "../../../apps/web/src/features/meetings/model.ts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
 // here would be a bug.
@@ -799,7 +800,7 @@ test("BUG-WP-020-guest-history: a Person created from a guest list or at the doo
 	}
 });
 
-test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
+test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
 	const memberPerson = await person("Morgan", { account: actors[1].id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
@@ -925,6 +926,18 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 		),
 		0,
 	);
+	// The own reply is open only until the meeting is completed or cancelled.
+	assert.equal(ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id })).responseAllowed, true);
+	for (const status of ["completed", "cancelled"]) {
+		await admin.execute(sql`UPDATE meeting SET status=${status} WHERE id=${m.id}`);
+		const closed = ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id }));
+		assert.deepEqual([closed.rsvp, closed.responseAllowed], ["confirmed", false], status);
+		refused(
+			await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined" } }, 1),
+			"status_transition",
+		);
+	}
+	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {
@@ -1150,4 +1163,56 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 	// The seat ends: every read refuses and returns nothing of the church.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seat}`);
 	for (const r of await reads13()) refused(r);
+});
+
+test("T-159: the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
+	// Plant Q, minutes from now, so no meeting another test schedules days ahead comes sooner.
+	const at = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
+	const insert = async (status, minutes) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+			resolver_version,status,attendance_revision) VALUES(${id},${Q},'orientation',${status},${day(0)},'18:00',
+			'America/New_York',${at(minutes)},'1',${status},1)`);
+		return id;
+	};
+	await insert("cancelled", 5);
+	await insert("completed", 6);
+	const scheduled = await insert("ready", 7);
+	const next = ok(await reads.list(db, await viewer(3), NEXT_REQUEST)).items;
+	assert.deepEqual(
+		next.map((m) => m.id),
+		[scheduled],
+	);
+	// Without the status filter the cancelled meeting would have been first.
+	const unfiltered = ok(await reads.list(db, await viewer(3), { window: "upcoming", limit: 1 })).items;
+	assert.equal(unfiltered[0].status, "cancelled");
+});
+
+test("T-159 C13: a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
+	const guest = await person("Wren", { plant: Q });
+	const m = await schedule({ guests: [guest] }, 3);
+	const token = await tx(async (t) => {
+		const writes = [];
+		const issued = await createRsvpToken(t, ctx(3), { meetingId: m.id, personId: guest }, writes);
+		await executeWrites(t, writes);
+		return issued.token;
+	});
+	assert.equal((await describeRsvpToken(db, { token })).state, "pending");
+	const witness = randomUUID();
+	await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${Q},${Q},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
+		refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
+		assert.equal(
+			await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND rsvp_source='token'`),
+			0,
+			"a hidden plant records no answer",
+		);
+	} finally {
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	// The same link works again once the witness is gone, so the link itself was valid.
+	assert.equal(ok(await answerRsvpToken(db, { token, rsvp: "confirmed" })).rsvp, "confirmed");
 });

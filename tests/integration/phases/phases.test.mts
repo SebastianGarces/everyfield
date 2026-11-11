@@ -503,3 +503,18 @@ test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or cha
 	assert.deepEqual(await footprint(plant), before);
 	ok(await history(owner));
 });
+
+test("T-159 AC:CASE-NTF-009 a phase notice mails no organization seat that has not accepted yet", async () => {
+	const { plant, owner } = await church("Accepted Later");
+	const linked = await connect(plant, "sending_church");
+	const advance = ok(await move(owner, 2, "Core group is forming", await revisionOf(plant)));
+	assert.ok(advance);
+	const mailRows = await rows(sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m
+		JOIN notice n ON n.id=m.notice_id JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`);
+	assert.equal(mailRows.length, 1);
+	const allowed = () => f.db.transaction((tx) => authorizePhaseNotices(tx, mailRows));
+	assert.equal((await allowed()).size, 1);
+	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day'
+		WHERE account_id=${linked.owner.id} AND organization_id=${linked.org.id}`);
+	assert.equal((await allowed()).size, 0, "the Owner's seat is not accepted yet");
+});

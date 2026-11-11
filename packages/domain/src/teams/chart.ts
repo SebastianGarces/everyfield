@@ -11,7 +11,7 @@ export function withParents<N extends Rooted>(nodes: readonly N[]): (N & { paren
 }
 
 /** The same wrapped lines feed the SVG and the PDF. */
-export function wrapLabel(text: string, width = 42): string[] {
+function wrapLabel(text: string, width = 42): string[] {
 	const lines: string[] = [];
 	for (let index = 0; index < text.length; index += width) lines.push(text.slice(index, index + width));
 	return lines.length ? lines : [text];
