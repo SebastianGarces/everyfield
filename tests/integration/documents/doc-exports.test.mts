@@ -264,3 +264,116 @@ test("AC:DOC-EDIT-PLACEHOLDERS the PDF paints a fill under each bracketed placeh
 	].map((m) => m[1]);
 	assert.deepEqual(shaded, ["[number]", "[date]", "[low amount]", "[high amount]"]);
 });
+
+/**
+ * The values a sheet's cells compute: typed values, and formulas of cell refs, SUM over ranges, IF and arithmetic,
+ * which is all the ledger writer emits. An empty cell is 0. A division by zero is #DIV/0!, as Excel shows it.
+ */
+function computedCells(sheet: string) {
+	const cells = new Map<string, { v?: number; f?: string }>();
+	for (const [, ref, body] of sheet.matchAll(/<c r="([A-Z]+\d+)"[^>]*?(?:\/>|>(.*?)<\/c>)/g)) {
+		const f = /<f>(.*?)<\/f>/.exec(body ?? "")?.[1];
+		const v = /<v>(.*?)<\/v>/.exec(body ?? "")?.[1];
+		cells.set(ref!, f ? { f: f.replaceAll("&amp;", "&") } : v !== undefined ? { v: Number(v) } : {});
+	}
+	const value = (ref: string): number => {
+		const cell = cells.get(ref);
+		if (!cell?.f) return cell?.v ?? 0;
+		const js = cell.f
+			.replace(/([A-Z]+)(\d+):\1(\d+)/g, (_, col, a, b) => `range("${col}",${a},${b})`)
+			.replace(/\b([A-Z]+\d+)\b/g, (_, r) => `cell("${r}")`)
+			.replace(/\bSUM\(/g, "sum(")
+			.replace(/\bIF\(/g, "iff(")
+			.replace(/=/g, "===");
+		const range = (col: string, a: number, b: number) =>
+			Array.from({ length: b - a + 1 }, (_, i) => value(`${col}${a + i}`));
+		const sum = (...parts: (number | number[])[]) => parts.flat().reduce((s, n) => s + n, 0);
+		const iff = (c: boolean, yes: number, no: number) => (c ? yes : no);
+		const out = new Function("cell", "range", "sum", "iff", `return ${js};`)(value, range, sum, iff) as number;
+		if (!Number.isFinite(out)) throw new Error(`#DIV/0! in ${ref}: ${cell.f}`);
+		return out;
+	};
+	return { formula: (ref: string) => cells.get(ref)?.f, value };
+}
+
+/** The budget fork with its ledger rows replaced by `rows`: [role, label, monthly]. */
+async function budgetWith(rows: [string, string, number | null][], columns?: TableNode["attrs"]["columns"]) {
+	const doc = await fork("budget-worksheet");
+	const table = ledgerTables(doc.body)[0]!;
+	if (columns) table.attrs.columns = columns;
+	table.content = rows.map(([role, label, ...values]) => ({
+		type: "row",
+		...(role === "item" ? {} : { attrs: role === "group" ? { role, sign: "add" } : { role } }),
+		content: [
+			{ type: "cell", content: [{ type: "text", text: label }] },
+			...table.attrs.columns
+				.slice(1)
+				.map((c, i) =>
+					c.type === "formula" || role !== "item"
+						? { type: "cell", content: [] }
+						: { type: "cell", attrs: { value: values[i] ?? null }, content: [] },
+				),
+		],
+	})) as TableNode["content"];
+	return { doc: docDocument.parse(doc), table: ledgerTables(docDocument.parse(doc).body)[0]! };
+}
+
+test("documents/doc-6 a subtotal after a second run of items sums only item rows, as computeTable does", async () => {
+	const { doc, table } = await budgetWith([
+		["group", "Income", null],
+		["item", "Tithes", 7],
+		["subtotal", "Subtotal so far", null],
+		["item", "Grants", 50],
+		["subtotal", "Total income", null],
+		["total", "Total", null],
+	]);
+	const sheet = sheetsOf(await renderDocFile(doc, "xlsx", THEME, SAVED)).sheets[0]!;
+	const cells = computedCells(sheet);
+	// Rows 1 and 2 are the title and note, row 3 the header: the table's rows start at row 4.
+	const subtotals = [6, 8];
+	assert.equal(cells.formula("B8"), "SUM(B5:B5,B7:B7)");
+	assert.equal(cells.value("B8"), 57);
+	assert.equal(cells.value("B8"), computeTable(table)[4]![1]);
+	assert.equal(cells.value("C8"), 57 * 12);
+	assert.equal(cells.value("B9"), 57, "the total adds the whole category once");
+	assert.equal(cells.value("B9"), computeTable(table)[5]![1]);
+	for (const [, f] of sheet.matchAll(/<f>(.*?)<\/f>/g))
+		for (const [, a, b] of f!.matchAll(/[A-Z]+(\d+):[A-Z]+(\d+)/g))
+			for (const s of subtotals) assert.ok(!(Number(a) <= s && s <= Number(b)), `${f} spans the subtotal row ${s}`);
+});
+
+test("documents/doc-22 a workbook division by a zero or empty divisor shows 0, as evalTree gives", async () => {
+	const { doc, table } = await budgetWith(
+		[
+			["group", "Costs", null, null],
+			["item", "Zero", 10, 0],
+			["item", "Empty", 10, null],
+			["item", "Four", 10, 4],
+		] as never,
+		[
+			{ id: "category", label: "Category", type: "text", width: 0 },
+			{ id: "amount", label: "Amount", type: "money", width: 110, align: "right" },
+			{ id: "count", label: "Count", type: "number", width: 110, align: "right" },
+			{
+				id: "each",
+				label: "Each",
+				type: "formula",
+				formula: "amount / count",
+				format: "money",
+				width: 110,
+				align: "right",
+			},
+		] as never,
+	);
+	const cells = computedCells(sheetsOf(await renderDocFile(doc, "xlsx", THEME, SAVED)).sheets[0]!);
+	assert.equal(cells.formula("D5"), "IF((C5)=0,0,(B5)/(C5))");
+	const computed = computeTable(table);
+	assert.deepEqual(
+		[5, 6, 7].map((row) => cells.value(`D${row}`)),
+		[1, 2, 3].map((ri) => computed[ri]![3]),
+	);
+	assert.deepEqual(
+		[5, 6, 7].map((row) => cells.value(`D${row}`)),
+		[0, 0, 2.5],
+	);
+});

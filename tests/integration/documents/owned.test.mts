@@ -1,6 +1,5 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
@@ -8,35 +7,17 @@ import { documentsReader, documentsWriter } from "../../../packages/domain/src/d
 import { nativeFromText, nativeText, readNative } from "../../../packages/contracts/src/documents/native.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as W from "./fixtures/word.mts";
 import { syncBuiltinESMExports } from "node:module";
 import zlib from "node:zlib";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp037_" + randomUUID().replaceAll("-", "");
-const roleName = "wp037_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp037" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-let db;
 let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 /** A native body of one paragraph per line, as the editor saves it. */
@@ -147,19 +128,6 @@ function zipBomb() {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const actor of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
@@ -215,13 +183,7 @@ before(async () => {
 	await admin.execute(sql`INSERT INTO document(tenant_id,kind,title) VALUES(${P},'native','Title only')`);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 describe("WP-037/api generated files and owned documents", { concurrency: 1 }, () => {
@@ -1371,6 +1333,32 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			});
 		for (const target of ["file:///etc/passwd", "../../outside.docx"])
 			refused(await importWord(hyperlinkTo(target)), "invalid_input");
+
+		// documents/doc-11: a part target resolves from its own part's folder, so the `../docProps/meta.xml` that
+		// macOS textutil writes stays inside the package and imports; a tab reads as a space and character references
+		// decode, named ones as before.
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.textutilWord([
+						'<w:t xml:space="preserve">Name:</w:t><w:tab/><w:t xml:space="preserve">Jo&#8217;s</w:t>',
+						'<w:t xml:space="preserve">Hex&#x2019;s &amp; more &#38;#38; &#1;</w:t>',
+					]),
+				),
+			),
+			{ type: "doc", content: [para(text("Name: Jo’s")), para(text("Hex’s & more &#38; &#1;"))] },
+		);
+		const partRel = (target) =>
+			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${target}"/>`;
+		for (const target of ["/docProps/meta.xml", "./theme/../../docProps/meta.xml"])
+			ok(await importWord(W.textutilWord(["<w:t>Inside</w:t>"], partRel(target))));
+		// A target that climbs out of the package is still refused, self-closed or not.
+		for (const rel of [
+			partRel("../../outside.xml"),
+			partRel("theme/../../../outside.xml"),
+			partRel("../../outside.xml").replace("/>", "></Relationship>"),
+		])
+			refused(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
 
 		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
 		const textBox = (inner) =>

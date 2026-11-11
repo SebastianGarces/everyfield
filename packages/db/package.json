@@ -5,7 +5,6 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./schema": "./src/schema/index.ts",
-		"./auth-storage": "./src/schema/auth-storage.ts",
 		"./client": "./src/client.ts",
 		"./tables": "./src/schema/tables.ts",
 		"./query": "./src/query.ts",
@@ -25,7 +24,7 @@
 		"schema:check": "tsx scripts/catalog.ts --check && tsx scripts/check-migrations.ts"
 	},
 	"dependencies": {
-		"pg": "^8.16.3",
+		"pg": "8.23.1",
 		"server-only": "0.0.1",
 		"@aws-sdk/client-s3": "3.1152.0",
 		"@aws-sdk/s3-request-presigner": "3.1152.0",
@@ -35,10 +34,10 @@
 		"drizzle-orm": "0.45.4"
 	},
 	"devDependencies": {
-		"@types/node": "^24",
+		"@types/node": "24.19.2",
 		"typescript": "6.0.3",
-		"tsx": "^4.21.0",
-		"@types/pg": "^8.15.6",
+		"tsx": "4.23.15",
+		"@types/pg": "8.23.1",
 		"drizzle-kit": "0.31.11",
 		"oxlint": "1.92.0"
 	}

@@ -39,11 +39,7 @@ async function lockProgram(tx: Tx, w: Writer, programId: string): Promise<Progra
 			(archived_at IS NOT NULL) AS archived
 			FROM training_program WHERE id = ${programId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!row) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM training_program WHERE id = ${programId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
+	if (!row) deny();
 	return programRow.parse(row);
 }
 async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
@@ -53,12 +49,7 @@ async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
 		sql`SELECT (archived_at IS NOT NULL) AS archived FROM team
 			WHERE id = ${teamId}::uuid AND plant_id = ${w.plant.id}::uuid FOR SHARE`,
 	);
-	if (!row) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM team WHERE id = ${teamId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
-	if (row.archived === true) deny();
+	if (!row || row.archived === true) deny();
 }
 async function programTeam(tx: Tx, w: Writer, programId: string) {
 	const row = await oneRow(
@@ -283,11 +274,11 @@ async function attestProgram(
 	tx: Tx,
 	w: Writer,
 	audit: AuditWrite,
-	input: z.infer<typeof c.attestCompletionRequest>,
+	input: z.infer<typeof c.attestProgramRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
-	if (input.input.kind !== "program") deny("invalid_input");
 	const body = input.input;
 	const program = await lockProgram(tx, w, body.programId);
+	if (program.revision !== input.expectedRevision) deny("conflict");
 	const facts = await creditContext(tx, w, program, body.personId);
 	eligible(program, facts);
 	if (compatible(program, facts))
@@ -332,9 +323,8 @@ async function attestService(
 	tx: Tx,
 	w: Writer,
 	audit: AuditWrite,
-	input: z.infer<typeof c.attestCompletionRequest>,
+	input: z.infer<typeof c.attestServiceRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
-	if (input.input.kind !== "service") deny("invalid_input");
 	const body = input.input;
 	const person = await oneRow(
 		tx,
@@ -373,6 +363,7 @@ async function revoke(
 	input: z.infer<typeof c.revokeCompletionRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
 	const program = await lockProgram(tx, w, input.input.programId);
+	if (program.revision !== input.expectedRevision) deny("conflict");
 	const facts = await creditContext(tx, w, program, input.input.personId);
 	if (facts.kind !== "earned" || facts.version === null)
 		return {
@@ -409,6 +400,7 @@ async function recomplete(
 	input: z.infer<typeof c.recompleteTrainingRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
 	const program = await lockProgram(tx, w, input.input.programId);
+	if (program.revision !== input.expectedRevision) deny("conflict");
 	const facts = await creditContext(tx, w, program, input.input.personId);
 	eligible(program, facts);
 	if (compatible(program, facts))
@@ -469,11 +461,7 @@ async function schedule(
 		sql`SELECT revision::text AS revision, (archived_at IS NOT NULL) AS archived, name
 			FROM team WHERE id = ${teamId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!team) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM team WHERE id = ${teamId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
+	if (!team) deny();
 	if (team.revision !== input.expectedRevision) deny("conflict");
 	if (team.archived === true) deny();
 	const guests = unique(input.input.guestIds);
@@ -538,11 +526,7 @@ async function attend(
 		sql`SELECT revision::text AS revision, status, team_id AS "teamId" FROM meeting
 			WHERE id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND type = 'team_meeting' FOR UPDATE`,
 	);
-	if (!meeting) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM meeting WHERE id = ${meetingId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
+	if (!meeting) deny();
 	if (meeting.revision !== input.expectedRevision) deny("conflict");
 	const counts = await oneRow(
 		tx,
@@ -637,7 +621,7 @@ export const trainingWriter = {
 	async attestCompletion(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.attestCompletionRequest, raw);
-			if (input.input.kind === "program") {
+			if ("expectedRevision" in input) {
 				const programId = input.input.programId;
 				return command(
 					tx,
