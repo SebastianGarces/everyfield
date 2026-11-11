@@ -56,8 +56,7 @@ heavy = [
   "npx *tsgo", "npx *tsgo *", "pnpm *tsgo", "pnpm *tsgo *", "corepack pnpm *tsgo", "corepack pnpm *tsgo *",
   # next build
   "next build", "next build *", "*/next build", "*/next build *", "env *next build", "env *next build *",
-  "npx *next build", "npx *next build *", "pnpm *next build", "pnpm *next build *",
-  "corepack pnpm *next build", "corepack pnpm *next build *",
+  "npx *next build", "npx *next build *", # through pnpm and corepack pnpm: the `pnpm * build` patterns below
   # pnpm typecheck, with run, -r or --filter <pkg>
   "pnpm *typecheck*", "*/pnpm *typecheck*", "env *pnpm *typecheck*", "npx *pnpm *typecheck*", "corepack pnpm *typecheck*",
   # test:db, with run, -r or --filter <pkg>
