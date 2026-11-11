@@ -30,8 +30,8 @@ let chosen: ProductTheme | null = null;
  * sets that attribute.
  *
  * The server passes the theme from the cookie, so the first paint is already correct and no inline script is needed.
- * While a product page is mounted, the attribute is mirrored to <html> so overlays portalled to <body> and the page
- * scrollbar use the same theme. The mirror is a layout effect: React removes it in the same commit that unmounts the
+ * While a product page is mounted, the attribute is mirrored to <html> so the page scrollbar and anything rendered
+ * outside the product root use the same theme. Overlays portal inside the product root (overlay-portal.tsx). The mirror is a layout effect: React removes it in the same commit that unmounts the
  * product tree, before the browser paints the next page, so a client navigation to a marketing page never shows dark.
  */
 export function ProductRoot({ initialTheme, children }: { initialTheme: ProductTheme; children: ReactNode }) {
