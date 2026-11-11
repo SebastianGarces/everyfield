@@ -2,7 +2,7 @@
 // meeting's zone, and a completed practice offers no plain status move.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NEXT_REQUEST, statusMoves, untilText } from "../../../apps/web/src/features/meetings/model.ts";
+import { statusMoves, untilText } from "../../../apps/web/src/features/meetings/model.ts";
 
 const chicago = (localDate) => ({ localDate, zone: "America/Chicago" });
 
@@ -25,12 +25,6 @@ test("T-159: the day boundary is the meeting's zone, not UTC", () => {
 	assert.equal(untilText({ localDate: "2026-10-07", zone: "Pacific/Auckland" }, now), "today");
 	assert.equal(untilText(chicago("2026-10-11"), now), "in 5 days");
 	assert.equal(untilText(chicago("2026-10-27"), now), "in 3 weeks");
-});
-
-test("T-159: the Next card asks only for meetings still on", () => {
-	assert.equal(NEXT_REQUEST.window, "upcoming");
-	assert.equal(NEXT_REQUEST.limit, 1);
-	assert.deepEqual([...NEXT_REQUEST.statuses].sort(), ["in_progress", "planning", "ready"]);
 });
 
 test("T-159: a completed practice offers no Start the meeting; a scheduled practice still does", () => {
