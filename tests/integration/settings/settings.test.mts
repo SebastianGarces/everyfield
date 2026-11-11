@@ -32,6 +32,8 @@ let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
+/** A trusted IP per session, for a test that must not share the default IP's budget with earlier tests. */
+const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
 const ok = (r) => {
@@ -169,7 +171,7 @@ before(async () => {
 				email: v.principal.email,
 				verified: v.principal.verified,
 			};
-			return { request, trustedIp: "198.51.100.21", viewer };
+			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
 		deliverVerification: async (_tx, i) => {
@@ -1288,6 +1290,18 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
+test("people/peo-31 an email change whose send throws is unknown and gives its try back", async () => {
+	const a = await credentialActor();
+	trustedIps.set(a.session, "198.51.100.31");
+	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
+	const live = ingress.get(a.session);
+	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
+	ingress.set(a.session, live);
+	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
+});
+
 test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
@@ -1764,4 +1778,31 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	const fresh = await login(a);
 	assert.notEqual(await viewerOf(fresh), null);
 	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
+	const a = await actor();
+	const account = ok(await section(a, { section: "account" }));
+	const notifications = ok(await section(a, { section: "notifications" }));
+	assert.equal(notifications.revision, account.revision);
+	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
+	// A name save moves the revision the notifications section reads; a toggle sent with the old one is refused.
+	const named = ok(
+		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
+	);
+	assert.notEqual(named.current.revision, account.revision);
+	assert.equal(ok(await section(a, { section: "notifications" })).revision, named.current.revision);
+	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
+	assert.equal(stale.status, "refused", JSON.stringify(stale));
+	assert.equal(stale.error.code, "conflict");
+	// The toggle with the shared revision saves, and moves the revision Your account reads in turn.
+	const toggled = ok(
+		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
+	);
+	assert.equal(ok(await section(a, { section: "account" })).revision, toggled.current.revision);
+	denied(
+		await call("saveSection", a, command({ section: "account", name: "Too Old" }, named.current.revision)),
+		"conflict",
+	);
+	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });

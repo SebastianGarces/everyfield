@@ -24,6 +24,12 @@ export class IdentityRefusal extends Error {
 		super(code);
 	}
 }
+/** A budget refusal. It names the window the attempt hit, so the reply can say when the same request may pass. */
+export class RateLimited extends IdentityRefusal {
+	constructor(readonly windowMinutes: number) {
+		super("rate_limited", 429);
+	}
+}
 /** The transaction's statement and lock timeouts, for the select list of its first statement. */
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
 export function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
@@ -86,7 +92,7 @@ export function attemptBudget(db: Database, key: string) {
   OR (${ipValue}::text IS NOT NULL AND ips>=${ipLimit}))
  RETURNING id`,
 			);
-			if (!inserted.length) throw new IdentityRefusal("rate_limited", 429);
+			if (!inserted.length) throw new RateLimited(minutes);
 			return { id, kind, identifierHash };
 		} catch (error) {
 			if (error instanceof IdentityRefusal) throw error;
@@ -131,6 +137,10 @@ export function attemptBudget(db: Database, key: string) {
  UPDATE admission_attempt SET state='cleared',trusted_ip_hash=NULL WHERE id=${literal(r.id)}::uuid`,
 		);
 	}
+	/** Gives a reservation back unspent, for an attempt whose outcome is unknown and so must not cost a try. */
+	async function release(reservation: Awaited<ReturnType<typeof reserve>>) {
+		await db.delete(tables.admission_attempt).where(eq(tables.admission_attempt.id, reservation.id));
+	}
 	async function rememberRegistration(id: string, email: string, kind: string, intent: string) {
 		await db
 			.update(tables.admission_attempt)
@@ -157,5 +167,5 @@ export function attemptBudget(db: Database, key: string) {
 			.limit(1);
 		return row[0]?.workspace_key;
 	}
-	return { reserve, finish, rememberRegistration, registrationIntent };
+	return { reserve, finish, release, rememberRegistration, registrationIntent };
 }
