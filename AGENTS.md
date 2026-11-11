@@ -110,7 +110,7 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-`docs/build-progress.json` stopped updating at the evf v2 cutover. evf v2's task records are the live state.
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235. evf v2's task records are the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
