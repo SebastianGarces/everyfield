@@ -2,7 +2,7 @@
 
 Everyfield is an operational church-planting workspace with native workflows and the reviewed Evry assistant. The SME Playbook and Plant Intelligence rubric define its methodology; Network Intelligence reports only eligible organization-shared evidence. Plants and organizations have separate access scopes, and original-author private care stays outside the assistant and shared intelligence.
 
-Start with [current orientation](docs/START-HERE.md). Requirement JSON in `docs/catalog/requirements/` is the behavior authority; product chapters are readable summaries. Run all documentation checks with `python3 docs/check-all.py`.
+Start with [current orientation](docs/START-HERE.md). Requirement JSON in `docs/catalog/requirements/` is the behavior authority; product chapters are readable summaries. Run all documentation checks with `python3 docs/check-all.py`. Run the early-access request tests with `pnpm test:early-access`.
 
 - [Product scope and exclusions](docs/product/scope.md)
 - [Architecture](docs/architecture/core.md), [auth](docs/architecture/auth.md), [security](docs/architecture/security.md) and [audit](docs/architecture/audit.md)
