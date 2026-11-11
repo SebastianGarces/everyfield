@@ -819,8 +819,14 @@ export function pastedSlice(slice: Slice, state: EditorState): Slice {
 	const max = Slice.maxOpen(content);
 	return new Slice(
 		content,
-		Math.min(open(slice.openStart, (f) => f.firstChild), max.openStart),
-		Math.min(open(slice.openEnd, (f) => f.lastChild), max.openEnd),
+		Math.min(
+			open(slice.openStart, (f) => f.firstChild),
+			max.openStart,
+		),
+		Math.min(
+			open(slice.openEnd, (f) => f.lastChild),
+			max.openEnd,
+		),
 	);
 }
 

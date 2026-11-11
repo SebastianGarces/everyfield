@@ -286,7 +286,10 @@ test("T-123: Insert offers no columns in a box in a column or in a column, and s
 });
 
 test("T-123: a pasted columns node under a column gives way to its blocks, and the document saves", async () => {
-	const fork = await forkTemplate(DOC_TEMPLATES.find((t) => t.id === "commitment-card")!, { data: {} });
+	const fork = await forkTemplate(
+		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
+		{ data: {} },
+	);
 	// The copied content: a whole columns node, as a slice of a source document.
 	const source = schema.nodeFromJSON({
 		type: "doc",
