@@ -316,6 +316,7 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
 	const job = randomUUID();
+	// outcome 'failed' is no longer written, but rows saved before PR 245 may still hold it (D-520), so it stays retryable.
 	const r = await db.execute(sql`
 		WITH x AS (
 			UPDATE proposal p SET outcome=NULL,receipt=NULL,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()

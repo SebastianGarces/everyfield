@@ -16,9 +16,11 @@ import { displayTitle } from "./rows.ts";
 const TOKEN_DAYS = 7;
 export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 
+/** The answering statuses as SQL literals. They are contract constants, never input. */
+const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
 /** One rule for an open meeting: not retired and still taking answers. `alias` is a fixed table alias, never input. */
 export const meetingOpenSql = (alias: string) =>
-	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN ('planning', 'ready', 'in_progress')`;
+	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
 
 /** A fresh raw RSVP token. The caller keeps it only inside the message it builds; the database keeps only `rsvpTokenDigest`. */
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
