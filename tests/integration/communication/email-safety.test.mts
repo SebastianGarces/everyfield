@@ -28,6 +28,7 @@ import { runDueInvitationMail } from "../../../apps/web/src/server/invitations/i
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
+import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const TYPED = "real.person@example.com";
@@ -154,9 +155,21 @@ async function reviewed(op, sent, transport) {
 	);
 }
 const sendNow = async (people, transport) => reviewed("sendReviewed", await held(people), transport);
+/** Schedule, then the send time comes: the minute runner hands it to the email service then (T-241). */
 const handOff = async (people, transport) => {
 	const message = await held(people);
-	return { message, report: await reviewed("handOffScheduled", message, transport) };
+	const report = await reviewed("handOffScheduled", message, transport);
+	const { f } = await database();
+	await atSendTime(f.admin, f.db, message.id, transport, keys);
+	return { message, report };
+};
+/** A scheduled email the email service holds with its send time, as before T-241. */
+const heldHandOff = async (people, transport) => {
+	const message = await held(people);
+	const report = await reviewed("handOffScheduled", message, transport);
+	const { f } = await database();
+	await heldAtProvider(f.admin, message.id, transport, keys);
+	return { message, report };
 };
 async function transactional(address, transport) {
 	const { f, owner } = await database();
@@ -313,7 +326,7 @@ test("AC:WP-029-4 on a preview with a key a typed address is captured on Send no
 	const scheduled = await handOff([typed], resend.transport);
 	assert.equal(scheduled.report.acceptedCount, 1);
 	assert.match((await providerIds(scheduled.message.id))[0].id, /^capture-/);
-	assert.equal(settled.length, 1, "a held capture is not sent yet");
+	assert.equal(settled.length, 2, "at the send time the capture goes out at once");
 	assert.deepEqual(await outboxTo(), [TYPED, TYPED]);
 
 	const reset = await transactional("real.reset@example.com", resend.transport);
@@ -415,7 +428,7 @@ test("AC:WP-029-6 cancel and time change pick capture or Resend from the message
 
 	// The whole write path: the Messages screen's cancel of a held captured message.
 	const typed = await person("real.cancel@example.com");
-	const { message: message_ } = await handOff([typed], resend.transport);
+	const { message: message_ } = await heldHandOff([typed], resend.transport);
 	const { f, owner } = await database();
 	const { rows } = await f.admin.execute(
 		sql`SELECT revision::text AS revision FROM communication WHERE id = ${message_.id}`,
@@ -606,7 +619,7 @@ test("AC:WP-029-11 production sends the typed address on all four paths, with th
 	const [stored] = await providerIds(scheduled.message.id);
 	assert.equal(heldCall.idempotencyKey, stored.key);
 	assert.deepEqual(heldCall.body[0].to, ["real.production@example.com"]);
-	assert.equal(typeof heldCall.body[0].scheduled_at, "string");
+	assert.equal(heldCall.body[0].scheduled_at, undefined, "at the send time it goes out at once");
 	assert.match(stored.id, /^re-/);
 
 	assert.equal((await transactional("real.prod.reset@example.com", resend.transport)).deliveryStatus, "accepted");

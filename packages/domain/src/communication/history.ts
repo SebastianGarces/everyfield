@@ -74,7 +74,9 @@ function mailOn(plantId: string) {
 }
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
+ * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
+ * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
+ * unsubscribed from this church's email, so nothing goes out. A
  * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
  * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
  * done only when no accepted recipient is left open.
@@ -86,9 +88,11 @@ function hubState(plantId: string) {
 		WHEN c.state = 'draft' THEN 'draft'
 		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
 		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
+		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS DISTINCT FROM 'unsubscribed'`)} THEN 'unsubscribed'
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
 		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
@@ -399,7 +403,9 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 									AND jsonb_exists(c.audience->'personIds', p.id::text)) END,
-						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')),
+						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
+						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')
+							AND m.refusal IS NULL),
 						'accepted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL)),
 						'sent', (SELECT count(*)::int FROM mail m WHERE ${on} AND (m.state = 'sent' OR m.sent_at IS NOT NULL)),
@@ -422,7 +428,8 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 							FROM (
 								SELECT DISTINCT ${word} AS word,
 									CASE ${word} WHEN 'accepted' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END AS ord
-								FROM mail m WHERE ${on}
+								-- Only what the email service answered: not a recipient still waiting, nor one skipped for an opt-out.
+								FROM mail m WHERE ${on} AND m.state <> 'scheduled' AND m.refusal IS NULL
 							) w
 						), '[]'::jsonb),
 						'sentForAll', (SELECT count(*) FROM mail m WHERE ${on}) > 0

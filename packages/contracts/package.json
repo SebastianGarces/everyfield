@@ -29,7 +29,7 @@
 	},
 	"scripts": {
 		"test:unit": "node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/contracts/common/*.test.mts ../../tests/contracts/communication/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} src/identity/*.test.mts src/branding/*.test.mts",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"lint": "cd ../.. && packages/contracts/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/communication tests/contracts/wiki"
 	},
