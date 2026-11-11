@@ -27,8 +27,8 @@ import {
 	replyWithoutSavepoint,
 } from "./core.ts";
 import type { Context, WriteContext, Tx, Person } from "./core.ts";
+import { columnStages, isCommitted, openDutiesOf } from "./pipeline.ts";
 import { lockTasks } from "../tasks/queries.ts";
-import { assignedTo } from "../tasks/assignees.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 
 export function appendPerson(
@@ -98,14 +98,13 @@ export function freshPosition(id: string, at = new Date()): string {
 		.toString()
 		.padStart(15, "0")}`;
 }
-const COMMITTED = ["core_group", "launch_team", "leader"];
-export const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
+export const sameColumn = (a: string, b: string) => a === b || (isCommitted(a) && isCommitted(b));
 /**
  * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
  * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
  */
 export function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
-	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (COMMITTED.includes(s) ? "core_group" : s)))];
+	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (isCommitted(s) ? "core_group" : s)))];
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
 }
 
@@ -121,12 +120,7 @@ async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: s
 export async function openDuties(tx: Tx, ctx: Context, p: Person) {
 	if (ctx.selected.kind !== "plant") return [];
 	// Tasks store account assignees; Person subjects are separate references.
-	return lockTasks(
-		tx,
-		ctx.selected.id,
-		sql`(t.person_id=${p.id}::uuid OR ${assignedTo("t", sql`${p.linked_account_id}::uuid`)}) AND t.deleted_at IS NULL
- AND t.status NOT IN ('complete','no_longer_needed')`,
-	);
+	return lockTasks(tx, ctx.selected.id, openDutiesOf(p.id, p.linked_account_id));
 }
 /**
  * Hands the person's open tasks to the chosen people, or leaves them needing an owner. Each moved task's owed
@@ -268,9 +262,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 					live(before);
 					expected(before, input.expectedRevision);
 					const noop = before.stage === input.input.stage;
-					const leaving =
-						["core_group", "launch_team", "leader"].includes(before.stage!) &&
-						!["core_group", "launch_team", "leader"].includes(input.input.stage);
+					const leaving = isCommitted(before.stage) && !isCommitted(input.input.stage);
 					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
 					// Into another column: the person goes to its end with a fresh key (D68).
@@ -653,7 +645,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 	return c.noteMutationResult.pick({ receiptId: true, outcome: true }).parse(
 		await mutation(tx, ctx, "people.reorderPipeline", input, async (actor, id, audit) => {
 			const { column, personId: moving, afterId } = input.input;
-			const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
+			const stages = columnStages(column);
 			// One statement locks the column row and takes its next revision (a first move creates it at 2), and finds the
 			// key between the anchor and the next person in column order; the key is null when those two share one.
 			// The midpoint multiplies by 0.5: numeric multiplication is exact, where division rounds and could land on a

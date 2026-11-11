@@ -149,4 +149,3 @@ export async function runWrite<T>(
 		return refusal(error);
 	}
 }
-export { hash, RequestActor };

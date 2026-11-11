@@ -63,7 +63,7 @@ test("columnWidths shares the free width among the columns with width 0, as the 
 	assert.deepEqual(columnWidths([{ width: 0 }, { width: 0 }], 30), [24, 24]);
 });
 
-test("exports follow the body: Excel only with a budget table, and an unchanged list keeps its order", () => {
+test("AC:WP-036-12 exports follow the body: Excel only with a budget table, and an unchanged list keeps its order", () => {
 	const withBudget = { type: "doc", content: [{ type: "table", attrs: { style: "ledger", columns: [] } }] } as never;
 	const without = { type: "doc", content: [{ type: "paragraph" }] } as never;
 	assert.deepEqual(exportsFor(["xlsx", "pdf", "docx"], withBudget), ["xlsx", "pdf", "docx"]);
@@ -72,13 +72,13 @@ test("exports follow the body: Excel only with a budget table, and an unchanged 
 	assert.deepEqual(exportsFor(["pdf", "docx"], without), ["pdf", "docx"]);
 });
 
-test("the format's own words refuse a blank row count outside 0 to 200", () => {
+test("AC:WP-036-5 the format's own words refuse a blank row count outside 0 to 200", () => {
 	assert.equal(attrIssue("table", "writeInRows", 250), "250 is outside 0 to 200");
 	assert.equal(attrIssue("table", "writeInRows", 2.5), "must be a whole number");
 	assert.equal(attrIssue("table", "writeInRows", 200), null);
 });
 
-test("every new table of Insert parses, and a column or row action leaves the table valid", () => {
+test("AC:WP-036-3 every new table of Insert parses, and a column or row action leaves the table valid", () => {
 	for (const make of [newGrid, newChecklist, newBudget]) assert.equal(tableIssue(make()), null);
 	let grid = newGrid();
 	for (let i = 0; i < 13; i++) grid = addColumn(grid, 0);
@@ -88,7 +88,7 @@ test("every new table of Insert parses, and a column or row action leaves the ta
 	assert.equal(tableIssue(removeColumn(grid, 3)), null);
 });
 
-test("a column kind change converts the cells: text that reads as a number, number to money and back, the rest clears", () => {
+test("AC:WP-036-4 a column kind change converts the cells: text that reads as a number, number to money and back, the rest clears", () => {
 	let t = addColumn(newGrid(), 3);
 	t = {
 		...t,
@@ -128,7 +128,7 @@ test("a column kind change converts the cells: text that reads as a number, numb
 	assert.equal(tableIssue(setKind(money, 0, "index")), null);
 });
 
-test("a column a formula reads, and a budget's last text column, cannot be removed or change kind", () => {
+test("AC:WP-036-4 a column a formula reads, and a budget's last text column, cannot be removed or change kind", () => {
 	const t = budgetTemplate();
 	const reads = availability(t, { row: 1, col: 1 });
 	assert.equal(reads.removeColumn, 'The "Annual" column reads this column.');
@@ -154,7 +154,7 @@ test("a column a formula reads, and a budget's last text column, cannot be remov
 	assert.match(availability(summed, { row: null, col: 0 }).addColumnRight ?? "", /adds up a range/);
 });
 
-test("a line item goes before its category total, a category before the grand total, and a sign is its own control", () => {
+test("AC:WP-036-8 a line item goes before its category total, a category before the grand total, and a sign is its own control", () => {
 	const t = budgetTemplate();
 	const other = (t.content ?? []).findIndex(
 		(r) => r.content[0]?.content?.[0] && (r.content[0].content[0] as { text: string }).text === "Other income",
@@ -207,7 +207,7 @@ test("the table view numbers rows and stripes as the PDF does: blank rows count 
 	);
 });
 
-test("Remove row is off on the last row of a table with no header, and on a table's last blank row with no header", () => {
+test("AC:WP-036-2 Remove row is off on the last row of a table with no header, and on a table's last blank row with no header", () => {
 	const checklist = newChecklist();
 	assert.equal(availability(checklist, { row: 0, col: 1 }).removeRow, null);
 	const one = { ...checklist, content: checklist.content?.slice(0, 1) };

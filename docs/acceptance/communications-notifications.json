@@ -2086,8 +2086,7 @@
       },
       "run_by": [
         "tests/integration/communication/opens.test.mts",
-        "tests/integration/meetings/meetings.test.mts",
-        "tests/ui/meetings/meetings.test.mjs"
+        "tests/integration/meetings/meetings.test.mts"
       ]
     },
     {
@@ -2307,9 +2306,7 @@
         "tests/integration/communication/communication.test.mts",
         "tests/integration/communication/held.test.mts",
         "tests/integration/communication/ui-reads.test.mts",
-        "tests/ui/communication/capture.test.mts",
-        "tests/ui/communication/communication.test.mjs",
-        "tests/ui/communication/drafts.test.mjs"
+        "tests/ui/communication/capture.test.mts"
       ]
     },
     {
