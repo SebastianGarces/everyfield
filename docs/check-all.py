@@ -31,6 +31,7 @@ CHECKS = [
     ('feature review page', ['docs/check-feature-review.py', '--check']),
     ('explorer generation', ['docs/render-build-explorer.py', '--check']),
     ('local links', ['docs/check-links.py']),
+    ('local links self-test', ['docs/check-links.py', '--self-test']),
     ('pinned skills', ['docs/check-skills-lock.py']),
     ('pinned skills self-test', ['docs/check-skills-lock.py', '--self-test']),
     ('Wiki seed', ['tools/wiki/seed.py', 'check', '--seed-dir', 'docs/reference/wiki',

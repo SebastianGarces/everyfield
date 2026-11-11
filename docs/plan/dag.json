@@ -204,7 +204,7 @@
           "REQ-PPL-024": "People remain identifiable across change history and corrections."
         },
         "chapter_links": [
-          "docs/architecture/core.md#one-short-transaction-protocol",
+          "docs/architecture/core.md#transaction-boundary",
           "docs/architecture/audit.md",
           "docs/product/tasks.md#req-tsk-018",
           "docs/product/identity-access.md#req-idn-029",
