@@ -52,7 +52,7 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
 
 /** A team as the screens show it: the team, its leader's name, and whether this viewer may change it. */
-export type TeamCard = Team & { leaderName: string | null };
+type TeamCard = Team & { leaderName: string | null };
 function cards(teams: readonly Team[], nodes: readonly ChartNode[]): TeamCard[] {
 	const leader = new Map(nodes.map((n) => [n.id, n.leaderName]));
 	return teams.map((t) => ({ ...t, leaderName: leader.get(t.id) ?? null }));

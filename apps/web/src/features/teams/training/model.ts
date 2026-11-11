@@ -6,10 +6,9 @@ import type { z } from "zod";
 
 export type Program = z.infer<typeof c.trainingList>["programs"][number];
 export type Credit = z.infer<typeof c.trainingHistory>["credits"][number];
-export type PersonTraining = z.infer<typeof c.personTraining>;
-export type ProgramBody = z.infer<typeof c.trainingProgram>;
-export type CreditBody = z.infer<typeof c.creditResult>;
-export type RosterBody = z.infer<typeof c.rosterResult>;
+type PersonTraining = z.infer<typeof c.personTraining>;
+type ProgramBody = z.infer<typeof c.trainingProgram>;
+type CreditBody = z.infer<typeof c.creditResult>;
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
@@ -49,7 +48,7 @@ export function problemText(code: string): string {
 }
 
 /** This ministry's programs, then programs for every ministry. Archived programs go last. */
-export function orderPrograms(programs: readonly ShownProgram[], teamId: string): ShownProgram[] {
+function orderPrograms(programs: readonly ShownProgram[], teamId: string): ShownProgram[] {
 	const rank = (p: ShownProgram) => (p.archived ? 2 : p.teamId === teamId ? 0 : 1);
 	return [...programs].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }
@@ -163,7 +162,7 @@ export function latestByProgram(credits: readonly Credit[]): Map<string, Credit>
 	return map;
 }
 
-export function todayLocal(): string {
+function todayLocal(): string {
 	const now = new Date();
 	const month = String(now.getMonth() + 1).padStart(2, "0");
 	const day = String(now.getDate()).padStart(2, "0");

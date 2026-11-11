@@ -250,7 +250,7 @@ function History({
 		if (program.rosterKnown && program.assignedIds.includes(person.id)) ids.add(program.id);
 	}
 	const rows = [...ids]
-		.map((id) => ({ id, program: byId.get(id) ?? null, credit: latest.get(id) ?? null }))
+		.map((id) => ({ id, program: byId.get(id) ?? null, credit: programCredit(latest.get(id)) }))
 		.sort(
 			(a, b) =>
 				(a.program?.name ?? "A program").localeCompare(b.program?.name ?? "A program") || a.id.localeCompare(b.id),
@@ -324,7 +324,7 @@ function ProgramHistory({
 	busy,
 	onOpen,
 }: {
-	row: { id: string; program: ShownProgram | null; credit: Credit | null };
+	row: { id: string; program: ShownProgram | null; credit: ProgramCredit | null };
 	credits: readonly Credit[];
 	person: { id: string; name: string };
 	canWrite: (program: ShownProgram) => boolean;
@@ -334,7 +334,7 @@ function ProgramHistory({
 	const name = row.program?.name ?? "A program";
 	const writable = row.program ? canWrite(row.program) : false;
 	const events = credits
-		.filter((credit) => credit.programId === row.id)
+		.filter((credit): credit is ProgramCredit => credit.programId === row.id && credit.kind !== "service")
 		.slice()
 		.reverse();
 	const earned = row.credit?.kind === "earned";
@@ -387,17 +387,23 @@ function ProgramHistory({
 	);
 }
 
-function latestText(credit: Credit | null): string {
-	if (!credit) return "No completion is recorded.";
-	if (credit.kind === "earned") return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.`;
-	if (credit.kind === "revoked") return "Revoked. The earlier completion stays in the history.";
-	return "A service record is stored on this program.";
+// A credit on a program row. Service credits carry no program, so they never reach these rows.
+type ProgramCredit = Credit & { kind: "earned" | "revoked" };
+
+function programCredit(credit: Credit | undefined): ProgramCredit | null {
+	if (!credit || credit.kind === "service") return null;
+	return { ...credit, kind: credit.kind };
 }
 
-function eventText(credit: Credit): string {
+function latestText(credit: ProgramCredit | null): string {
+	if (!credit) return "No completion is recorded.";
+	if (credit.kind === "earned") return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.`;
+	return "Revoked. The earlier completion stays in the history.";
+}
+
+function eventText(credit: ProgramCredit): string {
 	const version = credit.version ? ` Version ${credit.version}.` : "";
 	if (credit.kind === "earned")
 		return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.${version}`;
-	if (credit.kind === "revoked") return `Revoked.${version}`;
-	return `Attendance ${credit.attendanceDays ?? 0} days. Serving ${credit.volunteerDays ?? 0} days.`;
+	return `Revoked.${version}`;
 }
