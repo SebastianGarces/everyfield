@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 /**
- * `pnpm typecheck`: tsc in every package, as before, and `bun check` beside it as a shadow (T-53).
+ * `pnpm typecheck`: tsc (TypeScript 7 since T-252) in every package, and `bun check` beside it as a shadow (T-53).
  * tsc alone decides the exit code. The shadow prints one `typecheck-shadow {json}` line per run and,
  * outside CI, appends it to a log outside the repository, so that the data can later decide whether
  * `bun check` may replace tsc.
