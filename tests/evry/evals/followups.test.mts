@@ -19,15 +19,8 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
-import type { LanguageModelV4 } from "@ai-sdk/provider";
-import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
-import { compileContext } from "../../../packages/evry/src/context/compile.ts";
-import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
-import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
-import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
-import { recorder, type ToolCall } from "./golden-harness.mts";
-import { id, readAs, realReads, smallChurch } from "./small-church.mts";
+import { recorder } from "./golden-harness.mts";
+import { converse, id, readAs, smallChurch } from "./small-church.mts";
 
 type Case = {
 	text: string;
@@ -65,31 +58,6 @@ const church = await smallChurch({
 });
 after(church.close);
 const { daniel, lena } = church.actors;
-
-/** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
-async function converse(model: LanguageModelV4, who: EvryActor, text: string) {
-	const calls: ToolCall[] = [];
-	const tools = readTools(who, realReads(church.db, who, calls));
-	const context = compileContext({
-		actor: who,
-		catalog: readCatalog(who),
-		history: [],
-		text,
-		references: [],
-		now: NOW,
-	});
-	const run = streamText({
-		model,
-		system: context.system,
-		messages: context.messages,
-		tools,
-		stopWhen: stepCountIs(4),
-		maxRetries: 0,
-		maxOutputTokens: LIMITS.outputTokensPerCall,
-		onError: () => undefined,
-	});
-	return { calls, answer: await run.text };
-}
 
 test("AC:EVRY-CONTEXT-BOUNDS the seeded church has 5 live people; Daniel and Lena have the highest inactivity and no open task, and each signed-in user's own row is marked you, read back through the real reads", async () => {
 	assert.equal((await readAs(church.db, daniel, "people.listPeople", {})).total, 5);
@@ -132,7 +100,7 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 	for (const c of cases) {
 		const who = c.actor === "lena" ? lena : daniel;
 		const me = c.actor === "lena" ? "Lena" : "Daniel";
-		const { calls, answer } = await converse(model, who, c.text);
+		const { calls, answer } = await converse(model, church.db, who, c.text, NOW);
 		const ops = calls.map((x) => x.operation);
 		if (!ops.some((op) => [c.operation, ...(c.alsoAccepted ?? [])].includes(op)))
 			failures.push(`${c.text}: called ${ops.join(", ") || "nothing"}`);

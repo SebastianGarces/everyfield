@@ -15,14 +15,8 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
-import type { LanguageModelV4 } from "@ai-sdk/provider";
-import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
-import { compileContext } from "../../../packages/evry/src/context/compile.ts";
-import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
-import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { recorder, type ToolCall } from "./golden-harness.mts";
-import { id, readAs, realReads, smallChurch } from "./small-church.mts";
+import { recorder } from "./golden-harness.mts";
+import { converse, id, readAs, smallChurch } from "./small-church.mts";
 
 type Case = {
 	text: string;
@@ -65,24 +59,6 @@ after(church.close);
 const actor = church.actors.owner;
 const read = (operation: string, input: unknown) => readAs(church.db, actor, operation, input);
 
-/** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
-async function converse(model: LanguageModelV4, text: string) {
-	const calls: ToolCall[] = [];
-	const tools = readTools(actor, realReads(church.db, actor, calls));
-	const context = compileContext({ actor, catalog: readCatalog(actor), history: [], text, references: [], now: NOW });
-	const run = streamText({
-		model,
-		system: context.system,
-		messages: context.messages,
-		tools,
-		stopWhen: stepCountIs(4),
-		maxRetries: 0,
-		maxOutputTokens: LIMITS.outputTokensPerCall,
-		onError: () => undefined,
-	});
-	return { calls, answer: await run.text };
-}
-
 test("AC:EVRY-CONTEXT-BOUNDS the seeded church has exactly 1 household, the Okafor household with James Okafor as Head and Ruth Allen as Spouse, read back through the real reads", async () => {
 	const homes = await read("people.listHouseholds", {});
 	assert.equal(homes.total, 1);
@@ -109,7 +85,7 @@ test("AC:EVRY-CONTEXT-BOUNDS household requests pick the household operation wit
 	const failures: string[] = [];
 	let answered = 0;
 	for (const c of cases) {
-		const { calls, answer } = await converse(model, c.text);
+		const { calls, answer } = await converse(model, church.db, actor, c.text, NOW);
 		const ops = calls.map((x) => x.operation);
 		const accepted = [c.operation, ...(c.alsoAccepted ?? [])];
 		if (!ops.some((op) => accepted.includes(op))) failures.push(`${c.text}: called ${ops.join(", ") || "nothing"}`);

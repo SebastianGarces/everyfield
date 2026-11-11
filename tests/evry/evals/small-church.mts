@@ -9,14 +9,18 @@
 // warning has a last contact (a follow-up outcome) 2 or 10 days before the seed runs; an alert-level person has no
 // contact and was created months ago. Coverage is whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
-import { READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
+import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { compileContext } from "../../../packages/evry/src/context/compile.ts";
+import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
-import { resultForModel, type ToolHandlers } from "../../../packages/evry/src/runtime/tools.ts";
+import { readTools, resultForModel, type ToolHandlers } from "../../../packages/evry/src/runtime/tools.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
 import type { ToolCall } from "./golden-harness.mts";
 
@@ -121,7 +125,7 @@ export const readAs = (db: Database, actor: EvryActor, operation: string, input:
  * in call order, and each takes its result id before its first await, so a replay sends exactly the recorded prompt.
  * A refused read answers `source_unavailable`, as the golden harness answers it.
  */
-export function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandlers["read"] {
+function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandlers["read"] {
 	let queue: Promise<unknown> = Promise.resolve();
 	return (adapter, input) => {
 		const call: ToolCall = { operation: adapter.operation, input };
@@ -138,4 +142,22 @@ export function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): To
 		queue = next.catch(() => undefined);
 		return next;
 	};
+}
+
+/** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
+export async function converse(model: LanguageModelV4, db: Database, actor: EvryActor, text: string, now: Date) {
+	const calls: ToolCall[] = [];
+	const tools = readTools(actor, realReads(db, actor, calls));
+	const context = compileContext({ actor, catalog: readCatalog(actor), history: [], text, references: [], now });
+	const run = streamText({
+		model,
+		system: context.system,
+		messages: context.messages,
+		tools,
+		stopWhen: stepCountIs(4),
+		maxRetries: 0,
+		maxOutputTokens: LIMITS.outputTokensPerCall,
+		onError: () => undefined,
+	});
+	return { calls, answer: await run.text };
 }
