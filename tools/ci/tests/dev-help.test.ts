@@ -38,5 +38,6 @@ test("bin/dev help names what GitHub CI runs beyond bin/dev check --full", () =>
 	const ci = readFileSync(`${root}.github/workflows/ci.yml`, "utf8");
 	for (const step of ["pnpm format:check", "pnpm build", "server-trace.test.mjs", "pnpm test:logs"])
 		assert.ok(ci.includes(step), `ci.yml no longer runs ${step}`);
-	for (const job of ["db", "census", "wiki"]) assert.match(ci, new RegExp(`^  ${job}:`, "m"), `ci.yml has no ${job} job`);
+	for (const job of ["db", "census", "wiki"])
+		assert.match(ci, new RegExp(`^  ${job}:`, "m"), `ci.yml has no ${job} job`);
 });
