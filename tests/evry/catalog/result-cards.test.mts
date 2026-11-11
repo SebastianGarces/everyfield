@@ -34,13 +34,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => SourceResult)> = {
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	[catalog.SELECT_RETURNED_ROWS]: () => {
-		const rows = answerRead(actor, church, "people.listPeople", {}).rows.slice(0, 2);
-		return {
-			...answerRead(actor, church, "people.listPeople", {}),
-			operation: catalog.SELECT_RETURNED_ROWS,
-			rows,
-			total: 2,
-		};
+		const list = answerRead(actor, church, "people.listPeople", {});
+		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
 	},
 };
 

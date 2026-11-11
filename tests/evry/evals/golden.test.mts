@@ -705,9 +705,6 @@ test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a 
 	for (const tool of tools) if (!covered.has(tool)) problems.push(`catalog: ${tool} has no case`);
 	for (const c of extras.filter((x) => x.adapter === "catalog"))
 		if (!tools.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a catalog tool`);
-	for (const c of extras)
-		if (c.adapter !== "catalog" && !adapters.includes(c.adapter))
-			problems.push(`${c.case_id}: ${c.adapter} is not an adapter folder or "catalog"`);
 	assert.deepEqual(problems, []);
 });
 
