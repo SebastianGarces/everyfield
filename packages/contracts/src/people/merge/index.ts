@@ -152,9 +152,11 @@ export const recordType = z.enum(["assessment", "interview", "commitment"]);
 // The expected revision is the record's. The Person is the one the corrector reviewed: a record that has since moved to
 // another Person, by merge or Unmerge, refuses the correction.
 // The reason is optional: omitted, empty or whitespace-only all mean no reason (D-6).
+/** The longest reason a correction may give, in characters. */
+export const EDIT_REASON_MAX = 5000;
 const editReason = z
 	.string()
-	.max(5000)
+	.max(EDIT_REASON_MAX)
 	.transform((text) => text.trim() || undefined)
 	.optional();
 const corrected = { personId, recordId, reason: editReason };
