@@ -6,7 +6,6 @@ import { commandEnvelope } from "../common/writes.ts";
 import { ordinarySeatRole } from "./invitations.ts";
 
 export const listSeatsRequest = z.strictObject({ workspace: tenantOwner, after: recordId.optional() });
-export const currentMembershipRequest = z.strictObject({});
 const ordinaryTarget = z.strictObject({ seatId: recordId, expectedRole: ordinarySeatRole });
 export const changeOrdinaryRoleRequest = commandEnvelope(ordinaryTarget.extend({ to: ordinarySeatRole }));
 export const appointAdminRequest = commandEnvelope(ordinaryTarget.extend({ to: z.literal("admin") }));

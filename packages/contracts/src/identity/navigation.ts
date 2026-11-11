@@ -1,4 +1,4 @@
-// Pure boundary helpers. Neither a local URL nor a crawler creates authority.
+// Pure boundary helpers. A local URL never creates authority.
 export function safeReturn(input: string | null | undefined): string | null {
 	if (!input || input.length > 8192 || !input.startsWith("/") || input.startsWith("//")) return null;
 	let decoded = input;
@@ -48,21 +48,4 @@ export function invalidSessionReturn(returnTo: string | null | undefined): strin
 	// Authentication screens stay directly reachable with an expired cookie.
 	if (!path || /^\/(?:signin|login|recover-password)(?:[/?#]|$)/.test(path)) return "/signin";
 	return `/signin?returnTo=${encodeURIComponent(path)}`;
-}
-
-export type PublicPreview = { kind: "public_wiki_metadata" } | { kind: "ordinary" };
-export function classifyPublicPreview(actualUrl: string, userAgent: string, method: string): PublicPreview {
-	if (method !== "GET") return { kind: "ordinary" };
-	let path: string;
-	try {
-		path = new URL(actualUrl).pathname;
-	} catch {
-		return { kind: "ordinary" };
-	}
-	return /^\/wiki(?:\/|$)/.test(path) &&
-		/(?:facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|Googlebot|bingbot)/i.test(userAgent) &&
-		// A human WhatsApp WebView has a browser UA, not the preview bot UA.
-		!(/WhatsApp/i.test(userAgent) && /(?:Mozilla\/|AppleWebKit\/)/i.test(userAgent))
-		? { kind: "public_wiki_metadata" }
-		: { kind: "ordinary" };
 }
