@@ -12,7 +12,7 @@ import { declarable, deny, entryJson, entryOf, parse, scopeOf, settle, type Scop
 import { declaration } from "./declaration.ts";
 
 /** A committed forward move and the current Owners and Admins of each connected sending church or network. */
-export type PhaseAdvance = {
+type PhaseAdvance = {
 	plantName: string;
 	transitionId: string;
 	fromPhase: c.PhaseNumber;

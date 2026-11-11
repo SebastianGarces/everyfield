@@ -457,6 +457,7 @@ function cases(who) {
 				resolvedDistinctPeople: 0,
 				eligibleRecipients: 0,
 				missingEmailExclusions: [],
+				unsubscribedExclusions: [],
 				duplicateAddressesRemoved: 0,
 				eligibleEmails: [],
 				searchResultLimit: 20,

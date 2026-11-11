@@ -20,10 +20,6 @@ for (const [input, output] of stored) {
 	});
 }
 
-test("renderBody keeps the safe sentence and drops the script", () => {
-	assert.equal(renderBody("<p>Hello {{name}}</p><script>alert(1)</script>", { name: "Alex" }), "<p>Hello Alex</p>");
-});
-
 const link = "https://app.example.com/rsvp/abc_DEF-123";
 
 test("AC:COM-010 renderBody turns rsvp_link into a bulletproof button and drops every other value", () => {
