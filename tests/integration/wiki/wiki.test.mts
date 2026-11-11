@@ -553,11 +553,54 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-002", "CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041", "WR-054", "WR-064"]) +
-			" navigation, guide and excerpts keep the global citation and add no reading",
+		ac([
+			"CASE-WIKI-002",
+			"CASE-WIKI-008",
+			"WR-038",
+			"WR-039",
+			"WR-040",
+			"WR-041",
+			"WR-054",
+			"WR-064",
+			"WIKI-PREV-NEXT",
+		]) + " navigation, guide and excerpts keep the global citation and add no reading",
 		async () => {
+			// One section's articles, stored out of order, come back by phase, position, then title.
+			const ordered = randomUUID();
+			await item(ordered, "section", "reference/order", GLOBAL);
+			const placed = {};
+			for (const [name, phase, position] of [
+				["Order late", 2, 1],
+				["Order second", 1, 2],
+				["Order beta", 1, 1],
+				["Order alpha", 1, 1],
+			]) {
+				const article = randomUUID();
+				const slug = name.toLowerCase().replace(" ", "-");
+				await item(article, "article", slug, GLOBAL);
+				await revision({
+					id: randomUUID(),
+					article,
+					tenant: GLOBAL,
+					release,
+					title: name,
+					slug,
+					body: name,
+					phase,
+					position,
+					section: ordered,
+				});
+				placed[article] = name;
+			}
 			const before = await count(sql`SELECT count(*)::int AS n FROM reading`);
 			const nav = ok(await api.navigation(db, await actor(people.owner), {}));
+			assert.deepEqual(
+				nav.groups
+					.find((group) => group.name === "Reference")
+					.articles.filter((a) => a.articleId in placed)
+					.map((a) => placed[a.articleId]),
+				["Order alpha", "Order beta", "Order second", "Order late"],
+			);
 			const encoded = nav.groups.flatMap((group) => group.articles).find((item) => item.articleId === guide);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
@@ -651,8 +694,16 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-004", "DISC-READER-003", "WIKI49-001", "WIKI49-002", "WIKI49-003", "WR-023", "WR-025"]) +
-			" progress completes above 0.80, keeps credit, and labels a later meaningful revision",
+		ac([
+			"CASE-WIKI-004",
+			"DISC-READER-003",
+			"WIKI49-001",
+			"WIKI49-002",
+			"WIKI49-003",
+			"WR-023",
+			"WR-025",
+			"WIKI-ARTICLE-LAYOUT",
+		]) + " progress completes above 0.80, keeps credit, and labels a later meaningful revision",
 		async () => {
 			const phaseBefore = await count(sql`SELECT phase AS n FROM plant WHERE id=${P}`);
 			const held = ok(
@@ -664,11 +715,24 @@ describe("wiki api", { concurrency: 1 }, () => {
 			);
 			assert.equal(held.completed, false);
 			assert.equal(held.written, true);
+			// The partial fraction is kept for the next read, and a lower later fraction does not lower it.
+			const partial = (await current(people.owner, departed)).article;
+			assert.deepEqual([partial.observedFraction, partial.completed], ["0.80", false]);
+			const lower = ok(
+				await api.updateProgress(
+					db,
+					await actor(people.owner),
+					cmd({ articleId: departed, fraction: "0.30", plantId: P }, held.revision),
+				),
+			);
+			assert.equal(lower.completed, false);
+			const kept = (await current(people.owner, departed)).article;
+			assert.deepEqual([kept.observedFraction, kept.completed], ["0.80", false]);
 			const done = ok(
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, held.revision),
+					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, lower.revision),
 				),
 			);
 			assert.equal(done.completed, true);
@@ -765,7 +829,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-005"]) + " bookmark replay and a false write stay one row and hide a departed source",
+		ac(["CASE-WIKI-005", "WIKI-BOOKMARK"]) +
+			" bookmark replay and a false write stay one row and hide a departed source",
 		async () => {
 			const firstKey = key();
 			const falseKey = key();
@@ -1233,6 +1298,24 @@ describe("wiki api", { concurrency: 1 }, () => {
 		);
 		const table = await admin.execute(sql`SELECT to_regclass('wiki_article_feedback') AS name`);
 		assert.equal(table.rows[0].name, null);
+	});
+
+	test("T-159 C13: own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes", async () => {
+		const voter = await enroll("member", { kind: "plant", id: P });
+		const reader = await actor(voter);
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// A pending-deletion witness on the account hides it.
+		const witness = randomUUID();
+		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+			cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${voter.id},1,'pending_deletion',1,
+			'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// An ended seat reads nothing either, though the request's viewer was resolved while it was live.
+		await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${voter.id}`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
 	});
 
 	test(
@@ -2150,7 +2233,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		}
 	});
 
-	test("WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
+	test("BUG-wiki-search-hits WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
 		const reader = await actor(people.outsider);
 		const marked = id();
 		const markdown = [

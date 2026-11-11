@@ -606,6 +606,9 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	p = result.person;
 	assert.equal(p.stage, "leader");
 	assert.deepEqual(p.commitment, { state: "unknown" });
+	// Activity shows the change as its newest entry, from the old stage to the new one.
+	const [changed] = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id }))).items;
+	assert.deepEqual([changed.kind, changed.from, changed.to], ["stage_changed", "prospect", "leader"]);
 	const noop = ok(
 		await tx((t) =>
 			write.changeStatus(
@@ -745,6 +748,10 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 });
 
+/** The person's revision as stored now. */
+const storedRevision = async (personId) =>
+	(await admin.execute(sql`SELECT revision::text AS revision FROM person WHERE id=${personId}::uuid`)).rows[0].revision;
+
 test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurrence, tombstone and removed attribution", async () => {
 	const p = await create("Notes");
 	const added = ok(
@@ -756,6 +763,9 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	// Each note change answers with the person's new revision, so the next save on the page needs no reread.
+	assert.equal(added.personRevision, await storedRevision(p.id));
+	assert.notEqual(added.personRevision, p.revision);
 	const assertNoteFeed = async (kind) => {
 		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
 		assert.deepEqual(
@@ -795,6 +805,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	assert.equal(edited.personRevision, await storedRevision(p.id));
+	assert.notEqual(edited.personRevision, added.personRevision);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT occurred_at,author_id FROM person_note WHERE id=${sql.param(added.noteId)}`))
 			.rows[0],
@@ -813,6 +825,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		),
 	);
 	assert.equal(deleted.revision, "3");
+	assert.equal(deleted.personRevision, await storedRevision(p.id));
+	assert.notEqual(deleted.personRevision, edited.personRevision);
 	await assertNoteFeed("note_removed");
 	assert.deepEqual(
 		(
@@ -833,7 +847,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 });
 
-test("AC:CA014 explicit adult classification retains genuine historical acquisition rather than creating a join today", async () => {
+test("AC:CA014 BUG-church-date explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
 	const p = await create("Historical commitment");
 	const commitment = randomUUID();
 	await admin.execute(
@@ -857,17 +871,19 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 			}),
 		),
 	);
-	assert.equal(result.observation.classification, "adult");
-	assert.equal(result.observation.current.state, "active");
-	assert.equal(result.observation.firstAcquisition.occurredOn, "2026-09-01");
-	assert.equal(result.observation.firstAcquisition.evidenceId, commitment);
+	// The answer is the person as saved: the new classification, the current commitment and the new revision.
+	assert.deepEqual(
+		[result.person.adultClassification, result.person.adultClassificationSource, result.person.commitment.state],
+		["adult", "recorded", "active"],
+	);
+	assert.equal(result.person.revision, await storedRevision(p.id));
 	const before = (await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0]
 		.signed_on;
 	const corrected = ok(
 		await tx((t) =>
 			write.correctAdultClassification(t, ctx(), {
 				requestKey: randomUUID(),
-				expectedRevision: result.observation.sourceRevision,
+				expectedRevision: result.person.revision,
 				input: {
 					personId: p.id,
 					classification: "unknown",
@@ -877,17 +893,48 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 			}),
 		),
 	);
-	assert.equal(corrected.observation.classification, "unknown");
-	assert.equal(corrected.observation.current.state, "active");
-	assert.deepEqual(corrected.observation.firstAcquisition, {
-		status: "known",
-		occurredOn: "2026-09-01",
-		evidenceId: commitment,
-	});
+	assert.deepEqual([corrected.person.adultClassification, corrected.person.commitment.state], ["unknown", "active"]);
+	assert.equal(corrected.person.revision, await storedRevision(p.id));
+	// Classification creates no commitment: the historical acquisition stays the first one.
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT signed_on::text FROM commitment WHERE person_id=${sql.param(p.id)} ORDER BY signed_on`,
+			)
+		).rows.map((r) => r.signed_on),
+		["2026-09-01", "2026-10-05"],
+	);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0].signed_on,
 		before,
 	);
+	// BUG-church-date: the church's own today bounds the date. Kiritimati (UTC+14) is often already tomorrow in UTC.
+	await admin.execute(sql`UPDATE plant SET timezone='Pacific/Kiritimati' WHERE id=${plants[0]}::uuid`);
+	try {
+		const { today, tomorrow } = (
+			await admin.execute(
+				sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS today, ((clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date + 1)::text AS tomorrow`,
+			)
+		).rows[0];
+		const classify = (operation, occurredOn) =>
+			tx((t) =>
+				write[operation](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: corrected.person.revision,
+					input: { personId: p.id, classification: "adult", occurredOn, reason: "Church date" },
+				}),
+			);
+		const stored = async () =>
+			(await admin.execute(sql`SELECT adult_classification FROM person WHERE id=${p.id}::uuid`)).rows[0]
+				.adult_classification;
+		refused(await classify("recordAdultClassification", tomorrow), "invalid_input");
+		refused(await classify("correctAdultClassification", tomorrow), "invalid_input");
+		assert.equal(await stored(), "unknown");
+		assert.equal(ok(await classify("recordAdultClassification", today)).person.adultClassification, "adult");
+		assert.equal(await stored(), "adult");
+	} finally {
+		await admin.execute(sql`UPDATE plant SET timezone='America/New_York' WHERE id=${plants[0]}::uuid`);
+	}
 });
 
 test("INV-people: concurrent edits serialize to one current revision and one conflict without partial history", async () => {
@@ -956,7 +1003,7 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: native moves place one person, persist and retry once", async () => {
+test("BUG-124-conflict BUG-124-replay INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
 	await create("Order A");
 	await create("Order B");
 	const column = async () =>
@@ -988,6 +1035,38 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
+	// BUG-124: a later move lands (another tab's or actor's); a replay of the first move then answers with the column as
+	// it stands now, the later order and its matching revision, as the reorder action reads it in the same transaction.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: String(Number(seen) + 1),
+				input: { column: "prospect", personId: all[0], afterId: null },
+			}),
+		),
+	);
+	const afterOther = await audits();
+	const replay = await tx(async (t) => ({
+		done: await write.reorderPipeline(t, ctx(), order),
+		column: (await readColumnOrders(t, ctx(), ["prospect"]))[0],
+	}));
+	assert.deepEqual(ok(replay.done), saved);
+	assert.equal(await audits(), afterOther, "the replay writes nothing");
+	assert.deepEqual(
+		[replay.column.personIds, replay.column.revision],
+		[[all[0], last, ...all.slice(1, -1)], String(Number(seen) + 2)],
+	);
+	// The next move sent with the replay's revision saves.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: replay.column.revision,
+				input: { column: "prospect", personId: last, afterId: null },
+			}),
+		),
+	);
 });
 
 test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
@@ -1748,7 +1827,7 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 			}),
 		),
 	);
-	assert.equal(recorded.observation.classification, "child");
+	assert.equal(recorded.person.adultClassification, "child");
 	let p = (await tx((t) => read.getPerson(t, ctx(), { personId: p0.id }))).value.person;
 	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
 	// Thirty years old by the birth date: the manual "child" no longer applies, at once.
@@ -1788,6 +1867,23 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 	// A birth date on create, with an adult classification the date contradicts: accepted, and the date wins.
 	const both = await create("Both given", { adultClassification: "child", birthDate: await daysFromBirthday(40) });
 	assert.deepEqual([both.adultClassification, both.adultClassificationSource], ["adult", "birth_date"]);
+});
+
+test("AC:REQ-PPL-026 adult or child dated after the church's today is refused with reason future_date", async () => {
+	const p = await create("Dated tomorrow");
+	// Three days ahead is after the church's today in every time zone.
+	const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+	for (const method of ["recordAdultClassification", "correctAdultClassification"])
+		rejected(
+			await tx((t) =>
+				write[method](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, classification: "adult", occurredOn: ahead, reason: "Said so" },
+				}),
+			),
+			"future_date",
+		);
 });
 
 test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async (t) => {

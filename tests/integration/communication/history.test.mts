@@ -185,7 +185,7 @@ test("AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private 
 	assert.equal(fallback.visibleCount, 2);
 });
 
-test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
+test("AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address", async () => {
 	const alex = await person("Alex Detail", { email: "old@example.test" });
 	const meet = await meeting("Vision");
 	const emptyMeeting = await meeting("Empty vision");
@@ -227,6 +227,21 @@ test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
 	refused(await read(owner, "listForMeeting", { meetingId: randomUUID() }), "not_found");
 	refused(await read(owner, "listForPerson", { personId: randomUUID() }), "not_found");
 	refused(await read(owner, "getDetail", { id: randomUUID() }, keys), "not_found");
+
+	// A message written before the HTML editor has no stored HTML: detail returns its plain text exactly as stored.
+	const legacy = await message({ subject: "LEGACY-PLAIN" });
+	await f.admin.execute(
+		sql`UPDATE communication SET body_html = NULL, body_text = 'Line one' || chr(10) || 'Line two' WHERE id = ${legacy}`,
+	);
+	const plain = ok(await read(owner, "getDetail", { id: legacy }, keys));
+	assert.equal(plain.subject, "LEGACY-PLAIN");
+	assert.equal(plain.bodyHtml, null);
+	assert.equal(plain.bodyText, "Line one\nLine two");
+	const legacyPage = ok(await read(owner, "listHistory", { query: "LEGACY-PLAIN" }));
+	assert.deepEqual(
+		legacyPage.items.map((item) => item.id),
+		[legacy],
+	);
 });
 
 test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until every recipient is sent", async () => {
@@ -270,7 +285,7 @@ test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until ever
 	refused(await read(owner, "getExecutionResult", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay", async () => {
+test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps delivered non-openers and one replay", async () => {
 	const alex = await person("Alex", { email: "alex@example.test" });
 	const casey = await person("Casey", { email: "casey@example.test" });
 	const jamie = await person("Jamie", { email: "jamie@example.test" });
@@ -324,6 +339,32 @@ test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay
 	assert.equal(copy.body_html, "<p>Please read</p>");
 	assert.equal(copy.template_source, `lineage:${id}`);
 	assert.deepEqual(copy.audience.personIds, [alex]);
+	// The reviewed copy is locked: its subject and body cannot be edited, and it cannot be deleted as a draft.
+	const copyRevision = (
+		await rows(sql`SELECT revision::text AS r FROM communication WHERE id = ${created.communicationId}`)
+	)[0].r;
+	refused(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId, subject: "Changed", bodyHtml: "<p>Changed</p>" },
+		}),
+		"conflict",
+	);
+	refused(
+		await write(owner, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId },
+		}),
+		"conflict",
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT state, subject, body_html, revision::text AS r FROM communication WHERE id = ${created.communicationId}`,
+		),
+		[{ state: "reviewed", subject: "Please read", body_html: "<p>Please read</p>", r: copyRevision }],
+	);
 	assert.equal(
 		await countOf(
 			sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id = ${plant.id} AND logical_key LIKE ${"communication/" + created.communicationId + "/%"}`,
@@ -524,4 +565,36 @@ test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective cont
 		}),
 		"not_found",
 	);
+});
+
+test("T-159: meeting tracking lists a person emailed by two of the meeting's messages once, with the latest mail", async () => {
+	const twice = await person("Twice Tracked", { email: "twice@example.test" });
+	const once = await person("Once Tracked", { email: "once@example.test" });
+	const meet = await meeting("Tracked twice");
+	const invite = await message({ meeting: meet, subject: "Invitation" });
+	const reminder = await message({ meeting: meet, subject: "Reminder" });
+	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30 });
+	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, delivered: true });
+	await f.admin.execute(sql`SELECT pg_sleep(0.01)`);
+	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, delivered: true });
+	const tracked = ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
+	const ids = tracked.items.map((row) => row.personId);
+	assert.deepEqual(ids.sort(), [once, twice].sort());
+	assert.equal(new Set(ids).size, ids.length, "one row per person, so the list has unique keys");
+	assert.equal(tracked.items.find((row) => row.personId === twice).deliveryStatus, "delivered");
+});
+
+test("T-159 C13: a pending-deletion witness on the plant hides communication history reads", async () => {
+	const meet = await meeting("Hidden");
+	const witness = randomUUID();
+	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant.id},${plant.id},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		refused(await read(owner, "listMeetingTracking", { meetingId: meet }), "access_denied");
+		refused(await read(owner, "listHistory", {}), "access_denied");
+	} finally {
+		await f.admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
 });

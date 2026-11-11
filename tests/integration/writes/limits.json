@@ -105,7 +105,7 @@
 		"limit": 6
 	},
 	"POST people.addNote": {
-		"limit": 6
+		"limit": 3
 	},
 	"POST people.assessments.signCommitmentUpload": {
 		"limit": 2
@@ -128,15 +128,14 @@
 		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b)."
 	},
 	"POST people.fields.addSkill": {
-		"limit": 7,
-		"reason": "The same statements as people.addSkill (limit 7): 2 transaction, 1 locked read, 3 read, 1 write. Above the pattern today; RT-6 reviews it."
+		"limit": 6
 	},
 	"POST people.fields.addSkill (member)": {
 		"limit": 4
 	},
 	"POST people.fields.addSkill (replay)": {
-		"limit": 8,
-		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt runs the gate and its reads and meets the stored key at its write; one read then answers the stored result (RT-6b). The first attempt is the established write (people.addSkill, 7 with the session lookup)."
+		"limit": 7,
+		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt runs the gate and its reads and meets the stored key at its write; one read then answers the stored result (RT-6b). The first attempt is the established write (people.addSkill, 6 with the session lookup)."
 	},
 	"POST people.fields.readPhoto": {
 		"limit": 4
@@ -848,7 +847,7 @@
 		"retry": 8
 	},
 	"native.people.addSkill": {
-		"limit": 6
+		"limit": 5
 	},
 	"native.people.addToHousehold": {
 		"limit": 6
@@ -971,7 +970,7 @@
 		"limit": 6
 	},
 	"native.people.removeSkill": {
-		"limit": 6
+		"limit": 5
 	},
 	"native.people.removeTag": {
 		"limit": 5
@@ -1002,7 +1001,7 @@
 		"retry": 8
 	},
 	"native.people.updateSkill": {
-		"limit": 6
+		"limit": 5
 	},
 	"native.people.updateTag": {
 		"limit": 5
@@ -1171,9 +1170,8 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"people.addSkill": {
-		"limit": 7,
-		"retry": 5,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
+		"limit": 6,
+		"retry": 5
 	},
 	"people.addToHousehold": {
 		"limit": 4,
@@ -1188,9 +1186,9 @@
 		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 6 locked read, 3 write."
 	},
 	"people.correctAdultClassification": {
-		"limit": 9,
-		"retry": 5,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
+		"limit": 8,
+		"retry": 6,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal (an occurredOn after today in the church's timezone) also reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1266,9 +1264,9 @@
 		"limit": 6
 	},
 	"people.recordAdultClassification": {
-		"limit": 9,
-		"retry": 5,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
+		"limit": 8,
+		"retry": 6,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal (an occurredOn after today in the church's timezone) also reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
 	},
 	"people.removeFromHousehold": {
 		"limit": 4
@@ -1277,7 +1275,7 @@
 		"limit": 4
 	},
 	"people.removeSkill": {
-		"limit": 5
+		"limit": 4
 	},
 	"people.removeTag": {
 		"limit": 4
@@ -1320,7 +1318,7 @@
 		"retry": 5
 	},
 	"people.updateSkill": {
-		"limit": 5,
+		"limit": 4,
 		"retry": 6
 	},
 	"people.updateTag": {

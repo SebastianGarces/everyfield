@@ -167,7 +167,7 @@ test("INV-statements: finalizing 500 attendees sends the same statements as fina
 	assert.equal(fiveHundred, one);
 });
 
-test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card", async () => {
+test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card", async () => {
 	const m = await meeting();
 	const [alex, casey, retired] = [await person("Alex"), await person("Casey"), await person("Retired")];
 	await f.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
@@ -254,6 +254,17 @@ test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDAN
 	const summary = ok(await read(owner, "attendanceSummary", { meetingId: m }));
 	assert.equal(summary.attended, 2);
 	assert.equal(summary.finalized, null);
+	// Check-in works on a meeting that is still ready and leaves its status as it was.
+	const ready = await meeting("vision_meeting", "2026-10-03T23:00:00Z");
+	await f.admin.execute(sql`UPDATE meeting SET status='ready' WHERE id=${ready}`);
+	const early = ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: ready, personId: alex } }));
+	assert.deepEqual(
+		early.attendees.map((a) => a.presence),
+		["attended"],
+	);
+	const readySummary = ok(await read(owner, "attendanceSummary", { meetingId: ready }));
+	assert.deepEqual([readySummary.attended, readySummary.finalized], [1, null]);
+	assert.equal((await one(sql`SELECT status FROM meeting WHERE id=${ready}`)).status, "ready");
 
 	// Finalizing a practice records attendance only: the practice is not completed by it (REQ-KNOW-043).
 	const practice = await meeting("prelaunch_practice", "2026-10-02T23:00:00Z");
@@ -1273,4 +1284,43 @@ test("INV-planning: the locked fact read of a settle plans below the JIT thresho
 	const cost = plan.rows[0]["QUERY PLAN"][0].Plan["Total Cost"];
 	const threshold = Number((await f.admin.$client.query("SHOW jit_above_cost")).rows[0].jit_above_cost);
 	assert.ok(cost < threshold, `planned cost ${cost} passes jit_above_cost ${threshold}`);
+});
+
+// D-562 (REQ-MTG-010): the current leader of a team meeting's ministry finalizes and corrects that meeting's attendance,
+// as Owners and Admins do. Any other Member is refused.
+test("T-159 AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle attendance; another Member cannot", async () => {
+	const seated = async (role) => {
+		const a = await f.account();
+		await f.seat(a, plant, role);
+		return { ...a, actor: await f.actor(a.session) };
+	};
+	const [leader, bystander, adminSeat] = [await seated("member"), await seated("member"), await seated("admin")];
+	const leaderPerson = await person("Lead Host");
+	await f.admin.execute(sql`UPDATE person SET linked_account_id=${leader.id} WHERE id=${leaderPerson}`);
+	const team = randomUUID();
+	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
+		VALUES(${team},${plant.id},'Greeters','active',1,${leaderPerson},'explicit')`);
+	const teamMeeting = async (at) => {
+		const id = await meeting("orientation", at);
+		await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${id}`);
+		return id;
+	};
+	const guest = await person("Team Guest");
+
+	const led = await teamMeeting("2026-09-03T23:00:00Z");
+	refused(await finalize(bystander, led, [guest]), "unavailable");
+	ok(await finalize(leader, led, [guest]));
+	refused(await reconcile(bystander, led, []), "unavailable");
+	ok(await reconcile(leader, led, []));
+
+	for (const [who, at] of [
+		[owner, "2026-09-04T23:00:00Z"],
+		[adminSeat, "2026-09-05T23:00:00Z"],
+	]) {
+		const m = await teamMeeting(at);
+		ok(await finalize(who, m, [guest]));
+		ok(await reconcile(who, m, []));
+	}
+	// The leader of one ministry settles nothing for a meeting that is not their team's.
+	refused(await finalize(leader, await meeting("orientation", "2026-09-06T23:00:00Z"), [guest]), "unavailable");
 });

@@ -12,14 +12,15 @@ export const audienceInput = z.strictObject({
 });
 export type AudienceInput = z.infer<typeof audienceInput>;
 
+/** Left out keeps the stored value (undefined); null or blank clears it (null). */
 const optionalText = (max: number) =>
 	z
 		.string()
 		.trim()
 		.max(max)
 		.nullable()
-		.optional()
-		.transform((value) => (value ? value : null));
+		.transform((value) => (value ? value : null))
+		.optional();
 
 export const templateName = z.string().trim().min(1).max(255);
 export const templateDescription = z.string().trim().max(1000).nullable().optional();
