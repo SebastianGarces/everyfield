@@ -7,7 +7,7 @@ import { useState } from "react";
 import { preferenceRows } from "../model";
 import type { NotificationChoice, NotificationPatch, SectionResult } from "../port";
 import { newRequestKey } from "../port";
-import { refusalOf, type Refusal } from "../save";
+import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
 import { AutoSaveFooter, SaveError, SectionBody } from "../SettingsDialog";
 import { useSection, useSettings } from "../store";
 
@@ -67,7 +67,7 @@ function Preferences({ section, replace }: { section: Notifications; replace: (v
 		} catch {
 			setRefusal({
 				key,
-				refusal: { message: "Your change was not saved. Try again.", reference: "EF-OFFLINE", code: "temporary" },
+				refusal: { message: "Your change was not saved. Try again.", reference: OFFLINE_REFERENCE, code: "temporary" },
 			});
 		} finally {
 			setPending(null);

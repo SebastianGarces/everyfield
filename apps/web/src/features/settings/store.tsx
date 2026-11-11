@@ -5,7 +5,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, 
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
 import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { errorReference, errorText } from "./model";
-import type { Refusal } from "./save";
+import { OFFLINE_REFERENCE, type Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 
 // The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
@@ -94,7 +94,7 @@ export function SettingsProvider({
 					ok: false,
 					refusal: {
 						message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-						reference: "EF-OFFLINE",
+						reference: OFFLINE_REFERENCE,
 						code: "unknown",
 					},
 				};

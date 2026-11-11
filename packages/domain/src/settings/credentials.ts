@@ -6,7 +6,7 @@ import * as t from "@everyfield/db/tables";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts/identity";
 import * as n from "@everyfield/contracts/settings/native";
-import type { CredentialProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
+import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
@@ -22,14 +22,14 @@ export interface CredentialConfig {
 	secret: string;
 	// Native adapter binds actual cookie and overwritten trusted IP to this session, with the request's verified viewer
 	// (D60): its account and the Better Auth user row its session lookup read. Null when the session is not live.
-	request(ctx: NativeSettingsContext): Promise<{
+	request(ctx: SettingsContext): Promise<{
 		request: Request;
 		trustedIp: string | null;
 		viewer: { accountId: string; email: string; verified: boolean } | null;
 	}>;
 	/** Runs bookkeeping after the response is sent (Next.js `after`). Without it the work runs before the reply. */
 	later?(work: () => Promise<unknown>): void;
-	responseCookies(ctx: NativeSettingsContext, cookies: string[]): Promise<void>;
+	responseCookies(ctx: SettingsContext, cookies: string[]): Promise<void>;
 	/** Adds the verification mail for the new address to `writes`, which commit with its proof row. */
 	deliverVerification(
 		tx: Transaction,
@@ -105,7 +105,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 	 * The live self this credential call acts for: the request's verified viewer, which must be this context's own
 	 * account with a verified address. Better Auth checks the session cookie again inside each credential call.
 	 */
-	async function prepare(ctx: NativeSettingsContext) {
+	async function prepare(ctx: SettingsContext) {
 		const ingress = await config.request(ctx);
 		// Without a trusted proxy address (a local server) the budgets count the own login only, as sign-in does.
 		if (
