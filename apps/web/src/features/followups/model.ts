@@ -225,20 +225,6 @@ export function measurementText(m: NonNullable<ObligationItem["measurement"]>): 
 	return { text: why[m.reason], status: "unknown" };
 }
 
-/**
- * The eligible follow-up owners (REQ-TSK-012) from a handoff preview of the viewer's own account: the other eligible
- * accounts, plus the viewer when the viewer is eligible. Sorted by name.
- */
-export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Account[] {
-	const me =
-		plan.from.eligible && plan.from.displayName !== null
-			? [{ accountId: plan.from.accountId, displayName: plan.from.displayName }]
-			: [];
-	return [...me, ...plan.recipients].sort(
-		(a, b) => a.displayName.localeCompare(b.displayName) || a.accountId.localeCompare(b.accountId),
-	);
-}
-
 /** Contact log entries per page on the Person page and in the task panel; "Show earlier" reads the next one. */
 export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */

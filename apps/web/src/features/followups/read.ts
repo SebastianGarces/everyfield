@@ -1,7 +1,6 @@
 import * as c from "@everyfield/contracts/followups";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
-import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
 import { HISTORY_PAGE, outcomeOf, type Outcome } from "./model.ts";
@@ -17,7 +16,7 @@ import {
 } from "./server.ts";
 
 // GET /follow-ups/read: the follow-up screens' reads after the first paint (more of the contact log, eligible owners,
-// a handoff preview, the seats a handoff can start from, and a fresh copy after a revision conflict). A GET handler, not
+// a handoff preview and a fresh copy after a revision conflict). The seats a handoff can start from are /tasks/read?what=seats. A GET handler, not
 // a server action, so a read never waits for a save or holds one up. Every read rechecks the live seat inside its
 // statement (C13).
 
@@ -97,15 +96,6 @@ export async function GET(request: Request) {
 				await parsed(c.planHandoffRequest, { fromAccountId: p.get("from") }, (v) =>
 					read(viewer, async (tx) => outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, v))),
 				),
-			);
-		case "seats":
-			return answer(
-				await read(viewer, async (tx) => {
-					const r = await taskReader.eligibleAssignees(tx, viewer.authority, {
-						purpose: p.get("purpose") ?? "any",
-					});
-					return r.status === "ok" ? r : { status: "refused", code: r.error.code };
-				}),
 			);
 		default:
 			return answer(invalid);

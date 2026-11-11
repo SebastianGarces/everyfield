@@ -19,7 +19,6 @@ import {
 	COVERAGE_PAGE,
 	HISTORY_PAGE,
 	outcomeOf,
-	ownersOf,
 	type Account,
 	type ContactHistory,
 	type DutyItem,
@@ -67,10 +66,15 @@ export async function write<T>(
 	}
 }
 
-/** The current eligible follow-up owners, in one statement (REQ-TSK-012). Owner/Admin. */
+/** The current eligible follow-up owners, the viewer among them when eligible, in one statement (REQ-TSK-012). */
 export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<Outcome<Account[]>> {
-	const plan = outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, { fromAccountId: viewer.accountId }));
-	return plan.status === "ok" ? { status: "ok", value: ownersOf(plan.value) } : plan;
+	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
+	return seats.status === "ok"
+		? {
+				status: "ok",
+				value: seats.value.items.map(({ accountId, displayName }) => ({ accountId, displayName })),
+			}
+		: { status: "refused", code: seats.error.code };
 }
 
 /** Open follow-ups and Vision follow-ups per page on the Person page; "Show more" reads the next one. */
