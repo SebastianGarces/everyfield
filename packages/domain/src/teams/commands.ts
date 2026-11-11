@@ -59,7 +59,6 @@ const roleRow = z.object({
 	teamArchived: z.boolean(),
 	leaderPersonId: id.nullable(),
 	leaderSource: c.leaderSource.nullable(),
-	leaderRoleId: id.nullable(),
 	teamRevision: z.string(),
 	stage: z.string().nullable(),
 	personState: z.string().nullable(),
@@ -105,7 +104,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			holder.person_id AS "occupantPersonId", holder.name AS "occupantName",
 			prev.id AS "previousTenureId", (t.archived_at IS NOT NULL) AS "teamArchived",
 			t.leader_person_id AS "leaderPersonId", t.leader_source AS "leaderSource",
-			t.leader_role_id AS "leaderRoleId", t.revision::text AS "teamRevision", person.stage, person.state AS "personState",
+			t.revision::text AS "teamRevision", person.stage, person.state AS "personState",
 			person.revision AS "personRevision", person.position AS "pipelinePosition",
 			(SELECT count(DISTINCT team_id)::int FROM (
 				SELECT r2.team_id FROM team_tenure tn
@@ -607,7 +606,6 @@ export const teamsWriter = {
 						teamArchived: false,
 						leaderPersonId: team.leaderPersonId,
 						leaderSource: team.leaderSource,
-						leaderRoleId: team.leaderRoleId,
 						teamRevision: team.revision,
 						stage: null,
 						personState: null,
@@ -662,12 +660,7 @@ export const teamsWriter = {
 						desired_skills = ${after.desiredSkills}, revision = revision + 1
 						WHERE id = ${before.id}::uuid AND plant_id = ${w.plant.id}::uuid`);
 					// A leader this role made stops leading when the role stops being a leadership role.
-					const stepsDown =
-						before.leadership &&
-						!after.leadership &&
-						before.leaderSource === "role_derived" &&
-						before.leaderRoleId === before.id;
-					if (stepsDown)
+					if (before.leadership && !after.leadership)
 						audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
 						revision = revision + 1
 						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid

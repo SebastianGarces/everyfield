@@ -335,7 +335,6 @@ export function AssignDialog({
 					setTooMany(true);
 					return false;
 				}
-				if (check.state !== "ready" || f.rosterDigest === null) return false;
 				onSubmit(f);
 				return true;
 			}}
