@@ -300,9 +300,11 @@
 				"relationship",
 				"reference_update",
 				"digest",
-				"launch"
+				"launch",
+				"communication"
 			],
 			"notice.purpose": [
+				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
 				"meeting_evaluation",
