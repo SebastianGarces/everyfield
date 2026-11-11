@@ -6,12 +6,10 @@ import { readFile } from "node:fs/promises";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import {
 	answerRsvpToken,
-	createRsvpToken,
 	describeRsvpToken,
 	guestsWriter as guests,
 	meetingsReader as reads,
@@ -22,6 +20,7 @@ import {
 	venuesWriter as venues,
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { issueRsvpToken } from "./rsvp-token.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
 // here would be a bug.
@@ -735,12 +734,8 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 			input: { personId: alex, body: "Followed up", meetingId: m.id },
 		}),
 	);
-	const token = await tx(async (t) => {
-		const writes = [];
-		const issued = await createRsvpToken(t, ctx(), { meetingId: m.id, personId: alex }, writes);
-		await executeWrites(t, writes);
-		return issued;
-	});
+	const token = await issueRsvpToken(admin, P, m.id, alex);
+	assert.ok(token);
 	g = await guestOf(m.id, alex);
 	const removed = ok(
 		await run(guests.removeGuest, {
@@ -755,8 +750,8 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		await count(sql`SELECT count(*)::int AS n FROM person_note WHERE id=${note.noteId} AND removed_at IS NULL`),
 		1,
 	);
-	assert.deepEqual(await describeRsvpToken(db, { token: token.token }), { state: "unavailable" });
-	refused(await answerRsvpToken(db, { token: token.token, rsvp: "confirmed" }), "token_closed");
+	assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
+	refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
 	assert.deepEqual(
 		(
 			await admin.execute(sql`SELECT kind FROM audit_event WHERE subject_id=${first.guest.id} ORDER BY occurred_at`)
@@ -765,13 +760,11 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 	);
 	// Retiring a guest keeps the guest row with the historical Person; reminders and links leave them out.
 	const casey2 = await guestOf(m.id, casey);
+	const caseyLink = await issueRsvpToken(admin, P, m.id, casey);
 	await retire(casey);
 	const retired = await guestOf(m.id, casey);
 	assert.deepEqual([retired.id, retired.person.state], [casey2.id, "retired"]);
-	await assert.rejects(
-		tx(async (t) => createRsvpToken(t, ctx(), { meetingId: m.id, personId: casey }, [])),
-		(e) => e.code === "unavailable",
-	);
+	assert.deepEqual(await describeRsvpToken(db, { token: caseyLink }), { state: "unavailable" });
 	ok(await invite(alex, null));
 	assert.equal((await guestOf(m.id, alex)).id, first.guest.id, "a removed guest invited again reuses their row");
 });
@@ -855,19 +848,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 	const memberPerson = await person("Morgan", { account: actors[1].id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
-	const issue = (personId) =>
-		tx(async (t) => {
-			const writes = [];
-			const issued = await createRsvpToken(t, ctx(), { meetingId: m.id, personId }, writes);
-			await executeWrites(t, writes);
-			return issued.token;
-		});
-	refused(
-		await tx((t) => createRsvpToken(t, ctx(1), { meetingId: m.id, personId: alex }, [])).catch((e) => ({
-			status: "refused",
-			error: { code: e.code },
-		})),
-	);
+	const issue = (personId) => issueRsvpToken(admin, P, m.id, personId);
 	const token = await issue(alex);
 	const totalWrites = () =>
 		count(
@@ -977,6 +958,33 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 		),
 		0,
 	);
+});
+
+test("BUG-T155: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
+	const alex = await person("Alex Rivera");
+	for (const to of ["cancelled", "completed"]) {
+		const m = await schedule({ guests: [alex] });
+		const token = await issueRsvpToken(admin, P, m.id, alex);
+		assert.equal((await describeRsvpToken(db, { token })).state, "pending");
+		if (to === "cancelled")
+			ok(
+				await run(meetings.changeStatus, {
+					requestKey: key(),
+					expectedRevision: m.revision,
+					input: { meetingId: m.id, to },
+				}),
+			);
+		// A Vision meeting completes after it is held; the link only reads the status.
+		else await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${m.id}`);
+		const view = await describeRsvpToken(db, { token });
+		assert.deepEqual([view.state, view.rsvp, view.meeting.displayTitle], ["closed", "pending", m.displayTitle], to);
+		refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
+		// Closed wins over an expired link too: the meeting, not the link's age, is why it takes no answer.
+		await admin.execute(
+			sql`UPDATE participation SET rsvp_token_expires_at=clock_timestamp()-interval '1 second' WHERE meeting_id=${m.id}`,
+		);
+		assert.equal((await describeRsvpToken(db, { token })).state, "closed", to);
+	}
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {

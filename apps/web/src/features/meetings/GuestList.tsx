@@ -166,8 +166,9 @@ export function GuestList({
 	canMark: boolean;
 	canWrite: boolean;
 	project: (change: Change) => void;
-	onGuest: (guest: Guest) => void;
-	onRemoved: (guestId: string) => void;
+	/** A saved guest; a guest result also names the meeting's attendance revision after it, which the page keeps. */
+	onGuest: (guest: Guest, attendanceRevision?: string) => void;
+	onRemoved: (guestId: string, attendanceRevision: string) => void;
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
@@ -241,7 +242,7 @@ export function GuestList({
 			send: (key) =>
 				correctRsvp(key, guest.revision, meeting.id, guest.person.personId, rsvp === "pending" ? null : rsvp),
 			ok: (v) => {
-				onGuest(v.guest);
+				onGuest(v.guest, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName}: RSVP set to ${RSVP_LABEL[rsvp]}.`, tone: "success" });
 			},
 		});
@@ -258,7 +259,7 @@ export function GuestList({
 			...draft.people.map((p) => ({ key: crypto.randomUUID(), name: p.name, person: p, fresh: null })),
 			...draft.fresh.map((n) => ({ key: crypto.randomUUID(), name: n.displayName, person: null, fresh: n })),
 		];
-		write<{ added: Guest[]; left: Entry[] }>({
+		write<{ added: { guest: Guest; attendanceRevision: string }[]; left: Entry[] }>({
 			what: entries.length === 1 ? entries[0]!.name : `${entries.length} guests`,
 			done: "added",
 			form: { kind: "add", draft },
@@ -267,7 +268,7 @@ export function GuestList({
 				guest: pendingGuest(e.person, e.name, e.fresh?.key),
 			})),
 			send: async () => {
-				const added: Guest[] = [];
+				const added: { guest: Guest; attendanceRevision: string }[] = [];
 				const left: Entry[] = [];
 				let refusal: string | null = null;
 				for (const e of entries) {
@@ -282,7 +283,7 @@ export function GuestList({
 								})
 						: () => inviteGuest(e.key, { meetingId: meeting.id, personId: e.person!.id, inviterPersonId: null });
 					const r = await sendTwice(send);
-					if (r.status === "ok") added.push(r.value.guest);
+					if (r.status === "ok") added.push(r.value);
 					else {
 						left.push(e);
 						if (r.status === "refused") refusal ??= r.code;
@@ -292,12 +293,13 @@ export function GuestList({
 				return { status: "ok", value: { added, left } };
 			},
 			ok: ({ added, left }) => {
-				for (const g of added) onGuest(g);
+				// One request after another, so each answer's attendance revision is newer than the one before.
+				for (const a of added) onGuest(a.guest, a.attendanceRevision);
 				if (!left.length)
 					return toast({
 						message:
 							added.length === 1
-								? `${added[0]!.person.displayName} is on the guest list.`
+								? `${added[0]!.guest.person.displayName} is on the guest list.`
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});
@@ -332,7 +334,7 @@ export function GuestList({
 				},
 			],
 			send: (key) => setInviter(key, guest.revision, meeting.id, guest.person.personId, id),
-			ok: (v) => onGuest(v.guest),
+			ok: (v) => onGuest(v.guest, v.attendanceRevision),
 		});
 	}
 	function saveCard(guest: Guest, response: CardResponse, notes: string) {
@@ -403,8 +405,8 @@ export function GuestList({
 			done: "removed",
 			changes: [{ kind: "removeGuest", guestId: guest.id }],
 			send: (key) => removeGuest(key, guest.revision, meeting.id, guest.person.personId),
-			ok: () => {
-				onRemoved(guest.id);
+			ok: (v) => {
+				onRemoved(guest.id, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName} was removed from the guest list.`, tone: "success" });
 			},
 		});

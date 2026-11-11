@@ -62,6 +62,12 @@ export function withAttendees<V extends { guests: Guest[] | null; attendance: At
 		},
 	};
 }
+/** The page after a guest answer: the attendance revision it returned, so the next attendance save is current. */
+export function withAttendanceRevision<V extends { attendance: Attendance | null }>(v: V, revision: string | undefined): V {
+	return revision && v.attendance
+		? { ...v, attendance: { ...v.attendance, attendanceRevision: revision as Attendance["attendanceRevision"] } }
+		: v;
+}
 /** A guest row as an attendance row before finalization: no classification yet. */
 export const attendeeOf = (g: Guest): Attendee =>
 	({
