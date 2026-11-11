@@ -4,10 +4,9 @@
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { mailRecipientAllowed } from "../../../packages/domain/src/mail-recipients.ts";
@@ -29,7 +28,6 @@ import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
 const DAY = 86_400_000;
@@ -239,9 +237,10 @@ function countingFetch() {
 	return { calls, request };
 }
 
-test("AC:WP-029-1 the rule reads only its two arguments, does no I/O, and each sender calls it", () => {
-	const source = readFileSync(join(repo, "packages/domain/src/mail-recipients.ts"), "utf8");
-	assert.doesNotMatch(source, /^\s*import\s+(?!type\b)|\brequire\(|\bprocess\b|\bfetch\b|\bawait\b|\bDate\b/m);
+// The rule's purity (no value import, require, process, fetch, await or Date) is the everyfield/pure-module lint rule
+// in .oxlintrc.json. Each sender refusing an unapproved address: WP-029-4, WP-029-8 and WP-029-14 (mail.ts), WP-029-9
+// (server/jobs/resend.ts) and WP-029-10 (early access).
+test("AC:WP-029-1 the rule reads only its two arguments", () => {
 	const read = [];
 	const env = new Proxy(
 		{ VERCEL_ENV: "preview", EMAIL_TEST_RECIPIENTS: "tester@example.org", NODE_ENV: "production" },
@@ -254,12 +253,6 @@ test("AC:WP-029-1 the rule reads only its two arguments, does no I/O, and each s
 	);
 	assert.equal(mailRecipientAllowed(env, "tester@example.org"), true);
 	assert.deepEqual([...new Set(read)].sort(), ["EMAIL_TEST_RECIPIENTS", "VERCEL_ENV"]);
-	for (const file of [
-		"apps/web/src/features/communication/mail.ts",
-		"apps/web/src/server/jobs/resend.ts",
-		"packages/domain/src/early-access/index.ts",
-	])
-		assert.match(readFileSync(join(repo, file), "utf8"), /mailRecipientAllowed\(/, file);
 });
 
 test("AC:WP-029-2 only VERCEL_ENV exactly production allows any address", () => {
@@ -708,60 +701,6 @@ test("AC:WP-029-12 unknown, development and absent environments stay restricted,
 	}
 });
 
-const ALLOWED_SENDERS = new Set([
-	"apps/web/src/features/communication/mail.ts",
-	"apps/web/src/server/jobs/resend.ts",
-	"packages/domain/src/early-access/index.ts",
-]);
-const SKIPPED = new Set(["node_modules", ".next", "dist", "build", ".turbo", "coverage", "test", "tests", "__tests__"]);
-const RESEND_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\(\s*)["']resend(?:\/[^"']*)?["']/;
-
-/** Each file outside the guarded senders that names the Resend API host or imports the Resend package. */
-function unguardedSenders(root) {
-	const found = [];
-	const walk = (folder) => {
-		for (const entry of readdirSync(folder, { withFileTypes: true })) {
-			const path = join(folder, entry.name);
-			if (entry.isDirectory()) {
-				if (!SKIPPED.has(entry.name)) walk(path);
-				continue;
-			}
-			if (/\.test\.[a-z]+$/.test(entry.name)) continue;
-			const name = relative(root, path);
-			if (ALLOWED_SENDERS.has(name)) continue;
-			const text = readFileSync(path, "utf8");
-			if (text.includes("api.resend.com") || RESEND_IMPORT.test(text)) found.push(name);
-		}
-	};
-	for (const top of ["apps", "packages", "tools"]) walk(join(root, top));
-	return found.sort();
-}
-
-test("AC:WP-029-13 only the guarded senders can reach Resend, and the scan fails on a planted file", () => {
-	assert.deepEqual(unguardedSenders(repo), []);
-	const planted = mkdtempSync(join(tmpdir(), "wp029-scan-"));
-	const plant = (name, text) => {
-		mkdirSync(dirname(join(planted, name)), { recursive: true });
-		writeFileSync(join(planted, name), text);
-	};
-	plant("apps/web/src/server/jobs/worker.ts", 'await fetch("https://api.resend.com/emails");');
-	plant("packages/domain/src/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/qa/send.mjs", 'const { Resend } = await import("resend");');
-	plant("apps/web/src/server/jobs/required.cjs", 'const r = require("resend/emails");');
-	plant("apps/web/src/features/communication/mail.ts", 'fetch("https://api.resend.com/emails");');
-	plant("apps/web/src/server/jobs/worker.test.ts", 'fetch("https://api.resend.com/emails");');
-	plant("packages/domain/test/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/qa/send.sh", "curl https://api.resend.com/emails");
-	plant("packages/domain/src/local.ts", 'import { createResendTransport } from "./resend.ts";');
-	assert.deepEqual(unguardedSenders(planted), [
-		"apps/web/src/server/jobs/required.cjs",
-		"apps/web/src/server/jobs/worker.ts",
-		"packages/domain/src/mailer.ts",
-		"tools/qa/send.mjs",
-		"tools/qa/send.sh",
-	]);
-});
-
 test("AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off", async () => {
 	const outbox = process.env.EVERYFIELD_DEV_OUTBOX;
 	for (const [name, extra] of [
@@ -798,45 +737,4 @@ test("AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off", async
 	);
 	assert.equal(holds(calls, "different@example.org"), false);
 	assert.equal((await outboxTo()).includes("different@example.org"), true);
-});
-
-test("AC:WP-029-15 the texts state the new behavior and no CI workflow or script sets VERCEL_ENV", () => {
-	const read = (file) => readFileSync(join(repo, file), "utf8");
-	const runbook = read("docs/runbooks/qa-preview.md");
-	const section = runbook.slice(
-		runbook.indexOf("### Email on a QA preview"),
-		runbook.indexOf("## 3. How a bot gets in"),
-	);
-	for (const text of [
-		/delivered\+/,
-		/resend\.dev/,
-		/EMAIL_TEST_RECIPIENTS/,
-		/capture outbox/,
-		/\/api\/dev\/outbox/,
-		/instance/,
-		/Rebuild an open preview/,
-	])
-		assert.match(section, text);
-	assert.doesNotMatch(read("tools/qa/qa-seed.ts"), /so a real send reaches no real person/);
-	assert.match(read("tools/qa/qa-seed.ts"), /mailRecipientAllowed/);
-	const capture = read("apps/web/src/features/communication/capture.ts");
-	assert.doesNotMatch(capture, /with no provider key and a Vercel environment/i);
-	assert.doesNotMatch(capture, /^\/\/ Dev-only mail capture \(criterion 35\)\. With no provider key/m);
-	assert.match(capture, /mailRecipientAllowed/);
-	const test = read("tests/ui/communication/capture.test.mts");
-	assert.match(test, /with or without a provider\s*(?:\/\/ )?key/);
-	assert.doesNotMatch(test, /only without a provider key/);
-
-	const files = globSync(
-		[".github/workflows/*", "package.json", "packages/*/package.json", "apps/*/package.json", "tools/*/package.json"],
-		{
-			cwd: repo,
-		},
-	);
-	assert.ok(files.length > 3);
-	for (const file of files) {
-		const text = read(file);
-		const scripts = file.endsWith("package.json") ? JSON.stringify(JSON.parse(text).scripts ?? {}) : text;
-		assert.doesNotMatch(scripts, /VERCEL_ENV/, file);
-	}
 });

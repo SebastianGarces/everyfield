@@ -618,37 +618,14 @@ test("INV-evry-golden: the synthetic church holds the records the factual cases 
 
 test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read and prepare a review, never approve or run one", () => {
 	const owner = ACTORS.owner.actor;
-	// The turn gives the model the read tools, select_returned_rows and propose_change; propose_change prepares a review.
 	const tools = Object.keys(readTools(owner, async () => ({})));
 	assert.deepEqual(
 		tools,
 		Object.keys(READ_DOMAINS).map((d) => `${d}_read`),
 	);
-	const turn = readFileSync(here("../../../packages/evry/src/runtime/turn.ts"), "utf8");
-	assert.deepEqual(
-		[...turn.matchAll(/tools\.(\w+) = tool\(/g)].map((m) => m[1]),
-		["select_returned_rows", "propose_change"],
-	);
-	assert.doesNotMatch(
-		turn,
-		/from "\.\.\/execution\//,
-		"the turn wires no executor: approval runs only from the review card",
-	);
-	assert.match(turn, /prepareProposal\(db, fresh, lease/);
-	// The harness copies these two tool definitions from the turn; a change there must change them here too.
-	const harness = readFileSync(here("golden-harness.mts"), "utf8");
-	for (const snippet of [
-		'"Select people rows by id from a result this conversation already returned (its resultId). Selection never adds rows or ids."',
-		"resultId: z.int().min(1),",
-		"ids: z.array(z.uuid()).min(1).max(LIMITS.selectedRows),",
-		'description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,',
-		"const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));",
-		'inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),',
-	])
-		assert.ok(
-			turn.includes(snippet) && harness.includes(snippet),
-			`turn.ts and golden-harness.mts differ at ${snippet}`,
-		);
+	// The turn's own tool set and its review-only propose_change are asserted through the real turn: AC:INH-EDGES-03
+	// (tests/evry/runtime/runs.test.mts) and AC:UI45-004 (tests/evry/execution/proposals.test.mts). The harness builds
+	// the same two tools with the turn's builders, and lint keeps turn.ts from importing the executor (.oxlintrc.json).
 	assert.deepEqual(
 		allowedWrites(owner).map((w) => w.operation),
 		Object.keys(REVIEWED_WRITES),

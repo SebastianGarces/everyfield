@@ -3,8 +3,8 @@
 // (compileContext over the real catalog) with the same three kinds of model tool the turn gives this actor: the bounded
 // read tools (readTools), select_returned_rows and propose_change. Reads are answered by the in-memory church
 // (golden-church.mts); propose_change only prepares a review card, as in production, and nothing is ever applied.
-// The tool definitions below copy turn.ts's descriptions and schemas, so a change there shows up here as a changed
-// provider call with no recording.
+// The harness builds those tools with the turn's own builders (runtime/tools.ts), so a change there shows up here as a
+// changed provider call with no recording.
 //
 // Each provider call is recorded by the hash of what the provider receives (prompt, tools, tool choice, reasoning,
 // output limit, response format, provider options). Replay serves the recording and makes no network call.
@@ -15,7 +15,6 @@ import {
 	Output,
 	stepCountIs,
 	streamText,
-	tool,
 	type ToolSet,
 } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import { z } from "../../../packages/evry/node_modules/zod/index.js";
@@ -38,7 +37,7 @@ import { scrub } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
+import { proposeChangeTool, readTools, selectReturnedRowsTool } from "../../../packages/evry/src/runtime/tools.ts";
 import { allowedWrites, REVIEW_MINUTES } from "../../../packages/evry/src/proposals/store.ts";
 import type { ConversationEvent } from "../../../packages/evry/src/conversations/store.ts";
 import { ACTORS, NOW, answerRead, prepareReview, type ActorName } from "./golden-church.mts";
@@ -290,56 +289,43 @@ export async function converse(as: ActorName, text: string, history: Turn[] = []
 		return forModel(result);
 	});
 	if (catalog.selection.length)
-		tools.select_returned_rows = tool({
-			description:
-				"Select people rows by id from a result this conversation already returned (its resultId). Selection never adds rows or ids.",
-			inputSchema: z.strictObject({
-				resultId: z.int().min(1),
-				ids: z.array(z.uuid()).min(1).max(LIMITS.selectedRows),
-			}),
-			execute: async ({ resultId, ids }) => {
-				if (!admit()) return { error: "tool_budget" };
-				const source = results.get(resultId);
-				const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
-				const rejected = ids.filter((rowId) => !returned.has(rowId));
-				calls.push({ operation: "evry.selectReturnedRows", input: { resultId, ids } });
-				if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-				const rows = source.rows.filter((r) => r.kind === "person" && ids.includes(r.id));
-				return forModel({
-					operation: "evry.selectReturnedRows",
-					status: "available",
-					rows,
-					total: rows.length,
-					page: 1,
-					next: null,
-					completeness: "complete",
-					exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
-				});
-			},
+		tools.select_returned_rows = selectReturnedRowsTool(async ({ resultId, ids }) => {
+			if (!admit()) return { error: "tool_budget" };
+			const source = results.get(resultId);
+			const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
+			const rejected = ids.filter((rowId) => !returned.has(rowId));
+			calls.push({ operation: "evry.selectReturnedRows", input: { resultId, ids } });
+			if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
+			const rows = source.rows.filter((r) => r.kind === "person" && ids.includes(r.id));
+			return forModel({
+				operation: "evry.selectReturnedRows",
+				status: "available",
+				rows,
+				total: rows.length,
+				page: 1,
+				next: null,
+				completeness: "complete",
+				exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
+			});
 		});
 	const writes = allowedWrites(actor);
 	if (writes.length) {
-		const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
-		tools.propose_change = tool({
-			description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
-			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-			execute: async (call: { operation: string; input: unknown }) => {
-				if (!admit()) return { error: "tool_budget" };
-				const review = prepareReview(church, call.operation, call.input);
-				proposals.push({ operation: call.operation, input: call.input, prepared: !!review, review });
-				if (!review) return { error: "source_unavailable" };
-				const proposalId = `5b6d1f0e-0000-4000-8000-${(0x7000 + proposals.length).toString(16).padStart(12, "0")}`;
-				return JSON.parse(
-					scrub(
-						JSON.stringify({
-							proposalId,
-							status: "awaiting_approval",
-							expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000).toISOString(),
-							rows: review.target ? [{ ...review.target, fields: { changes: review.changes } }] : [],
-						}),
-					),
-				) as Record<string, unknown>;
-			},
+		tools.propose_change = proposeChangeTool(writes, async (call) => {
+			if (!admit()) return { error: "tool_budget" };
+			const review = prepareReview(church, call.operation, call.input);
+			proposals.push({ operation: call.operation, input: call.input, prepared: !!review, review });
+			if (!review) return { error: "source_unavailable" };
+			const proposalId = `5b6d1f0e-0000-4000-8000-${(0x7000 + proposals.length).toString(16).padStart(12, "0")}`;
+			return JSON.parse(
+				scrub(
+					JSON.stringify({
+						proposalId,
+						status: "awaiting_approval",
+						expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000).toISOString(),
+						rows: review.target ? [{ ...review.target, fields: { changes: review.changes } }] : [],
+					}),
+				),
+			) as Record<string, unknown>;
 		});
 	}
 
