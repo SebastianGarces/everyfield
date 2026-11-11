@@ -6,6 +6,7 @@ import {
 	exportsFor,
 	type DocBrands,
 	type DocDocument,
+	type ExportFormat,
 	type SavedExport,
 } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
@@ -77,10 +78,14 @@ export function ChurchDocumentScreen({
 	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
 	const { revisions } = listed;
 	const [history, setHistory] = useState(false);
-	const setRevision = (next: string) => {
+	// Excel is offered while the body holds a budget table, so a save can add it or take it away. The header follows the
+	// shown revision; each Revisions row keeps the formats its own revision offers.
+	const [formats, setFormats] = useState<readonly ExportFormat[]>(doc.formats);
+	const setRevision = (next: string, offered: readonly ExportFormat[]) => {
 		setShownRevision(next);
+		setFormats(offered);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
 		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
 		setListed((now) =>
 			now.revisions.some((r) => r.number === row.number)
@@ -91,8 +96,6 @@ export function ChurchDocumentScreen({
 					},
 		);
 	};
-	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
-	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
 	const [current, setCurrent] = useState(() => ({
 		document: editable?.document ?? null,
@@ -233,19 +236,15 @@ export function ChurchDocumentScreen({
 					brand={brand}
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
-					onRevision={(next, offered) => {
-						setRevision(next);
-						setFormats(offered);
-					}}
+					onRevision={setRevision}
 					revisions={revisions}
 					file={file}
 					template={current.template}
 					templateName={doc.templateName}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
-						setRevision(next);
 						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
-						setFormats(exportsFor(document.exports, document.body));
+						setRevision(next, exportsFor(document.exports, document.body));
 						setCurrent((now) => ({
 							document,
 							revision: next,
@@ -281,7 +280,6 @@ export function ChurchDocumentScreen({
 				revisions={revisions}
 				truncated={listed.truncated}
 				current={Number(revision)}
-				formats={doc.formats}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
 				error={exportError}
 				onDownload={(at, format) => void download(format, at)}
