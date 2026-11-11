@@ -8,6 +8,7 @@ import { runEffects, runTurns } from "../evry/worker.ts";
 import { runDueImports } from "../people/run-imports.ts";
 import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
+import { runDuePurges } from "./lifecycle-purge.ts";
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 
 /**
@@ -22,7 +23,8 @@ const START_MS = 60_000;
 /**
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
- * runs the existing workers, each of which returns expired leases to the queue first. It queues the digests whose period
+ * runs the existing workers, each of which returns expired leases to the queue first. Requested deletions whose
+ * cancellation deadline has passed are purged on the cleanup login (`lifecycle_purge`). It queues the digests whose period
  * ended at the run's clock and delivers a bounded batch of them (WP-030). The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
  * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
@@ -33,6 +35,11 @@ export function scheduledJobs(config: {
 	secret: string | undefined;
 	db: Database | null;
 	storage: PrivateStorage | null;
+	/**
+	 * The cleanup login's pool, which alone may purge a deleted account or church; null on a deployment without it. With
+	 * no cleanup login or no private storage, requested deletions wait and every other worker still runs.
+	 */
+	cleanup: Database | null;
 	reminders: TaskReminders | null;
 	/** Sends one bounded batch of due invitation mail; null when the deployment has no mail transport. */
 	mail: ((limit: number, until: number) => Promise<number>) | null;
@@ -54,13 +61,15 @@ export function scheduledJobs(config: {
 			const closed = await transaction(db, (tx) => closeLostJobs(tx));
 			await runDueImports(db, 4, until);
 			const removed = config.storage ? await runDueObjectCleanup(db, config.storage, 4, until) : 0;
+			const purged =
+				config.cleanup && config.storage ? await runDuePurges(db, config.cleanup, config.storage, 2, until) : 0;
 			const effects = config.reminders ? await runEffects(db, config.reminders, 4, until) : 0;
 			const turns = await runTurns(db, 4, until);
 			const asOf = (config.now?.() ?? new Date()).toISOString();
 			const planned = config.digests ? await planDigests(db, asOf) : null;
 			const digests = config.digests ? await config.digests.run(db, asOf, undefined, until) : 0;
 			const mailed = config.mail ? await config.mail(20, until) : 0;
-			return Response.json({ status: "ok", closed, removed, effects, turns, planned, digests, mailed });
+			return Response.json({ status: "ok", closed, removed, purged, effects, turns, planned, digests, mailed });
 		} catch {
 			// No error text: it can carry row values.
 			console.error(JSON.stringify({ component: "scheduled-jobs", outcome: "error" }));
