@@ -99,8 +99,7 @@ const restoreSeat = (accountId) =>
 const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
-const docx = (text, extra = []) =>
-	storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]).toString("base64");
+const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
 /** A Word file whose one entry's header declares `declared` bytes while its deflate stream inflates to `inflated`. */
 function lyingZip(declared, inflated) {
 	const name = Buffer.from("word/document.xml");
@@ -113,7 +112,7 @@ function lyingZip(declared, inflated) {
 	local.writeUInt32LE(declared, 22);
 	local.writeUInt16LE(name.length, 26);
 	name.copy(local, 30);
-	return Buffer.concat([local, data]).toString("base64");
+	return Buffer.concat([local, data]);
 }
 function zipBomb() {
 	const name = Buffer.from("word/document.xml");
@@ -124,7 +123,7 @@ function zipBomb() {
 	local.writeUInt32LE(40 * 1024 * 1024 + 1, 22);
 	local.writeUInt16LE(name.length, 26);
 	name.copy(local, 30);
-	return local.toString("base64");
+	return local;
 }
 
 before(async () => {
@@ -566,9 +565,9 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			}),
 		);
 		const rejects = [
-			["text", Buffer.from("   ").toString("base64")],
-			["text", Buffer.from("hello\u0000").toString("base64")],
-			["text", Buffer.from([0xd0, 0xcf, 0x11, 0xe0]).toString("base64")],
+			["text", Buffer.from("   ")],
+			["text", Buffer.from("hello\u0000")],
+			["text", Buffer.from([0xd0, 0xcf, 0x11, 0xe0])],
 			["docx", zipBomb()],
 			["docx", docx("macro", [{ name: "word/vbaProject.bin", data: "macro" }])],
 			[
@@ -582,7 +581,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			],
 			["docx", docx("")],
 		];
-		for (const [format, bytes] of rejects) {
+		for (const [index, [format, bytes]] of rejects.entries()) {
 			refused(
 				await documentsWriter.importTextOrWord(
 					db,
@@ -593,7 +592,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 						bytes,
 						documentId: kept.id,
 						expectedRevision: kept.revision,
-						requestKey: `bad-${format}-${bytes.length}`,
+						requestKey: `bad-${format}-${index}`,
 					},
 					storage,
 				),
@@ -952,7 +951,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				{
 					title: "Imported notes",
 					format: "text",
-					bytes: Buffer.from("One\nTwo").toString("base64"),
+					bytes: Buffer.from("One\nTwo"),
 					documentId: old,
 					expectedRevision: resaved.revision,
 					requestKey: randomUUID(),
@@ -976,7 +975,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				{
 					title: "Volunteer roles",
 					format: "docx",
-					bytes: storedZip([{ name: "word/document.xml", data: words }]).toString("base64"),
+					bytes: storedZip([{ name: "word/document.xml", data: words }]),
 					expectedRevision: "0",
 					requestKey: randomUUID(),
 				},
@@ -994,7 +993,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				{
 					title: "Imported notes",
 					format: "text",
-					bytes: Buffer.from(" \n ").toString("base64"),
+					bytes: Buffer.from(" \n "),
 					documentId: old,
 					expectedRevision: imported.revision,
 					requestKey: randomUUID(),
@@ -1454,7 +1453,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 							name: "word/document.xml",
 							data: "<w:document><w:body><w:p><w:r><w:t>Cut off</w:t></w:r><w:p><w:r><w:t>mid",
 						},
-					]).toString("base64"),
+					]),
 				),
 			),
 			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },

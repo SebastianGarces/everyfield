@@ -2238,6 +2238,12 @@ export const mail = pgTable(
 		index("mail_ref_4").using("btree", table.notice_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_5").using("btree", table.job_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_6").using("btree", table.original_mail_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		// The minute runner reads Messages email that waits for its send time, and held email it may have to cancel (T-241).
+		index("mail_waiting")
+			.using("btree", table.scheduled_at.asc().nullsLast())
+			.where(
+				sql`((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL))`,
+			),
 	],
 );
 export const mail_attempt = pgTable(
