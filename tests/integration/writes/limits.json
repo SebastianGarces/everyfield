@@ -36,10 +36,10 @@
 		"limit": 2
 	},
 	"GET /ministries": {
-		"limit": 3
+		"limit": 2
 	},
 	"GET /ministries/[teamId]": {
-		"limit": 6
+		"limit": 5
 	},
 	"GET /intelligence": {
 		"limit": 2
@@ -57,7 +57,7 @@
 		"limit": 1
 	},
 	"GET /ministries?view=chart": {
-		"limit": 3
+		"limit": 2
 	},
 	"GET /notifications": {
 		"limit": 4
@@ -599,7 +599,7 @@
 	"jobs/queue.scanPage": {
 		"limit": 4
 	},
-	"jobs/webhook.receiveMailCallback": {
+	"jobs/webhook.applyMailCallback": {
 		"limit": 15,
 		"retry": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 2 read, 6 write."
