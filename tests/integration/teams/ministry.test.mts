@@ -362,6 +362,23 @@ test("AC:TARGET-TEAM-001 a ministry lists its meetings, upcoming first, then pas
 	assert.deepEqual(await list(empty.id, 1), []);
 });
 
+test("the ministries list carries each leader's name, and a stale write reads the revision alone", async () => {
+	const led = await makeTeam("Greeting");
+	const unled = await makeTeam("Parking");
+	const role = await makeRole(led.id, "Greeting lead", { leadership: true });
+	await assign(led, role, await person("Greta Greeter", { stage: "launch_team" }));
+	const items = ok(await teamsReader.list(db, await viewer(), {})).items;
+	assert.equal(items.find((t) => t.id === led.id).leaderName, "Greta Greeter");
+	assert.equal(items.find((t) => t.id === unled.id).leaderName, null);
+	// The revision read answers the ministry's current revision, the one the next write must send.
+	assert.deepEqual(ok(await teamsReader.readRevision(db, await viewer(), { teamId: led.id })), {
+		teamId: led.id,
+		revision: await rev("team", led.id),
+	});
+	refused(await teamsReader.readRevision(db, await viewer(3), { teamId: led.id }), "access_denied");
+	refused(await teamsReader.readRevision(db, await viewer(), { teamId: randomUUID() }));
+});
+
 test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a leader and keeps their history", async () => {
 	const team = await makeTeam("Hospitality");
 	const role = await makeRole(team.id, "Hospitality lead", { leadership: true });
@@ -384,6 +401,7 @@ test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a l
 	);
 	const teams = ok(await teamsReader.list(db, await viewer(), {})).items;
 	assert.equal(teams.find((t) => t.id === team.id).leaderPersonId, null);
+	assert.equal(teams.find((t) => t.id === team.id).leaderName, null);
 	const chart = ok(await teamsReader.readOrgChart(db, await viewer(), {})).nodes;
 	assert.equal(chart.find((n) => n.id === team.id).leaderName, null);
 	// The ministry's history records the leader leaving with the seat, after the role was filled.
