@@ -8,7 +8,6 @@ export {
 	liveAccess,
 	liveOwner,
 	liveRead,
-	liveRows,
 	readRequestViewer,
 	readViewer,
 	writeVisibility,
