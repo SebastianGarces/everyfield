@@ -12,7 +12,8 @@ class CiTimingError extends Error {
 /**
  * Setup is this fixed list of GitHub step names. Every other step is run time. Setup covers the runner's own steps,
  * checkout, pnpm and Node setup, the corepack install, `pnpm install`, cache restore, the Playwright browser install
- * and the post-job cleanup.
+ * and the post-job cleanup. pnpm/action-setup and "pnpm in the corepack cache" are the step names before T-251, kept
+ * so older runs still classify.
  */
 const SETUP_STEPS: readonly RegExp[] = [
 	/^Set up job$/,
@@ -20,6 +21,8 @@ const SETUP_STEPS: readonly RegExp[] = [
 	/^Run pnpm\/action-setup@/,
 	/^Run actions\/setup-node@/,
 	/^pnpm in the corepack cache\b/,
+	/^pnpm from corepack\b/,
+	/^pnpm store cache$/,
 	/^Run pnpm install\b/,
 	/^Run actions\/cache(?:\/restore)?@/,
 	/^Chromium for render tests$|playwright install/i,
@@ -94,9 +97,13 @@ function totals(jobs: JobTiming[]): Total[] {
 
 type GhResult = { ok: true; out: string } | { ok: false; status: number | null; message: string };
 
-/** Every GitHub read goes through here, and it only ever sends GET. */
-function gh(path: string): GhResult {
-	const r = spawnSync("gh", ["api", "--method", "GET", path], { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+/**
+ * Every GitHub read goes through here, and it only ever sends GET. Job logs hold the runner's colour codes, which gh
+ * refuses to print unless told; the tool only searches them, so a log read allows them.
+ */
+function gh(path: string, opts: { escapes?: boolean } = {}): GhResult {
+	const args = ["api", "--method", "GET", ...(opts.escapes ? ["--allow-escape-sequences"] : []), path];
+	const r = spawnSync("gh", args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
 	if (r.error) throw new CiTimingError("Cannot run gh. Install the GitHub CLI and run gh auth login.");
 	if (r.status === 0) return { ok: true, out: r.stdout };
 	const status = /HTTP (\d{3})/.exec(r.stderr)?.[1];
@@ -135,7 +142,7 @@ function main(): void {
 		id: run.id,
 		createdAt: run.created_at,
 		jobs: list<Job>(json(`repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`), "jobs").map((job) => {
-			const log = gh(`repos/{owner}/{repo}/actions/jobs/${job.id}/logs`);
+			const log = gh(`repos/{owner}/{repo}/actions/jobs/${job.id}/logs`, { escapes: true });
 			// An expired or missing log (HTTP 410 or 404) has no cache data. Any other failure stops the report.
 			if (!log.ok && log.status !== 404 && log.status !== 410)
 				throw new CiTimingError(`GitHub read failed for the log of job ${job.id}: ${log.message}`);

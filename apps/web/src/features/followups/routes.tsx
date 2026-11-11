@@ -62,7 +62,7 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 	const g = await gate(`/follow-ups/${raw}`, "Follow-up");
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
-	const loaded = await read(viewer, (tx) => loadCall(tx, viewer, id.data));
+	const loaded = await read((tx) => loadCall(tx, viewer, id.data));
 	if (loaded.status !== "ok") return <LoadFailed title="Follow-up" />;
 	if (loaded.value.kind === "missing") notFound();
 	if (loaded.value.kind === "not_follow_up")
@@ -99,7 +99,7 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 	const admin = administers(viewer);
-	const loaded = await read(viewer, async (tx): Promise<Outcome<Data>> => {
+	const loaded = await read(async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
 			const own = (p: number) =>
 				followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page: p, limit: 50 });
@@ -140,7 +140,7 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 				</StatePanel>
 			</Blocked>
 		);
-	return <FollowUpsScreen data={loaded.value} filter={filter} accountId={viewer.accountId} />;
+	return <FollowUpsScreen data={loaded.value} filter={filter} />;
 }
 
 /** The first paint while /tasks/follow-ups loads: the coverage list's shape, under its own status text. */

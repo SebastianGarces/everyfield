@@ -23,6 +23,7 @@ import { effectiveAdultSql, plantTodaySql } from "./adult.ts";
 import type { RequestActor } from "../access/session.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
+import { columnStages, committedStagesSql, openDutiesOf } from "./pipeline.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
 const obligation_o = alias(tables.obligation, "o");
@@ -123,8 +124,6 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		completeness: more ? "partial" : "complete",
 	});
 }
-const columnStages = (column: z.infer<typeof c.pipelineColumn>): z.infer<typeof c.stage>[] =>
-	column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
 export const peopleReader: PeopleReader<Tx> = {
 	async getPerson(tx, ctx, raw) {
 		return readReply(async () => {
@@ -167,8 +166,7 @@ export const peopleReader: PeopleReader<Tx> = {
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
       (${p.commitment_state === "active"} AND EXISTS(SELECT FROM commitment e WHERE e.plant_id=${ctx.selected.id} AND e.person_id=${p.id} AND e.voided_at IS NULL)) AS committed,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'revision',t.revision::text) ORDER BY t.id) FROM task t
-        WHERE t.plant_id=${ctx.selected.id} AND (t.person_id=${p.id} OR EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${p.linked_account_id}::uuid))
-        AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed')),'[]'::jsonb) AS duties
+        WHERE t.plant_id=${ctx.selected.id} AND ${openDutiesOf(p.id, p.linked_account_id)}),'[]'::jsonb) AS duties
       FROM plant pl WHERE pl.id=${ctx.selected.id} AND ${gate}`);
 			if (!result.rows[0]) deny();
 			const row = warningsRow.parse(result.rows[0]);
@@ -210,7 +208,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				.parse(saved.rows)
 				.filter((r) => r.column !== null);
 			// One window over every read column: each row carries its column, its rank in that column and the column total.
-			const column = sql<string>`CASE WHEN ${tables.person.stage} IN ('core_group','launch_team','leader') THEN 'core_group' ELSE ${tables.person.stage} END`;
+			const column = sql<string>`CASE WHEN ${tables.person.stage} = ANY(${committedStagesSql()}) THEN 'core_group' ELSE ${tables.person.stage} END`;
 			const window = tx
 				.select({
 					...personColumns,
@@ -481,7 +479,7 @@ export async function readColumnOrders(tx: Tx, ctx: Context, columns: readonly z
 		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=u.c), '1') AS revision,
 		coalesce((SELECT json_agg(json_build_object('id', id, 'revision', revision::text) ORDER BY pipeline_position, created_at, id)
 			FROM person WHERE plant_id=${ctx.selected.id} AND state='live'
-			AND stage=ANY(CASE WHEN u.c='core_group' THEN ARRAY['core_group','launch_team','leader'] ELSE ARRAY[u.c] END)), '[]') AS people
+			AND stage=ANY(CASE WHEN u.c='core_group' THEN ${committedStagesSql()} ELSE ARRAY[u.c] END)), '[]') AS people
 		FROM unnest(${sql.param(columns)}::text[]) WITH ORDINALITY AS u(c, i) ORDER BY u.i`);
 	return result.rows.map((r) => {
 		const row = columnRow.parse(r);
