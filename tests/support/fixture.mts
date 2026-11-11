@@ -125,13 +125,13 @@ export function seeds(admin: Database) {
 		return { kind: "organization", id, organizationKind: kind };
 	}
 	/**
-	 * An account with a live session, seated on `workspace` as `role` when one is given. `account`, `user` and
-	 * `session` override the account, auth user and session rows; `seat` the seat row.
+	 * An account with a live session, seated on `workspace` as `role` when one is given. `account` and `user` override
+	 * the account and auth user rows.
 	 */
 	async function actor(
 		workspace?: Workspace | null,
 		role: "owner" | "admin" | "member" = "owner",
-		overrides: { id?: string; email?: string; account?: Row; user?: Row; session?: Row; seat?: Row } = {},
+		overrides: { id?: string; email?: string; account?: Row; user?: Row } = {},
 	): Promise<Actor> {
 		const id = overrides.id ?? randomUUID();
 		const user = randomUUID();
@@ -156,26 +156,19 @@ export function seeds(admin: Database) {
 			user_id: user,
 			token: randomBytes(32).toString("hex"),
 			expires_at: sql`clock_timestamp()+interval '1 day'`,
-			...overrides.session,
 		});
-		if (workspace) await seat({ id }, workspace, role, overrides.seat);
+		if (workspace) await seat({ id }, workspace, role);
 		return { id, user, session, email, selected: workspace ?? { kind: "account", id } };
 	}
 	/** Seats an existing account on `workspace`; returns the seat id. */
-	async function seat(
-		account: { id: string },
-		workspace: Workspace,
-		role: "owner" | "admin" | "member" = "owner",
-		columns: Row = {},
-	) {
-		const id = (columns.id as string | undefined) ?? randomUUID();
+	async function seat(account: { id: string }, workspace: Workspace, role: "owner" | "admin" | "member" = "owner") {
+		const id = randomUUID();
 		await insert(admin, "seat", {
 			account_id: account.id,
 			plant_id: workspace.kind === "plant" ? workspace.id : null,
 			organization_id: workspace.kind === "organization" ? workspace.id : null,
 			role,
 			accepted_at: now,
-			...columns,
 			id,
 		});
 		return id;
