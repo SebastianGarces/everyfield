@@ -36,7 +36,8 @@ const fold = (value: SQL | string) => sql`translate(lower(${value}),${FROM},${TO
 
 const SEARCH_WORDS = 8;
 const NAME_SEPARATORS = "-'\u2019";
-const nameWords = (value: SQL) => sql`' ' || translate(${value},${NAME_SEPARATORS}::text,${" ".repeat(NAME_SEPARATORS.length)}::text)`;
+const nameWords = (value: SQL) =>
+	sql`' ' || translate(${value},${NAME_SEPARATORS}::text,${" ".repeat(NAME_SEPARATORS.length)}::text)`;
 const PHONE_QUERY = /^[\d\s+\-().]+$/;
 
 /** SQL true when the person (display name, email, phone columns of `person`) matches the query. Empty query: no one. */
