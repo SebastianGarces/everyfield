@@ -684,7 +684,7 @@ before(async () => {
 	ownerA = await seated(plantA);
 	ownerB = await seated(plantB);
 	await seedChurchA();
-	t = { f, a, MARK, key, ok, rows, occurredOn, personA, storage, plantA, plantB, ownerA, ownerB };
+	t = { f, a, MARK, key, ok, rows, occurredOn, personA, storage, plantA, ownerA };
 	await seedMeetings(t);
 	await seedFollowUps(t);
 	await seedDocuments(t);

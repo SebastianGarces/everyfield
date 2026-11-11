@@ -83,7 +83,6 @@ export async function seedMeetings(t) {
 			}),
 		),
 	);
-	const score = 4;
 	ok(
 		await meet((tx, c) =>
 			attendance.recordEvaluation(tx, c, {
@@ -93,7 +92,7 @@ export async function seedMeetings(t) {
 					scores: Object.fromEntries(
 						["attendance", "location", "logistics", "agenda", "vibe", "message", "close", "nextSteps"].map((f) => [
 							`${f}Score`,
-							score,
+							4,
 						]),
 					),
 					notes: `${MARK} evaluation notes`,
