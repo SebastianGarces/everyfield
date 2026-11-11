@@ -6,7 +6,8 @@ import { Button, Card, CardIcon, ConfirmDialog, StatePanel } from "@everyfield/u
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { useIntent } from "./intent";
-import { formatDay, NEVER_SHARED, subjectName } from "./model";
+import { NEVER_SHARED, subjectName } from "./model";
+import { formatDay } from "../shared/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { NameOf, PendingInvitation, Run } from "./port";
 

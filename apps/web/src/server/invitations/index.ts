@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { sql } from "@everyfield/db/query";
 import { database } from "../database";
 import { authorizeInvitationMail, createInvitationService } from "@everyfield/domain/identity";
@@ -17,9 +18,7 @@ const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
 	IDENTITY_SECRET: z.string().min(32),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 
 /** Invitation mail keys: the invitation itself and the receipt after acceptance (authorizeInvitationMail). */
