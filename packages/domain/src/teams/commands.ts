@@ -113,6 +113,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			(SELECT count(DISTINCT team_id)::int FROM (
 				SELECT r2.team_id FROM team_tenure tn
 				JOIN team_role r2 ON r2.id = tn.role_id
+				JOIN team t2 ON t2.id = r2.team_id AND t2.plant_id = tn.plant_id AND t2.archived_at IS NULL
 				WHERE tn.person_id = ${person}::uuid AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id
 				UNION SELECT r.team_id
 			) counted) AS "teamCount"

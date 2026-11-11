@@ -77,6 +77,7 @@ export const teamsReader = {
 	 * A ministry's history: changes filed under the ministry, under any of its roles (added, edited, retired) and
 	 * under any person's time in one of its roles (filled, refilled). Roles a setup template added stay in the
 	 * ministry's own Created entry. A role entry names the role as that change recorded it, else as it is named now.
+	 * Training rows filed under the ministry's id carry their own subject type and stay out.
 	 */
 	async listHistory(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
@@ -88,7 +89,7 @@ export const teamsReader = {
 				viewer,
 				sql`SELECT (SELECT plant_id FROM team WHERE id = ${team}) AS owner,
 					coalesce((WITH subjects(id, subject, stored) AS (
-						SELECT ${team}, 'ministry', NULL::text
+						SELECT ${team}, 'ministry', 'team'
 						UNION ALL SELECT r.id, 'role', 'team_role' FROM team_role r
 							WHERE r.team_id = ${team} AND r.plant_id = ${plant}
 						UNION ALL SELECT tn.id, 'tenure', 'team_tenure' FROM team_tenure tn
@@ -108,7 +109,9 @@ export const teamsReader = {
 						'actorName', (SELECT display_name FROM seat_identity(a.actor_id))
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT e.*, s.subject FROM audit_event e
-						JOIN subjects s ON s.id = e.subject_id AND (s.stored IS NULL OR e.subject_type = s.stored)
+						JOIN subjects s ON s.id = e.subject_id AND (e.subject_type = s.stored
+							-- Seat removal files the leader leaving under the team id with no subject type, stored as 'record'.
+							OR (s.subject = 'ministry' AND e.subject_type = 'record' AND e.kind = 'leader_change'))
 						WHERE e.tenant_id = ${plant} AND e.kind <> 'noop'
 							AND NOT (s.subject = 'role' AND e.request_identity->>'operation' IS NOT DISTINCT FROM 'teams.initialize')
 						ORDER BY e.occurred_at DESC, e.id DESC LIMIT 200) a), '[]'::json) AS entries`,
