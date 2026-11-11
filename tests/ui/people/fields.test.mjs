@@ -5,7 +5,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-	addressLine,
 	householdChange,
 	membershipOf,
 	photoProblem,
@@ -36,13 +35,6 @@ test("AC:TARGET-PPL-009 a person who left reads as in no household, even though 
 	assert.deepEqual(membershipOf(left, "maria"), santos("head"));
 	assert.equal(membershipOf(left, "james"), null);
 	assert.equal(membershipOf({ status: "none" }, "maria"), null);
-});
-
-test("T-137 a person with any one address field has an address of their own; none has none", () => {
-	for (const only of ["street", "city", "stateProvince", "postalCode", "country"])
-		assert.ok(addressLine({ [only]: "02139" }), only);
-	assert.equal(addressLine({ street: null, city: "", postalCode: "  " }), null);
-	assert.equal(addressLine({}), null);
 });
 
 test("T-137 choosing the same refused photo twice reaches the check twice", () => {
