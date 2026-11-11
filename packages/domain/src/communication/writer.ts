@@ -348,10 +348,9 @@ export const communicationWriter = {
 	readMergeFields: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => merge(tx, authority, raw)),
 	readMeetingTemplate: (tx: Tx, authority: RequestActor, raw: unknown) =>
 		readReply(() => meetingTemplate(tx, authority, raw)),
-	list: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, null)),
 	get: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	getDraft: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
-	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, "draft")),
+	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority)),
 	readChurchName: (tx: Tx, authority: RequestActor) => readReply(() => churchName(tx, authority)),
 	listAudienceTeams: (tx: Tx, authority: RequestActor) => readReply(() => teams(tx, authority)),
 	listTemplates: (tx: Tx, authority: RequestActor) => readReply(() => templates(tx, authority)),
@@ -666,7 +665,30 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 					FROM message_template WHERE plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey} AND ${writeBound(cmd.actor, context.session)}`),
 			),
 		);
-		if (existing.success) return asTemplate(existing.data);
+		if (existing.success && !existing.data.archived_at) return asTemplate(existing.data);
+		// D-449: forking a source whose church fork is archived brings that fork back, with the church's edits.
+		if (existing.success) {
+			const current = existing.data;
+			const revision = bump(current.revision);
+			cmd.writes.push(sql`UPDATE message_template SET archived_at = NULL, revision = ${revision}::bigint
+				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+			const next = { ...current, revision, archived_at: null };
+			audit(
+				cmd,
+				fact(
+					cmd,
+					"message_template",
+					"edit",
+					current.id,
+					current.revision,
+					revision,
+					"communication.templates.fork",
+					current,
+					next,
+				),
+			);
+			return asTemplate(next);
+		}
 		const id = forkId(cmd.actor.plantId, source.sourceKey);
 		const bodyText = plainText(source.bodyHtml);
 		cmd.writes
@@ -981,7 +1003,7 @@ async function getDraft(tx: Tx, authority: RequestActor, request: unknown) {
 	if (!found.row) deny("not_found");
 	return asDraft(found.row);
 }
-async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null) {
+async function listDrafts(tx: Tx, authority: RequestActor) {
 	const { reader, access } = accessOf(authority);
 	const raw = one(
 		await tx.execute(
@@ -993,7 +1015,7 @@ async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null
 						'template_id', template_id, 'template_source', template_source, 'meeting_id', meeting_id, 'audience', audience,
 						'scheduled_at', to_char(scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'review_digest', review_digest
 					) ORDER BY created_at, id)
-					FROM communication WHERE plant_id = ${reader.plantId}::uuid AND (${state}::text IS NULL OR state = ${state})
+					FROM communication WHERE plant_id = ${reader.plantId}::uuid AND state = 'draft'
 				), '[]'::jsonb) AS rows`,
 			),
 		),
