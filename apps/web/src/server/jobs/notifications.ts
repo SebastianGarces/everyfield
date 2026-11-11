@@ -1,8 +1,7 @@
-import { gt } from "@everyfield/db/query";
 import { instant } from "@everyfield/contracts/common";
 import { notificationCategory as category } from "@everyfield/contracts/settings";
 import type { Transaction } from "@everyfield/db/client";
-import { and, eq, isNull, or, sql } from "@everyfield/db/query";
+import { and, eq, gt, isNull, or, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readAccountContacts } from "@everyfield/domain/identity";
 import { reminderSeats } from "@everyfield/domain/tasks";
@@ -10,7 +9,6 @@ import "server-only";
 import { z } from "zod";
 import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
 import { createMailService, type MailIntent } from "./mail.ts";
-export { notificationCategory as category } from "@everyfield/contracts/settings";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
 	id: z.uuid(),

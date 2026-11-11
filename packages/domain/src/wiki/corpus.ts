@@ -303,21 +303,9 @@ export function articleJson(): SQL {
 	)`;
 }
 
+/** The picked articles that match `extra`. The reading and credit joins come later, on the rows a page keeps. */
 export function articleFrom(extra: SQL = sql`true`): SQL {
-	return sql`picked p
-		LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
-		LEFT JOIN LATERAL (
-			SELECT v.source_credit
-			FROM reference_version v
-			WHERE v.item_id = p.article_id
-				AND (
-					v.release_id = (SELECT release_id FROM release)
-					OR NOT EXISTS (SELECT FROM release)
-				)
-			ORDER BY v.version_number DESC
-			LIMIT 1
-		) cr ON true
-		WHERE ${extra}`;
+	return sql`picked p WHERE ${extra}`;
 }
 
 /**
@@ -383,7 +371,7 @@ export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQ
 			), '[]'::json) AS articles`;
 }
 
-/** Navigation ids in one statement: title, slug, phase, section, and stored related ids. */
+/** Navigation ids in one statement: title, slug, phase and section. */
 export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 	return sql`WITH ${corpusCtes(access, source)}
 		SELECT
@@ -394,8 +382,7 @@ export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 					'title', p.title,
 					'slug', p.slug,
 					'phase', p.phase,
-					'sectionKey', p.section_key,
-					'relatedIds', p.related_ids
+					'sectionKey', p.section_key
 				) ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
 				FROM picked p
 			), '[]'::json) AS articles`;

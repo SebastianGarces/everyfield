@@ -19,16 +19,8 @@ import {
 } from "@everyfield/ui/controls";
 import { useEffect, useState } from "react";
 import { editMeeting, listMinistries, listVenues, scheduleMeeting } from "./actions.ts";
-import {
-	NEW_TYPES,
-	offsetText,
-	problemText,
-	TYPE_LABEL,
-	type Detail,
-	type MeetingType,
-	type Outcome,
-	type Venue,
-} from "./model.ts";
+import { offsetText } from "../shared/dates.ts";
+import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
 import {
 	DialogNotice,
 	focusFirstProblem,
@@ -320,7 +312,7 @@ function Form<E extends { problem?: string }>({
 								value={draft.type}
 								disabled={pending}
 								onValueChange={(type) => set({ type: type as MeetingType })}
-								options={NEW_TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
+								options={TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
 							/>
 						</Field>
 					)}
