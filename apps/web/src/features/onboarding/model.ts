@@ -79,8 +79,11 @@ export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "decla
 export type Intent = { op: Op; digest: string; requestKey: string };
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
 
-/** A notice the step shows after a refusal, keyed by what the person can do about it. */
-export type Notice = { op: Op; code: ErrorCode };
+/**
+ * A notice the step shows after a refusal, keyed by what the person can do about it. `reloaded` says whether fresh
+ * facts arrived after it, so the notice claims the latest was loaded only when it was.
+ */
+export type Notice = { op: Op; code: ErrorCode; reloaded: boolean };
 
 export type State = {
 	entry: Entry;
@@ -207,11 +210,12 @@ export function journeyInput(draft: JourneyDraft): JourneyAnswer {
 	}
 }
 /**
- * The launch request part. A planned date needs the schedule revision, which resume does not carry (R3 gap): "1" is
- * right while no date is saved; otherwise the server refuses with conflict and the step reloads.
+ * The launch request part. A planned date sends the schedule revision the screen last read (resume or the last
+ * journey reply). If another tab moved the date since, the server refuses with conflict and the step reloads.
  */
-export function launchInput(draft: LaunchDraft): LaunchAnswer {
-	if (draft.answer === "planned") return { answer: "planned", date: draft.date, expectedScheduleRevision: "1" };
+export function launchInput(draft: LaunchDraft, scheduleRevision: string): LaunchAnswer {
+	if (draft.answer === "planned")
+		return { answer: "planned", date: draft.date, expectedScheduleRevision: scheduleRevision };
 	return draft.answer === "no_date" ? { answer: "no_date" } : { answer: "skip" };
 }
 const optional = (value: string) => (value.trim() ? value.trim() : null);
@@ -347,7 +351,8 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 		const retry = s.reply.error.retry;
 		const keep = retry === "same_request" || retry === "reconcile";
 		const entry = fresh ?? state.entry;
-		const next = { ...base, entry, intent: keep ? state.intent : null, notice: { op: s.op, code: s.reply.error.code } };
+		const notice = { op: s.op, code: s.reply.error.code, reloaded: fresh !== null };
+		const next = { ...base, entry, intent: keep ? state.intent : null, notice };
 		return { ...next, view: clampView(next, state.view) };
 	}
 	const done = { ...base, intent: null, notice: null };
@@ -372,6 +377,7 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 				journey: v.journey,
 				launch: v.launch,
 				scheduledLaunchDate: v.scheduledLaunchDate,
+				scheduleRevision: v.scheduleRevision,
 			};
 			const next = {
 				...done,
