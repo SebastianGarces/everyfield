@@ -28,6 +28,8 @@ import {
 	problemText,
 	matches,
 	ownerLabel,
+	assigneeNames,
+	assigneeSummary,
 	NO_PENDING,
 	shownRows,
 	shownSteps,
@@ -300,6 +302,9 @@ test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed
 	assert.equal(ownerLabel({ displayName: "  " }), "Unnamed member", "a member with no name");
 	assert.equal(ownerLabel({ displayName: "" }), "Unnamed member", "a former member whose deleted account has no name");
 	assert.equal(ownerLabel(null), "Needs owner", "no owner");
+	// The task row and the assignee summary read an empty name the same way as the panel and the picker.
+	assert.deepEqual(assigneeNames([{ displayName: "Ana Lee" }, { displayName: " " }]), ["Ana Lee", "Unnamed member"]);
+	assert.equal(assigneeSummary([{ displayName: "" }, { displayName: "Ana Lee" }]), "Unnamed member +1");
 });
 
 test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {

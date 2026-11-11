@@ -106,12 +106,14 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
 
 /**
- * Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). Every
- * empty name reads "Unnamed member": a current seat never reads as a former member, and a former member whose account
- * still exists keeps their name.
+ * An assignee's name, as every task screen shows it: the task row, the task panel, the assignee picker and the
+ * assignee summary. Every empty name reads "Unnamed member": a current seat never reads as a former member, and a
+ * former member whose account still exists keeps their name.
  */
+export const assigneeName = (person: { displayName: string }) => person.displayName.trim() || "Unnamed member";
+/** Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). */
 export function ownerLabel(owner: { displayName: string } | null): string {
-	return owner ? owner.displayName.trim() || "Unnamed member" : "Needs owner";
+	return owner ? assigneeName(owner) : "Needs owner";
 }
 
 /** An owner view of a follow-up's assignee (REQ-TSK-012): the name and whether they may own follow-ups. */
@@ -182,8 +184,7 @@ export function noticingIneligible<T>(
 /** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
 export const lacksOwner = (owners: readonly Pick<FollowUpOwner, "eligible">[]) => !owners.some((o) => o.eligible);
 /** Every assignee's name, in the order the server lists them. */
-export const assigneeNames = (people: readonly { displayName: string }[]) =>
-	people.map((p) => p.displayName.trim() || "Former member");
+export const assigneeNames = (people: readonly { displayName: string }[]) => people.map(assigneeName);
 /** The first name and how many more, for a place with no room for all of them: "Ana Lee +2". */
 export function assigneeSummary(people: readonly { displayName: string }[]) {
 	const [first, ...rest] = assigneeNames(people);
