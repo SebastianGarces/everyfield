@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
-import { ChurchRevisions } from "./ChurchRevisions.tsx";
+import { ChurchRevisions, REVISIONS_LISTED } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
@@ -45,11 +45,14 @@ export function ChurchDocumentScreen({
 	canManage,
 	exports: firstExports,
 	revisions: firstRevisions,
+	revisionsTruncated,
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The saved revisions, newest first. */
+	/** The newest saved revisions, newest first, at most REVISIONS_LISTED. */
 	revisions: RevisionRow[];
+	/** True when the document has older revisions than `revisions` holds. */
+	revisionsTruncated: boolean;
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
@@ -65,13 +68,22 @@ export function ChurchDocumentScreen({
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
-	const [revisions, setRevisions] = useState(firstRevisions);
+	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
+	const { revisions } = listed;
 	const [history, setHistory] = useState(false);
 	const setRevision = (next: string) => {
 		setShownRevision(next);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
 		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
-		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
+		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
+		setListed((now) =>
+			now.revisions.some((r) => r.number === row.number)
+				? now
+				: {
+						revisions: [row, ...now.revisions].slice(0, REVISIONS_LISTED),
+						truncated: now.truncated || now.revisions.length >= REVISIONS_LISTED,
+					},
+		);
 	};
 	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
 	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
@@ -261,6 +273,7 @@ export function ChurchDocumentScreen({
 			)}
 			<ChurchRevisions
 				revisions={revisions}
+				truncated={listed.truncated}
 				current={Number(revision)}
 				formats={doc.formats}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}

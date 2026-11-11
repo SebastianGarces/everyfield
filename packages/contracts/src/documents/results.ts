@@ -242,7 +242,10 @@ export const churchRevisionSummary = z.strictObject({
 });
 export const churchRevisionList = z.strictObject({
 	documentId: recordId,
+	/** The newest 1000 revisions, oldest first. */
 	revisions: z.array(churchRevisionSummary).max(1000),
+	/** True when the document has older revisions than the list holds. */
+	truncated: z.boolean(),
 });
 export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: docDocument });
 /** One entry of the Church Document library. */
