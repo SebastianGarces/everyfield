@@ -152,6 +152,52 @@ test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and mus
 	}
 });
 
+test("T-172: an unlisted pure tests/ui model test fails the guard; a browser suite importing setup.mjs is not required", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		mkdirSync(join(f.root, "apps/web"), { recursive: true });
+		mkdirSync(join(f.root, "packages/domain/test"), { recursive: true });
+		mkdirSync(join(f.root, "tests/ui/people"), { recursive: true });
+		mkdirSync(join(f.root, "tests/reference/releases"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		writeFileSync(
+			join(f.root, "packages/domain/package.json"),
+			JSON.stringify({ name: "@everyfield/domain", scripts: { test: "tsx --test test/*.test.ts" } }),
+		);
+		writeFileSync(join(f.root, "packages/domain/test/rules.test.ts"), "");
+		writeFileSync(
+			join(f.root, "apps/web/package.json"),
+			JSON.stringify({
+				name: "@everyfield/web",
+				scripts: {
+					"test:unit": "node --test ../../tests/ui/people/model.test.mjs ../../tests/reference/releases/*.db.mts",
+				},
+			}),
+		);
+		writeFileSync(join(f.root, "tests/ui/setup.mjs"), "");
+		writeFileSync(join(f.root, "tests/ui/people/model.test.mjs"), 'import "node:test";\n');
+		writeFileSync(join(f.root, "tests/ui/people/browser.test.mjs"), 'import { launch } from "../setup.mjs";\n');
+		writeFileSync(join(f.root, "tests/reference/releases/pin.db.mts"), "");
+		writeFileSync(
+			join(f.root, ".github/workflows/ci.yml"),
+			"jobs:\n  tests:\n    steps:\n      - run: pnpm -r --if-present test:unit\n      - run: pnpm -r --if-present test\n",
+		);
+		let result = cli(f.root);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 3 test files/);
+		writeFileSync(join(f.root, "tests/ui/people/new-model.test.mjs"), 'import "node:test";\n');
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.match(
+			result.stderr,
+			/^ci-tests: Tests missing from CI commands:\ntests\/ui\/people\/new-model\.test\.mjs\n/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
 test("CI runs this check on its own, in the tools job the required ci check needs", () => {
 	const workflow = readFileSync(resolve(import.meta.dirname, "../../../.github/workflows/ci.yml"), "utf8");
 	const job = workflow.split(/(?=^  [\w-]+:\s*$)/m).find((part) => part.startsWith("  tools:"));
