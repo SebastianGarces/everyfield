@@ -76,9 +76,9 @@ test("INV-identity: atomic registration admission counts malformed submissions, 
 	);
 	await f.db.execute(querySql`ALTER TABLE admission_attempt RENAME TO admission_unavailable`);
 	try {
-		const refused = await signIn(f, "staged@example.test");
-		assert.equal(refused.status, 503);
-		assert.equal(cookie(refused), "");
+		const staged = await signIn(f, "staged@example.test");
+		assert.equal(staged.status, 503);
+		assert.equal(cookie(staged), "");
 	} finally {
 		await f.db.execute(querySql`ALTER TABLE admission_unavailable RENAME TO admission_attempt`);
 	}
@@ -118,12 +118,14 @@ test("INV-identity: normalized login and reset budgets reserve concurrently, suc
 });
 
 test("INV-identity: a rate-limited refusal names the end of the budget window it hit", async () => {
-	/** Minutes from now to the refusal's retryAt. */
+	/** Minutes from the database clock to the refusal's retryAt. */
 	const minutesOut = async (response: Response) => {
 		assert.equal(response.status, 429);
 		const body = (await response.json()) as { code: string; details: { retryAt: string } };
 		assert.equal(body.code, "rate_limited");
-		return (new Date(body.details.retryAt).getTime() - Date.now()) / 60_000;
+		const [{ now }] = (await f.db.execute(querySql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS now`))
+			.rows as { now: number }[];
+		return (new Date(body.details.retryAt).getTime() - now) / 60_000;
 	};
 	const near = (actual: number, expected: number) =>
 		assert.ok(Math.abs(actual - expected) < 1, `retryAt ${actual.toFixed(2)} minutes out, expected ${expected}`);
@@ -527,7 +529,7 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
       authorize:async()=>new Set(),transport:{async send(){throw Error('producer_only')},async lookup(){throw Error('producer_only')}}});
     const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
     const service=createIdentityService({db,authDb,admissionDb,origin,secret:v.IDENTITY_SECRET,trustedIp:()=> '127.0.0.22',
-      scheduleDelivery:work=>setTimeout(work,5000),diagnostic:()=>{},
+      scheduleDelivery:()=>{},diagnostic:()=>{},
       enqueueMail:(tx,m)=>mail.enqueue(tx,{owner:{kind:'account',id:m.accountId},purpose:m.purpose,logicalKey:m.logicalKey,recipient:m.accountId,address:m.address,
         content:{subject:m.subject,text:m.text},operation:null,notice:null,eligibleAt:new Date().toISOString()})});
     server.on('request',async(req,res)=>{const chunks=[];for await(const c of req)chunks.push(c);
