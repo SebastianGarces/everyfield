@@ -119,7 +119,7 @@ export async function PersonPage({
 }
 
 /**
- * The photo control for tests/ui/people/photo.test.mjs only: a development server started with
+ * The photo control for proving photo uploads in a browser before T-196 ships them: a development server started with
  * EVERYFIELD_TEST_PERSON_PHOTOS=1 shows it. A production build inlines NODE_ENV as "production", so it never does.
  */
 const photosUnderTest = () =>
