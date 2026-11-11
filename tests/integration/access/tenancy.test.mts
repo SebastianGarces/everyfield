@@ -51,6 +51,9 @@ import { runDueImports } from "../../../apps/web/src/server/people/run-imports.t
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
+import { phasesCases, seedPhases } from "./tenancy-phases.mts";
+import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
+import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -697,6 +700,9 @@ function cases(who) {
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
+		...teamsCases(t, who),
+		...tasksCases(t, who),
+		...phasesCases(t, who),
 	]);
 }
 
@@ -716,6 +722,9 @@ before(async () => {
 	await seedMeetings(t);
 	await seedFollowUps(t);
 	await seedDocuments(t);
+	await seedTeams(t);
+	await seedTasks(t);
+	await seedPhases(t);
 });
 after(() => f?.close());
 
