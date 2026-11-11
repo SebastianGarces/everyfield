@@ -1,5 +1,5 @@
 export { TEMPLATE_VERSION } from "@everyfield/contracts/teams";
-export { drawingLines, drawingPdf, drawingSvg, wrapLabel } from "./chart.ts";
+export { drawingLines, drawingPdf, drawingSvg, withParents, wrapLabel } from "./chart.ts";
 export { teamsWriter } from "./commands.ts";
 export { withTeamsWrite } from "./core.ts";
 export { teamsReader } from "./reads.ts";
