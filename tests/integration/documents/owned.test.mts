@@ -397,6 +397,48 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
 	});
 
+	test("T-124 generate with a meeting stores the bytes its preview showed: the meeting's date and its rows", async () => {
+		const owner = await authority(0);
+		const meeting = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,
+					agenda,venue_name,venue_address,vision_number)
+				VALUES(${meeting},${P},'vision_meeting',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1,
+					${JSON.stringify([{ id: "a", title: "Greeting", minutes: 10 }])}::jsonb,'Harbor Hall','12 Dock Street',7)`,
+		);
+		const input = { templateId: "vision-meeting-agenda", format: "pdf", meetingId: meeting };
+		const preview = ok(await documentsReader.preview(db, owner, input));
+		assert.ok(preview.digest, "the preview renders from the meeting");
+		const dated = preview.fields.find((field) => field.key === "meeting_date");
+		assert.equal(dated.source, "meeting");
+		// The same template with the meeting's date typed in, but no meeting, prints no meeting rows: other bytes.
+		const unbound = ok(
+			await documentsReader.preview(db, owner, {
+				templateId: "vision-meeting-agenda",
+				format: "pdf",
+				overrides: { meeting_date: dated.value },
+			}),
+		);
+		assert.notEqual(unbound.digest, preview.digest);
+
+		const made = ok(await documentsWriter.generate(db, owner, { ...input, requestKey: "t124-meeting" }, storage));
+		assert.equal(made.digest, preview.digest, "generate stores the preview's bytes");
+		const stored = await fileKey(made.id);
+		assert.equal(sha(client.objects.get(stored.opaque_key)), preview.digest);
+		assert.deepEqual(client.objects.get(stored.opaque_key), Buffer.from(preview.artifact, "base64"));
+		// A meeting of another kind is no subject for this agenda, as in the preview.
+		const other = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+				VALUES(${other},${P},'orientation',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1)`,
+		);
+		refused(await documentsReader.preview(db, owner, { ...input, meetingId: other }), "invalid_subject");
+		refused(
+			await documentsWriter.generate(db, owner, { ...input, meetingId: other, requestKey: "t124-other" }, storage),
+			"invalid_subject",
+		);
+	});
+
 	test("AC:CASE-DOC-016 AC:SCHEMA-008 AC:WIKI52-003 one owner, unsafe imports stay out, and the church copy survives purge", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);

@@ -7,6 +7,7 @@ import {
 	brandReader,
 	brandWriter,
 	readBrandAsset,
+	readBrandAssetIfChanged,
 	uploadBrandAsset,
 } from "../../../packages/domain/src/branding/index.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
@@ -30,6 +31,8 @@ const actors = [
 
 class MemoryClient extends S3Client {
 	objects = new Map();
+	/** How many object reads (GetObject) the client has answered. */
+	reads = 0;
 	constructor() {
 		super({
 			region: "us-east-1",
@@ -47,6 +50,7 @@ class MemoryClient extends S3Client {
 				this.objects.set(input.Key, Buffer.from(input.Body));
 				return {};
 			case "GetObjectCommand": {
+				this.reads += 1;
 				const body = this.objects.get(input.Key);
 				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
 				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
@@ -690,5 +694,46 @@ describe("WP-104/api church brand kit", { concurrency: 1 }, () => {
 			ok(await brandReader.resolveTheme(db, await authority(1), { documentClass: "operational" })).layout.mark.alt,
 			"Harvest mark",
 		);
+	});
+
+	test("T-143 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer", async () => {
+		const owner = await authority(0);
+		const kit = ok(await brandReader.get(db, owner, {}));
+		const fileId = kit.assets.mark.fileId;
+		const { sha256 } = (await rowsOf(sql`SELECT sha256 FROM file_object WHERE id = ${fileId}::uuid`))[0];
+		const held = (stored) => stored === sha256;
+		const readsBefore = client.reads;
+		// The viewer holds the current version: the stored SHA-256 and type come back, no bytes and no object read.
+		assert.deepEqual(ok(await readBrandAssetIfChanged(db, storage, owner, fileId, held)), {
+			sha256,
+			mediaType: "image/png",
+			bytes: null,
+		});
+		assert.equal(client.reads, readsBefore);
+		// A miss reads the bytes once, and they are the stored version.
+		const miss = ok(await readBrandAssetIfChanged(db, storage, owner, fileId, () => false));
+		assert.equal(client.reads, readsBefore + 1);
+		assert.deepEqual([sha(miss.bytes), miss.mediaType], [sha256, "image/png"]);
+		// A Member, another church's Admin and an account with no seat get nothing, the held tag included.
+		for (const [who, code] of [
+			[1, "unavailable"],
+			[3, "unavailable"],
+			[4, "access_denied"],
+		])
+			refused(await readBrandAssetIfChanged(db, storage, await authority(who), fileId, held), code);
+		// A seat that ended after the viewer lookup is refused in the authorized statement itself.
+		const ending = await authority(0);
+		await endSeat(actors[0].id);
+		refused(await readBrandAssetIfChanged(db, storage, ending, fileId, held), "unavailable");
+		await restoreSeat(actors[0].id);
+		// A file the kit no longer references is refused.
+		ok(
+			await brandWriter.saveSettings(db, await authority(0), {
+				expectedRevision: kit.revision,
+				patch: { assets: { mark: null } },
+			}),
+		);
+		refused(await readBrandAssetIfChanged(db, storage, await authority(0), fileId, held), "unavailable");
+		assert.equal(client.reads, readsBefore + 1);
 	});
 });

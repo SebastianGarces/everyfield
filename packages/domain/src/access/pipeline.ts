@@ -6,7 +6,7 @@ import {
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { Transaction } from "@everyfield/db/client";
-import { alias, and, eq, isNull, lte, sql } from "@everyfield/db/query";
+import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -14,10 +14,6 @@ import { currentActor, liveOwner, liveRead, observedActor } from "./session.ts";
 
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
-const residency_link_l = alias(tables.residency_link, "l");
-const affiliation_a = alias(tables.affiliation, "a");
-const invitation_i = alias(tables.invitation, "i");
-const person_p = alias(tables.person, "p");
 
 export async function readPipelinePerson(
 	tx: Transaction,
@@ -92,6 +88,20 @@ export async function readPipelinePerson(
 		: unavailable();
 }
 
+/**
+ * The residency link `l` (a residency_link row in the statement) is its account's live residency: accepted and not
+ * ended, its connection with the organization accepted, not ended and not being deleted, its residency invitation
+ * accepted by that account, and its person live and linked to that account.
+ */
+export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
+ AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
+  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
+  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')))
+ AND EXISTS(SELECT FROM invitation i WHERE i.id=l.invitation_id AND i.tenant_id=l.organization_id
+  AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
+ AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
+  AND p.linked_account_id=l.account_id AND p.state='live'))`;
+
 export async function readOwnResidency(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,
@@ -110,81 +120,12 @@ export async function readOwnResidency(
 				?.account_id;
 	if (!accountId) return null;
 	const live = liveRead({ session, owner: owner.parse({ kind: "account", id: accountId }) });
-	const links = await tx
-		.select({ id: residency_link_l.id, revision: residency_link_l.revision })
-		.from(residency_link_l)
-		.innerJoin(
-			affiliation_a,
-			and(
-				and(
-					eq(affiliation_a.id, residency_link_l.affiliation_id),
-					eq(affiliation_a.organization_id, residency_link_l.organization_id),
-				),
-				eq(affiliation_a.account_id, residency_link_l.account_id),
-			),
+	const links = (
+		await tx.execute<{ id: string; revision: string }>(
+			sql`SELECT l.id, l.revision::text AS revision FROM residency_link l WHERE l.organization_id=${organization.id}::uuid
+			AND l.person_id=${input.data.personId}::uuid AND l.account_id=${accountId}::uuid AND ${liveResidency} AND ${live}`,
 		)
-		.innerJoin(
-			invitation_i,
-			and(
-				and(
-					eq(invitation_i.id, residency_link_l.invitation_id),
-					eq(invitation_i.tenant_id, residency_link_l.organization_id),
-				),
-				eq(invitation_i.accepted_account_id, residency_link_l.account_id),
-			),
-		)
-		.innerJoin(
-			person_p,
-			and(
-				and(eq(person_p.id, residency_link_l.person_id), eq(person_p.tenant_id, residency_link_l.organization_id)),
-				eq(person_p.linked_account_id, residency_link_l.account_id),
-			),
-		)
-		.where(
-			and(
-				and(
-					and(
-						and(
-							and(
-								and(
-									and(
-										and(
-											and(
-												and(
-													and(
-														and(
-															eq(residency_link_l.organization_id, organization.id),
-															eq(residency_link_l.person_id, input.data.personId),
-														),
-														eq(residency_link_l.account_id, accountId),
-													),
-													isNull(residency_link_l.ended_at),
-												),
-												lte(
-													residency_link_l.accepted_at,
-													sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-												),
-											),
-											isNull(affiliation_a.ended_at),
-										),
-										lte(
-											affiliation_a.accepted_at,
-											sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-										),
-									),
-									eq(invitation_i.state, "accepted"),
-								),
-								eq(invitation_i.purpose, "residency_link"),
-							),
-							eq(invitation_i.resident_person_id, residency_link_l.person_id),
-						),
-						eq(person_p.state, "live"),
-					),
-					sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
-				),
-				live,
-			),
-		);
+	).rows;
 
 	if (links.length !== 1) return null;
 	return ownResidencyProjection.parse({

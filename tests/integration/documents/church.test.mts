@@ -7,13 +7,13 @@ import { brandReader, brandWriter } from "../../../packages/domain/src/branding/
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
+import { forkTemplate, ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
-import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
+import { EXPORT_MESSAGES, refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -499,7 +499,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			assert.ok(bytesFrom(file).length > 1000, format);
 			assert.equal(file.downloadName, `budget-worksheet-revision-1.${format}`);
 		}
-		refused(await fileOf(MEMBER, state.card.id, "xlsx"), "unavailable");
+		refused(await fileOf(MEMBER, state.card.id, "xlsx"), "invalid_input");
 		const before = await counts();
 		refused(await create(MEMBER, "budget-worksheet", "wp036-member"), "access_denied");
 		refused(await save(MEMBER, budget.id, "1", budget.body), "access_denied");
@@ -813,7 +813,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 		const before = await counts();
 		refused(await exportDoc(OWNER, doc.id, 99, "pdf", "t54-broken"), "render_failed");
-		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "unavailable");
+		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "invalid_input");
 		assert.deepEqual(await counts(), before, "no file and no saved export");
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
 	});
@@ -1173,5 +1173,69 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(edit.useChurchBranding, true);
 		assert.equal(edit.brands.church, null, "no brand kit, so the page shows the note and paints the plain look");
 		assert.equal(edit.brands.plain.palette.themed, false);
+	});
+
+	test("T-124 each revision offers its own formats; Excel for a revision without a budget table is refused before any asset read", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t124-policy"));
+		assert.deepEqual(doc.formats, ["pdf", "docx"]);
+		// Revision 2 adds the budget template's ledger table, as the editor's save does (Excel joins the export list).
+		const withTable = structuredClone(doc.body);
+		withTable.body.content.push(structuredClone(ledgerTables(docTemplateById("budget-worksheet").body)[0]));
+		withTable.exports = [...withTable.exports, "xlsx"];
+		ok(await save(OWNER, doc.id, "1", withTable));
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			history.revisions.map((r) => [r.number, r.formats]),
+			[
+				[1, ["pdf", "docx"]],
+				[2, ["pdf", "docx", "xlsx"]],
+			],
+		);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.deepEqual(one.formats, ["pdf", "docx"]);
+
+		// A save that takes the table away stops offering Excel on that revision only.
+		ok(await save(OWNER, doc.id, "2", { ...doc.body, exports: ["pdf", "docx"] }));
+		const after = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			after.revisions.map((r) => r.formats),
+			[
+				["pdf", "docx"],
+				["pdf", "docx", "xlsx"],
+				["pdf", "docx"],
+			],
+		);
+
+		// The policy prints the church logo, so a branded render reads that asset from storage; count those reads.
+		const send = client.send.bind(client);
+		let reads = 0;
+		client.send = (command) => {
+			if (command.constructor.name === "GetObjectCommand") reads += 1;
+			return send(command);
+		};
+		try {
+			ok(await fileOf(MEMBER, doc.id, "pdf", 1));
+			assert.ok(reads > 0, "a format the revision offers reads its brand assets");
+			reads = 0;
+			const before = await counts();
+			for (const result of [
+				await fileOf(MEMBER, doc.id, "xlsx", 1),
+				await exportDoc(MEMBER, doc.id, 1, "xlsx", "t124-no-excel"),
+				await exportDoc(MEMBER, doc.id, 3, "xlsx", "t124-no-excel-3"),
+			]) {
+				const error = refused(result, "invalid_input");
+				assert.equal(
+					EXPORT_MESSAGES[error.code],
+					"That format is not offered for this document, so nothing was saved.",
+				);
+			}
+			assert.equal(reads, 0, "an unoffered format reads no brand asset");
+			assert.deepEqual(await counts(), before, "nothing is saved");
+		} finally {
+			client.send = send;
+		}
+		assert.ok(bytesFrom(ok(await fileOf(MEMBER, doc.id, "xlsx", 2))).length > 1000, "revision 2 still makes Excel");
 	});
 });
