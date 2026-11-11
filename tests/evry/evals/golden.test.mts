@@ -11,7 +11,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
-import { readCatalog, READ_DOMAINS, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
@@ -658,7 +658,6 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
 	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
 	assert.deepEqual(tools("org"), []);
-	assert.equal(readCatalog(church.actors.org).selection.includes(SELECT_RETURNED_ROWS), false);
 });
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {

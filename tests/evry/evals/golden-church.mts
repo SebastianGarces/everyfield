@@ -208,7 +208,6 @@ const ACTOR_SPECS = {
 	empty: { account: ACCOUNT(5), user: id(0xf15), session: id(0xf25), plant: EMPTY_PLANT, role: "owner" },
 } as const satisfies Record<string, ActorSpec>;
 export type ActorName = keyof typeof ACTOR_SPECS;
-export const ACTOR_NAMES = Object.keys(ACTOR_SPECS) as ActorName[];
 /** The person row linked to each plant seat's account: the signed-in user's own row. */
 const LINKED: Partial<Record<ActorName, string>> = {
 	owner: byName("Nate Ellis").id,
@@ -220,7 +219,7 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-export async function seedHope(admin: Database) {
+async function seedHope(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	for (const [plant, name] of [
 		[PLANT, "Hope Fellowship"],
@@ -352,7 +351,7 @@ export async function goldenChurch(): Promise<GoldenChurch> {
 		await seedHope(database.admin);
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;
-		for (const who of ACTOR_NAMES) actors[who] = await actorFor(db, who);
+		for (const who of Object.keys(ACTOR_SPECS) as ActorName[]) actors[who] = await actorFor(db, who);
 		pinHostClock();
 		return { db, actors, close: database.close };
 	} catch (error) {
