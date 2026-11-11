@@ -3,7 +3,7 @@
 // which leaves only once everything on screen is saved. Plain code with no React, so a node test drives the same
 // module the editors call (tests/ui/documents/save-chain.test.mjs).
 
-/** One editor's saves. The editor keeps one for its life (in a ref) and asks it, never its own flag. */
+/** One editor's saves. The editor keeps one for its life and asks it, never its own flag. */
 export class SaveChain {
 	#inflight: Promise<boolean> | null = null;
 
