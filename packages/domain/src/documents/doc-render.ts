@@ -2,7 +2,7 @@ import { ledgerTables, type EveryfieldDoc } from "@everyfield/contracts/document
 import { renderDocumentWithLayout } from "@formepdf/core";
 import type { ExportTheme } from "./church-theme.ts";
 import { renderDocDocx } from "./doc-docx.ts";
-import { fieldValues } from "./doc-values.ts";
+import { fieldValues, printedDoc } from "./doc-values.ts";
 import { PROBE_MARK, docElement, needsSplit, type FlowMode } from "./layouts/doc.tsx";
 import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
@@ -30,9 +30,11 @@ async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: Everyfield
 
 /**
  * The PDF of one everyfield.doc/1 document or template. The Church Document preview, "Download PDF" and the saved
- * export all call this function, so the same revision and theme give the same bytes.
+ * export all call this function, so the same revision and theme give the same bytes. A Member's view is this PDF.
  */
-export async function renderDocPdf(doc: EveryfieldDoc, theme: RenderTheme = NEUTRAL_THEME): Promise<PdfRender> {
+export async function renderDocPdf(source: EveryfieldDoc, theme: RenderTheme = NEUTRAL_THEME): Promise<PdfRender> {
+	// Conditional text resolves first, so a block left out leaves no blank and the page breaks follow.
+	const doc = printedDoc(source);
 	const values = fieldValues(doc);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
 	const context = () => renderContext(values.church_name ?? doc.title, values, theme, doc.class);
