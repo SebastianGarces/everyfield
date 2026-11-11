@@ -34,6 +34,16 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 	return json({ status: "ok", value: ok(reply.value) });
 }
 
+/**
+ * Whether a browser sent this request from another site. The import posts write and read church data, so only a
+ * same-origin request is accepted; a request without the header (an older browser or a script) is allowed, as in
+ * saveExportRoute.
+ */
+function crossSite(request: Request) {
+	const site = request.headers.get("sec-fetch-site");
+	return site !== null && site !== "same-origin";
+}
+
 async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
@@ -78,6 +88,7 @@ export async function templateRoute() {
 
 /** POST /api/people/import/preview: the raw file bytes. Every row's outcome and duplicates; it writes nothing. */
 export async function previewRoute(request: Request) {
+	if (crossSite(request)) return refused("access_denied");
 	const v = await viewer();
 	if (!v) return refused("access_denied");
 	const file = await boundedBody(request);
@@ -90,6 +101,7 @@ export async function previewRoute(request: Request) {
  * after a lost reply returns the saved receipt; after a partial import it retries the remaining rows.
  */
 export async function importRoute(request: Request) {
+	if (crossSite(request)) return refused("access_denied");
 	const v = await viewer();
 	const db = requestDatabase();
 	if (!v || !db) return refused("access_denied");

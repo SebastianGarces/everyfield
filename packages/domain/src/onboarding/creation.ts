@@ -303,8 +303,6 @@ export function creation(effects: OnboardingEffects) {
 					const old = links.find((link) => link.id === selection.relationshipId);
 					if (
 						!old ||
-						old.account_id !== a.account.id ||
-						!links.some((l) => l.id === old.id) ||
 						!old.active ||
 						old.organization_id !== selection.organization.id ||
 						old.organization_kind !== selection.organization.organizationKind

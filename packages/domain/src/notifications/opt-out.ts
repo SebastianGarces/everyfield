@@ -1,6 +1,6 @@
 import { notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
 import { emailOptOutResult, emailOptOutRequest, optOutPurpose } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationChannels } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
@@ -212,7 +212,7 @@ export function emailOptOut(
 			purpose === "describe" ? { token: parse(emailOptOutRequest, raw).token } : parse(emailOptOutRequest, raw);
 		const claim = openToken(key, input.token);
 		if (!claim || (purpose !== "describe" && claim.purpose !== purpose)) deny("access_denied");
-		if (claim.category === "wiki_upstream_review") deny("invalid_input");
+		if (!notificationChannels(claim.category).includes("email")) deny("invalid_input");
 		if (windowTooLong(claim)) deny("access_denied");
 		const expired = Date.parse(claim.exp) <= now().getTime();
 		const row = expired || purpose === "describe" ? await readState(db, claim) : await writeState(db, claim);
