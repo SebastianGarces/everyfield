@@ -254,7 +254,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(found.differences[2].template, v1.body.content[7]);
 	});
 
-	test("criteria 1, 4, 5, 6, 12: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
+	test("AC:DOC-COMPARE-CHURCH criteria 1, 4, 5, 6, 12: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
 		const template = await churchTemplate(OWNER, "Our conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const other = await create(ADMIN, template.templateId);
@@ -497,7 +497,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok(docxText(await file(OWNER, doc.id, "docx")).length > 0);
 	});
 
-	test("criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
+	test("AC:DOC-COMPARE-CHURCH-MEMBER criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
 		const template = await churchTemplate(OWNER, "Private board policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));
