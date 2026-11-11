@@ -151,6 +151,6 @@ export async function readBrandAssetIfChanged(
 			parse(z.uuid(), fileId),
 			current,
 		).catch(() => deny());
-		return { sha256: read.sha256, mediaType: storedMedia.parse(read.mediaType), bytes: read.bytes };
+		return { ...read, mediaType: storedMedia.parse(read.mediaType) };
 	});
 }

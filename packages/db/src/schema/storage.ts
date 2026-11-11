@@ -313,7 +313,6 @@ async function fetchAuthorized(
 	authorize: ResourceAuthorizer,
 	file: FileObjectRow,
 ): Promise<Uint8Array> {
-	const id = file.id;
 	const result = await storage.client
 		.send(new GetObjectCommand({ Bucket: storage.bucket, Key: file.opaque_key }))
 		.catch(providerFailure);
@@ -321,7 +320,7 @@ async function fetchAuthorized(
 	const bytes = await result.Body.transformToByteArray();
 	if (bytes.length !== Number(file.byte_count) || hash(bytes) !== file.sha256) throw unavailable();
 	// Revocation while bytes are in flight must still deny delivery.
-	await authorized(db, authorize, id, "read");
+	await authorized(db, authorize, file.id, "read");
 	return bytes;
 }
 export async function createAuthorizedDownload(
