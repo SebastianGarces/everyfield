@@ -100,7 +100,7 @@ test("INV-history-same-value: a Created entry has no Description: None → None 
 	assert.deepEqual(diffLines(edited), [{ label: "Name", from: "Hospitality", to: "Welcome" }]);
 });
 
-test("a ministry's chosen icon reaches its chart node, and an edit of it shows there at once", () => {
+test("BUG-551 (people/peo-43): a ministry's chosen icon reaches its chart node, and an edit of it shows there at once", () => {
 	const node = { id: "t1", name: "Worship", icon: null, templateKey: "worship", archived: false, leaderName: null };
 	const other = { ...node, id: "t2", name: "Prayer", templateKey: "prayer", parentId: null };
 	assert.equal(iconKey(node), "music");

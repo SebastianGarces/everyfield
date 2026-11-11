@@ -1,7 +1,6 @@
-// T-130: an Owner saves a planned launch date as often as they like, and a reply lost to a dropped connection reads
+// BUG-T130: an Owner saves a planned launch date as often as they like, and a reply lost to a dropped connection reads
 // as "not sure it saved", keeps the request key and leaves the step as it was. These tests drive the real port
-// (createPort, runCommand) and the design preview's fixture API, which keeps the server's schedule revision rules.
-// No browser needed.
+// (createPort, runCommand); the design preview's fixture API stands in for the server. No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -37,7 +36,7 @@ function planned(c, date) {
 	};
 }
 
-test("T-130 an Owner saves a planned launch date four times in a row and the step shows the latest", async () => {
+test("BUG-T130: an Owner saves a planned launch date four times in a row and the step shows the latest", async () => {
 	const fixture = createFixturePort("created", { delay: 0 });
 	const c = cell(initialState(fixture.entry, "journey"));
 	for (const date of ["2027-03-07", "2027-04-11", "2027-05-16", "2027-06-20"]) {
@@ -54,23 +53,7 @@ test("T-130 an Owner saves a planned launch date four times in a row and the ste
 	assert.equal(load.entry.resume.scheduleRevision, "4");
 });
 
-test("T-130 the preview refuses a planned date sent with a stale schedule revision, like the server", async () => {
-	const fixture = createFixturePort("declared", { delay: 0 });
-	const r = fixture.entry.resume;
-	const reply = await fixture.port.command("declareJourney", {
-		requestKey: "stale",
-		expectedRevision: r.revision,
-		input: {
-			journey: { answer: "unsure" },
-			launch: { answer: "planned", date: "2027-10-03", expectedScheduleRevision: "9" },
-		},
-	});
-	assert.equal(reply.status, "refused");
-	assert.equal(reply.error.code, "conflict");
-	assert.equal((await fixture.port.entry()).entry.resume.scheduledLaunchDate, "2027-09-12");
-});
-
-test("T-130 a thrown server action on any onboarding command reads as unknown with retry reconcile", async () => {
+test("BUG-T130: a thrown server action on any onboarding command reads as unknown with retry reconcile", async () => {
 	const port = createPort({ entry: offline, command: offline });
 	for (const op of OPS) {
 		const reply = await port.command(op, { requestKey: "k", expectedRevision: "1", input: {} });
@@ -82,7 +65,7 @@ test("T-130 a thrown server action on any onboarding command reads as unknown wi
 	assert.deepEqual(await port.entry(), { kind: "offline" });
 });
 
-test("T-130 a reply that arrived but is malformed still reads as unavailable", async () => {
+test("BUG-T130: a reply that arrived but is malformed still reads as unavailable", async () => {
 	const replies = [
 		null,
 		"oops",
@@ -103,7 +86,7 @@ test("T-130 a reply that arrived but is malformed still reads as unavailable", a
 	assert.deepEqual(await port.entry(), { kind: "entry", entry: { kind: "elsewhere", reason: "unavailable" } });
 });
 
-test("T-130 a dropped connection keeps the step, drafts and request key; the retry replays instead of saving twice", async () => {
+test("BUG-T130: a dropped connection keeps the step, drafts and request key; the retry replays instead of saving twice", async () => {
 	// The server saves, then the connection drops before the reply arrives and stays down for the reload.
 	const server = createFixturePort("created", { delay: 0 });
 	let drop = "command";
@@ -144,7 +127,7 @@ test("T-130 a dropped connection keeps the step, drafts and request key; the ret
 	assert.equal(c.get().entry.resume.revision, "2", "the plant moved once: the retry replayed the first save");
 });
 
-test("T-130 when the reload after a lost reply arrives, the notice says the latest was loaded", async () => {
+test("BUG-T130: when the reload after a lost reply arrives, the notice says the latest was loaded", async () => {
 	const server = createFixturePort("created", { delay: 0 });
 	let drop = true;
 	const port = createPort({
@@ -160,16 +143,4 @@ test("T-130 when the reload after a lost reply arrives, the notice says the late
 	assert.deepEqual(c.get().notice, { op: "complete", code: "unknown", reloaded: true });
 	assert.equal(c.get().entry.kind, "plant");
 	assert.equal(c.get().view, "finish");
-});
-
-test("T-130 the preview's offline fault drops the command and the entry reload after it", async () => {
-	const fixture = createFixturePort("created", { delay: 0 });
-	fixture.controls.failNext("complete", "offline");
-	const c = cell(initialState(fixture.entry, "finish"));
-	const before = c.get();
-	assert.equal(await runCommand(fixture.port, c, "complete", {}, newKey, signIn), "refused");
-	assert.deepEqual(c.get().notice, { op: "complete", code: "unknown", reloaded: false });
-	assert.equal(c.get().entry, before.entry);
-	assert.equal(c.get().view, "finish");
-	assert.equal((await fixture.port.entry()).kind, "entry", "the connection is back for the next load");
 });

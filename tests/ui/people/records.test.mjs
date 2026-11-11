@@ -35,7 +35,11 @@ test("AC:TARGET-PPL-026 a new card sets the first commitment only when it is ear
 	assert.deepEqual(withCard({ status: "none" }, card), { status: "known", occurredOn: "2026-09-01", evidenceId: "k2" });
 	const known = { status: "known", occurredOn: "2026-08-15", evidenceId: "k1" };
 	assert.equal(withCard(known, card), known);
-	assert.deepEqual(withCard({ ...known, occurredOn: "2026-10-01" }, card).evidenceId, "k2");
+	assert.deepEqual(withCard({ ...known, occurredOn: "2026-10-01" }, card), {
+		status: "known",
+		occurredOn: "2026-09-01",
+		evidenceId: "k2",
+	});
 	assert.deepEqual(withCard({ status: "unknown" }, card), { status: "unknown" });
 });
 
