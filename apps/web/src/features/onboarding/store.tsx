@@ -3,23 +3,18 @@
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
 	addressStep,
-	begin,
 	editDrafts,
 	initialState,
-	needsReload,
 	parseStep,
-	reload,
 	setView,
-	settle,
 	type Drafts,
 	type Entry,
 	type Hold,
 	type Op,
-	type Settled,
 	type State,
 	type StepKey,
 } from "./model";
-import type { OnboardingPort } from "./port";
+import { refreshEntry, runCommand, type OnboardingPort } from "./port";
 
 // The onboarding store (WP-009/ui R6). It owns the one command on the wire, so a reply lands in the store even if
 // the step that sent it is gone, and facts change only from the server's reply (model.ts settle). The view follows
@@ -84,14 +79,6 @@ export function OnboardingProvider({
 	const [store] = useState(() => createStore(initialState(entry, step)));
 
 	const actions = useMemo<Actions>(() => {
-		async function fresh(): Promise<Entry | null> {
-			const load = await port.entry();
-			if (load.kind === "signed_out") {
-				signIn();
-				return null;
-			}
-			return load.entry;
-		}
 		return {
 			go(view) {
 				store.set(setView(store.get(), view));
@@ -101,20 +88,11 @@ export function OnboardingProvider({
 				store.set(editDrafts(store.get(), patch));
 			},
 			async run(op, input) {
-				const started = begin(store.get(), op, input, () => crypto.randomUUID());
-				if ("hold" in started) return started.hold;
-				store.set(started.state);
-				const reply = await port.command(op, started.send);
-				const settled = { op, reply } as Settled;
-				const entry = needsReload(settled) ? await fresh() : null;
-				store.set(settle(store.get(), settled, entry));
-				writeStep(store.get(), "replace");
-				return reply.status;
+				const result = await runCommand(port, store, op, input, () => crypto.randomUUID(), signIn);
+				if (result === "ok" || result === "refused") writeStep(store.get(), "replace");
+				return result;
 			},
-			async refresh() {
-				const entry = await fresh();
-				if (entry) store.set(reload(store.get(), entry));
-			},
+			refresh: () => refreshEntry(port, store, signIn),
 		};
 	}, [port, signIn, store]);
 
