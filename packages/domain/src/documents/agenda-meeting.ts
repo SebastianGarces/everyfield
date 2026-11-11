@@ -33,15 +33,11 @@ export function agendaKindOf(m: Pick<MeetingRead, "type" | "leadership">): Agend
 	return null;
 }
 
-export function displayTitle(m: Pick<MeetingRead, "title" | "type" | "visionNumber">) {
-	return meetingTitle(m);
-}
-
 export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting {
 	// Each section starts when the one before it ends, counted from the meeting's start (the Agenda card's rule).
 	const starts = sectionStarts(m.localTime, m.agenda);
 	return {
-		title: displayTitle(m),
+		title: meetingTitle(m),
 		date: dateText(m.localDate, thisYear),
 		time: timeText(m.localTime),
 		place: m.venueName === null ? null : `${m.venueName}, ${m.venueAddress ?? ""}`,

@@ -39,7 +39,7 @@ const itemRow = z.object({
 	cursorAt: z.string(),
 });
 const pageRow = z.object({ account_id: z.uuid().nullable(), items: z.array(itemRow) });
-const headRow = z.object({ unread: z.number().int().nullable(), revision: z.string().nullable() });
+const headRow = z.object({ unread: z.number().int(), revision: z.string() });
 const countRow = z.object({ account_id: z.uuid().nullable(), count: z.number().int() });
 const markRow = z.object({
 	me: z.uuid().nullable(),
@@ -146,8 +146,8 @@ export async function readFeedPage(db: Database, authority: RequestActor, raw: u
 			),
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
+		if (!row.account_id) deny();
 		const head = headRow.parse(result.rows[0]);
-		if (!row.account_id || head.unread === null || head.revision === null) deny();
 		return { feed: feedValue(row.items), unread: head.unread, revision: head.revision };
 	});
 }
