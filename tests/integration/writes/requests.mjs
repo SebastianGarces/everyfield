@@ -641,9 +641,9 @@ try {
 	assert.equal(fresh.headers.get("content-type"), "image/png");
 	assert.equal((await fresh.arrayBuffer()).byteLength, 0);
 	assert.equal(objectReads(), readsBefore, "a matching If-None-Match read the object");
-	const stale = await asset(null, "GET", fileId, owner.cookie, undefined, { "if-none-match": '"0"' });
-	assert.equal(stale.status, 200);
-	assert.equal((await stale.arrayBuffer()).byteLength > 0, true);
+	const missed = await asset(null, "GET", fileId, owner.cookie, undefined, { "if-none-match": '"0"' });
+	assert.equal(missed.status, 200);
+	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
 	assert.equal(objectReads(), readsBefore + 1);
 	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
 		{ assetKind: "full_logo" },
