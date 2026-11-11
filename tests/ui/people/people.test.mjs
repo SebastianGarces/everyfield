@@ -367,13 +367,94 @@ for (const [name, engine] of ENGINES) {
 			const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
 			await date.fill(ahead);
 			await dialog.getByRole("button", { name: "Record" }).click();
-			await dialog.getByText("This date is after today at your church.").waitFor({ timeout: 30_000 });
+			const after = dialog.getByText("This date is after today at your church.");
+			await after.waitFor({ timeout: 30_000 });
+			// The refusal names its reason (future_date), so no generic problem shows beside it.
+			assert.equal(await dialog.getByRole("alert").filter({ hasNotText: "after today" }).count(), 0);
+			// T-137: the error is about the refused date. Another date clears it; the refused one brings it back.
+			await date.fill("2026-01-15");
+			await after.waitFor({ state: "detached" });
+			await date.fill(ahead);
+			await after.waitFor();
 			await date.fill("2026-01-15");
 			await dialog.getByRole("button", { name: "Record" }).click();
 			await dialog.waitFor({ state: "detached", timeout: 30_000 });
 			await page.waitForFunction(() => document.body.innerText.includes("Adult or child recorded"), null, {
 				timeout: 30_000,
 			});
+		});
+	});
+
+	test(`T-137 (${name}): a refused future date in the 4 C's, interview and commitment dialogs clears once the date changes`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			// Three days ahead is in the future in every time zone.
+			const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+			const refuseThenChange = async (dialog, label, save) => {
+				const date = dialog.getByLabel(label);
+				await date.fill(ahead);
+				await dialog.getByRole("button", { name: save, exact: true }).click();
+				// The field's own error; the refusal notice above the form stays as the record of what the server said.
+				const error = dialog.getByText("Choose today or an earlier date.", { exact: true });
+				await error.waitFor({ timeout: 30_000 });
+				await date.fill("2026-01-15");
+				await error.waitFor({ state: "detached" });
+				await date.fill(ahead);
+				await error.waitFor();
+				await date.fill("2026-01-15");
+				await dialog.getByRole("button", { name: save, exact: true }).click();
+				await dialog.waitFor({ state: "detached", timeout: 30_000 });
+			};
+
+			await page.getByRole("button", { name: "Record the 4 C\u2019s" }).click();
+			const four = page.getByRole("dialog", { name: /^Record the 4 C's/ });
+			await answerChoices(four);
+			await refuseThenChange(four, "Assessed on", "Save assessment");
+
+			await page.getByRole("button", { name: "Record an interview", exact: true }).click();
+			const interview = page.getByRole("dialog", { name: /^Record an interview/ });
+			await answerChoices(interview);
+			await refuseThenChange(interview, "Interviewed on", "Save interview");
+
+			await page.getByRole("button", { name: "Record commitment", exact: true }).click();
+			const card = page.getByRole("dialog", { name: /commitment$/ });
+			await card.getByLabel("Signed on").fill("2026-01-10");
+			await card.getByRole("button", { name: "Save commitment", exact: true }).click();
+			await card.waitFor({ state: "detached", timeout: 30_000 });
+			await page.getByRole("button", { name: "Commitment actions" }).click();
+			await page.getByRole("menuitem", { name: "Withdraw commitment" }).click();
+			await refuseThenChange(page.getByRole("dialog", { name: /^Withdraw/ }), "Withdrawn on", "Withdraw commitment");
+		});
+	});
+
+	test(`T-137 (${name}): a person with only a postal code keeps their own address when joining a household`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const person = unique(name);
+			// The Add person form fills the country; cleared, the person has no address field at all.
+			await page.goto(`${BASE}/people`);
+			await page.getByRole("button", { name: "Add person" }).first().click();
+			const add = page.getByRole("dialog", { name: "Add a person" });
+			await add.getByLabel("Name").fill(person);
+			await add.getByLabel("Country").fill("");
+			await add.getByRole("button", { name: "Add person" }).click();
+			await page.getByRole("heading", { level: 1, name: person }).waitFor({ timeout: 30_000 });
+			const first = person.split(" ")[0];
+			const join = async () => {
+				await page.getByRole("button", { name: "Add to a household" }).click();
+				const dialog = page.getByRole("dialog", { name: `Add ${first} to a household` });
+				await dialog.waitFor();
+				const text = await dialog.innerText();
+				await dialog.getByRole("button", { name: "Cancel" }).click();
+				await dialog.waitFor({ state: "detached" });
+				return text;
+			};
+			assert.match(await join(), new RegExp(`${first} has no address yet, so they take the household's address\\.`));
+			await page.getByRole("button", { name: "Edit profile" }).first().click();
+			const edit = page.getByRole("dialog", { name: /^Edit/ });
+			await edit.getByLabel("Postal code").fill("02139");
+			await edit.getByRole("button", { name: /^Save/ }).click();
+			await edit.waitFor({ state: "detached", timeout: 30_000 });
+			assert.match(await join(), new RegExp(`${first} keeps their own address\\.`));
 		});
 	});
 
