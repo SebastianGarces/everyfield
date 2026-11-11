@@ -1,6 +1,4 @@
 import {
-	organizationNotesRequest,
-	organizationNotesResult,
 	organizationPersonRequest,
 	ownResidencyProjection,
 	pipelineAccessResult,
@@ -8,7 +6,7 @@ import {
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { Transaction } from "@everyfield/db/client";
-import { alias, and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
+import { alias, and, eq, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -92,67 +90,6 @@ export async function readPipelinePerson(
 	return duties.length
 		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
 		: unavailable();
-}
-
-// This separate native endpoint must never be installed as an Evry tool, export
-// or general Person DTO. No notes are loaded by readPipelinePerson.
-export async function readOrganizationNotes(
-	tx: Transaction,
-	session: z.infer<typeof sessionId>,
-	selected: Owner,
-	raw: unknown,
-) {
-	const parsed = organizationNotesRequest.safeParse(raw);
-	const unavailable = () => organizationNotesResult.parse({ status: "unavailable" });
-	if (!parsed.success) return unavailable();
-	const input = parsed.data;
-	const access = await readPipelinePerson(tx, session, selected, { personId: input.personId });
-	if (access.status !== "allowed") return unavailable();
-	const duty = access.duties.find((d) => d.kind === "organization_administration" || d.kind === "responsible_staff");
-	if (!duty) return unavailable();
-	const result = await tx
-		.select({
-			id: tables.person_note.id,
-			author_id: tables.person_note.author_id,
-			body: tables.person_note.body,
-			occurred_at: tables.person_note.occurred_at,
-			revision: tables.person_note.revision,
-		})
-		.from(tables.person_note)
-		.where(
-			and(
-				and(
-					and(
-						and(eq(tables.person_note.tenant_id, selected.id), eq(tables.person_note.person_id, input.personId)),
-						isNull(tables.person_note.plant_id),
-					),
-					isNull(tables.person_note.removed_at),
-				),
-				or(
-					isNull(sql<string>`(${input.after ?? null})::uuid`),
-					gt(tables.person_note.id, sql`${input.after ?? null}::uuid`),
-				),
-			),
-		)
-		.orderBy(asc(tables.person_note.id))
-		.limit(101);
-
-	const notes = result.slice(0, 100).map((note) => ({
-		id: note.id,
-		author: note.author_id === null ? { kind: "removed" } : { kind: "account", accountId: note.author_id },
-		body: note.body,
-		occurredAt: note.occurred_at.toISOString(),
-		revision: note.revision,
-	}));
-	return organizationNotesResult.parse({
-		status: "allowed",
-		purpose: "native_org_person_notes",
-		organization: selected,
-		personId: input.personId,
-		duty: duty.kind,
-		notes,
-		next: result.length > 100 ? notes.at(-1)!.id : null,
-	});
 }
 
 export async function readOwnResidency(
