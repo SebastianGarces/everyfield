@@ -171,6 +171,16 @@ export const draftOf = (entry: SignalEntry, today: string): Draft => ({
 	detail: entry.detail ?? "",
 	reference: entry.reference ?? "",
 });
+/** The date a draft states: the typed one, or today when the field is cleared, as the server dates it. */
+export const statedAsOf = (draft: Draft, today: string) => draft.asOf || today;
+/** A signal answer's request input. A cleared date is left out, never sent as "", so the server dates it today. */
+export const signalInput = (key: SignalKey, value: SignalValue, draft: Draft) => ({
+	key,
+	value,
+	asOf: draft.asOf || undefined,
+	detail: draft.detail,
+	reference: draft.reference,
+});
 /** What saving a draft would do for this entry, or why it cannot yet. */
 export function intent(entry: SignalEntry, draft: Draft): "attest" | "correct" | "none" {
 	if (!draft.value) return "none";

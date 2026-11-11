@@ -11,6 +11,8 @@ import {
 	pendingDeclaration,
 	pendingMove,
 	refusalMessage,
+	requestKeys,
+	sent,
 	withEntry,
 } from "../../../apps/web/src/features/phases/model.ts";
 
@@ -69,5 +71,30 @@ test("each refusal has a clear message", () => {
 		/It is now Phase 3\./,
 	);
 	assert.match(refused(error("already_declared")), /already has its starting phase/);
-	assert.match(refusalMessage({ status: "lost" }), /Nothing changed/);
+	assert.match(refusalMessage({ status: "lost" }), /did not come back/);
+});
+
+test("a rejected write reads as lost, and the lost message promises no double change (com-17)", async () => {
+	const offline = () => Promise.reject(new TypeError("Failed to fetch"));
+	assert.deepEqual(await sent(offline), { status: "lost" });
+	const ok = { status: "ok", value: 1 };
+	assert.deepEqual(await sent(async () => ok), ok);
+	const text = refusalMessage({ status: "lost" });
+	assert.doesNotMatch(text, /Nothing changed/);
+	assert.match(text, /did not come back/);
+	assert.match(text, /will not apply twice/);
+});
+
+test("a retry of the same intent replays its request key; a new intent or a settled one gets a fresh key (com-17)", () => {
+	let n = 0;
+	const keys = requestKeys(() => `key-${++n}`);
+	const move = ["move", "7", 3, "Core group formed"];
+	const first = keys.keyFor(move);
+	assert.equal(keys.keyFor([...move]), first, "a retry after a lost answer replays the first key");
+	assert.notEqual(keys.keyFor(["move", "7", 4, "Core group formed"]), first, "another target is a new intent");
+	assert.notEqual(keys.keyFor(["move", "7", 3, "Another reason"]), first, "another reason is a new intent");
+	assert.notEqual(keys.keyFor(["move", "8", 3, "Core group formed"]), first, "another revision is a new intent");
+	assert.notEqual(keys.keyFor(["declare", "7", 3]), first);
+	keys.settle(move);
+	assert.notEqual(keys.keyFor(move), first, "an ok or refused answer drops the key");
 });

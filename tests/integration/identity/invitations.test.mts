@@ -6,8 +6,17 @@ import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 let f;
+// The text of every statement this test's runtime pool sends.
+const sent = [];
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...q) {
+			sent.push(typeof q[0] === "string" ? q[0] : (q[0]?.text ?? ""));
+			return Reflect.apply(query, this, q);
+		};
+	});
 });
 after(async () => {
 	await f?.close();
@@ -507,6 +516,85 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
+});
+
+/** Runs `body` and returns its result with the text of every statement it sent. */
+async function statements(body) {
+	const start = sent.length;
+	return { result: await body(), sent: sent.slice(start) };
+}
+
+test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are offered, in a fixed number of unlocked statements", async () => {
+	const s = await f.setup(),
+		target = await f.account();
+	const seatId = await f.seat(target, s.w, "member");
+	const member = async (state = "active") => {
+		const a = await f.account(state);
+		return { account: a, seat: await f.seat(a, s.w, "member") };
+	};
+	const witness = (values) =>
+		f.admin.insert(t.lifecycle_witness).values({
+			request_revision: "1",
+			state: "revoked",
+			witness_checkpoint: "1",
+			cleanup_state: "not_started",
+			...values,
+		});
+	// Each of these active seats is not a recipient remove would accept.
+	const unregistered = await member("pending_domain"),
+		future = await member(),
+		ended = await member(),
+		blockedAccount = await member(),
+		blockedSeat = await member(),
+		witnessed = await member();
+	await f.admin
+		.update(t.seat)
+		.set({ accepted_at: new Date(Date.now() + 86400000) })
+		.where(eq(t.seat.id, future.seat));
+	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ended.seat));
+	const requested = new Date();
+	await witness({
+		kind: "account",
+		opaque_subject_id: blockedAccount.account.id,
+		account_id: blockedAccount.account.id,
+		state: "pending_deletion",
+		request_id: key(),
+		requested_at: requested,
+		cancel_until: new Date(requested.getTime() + 30 * 86400000),
+	});
+	await witness({ kind: "seat", opaque_subject_id: blockedSeat.seat, seat_id: blockedSeat.seat });
+	// An active witness does not block.
+	await witness({ kind: "seat", opaque_subject_id: witnessed.seat, seat_id: witnessed.seat, state: "active" });
+	const review = () => statements(() => f.seats.readRemoval(s.sender.session, s.w, { seatId }));
+	const few = await review();
+	const ids = (r) => r.result.recipients.map((x) => x.accountId);
+	const bySeat = (pairs) => pairs.sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((p) => p[1]);
+	const [owner] = await f.admin.select().from(t.seat).where(eq(t.seat.account_id, s.sender.id));
+	assert.deepEqual(
+		ids(few),
+		bySeat([
+			[owner.id, s.sender.id],
+			[witnessed.seat, witnessed.account.id],
+		]),
+	);
+	assert.equal(few.result.recipients[0].displayName, "Synthetic person");
+	// Four more eligible members cost no extra statement.
+	const more = [];
+	for (let n = 0; n < 4; n++) more.push(await member());
+	const many = await review();
+	assert.deepEqual(
+		ids(many),
+		bySeat([
+			[owner.id, s.sender.id],
+			[witnessed.seat, witnessed.account.id],
+			...more.map((m) => [m.seat, m.account.id]),
+		]),
+	);
+	assert.equal(many.sent.length, few.sent.length);
+	assert.deepEqual(
+		many.sent.filter((q) => /\bfor\s+(update|share|no key update|key share)\b/i.test(q)),
+		[],
+	);
 });
 
 test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is one duty, and a closed linked task keeps its outcome", async () => {
