@@ -21,7 +21,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 import { insertTasks } from "../task-assignees.mts";
-import { ok, waitingOnLock } from "../../support/fixture.mts";
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 const database = await testDatabase({
 	prefix: "wp010",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -37,11 +37,7 @@ const ingress = new Map();
 const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	input,
 	expectedRevision,

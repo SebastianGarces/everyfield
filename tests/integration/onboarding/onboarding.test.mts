@@ -18,18 +18,14 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { ok } from "../../support/fixture.mts";
+import { ok, refusedWith } from "../../support/fixture.mts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let api, mail;
 let faults = false;
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
