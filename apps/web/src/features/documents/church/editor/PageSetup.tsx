@@ -85,6 +85,15 @@ function Inches({
 	);
 }
 
+/** The format's message for a control with no Field of its own, under that control. */
+function FaultNote({ message }: { message: string | undefined }) {
+	return message ? (
+		<p role="alert" className="text-xs font-medium text-magenta-600">
+			{message}
+		</p>
+	) : null;
+}
+
 function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {
 	return (
 		<fieldset className="flex min-w-0 flex-col gap-1.5 border-0 p-0">
@@ -117,6 +126,7 @@ export function PageSetupPanel({
 	});
 	const [fault, setFault] = useState<Fault | null>(null);
 	const { page, header, footer } = state;
+	const faultAt = (field: string) => (fault?.field === field ? fault.message : undefined);
 
 	/** Applies `next` when the format accepts it; else shows the format's message at `field` and applies nothing. */
 	const change = (field: string, next: PageWithoutRegions) => {
@@ -188,7 +198,7 @@ export function PageSetupPanel({
 				</Tip>
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-				<Field label="Paper size">
+				<Field label="Paper size" error={faultAt("size")}>
 					<Tip text="Paper size">
 						<Select options={SIZES} value={page.size} onValueChange={setSize} aria-label="Paper size" />
 					</Tip>
@@ -203,6 +213,7 @@ export function PageSetupPanel({
 						]}
 						onChange={(orientation) => change("orientation", { ...page, orientation })}
 					/>
+					<FaultNote message={faultAt("orientation")} />
 				</Fieldset>
 				{page.size === "custom" ? (
 					<>
@@ -259,21 +270,20 @@ export function PageSetupPanel({
 							})
 						}
 					/>
-					{fault?.field === "tile" ? (
-						<p role="alert" className="text-xs font-medium text-magenta-600">
-							{fault.message}
-						</p>
-					) : null}
+					<FaultNote message={faultAt("tile")} />
 				</Fieldset>
 				{tile ? (
-					<Tip text="Print trim marks at the corners of each card">
-						<Switch
-							label="Cut marks"
-							description="Trim marks at the corners of each card."
-							checked={tile.cutMarks}
-							onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
-						/>
-					</Tip>
+					<div className="flex min-w-0 flex-col gap-1.5">
+						<Tip text="Print trim marks at the corners of each card">
+							<Switch
+								label="Cut marks"
+								description="Trim marks at the corners of each card."
+								checked={tile.cutMarks}
+								onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
+							/>
+						</Tip>
+						<FaultNote message={faultAt("cutMarks")} />
+					</div>
 				) : null}
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">

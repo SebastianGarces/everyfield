@@ -4,6 +4,7 @@
 //   check is scripts/lint/check-repo-files.mjs, which `pnpm lint` runs.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
 //   T-20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
+//   T-123: Insert never offers columns under a column, and a paste under a column brings no columns node in.
 //   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -22,8 +23,11 @@ import {
 	editorContent,
 } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/church/editor/layout.ts";
-import { editorSchema, nativeSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
+import { editorSchema, nativeSchema, stateAt } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { conditionIssue } from "../../../apps/web/src/features/documents/church/editor/condition-extension.ts";
+import { canInsert } from "../../../apps/web/src/features/documents/church/editor/blocks.ts";
+import { pastedSlice } from "../../../apps/web/src/features/documents/church/editor/extensions.ts";
+
 import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
@@ -236,4 +240,99 @@ test("AC:CASE-DOC-016: the plain document editor holds a native body unchanged, 
 	])
 		assert.equal(native.nodes[name], undefined, `the plain editor has a ${name} node`);
 	assert.equal(native.marks.tag, undefined);
+});
+
+// T-123: a body with a box in a column, a plain column and a body paragraph, each holding one marked word.
+const para = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
+const layoutBody = {
+	type: "doc",
+	content: [
+		{
+			type: "columns",
+			content: [
+				{ type: "column", content: [{ type: "box", content: [para("inbox")] }] },
+				{ type: "column", content: [para("incolumn")] },
+			],
+		},
+		para("inbody"),
+	],
+};
+/** The editor state with the cursor at the end of the word. */
+function caretIn(word: string) {
+	const doc = schema.nodeFromJSON(layoutBody);
+	let at = -1;
+	doc.descendants((node, pos) => {
+		if (node.isText && node.text === word) at = pos + word.length;
+	});
+	return stateAt(doc, at);
+}
+type Doc = ReturnType<typeof schema.nodeFromJSON>;
+function columnsUnderColumn(doc: Doc) {
+	let found = false;
+	const walk = (node: Doc, inColumn: boolean) => {
+		if (inColumn && node.type.name === "columns") found = true;
+		node.forEach((child) => walk(child, inColumn || node.type.name === "column"));
+	};
+	walk(doc, false);
+	return found;
+}
+
+test("T-123: Insert offers no columns in a box in a column or in a column, and still offers them in the body", () => {
+	const kinds = ["columns2", "columns3", "columns4"] as const;
+	for (const word of ["inbox", "incolumn"])
+		for (const kind of kinds) assert.equal(canInsert(caretIn(word), kind), false, `${kind} at ${word}`);
+	for (const kind of kinds) assert.equal(canInsert(caretIn("inbody"), kind), true, `${kind} in the body`);
+	assert.equal(canInsert(caretIn("inbox"), "paragraph"), true, "other blocks still insert in the box");
+});
+
+test("T-123: a pasted columns node under a column gives way to its blocks, and the document saves", async () => {
+	const fork = await forkTemplate(
+		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
+		{ data: {} },
+	);
+	// The copied content: a whole columns node, as a slice of a source document.
+	const source = schema.nodeFromJSON({
+		type: "doc",
+		content: [
+			{
+				type: "columns",
+				content: [
+					{ type: "column", content: [para("left")] },
+					{ type: "column", content: [para("right"), { type: "box", content: [para("boxed")] }] },
+				],
+			},
+		],
+	});
+	const whole = source.slice(0, source.content.size);
+	for (const word of ["inbox", "incolumn"]) {
+		const state = caretIn(word);
+		const raw = state.apply(state.tr.replaceSelection(whole));
+		const slice = pastedSlice(whole, state);
+		const after = state.apply(state.tr.replaceSelection(slice)).doc;
+		after.check();
+		assert.equal(columnsUnderColumn(after), false, `no columns under a column at ${word}`);
+		assert.match(after.textContent, /left/);
+		assert.match(after.textContent, /right/);
+		const doc = documentFrom(fork, after.toJSON());
+		assert.equal(docDocument.safeParse(doc).success, true, `the document saves after a paste at ${word}`);
+		if (word === "inbox") {
+			// Without the transform the paste lands a columns node in the box, which Save refuses.
+			assert.equal(columnsUnderColumn(raw.doc), true);
+			assert.equal(docDocument.safeParse(documentFrom(fork, raw.doc.toJSON())).success, false);
+		}
+	}
+	// A slice copied from inside a column, open through columns and column, pastes as its text.
+	const state = caretIn("inbox");
+	// Copied from inside "left" to inside "boxed": with its columns parent, as the editor copies, and as bare columns.
+	for (const open of [source.slice(4, source.content.size - 4, true), source.slice(4, source.content.size - 4)]) {
+		const after = state.apply(state.tr.replaceSelection(pastedSlice(open, state))).doc;
+		after.check();
+		assert.equal(columnsUnderColumn(after), false);
+		assert.match(after.textContent, /ftrightbox/);
+		assert.equal(docDocument.safeParse(documentFrom(fork, after.toJSON())).success, true);
+	}
+	// Outside a column a pasted columns node stays.
+	const body = caretIn("inbody");
+	const kept = pastedSlice(whole, body);
+	assert.equal(kept.content.firstChild?.type.name, "columns");
 });

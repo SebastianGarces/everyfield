@@ -208,6 +208,21 @@ test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals 
 	await assert.rejects(() => renderDocFile(policy, "xlsx", THEME, SAVED), /render_failed/);
 });
 
+test("T-124 docFormats offers the export list as the body corrects it: Excel only with a ledger table, nothing it omits", async () => {
+	const budget = await fork("budget-worksheet");
+	assert.deepEqual(docFormats(budget), ["pdf", "docx", "xlsx"], "a ledger body offers Excel, in a fixed order");
+	const policy = await fork("conflict-of-interest-policy");
+	assert.deepEqual(
+		docFormats({ ...policy, exports: ["pdf", "docx", "xlsx"] }),
+		["pdf", "docx"],
+		"a body with no ledger table never offers Excel, whatever its list says",
+	);
+	assert.deepEqual(docFormats({ ...budget, exports: ["pdf", "xlsx"] }), ["pdf", "xlsx"], "Word stays off when omitted");
+	assert.deepEqual(docFormats({ ...budget, exports: ["pdf"] }), ["pdf", "xlsx"], "a ledger table adds Excel");
+	assert.deepEqual(docFormats({ ...policy, exports: ["docx"] }), ["docx"]);
+	await assert.rejects(() => renderDocFile({ ...policy, exports: ["docx"] }, "pdf", THEME, SAVED), /render_failed/);
+});
+
 test(
 	"WP-036 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
 	{ skip: !soffice && "LibreOffice is not installed" },
