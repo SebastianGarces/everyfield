@@ -36,10 +36,10 @@
 		"limit": 2
 	},
 	"GET /ministries": {
-		"limit": 3
+		"limit": 2
 	},
 	"GET /ministries/[teamId]": {
-		"limit": 6
+		"limit": 5
 	},
 	"GET /intelligence": {
 		"limit": 2
@@ -57,7 +57,7 @@
 		"limit": 1
 	},
 	"GET /ministries?view=chart": {
-		"limit": 3
+		"limit": 2
 	},
 	"GET /notifications": {
 		"limit": 4
