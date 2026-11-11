@@ -172,8 +172,8 @@ test("AC:CASE-NTF-016 T-242 Done 2: a refused opt-out, from a forged or tampered
 	const tampered = real.slice(0, -2) + (real.endsWith("A") ? "BB" : "AA");
 	const forged = messagesOptOutToken({ current: randomBytes(32), previous: [] }, { plantId: w.id, personId: ana.id });
 	for (const token of [tampered, forged]) {
-		const refused = await applyMessagesOptOut(f.db, ring, now, { token });
-		assert.equal(refused.status, "refused");
+		const outcome = await applyMessagesOptOut(f.db, ring, now, { token });
+		assert.equal(outcome.status, "refused");
 	}
 	assert.deepEqual(await stored(sam), []);
 	assert.deepEqual(await ours(sam), []);

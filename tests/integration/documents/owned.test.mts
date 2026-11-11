@@ -432,8 +432,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
 				VALUES(${other},${P},'orientation',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1)`,
 		);
-		refused(await documentsReader.preview(db, owner, { ...input, meetingId: other }), "invalid_subject");
-		refused(
+		refusedPrivate(await documentsReader.preview(db, owner, { ...input, meetingId: other }), "invalid_subject");
+		refusedPrivate(
 			await documentsWriter.generate(db, owner, { ...input, meetingId: other, requestKey: "t124-other" }, storage),
 			"invalid_subject",
 		);
