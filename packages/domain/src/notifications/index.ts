@@ -8,7 +8,7 @@ import {
 	readMeetingAudience,
 } from "./audience.ts";
 import { readOversightDigest, readPlanterDigest } from "./digest.ts";
-import { markAllVisibleRead, markRead, markSelectedRead, readFeed, readUnreadCount } from "./feed.ts";
+import { markAllVisibleRead, markRead, markSelectedRead, readFeed, readFeedPage, readUnreadCount } from "./feed.ts";
 import { emailOptOut, type OptOutKeyRing } from "./opt-out.ts";
 import {
 	getPreferences,
@@ -32,6 +32,7 @@ export function createNotificationProducer(config: NotificationConfig) {
 	const now = () => config.now?.() ?? new Date();
 	return {
 		readFeed,
+		readFeedPage,
 		readUnreadCount,
 		getPreferences,
 		describeEmailOptOut: (database: Database, _authority: RequestActor, raw: unknown) =>

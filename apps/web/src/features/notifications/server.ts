@@ -55,20 +55,14 @@ export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Out
 }
 
 /**
- * One page of the feed, the unread count of the same filter and the account revision for marks, read together: three
- * statements (REQ-NTF-003).
+ * One page of the feed, the unread count of the same filter and the account revision for marks, in one statement
+ * (REQ-NTF-003).
  */
 export function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {
-	const filter = query.category ? { category: query.category } : {};
-	return call(async ({ db, producer }) => {
-		const [feed, unread, account] = await Promise.all([
-			producer.readFeed(db, actor, { ...filter, ...(query.unread ? { unread: true } : {}) }),
-			producer.readUnreadCount(db, actor, filter),
-			producer.getPreferences(db, actor),
-		]);
-		if (feed.status !== "ok") return feed;
-		if (unread.status !== "ok") return unread;
-		if (account.status !== "ok") return account;
-		return { status: "ok", value: { feed: feed.value, unread: unread.value.count, revision: account.value.revision } };
-	});
+	return call(({ db, producer }) =>
+		producer.readFeedPage(db, actor, {
+			...(query.category ? { category: query.category } : {}),
+			...(query.unread ? { unread: true } : {}),
+		}),
+	);
 }

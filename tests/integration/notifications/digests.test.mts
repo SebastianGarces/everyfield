@@ -184,7 +184,9 @@ test("com-28: the digest names an untitled meeting as the app does, for every me
 	const who = await person("tia");
 	await seat(who.id, { plant });
 	const team = randomUUID();
-	await admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${plant},'Hospitality','active',1)`);
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${plant},'Hospitality','active',1)`,
+	);
 	const meetings = [
 		{ type: "vision_meeting", visionNumber: 4 },
 		{ type: "vision_meeting", visionNumber: null },
