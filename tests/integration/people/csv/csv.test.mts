@@ -1,10 +1,9 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
@@ -26,26 +25,9 @@ const noReminders = async () => {
 };
 
 // People CSV import and export through their public operations on a scratch schema.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp013_" + randomUUID().replaceAll("-", ""),
-	role = "wp013_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp013" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 
 const plants = [randomUUID(), randomUUID()],
 	actors = Array.from({ length: 3 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -99,17 +81,6 @@ async function person(name, input = {}) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
@@ -135,13 +106,7 @@ before(async () => {
 		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates without writing and refuses capped or malformed files", async () => {
@@ -428,6 +393,20 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	assert.equal(done.status, "complete");
 	assert.deepEqual(done.counts, { created: 1001, skipped: 0, failed: 0, remaining: 0 });
 	assert.equal(await count("person"), peopleBefore + 1001);
+	// BUG-551 (people/peo-6): the directory lists an import in file order, by each Person's created_at. Within one run
+	// that holds across batches of 500: the resumed run wrote rows 501 to 1000, then row 1001 in a batch of its own.
+	const at = new Map(
+		(
+			await rows(
+				sql`SELECT display_name, created_at FROM person WHERE id=ANY(${sql.param(done.rows.map((r) => (r.status === "created" ? r.personId : null)))}::uuid[])`,
+			)
+		).map((r) => [Number(String(r.display_name).slice("Lease".length)), new Date(r.created_at).getTime()]),
+	);
+	assert.equal(at.size, 1001);
+	const outOfOrder = (first, last) =>
+		Array.from({ length: last - first }, (_, i) => first + i + 1).filter((n) => !(at.get(n) > at.get(n - 1)));
+	assert.deepEqual(outOfOrder(1, 500), [], "the first run's rows keep file order");
+	assert.deepEqual(outOfOrder(501, 1001), [], "the resumed run's rows keep file order across its two batches");
 });
 
 test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progress waits for its retry after a transient error, then finishes", async () => {

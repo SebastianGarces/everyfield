@@ -12,7 +12,9 @@ import {
 	renewalLabel,
 	reaffirmed,
 	retracted,
+	signalInput,
 	stated,
+	statedAsOf,
 	withSignal,
 } from "../../../apps/web/src/features/intelligence/signals-model.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
@@ -104,4 +106,22 @@ test("saving needs a choice; the same value is not a correction; candidate reaso
 	]);
 	assert.match(refusalText({ code: "revision_conflict" }), /another window or by another admin/);
 	assert.match(refusalText(null), /still here/);
+});
+
+test("a cleared True as of date is left out of the request and the answer reads as of today (com-16)", () => {
+	const draft = { value: "yes", asOf: "", detail: " Thursdays ", reference: "" };
+	const input = signalInput("prayer_rhythm_established", "yes", draft);
+	assert.equal("asOf" in input && input.asOf !== undefined, false);
+	assert.equal(JSON.parse(JSON.stringify(input)).asOf, undefined);
+	assert.equal(statedAsOf(draft, TODAY), TODAY);
+	const shown = stated(
+		blank("prayer_rhythm_established"),
+		{ ...draft, asOf: statedAsOf(draft, TODAY) },
+		TODAY,
+		"Daniel Reyes",
+	);
+	assert.deepEqual([shown.asOf, shown.ageDays, shown.detail], [TODAY, 0, "Thursdays"]);
+	const dated = { ...draft, asOf: "2026-10-01" };
+	assert.equal(signalInput("prayer_rhythm_established", "yes", dated).asOf, "2026-10-01");
+	assert.equal(statedAsOf(dated, TODAY), "2026-10-01");
 });

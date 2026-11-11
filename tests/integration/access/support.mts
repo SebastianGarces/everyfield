@@ -1,63 +1,13 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 const require = createRequire(new URL("../../../packages/domain/package.json", import.meta.url));
 
 export const id = randomUUID;
 export async function database() {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if (
-		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Only approved shared development endpoint allowed");
-	if (!ci) source.searchParams.set("sslmode", "verify-full");
-	const schema = "wp006_" + id().replaceAll("-", "");
-	const roles = ["runtime", "cleanup"].map((kind) => ({ name: "wp006_" + randomBytes(8).toString("hex"), kind }));
-	const options = `-c search_path=${schema},pg_catalog,pg_temp`;
-	const admin = createDatabase({ connectionString: source.href, options, max: 4 });
-	const pools = {};
-	try {
-		await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-		await migrate(admin, schema);
-		for (const { name, kind } of roles) {
-			const password = randomBytes(32).toString("hex");
-			await admin.execute(
-				querySql.raw(
-					`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-				),
-			);
-			await admin.execute(querySql.raw(`GRANT everyfield_${kind} TO ${name}`));
-			const url = new URL(source);
-			url.username = name;
-			url.password = password;
-			pools[kind] = createDatabase({ connectionString: url.href, options, max: 4 });
-		}
-		return {
-			admin,
-			...pools,
-			schema,
-			async close() {
-				await Promise.all(Object.values(pools).map((pool) => closeDatabase(pool)));
-				await admin.execute(querySql.raw(`DROP SCHEMA ${schema} CASCADE`));
-				for (const { name } of roles) await admin.execute(querySql.raw(`DROP ROLE ${name}`));
-				await closeDatabase(admin);
-			},
-		};
-	} catch (error) {
-		await Promise.all(Object.values(pools).map((pool) => closeDatabase(pool)));
-		await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const { name } of roles) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
-		await closeDatabase(admin);
-		throw error;
-	}
+	const t = await testDatabase({ prefix: "wp006", roles: { runtime: ["runtime"], cleanup: ["cleanup"] } });
+	return { admin: t.admin, ...t.pools, schema: t.schema, createSchema: t.createSchema, close: t.close };
 }
 export async function transaction(pool, run) {
 	return pool.transaction(run);

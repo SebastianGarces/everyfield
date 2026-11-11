@@ -222,6 +222,8 @@ export type AssignForm = {
 	revision: string;
 	programName: string;
 	personIds: string[];
+	/** The preview's digest of exactly these people at `revision`. Null until the preview for this selection loads. */
+	rosterDigest: string | null;
 	problem?: string;
 };
 export type ServiceForm = {
@@ -262,6 +264,7 @@ export const assignForm = (program: ShownProgram): AssignForm => ({
 	revision: program.revision,
 	programName: program.name,
 	personIds: program.assignedIds,
+	rosterDigest: null,
 });
 export const serviceForm = (person?: { id: string; name: string } | null): ServiceForm => ({
 	kind: "service",

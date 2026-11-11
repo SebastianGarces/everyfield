@@ -106,13 +106,23 @@ export async function saveRoster(
 export async function attestCompletion(
 	requestKey: string,
 	expectedRevision: string,
-	input:
-		| { kind: "program"; personId: string; programId: string; earnedOn: string }
-		| { kind: "service"; personId: string; attendanceDays: number; volunteerDays: number },
+	input: { kind: "program"; personId: string; programId: string; earnedOn: string },
 ) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.attestCompletion(tx, ctx, { requestKey, expectedRevision, input }));
+}
+
+/** Attendance and serving days have no record revision to compare. */
+export async function attestService(
+	requestKey: string,
+	input: { personId: string; attendanceDays: number; volunteerDays: number },
+) {
+	const viewer = await seat();
+	if (!viewer) return noSeat;
+	return write(viewer, (tx, ctx) =>
+		trainingWriter.attestCompletion(tx, ctx, { requestKey, input: { kind: "service", ...input } }),
+	);
 }
 
 export async function revokeCompletion(

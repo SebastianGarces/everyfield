@@ -502,9 +502,9 @@
 		"limit": 5
 	},
 	"identity.handle:register": {
-		"limit": 33,
+		"limit": 24,
 		"retry": 13,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 8 transaction, 6 locked read, 13 read, 6 write."
+		"reason": "An invitation registration describes its invitation once; the eligibility check reuses that answer, so the budget fell from 33 to 24 (peo-39). Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 9 read, 6 write."
 	},
 	"identity.handle:request-password-reset": {
 		"limit": 2
@@ -1405,6 +1405,9 @@
 		"limit": 7,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
+	"seats.readRemoval": {
+		"limit": 7
+	},
 	"seats.remove": {
 		"limit": 14,
 		"reason": "The bare-obligation update left with obligation.assignee_id (F07b), so the budget fell from 15 to 14. Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (1 locked read, 1 write). A removal without such a task sends 12. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 8 locked read, 2 read, 3 write."
@@ -1581,6 +1584,7 @@
 	},
 	"teams.addResponsibility": {
 		"limit": 7,
+		"retry": 5,
 		"reason": "A non-admin leader checks that they lead the team. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.appointLeader": {
@@ -1597,7 +1601,7 @@
 	},
 	"teams.attestCompletion": {
 		"limit": 7,
-		"retry": 2,
+		"retry": 5,
 		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"teams.completeResponsibility": {
@@ -1618,11 +1622,11 @@
 	},
 	"teams.createProgram": {
 		"limit": 6,
-		"retry": 4
+		"retry": 5
 	},
 	"teams.createRole": {
 		"limit": 6,
-		"retry": 2
+		"retry": 5
 	},
 	"teams.deleteResponsibility": {
 		"limit": 8,
@@ -1640,6 +1644,7 @@
 	},
 	"teams.editRole": {
 		"limit": 8,
+		"retry": 5,
 		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"teams.endMembership": {
@@ -1689,6 +1694,7 @@
 	},
 	"teams.recompleteTraining": {
 		"limit": 7,
+		"retry": 5,
 		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"teams.recordAttendance": {
@@ -1710,7 +1716,7 @@
 	},
 	"teams.scheduleMeeting": {
 		"limit": 9,
-		"retry": 4,
+		"retry": 5,
 		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"teams.setRequiredTrainingParticipants": {

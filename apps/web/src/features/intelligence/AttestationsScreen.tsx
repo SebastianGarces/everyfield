@@ -78,8 +78,10 @@ import {
 	renewalLabel,
 	renewalStatus,
 	retracted,
+	signalInput,
 	signalsIn,
 	stated,
+	statedAsOf,
 	VALUE_LABEL,
 	withCandidate,
 	withHistory,
@@ -142,10 +144,10 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const what = intent(entry, draft);
 		if (what === "none" || !draft.value) return null;
 		const value = draft.value;
-		const input = { key: entry.key, value, asOf: draft.asOf, detail: draft.detail, reference: draft.reference };
+		const input = signalInput(entry.key, value, draft);
 		return writeSignal(
 			entry,
-			(today) => stated(entry, { ...draft, value }, today, viewerName),
+			(today) => stated(entry, { ...draft, value, asOf: statedAsOf(draft, today) }, today, viewerName),
 			JSON.stringify([what, entry.revision, input]),
 			(key) =>
 				what === "attest"
@@ -502,7 +504,7 @@ function AnswerDialog({
 	const [busy, setBusy] = useState(false);
 	const what = intent(opened, draft);
 	const history = historyOf(page, entry.key);
-	const future = draft.asOf > page.today;
+	const future = statedAsOf(draft, page.today) > page.today;
 
 	async function run(task: () => Promise<string | null>, message: string) {
 		setBusy(true);

@@ -1,33 +1,16 @@
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw new Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp030_" + randomUUID().replaceAll("-", "");
-const role = "wp030_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp030" });
+const { admin } = database;
+const db = database.pools.runtime;
 const clock = { at: new Date("2026-10-23T15:00:00Z") };
 // Visibility and cancel use the database clock, not this injected producer clock.
 const notYetEligible = new Date(Date.now() + 86_400_000).toISOString();
@@ -41,7 +24,6 @@ const orgs = createOrganizationAdapter(
 	},
 	{ candidates: async () => [] },
 );
-let db;
 const ok = (r) => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value;
@@ -121,30 +103,7 @@ async function orgCall(name, person, input) {
 	});
 }
 
-before(
-	async () => {
-		await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-		await migrate(admin, schema);
-		const password = randomBytes(32).toString("hex");
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-		const url = new URL(source);
-		url.username = role;
-		url.password = password;
-		db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	},
-	{ timeout: 180_000 },
-);
-after(async () => {
-	if (db) await closeDatabase(db);
-	await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	await closeDatabase(admin);
-});
+after(database.close);
 
 test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay inside one recipient", async () => {
 	const church = await plant();
