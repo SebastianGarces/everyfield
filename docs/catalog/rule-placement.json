@@ -4727,6 +4727,12 @@
       "operation": "communication.undoMessagesOptOut",
       "rule": "Undo requires the separate one-hour undo token of that exact opt-out; no staff or Admin operation clears or rewrites it.",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-003",
+      "operation": "notifications.feed",
+      "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state.",
+      "reason": "T-260 (D-731 to D-733): feed entries link to their subject page, replacing D-684."
     }
   ],
   "operation_additions": [
