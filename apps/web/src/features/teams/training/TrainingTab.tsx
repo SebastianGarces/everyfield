@@ -87,7 +87,7 @@ export function TrainingTab({
 
 	useEffect(() => {
 		let live = true;
-		loadTraining().then(
+		loadTraining(teamId).then(
 			(result) => {
 				if (!live) return;
 				setPending(false);
