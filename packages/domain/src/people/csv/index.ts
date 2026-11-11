@@ -569,16 +569,28 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
 	});
 }
 /**
- * The stored upload's bytes. An object over the limit is refused unread; a missing or incomplete one is not the file
- * the person chose, so it is refused as a changed file.
+ * The stored upload's bytes. One statement first checks the live Owner or Admin and this church's own unexpired
+ * staged upload, so no other request reaches the bucket. An object over the limit is refused unread; a missing,
+ * expired or incomplete one is not the file the person chose, so it is refused as a changed file.
  */
-async function storedFile(storage: PrivateStorage, plant: string, uploadId: string) {
-	const object = await readPrivateUpload(storage, uploadKey(plant, uploadId), c.importLimits.bytes);
+async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleReadContext, uploadId: string) {
+	const plant = plantId(ctx),
+		key = uploadKey(plant, uploadId);
+	const found = z.object({ allowed: z.boolean(), staged: z.boolean() }).parse(
+		(
+			await db.execute(sql`SELECT ${access(ctx, true)} AS allowed, EXISTS(SELECT FROM file_object f
+ WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND f.purpose='native_import' AND f.opaque_key=${key}::text
+ AND f.state='pending' AND f.expires_at>clock_timestamp()) AS staged`)
+		).rows[0],
+	);
+	if (!found.allowed) deny();
+	if (!found.staged) deny("file_changed");
+	const object = await readPrivateUpload(storage, key, c.importLimits.bytes);
 	if (object === "too_large") deny("file_too_large");
 	if (object === "missing") deny("file_changed");
 	return object.bytes;
 }
-/** previewImport of a stored upload. The bucket is read with no transaction open, after the cached seat check. */
+/** previewImport of a stored upload. The bucket is read with no transaction open. */
 export async function previewStoredImport(
 	db: Database,
 	storage: PrivateStorage,
@@ -589,7 +601,7 @@ export async function previewStoredImport(
 	const loaded = await readReply(async () => {
 		authorizeCachedWrite(ctx);
 		const input = parse(c.previewStoredImportRequest, raw);
-		return storedFile(storage, plantId(ctx), input.uploadId);
+		return storedFile(db, storage, ctx, input.uploadId);
 	});
 	if (loaded.status !== "ok") return loaded;
 	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
@@ -608,7 +620,7 @@ export async function executeStoredImport(
 		const ctx = new PeopleReadContext(authority);
 		authorizeCachedWrite(ctx);
 		const { uploadId, ...input } = parse(c.executeStoredImportRequest, raw);
-		return { ...input, file: await storedFile(storage, plantId(ctx), uploadId) };
+		return { ...input, file: await storedFile(db, storage, ctx, uploadId) };
 	});
 	if (loaded.status !== "ok") return loaded;
 	return executeBulkImport(db, authority, loaded.value);

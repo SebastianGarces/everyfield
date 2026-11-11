@@ -1374,6 +1374,10 @@
 		"limit": 5,
 		"retry": 10
 	},
+	"people/csv/index.signPeopleImport": {
+		"limit": 1,
+		"reason": "One statement checks the live Owner or Admin, stages the pending upload and queues its cleanup; the PUT URL is signed locally."
+	},
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,
 		"retry": 4,
