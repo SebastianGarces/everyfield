@@ -11,6 +11,11 @@ type NextStepInput = {
 	canWrite: boolean;
 	/** Start check-in by main's rule: a person who can mark attendance, attendance not final, not cancelled, not voided. */
 	checkIn: boolean;
+	/**
+	 * Finalize and correct attendance (REQ-MTG-010, D-562): an Owner, an Admin or the current leader of this team meeting's
+	 * ministry, as the attendance read says.
+	 */
+	canFinalize: boolean;
 	guestCount: number;
 	final: boolean;
 	/** The meeting is not cancelled and not voided, so attendance can be settled (canSettle). */
@@ -46,12 +51,12 @@ export function nextStep(i: NextStepInput): NextStep {
 	if (i.status === "in_progress") {
 		return {
 			primary: i.checkIn ? "check-in" : null,
-			secondary: i.canWrite && i.canSettle ? ["finalize"] : [],
+			secondary: i.canFinalize && i.canSettle ? ["finalize"] : [],
 			toolbarInvites: i.canWrite,
 		};
 	}
 	// completed: a practice marked held is completed too
-	const finalize = i.canWrite && i.canSettle;
+	const finalize = i.canFinalize && i.canSettle;
 	return { primary: finalize ? "finalize" : null, secondary: i.checkIn ? ["check-in"] : [], toolbarInvites: false };
 }
 

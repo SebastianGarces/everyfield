@@ -129,6 +129,27 @@ export function audit(
 export function accountOwner(accountId: string): Owner {
 	return owner.parse({ kind: "account", id: accountId });
 }
+/**
+ * C13: one notifications access check as a condition. `account` holds an accepted, current seat in `tenant` (a plant or
+ * an organization; Owner or Admin when `admin`), the account is active, and no lifecycle witness hides the account, the
+ * seat or the tenant. With `session`, that session is also live and is the account's own: a request's caller. Without
+ * it, the check is for a recipient a worker sends to.
+ */
+export function seatAccess(input: { account: string; tenant: string; admin?: boolean; session?: string }): SQL {
+	return sql`EXISTS (SELECT FROM seat s JOIN account a ON a.id = s.account_id
+		WHERE s.account_id = ${input.account}::uuid AND (s.plant_id = ${input.tenant}::uuid OR s.organization_id = ${input.tenant}::uuid)
+			${input.admin ? sql`AND s.role IN ('owner','admin')` : sql``}
+			AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp() AND a.registration_state = 'active'
+			${
+				input.session
+					? sql`AND EXISTS (SELECT FROM live_session(${input.session}::uuid) i
+						WHERE i.registration_state = 'active' AND i.account_id = s.account_id)`
+					: sql``
+			}
+			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
+				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = a.id)
+				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = ${input.tenant}::uuid))))`;
+}
 export function selfSql(session: string, accountId: string): SQL {
 	return sql`me AS (
 		SELECT i.account_id FROM live_session(${session}::uuid) i
