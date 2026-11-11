@@ -91,6 +91,7 @@ export function tasksCases(t, who) {
 					}),
 			},
 		),
+		k("listRows", { taskIds: [a.task] }, { value: { items: [] } }),
 		k("get", task, { value: { status: "unavailable" } }),
 		k("statusHistory", task, unavailable),
 		k(

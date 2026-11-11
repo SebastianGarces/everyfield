@@ -45,7 +45,6 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
-import { taskReader } from "../../../packages/domain/src/tasks/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
@@ -360,9 +359,6 @@ async function seedChurchA() {
 		resolver_version,status,attendance_revision)
 		VALUES(${a.meeting},${plantA.id},'vision_meeting',${`${MARK} vision`},'2026-11-01','18:00','America/Chicago',
 		'2026-11-01T23:00:00Z','1','completed',1)`);
-	a.task = randomUUID();
-	await f.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind)
-		VALUES(${a.task},${plantA.id},${`${MARK} task`},'general','medium','not_started',clock_timestamp(),'undated')`);
 
 	a.template = ok(
 		await communicate("createTemplate", {
@@ -456,7 +452,7 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
-	// Most meetings and tasks reads are still in the baseline; these are the ones that have a case.
+	// A meetings read this file's own seed meeting covers.
 	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
@@ -464,11 +460,6 @@ function cases(who) {
 			"meetings:meetingsReader.pageGuests",
 			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
 			unavailable,
-		),
-		area(
-			"tasks:taskReader.listRows",
-			() => f.db.transaction((t) => taskReader.listRows(t, who.actor, { taskIds: [a.task] })),
-			{ value: { items: [] } },
 		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
