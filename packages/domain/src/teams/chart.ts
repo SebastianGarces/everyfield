@@ -1,5 +1,15 @@
 import "server-only";
 
+type Rooted = { id: string; templateKey: string | null; archived: boolean };
+/**
+ * The organization view's one root rule (REQ-TEAM-012): the first live Leadership-template ministry is the root and
+ * every other shown ministry sits under it. An archived ministry is never a root; with no root, no ministry has a parent.
+ */
+export function withParents<N extends Rooted>(nodes: readonly N[]): (N & { parentId: N["id"] | null })[] {
+	const root = nodes.find((node) => node.templateKey === "leadership" && !node.archived);
+	return nodes.map((node) => ({ ...node, parentId: root && node.id !== root.id ? root.id : null }));
+}
+
 /** The same wrapped lines feed the SVG and the PDF. */
 export function wrapLabel(text: string, width = 42): string[] {
 	const lines: string[] = [];
