@@ -1,7 +1,7 @@
 "use client";
 
 import { Certificate01Icon, FileEditIcon, Undo02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, Input, Textarea } from "@everyfield/ui/controls";
+import { Button, Checkbox, Field, Input, Spinner, Textarea } from "@everyfield/ui/controls";
 import type { Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
@@ -11,14 +11,16 @@ import {
 	dateError,
 	daysError,
 	nameError,
+	problemText,
 	reasonError,
 	type AssignForm,
+	type Outcome,
 	type CorrectForm,
 	type CreateForm,
 	type PersonForm,
 	type ServiceForm,
 } from "./model.ts";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // The training forms. Each one belongs to the training card's save lane. A refusal opens the same form again.
 
@@ -227,12 +229,55 @@ export function CompletionDialog({
 	);
 }
 
+type RosterPreview = Outcome<{ revision: string; rosterDigest: string }>;
+type Check = { state: "checking" } | { state: "ready" } | { state: "failed"; message: string };
+
+/**
+ * The form keeps the program revision the list showed and the digest of the people now selected. The dialog reads
+ * the preview when it opens and after each change to the selection, so Save sends one write with those values. A
+ * preview at another revision means someone else saved this list first.
+ */
+function useRosterCheck(
+	f: AssignForm,
+	preview: (personIds: string[]) => Promise<RosterPreview>,
+	setDigest: (digest: string) => void,
+) {
+	const [check, setCheck] = useState<Check>({ state: "checking" });
+	const [attempt, setAttempt] = useState(0);
+	const asked = useRef(0);
+	const selection = [...f.personIds].sort().join(",");
+	useEffect(() => {
+		const n = ++asked.current;
+		setCheck({ state: "checking" });
+		const ids = selection ? selection.split(",") : [];
+		const fail = (message: string) => n === asked.current && setCheck({ state: "failed", message });
+		const timer = setTimeout(() => {
+			preview(ids).then(
+				(result) => {
+					if (n !== asked.current) return;
+					if (result.status === "refused") return fail(problemText(result.code));
+					if (result.status !== "ok") return fail("The required list could not be checked. Try again.");
+					if (result.value.revision !== f.revision) return fail(problemText("conflict"));
+					setDigest(result.value.rosterDigest);
+					setCheck({ state: "ready" });
+				},
+				() => fail("The required list could not be checked. Try again."),
+			);
+		}, 200);
+		return () => clearTimeout(timer);
+		// The preview runs again only when the selection or the retry changes.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selection, attempt]);
+	return { check, retry: () => setAttempt((n) => n + 1) };
+}
+
 export function AssignDialog({
 	form,
 	directory,
 	rosterKnown,
 	problem,
 	wait,
+	preview,
 	onClose,
 	onSubmit,
 }: {
@@ -241,12 +286,16 @@ export function AssignDialog({
 	rosterKnown: boolean;
 	problem?: string;
 	wait: Wait;
+	preview: (personIds: string[]) => Promise<RosterPreview>;
 	onClose: () => void;
 	onSubmit: (form: AssignForm) => void;
 }) {
 	const [f, setF] = useState(form);
 	const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
 	const [tooMany, setTooMany] = useState(false);
+	const { check, retry } = useRosterCheck(f, preview, (rosterDigest) =>
+		setF((current) => ({ ...current, rosterDigest })),
+	);
 	const selected = new Set(f.personIds);
 	const known = new Map([...directory, ...extra].map((person) => [person.id, person.name]));
 	const toggle = (id: string, on: boolean) => {
@@ -254,7 +303,7 @@ export function AssignDialog({
 			const next = new Set(current.personIds);
 			if (on) next.add(id);
 			else next.delete(id);
-			return { ...current, personIds: [...next] };
+			return { ...current, personIds: [...next], rosterDigest: null };
 		});
 	};
 	return (
@@ -266,16 +315,30 @@ export function AssignDialog({
 			problem={problem}
 			wait={wait}
 			size="md"
+			disabled={check.state !== "ready" || f.rosterDigest === null}
 			onClose={onClose}
 			onSubmit={() => {
 				if (f.personIds.length > 500) {
 					setTooMany(true);
 					return false;
 				}
+				if (check.state !== "ready" || f.rosterDigest === null) return false;
 				onSubmit(f);
 				return true;
 			}}
 		>
+			{check.state === "failed" ? (
+				<div role="alert" className="flex flex-col items-start gap-2">
+					<p className="text-sm font-medium text-magenta-600">{check.message}</p>
+					<Button variant="outline" onClick={retry}>
+						Check again
+					</Button>
+				</div>
+			) : check.state === "checking" ? (
+				<p role="status" className="flex items-center gap-2 text-sm text-text-3">
+					<Spinner size={16} /> Checking the current list…
+				</p>
+			) : null}
 			{rosterKnown ? null : (
 				<p className="text-sm text-text-2">
 					The current list did not load. Saving now replaces it with only the people you select here.
@@ -312,7 +375,7 @@ export function AssignDialog({
 				onChange={(person) => {
 					if (!person || selected.has(person.id)) return;
 					setExtra((rows) => [...rows, person]);
-					setF((current) => ({ ...current, personIds: [...current.personIds, person.id] }));
+					setF((current) => ({ ...current, personIds: [...current.personIds, person.id], rosterDigest: null }));
 				}}
 			/>
 			<p
