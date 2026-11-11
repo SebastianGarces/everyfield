@@ -182,7 +182,11 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
-		assert.equal(result.error?.value?.code, "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
+		assert.equal(
+			result.error?.value?.code,
+			"invitation_unavailable",
+			via + ": " + JSON.stringify(result.value ?? null),
+		);
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
 	}
@@ -356,11 +360,16 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 	assert.deepEqual(await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd), changed);
 	const owner = list.items.find((x) => x.role === "owner");
 	await denied(
-		f.seats.remove(await f.actor(s.recipient.session), s.w, {
-			requestKey: key(),
-			expectedRevision: "1",
-			input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
-		}, noReminders),
+		f.seats.remove(
+			await f.actor(s.recipient.session),
+			s.w,
+			{
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
+			},
+			noReminders,
+		),
 		"protected_owner",
 	);
 	const demoted = await f.seats.demote(await f.actor(s.recipient.session), s.w, {
@@ -408,14 +417,19 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		input: { seatId: a.seat.seatId, expectedRole: "member", handoffs: [] },
 	};
 	await denied(f.seats.remove(await f.actor(s.sender.session), s.w, cmd, noReminders), "conflict");
-	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
-		...cmd,
-		requestKey: key(),
-		input: {
-			...cmd.input,
-			handoffs: [{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: s.sender.id }],
+	const result = await f.seats.remove(
+		await f.actor(s.sender.session),
+		s.w,
+		{
+			...cmd,
+			requestKey: key(),
+			input: {
+				...cmd.input,
+				handoffs: [{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: s.sender.id }],
+			},
 		},
-	}, noReminders);
+		noReminders,
+	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
 	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0].status, "complete");
@@ -472,20 +486,25 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		[s.sender.id],
 	);
 	// The review is exactly what remove needs: handing off each listed duty succeeds at once.
-	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
-		requestKey: key(),
-		expectedRevision: review.expectedRevision,
-		input: {
-			seatId: review.seatId,
-			expectedRole: review.expectedRole,
-			handoffs: review.duties.map((d) => ({
-				kind: "assign",
-				dutyId: d.dutyId,
-				expectedRevision: d.expectedRevision,
-				recipientAccountId: review.recipients[0].accountId,
-			})),
+	const result = await f.seats.remove(
+		await f.actor(s.sender.session),
+		s.w,
+		{
+			requestKey: key(),
+			expectedRevision: review.expectedRevision,
+			input: {
+				seatId: review.seatId,
+				expectedRole: review.expectedRole,
+				handoffs: review.duties.map((d) => ({
+					kind: "assign",
+					dutyId: d.dutyId,
+					expectedRevision: d.expectedRevision,
+					recipientAccountId: review.recipients[0].accountId,
+				})),
+			},
 		},
-	}, noReminders);
+		noReminders,
+	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
 });
@@ -567,7 +586,8 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			i = await f.invitation(s),
 			a = await f.invitations.accept(s.recipient.session, i.claim),
 			ids = Array.from({ length: n }, () => key());
-		await insertTasks(f.admin, 
+		await insertTasks(
+			f.admin,
 			ids.map((id, k) => ({
 				id,
 				plant_id: s.w.id,
@@ -760,7 +780,10 @@ test("AC:ROLE43-006 C13: seats.list and invitations.list read nothing for an act
 	const adminSeat = await f.seat(admin, s.w, "admin");
 	const owner = await f.actor(s.sender.session),
 		appointed = await f.actor(admin.session);
-	assert.equal((await f.invitations.list(owner, { workspace: s.w })).items[0].invitationId, i.result.invitation.invitationId);
+	assert.equal(
+		(await f.invitations.list(owner, { workspace: s.w })).items[0].invitationId,
+		i.result.invitation.invitationId,
+	);
 	assert.equal((await f.invitations.list(appointed, { workspace: s.w })).items.length, 1);
 	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
 	// Demoted after the request resolved its actor: the roster stays readable, the invitations do not.

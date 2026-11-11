@@ -1568,7 +1568,10 @@ test("C13 onboarding reads: a request actor whose seat or session ended reads no
 	const d = await discovery();
 	const explorer = (await readViewer(db, writeSessionId.parse(d.a.session))).authority;
 	assert.equal((await readOnboardingEntry(db, api, session(d.a), explorer, true)).kind, "discovery");
-	await admin.update(t.auth_session).set({ expires_at: new Date(0) }).where(eq(t.auth_session.id, d.a.session));
+	await admin
+		.update(t.auth_session)
+		.set({ expires_at: new Date(0) })
+		.where(eq(t.auth_session.id, d.a.session));
 	denied(await db.transaction((tx) => api.getDiscoveryProfile(tx, new OnboardingReadContext(explorer), {})));
 	assert.deepEqual(await readOnboardingEntry(db, api, session(d.a), explorer, true), {
 		kind: "elsewhere",
@@ -1579,7 +1582,10 @@ test("C13 onboarding reads: a request actor whose seat or session ended reads no
 	const a = await actor("planter", "active");
 	const fresh = (await readViewer(db, writeSessionId.parse(a.session))).authority;
 	assert.equal((await readOnboardingEntry(db, api, session(a), fresh, true)).kind, "start");
-	await admin.update(t.auth_session).set({ expires_at: new Date(0) }).where(eq(t.auth_session.id, a.session));
+	await admin
+		.update(t.auth_session)
+		.set({ expires_at: new Date(0) })
+		.where(eq(t.auth_session.id, a.session));
 	assert.deepEqual(await readOnboardingEntry(db, api, session(a), fresh, true), {
 		kind: "elsewhere",
 		reason: "unavailable",
