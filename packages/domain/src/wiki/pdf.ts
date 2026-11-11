@@ -92,7 +92,7 @@ export function helveticaWidth(text: string): number {
 }
 
 /** Prose broken at spaces into lines that fit the text width. A word longer than a line breaks inside it. */
-export function wrapText(text: string, width = TEXT_WIDTH): string[] {
+function wrapText(text: string, width = TEXT_WIDTH): string[] {
 	if (helveticaWidth(text) <= width) return [text];
 	const lines: string[] = [];
 	let line = "";
@@ -119,7 +119,7 @@ export function wrapText(text: string, width = TEXT_WIDTH): string[] {
  * Inline markdown as the words a reader sees: code spans keep their text, links and images keep their label, bold,
  * italic and strike markers and inline tags go.
  */
-export function plainInline(text: string): string {
+function plainInline(text: string): string {
 	return text
 		.split(/(`+[^`]*?`+)/)
 		.map((part, index) => {

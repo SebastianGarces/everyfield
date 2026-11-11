@@ -36,7 +36,7 @@ const TABLE_LINES =
 	"[&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse";
 
 /** One block as the article renders it. The editor shows its read-only blocks with this too. */
-export function ArticleBlock({ block }: { block: Block }) {
+function ArticleBlock({ block }: { block: Block }) {
 	if (block.kind === "heading") {
 		const Tag = block.level === 3 ? "h3" : "h2";
 		return <Tag id={block.id}>{block.text}</Tag>;

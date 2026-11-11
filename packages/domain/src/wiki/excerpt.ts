@@ -9,7 +9,7 @@ const LIMIT = 500;
 const TABLE_CEILING = 1500;
 
 /** A fence as readers see it: a diagram that parses, else code. */
-export type FenceView = ReturnType<typeof fenceContent>;
+type FenceView = ReturnType<typeof fenceContent>;
 
 /**
  * One block of a body. `lines` are its markdown lines: for a markdown body the input lines themselves, for organization
