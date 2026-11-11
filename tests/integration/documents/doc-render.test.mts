@@ -140,6 +140,15 @@ test("WP-036 the card sheet prints four cards on one Letter page with suffixed f
 		pdf.fields.map((f) => f.name),
 		range(4).flatMap((t) => perCard.map((field) => `${field}_t${t}`)),
 	);
+	// documents/doc-10: each card's signature is a /Sig field, and a suffixed field has its unsuffixed tooltip.
+	const typed = new Map(pdf.fields.map((f) => [f.name, f]));
+	assert.deepEqual(
+		pdf.fields.filter((f) => f.type === "Sig").map((f) => `${f.name}:${f.type}`),
+		range(4).map((t) => `signature_t${t}:Sig`),
+	);
+	assert.equal(typed.get("signature_t1")!.tooltip, "Signature: sign here");
+	assert.equal(typed.get("full_name_t2")!.tooltip, "Full name");
+	assert.equal(typed.get("row_1_done_t3")!.tooltip, "Row 1: done");
 	const doc = await PDFDocument.load(pdf.bytes);
 	const size = doc.getPage(0).getSize();
 	assert.deepEqual([size.width, size.height], [612, 792]);

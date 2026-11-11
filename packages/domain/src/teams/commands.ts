@@ -91,11 +91,7 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
 				WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL) AS "activeCount"
 			FROM team t WHERE t.id = ${teamId}::uuid AND t.plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!row) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM team WHERE id = ${teamId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
+	if (!row) deny();
 	return teamRow.parse(row);
 }
 async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | null): Promise<RoleRow> {
@@ -137,11 +133,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			WHERE r.id = ${roleId}::uuid AND r.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF r, t`,
 	);
-	if (!row) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM team_role WHERE id = ${roleId}::uuid`);
-		if (other) deny("access_denied");
-		deny();
-	}
+	if (!row) deny();
 	return roleRow.parse(row);
 }
 function teamValue(row: TeamRow, revision = row.revision) {
@@ -667,6 +659,20 @@ export const teamsWriter = {
 						leadership = ${after.leadership}, time_commitment = ${after.timeCommitment},
 						desired_skills = ${after.desiredSkills}, revision = revision + 1
 						WHERE id = ${before.id}::uuid AND plant_id = ${w.plant.id}::uuid`);
+					// A leader this role made stops leading when the role stops being a leadership role.
+					if (before.leadership && !after.leadership)
+						audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
+						revision = revision + 1
+						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid
+							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
+					// Turning leadership on fills an empty leader from the occupant and never replaces one (D-561).
+					const promoted =
+						!before.leadership && after.leadership && before.leaderPersonId === null ? before.occupantPersonId : null;
+					if (promoted)
+						audit.writes.push(sql`UPDATE team SET leader_person_id = ${promoted}::uuid,
+						leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
+						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid AND leader_person_id IS NULL`);
+					const leader = promoted ? { leaderPersonId: promoted } : {};
 					return {
 						value: roleResult(
 							audit.id,
@@ -679,8 +685,8 @@ export const teamsWriter = {
 						subjectType: "team_role",
 						kind: "edit",
 						outcome: noop ? "noop" : "changed",
-						before: { name: before.name, desiredSkills: before.desiredSkills },
-						after: { name: after.name, desiredSkills: after.desiredSkills },
+						before: { name: before.name, desiredSkills: before.desiredSkills, leadership: before.leadership },
+						after: { name: after.name, desiredSkills: after.desiredSkills, leadership: after.leadership, ...leader },
 						revision: { before: before.revision, after: noop ? before.revision : after.revision },
 					};
 				},
@@ -977,11 +983,7 @@ export const teamsWriter = {
 						JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
 						WHERE tn.id = ${i.tenureId}::uuid AND tn.plant_id = ${w.plant.id}::uuid FOR UPDATE OF tn`,
 				);
-				if (!found) {
-					const other = await oneRow(tx, sql`SELECT 1 AS n FROM team_tenure WHERE id = ${i.tenureId}::uuid`);
-					if (other) deny("access_denied");
-					deny();
-				}
+				if (!found) deny();
 				const before = z
 					.object({
 						tenureId: id,

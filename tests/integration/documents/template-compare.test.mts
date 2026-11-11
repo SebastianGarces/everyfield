@@ -8,9 +8,8 @@
 //   Criterion 10: the legal notice is never a difference, and accept all keeps it in the PDF and the Word file.
 //   Criterion 11: an accept from a stale compare is a conflict and writes nothing.
 //   Criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter, templateStatus } from "../../../packages/domain/src/documents/index.ts";
 import {
@@ -31,7 +30,7 @@ import { documentFrom, editorContent } from "../../../apps/web/src/features/docu
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 const POLICY = "conflict-of-interest-policy";
 const v1 = docTemplateById(POLICY)!;
@@ -160,26 +159,9 @@ describe("T-19 compare a document with its template (no database)", () => {
 
 // ---------------------------------------------------------------- the read and the accept, on the database
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t19cmp_" + randomUUID().replaceAll("-", "");
-const roleName = "t19cmp_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "t19cmp" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -187,7 +169,6 @@ const OWNER = 0;
 const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
-let db;
 
 const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
@@ -243,19 +224,6 @@ const revisionCount = async (id) =>
 	);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const actor of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
@@ -302,13 +270,7 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () => {
