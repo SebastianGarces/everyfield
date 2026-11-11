@@ -1,8 +1,10 @@
 // The household evals: labelled requests (households.cases.json) scored against the real model's recorded streams
-// (households.recorded.json). The model gets Evry's real system prompt and read tools; each read is answered from the
-// fixture below (one household, "Okafor household" in North Ridgeville OH, James Okafor as Head and Ruth Allen as
-// Spouse). A recording is keyed by the exact call the provider receives, so a changed prompt, tool list or limit has no
-// recording and fails here until it is scored again on the real model:
+// (households.recorded.json). The model gets Evry's real system prompt and read tools, and every read it calls runs the
+// real adapter through invokeRead against a small church seeded on Postgres (small-church.mts): one household, "Okafor
+// household" in North Ridgeville, OH, with James Okafor as Head and Ruth Allen as Spouse, read by a plant Owner. It runs
+// in @everyfield/evry's test:db. A recording is keyed by the exact call the provider receives, so a changed prompt,
+// tool list, limit or read result has no recording and fails here until it is scored again on the real model (with the
+// database variables of README.md in the shell):
 //
 //   EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/households.test.mts
 //
@@ -10,9 +12,8 @@
 //   AC:EVRY-CONTEXT-BOUNDS tool selection: each request picks the household operation of its case, with sensible input.
 //   Answer correctness: the answer to "what households do we have?" names the household, says there is 1 and does not
 //   say a row was withheld or is unavailable. The rubric scores each point.
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
@@ -20,8 +21,8 @@ import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { compileContext } from "../../../packages/evry/src/context/compile.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
-import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { recorder } from "./golden-harness.mts";
+import { id, readAs, realReads, smallChurch, type Call } from "./small-church.mts";
 
 type Case = {
 	text: string;
@@ -34,76 +35,40 @@ const CASES = new URL("households.cases.json", import.meta.url);
 const cases: Case[] = JSON.parse(readFileSync(CASES, "utf8"));
 const recorded = recorder("households");
 
-const PLANT = "5b6d1f0e-0000-4000-8000-000000000001";
-const HOUSEHOLD = "5b6d1f0e-0000-4000-8000-0000000000a1";
-const JAMES = "5b6d1f0e-0000-4000-8000-0000000000b1";
-const RUTH = "5b6d1f0e-0000-4000-8000-0000000000b2";
-// A plant Owner, the only fields the catalog and the prompt read.
-const actor = {
-	authority: {} as never,
-	accountId: randomUUID(),
-	session: randomUUID(),
-	owner: { kind: "plant", id: PLANT },
-	contextKind: "plant",
-	role: "owner",
-	seatId: null,
-} as unknown as EvryActor;
+const HOUSEHOLD = id(0xa1);
+const JAMES = id(0xb1);
+const RUTH = id(0xb2);
 const NOW = new Date("2026-10-31T20:00:00Z");
-
-const household = {
-	kind: "household",
-	id: HOUSEHOLD,
-	label: "Okafor household",
-	fields: { name: "Okafor household", city: "North Ridgeville", memberCount: "2", revision: "1" },
-};
-const james = {
-	kind: "person",
-	id: JAMES,
-	label: "James Okafor",
-	fields: { role: "head", city: "North Ridgeville", householdId: HOUSEHOLD },
-};
-const ruth = {
-	kind: "person",
-	id: RUTH,
-	label: "Ruth Allen",
-	fields: { role: "spouse", city: "North Ridgeville", householdId: HOUSEHOLD },
-};
-const result = (operation: string, rows: object[]) => ({
-	operation,
-	status: rows.length ? "available" : "not_found",
-	rows,
-	total: rows.length,
-	page: 1,
-	next: null,
-	completeness: "complete",
-	exclusions: [],
+const church = await smallChurch({
+	name: "Lorain County Church",
+	timezone: "America/New_York",
+	households: [{ id: HOUSEHOLD, name: "Okafor household", city: "North Ridgeville", state: "OH" }],
+	people: [
+		{
+			id: JAMES,
+			name: "James Okafor",
+			city: "North Ridgeville",
+			stage: "attendee",
+			household: { id: HOUSEHOLD, role: "head" },
+		},
+		{
+			id: RUTH,
+			name: "Ruth Allen",
+			city: "North Ridgeville",
+			stage: "attendee",
+			household: { id: HOUSEHOLD, role: "spouse" },
+		},
+	],
+	actors: { owner: "owner" },
 });
-/** What the reads return for the fixture, in the shape the model gets (a resultId first). */
-function answerRead(operation: string, input: any, resultId: number) {
-	const home = [household, james, ruth];
-	const rows =
-		operation === "people.listHouseholds"
-			? [household]
-			: operation === "people.getHousehold" || operation === "people.getHouseholdMembers"
-				? input?.householdId === HOUSEHOLD || input?.personId === JAMES || input?.personId === RUTH
-					? home
-					: []
-				: operation === "people.listPeople"
-					? [james, ruth].filter(
-							(p) => !input?.search || p.label.toLowerCase().includes(String(input.search).toLowerCase()),
-						)
-					: [];
-	return { resultId, ...result(operation, rows) };
-}
+after(church.close);
+const actor = church.actors.owner;
+const read = (operation: string, input: unknown) => readAs(church.db, actor, operation, input);
 
 /** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
 async function converse(model: LanguageModelV4, text: string) {
-	const calls: { operation: string; input: any }[] = [];
-	let n = 0;
-	const tools = readTools(actor, async (adapter, input) => {
-		calls.push({ operation: adapter.operation, input });
-		return answerRead(adapter.operation, input, ++n);
-	});
+	const calls: Call[] = [];
+	const tools = readTools(actor, realReads(church.db, actor, calls));
 	const context = compileContext({ actor, catalog: readCatalog(actor), history: [], text, references: [], now: NOW });
 	const run = streamText({
 		model,
@@ -118,6 +83,26 @@ async function converse(model: LanguageModelV4, text: string) {
 	return { calls, answer: await run.text };
 }
 
+test("AC:EVRY-CONTEXT-BOUNDS the seeded church has exactly 1 household, the Okafor household with James Okafor as Head and Ruth Allen as Spouse, read back through the real reads", async () => {
+	const homes = await read("people.listHouseholds", {});
+	assert.equal(homes.total, 1);
+	assert.deepEqual(
+		homes.rows.map((r) => [r.kind, r.id, r.label, r.fields.city, r.fields.memberCount]),
+		[["household", HOUSEHOLD, "Okafor household", "North Ridgeville", "2"]],
+	);
+	for (const input of [{ householdId: HOUSEHOLD }, { personId: JAMES }]) {
+		const members = (await read("people.getHousehold", input)).rows.filter((r) => r.kind === "person");
+		assert.deepEqual(
+			members.map((r) => [r.id, r.label, r.fields.role]),
+			[
+				[JAMES, "James Okafor", "head"],
+				[RUTH, "Ruth Allen", "spouse"],
+			],
+			JSON.stringify(input),
+		);
+	}
+});
+
 test("AC:EVRY-CONTEXT-BOUNDS household requests pick the household operation with sensible input, and the answer is correct", async () => {
 	assert.ok(cases.length >= 4);
 	const model = recorded.model();
@@ -128,12 +113,14 @@ test("AC:EVRY-CONTEXT-BOUNDS household requests pick the household operation wit
 		const ops = calls.map((x) => x.operation);
 		const accepted = [c.operation, ...(c.alsoAccepted ?? [])];
 		if (!ops.some((op) => accepted.includes(op))) failures.push(`${c.text}: called ${ops.join(", ") || "nothing"}`);
+		for (const call of calls.filter((x) => x.error))
+			failures.push(`${c.text}: ${call.operation} ${JSON.stringify(call.input)} was refused (${call.error})`);
 		for (const call of calls.filter((x) => accepted.includes(x.operation))) {
 			if (c.noSearch && call.input?.search)
 				failures.push(`${c.text}: searched for ${JSON.stringify(call.input.search)}`);
 			if (/get(Household|HouseholdMembers)$/.test(call.operation)) {
-				const id = call.input?.householdId ?? call.input?.personId;
-				if (![HOUSEHOLD, JAMES, RUTH].includes(id))
+				const target = call.input?.householdId ?? call.input?.personId;
+				if (![HOUSEHOLD, JAMES, RUTH].includes(target))
 					failures.push(`${c.text}: ${call.operation} with ${JSON.stringify(call.input)}`);
 			}
 		}
