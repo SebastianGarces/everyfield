@@ -8,10 +8,13 @@ export { columnWidths, exportsFor, formatNumber, ledgerTables, parseAmount, TABL
 export {
 	acceptDifferences,
 	compareWithTemplate,
+	acceptTemplateChanges,
+	templateChanges,
 	missingFields,
 	type DocDifference,
 	type PageLayout,
 } from "./compare.ts";
+export { wordChanges, type ChangeNote, type WordChanges, type WordRun } from "./words.ts";
 export {
 	attrsOf,
 	attrIssue,

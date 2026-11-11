@@ -1,19 +1,30 @@
-// "Compare with the current template" (Approach A, "Versioning and forking"): a two-way, block-level compare of a
-// document with the template it was forked from, and the document that accepting some of the differences makes.
-// Pure: the caller supplies the template, the origin to record and the merge values of any field the document lacks.
+// "Compare with template" (Approach A, "Versioning and forking"). Two lists of a document beside its template:
+// "All differences" (T-19), a two-way, block-level compare with the template's current version; and "Template changes"
+// (T-81, D-423), a three-way compare that lists only what the template changed between the version the document
+// records (the base) and the current one, so the church's own edits are not listed. Each has the document that
+// accepting some of its items makes. Pure: the caller supplies the templates, the origin to record and the merge
+// values of any field the document lacks.
 import { FORMAT_SCHEMA } from "./schema.ts";
 import type { BlockNode, DocDocument, DocTemplate, FieldDecl, Origin, PageSetup, Region } from "./types.ts";
 
-/** "In template only", "In your document only" or "Changed". */
-type DifferenceKind = "template-only" | "document-only" | "changed";
+/**
+ * What an item is, each with its own words. "All differences": "In template only", "In your document only" or
+ * "Changed". "Template changes": "In template only" (added), "Removed from template", "Changed", or "Changed in
+ * template and in your document" (`both`, D-424) when the church had changed what the template changed.
+ */
+type DifferenceKind = "template-only" | "document-only" | "changed" | "removed" | "both";
 /** The page setup without its header and footer, which are listed on their own. */
 export type PageLayout = Omit<PageSetup, "header" | "footer">;
 
-/** One difference, numbered in reading order. `document` is null for "In template only", `template` for the reverse. */
+/**
+ * One item, numbered in reading order. `document` is the document's side, null when it has none ("In template only");
+ * `template` is the current template's side, null for "In your document only", "Removed from template", or a block the
+ * template removed that the church had changed.
+ */
 export type DocDifference = { id: number } & DifferenceOf;
 type DifferenceOf =
-	| { part: "title"; kind: "changed"; document: string; template: string }
-	| { part: "page"; kind: "changed"; document: PageLayout; template: PageLayout }
+	| { part: "title"; kind: "changed" | "both"; document: string; template: string }
+	| { part: "page"; kind: "changed" | "both"; document: PageLayout; template: PageLayout }
 	| { part: "header" | "footer"; kind: DifferenceKind; document: Region | null; template: Region | null }
 	| { part: "body"; kind: DifferenceKind; document: BlockNode | null; template: BlockNode | null };
 
@@ -78,6 +89,8 @@ function joinText(nodes: unknown[]) {
 }
 
 const key = (value: unknown) => JSON.stringify(normal(value));
+/** Two values are the same when their comparable forms are: schema defaults filled, undeclared attributes dropped. */
+export const sameKey = key;
 
 /** A header or footer with no blocks prints nothing, so it counts as no region. */
 const region = (value: Region | null | undefined): Region | null => (value?.content?.length ? value : null);
@@ -141,35 +154,175 @@ function align(doc: readonly BlockNode[], tpl: readonly BlockNode[]): Step[] {
 	return steps;
 }
 
-type Plan = { differences: DocDifference[]; steps: Step[] };
+/** What an accept keeps or takes, part by part. A header or footer is the raw value, so an absent one stays absent. */
+type Picked = {
+	title: string;
+	page: PageSetup;
+	header: PageSetup["header"];
+	footer: PageSetup["footer"];
+	blocks: BlockNode[];
+};
+/** A list and the document parts that accepting the items numbered in `taken` gives. */
+type Plan = { differences: DocDifference[]; apply: (taken: ReadonlySet<number>) => Picked };
 
-function plan(doc: DocDocument, template: DocTemplate): Plan {
+/** "All differences": every difference between a document and a template, and what taking each gives. */
+function twoWay(doc: DocDocument, template: DocTemplate): Plan {
 	const differences: DocDifference[] = [];
-	const add = (d: DifferenceOf) => differences.push({ id: differences.length, ...d });
-	if (doc.title !== template.title)
-		add({ part: "title", kind: "changed", document: doc.title, template: template.title });
-	if (pageKey(doc.page) !== pageKey(template.page))
-		add({ part: "page", kind: "changed", document: layout(doc.page), template: layout(template.page) });
+	const add = (d: DifferenceOf) => differences.push({ id: differences.length, ...d }) - 1;
+	const title =
+		doc.title !== template.title
+			? add({ part: "title", kind: "changed", document: doc.title, template: template.title })
+			: null;
+	const page =
+		pageKey(doc.page) !== pageKey(template.page)
+			? add({ part: "page", kind: "changed", document: layout(doc.page), template: layout(template.page) })
+			: null;
 	const regionDiff = (part: "header" | "footer") => {
 		const mine = region(doc.page[part]);
 		const theirs = region(template.page[part]);
-		if (key(mine) === key(theirs)) return;
+		if (key(mine) === key(theirs)) return null;
 		const kind: DifferenceKind = !mine ? "template-only" : !theirs ? "document-only" : "changed";
-		add({ part, kind, document: mine, template: theirs });
+		return add({ part, kind, document: mine, template: theirs });
 	};
-	regionDiff("header");
-	const steps = align(doc.body.content ?? [], template.body.content ?? []);
-	for (const step of steps) {
-		if (step.op === "same") continue;
-		add({
-			part: "body",
-			kind: step.op,
-			document: "document" in step ? step.document : null,
-			template: "template" in step ? step.template : null,
-		});
+	const header = regionDiff("header");
+	const body = align(doc.body.content ?? [], template.body.content ?? []).map((step) => ({
+		step,
+		id:
+			step.op === "same"
+				? null
+				: add({
+						part: "body",
+						kind: step.op,
+						document: "document" in step ? step.document : null,
+						template: "template" in step ? step.template : null,
+					}),
+	}));
+	const footer = regionDiff("footer");
+	return {
+		differences,
+		apply(taken) {
+			const yes = (id: number | null) => id !== null && taken.has(id);
+			const blocks: BlockNode[] = [];
+			for (const { step, id } of body) {
+				if (step.op === "same") blocks.push(step.document);
+				else if (step.op === "changed") blocks.push(yes(id) ? step.template : step.document);
+				else if (step.op === "template-only") {
+					if (yes(id)) blocks.push(step.template);
+				} else if (!yes(id)) blocks.push(step.document);
+			}
+			return {
+				title: yes(title) ? template.title : doc.title,
+				page: yes(page) ? template.page : doc.page,
+				header: yes(header) ? template.page.header : doc.page.header,
+				footer: yes(footer) ? template.page.footer : doc.page.footer,
+				blocks,
+			};
+		},
+	};
+}
+
+/** How one side moved from the base: what became of each base block, and the blocks it added before each one. */
+type Track = {
+	/** Per base block: the side's block, the same or edited, or null when the side removed it. */
+	at: { block: BlockNode | null; edited: boolean }[];
+	/** `inserts[k]` comes before base block k; the last one after the last block. */
+	inserts: BlockNode[][];
+};
+function track(side: readonly BlockNode[], base: readonly BlockNode[]): Track {
+	const out: Track = { at: [], inserts: [[]] };
+	for (const step of align(side, base)) {
+		if (step.op === "document-only") {
+			out.inserts.at(-1)!.push(step.document);
+			continue;
+		}
+		out.at.push(
+			step.op === "template-only"
+				? { block: null, edited: false }
+				: { block: step.document, edited: step.op === "changed" },
+		);
+		out.inserts.push([]);
 	}
-	regionDiff("footer");
-	return { differences, steps };
+	return out;
+}
+
+/**
+ * "Template changes" (D-423, D-424): only what the template changed between `base` and `current`, each in its place
+ * among the document's blocks. A change the document already has, or a block the template removed or reworded that
+ * the document already removed, is not listed. Every block the template did not change keeps the document's version.
+ */
+function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Plan {
+	const differences: DocDifference[] = [];
+	const add = (d: DifferenceOf) => differences.push({ id: differences.length, ...d }) - 1;
+	/** One part with no blocks (title, page setup, header, footer): its item, or null when nothing is to take. */
+	function part<T>(mine: T | null, was: T | null, now: T | null, listed: (kind: DifferenceKind) => DifferenceOf) {
+		if (key(was) === key(now) || key(mine) === key(now)) return null;
+		if (mine === null && was !== null) return null;
+		return add(
+			listed(key(mine) !== key(was) ? "both" : was === null ? "template-only" : now === null ? "removed" : "changed"),
+		);
+	}
+	const title = part(doc.title, base.title, current.title, (kind) => ({
+		part: "title",
+		kind: kind as "changed" | "both",
+		document: doc.title,
+		template: current.title,
+	}));
+	const withDefaults = (page: PageSetup) => ({ ...PAGE_DEFAULTS, ...layout(page) });
+	const page = part(withDefaults(doc.page), withDefaults(base.page), withDefaults(current.page), (kind) => ({
+		part: "page",
+		kind: kind as "changed" | "both",
+		document: layout(doc.page),
+		template: layout(current.page),
+	}));
+	const regionPart = (name: "header" | "footer") => {
+		const [mine, now] = [region(doc.page[name]), region(current.page[name])];
+		return part(mine, region(base.page[name]), now, (kind) => ({ part: name, kind, document: mine, template: now }));
+	};
+	const header = regionPart("header");
+
+	// The body: the base's blocks in order, the blocks each side added before each one, then after the last.
+	const baseBlocks = base.body.content ?? [];
+	const mine = track(doc.body.content ?? [], baseBlocks);
+	const theirs = track(current.body.content ?? [], baseBlocks);
+	/** What one place prints: `keep` unless its item, `id`, is taken. */
+	const slots: { keep: BlockNode[]; take: BlockNode[]; id: number | null }[] = [];
+	for (let k = 0; k <= baseBlocks.length; k++) {
+		const added = mine.inserts[k]!;
+		slots.push({ keep: added, take: added, id: null });
+		for (const block of theirs.inserts[k]!) {
+			if (added.some((own) => key(own) === key(block))) continue;
+			slots.push({
+				keep: [],
+				take: [block],
+				id: add({ part: "body", kind: "template-only", document: null, template: block }),
+			});
+		}
+		if (k === baseBlocks.length) break;
+		const own = mine.at[k]!;
+		const now = theirs.at[k]!;
+		const keep = own.block ? [own.block] : [];
+		if (!own.block || (now.block && !now.edited) || (now.block && key(now.block) === key(own.block))) {
+			slots.push({ keep, take: keep, id: null });
+			continue;
+		}
+		const kind: DifferenceKind = own.edited ? "both" : now.block ? "changed" : "removed";
+		const id = add({ part: "body", kind, document: own.block, template: now.block });
+		slots.push({ keep, take: now.block ? [now.block] : [], id });
+	}
+	const footer = regionPart("footer");
+	return {
+		differences,
+		apply(taken) {
+			const yes = (id: number | null) => id !== null && taken.has(id);
+			return {
+				title: yes(title) ? current.title : doc.title,
+				page: yes(page) ? current.page : doc.page,
+				header: yes(header) ? current.page.header : doc.page.header,
+				footer: yes(footer) ? current.page.footer : doc.page.footer,
+				blocks: slots.flatMap((slot) => (yes(slot.id) ? slot.take : slot.keep)),
+			};
+		},
+	};
 }
 
 /**
@@ -178,61 +331,78 @@ function plan(doc: DocDocument, template: DocTemplate): Plan {
  * not a difference. Nothing outside the body is compared: the legal notice is never part of a document.
  */
 export function compareWithTemplate(doc: DocDocument, template: DocTemplate): DocDifference[] {
-	return plan(doc, template).differences;
+	return twoWay(doc, template).differences;
+}
+
+/**
+ * "Template changes": what the template changed from `base`, the version the document records, to `current`, in
+ * the same reading order and with the same field rule as `compareWithTemplate`. The church's own edits to blocks the
+ * template did not change are not listed.
+ */
+export function templateChanges(doc: DocDocument, base: DocTemplate, current: DocTemplate): DocDifference[] {
+	return threeWay(doc, base, current).differences;
 }
 
 /** The template fields a document does not declare. Accepting adds them, with their frozen values. */
 export const missingFields = (doc: DocDocument, template: DocTemplate): FieldDecl[] =>
 	template.fields.filter((field) => !doc.fields.some((mine) => mine.key === field.key));
 
+type AcceptWith = { origin: Origin; values: Record<string, unknown> };
+
 /**
- * The document after accepting the differences numbered in `accepted` ("all" accepts every one). An accepted
- * difference takes the template's side: a template block is added or replaces the document's, a document-only block is
- * removed. Every other block keeps the document's version. The document records `origin`, declares the template's
- * fields it lacked and freezes `values` for them.
+ * The document after accepting the items numbered in `accepted` ("all" accepts every one). The document records
+ * `origin`, declares the template's fields it lacked and freezes `values` for them.
  */
-export function acceptDifferences(
+function accept(
 	doc: DocDocument,
 	template: DocTemplate,
+	plan: Plan,
 	accepted: readonly number[] | "all",
-	{ origin, values }: { origin: Origin; values: Record<string, unknown> },
+	{ origin, values }: AcceptWith,
 ): DocDocument {
-	const { differences, steps } = plan(doc, template);
-	const taken = new Set(accepted === "all" ? differences.map((d) => d.id) : accepted);
-	const take = (part: DocDifference["part"]) => {
-		const found = differences.find((d) => d.part === part);
-		return found && taken.has(found.id) ? found : null;
-	};
-	const blocks: BlockNode[] = [];
-	const bodyDiffs = differences.filter((d) => d.part === "body");
-	let at = 0;
-	for (const step of steps) {
-		if (step.op === "same") {
-			blocks.push(step.document);
-			continue;
-		}
-		const yes = taken.has(bodyDiffs[at++]!.id);
-		if (step.op === "changed") blocks.push(yes ? step.template : step.document);
-		else if (step.op === "template-only") {
-			if (yes) blocks.push(step.template);
-		} else if (!yes) blocks.push(step.document);
-	}
-	const page: PageSetup = take("page") ? { ...template.page } : { ...doc.page };
+	const picked = plan.apply(new Set(accepted === "all" ? plan.differences.map((d) => d.id) : accepted));
+	const page: PageSetup = { ...picked.page };
 	for (const part of ["header", "footer"] as const) {
-		const chosen = take(part) ? template.page[part] : doc.page[part];
-		if (chosen === undefined) delete page[part];
-		else page[part] = chosen;
+		if (picked[part] === undefined) delete page[part];
+		else page[part] = picked[part];
 	}
 	const added = missingFields(doc, template);
 	const data = { ...doc.data };
 	for (const field of added) if (values[field.key] !== undefined) data[field.key] = values[field.key];
 	return structuredClone({
 		...doc,
-		title: take("title") ? template.title : doc.title,
+		title: picked.title,
 		origin,
 		fields: [...doc.fields, ...added],
 		data,
 		page,
-		body: { type: "doc", ...(blocks.length ? { content: blocks } : {}) },
+		body: { type: "doc", ...(picked.blocks.length ? { content: picked.blocks } : {}) },
 	});
+}
+
+/**
+ * Accepting from "All differences": an accepted difference takes the template's side: a template block is added or
+ * replaces the document's, a document-only block is removed. Every other block keeps the document's version.
+ */
+export function acceptDifferences(
+	doc: DocDocument,
+	template: DocTemplate,
+	accepted: readonly number[] | "all",
+	options: AcceptWith,
+): DocDocument {
+	return accept(doc, template, twoWay(doc, template), accepted, options);
+}
+
+/**
+ * Accepting from "Template changes": each accepted change is applied in its place among the document's own blocks;
+ * every block the church edited and the template did not change keeps the church's version.
+ */
+export function acceptTemplateChanges(
+	doc: DocDocument,
+	base: DocTemplate,
+	current: DocTemplate,
+	accepted: readonly number[] | "all",
+	options: AcceptWith,
+): DocDocument {
+	return accept(doc, current, threeWay(doc, base, current), accepted, options);
 }
