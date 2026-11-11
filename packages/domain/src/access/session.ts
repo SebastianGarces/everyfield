@@ -413,6 +413,12 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
 }
 /**
+ * A seat as it stands now, for a statement that runs with no session (a mail authorizer or worker): accepted by now and
+ * not ended. `alias` is a fixed table alias, never input.
+ */
+export const seatHeld = (alias: string) =>
+	sql`${sql.raw(alias)}.ended_at IS NULL AND ${sql.raw(alias)}.accepted_at <= clock_timestamp()`;
+/**
  * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
  * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
  * when `admin`, exactly `role` when it is named, and the same seat as the request's actor when `seatId` names it; no

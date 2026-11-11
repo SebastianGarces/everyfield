@@ -16,7 +16,7 @@ import {
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
-import { RequestActor, deny, jsonValue, parse, readReply } from "./core.ts";
+import { RequestActor, deny, jsonValue, parse, readReply, seatAccess } from "./core.ts";
 
 const oversightRow = z.object({
 	allowed: z.boolean(),
@@ -72,14 +72,7 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 		const result = await db.execute(sql`WITH allowed AS (
 				SELECT o.timezone FROM organization o
 				WHERE o.id = ${input.organizationId}::uuid AND o.kind = ${input.organizationKind}
-					AND EXISTS (
-						SELECT FROM live_session(${authority.session}::uuid) i
-						WHERE i.registration_state = 'active' AND i.account_id = ${authority.actor.accountId}::uuid
-							AND EXISTS (
-								SELECT FROM seat s WHERE s.account_id = i.account_id AND s.organization_id = o.id
-									AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-							)
-					)
+					AND ${seatAccess({ session: authority.session, account: authority.actor.accountId, tenant: input.organizationId, admin: true })}
 			),
 			bounds AS (
 				SELECT timezone,
@@ -94,6 +87,8 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 						FROM bounds b
 						JOIN affiliation a ON a.organization_id = ${input.organizationId}::uuid
 							AND a.plant_id IS NOT NULL AND a.ended_at IS NULL AND a.share_activity
+							AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = a.plant_id
+								AND w.state NOT IN ('active','cancelled'))
 						JOIN audit_event e ON e.tenant_id = a.plant_id
 							AND e.action IN (${sql.raw(actions)})
 							AND e.occurred_at >= CASE WHEN ${input.period} = 'owed_catchup' THEN b.start_at - interval '7 days' ELSE b.start_at END
@@ -128,14 +123,7 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 				COALESCE((SELECT weekday FROM notification_preference
 					WHERE account_id = ${authority.actor.accountId}::uuid AND category = 'planter_digest' AND weekday IS NOT NULL
 					LIMIT 1), p.digest_weekday)::int AS weekday,
-				EXISTS (
-					SELECT FROM live_session(${authority.session}::uuid) i
-					WHERE i.registration_state = 'active' AND i.account_id = ${authority.actor.accountId}::uuid
-						AND EXISTS (
-							SELECT FROM seat s WHERE s.account_id = i.account_id AND s.plant_id = p.id
-								AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-						)
-				) AS allowed
+				${seatAccess({ session: authority.session, account: authority.actor.accountId, tenant: input.plantId, admin: true })} AS allowed
 			FROM plant p WHERE p.id = ${input.plantId}::uuid`);
 		const row = planterRow.parse(
 			result.rows[0] ?? { timezone: null, in_app: null, cadence: null, weekday: null, hour: null, allowed: false },
@@ -162,14 +150,7 @@ type Execute = { execute: Database["execute"] };
 const DIGEST_LINES = 100;
 
 /** The recipient holds a current Owner or Admin seat in the tenant, and no lifecycle witness hides the account, seat or tenant. */
-const liveRecipient = (tenant: string, recipient: string) => sql`EXISTS (
-	SELECT FROM seat s JOIN account a ON a.id = s.account_id
-	WHERE s.account_id = ${recipient}::uuid AND (s.plant_id = ${tenant}::uuid OR s.organization_id = ${tenant}::uuid)
-		AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-		AND a.registration_state = 'active'
-		AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
-			w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = a.id)
-			OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = ${tenant}::uuid))))`;
+const liveRecipient = (tenant: string, recipient: string) => seatAccess({ account: recipient, tenant, admin: true });
 
 /** Whether the recipient still holds a current Owner or Admin seat in the tenant. One statement. */
 export async function digestRecipientLive(db: Execute, tenant: string, recipient: string) {

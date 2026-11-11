@@ -20,15 +20,6 @@ import {
 // passes a fixture port (preview/fixtures.ts). Every reply is parsed here by the WP-009 contract, so a screen sees a
 // contract value or one onboarding error, never raw data.
 
-export type CreatePlantResult = z.infer<typeof C.createPlantResult>;
-export type ConvertDiscoveryResult = z.infer<typeof C.convertDiscoveryResult>;
-export type CreateDiscoveryResult = z.infer<typeof C.createDiscoveryResult>;
-export type JourneyResult = z.infer<typeof C.journeyResult>;
-export type LeadAnswerResult = z.infer<typeof C.leadAnswerResult>;
-export type CompleteResult = z.infer<typeof C.completeOnboardingResult>;
-
-/** Raw values as they cross the wire. `signed_out` sends the page to sign-in; it never reaches a screen. */
-export type RawEntry = { kind: string; [key: string]: unknown };
 export interface OnboardingTransport {
 	entry(): Promise<unknown>;
 	command(op: Op, command: Command): Promise<unknown>;
