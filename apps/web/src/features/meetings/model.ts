@@ -2,6 +2,7 @@ import { dateText, timeText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // Words, filters and dates for the meetings screens. Pure functions only: the server and the browser both import this.
 
@@ -236,8 +237,6 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 // from those strings, never through the browser's zone, so the server and the browser print the same words.
 
 const LONG_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 function parts(localDate: string) {
 	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
 	return { y, m, d, weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };

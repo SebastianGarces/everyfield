@@ -31,7 +31,7 @@ import { useCallback, useRef, useState, type FormEvent } from "react";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
-import { useOwnSeatChange } from "../../people/PeopleFrame";
+import { useOwnSeatChange } from "../../shell/ProductFrame";
 import { FormMessage } from "../parts";
 import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
 import { RemoveDialog } from "./RemoveDialog";

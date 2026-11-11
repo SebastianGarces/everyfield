@@ -7,7 +7,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Connections } from "../Connections";
 import { InvitationResponse } from "../InvitationResponse";
-import { formatDay, noticeText } from "../model";
+import { noticeText } from "../model";
+import { formatDay } from "../../shared/dates.ts";
 import { PipelineAccessNote, PipelineTotals } from "../Pipeline";
 import { ResidencyDisclosure, ResidencySharing } from "../Residency";
 import {
