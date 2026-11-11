@@ -516,6 +516,9 @@
 	"identity.budget.finish": {
 		"limit": 1
 	},
+	"identity.budget.release": {
+		"limit": 1
+	},
 	"identity.budget.rememberRegistration": {
 		"limit": 1
 	},
