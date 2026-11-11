@@ -26,7 +26,7 @@ import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
 import { identityAuth } from "./auth.ts";
-import { attemptBudget, IdentityRefusal, transaction } from "./budget.ts";
+import { attemptBudget, IdentityRefusal, RateLimited, transaction } from "./budget.ts";
 import { InvitationRefusal } from "./invitation-core.ts";
 import type { createInvitationService } from "./invitations.ts";
 import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
@@ -469,7 +469,10 @@ export function createIdentityService(config: IdentityConfig) {
 			return json(
 				identityError.parse({
 					code,
-					details: code === "rate_limited" ? { retryAt: new Date(Date.now() + 3600_000).toISOString() } : {},
+					details:
+						refusal instanceof RateLimited
+							? { retryAt: new Date(Date.now() + refusal.windowMinutes * 60_000).toISOString() }
+							: {},
 					correlationId,
 					retry: code === "rate_limited" || code === "admission_unavailable" ? "same_request" : "never",
 				}),
