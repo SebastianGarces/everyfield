@@ -25,7 +25,12 @@ import { MONTHS } from "../shared/dates.ts";
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
 export type Member = z.infer<typeof c.memberRow>;
-export type ChartNode = z.infer<typeof c.chartNode>;
+/** A team as the list reads it, with its leader's name. */
+export type ListedTeam = z.infer<typeof c.listedTeam>;
+/** One ministry on the organization view, built from the list: its chosen icon shows on the chart. */
+export type ChartNode = Pick<ListedTeam, "id" | "name" | "icon" | "templateKey" | "archived" | "leaderName"> & {
+	parentId: ListedTeam["id"] | null;
+};
 export type HistoryEntry = z.infer<typeof c.historyEntry>;
 export type Catalog = z.infer<typeof c.catalogPage>;
 export type TeamState = Team["state"];
