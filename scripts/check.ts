@@ -233,7 +233,7 @@ export function checkCommand(args: string[], root: string): number {
 		console.error("usage: dev check [--full]");
 		return 2;
 	}
-	const { record, recordPath } = check({ root: process.env.EVF_WORKTREE ?? root, full });
+	const { record, recordPath } = check({ root, full });
 	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
 	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);
 	if (record.mode === "full") console.log(`Full because ${record.fullReasons.join("; ")}.`);

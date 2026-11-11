@@ -63,7 +63,7 @@ function stack(args: string[]): number {
 	if (!action || !["up", "status", "check", "down"].includes(action)) return usage();
 	if (action === "up") {
 		const options = [...rest],
-			project = take(options, "--project") ?? process.env.EVF_WORKTREE ?? root;
+			project = take(options, "--project") ?? root;
 		// A full preview pool makes the stack wait for a free slot (and free orphans first) instead of failing.
 		const slot = node(SLOTS, ["--project", project]);
 		if (slot.status !== 0) return slot.status ?? 1;
