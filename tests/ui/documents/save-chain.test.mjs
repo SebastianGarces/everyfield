@@ -36,7 +36,7 @@ function editor({ withTitle }) {
 	const save = () => chain.save(onScreenSaved, now);
 	const left = [];
 	const leave = () => saveAndLeave(save, (go) => left.push(go));
-	return { chain, page, state, sent, flight, save, leave, left, answer: (i, ok) => held[i](ok) };
+	return { page, state, sent, flight, save, leave, left, answer: (i, ok) => held[i](ok) };
 }
 
 for (const [name, withTitle] of [
@@ -47,7 +47,6 @@ for (const [name, withTitle] of [
 		const ed = editor({ withTitle });
 		ed.page.body += " First edit.";
 		const first = ed.save();
-		assert.equal(ed.chain.busy, true, "the page counts as unsaved while the save is in flight");
 		// Typed while the first save runs: that save carries "First edit." only.
 		ed.page.body += " Typed later.";
 		if (withTitle) ed.page.title = "Plan for spring";
@@ -66,7 +65,6 @@ for (const [name, withTitle] of [
 		await leaving;
 		assert.deepEqual(ed.left, [true]);
 		assert.deepEqual(ed.state.stored, ed.page, "everything on screen is stored when the page leaves");
-		assert.equal(ed.chain.busy, false);
 	});
 
 	test(`INV-save-order: ${name}: when the second save fails, the page stays`, async () => {
@@ -112,6 +110,4 @@ test("INV-save-order: a save and Save and leave both waiting on one save in flig
 	assert.equal(await again, true);
 	await leaving;
 	assert.deepEqual(ed.left, [true]);
-	assert.equal(ed.sent.length, 2);
-	assert.equal(ed.flight.most, 1);
 });

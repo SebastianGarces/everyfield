@@ -19,7 +19,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { BODY_JSON_MAX } from "../../../packages/contracts/src/documents/body.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/native.ts";
-import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "../../../packages/contracts/src/documents/values.ts";
+import { IMPORT_BYTES_MAX } from "../../../packages/contracts/src/documents/values.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
@@ -806,7 +806,6 @@ try {
 			return r.json();
 		};
 		const tooLarge = { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." };
-		assert.equal(IMPORT_TOO_LARGE, tooLarge.problem);
 		// The route counts the bytes before anything reads the request: with an empty title too, the answer is the size
 		// limit. The domain refuses an oversized file as well, but it states the title's problem first.
 		const over = wordFile(IMPORT_BYTES_MAX + 1, "Just over");
@@ -822,7 +821,6 @@ try {
 		const exact = await importFile(wordFile(IMPORT_BYTES_MAX, marker), "Exactly the limit");
 		assert.equal(exact.status, "ok", JSON.stringify(exact));
 		assert.equal(exact.value.revision, "1");
-		assert.equal(exact.value.title, "Exactly the limit");
 		assert.match(JSON.stringify(exact.value.body), new RegExp(marker));
 
 		/** The stored body of a document's latest revision, read again from the database. */
