@@ -81,8 +81,6 @@ export type Login = { name: string; password: string; /** Carries the search_pat
 
 export type TestDatabase<Role extends string> = {
 	schema: string;
-	/** The guarded admin URL, without a search_path. */
-	source: URL;
 	/** The admin (owner) pool, pinned to `schema`. */
 	admin: Database;
 	/** One pool per role, pinned to `schema`. */
@@ -159,7 +157,6 @@ export async function testDatabase<Role extends string = "runtime">({
 	}
 	return {
 		schema,
-		source,
 		admin,
 		pools,
 		logins,

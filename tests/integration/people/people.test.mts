@@ -5,7 +5,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { effectiveAdult, effectiveAdultSql, plantTodaySql } from "../../../packages/domain/src/people/adult.ts";
