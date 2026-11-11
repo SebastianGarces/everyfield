@@ -22,7 +22,7 @@ It reads only two things, both read-only:
 | Command | Purpose |
 |---|---|
 | `~/.cargo/bin/evf status --json` (cwd `~/dev/everyfield_v3`, the main checkout) | tasks, seats, decisions, heartbeat, `tick_error`, seat budget |
-| `/opt/homebrew/bin/gh run list --repo SebastianGarces/everyfield --branch main --workflow CI --event push --limit 10 --json headSha,status,conclusion,createdAt` | main CI head and conclusion |
+| `/opt/homebrew/bin/gh run list --repo SebastianGarces/everyfield --branch main --workflow CI --limit 10 --json headSha,status,conclusion,createdAt` | main CI head and conclusion |
 
 Each command has a 20 s timeout. It reads no evf store, config, dashboard API, cookie or token.
 

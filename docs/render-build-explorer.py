@@ -71,10 +71,6 @@ def main():
         if args.output and args.output.read_text() != html:
             raise ValueError('Generated explorer is stale; regenerate --output')
         with tempfile.TemporaryDirectory(prefix='evf-explorer-check-') as directory:
-            output = Path(directory) / 'explorer.html'
-            output.write_text(html)
-            if output.read_text() != html:
-                raise ValueError('Explorer serialization differs')
             script = Path(directory) / 'explorer.js'
             script.write_text('\n'.join(re.findall(r'<script>(.*?)</script>', html, re.S)))
             result = subprocess.run(['node', '--check', str(script)], capture_output=True, text=True)

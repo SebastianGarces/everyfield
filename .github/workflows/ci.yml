@@ -124,6 +124,10 @@ jobs:
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
+      # The launchd watcher (ops/actionable-watch). Its one plutil test needs macOS and is skipped here.
+      - name: Actionable watcher
+        if: ${{ !cancelled() }}
+        run: node --test ops/actionable-watch/test/*.test.mts
       # The wiki tool has its own lockfile outside the workspace.
       - name: Wiki tool install
         if: ${{ !cancelled() }}

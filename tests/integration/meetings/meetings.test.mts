@@ -801,7 +801,7 @@ test("BUG-WP-020-guest-history: a Person created from a guest list or at the doo
 	}
 });
 
-test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
+test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
 	const memberPerson = await person("Morgan", { account: actors[1].id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
@@ -927,6 +927,18 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 		),
 		0,
 	);
+	// The own reply is open only until the meeting is completed or cancelled.
+	assert.equal(ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id })).responseAllowed, true);
+	for (const status of ["completed", "cancelled"]) {
+		await admin.execute(sql`UPDATE meeting SET status=${status} WHERE id=${m.id}`);
+		const closed = ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id }));
+		assert.deepEqual([closed.rsvp, closed.responseAllowed], ["confirmed", false], status);
+		refused(
+			await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined" } }, 1),
+			"status_transition",
+		);
+	}
+	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {
