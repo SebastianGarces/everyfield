@@ -1747,6 +1747,8 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
+	// While the request is pending, the same login reaches no viewer.
+	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const measured = async (body) => {
 		statements.length = 0;
@@ -1765,4 +1767,35 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(cancelled.value.status, "cancelled");
 	// BEGIN, SAVEPOINT, the locking read, RELEASE, COMMIT.
 	assert.equal(status.count, 5);
+	// Kept: the original email and password sign in again to a working account.
+	const fresh = await login(a);
+	assert.notEqual(await viewerOf(fresh), null);
+	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
+	const a = await actor();
+	const account = ok(await section(a, { section: "account" }));
+	const notifications = ok(await section(a, { section: "notifications" }));
+	assert.equal(notifications.revision, account.revision);
+	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
+	// A name save moves the revision the notifications section reads; a toggle sent with the old one is refused.
+	const named = ok(
+		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
+	);
+	assert.notEqual(named.current.revision, account.revision);
+	assert.equal(ok(await section(a, { section: "notifications" })).revision, named.current.revision);
+	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
+	assert.equal(stale.status, "refused", JSON.stringify(stale));
+	assert.equal(stale.error.code, "conflict");
+	// The toggle with the shared revision saves, and moves the revision Your account reads in turn.
+	const toggled = ok(
+		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
+	);
+	assert.equal(ok(await section(a, { section: "account" })).revision, toggled.current.revision);
+	denied(
+		await call("saveSection", a, command({ section: "account", name: "Too Old" }, named.current.revision)),
+		"conflict",
+	);
+	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });

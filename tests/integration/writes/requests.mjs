@@ -557,7 +557,7 @@ try {
 		chunk("IDAT", deflateSync(pixels)),
 		chunk("IEND", Buffer.alloc(0)),
 	]);
-	const asset = (name, method, id, cookie, body) =>
+	const asset = (name, method, id, cookie, body, extra = {}) =>
 		fetch(`${origin}/api/brand/assets/${id}`, {
 			method,
 			headers: {
@@ -565,6 +565,7 @@ try {
 				cookie,
 				origin,
 				...(body ? { "content-type": "image/png" } : {}),
+				...extra,
 			},
 			body,
 		});
@@ -589,6 +590,16 @@ try {
 	assert.equal(served.headers.get("cache-control"), "private, no-cache");
 	assert.equal(served.headers.get("x-content-type-options"), "nosniff");
 	assert.equal((await served.arrayBuffer()).byteLength > 0, true);
+	// INV-brand-asset-route: a 304 revalidation rechecks the seat and the kit's current reference (setup requests).
+	const etag = served.headers.get("etag");
+	assert.equal(served.headers.get("content-type"), "image/png");
+	assert.match(etag, /^"[0-9a-f]{32}"$/);
+	const revalidate = async (cookie) => {
+		const r = await asset(null, "GET", fileId, cookie, undefined, { "if-none-match": etag });
+		return [r.status, (await r.arrayBuffer()).byteLength];
+	};
+	assert.deepEqual(await revalidate(owner.cookie), [304, 0]);
+	for (const cookie of [member.cookie, ""]) assert.deepEqual(await revalidate(cookie), [404, 0]);
 	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
 		{ assetKind: "full_logo" },
 	]);
@@ -616,6 +627,7 @@ try {
 	assert.equal(removed.status, "ok", JSON.stringify(removed));
 	assert.equal(removed.value.assets.full_logo, null);
 	assert.equal((await asset(null, "GET", fileId, owner.cookie)).status, 404, "a removed file is not served");
+	assert.deepEqual(await revalidate(owner.cookie), [404, 0], "a removed file does not revalidate");
 
 	// The phase journey (WP-038): a declaration, then a backward move with its reason. Each is one write request.
 	const phases = "apps/web/src/features/phases/actions.ts";
