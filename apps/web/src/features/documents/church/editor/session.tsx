@@ -194,7 +194,8 @@ export function LeaveDialog({
 						loading={saving}
 						onClick={async () => {
 							setSaving(true);
-							const saved = await onSave();
+							// A save that throws must not leave the dialog locked on "saving".
+							const saved = await onSave().catch(() => false);
 							setSaving(false);
 							finish(saved);
 						}}

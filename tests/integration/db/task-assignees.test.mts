@@ -23,7 +23,11 @@ if (
 )
 	throw Error("Only approved shared development direct endpoint allowed");
 if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const admin = createDatabase({ connectionString: source.href, max: 2, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+const admin = createDatabase({
+	connectionString: source.href,
+	max: 2,
+	options: `-c search_path=${schema},pg_catalog,pg_temp`,
+});
 const run = (q: ReturnType<typeof querySql>) => admin.execute(q);
 let directory = "";
 before(async () => {
@@ -41,7 +45,10 @@ test("AC:TARGET-TSK-002 criterion 1: each task keeps its single assignee after t
 	const migration = names.find((name) => name.endsWith(NEW));
 	assert.ok(migration, "the task_assignees migration is registered");
 	for (const name of names.filter((name) => name !== migration))
-		await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, pathToFileURL(directory + "/")));
+		await copyFile(
+			new URL("../../../packages/db/migrations/" + name, import.meta.url),
+			new URL(name, pathToFileURL(directory + "/")),
+		);
 	await migrate(admin, schema, pathToFileURL(directory + "/"));
 
 	const plant = randomUUID(),

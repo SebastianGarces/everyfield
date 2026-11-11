@@ -46,7 +46,8 @@ export const REASON_MESSAGE: Record<ReasonProblem, string> = {
 
 /** The message a refused or lost change shows next to the control that sent it. */
 export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }>): string {
-	if (outcome.status === "lost") return "We could not reach Everyfield. Nothing changed. Try again in a moment.";
+	if (outcome.status === "lost")
+		return "Everyfield's answer did not come back, so the phase may not have changed. Try again: the same change will not apply twice.";
 	const error = outcome.error;
 	switch (error.code) {
 		case "invalid_reason":
@@ -59,6 +60,33 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 			return "Only an Owner or Admin can change the phase. Your seat may have changed.";
 		default:
 			return "Nothing changed. Reload the page and try again.";
+	}
+}
+
+/**
+ * One request key per intent: the same move or declaration from the same revision reuses its key, so a retry after a
+ * lost answer replays the first write instead of applying it again. A settled answer (ok or refused) drops the key.
+ */
+export function requestKeys(fresh: () => string) {
+	const keys = new Map<string, string>();
+	return {
+		keyFor(intent: readonly unknown[]) {
+			const id = JSON.stringify(intent);
+			if (!keys.has(id)) keys.set(id, fresh());
+			return keys.get(id)!;
+		},
+		settle(intent: readonly unknown[]) {
+			keys.delete(JSON.stringify(intent));
+		},
+	};
+}
+
+/** A server action's call, with a rejected one (offline, a dropped connection) read as a lost answer. */
+export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
+	try {
+		return await call();
+	} catch {
+		return { status: "lost" };
 	}
 }
 

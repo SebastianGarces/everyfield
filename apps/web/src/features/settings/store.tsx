@@ -262,11 +262,15 @@ export function useSection<S extends SectionResult["section"]>(
 		let live = true;
 		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
 		const seeded = attempt === 0 && seed && "request" in seed && cacheKeyOf(seed.request) === key ? seed.value : null;
-		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
-			if (!live) return;
-			if (reply.status === "ok") remember(key, reply.value);
-			else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
-		});
+		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then(
+			(reply) => {
+				if (!live) return;
+				if (reply.status === "ok") remember(key, reply.value);
+				else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
+			},
+			// The call itself failed (no connection): show the retry state instead of staying on the skeleton.
+			() => live && setFailure({ key, attempt, meta: "Everyfield could not be reached. Check your connection." }),
+		);
 		return () => {
 			live = false;
 		};

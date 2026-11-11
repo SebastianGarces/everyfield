@@ -578,7 +578,7 @@ export function createInvitationService(config: InvitationConfig) {
 					or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
 				),
 			);
-		return !!i && (await describe({ proof })).status === "pending";
+		return !!i;
 	}
 	async function resume(session: string, proof: string, requestKey: string) {
 		return accept(session, undefined, false, { proof, requestKey });

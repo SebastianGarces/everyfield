@@ -25,10 +25,17 @@ const MARKS = new Set(["bold", "italic", "underline", "link"]);
 type Rec = Record<string, unknown>;
 const isRec = (value: unknown): value is Rec => !!value && typeof value === "object" && !Array.isArray(value);
 
+/** Deeper than any native body nests (doc, list, item, list, ... ), and far below what the call stack holds. */
+const DEPTH_MAX = 64;
+
 /** The faults that keep a node out of the native set: an unknown node, attribute or mark, or an unsafe link. */
-function nativeFaults(node: unknown, path: string, faults: string[]) {
+function nativeFaults(node: unknown, path: string, faults: string[], depth = 0) {
 	if (faults.length >= 20) return;
 	if (!isRec(node)) return;
+	if (depth > DEPTH_MAX) {
+		faults.push(`${path}: a plain document cannot nest this deep`);
+		return;
+	}
 	const type = String(node.type);
 	const attrs = NODE_ATTRS[type];
 	if (!attrs || !Object.hasOwn(NODE_ATTRS, type)) {
@@ -49,7 +56,7 @@ function nativeFaults(node: unknown, path: string, faults: string[]) {
 			}
 		}
 	if (Array.isArray(node.content))
-		node.content.forEach((child, i) => nativeFaults(child, `${path}.content[${i}]`, faults));
+		node.content.forEach((child, i) => nativeFaults(child, `${path}.content[${i}]`, faults, depth + 1));
 }
 
 /** The envelope the format rules need around a body. Nothing of it is stored. */

@@ -196,17 +196,19 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		invitation = await f.invitation(s),
 		accepted = await f.invitations.accept(s.recipient.session, invitation.claim),
 		duty = key();
-	await insertTasks(f.admin, [{
-		id: duty,
-		plant_id: s.w.id,
-		title: "Original duty",
-		category: "general",
-		priority: "medium",
-		status: "not_started",
-		created_at: new Date(),
-		assignee_id: s.recipient.id,
-		due_kind: "undated",
-	}]);
+	await insertTasks(f.admin, [
+		{
+			id: duty,
+			plant_id: s.w.id,
+			title: "Original duty",
+			category: "general",
+			priority: "medium",
+			status: "not_started",
+			created_at: new Date(),
+			assignee_id: s.recipient.id,
+			due_kind: "undated",
+		},
+	]);
 	const command = {
 		requestKey: key(),
 		expectedRevision: "1",
