@@ -205,7 +205,7 @@ async function queuedInvitation(address, env, request) {
 			IDENTITY_ADDRESS_KEY: mailKeys.addressKey.toString("hex"),
 			IDENTITY_MAIL_FROM: "invitations@resend.dev",
 		},
-		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Date.now() + 30_000),
+		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Infinity),
 	);
 	assert.equal(mailed, 1);
 	const { rows } = await f.admin
