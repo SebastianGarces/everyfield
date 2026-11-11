@@ -12,7 +12,7 @@
 		"./migrate": "./src/schema/migrate.ts"
 	},
 	"scripts": {
-		"typecheck": "tsc --noEmit",
+		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 .",
 		"export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export.ts",

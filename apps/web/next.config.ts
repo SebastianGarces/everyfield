@@ -1,4 +1,5 @@
 import path from "node:path";
+import { BODY_JSON_MAX, IMPORT_BYTES_MAX } from "@everyfield/contracts/documents";
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
@@ -34,10 +35,16 @@ const config: NextConfig = {
 	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
 	experimental: {
 		optimizePackageImports: ["@hugeicons/core-free-icons"],
-		// A person photo goes to the server action as form data, up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005), and the 1 MB
-		// default refused it before the action ran (peo-51). 64 KiB above it holds the form's other fields and its
-		// multipart framing, so a larger file is still refused before any action code runs.
-		serverActions: { bodySizeLimit: 3 * 1024 * 1024 + 64 * 1024 },
+		// The largest valid server action is a Church Document or written-document save: a body of at most BODY_JSON_MAX
+		// JSON characters, at most 3 UTF-8 bytes each, plus the title and the action's request envelope (64 KiB). Next's
+		// default of 1 MB refused saves the editor allows. A file import is not an action: it posts raw bytes to its own
+		// route (/documents/written/import).
+		// It also covers a person photo, sent to its action as form data up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005, peo-51).
+		serverActions: { bodySizeLimit: 3 * BODY_JSON_MAX + 64 * 1024 },
+		// The proxy (src/proxy.ts) runs on /documents/* and buffers at most this much of a request body, cutting the rest.
+		// An import of IMPORT_BYTES_MAX passes whole, and a file just over it still reaches the import route, which
+		// counts its bytes and answers with the stated limit.
+		proxyClientMaxBodySize: IMPORT_BYTES_MAX + 64 * 1024,
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
 	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.
