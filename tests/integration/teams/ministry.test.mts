@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
-import { teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import {
 	createRsvpToken,
 	describeRsvpToken,
@@ -367,6 +367,23 @@ test("AC:TARGET-TEAM-001 a ministry lists its meetings, upcoming first, then pas
 	assert.deepEqual(await list(empty.id, 1), []);
 });
 
+test("the ministries list carries each leader's name, and a stale write reads the revision alone", async () => {
+	const led = await makeTeam("Greeting");
+	const unled = await makeTeam("Parking");
+	const role = await makeRole(led.id, "Greeting lead", { leadership: true });
+	await assign(led, role, await person("Greta Greeter", { stage: "launch_team" }));
+	const items = ok(await teamsReader.list(db, await viewer(), {})).items;
+	assert.equal(items.find((t) => t.id === led.id).leaderName, "Greta Greeter");
+	assert.equal(items.find((t) => t.id === unled.id).leaderName, null);
+	// The revision read answers the ministry's current revision, the one the next write must send.
+	assert.deepEqual(ok(await teamsReader.readRevision(db, await viewer(), { teamId: led.id })), {
+		teamId: led.id,
+		revision: await rev("team", led.id),
+	});
+	refused(await teamsReader.readRevision(db, await viewer(3), { teamId: led.id }), "access_denied");
+	refused(await teamsReader.readRevision(db, await viewer(), { teamId: randomUUID() }));
+});
+
 test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a leader and keeps their history", async () => {
 	const team = await makeTeam("Hospitality");
 	const role = await makeRole(team.id, "Hospitality lead", { leadership: true });
@@ -389,6 +406,7 @@ test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a l
 	);
 	const teams = ok(await teamsReader.list(db, await viewer(), {})).items;
 	assert.equal(teams.find((t) => t.id === team.id).leaderPersonId, null);
+	assert.equal(teams.find((t) => t.id === team.id).leaderName, null);
 	const chart = ok(await teamsReader.readOrgChart(db, await viewer(), {})).nodes;
 	assert.equal(chart.find((n) => n.id === team.id).leaderName, null);
 	// The ministry's history records the leader leaving with the seat, after the role was filled.
@@ -615,6 +633,58 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "access_denied");
 	// Reading the history rewrites no stored audit row.
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
+});
+
+test("training filed under a ministry never shows in that ministry's history", async () => {
+	const team = await makeTeam("Training history");
+	const role = await makeRole(team.id, "Usher");
+	const pat = await person("Pat Training", { stage: "launch_team" });
+	await assign(team, role, pat);
+	const history = async () => ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
+	const shown = (entries) => entries.map((e) => [e.kind, e.subject, e.about]);
+	const before = await history();
+	assert.deepEqual(shown(before), [
+		["assign", "tenure", { personName: "Pat Training", roleName: "Usher" }],
+		["create", "role", { personName: null, roleName: "Usher" }],
+		["create", "ministry", null],
+	]);
+	// A program and its roster (assignments) are filed under the ministry's id; the credit is filed under the person.
+	const program = ok(
+		await run(trainingWriter.createProgram, {
+			requestKey: key(),
+			input: { name: "Usher basics", required: true, teamId: team.id },
+		}),
+	).program;
+	const seen = ok(
+		await trainingReader.readRequiredTrainingPreview(db, await viewer(), { programId: program.id, personIds: [pat] }),
+	);
+	ok(
+		await run(trainingWriter.setRequiredTrainingParticipants, {
+			requestKey: key(),
+			expectedRevision: seen.revision,
+			input: { programId: program.id, personIds: [pat], rosterDigest: seen.rosterDigest },
+		}),
+	);
+	ok(
+		await run(trainingWriter.attestCompletion, {
+			requestKey: key(),
+			expectedRevision: await rev("training_program", program.id),
+			input: { kind: "program", personId: pat, programId: program.id, earnedOn: day(0) },
+		}),
+	);
+	const filed = (
+		await admin.execute(
+			sql`SELECT DISTINCT subject_type FROM audit_event WHERE subject_id=${team.id} AND subject_type LIKE 'training%'
+				ORDER BY subject_type`,
+		)
+	).rows.map((r) => r.subject_type);
+	assert.deepEqual(filed, ["training_assignment", "training_program"]);
+	const after = await history();
+	assert.deepEqual(
+		after.map((e) => e.id),
+		before.map((e) => e.id),
+	);
+	assert.deepEqual(shown(after), shown(before));
 });
 
 const leaderOf = async (teamId) =>

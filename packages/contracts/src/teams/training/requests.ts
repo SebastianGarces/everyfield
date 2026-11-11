@@ -71,8 +71,9 @@ export const recordTeamAttendanceRequest = commandEnvelope(
 		personIds: z.array(personId).max(200),
 	}),
 );
-export const listTrainingRequest = z.strictObject({});
-export const trainingMatrixRequest = z.strictObject({});
+/** With a teamId, only that ministry's programs and the church-wide ones (no ministry) are read, before the cap. */
+export const listTrainingRequest = z.strictObject({ teamId: recordId.optional() });
+export const trainingMatrixRequest = z.strictObject({ teamId: recordId.optional() });
 export const personTrainingRequest = z.strictObject({ personId });
 export const trainingHistoryRequest = z.strictObject({ personId });
 export const staffingFactsRequest = z.strictObject({ teamId: recordId });
