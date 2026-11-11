@@ -18,6 +18,7 @@ const FIRST_SHOWN = 10;
 
 export function ChurchRevisions({
 	revisions,
+	truncated,
 	current,
 	formats,
 	exporting,
@@ -26,6 +27,8 @@ export function ChurchRevisions({
 }: {
 	/** Newest first. */
 	revisions: RevisionRow[];
+	/** True when the document has older revisions than `revisions` holds. */
+	truncated: boolean;
 	current: number;
 	formats: readonly Format[];
 	/** The row download running now. */
@@ -100,8 +103,13 @@ export function ChurchRevisions({
 			</ul>
 			{revisions.length > shown.length ? (
 				<Button variant="ghost" className="self-start" onClick={() => setAll(true)}>
-					Show all {revisions.length} revisions
+					{truncated ? `Show the newest ${revisions.length} revisions` : `Show all ${revisions.length} revisions`}
 				</Button>
+			) : null}
+			{truncated ? (
+				<p className="text-sm text-text-3 text-pretty">
+					Only the newest {revisions.length} revisions are listed. Older revisions are kept but not shown here.
+				</p>
 			) : null}
 		</section>
 	);
