@@ -1094,3 +1094,49 @@ test("AC:S2-11 the session account is the actor", async () => {
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
 	}
 });
+
+test("a ministry's own programs are listed with its roster even when the church has more than 100", async () => {
+	const own = await makeTeam("Zion choir");
+	const other = await makeTeam("Aardvark crew");
+	const mine = await program("Zion choir basics", { teamId: own.id, required: true });
+	const churchWide = await program("Zion church welcome", { required: false });
+	const singer = await person("Zion Singer");
+	await assign(await makeRole(own.id, "Alto"), own.id, singer);
+	await saveRoster(mine.id, [singer]);
+	// 101 programs of another ministry whose names sort before this ministry's own, so the church-wide cap cuts it.
+	await admin.execute(sql`INSERT INTO training_program(plant_id, team_id, name, required)
+		SELECT ${P}::uuid, ${other.id}::uuid, 'Aardvark ' || lpad(n::text, 3, '0'), false FROM generate_series(1, 101) n`);
+	try {
+		const all = ok(await trainingReader.listTraining(db, await viewer(), {}));
+		assert.equal(all.programs.length, 100);
+		assert.equal(
+			all.programs.some((p) => p.id === mine.id),
+			false,
+		);
+		const listed = ok(await trainingReader.listTraining(db, await viewer(), { teamId: own.id }));
+		assert.equal(
+			listed.programs.some((p) => p.id === mine.id),
+			true,
+		);
+		assert.equal(
+			listed.programs.some((p) => p.id === churchWide.id),
+			true,
+		);
+		assert.equal(
+			listed.programs.every((p) => p.teamId === own.id || p.teamId === null),
+			true,
+		);
+		const matrix = ok(await trainingReader.readTrainingMatrix(db, await viewer(), { teamId: own.id }));
+		assert.deepEqual(matrix.programs.find((p) => p.id === mine.id)?.personIds, [singer]);
+		assert.equal(
+			matrix.programs.some((p) => p.id === churchWide.id),
+			true,
+		);
+		assert.equal(
+			matrix.programs.some((p) => p.name.startsWith("Aardvark ")),
+			false,
+		);
+	} finally {
+		await admin.execute(sql`DELETE FROM training_program WHERE team_id = ${other.id}::uuid`);
+	}
+});

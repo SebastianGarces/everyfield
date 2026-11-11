@@ -30,13 +30,17 @@ async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) =
 	}
 }
 
-/** Programs and, beside them, who is on each required list. The list still shows when the assignment read fails. */
-export async function loadTraining(): Promise<Outcome<TrainingLoad>> {
+/**
+ * One ministry's programs and the church-wide ones and, beside them, who is on each required list. The ministry is
+ * filtered before the church-wide cap, so a church with many programs still lists all of this ministry's own. The
+ * list still shows when the assignment read fails.
+ */
+export async function loadTraining(teamId: string): Promise<Outcome<TrainingLoad>> {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	const [list, matrix] = await Promise.all([
-		read(viewer, (db, authority) => trainingReader.listTraining(db, authority, {})),
-		read(viewer, (db, authority) => trainingReader.readTrainingMatrix(db, authority, {})),
+		read(viewer, (db, authority) => trainingReader.listTraining(db, authority, { teamId })),
+		read(viewer, (db, authority) => trainingReader.readTrainingMatrix(db, authority, { teamId })),
 	]);
 	const programs = outcome(list);
 	if (programs.status !== "ok") return programs;

@@ -3,12 +3,13 @@ import { read as readMeetings, type Viewer } from "../meetings/server.ts";
 import { meetingsReader } from "@everyfield/domain/meetings";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { teamsReader, withTeamsWrite } from "@everyfield/domain/teams";
+import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
-import type { ChartNode, Member, Outcome, Role, Team } from "./model.ts";
+import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
 
 // The teams screens' data access. Every producer read is one statement without locks, so a page sends its reads side
-// by side on the request's pool: the page waits for one round trip, not four. Writes run in their own transaction
+// by side on the request's pool: the ministries list sends one read and a ministry page four (the team list, its roles,
+// its people and its team meetings), and each page waits for one round trip. Writes run in their own transaction
 // through the producer's native write, which checks the seat and the team leader inside it.
 
 export type { Viewer };
@@ -51,12 +52,20 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 }
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
 
-/** A team as the screens show it: the team, its leader's name, and whether this viewer may change it. */
-export type TeamCard = Team & { leaderName: string | null };
-function cards(teams: readonly Team[], nodes: readonly ChartNode[]): TeamCard[] {
-	const leader = new Map(nodes.map((n) => [n.id, n.leaderName]));
-	return teams.map((t) => ({ ...t, leaderName: leader.get(t.id) ?? null }));
-}
+/** A team as the screens show it: the team and its leader's name. */
+export type TeamCard = ListedTeam;
+/** The organization view's nodes, drawn from the list with the producer's own root rule. */
+const chartOf = (teams: readonly ListedTeam[]): ChartNode[] =>
+	withParents(
+		teams.map(({ id, name, icon, templateKey, archived, leaderName }) => ({
+			id,
+			name,
+			icon,
+			templateKey,
+			archived,
+			leaderName,
+		})),
+	);
 /** Owners and Admins change every ministry; the linked leader changes their own (the producer decides again). */
 export const canChange = (viewer: Viewer, team: Pick<Team, "leaderPersonId">) =>
 	isAdmin(viewer) || (viewer.ownPersonId !== null && team.leaderPersonId === viewer.ownPersonId);
@@ -64,16 +73,12 @@ export const canChange = (viewer: Viewer, team: Pick<Team, "leaderPersonId">) =>
 export type TeamsView = Awaited<ReturnType<typeof loadTeams>>;
 /**
  * The ministries list and the organization view: every team (archived ones too, so the switch to show them sends no
- * read) and the chart's nodes, which carry each leader's name. Two reads side by side.
+ * read) with its leader's name, and the chart's nodes drawn from that same list. One read.
  */
 export async function loadTeams(viewer: Viewer) {
-	const [list, chart] = await Promise.all([
-		read(viewer, (db, a) => teamsReader.list(db, a, { includeArchived: true })),
-		read(viewer, (db, a) => teamsReader.readOrgChart(db, a, { includeArchived: true })),
-	]);
-	const teams = value(list);
-	const nodes = value(chart)?.nodes ?? [];
-	return { teams: teams ? cards(teams.items, nodes) : null, nodes };
+	const list = value(await read(viewer, (db, a) => teamsReader.list(db, a, { includeArchived: true })));
+	const teams: TeamCard[] | null = list ? list.items : null;
+	return { teams, nodes: teams ? chartOf(teams) : [] };
 }
 
 export type TeamView = Extract<Awaited<ReturnType<typeof loadTeam>>, { status: "found" }>;
@@ -82,22 +87,21 @@ export type TeamView = Extract<Awaited<ReturnType<typeof loadTeam>>, { status: "
  * side by side. Only the team itself decides found or not found; a part that fails shows its own error in place.
  */
 export async function loadTeam(viewer: Viewer, teamId: string) {
-	const [list, chart, roles, members, meetings] = await Promise.all([
+	const [list, roles, members, meetings] = await Promise.all([
 		read(viewer, (db, a) => teamsReader.list(db, a, { includeArchived: true })),
-		read(viewer, (db, a) => teamsReader.readOrgChart(db, a, { includeArchived: true })),
 		read(viewer, (db, a) => teamsReader.listRoles(db, a, { teamId })),
 		read(viewer, (db, a) => teamsReader.listMembers(db, a, { teamId })),
 		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: 50 })),
 	]);
 	if (list.status === "failed") return { status: "failed" } as const;
-	const team = list.status === "ok" ? list.value.items.find((t) => t.id === teamId) : undefined;
+	const teams: TeamCard[] = list.status === "ok" ? list.value.items : [];
+	const team = teams.find((t) => t.id === teamId);
 	if (!team) return { status: "missing" } as const;
-	const nodes = value(chart)?.nodes ?? [];
 	const page = value(members);
 	return {
 		status: "found",
-		team: cards([team], nodes)[0]!,
-		nodes,
+		team,
+		nodes: chartOf(teams),
 		roles: (value(roles)?.roles ?? null) as Role[] | null,
 		members: (page?.members ?? null) as Member[] | null,
 		past: (page?.history ?? null) as Member[] | null,
@@ -113,6 +117,9 @@ export const readMinistries = async (viewer: Viewer): Promise<Outcome<Pick<Team,
 	const r = outcome(await read(viewer, (db, a) => teamsReader.list(db, a, {})));
 	return r.status === "ok" ? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, name: t.name })) } : r;
 };
+/** The ministry's current revision alone, for a write refused as stale. One statement. */
+export const readRevision = (viewer: Viewer, teamId: string) =>
+	read(viewer, (db, a) => teamsReader.readRevision(db, a, { teamId }));
 /** The ministry's history, read when the person opens it. */
 export const readHistory = (viewer: Viewer, teamId: string) =>
 	read(viewer, (db, a) => teamsReader.listHistory(db, a, { teamId }));
