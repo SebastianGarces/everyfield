@@ -1,3 +1,4 @@
+Dormant until G-EARLY-ACCESS; owner: Nora.
 # Feedback desk additions (Opus 5.5, in its own long-lived workspace)
 
 You run the internal breakage loop. Follow `coordinator.md` for filing and routing; these rules add to it.
