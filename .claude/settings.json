@@ -30,9 +30,7 @@
 			"Bash(git branch -d *)",
 			"Bash(git worktree remove*)",
 			"Bash(git worktree prune*)",
-			"Read(./.env*)",
-			"Read(./apps/web/.env*)",
-			"Read(./packages/**/.env*)"
+			"Read(./**/.env*)"
 		]
 	}
 }
