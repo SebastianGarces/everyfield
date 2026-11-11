@@ -41,8 +41,11 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 	const frozen = new Map(manifest.files.map((file) => [file.name, file.sha256]));
 	for (const file of manifest.files)
 		if (!files.includes(file.name)) throw Error("Missing frozen migration " + file.name);
+	const auditActions: { name: string; actions: string[] }[] = [];
 	for (const name of files) {
 		const bytes = await readFile(new URL(name, directory));
+		const list = /^\d{14}_/.test(name) ? lastAuditActionList(bytes.toString("utf8")) : undefined;
+		if (list) auditActions.push({ name, actions: list });
 		if (frozen.has(name)) {
 			if (createHash("sha256").update(bytes).digest("hex") !== frozen.get(name))
 				throw Error("Frozen migration changed: " + name);
@@ -51,5 +54,22 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 			assertUnqualifiedOwnTables(bytes.toString("utf8"), ownTableNames);
 			assertQualifiedVectorTypes(bytes.toString("utf8"));
 		}
+	}
+	assertAdditiveAuditActions(auditActions);
+}
+const auditActionCheck = /ADD CONSTRAINT "audit_action" CHECK \(\(action IN \(([^)]*)\)\)\)/g;
+/** The allowed actions of the last `audit_action` CHECK a migration sets, if it sets one. */
+function lastAuditActionList(sql: string): string[] | undefined {
+	const list = [...sql.matchAll(auditActionCheck)].at(-1)?.[1];
+	return list === undefined ? undefined : [...list.matchAll(/'([^']*)'/g)].map((match) => match[1] ?? "");
+}
+/** Audit rows outlive the code that wrote them, so a later list may add actions but never drop one (pac-9). */
+function assertAdditiveAuditActions(lists: { name: string; actions: string[] }[]): void {
+	const last = lists.at(-1);
+	if (!last) return;
+	const kept = new Set(last.actions);
+	for (const earlier of lists.slice(0, -1)) {
+		const dropped = earlier.actions.filter((action) => !kept.has(action));
+		if (dropped.length) throw Error(`${last.name} drops audit actions ${earlier.name} allowed: ${dropped.join(", ")}`);
 	}
 }

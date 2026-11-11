@@ -220,7 +220,3 @@ which is why `qa list` exists.
 
 `bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names and URLs,
 never a connection string, key or password.
-
-Previews made before this file existed are recorded in the v1 work store. `bin/qa carry-over` copies them into the file.
-It reads the v1 store and stops nothing. It adds only ids it has not seen, so it never brings back a preview that
-`qa down` removed.
