@@ -226,6 +226,7 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 			accountId: authority.actor.accountId,
 			selected: authority.actor.context.owner,
 			canManage: false,
+			access: { session: authority.session, owner: authority.actor.context.owner },
 		}),
 	);
 	assert.equal(links.statements.length, 1);
