@@ -2,6 +2,12 @@ import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
+import {
+	cancelUnsubscribedHeld,
+	runDueScheduled,
+	type DeliveryKeys,
+	type DeliveryTransport,
+} from "@everyfield/domain/communication";
 import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
@@ -25,6 +31,15 @@ type StepStatus = { status: "ok"; count: unknown } | { status: "skipped" } | { s
 type Step = readonly [component: string, key: string | null, run: (() => Promise<unknown>) | null];
 
 /**
+ * The runner's Messages work (T-241): cancel what the email service already holds for people who unsubscribed, then
+ * hand each due scheduled email to the email service, checking every recipient's opt-out at that moment.
+ */
+export function scheduledMessages(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
+	return async (limit: number, until: number) =>
+		(await cancelUnsubscribedHeld(db, transport, 50)) + (await runDueScheduled(db, transport, keys, limit, until));
+}
+
+/**
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
  * runs the existing workers, each of which returns expired leases to the queue first. Requested deletions whose
@@ -32,7 +47,7 @@ type Step = readonly [component: string, key: string | null, run: (() => Promise
  * ended at the run's clock and delivers a bounded batch of them (WP-030). The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
  * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
- * `mail`. Other queued mail (identity, settings, organization connection, task, onboarding, phase and digest mail) has
+ * `mail`, and scheduled Messages email through `messages`. Other queued mail (identity, settings, organization connection, task, onboarding, phase and digest mail) has
  * no sending worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
  *
  * Each step runs in its own try, so one that throws (a provider outage, a lost connection) logs one line naming its
@@ -54,6 +69,11 @@ export function scheduledJobs(config: {
 	reminders: TaskReminders | null;
 	/** Sends one bounded batch of due invitation mail; null when the deployment has no mail transport. */
 	mail: ((limit: number, until: number) => Promise<number>) | null;
+	/**
+	 * Hands due scheduled Messages email to the email service at its send time, checking opt-outs then, and cancels
+	 * emails the email service already holds for people who unsubscribed (T-241). Null without mail configuration.
+	 */
+	messages?: ((limit: number, until: number) => Promise<number>) | null;
 	/** Null on a deployment without mail configuration: no digest is planned or delivered there. */
 	digests: DigestWorker | null;
 	/** The clock digests are planned and compiled at. Tests move it; the route uses the real time. */
@@ -70,6 +90,7 @@ export function scheduledJobs(config: {
 		const until = Date.now() + START_MS;
 		const asOf = (config.now?.() ?? new Date()).toISOString();
 		const { storage, cleanup, reminders, digests, mail } = config;
+		const messages = config.messages ?? null;
 		const steps: Step[] = [
 			["close-lost-jobs", "closed", () => transaction(db, (tx) => closeLostJobs(tx))],
 			["people-import", null, () => runDueImports(db, 4, until)],
@@ -80,6 +101,7 @@ export function scheduledJobs(config: {
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["mail", "mailed", mail && (() => mail(20, until))],
+			["messages", "messages", messages && (() => messages(20, until))],
 		];
 		// The counts a tick has always reported; a step that is skipped or fails keeps its default.
 		const counts: Record<string, unknown> = {
@@ -91,6 +113,7 @@ export function scheduledJobs(config: {
 			planned: null,
 			digests: 0,
 			mailed: 0,
+			messages: 0,
 		};
 		const report: Record<string, StepStatus> = {};
 		for (const [component, key, run] of steps) {

@@ -164,7 +164,5 @@ export function preferenceRows(choices: readonly NotificationChoice[]) {
 		});
 }
 
-/** Shallow structural equality for drafts made of plain values. */
-export function sameValue(a: unknown, b: unknown): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
-}
+/** Shallow structural equality for drafts made of plain values: one rule, kept in drafts.ts. */
+export { same } from "./drafts.ts";
