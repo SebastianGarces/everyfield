@@ -181,6 +181,18 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 	for (const p of lives(again)) assert.equal(TEXT.slice(p.offset, p.offset + p.text.length), p.text);
 });
 
+test("com-36: the stream route's access check is its first page, so an idle conversation streams with no second read", async () => {
+	const owner = await actor("owner");
+	const c = await createConversation(db, owner, { requestKey: randomUUID() });
+	const first = await readConversation(db, owner, c.id);
+	let statements = 0;
+	const counted = { execute: (...args: unknown[]) => (statements++, (db.execute as Function)(...args)) } as typeof db;
+	const seen: Observed[] = [];
+	for await (const item of observeRun(counted, owner, c.id, 0, AbortSignal.timeout(5_000), { first })) seen.push(item);
+	assert.deepEqual(seen, first.events.map((event) => ({ event })));
+	assert.equal(statements, 0);
+});
+
 test("INV-stream-durable: a lost run's interrupted end is saved exactly once", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
