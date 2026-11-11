@@ -158,6 +158,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `mail(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
 | `mail(original_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
 | `mail(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `mail(communication_id, tenant_id)` | `communication(id, plant_id)` | restrict |  |
 | `mail_attempt(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail_attempt(request_id, tenant_id)` | `mail_request(id, tenant_id)` | restrict |  |
 | `mail_attempt(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
