@@ -503,7 +503,10 @@ export const exportPeople: ReadAdapter<z.infer<typeof exportInput>> = {
 	allowed: inPlant,
 	async invoke(tx, actor, input) {
 		const request = exportPeopleRequest.parse(input);
-		const found = valueOf<z.infer<typeof peopleExport>>(await peopleCsv.exportPeople(tx, readCtx(actor), request));
+		// The count the export's receipt would give, from one count(*): the file and its contact values are never built.
+		const found = valueOf<Omit<z.infer<typeof peopleExport>, "text">>(
+			await peopleCsv.countExport(tx, readCtx(actor), request),
+		);
 		if (!found) return missing("people.exportPeople", ["contact values", "notes", "csv bytes"]);
 		return result(
 			"people.exportPeople",
