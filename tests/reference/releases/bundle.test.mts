@@ -5,10 +5,29 @@ import { verifyCheckout } from "../../../packages/reference/src/starter.ts";
 import { mkdtemp, cp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 import { packageCheckout, packageStarter, validateBundle } from "../../../packages/reference/src/bundle.ts";
 import { editorDocument, importExtractedText } from "../../../packages/contracts/src/reference/editor.ts";
 import { fixture, starter, wiki } from "./fixtures.mts";
+
+test("INV-reference-catalog: freeze and checkout refuse to run without a reviewed catalog digest", async () => {
+	const build = fileURLToPath(new URL("../../../packages/reference/src/build.mjs", import.meta.url));
+	const freeze = new URL("../../../packages/reference/src/freeze.json", import.meta.url);
+	const before = await readFile(freeze, "utf8");
+	assert.equal("catalogSha256" in JSON.parse(before), false);
+	for (const args of [["--write"], ["--write", "--catalog-sha256"], ["--write", "--catalog-sha256", "abc"]]) {
+		const run = spawnSync(process.execPath, [build, ...args], { encoding: "utf8" });
+		assert.notEqual(run.status, 0);
+		assert.match(run.stderr, /Catalog SHA-256 required/);
+		assert.doesNotMatch(run.stderr, /catalog_digest_mismatch/);
+	}
+	assert.equal(await readFile(freeze, "utf8"), before);
+	const root = new URL("../../../", import.meta.url);
+	const missing = undefined as unknown as string;
+	await assert.rejects(verifyCheckout(root, missing), { message: /Catalog SHA-256 required/ });
+	await assert.rejects(packageCheckout(root, missing), { message: /Catalog SHA-256 required/ });
+});
 
 test("INV-reference-catalog: packaging refuses a changed catalog against its reviewed expectation", async () => {
 	const target = await mkdtemp(join(tmpdir(), "wp032-catalog-"));

@@ -30,8 +30,6 @@ File ordinary P0 and P1 repairs now and let them run. Sensitive changes still ne
 repair lands if GitHub did not. Internal issues need no public response. A repeated failure updates the same open
 incident; a failure after closure opens a new one.
 
-The schedule is `internalFeedback.triageCron` in `.github/internal-feedback.json`. Do not install duplicate watchers.
-
 ## Incident reporter recovery
 
 The reporter uses the built-in GitHub token. `evf-incident-ci` and `evf-incident-production`

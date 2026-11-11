@@ -83,7 +83,9 @@ export function AssigneePicker({
 			.map((h) => {
 				const name = h.displayName.trim() || "A former member";
 				names.set(h.accountId, name);
-				return { value: h.accountId, label: `${name} · ${h.warning ?? "no longer has a seat"}` };
+				const warning =
+					h.warning ?? (purpose === "committed_follow_up" ? "Can't own follow-ups now" : "no longer has a seat");
+				return { value: h.accountId, label: `${name} · ${warning}` };
 			}),
 	];
 	const atLimit = value.length >= MAX_ASSIGNEES;
