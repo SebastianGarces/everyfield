@@ -1,9 +1,11 @@
 // Readers that are independent of the writers under test: pdf.js reads a PDF, Python's zipfile and ElementTree read a
 // Word file, and LibreOffice opens it when the machine has it.
+import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import test, { type TestContext } from "node:test";
 
 type PdfJs = {
 	getDocument(options: { data: Uint8Array }): {
@@ -89,7 +91,21 @@ export function docxMedia(bytes: Uint8Array): Record<string, string> {
 	return JSON.parse(out.toString("utf8"));
 }
 
-export const hasSoffice = () => spawnSync("soffice", ["--version"], { stdio: "ignore" }).status === 0;
+let soffice: boolean | undefined;
+/** True when LibreOffice's `soffice` runs on this machine. */
+const hasSoffice = () => (soffice ??= spawnSync("soffice", ["--version"], { stdio: "ignore" }).status === 0);
+
+/**
+ * A check that opens a file in LibreOffice. Without `soffice` it skips, except in CI: CI installs LibreOffice, so there
+ * the check runs and fails instead of passing while it covers less than it claims.
+ */
+export function sofficeTest(name: string, fn: (t: TestContext) => Promise<void>) {
+	const ci = process.env.CI === "true";
+	return test(name, { skip: !ci && !hasSoffice() && "LibreOffice is not installed" }, async (t) => {
+		assert.ok(hasSoffice(), "LibreOffice (soffice) is not on PATH. CI installs it so this check runs.");
+		await fn(t);
+	});
+}
 
 /** LibreOffice converts the Word file to PDF; the result is that PDF's bytes. */
 export function sofficeToPdf(docx: Uint8Array): Buffer {

@@ -229,8 +229,7 @@ test("WP-033 criterion 11: the real living generation replaces the bootstrap one
 	);
 });
 
-test("WP-033 criterion 12 seed step: wiki:install activates the living seed on a seed schema, and a rerun changes nothing", async (t) => {
-	if (localCi) return t.skip("the command writes only the shared development database");
+test("WP-033 criterion 12 seed step: wiki:install activates the living seed on a seed schema, and a rerun changes nothing", async () => {
 	// The command accepts only tests/ui seed schema names, so this store borrows that shape.
 	const { db } = await emptyStore("ui_" + randomBytes(8).toString("hex"));
 	const schema = ((await db.execute(sql`SELECT current_schema() AS s`)).rows[0] as { s: string }).s;

@@ -13,6 +13,7 @@ import {
 	PDFSignature,
 } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import ExcelJS from "../../../packages/domain/node_modules/exceljs/lib/exceljs.nodejs.js";
+import { sofficeTest } from "./fixtures/readers.mts";
 import { library, templateView } from "../../../packages/domain/src/documents/catalog.ts";
 import {
 	ContrastLog,
@@ -402,9 +403,8 @@ describe("WP-036/api engine", () => {
 		assert.deepEqual(w.getCell("C10").value, { formula: "SUM(C5:C9)" });
 	});
 
-	test(
+	sofficeTest(
 		"DOC-012: LibreOffice recalculates a filled budget to the expected totals",
-		{ skip: !hasSoffice() },
 		async () => {
 			const { mkdtempSync, writeFileSync, readFileSync: read } = await import("node:fs");
 			const { tmpdir } = await import("node:os");
@@ -452,15 +452,6 @@ describe("WP-036/api engine", () => {
 		},
 	);
 });
-
-function hasSoffice() {
-	try {
-		execFileSync("soffice", ["--version"], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 async function xlsxBytes(kind: "first-year-budget" | "budget-worksheet") {
 	const loaded = await library();

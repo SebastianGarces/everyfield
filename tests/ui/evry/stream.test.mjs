@@ -1,5 +1,5 @@
 // Evry's answer streams and renders safe markdown on a seeded preview (WP-051). It needs the People seed
-// (tests/ui/people/seed.mts) and a preview started with EVRY_SCRIPTED_MODEL=1 in its apps/web/.env.local.
+// (tests/ui/people/seed.mts), whose env file selects the scripted model.
 //   INV-stream-paint: one reply's text is observed at 3 or more distinct lengths across paints, and the final DOM holds
 //     a <strong>, a list, a link and a <code>, with no literal markers.
 //   INV-stream-stop: Stop shows "Stopping…", ends the answer promptly and keeps the text written so far.
