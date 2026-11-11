@@ -179,13 +179,13 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
+			// Waits on Postgres lock state, bounded by a poll count rather than a clock.
 			let blocked = false;
-			for (let attempt = 0; attempt < 300 && !blocked; attempt++) {
+			for (let poll = 0; poll < 50_000 && !blocked; poll++) {
 				const result = await f.admin.execute(
 					sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 				);
 				blocked = Number(result.rows[0].n) > 0;
-				if (!blocked) await new Promise((resolve) => setTimeout(resolve, 10));
 			}
 			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
 			await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -194,7 +194,7 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 		assert.equal(
 			result.error?.value?.code,
 			"invitation_unavailable",
-			via + ": " + JSON.stringify(result.value ?? null),
+			via + ": " + JSON.stringify(result.value ?? null)
 		);
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
@@ -253,7 +253,10 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	);
 	await f.admin
 		.update(t.invitation)
-		.set({ resent_at: new Date(Date.now() - 61000), created_at: new Date(Date.now() - 120000) })
+		.set({
+			resent_at: sql`clock_timestamp()-interval '61 seconds'`,
+			created_at: sql`clock_timestamp()-interval '120 seconds'`,
+		})
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	const sent = await f.invitations.resend(await f.actor(s2.sender.session), {
 		...change,
@@ -267,7 +270,7 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	assert.notEqual(fresh, i2.proof);
 	await f.admin
 		.update(t.invitation)
-		.set({ created_at: new Date(Date.now() - 30 * 86400000) })
+		.set({ created_at: sql`clock_timestamp()-interval '720 hours'-interval '1 second'` })
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	assert.deepEqual(await f.invitations.describe({ proof: fresh }), { status: "unavailable" });
 });
@@ -928,16 +931,13 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
+		// Waits on Postgres lock state, bounded by a poll count rather than a clock.
 		let blocked = false;
-		for (let attempt = 0; attempt < 30; attempt++) {
+		for (let poll = 0; poll < 50_000 && !blocked; poll++) {
 			const result = await f.admin.execute(
 				sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 			);
-			if (Number(result.rows[0].n) > 0) {
-				blocked = true;
-				break;
-			}
-			await new Promise((resolve) => setTimeout(resolve, 10));
+			blocked = Number(result.rows[0].n) > 0;
 		}
 		assert.equal(blocked, true, "The claim must reach its competing Person lock");
 		await tx
