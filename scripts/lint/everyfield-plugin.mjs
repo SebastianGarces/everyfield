@@ -67,6 +67,22 @@ const privateCareScope = {
 	},
 };
 
+// react/no-danger sees JSX and a plain createElement call, not createElement under another name (view.ts calls it h).
+const noInnerHtml = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = "Render text, never raw HTML: dangerouslySetInnerHTML opens the page to injected markup.";
+		const check = (value, node) => {
+			if (value === "dangerouslySetInnerHTML") context.report({ node, message });
+		};
+		return {
+			Identifier: (node) => check(node.name, node),
+			JSXIdentifier: (node) => check(node.name, node),
+			Literal: (node) => check(node.value, node),
+		};
+	},
+};
+
 const IMPURE_GLOBALS = new Set(["process", "fetch", "Date", "require"]);
 const typeOnly = (node) =>
 	node.importKind === "type" || (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
@@ -99,5 +115,10 @@ const pureModule = {
 
 export default {
 	meta: { name: "everyfield" },
-	rules: { "resend-senders": resendSenders, "private-care-scope": privateCareScope, "pure-module": pureModule },
+	rules: {
+		"resend-senders": resendSenders,
+		"private-care-scope": privateCareScope,
+		"pure-module": pureModule,
+		"no-inner-html": noInnerHtml,
+	},
 };

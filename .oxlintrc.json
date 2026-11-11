@@ -114,11 +114,11 @@
 			}
 		},
 		{
-			"files": ["packages/ui/src/**/*.tsx"],
+			"files": ["packages/ui/src/**"],
 			"plugins": ["react", "jsx-a11y"],
 			"rules": {
 				// Shared UI renders text, never raw HTML; each a11y rule keeps a click on a control or an explicit shortcut.
-				"react/no-danger": "error",
+				"everyfield/no-inner-html": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}
