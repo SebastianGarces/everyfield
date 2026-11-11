@@ -78,15 +78,11 @@ Live edits use development mode. For proof tied to a clean commit, run `bin/dev 
 `bin/dev stack check`. Production mode builds a disposable local snapshot, not a deployment, and refuses a dirty
 worktree. Status prints the preview ID, URL, mode and commit as JSON. Check also asserts readiness, the current commit,
 and HTTP 200 at the preview URL; it does not prove application acceptance, so open the URL and exercise the behavior.
-Use `portless preview logs ID` to investigate a failed start. With `EVF_RUNTIME_DIR` set, the commands also keep a
-`stack.json` receipt there and clear it on down. The configuration lives in `scripts/preview.json`, and the commands
-call no paid providers.
+Use `portless preview logs ID` to investigate a failed start. The configuration lives in `scripts/preview.json`, and
+the commands call no paid providers.
 
-Portless uses HTTPS by default. The variables in this paragraph belong to the preview tooling, not the app. Trust its CA
-before browser review; for Node, point `NODE_EXTRA_CA_CERTS` at the
-trusted CA file. For a disposable HTTP test supervisor, set `PORTLESS_PREVIEW_DIR`, `PORTLESS_PREVIEW_PORT` and
-`PORTLESS_PREVIEW_HTTP=1` consistently on every preview command, stop its previews, then run
-`portless preview shutdown` with the same variables. Never shut down another agent's supervisor.
+Portless uses HTTPS by default. Trust its CA before browser review, in the browser and in Node. The `portless-preview`
+skill describes the CA setup and a disposable HTTP test supervisor. Never shut down another agent's supervisor.
 
 Preview startup runs no database creation, migration, seed, email or provider setup. Marketing pages render without
 provider credentials. For product work, supply the shared development database's settings in the shell or this
