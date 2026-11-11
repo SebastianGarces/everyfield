@@ -66,7 +66,7 @@ export type Template = {
 
 export type Team = { id: string; name: string };
 /** `unsubscribedAt`: when they unsubscribed from this church's Messages email. They cannot be added then. */
-export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt?: string | null };
+export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
