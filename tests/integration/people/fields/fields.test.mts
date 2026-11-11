@@ -674,7 +674,12 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await set(broken.uploadId));
 	refused(
 		await write(1, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: alex.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, {
+				requestKey: key(),
+				personId: alex.id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
 		),
 	);
 	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(), { personId: alex.id }))), {
@@ -743,7 +748,7 @@ async function jpegOf(size) {
 		.jpeg()
 		.toBuffer();
 	const parts = [image.subarray(0, 2)];
-	for (let left = size - image.length; left > 0; ) {
+	for (let left = size - image.length; left > 0;) {
 		const payload = Math.min(65533, left - 4);
 		assert.ok(payload >= 0, "a size the padding can reach");
 		const segment = Buffer.alloc(4 + payload, 0x20);
@@ -855,7 +860,12 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	const storage = privateStorage();
 	const pending = ok(
 		await write(0, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: p.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, {
+				requestKey: key(),
+				personId: p.id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
 		),
 	);
 	ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: pending.uploadId, bytes: png }));

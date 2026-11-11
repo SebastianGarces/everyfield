@@ -25,7 +25,7 @@ async function jpegOf(size, background) {
 		.jpeg()
 		.toBuffer();
 	const parts = [image.subarray(0, 2)];
-	for (let left = size - image.length; left > 0; ) {
+	for (let left = size - image.length; left > 0;) {
 		const payload = Math.min(65533, left - 4);
 		const segment = Buffer.alloc(4 + payload, 0x20);
 		segment.writeUInt16BE(0xfffe, 0);
