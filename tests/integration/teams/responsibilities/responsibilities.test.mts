@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import {
 	responsibilityReader,
@@ -20,27 +19,10 @@ import {
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw new Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp018_" + randomUUID().replaceAll("-", "");
-const roleName = "wp018_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp018", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -148,19 +130,6 @@ async function addVersion(referenceKey) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
@@ -201,13 +170,7 @@ before(async () => {
 	}
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:B01-028 preview stores nothing and one selected line stays the only active line", async () => {
