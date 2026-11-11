@@ -317,7 +317,12 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
 	let current = ok(await section(a, { section: "notifications" }));
-	assert.equal(current.values.choices.length, 19);
+	assert.equal(current.values.choices.length, 20);
+	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
+	assert.deepEqual(
+		current.values.choices.filter((c) => c.category === "scheduled_email_unsubscribe"),
+		[{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true }],
+	);
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
 	const saved = ok(

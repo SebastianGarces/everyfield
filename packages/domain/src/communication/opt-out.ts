@@ -157,7 +157,8 @@ async function writeOptOut(db: Database, value: Claim) {
 					WHERE a.tenant_id = c.plant_id AND a.subject_id = c.id AND a.action = 'communication.send_intended'
 						AND a.event_key LIKE 'dispatch/%'
 					ORDER BY a.occurred_at, a.id LIMIT 1) AS scheduler,
-				coalesce('“' || nullif(btrim(c.subject), '') || '”', '(No subject)') AS subject,
+				-- A scheduled email always has a subject; the fallback only names the gap.
+				coalesce('“' || c.subject || '”', '(No subject)') AS subject,
 				to_char(coalesce(k.scheduled_at, c.scheduled_at) AT TIME ZONE pl.timezone, 'Mon FMDD, YYYY, FMHH12:MI AM') AS send_at,
 				-- This statement's own skips are not visible to its other parts, so they count as unsubscribed here.
 				NOT EXISTS (SELECT 1 FROM mail o
