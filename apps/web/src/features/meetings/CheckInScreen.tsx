@@ -171,12 +171,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		void door.save({
 			...save,
 			send: (key) => addWalkIn(key, body),
-			ok: ({ guest: g }) => {
-				setData((d) => ({
-					...d,
-					guests: [...d.guests, g],
-					attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
-				}));
+			ok: ({ guest: g, attendanceRevision }) => {
+				// The walk-in moved the attendance revision; Finish reviews at the one it returned.
+				setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, [attendeeOf(g)], attendanceRevision));
 				done(g.id);
 			},
 		});
@@ -201,17 +198,23 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					evaluationAssigneeIds: input.evaluationAssigneeIds,
 				}),
 			ok: ({ result }) => {
-				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) }));
+				setData((d) =>
+					withAttendees(
+						{ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) },
+						result.attendees,
+						result.attendanceRevision,
+					),
+				);
 				toast({ message: settledText(result, m.displayTitle, "finalize"), tone: "success" });
 			},
-			// Out of date: review again from who is marked now, never from the earlier list (F6).
-			refused: (code) => {
-				if (code !== "conflict") return;
-				void stale().then((shown) =>
-					door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
-				);
-			},
+			refused: (code) => code === "conflict" && settleConflict(),
 		});
+	}
+	/** A finalize or its review out of date: review again from who is marked now, never from the earlier list (F6). */
+	function settleConflict() {
+		void stale().then((shown) =>
+			door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+		);
 	}
 	const doorBusy = door.wait !== null;
 
@@ -358,6 +361,10 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						problem={door.problem}
 						onClose={door.close}
 						onSubmit={submitSettle}
+						onConflict={() => {
+							door.close();
+							settleConflict();
+						}}
 					/>
 				) : null}
 			</NoticeInDialog>

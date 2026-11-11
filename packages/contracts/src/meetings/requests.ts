@@ -145,8 +145,6 @@ const reviewedPeople = z
 	.max(500)
 	.refine((ids) => new Set(ids).size === ids.length, "duplicate_person");
 export const copyTeamRosterRequest = create(z.strictObject({ meetingId, add: reviewedPeople, remove: reviewedPeople }));
-/** Internal: the invitation send or guest transaction that already holds the reviewed intent mints the token. */
-export const createRsvpTokenRequest = z.strictObject(guest);
 export const rsvpToken = z
 	.string()
 	.regex(/^[A-Za-z0-9_-]{43}$/)
