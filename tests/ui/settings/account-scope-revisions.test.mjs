@@ -27,23 +27,21 @@ async function noRefusal(page) {
 	assert.equal(await page.getByRole("alert").count(), 0, await page.getByRole("alert").allInnerTexts().then(String));
 }
 
+/** Waits for a control's save: it turns busy when the save starts and stops being busy when the reply lands. */
+async function settled(control) {
+	await control.and(control.page().locator("[aria-busy=true]")).waitFor({ timeout: 15_000 });
+	await control.and(control.page().locator(":not([aria-busy])")).waitFor({ timeout: 15_000 });
+}
+
 async function saveName(page, name) {
 	const dialog = page.getByRole("dialog");
 	await dialog.getByLabel("Your name").fill(name);
 	const save = dialog.getByRole("button", { name: "Save", exact: true });
 	await save.click();
-	// The save landed when Save is disabled again with the name kept (a refusal leaves it enabled with an alert).
-	await page.waitForFunction(
-		() => {
-			const button = [...document.querySelectorAll('[role="dialog"] button')].find(
-				(b) => b.textContent.trim() === "Save",
-			);
-			return button?.disabled || document.querySelector('[role="alert"]');
-		},
-		null,
-		{ timeout: 15_000 },
-	);
+	await settled(save);
 	await noRefusal(page);
+	// A refusal would leave the draft unsaved and Save enabled.
+	assert.equal(await save.isDisabled(), true, "the name saved");
 	assert.equal(await dialog.getByLabel("Your name").inputValue(), name);
 }
 
@@ -56,21 +54,14 @@ async function toggle(page, label) {
 	const control = page.getByRole("switch", { name: label });
 	const before = await control.getAttribute("aria-checked");
 	await control.click();
-	await page.waitForFunction(
-		(name) => {
-			const el = [...document.querySelectorAll('[role="switch"]')].find((s) => s.getAttribute("aria-label") === name);
-			return el && !el.getAttribute("aria-busy") && !el.hasAttribute("data-disabled");
-		},
-		label,
-		{ timeout: 15_000 },
-	);
-	await page.waitForTimeout(50);
+	await settled(control);
 	await noRefusal(page);
+	// A refusal would put the switch back.
 	assert.notEqual(await control.getAttribute("aria-checked"), before, "the switch kept its new value");
 }
 
 async function chooseZone(page, search, city) {
-	await page.getByRole("dialog").getByRole("button", { name: "Change" }).click();
+	await page.getByLabel("Your time zone").getByRole("button", { name: "Change", exact: true }).click();
 	const zoneDialog = page.getByRole("dialog", { name: "Change your time zone" });
 	await zoneDialog.getByRole("combobox").click();
 	await page.getByRole("combobox", { name: "Search time zones" }).fill(search);
@@ -86,14 +77,16 @@ async function chooseZone(page, search, city) {
 		.waitFor({ state: "detached" })
 		.catch(() => undefined);
 	// The section reads itself again after the save.
-	await page.waitForTimeout(400);
+	await page.waitForTimeout(600);
 	await noRefusal(page);
 }
 
 for (const [name, engine] of ENGINES) {
 	test(`people/peo-3 (${name}): save a name, then toggle a notification, and neither conflicts`, async () => {
 		await withPage(engine, async (page) => {
-			await open(page, "account");
+			// Both sections are read, and so cached, before either saves.
+			await open(page, "notifications");
+			await goTo(page, "Your account");
 			await saveName(page, "Jordan Rivera Ellis");
 			await goTo(page, "Notifications");
 			const first = page.getByRole("switch").first();
