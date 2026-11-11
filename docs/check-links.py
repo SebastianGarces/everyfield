@@ -9,9 +9,9 @@ import subprocess
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
-# These source-relative links are retained verbatim in an upstream skill, which is not editable here.
 # Schemes a document may link: the web, and the in-page ones the HTML prototypes use.
 WEB_SCHEMES = {'http', 'https', 'mailto', 'tel', 'data', 'javascript'}
+# These source-relative links are retained verbatim in an upstream skill, which is not editable here.
 UPSTREAM_LINKS = {
     ('.agents/skills/principle-explain-the-number/SKILL.md', '../benchmark-checklist/SKILL.md'),
     ('.agents/skills/vercel-react-best-practices/AGENTS.md', './async-defer-await.md'),
@@ -34,6 +34,7 @@ class Links(HTMLParser):
 def main():
     tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
     errors = []
+    schemes = []
     upstream_hashes = json.loads((ROOT / 'skills-lock.json').read_text())['skills']
     originals = {f['path']: f['sha256'] for f in json.loads((ROOT / 'docs/reference/manifest.json').read_text())['files']}
     for relative in tracked:
@@ -58,7 +59,7 @@ def main():
             parts = urlsplit(url)
             # A link to another tool's private address (such as a retired harness note) can never open from the repo.
             if parts.scheme and parts.scheme not in WEB_SCHEMES:
-                errors.append(f'{relative}: {url} (only web links leave the repository)')
+                schemes.append(f'{relative}: {url}')
                 continue
             if parts.scheme or parts.netloc or not parts.path or parts.path.startswith('/'):
                 continue
@@ -72,8 +73,11 @@ def main():
             target = path.parent / unquote(parts.path)
             if not target.exists():
                 errors.append(f'{relative}: {url}')
+    if schemes:
+        print('FAIL: disallowed link schemes (only web links leave the repository)\n' + '\n'.join(schemes))
     if errors:
         print('FAIL: missing local link targets\n' + '\n'.join(errors))
+    if schemes or errors:
         return 1
     print('PASS: local documentation links resolve')
     return 0
