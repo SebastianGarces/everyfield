@@ -19,6 +19,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
+import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
 
 // "Compare with template": the document's saved revision beside the current template, block by block, in reading
@@ -159,11 +160,13 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 	}, []);
 	const read = useCallback(async () => {
 		setLoad({ kind: "loading" });
-		return show(await compareWithTemplate(docId));
+		return show(await compareWithTemplate(docId).catch(() => ({ status: "lost" }) as const));
 	}, [docId, show]);
 	useEffect(() => {
 		let live = true;
-		void compareWithTemplate(docId).then((result) => live && show(result));
+		void compareWithTemplate(docId)
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => live && show(result));
 		return () => {
 			live = false;
 		};
@@ -178,7 +181,9 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 		if (!key) return;
 		setBusy(which === "all" ? "all" : "chosen");
 		setNotice(null);
-		const result = await acceptTemplateChanges(docId, compare.revision, compare.templateHash, view, key, which);
+		const result = await acceptTemplateChanges(docId, compare.revision, compare.templateHash, view, key, which).catch(
+			() => ({ status: "lost" }) as const,
+		);
 		setBusy(null);
 		if (result.status === "accepted") {
 			onAccepted(
@@ -566,7 +571,9 @@ function Snippet({
 	const fields = Object.keys(values).map((key) => ({ key, type: "string", label: key }));
 	const editor = useEditor({
 		extensions,
-		content: { type: "doc", attrs: { fields, data: values }, content: content as JSONContent[] },
+		// The format's tables become the editor's own table nodes, as on every other load path: without this an amount,
+		// check box or row number cell draws empty.
+		content: { type: "doc", attrs: { fields, data: values }, content: blocksToEditor(content) as JSONContent[] },
 		editable: false,
 		immediatelyRender: true,
 		editorProps: { attributes: { "aria-readonly": "true" } },

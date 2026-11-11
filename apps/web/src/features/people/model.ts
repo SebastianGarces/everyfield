@@ -100,7 +100,10 @@ export type PeopleQuery = {
 	page: number;
 };
 export const PAGE_SIZE = 24;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// The contract's id rule (zod's uuid: a version 1 to 8 with an RFC variant, or the nil or max id). A looser test here
+// lets a tag through that the list and export requests then refuse as a whole.
+const UUID =
+	/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|0{8}-0{4}-0{4}-0{4}-0{12}|f{8}-f{4}-f{4}-f{4}-f{12})$/;
 /** The contract's highest page number; a larger number in the address reads as the last page. */
 const MAX_PAGE = 100_000;
 

@@ -42,7 +42,9 @@ export const formatShortcutKey = (key: string, isMac: boolean, capitalize: boole
 		return MAC_SYMBOLS[lowerKey] || (capitalize ? key.toUpperCase() : key);
 	}
 
-	return capitalize ? key.charAt(0).toUpperCase() + key.slice(1) : key;
+	// Everyfield change: ProseMirror's "mod" is the Control key off macOS, so a tooltip never reads "Mod".
+	const shown = key.toLowerCase() === "mod" ? "ctrl" : key;
+	return capitalize ? shown.charAt(0).toUpperCase() + shown.slice(1) : shown;
 };
 
 /**
