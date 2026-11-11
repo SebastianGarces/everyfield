@@ -241,6 +241,11 @@ export const churchRevisionSummary = z.strictObject({
 	authorName: z.string().min(1).max(255).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
+	/**
+	 * The formats this revision offers, from its own body: PDF and Word as its export list names them, and Excel while it
+	 * holds a ledger table. Empty for a stored body that cannot render.
+	 */
+	formats: z.array(documentFormat).max(3),
 });
 /** The most revisions one church revision list holds: the newest ones. */
 export const CHURCH_REVISION_LIST_MAX = 1000;
