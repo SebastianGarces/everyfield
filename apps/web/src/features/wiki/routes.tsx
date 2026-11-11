@@ -1,4 +1,4 @@
-import { ProductFrameLayout } from "@/features/people/routes";
+import { ProductFrameLayout } from "@/features/shell/routes";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { headers } from "next/headers";

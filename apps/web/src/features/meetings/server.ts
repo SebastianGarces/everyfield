@@ -7,6 +7,7 @@ import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
+import { canWrite } from "../shared/seat-role.ts";
 
 // The meetings screens' data access. Every producer read is one statement without locks, so a page sends its reads
 // side by side on the request's pool instead of one after another in a transaction: the page waits for one round trip,
@@ -14,7 +15,6 @@ import { isFiltered, listRequest, pageCount, type MeetingsQuery, type Outcome } 
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
-export const canWrite = (v: Viewer) => v.role === "owner" || v.role === "admin";
 
 type Reply<T> = MeetingsReply<T> | { status: "failed" };
 
