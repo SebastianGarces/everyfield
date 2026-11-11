@@ -36,7 +36,7 @@ function commonDir(root: string): string {
 	return resolve(root, r.stdout.trim());
 }
 
-export const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
+const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
 
 function readFile(file: string): PreviewFile {
 	if (!existsSync(file)) return { previews: [] };
