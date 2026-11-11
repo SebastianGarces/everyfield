@@ -7,11 +7,16 @@ import { useCallback, useState } from "react";
 import { Address } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
-import { parseRoute, routeHref, type Draft, type PageData, type Route, type Step, type Template } from "./model.ts";
+import { parseRoute, routeHref, type PageData, type Route, type Step, type Template } from "./model.ts";
 import { Templates } from "./Templates.tsx";
 
 // Messages. The page opens on the history list. New message starts the guided flow. Every state is in the address, so
 // reload and the Back button return to it. Opening a message or entering compose pushes an entry; a step change replaces.
+// Every move inside the page writes the address with the history API, which Next.js keeps in step with
+// useSearchParams, so it makes no server request. The page's data loads once; each panel reads what it shows.
+// Next.js starts following the history API in an effect after hydration. A move before that, such as a fresh load of an
+// unsaved message's Write going back to Who, goes through the router, or Next.js would not see it.
+const historyFollowed = () => !/\[native code\]/.test(Function.prototype.toString.call(window.history.pushState));
 
 type Section = "messages" | "templates" | "address";
 
@@ -20,14 +25,16 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 	const router = useRouter();
 	const route = parseRoute(Object.fromEntries(params.entries()));
 	const [templates, setTemplates] = useState<Template[]>(data.templates);
-	const [drafts, setDrafts] = useState<Draft[]>(data.drafts);
 	const [banner, setBanner] = useState<string | null>(null);
 
 	const go = useCallback(
 		(next: Route, mode: "push" | "replace" = "push") => {
 			const href = routeHref(next);
-			if (mode === "push") router.push(href, { scroll: false });
-			else router.replace(href, { scroll: false });
+			if (!historyFollowed()) {
+				if (mode === "push") router.push(href, { scroll: false });
+				else router.replace(href, { scroll: false });
+			} else if (mode === "push") window.history.pushState(null, "", href);
+			else window.history.replaceState(null, "", href);
 		},
 		[router],
 	);
@@ -77,15 +84,14 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 			{composing && route.kind === "compose" ? (
 				<Compose
 					key="compose"
-					data={{ ...data, drafts, templates }}
+					data={{ ...data, templates }}
 					id={route.id}
 					step={route.step}
 					handoff={route.handoff}
 					onStep={(step: Step) => go({ ...route, step }, "replace")}
 					onSaved={(id, step) => go({ kind: "compose", id, step, handoff: null }, "replace")}
 					onLeave={() => go({ kind: "history", message: null, meeting: null, person: null })}
-					onDeleted={(id) => {
-						setDrafts((rows) => rows.filter((row) => row.communicationId !== id));
+					onDeleted={() => {
 						setBanner("Draft deleted.");
 						go({ kind: "history", message: null, meeting: null, person: null });
 					}}
@@ -134,7 +140,6 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 							}
 							onNew={newMessage}
 							onOpen={(draft) => {
-								setDrafts((rows) => [draft, ...rows.filter((row) => row.communicationId !== draft.communicationId)]);
 								go({ kind: "compose", id: draft.communicationId, step: "review", handoff: null });
 							}}
 							churchName={data.churchName}
