@@ -24,6 +24,12 @@ export class IdentityRefusal extends Error {
 		super(code);
 	}
 }
+/** A budget refusal. It names the window the attempt hit, so the reply can say when the same request may pass. */
+export class RateLimited extends IdentityRefusal {
+	constructor(readonly windowMinutes: number) {
+		super("rate_limited", 429);
+	}
+}
 /** The transaction's statement and lock timeouts, for the select list of its first statement. */
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
 export function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
@@ -86,7 +92,7 @@ export function attemptBudget(db: Database, key: string) {
   OR (${ipValue}::text IS NOT NULL AND ips>=${ipLimit}))
  RETURNING id`,
 			);
-			if (!inserted.length) throw new IdentityRefusal("rate_limited", 429);
+			if (!inserted.length) throw new RateLimited(minutes);
 			return { id, kind, identifierHash };
 		} catch (error) {
 			if (error instanceof IdentityRefusal) throw error;
