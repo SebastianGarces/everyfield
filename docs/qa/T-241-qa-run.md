@@ -50,14 +50,6 @@ All times are UTC on Nov 11, 2026. Evidence paths are inside the proof archive `
 The log holds 3 emails, 3 batches, 6 webhooks (all answered 200) and 3 status rows. It has no cancel, reschedule or
 unhandled call. Every email carried the `List-Unsubscribe` header.
 
-## Local replacements for the hosted-preview criteria
-
-| Criterion asked for | Replaced by |
-|---|---|
-| QA preview id, alias URL and deployed commit | The portless preview id and URL above, and commit `87036c8a` |
-| Resend dashboard log screenshot and rows | Screenshots of the fake Resend log (`d1-fake-resend-log-1440.png`, `d7-fake-resend-log-1440.png`) and `fake-resend-rows.json` |
-| `bin/qa down <id>` output | The local teardown output in `teardown.txt`: `portless preview down` (state `removed`), stopping the cron loop and the log viewer by PID, closing both browser sessions and `docker stop t256-pg` |
-
 ## Teardown (17:36:39 UTC)
 
 `portless preview down ba88d0f9-cf48-4ef8-b315-99477f8e6fc9` answered `"state":"removed"`. The cron loop and the log
