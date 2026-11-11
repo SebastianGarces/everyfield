@@ -1,12 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { qaCarryOver, qaDown, qaList, qaUp } from "./qa.ts";
+import { qaDown, qaList, qaUp } from "./qa.ts";
 import { fail, QaError } from "./store.ts";
 
 const HELP = `QA previews for Nora (docs/runbooks/qa-preview.md). Run on Sebastian's Mac with neonctl and vercel logged in.
   qa up <branch>   Neon branch off development, migrate, seed, Vercel preview of the branch head; prints the id and URL
   qa list          open QA previews: id, branch, URL, Neon branch, age, head
-  qa down <id>     remove the alias, the deployment and the Neon branch; a second run does nothing and succeeds
-  qa carry-over    copy the previews in the v1 work store into the preview file; stops nothing, safe to run again`;
+  qa down <id>     remove the alias, the deployment and the Neon branch; a second run does nothing and succeeds`;
 
 function main([sub, arg, ...rest]: string[]): number {
 	if (!sub || sub === "help" || sub === "--help") {
@@ -20,7 +19,6 @@ function main([sub, arg, ...rest]: string[]): number {
 		if (sub === "up" && arg) return qaUp(root, arg);
 		if (sub === "down" && arg) return qaDown(root, arg);
 		if (sub === "list" && !arg) return qaList(root);
-		if (sub === "carry-over" && !arg) return qaCarryOver(root);
 	}
 	console.error(`Unknown command: qa ${[sub, arg, ...rest].filter(Boolean).join(" ")}\n\n${HELP}`);
 	return 2;
