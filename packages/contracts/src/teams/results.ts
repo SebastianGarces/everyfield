@@ -50,8 +50,10 @@ export const teamMutationResult = z.strictObject({
 	team,
 	stableKey: z.string().nullable(),
 });
+/** A team as the list reads it: the team and its leader's display name, or null when it has no leader. */
+export const listedTeam = team.extend({ leaderName: z.string().nullable() });
 export const teamPage = z.strictObject({
-	items: z.array(team).max(200),
+	items: z.array(listedTeam).max(200),
 	ordinaryIds: z.array(recordId).max(200),
 	archivedIds: z.array(recordId).max(200),
 });
@@ -194,6 +196,8 @@ export const chartNode = z.strictObject({
 	archived: z.boolean(),
 	leaderName: z.string().nullable(),
 });
+/** The ministry's current revision alone, for a write refused as stale to retry with. */
+export const teamRevision = z.strictObject({ teamId: recordId, revision });
 export const orgChart = z.strictObject({
 	nodes: z.array(chartNode).max(200),
 });
