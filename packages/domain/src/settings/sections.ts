@@ -140,7 +140,7 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 	const rows = preferenceRows.parse(account.rows);
 	const categories = q.notificationCategory.options.filter((c) => c !== "oversight_digest" || account.organization);
 	const choices = categories.flatMap((category) =>
-		(category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const)).map((channel) => ({
+		q.notificationChannels(category).map((channel) => ({
 			category,
 			channel,
 			enabled:
