@@ -56,7 +56,8 @@ message or partial receipt. Generic input validation gets no regression test.
   `pg_sleep` stall, clock polling loop or `Date.now()`/`performance.now()` deadline. Control time through the row
   (`eligible_at`, `expires_at`, `created_at`) and compare with times the test set or read back from the database,
   such as a row's `created_at` or the transaction's `now()`. A race test holds a real lock and waits for the rival
-  with `waitingOnLock`, which polls Postgres lock state. `Date.now()` may only place seeded rows days away from any
+  with `waitingOnLock`, which polls Postgres lock state; its `pids`, `blockedBy` and `count` options name which
+  sessions must wait, so no file writes its own lock poll. `Date.now()` may only place seeded rows days away from any
   boundary. Three uses keep real time, and each says why in a comment: the production latency proof in
   `tests/integration/identity/timing.production.mts`, the `ms` field of `tests/integration/writes/counter.mjs`, and
   the 3 s wait in INV-expiry of `tests/integration/identity/invitations.test.mts`, where only elapsed time shows that

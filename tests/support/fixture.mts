@@ -42,17 +42,39 @@ export function refusedWith({ details, hidden = [] }: { details?: unknown; hidde
 }
 
 /**
- * Resolves true once another session of `pool`'s login role waits for a lock. It polls `pg_stat_activity`, so the
- * wait ends on Postgres state, and fails after a bounded number of polls (not a deadline) if the rival never blocks.
- * An aborted `signal` stops the polling and resolves false, for a test that races a read against a lock wait.
+ * Resolves true once other sessions wait for a lock, the one lock-state wait every DB test uses. It polls
+ * `pg_stat_activity`, so the wait ends on Postgres state, and fails after a bounded number of polls (not a deadline) if
+ * the rival never blocks.
+ *
+ * - With no target, it waits for any other session of `pool`'s login role to wait for a lock.
+ * - `pids` limits the watch to those backends. The array is read on every poll, so a test may pass one it fills as its
+ *   rivals start.
+ * - `blockedBy` waits for a session that this backend blocks (`pg_blocking_pids`), from any login role.
+ * - `count` is how many watched sessions must wait at once (default 1).
+ * - An aborted `signal` stops the polling and resolves false, for a test that races an outcome against a lock wait.
  */
-export async function waitingOnLock(pool: Database, { signal }: { signal?: AbortSignal } = {}) {
+export async function waitingOnLock(
+	pool: Database,
+	{
+		pids,
+		blockedBy,
+		count = 1,
+		signal,
+	}: { pids?: readonly (number | undefined)[]; blockedBy?: number; count?: number; signal?: AbortSignal } = {},
+) {
 	for (let poll = 0; poll < 50_000; poll++) {
 		if (signal?.aborted) return false;
+		const watched = pids
+			? sql`a.pid=ANY(${`{${pids.filter((pid) => pid !== undefined).join(",")}}`}::int[])`
+			: blockedBy === undefined
+				? sql`a.usename=current_user`
+				: sql`true`;
+		const waiting =
+			blockedBy === undefined ? sql`a.wait_event_type='Lock'` : sql`${blockedBy}::int=ANY(pg_blocking_pids(a.pid))`;
 		const r = await pool.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock' AND pid<>pg_backend_pid()`,
+			sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND a.pid<>pg_backend_pid() AND ${watched} AND ${waiting}`,
 		);
-		if ((r.rows[0] as { n: number }).n > 0) return true;
+		if ((r.rows[0] as { n: number }).n >= count) return true;
 	}
 	throw Error("the rival transaction never waited for a lock");
 }

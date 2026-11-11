@@ -2,6 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { fixture, key, noReminders } from "./invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
@@ -179,15 +180,11 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-			// Waits on Postgres lock state, bounded by a poll count rather than a clock.
-			let blocked = false;
-			for (let poll = 0; poll < 50_000 && !blocked; poll++) {
-				const result = await f.admin.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-				);
-				blocked = Number(result.rows[0].n) > 0;
-			}
-			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
+			assert.equal(
+				await waitingOnLock(f.admin, { blockedBy: pid }),
+				true,
+				`${via} must wait for the workspace root lock`,
+			);
 			// Exempt from the no-sleep rule (test-standard, owner ruling D-704): the claim reads and locks the invitation
 			// before this wait, so only elapsed time shows the expiry check uses the clock read after the root lock (RT-6a).
 			await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -933,15 +930,11 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-		// Waits on Postgres lock state, bounded by a poll count rather than a clock.
-		let blocked = false;
-		for (let poll = 0; poll < 50_000 && !blocked; poll++) {
-			const result = await f.admin.execute(
-				sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-			);
-			blocked = Number(result.rows[0].n) > 0;
-		}
-		assert.equal(blocked, true, "The claim must reach its competing Person lock");
+		assert.equal(
+			await waitingOnLock(f.admin, { blockedBy: pid }),
+			true,
+			"The claim must reach its competing Person lock",
+		);
 		await tx
 			.update(t.person)
 			.set({ state: "retired", retired_at: new Date(), revision: "2" })

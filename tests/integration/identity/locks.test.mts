@@ -1,6 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture, key, noReminders } from "./invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, insertTasks } from "../task-assignees.mts";
@@ -26,16 +27,6 @@ const outcome = (p) =>
 		(value) => ({ value }),
 		(error) => ({ error }),
 	);
-/** Waits on Postgres lock state until a session waits for `pid`, bounded by a poll count rather than a clock. */
-async function waitingOn(pid) {
-	for (let n = 0; n < 50_000; n++) {
-		const r = await f.admin.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`,
-		);
-		if (r.rows[0].n > 0) return;
-	}
-	assert.fail("Competing operation did not reach the held lock");
-}
 
 test("BUG-124: People membership read takes no account write lock", async () => {
 	const s = await f.setup();
@@ -121,7 +112,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
 			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
 			removal = outcome(f.seats.remove(authority, s.w, command, noReminders));
-			await waitingOn(r.rows[0].pid);
+			await waitingOnLock(f.admin, { blockedBy: r.rows[0].pid });
 			concurrent = outcome(f.invitations.resend(authority, resend));
 		});
 	} finally {
@@ -232,7 +223,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		await f.admin.transaction(async (gate) => {
 			const [{ pid }] = (await gate.execute(sql`SELECT pg_backend_pid() AS pid FROM stall_gate FOR UPDATE`)).rows;
 			const removal = outcome(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders));
-			await waitingOn(pid);
+			await waitingOnLock(f.admin, { blockedBy: pid });
 			await gate.execute(
 				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 			);

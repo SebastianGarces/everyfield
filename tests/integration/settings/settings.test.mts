@@ -564,19 +564,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 	);
 	const settled = Promise.allSettled(edits);
 	try {
-		let waiting = false;
-		for (let i = 0; i < 100; i++) {
-			const rows = (
-				await admin.execute(
-					sql`SELECT pid FROM pg_stat_activity WHERE pid IN (${pids[0] ?? 0},${pids[1] ?? 0}) AND wait_event_type='Lock'`,
-				)
-			).rows;
-			if (rows.length === 2) {
-				waiting = true;
-				break;
-			}
-		}
-		assert.equal(waiting, true, "both real edits reached their lock wait");
+		assert.equal(await waitingOnLock(admin, { pids, count: 2 }), true, "both real edits reached their lock wait");
 	} finally {
 		release();
 	}
@@ -991,29 +979,20 @@ test("INV-lifecycle: an account root read serializes first-witness deletion even
 		await gate;
 	});
 	await ready;
-	let pid,
-		started,
-		done = false;
+	let pid, started;
+	const done = new AbortController();
 	const running = new Promise((r) => (started = r));
 	const deletion = db.transaction(async (tx) => {
 		pid = (await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id;
 		started();
 		const result = await api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }));
-		done = true;
+		done.abort();
 		return result;
 	});
 	await running;
 	try {
-		let blocked = false;
-		for (let i = 0; i < 60 && !done; i++) {
-			const [state] = (await admin.execute(sql`SELECT wait_event_type FROM pg_stat_activity WHERE pid=${pid}`)).rows;
-			if (state?.wait_event_type === "Lock") {
-				blocked = true;
-				break;
-			}
-		}
-		assert.equal(blocked, true);
-		assert.equal(done, false);
+		assert.equal(await waitingOnLock(admin, { pids: [pid], signal: done.signal }), true);
+		assert.equal(done.signal.aborted, false);
 	} finally {
 		release();
 	}

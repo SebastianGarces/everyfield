@@ -18,7 +18,7 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { ok, refusedWith } from "../../support/fixture.mts";
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
 const { admin, schema } = database;
@@ -1164,7 +1164,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 		continueConversion = new Promise((resolve) => {
 			proceed = resolve;
 		});
-	let conversionPid, endPid;
+	let conversionPid;
+	const endPid = [];
 	const converting = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
@@ -1186,7 +1187,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	await held;
 	const ending = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
-		endPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
+		endPid.push((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid);
 		return associations["associations.end"](
 			tx,
 			orgActor.session,
@@ -1201,13 +1202,11 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	});
 	const settled = Promise.allSettled([converting, ending]);
 	try {
-		// Waits on Postgres lock state, bounded by a poll count rather than a deadline.
-		let blocked = false;
-		for (let poll = 0; poll < 50_000 && !blocked; poll++) {
-			const r = await admin.execute(sql`SELECT pg_blocking_pids(${endPid ?? 0}::int) pids`);
-			blocked = r.rows[0].pids.includes(conversionPid);
-		}
-		assert.equal(blocked, true, "The ending operation must reach the held conversion lock");
+		assert.equal(
+			await waitingOnLock(admin, { pids: endPid, blockedBy: conversionPid }),
+			true,
+			"The ending operation must reach the held conversion lock",
+		);
 	} finally {
 		proceed();
 	}
