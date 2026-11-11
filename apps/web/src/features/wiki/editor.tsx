@@ -1,10 +1,10 @@
 "use client";
 
+import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { Button, ConfirmDialog, Field, Select, Textarea } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
 import {
-	EDITOR_BODY_LIMIT,
 	articlePath,
 	articleTextChanged,
 	changedSectionLabels,
@@ -12,9 +12,12 @@ import {
 	editorHasText,
 	editorWriteBody,
 	type EditorBlock,
+	type FixedBlock,
 } from "./model.ts";
+import { ArticleBlocks } from "./prose.tsx";
 
 type Row = { key: string; block: EditorBlock };
+type TextBlock = Exclude<EditorBlock, { kind: "fixed" }>;
 type ArticleState = "published" | "hide" | "draft" | "inherited" | null;
 type Kind = "paragraph" | "heading" | "subheading" | "quote" | "list" | "numbered";
 
@@ -30,14 +33,21 @@ const KINDS: { value: Kind; label: string }[] = [
 const EMPTY_TEXT = "Add article text before you save.";
 const LONG_TEXT = "Shorten the article. It is too long to save.";
 
-function kindValue(block: EditorBlock): Kind {
+const FIXED_NAME: Record<FixedBlock["kind"], string> = {
+	table: "Table",
+	callout: "Callout",
+	code: "Code",
+	diagram: "Diagram",
+};
+
+function kindValue(block: TextBlock): Kind {
 	if (block.kind === "heading") return block.level === 3 ? "subheading" : "heading";
 	if (block.kind === "list") return block.ordered ? "numbered" : "list";
 	if (block.kind === "quote") return "quote";
 	return "paragraph";
 }
 
-function applyKind(block: EditorBlock, value: Kind): EditorBlock {
+function applyKind(block: TextBlock, value: Kind): EditorBlock {
 	const text = block.text;
 	if (value === "heading") return { kind: "heading", level: 2, text };
 	if (value === "subheading") return { kind: "heading", level: 3, text };
@@ -47,7 +57,7 @@ function applyKind(block: EditorBlock, value: Kind): EditorBlock {
 	return { kind: "paragraph", text };
 }
 
-function textLabel(block: EditorBlock): string {
+function textLabel(block: TextBlock): string {
 	if (block.kind === "heading") return block.level === 3 ? "Subheading" : "Heading";
 	if (block.kind === "quote") return "Quote";
 	if (block.kind === "list") return "List items";
@@ -72,6 +82,57 @@ function successCopy(kind: "save" | "publish" | "hide", state: ArticleState): st
 	if (kind === "hide") return "Source hidden.";
 	if (state === "hide") return "Draft saved. This source stays hidden until you publish it.";
 	return "Draft saved.";
+}
+
+/** A table, callout, diagram or code block: shown as readers see it and saved as it is. */
+function FixedView({ block }: { block: FixedBlock }) {
+	const name = FIXED_NAME[block.kind];
+	return (
+		<div className="flex flex-col gap-2">
+			<p className="text-sm text-text-2">{name}. It stays as it is when you save. You can move it or remove it.</p>
+			<div className="rounded-card border border-line px-4 py-1">
+				<ArticleBlocks blocks={[block]} size="sm" />
+			</div>
+		</div>
+	);
+}
+
+function TextFields({
+	block,
+	index,
+	error,
+	bind,
+	onChange,
+}: {
+	block: TextBlock;
+	index: number;
+	error: string | undefined;
+	bind: (node: HTMLTextAreaElement | null) => void;
+	onChange: (block: EditorBlock) => void;
+}) {
+	return (
+		<>
+			<Field label={`Block ${index + 1} type`}>
+				<Select
+					options={KINDS}
+					value={kindValue(block)}
+					onValueChange={(value) => onChange(applyKind(block, value as Kind))}
+				/>
+			</Field>
+			<Field
+				label={textLabel(block)}
+				hint={block.kind === "list" ? "Put one item on each line." : undefined}
+				error={error}
+			>
+				<Textarea
+					ref={bind}
+					value={block.text}
+					rows={block.kind === "paragraph" || block.kind === "list" ? 5 : 2}
+					onChange={(event) => onChange({ ...block, text: event.target.value })}
+				/>
+			</Field>
+		</>
+	);
 }
 
 export function WikiEditor({
@@ -132,7 +193,7 @@ export function WikiEditor({
 
 	function problem(): string | null {
 		if (!editorHasText(blocks)) return EMPTY_TEXT;
-		if (writeBody().length > EDITOR_BODY_LIMIT) return LONG_TEXT;
+		if (!organizationBodyFits(writeBody())) return LONG_TEXT;
 		return null;
 	}
 
@@ -262,34 +323,26 @@ export function WikiEditor({
 						<li key={row.key}>
 							<fieldset className="flex flex-col gap-4" disabled={locked}>
 								<legend className="text-sm font-medium text-ink">Block {index + 1}</legend>
-								<Field label={`Block ${index + 1} type`}>
-									<Select
-										options={KINDS}
-										value={kindValue(row.block)}
-										onValueChange={(value) => update(row.key, applyKind(row.block, value as Kind))}
-									/>
-								</Field>
-								<Field
-									label={textLabel(row.block)}
-									hint={row.block.kind === "list" ? "Put one item on each line." : undefined}
-									error={
-										formError === EMPTY_TEXT &&
-										!row.block.text.trim() &&
-										rows.findIndex((item) => !item.block.text.trim()) === index
-											? formError
-											: undefined
-									}
-								>
-									<Textarea
-										ref={(node) => {
+								{row.block.kind === "fixed" ? (
+									<FixedView block={row.block.block} />
+								) : (
+									<TextFields
+										block={row.block}
+										index={index}
+										error={
+											formError === EMPTY_TEXT &&
+											!row.block.text.trim() &&
+											rows.findIndex((item) => item.block.kind !== "fixed" && !item.block.text.trim()) === index
+												? formError
+												: undefined
+										}
+										bind={(node) => {
 											if (node) fields.current.set(row.key, node);
 											else fields.current.delete(row.key);
 										}}
-										value={row.block.text}
-										rows={row.block.kind === "paragraph" || row.block.kind === "list" ? 5 : 2}
-										onChange={(event) => update(row.key, { ...row.block, text: event.target.value })}
+										onChange={(block) => update(row.key, block)}
 									/>
-								</Field>
+								)}
 								<div className="flex flex-wrap gap-2">
 									<Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
 										Move up
