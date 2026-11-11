@@ -1,3 +1,4 @@
+import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
@@ -282,11 +283,16 @@ export const DEFAULT_QUERY: TaskQuery = {
 	page: 1,
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneOf = <T extends string>(list: readonly T[], v: string | null): T | undefined =>
 	list.find((x) => x === v) as T | undefined;
 const manyOf = <T extends string>(list: readonly T[], vs: string[]): T[] => list.filter((x) => vs.includes(x));
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+/** The team in the address, by the contract's id rule; any other value lists every team, never refusing the request. */
+function teamOf(raw: string | null): string | null {
+	const id = raw?.toLowerCase() ?? "";
+	return recordId.safeParse(id).success ? id : null;
+}
 
 export function parseQuery(p: URLSearchParams): TaskQuery {
 	const raw = p.getAll("status"),
@@ -300,7 +306,7 @@ export function parseQuery(p: URLSearchParams): TaskQuery {
 		categories: manyOf(CATEGORIES, p.getAll("category")),
 		relation: oneOf(RELATIONS, p.get("relation")) ?? "any",
 		due: oneOf(DUE_KINDS, p.get("due")) ?? "any",
-		teamId: UUID.test(p.get("team") ?? "") ? p.get("team")!.toLowerCase() : null,
+		teamId: teamOf(p.get("team")),
 		sort: oneOf(SORTS, p.get("sort")) ?? "due",
 		direction: p.get("dir") === "desc" ? "desc" : "asc",
 		page: Number.isInteger(page) && page >= 1 && page <= 100_000 ? page : 1,

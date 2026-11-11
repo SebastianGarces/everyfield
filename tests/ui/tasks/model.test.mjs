@@ -39,6 +39,16 @@ import {
 
 const parse = (s) => parseQuery(new URLSearchParams(s));
 
+test("BUG-551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
+	// A loose uuid test accepts both; the contract's recordId refuses version nibble 0 and variant c.
+	for (const team of ["0b6c3f1e-2a7d-0c3b-9f5e-1d2c3b4a5f60", "0b6c3f1e-2a7d-4c3b-cf5e-1d2c3b4a5f60"]) {
+		const q = parse(`team=${team}&status=blocked&q=call&page=2`);
+		assert.equal(q.teamId, null, team);
+		assert.deepEqual([q.statuses, q.search, q.page], [["blocked"], "call", 2], team);
+		assert.equal("teamId" in listRequest(q), false, team);
+	}
+});
+
 test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and keep their siblings", () => {
 	const q = parse(
 		"view=all&q=call&status=blocked&priority=urgent&category=follow_up&relation=person&sort=title&page=3",
@@ -68,6 +78,7 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 	assert.equal(withFilters(withTeam, { search: "x" }).teamId, team);
 	assert.equal(parse(querySearch(withTeam).slice(1)).teamId, team);
 	assert.equal(parse("team=not-a-uuid").teamId, null);
+	assert.equal(parse(`team=${team.toUpperCase()}`).teamId, team, "an upper-case id reads as the same team");
 	// No status in the address is the open list; status=any is every status. Both survive a round trip.
 	assert.deepEqual(parse("").statuses, ["not_started", "in_progress", "blocked"]);
 	assert.equal(querySearch(parse("")), "");
