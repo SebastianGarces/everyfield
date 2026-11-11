@@ -748,6 +748,10 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 });
 
+/** The person's revision as stored now. */
+const storedRevision = async (personId) =>
+	(await admin.execute(sql`SELECT revision::text AS revision FROM person WHERE id=${personId}::uuid`)).rows[0].revision;
+
 test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurrence, tombstone and removed attribution", async () => {
 	const p = await create("Notes");
 	const added = ok(
@@ -759,6 +763,9 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	// Each note change answers with the person's new revision, so the next save on the page needs no reread.
+	assert.equal(added.personRevision, await storedRevision(p.id));
+	assert.notEqual(added.personRevision, p.revision);
 	const assertNoteFeed = async (kind) => {
 		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
 		assert.deepEqual(
@@ -798,6 +805,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	assert.equal(edited.personRevision, await storedRevision(p.id));
+	assert.notEqual(edited.personRevision, added.personRevision);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT occurred_at,author_id FROM person_note WHERE id=${sql.param(added.noteId)}`))
 			.rows[0],
@@ -816,6 +825,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		),
 	);
 	assert.equal(deleted.revision, "3");
+	assert.equal(deleted.personRevision, await storedRevision(p.id));
+	assert.notEqual(deleted.personRevision, edited.personRevision);
 	await assertNoteFeed("note_removed");
 	assert.deepEqual(
 		(
@@ -860,17 +871,19 @@ test("AC:CA014 BUG-church-date explicit adult classification retains genuine his
 			}),
 		),
 	);
-	assert.equal(result.observation.classification, "adult");
-	assert.equal(result.observation.current.state, "active");
-	assert.equal(result.observation.firstAcquisition.occurredOn, "2026-09-01");
-	assert.equal(result.observation.firstAcquisition.evidenceId, commitment);
+	// The answer is the person as saved: the new classification, the current commitment and the new revision.
+	assert.deepEqual(
+		[result.person.adultClassification, result.person.adultClassificationSource, result.person.commitment.state],
+		["adult", "recorded", "active"],
+	);
+	assert.equal(result.person.revision, await storedRevision(p.id));
 	const before = (await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0]
 		.signed_on;
 	const corrected = ok(
 		await tx((t) =>
 			write.correctAdultClassification(t, ctx(), {
 				requestKey: randomUUID(),
-				expectedRevision: result.observation.sourceRevision,
+				expectedRevision: result.person.revision,
 				input: {
 					personId: p.id,
 					classification: "unknown",
@@ -880,13 +893,17 @@ test("AC:CA014 BUG-church-date explicit adult classification retains genuine his
 			}),
 		),
 	);
-	assert.equal(corrected.observation.classification, "unknown");
-	assert.equal(corrected.observation.current.state, "active");
-	assert.deepEqual(corrected.observation.firstAcquisition, {
-		status: "known",
-		occurredOn: "2026-09-01",
-		evidenceId: commitment,
-	});
+	assert.deepEqual([corrected.person.adultClassification, corrected.person.commitment.state], ["unknown", "active"]);
+	assert.equal(corrected.person.revision, await storedRevision(p.id));
+	// Classification creates no commitment: the historical acquisition stays the first one.
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT signed_on::text FROM commitment WHERE person_id=${sql.param(p.id)} ORDER BY signed_on`,
+			)
+		).rows.map((r) => r.signed_on),
+		["2026-09-01", "2026-10-05"],
+	);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0].signed_on,
 		before,
@@ -903,7 +920,7 @@ test("AC:CA014 BUG-church-date explicit adult classification retains genuine his
 			tx((t) =>
 				write[operation](t, ctx(), {
 					requestKey: randomUUID(),
-					expectedRevision: corrected.observation.sourceRevision,
+					expectedRevision: corrected.person.revision,
 					input: { personId: p.id, classification: "adult", occurredOn, reason: "Church date" },
 				}),
 			);
@@ -913,7 +930,7 @@ test("AC:CA014 BUG-church-date explicit adult classification retains genuine his
 		refused(await classify("recordAdultClassification", tomorrow), "invalid_input");
 		refused(await classify("correctAdultClassification", tomorrow), "invalid_input");
 		assert.equal(await stored(), "unknown");
-		assert.equal(ok(await classify("recordAdultClassification", today)).observation.classification, "adult");
+		assert.equal(ok(await classify("recordAdultClassification", today)).person.adultClassification, "adult");
 		assert.equal(await stored(), "adult");
 	} finally {
 		await admin.execute(sql`UPDATE plant SET timezone='America/New_York' WHERE id=${plants[0]}::uuid`);
@@ -1810,7 +1827,7 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 			}),
 		),
 	);
-	assert.equal(recorded.observation.classification, "child");
+	assert.equal(recorded.person.adultClassification, "child");
 	let p = (await tx((t) => read.getPerson(t, ctx(), { personId: p0.id }))).value.person;
 	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
 	// Thirty years old by the birth date: the manual "child" no longer applies, at once.

@@ -44,6 +44,7 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
@@ -668,6 +669,15 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
+		// Only a sending church's own Owner or Admin has pipeline choices; a church's owner, even naming a church A id as
+		// the connection, gets none, and church A has no sending-church connection for the control to read.
+		[
+			"organizations:readPipelineConsents",
+			{
+				run: () => plain(() => readPipelineConsents(f.db, who.actor, a.avery)),
+				expected: { value: [], control: null },
+			},
+		],
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
