@@ -205,7 +205,7 @@ async function up() {
 			}),
 		);
 		if (cancelled.status !== "ok") throw Error("cancel revisions: " + JSON.stringify(cancelled));
-		const venueName = `Revision Hall ${engine}`;
+		const venueName = `Revision Hall ${engine} ${randomUUID().slice(0, 6)}`;
 		const venue = await runtime.transaction((tx) =>
 			venuesWriter.create(tx as never, ctx, {
 				requestKey: randomUUID(),

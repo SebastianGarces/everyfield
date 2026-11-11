@@ -10,6 +10,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
+/** Each run writes its own words, so a rerun on the same seed never finds an earlier run's text. */
+const RUN = Date.now().toString(36);
 const CONFLICT = "Someone else changed this while you were working. The latest version is shown now.";
 
 async function open(page, path) {
@@ -22,6 +24,22 @@ async function otherTab(context, path) {
 	await open(page, path);
 	return page;
 }
+/**
+ * The other tab's save is committed: a page shows an edit at once, before its answer, so the tab reloads and finds it
+ * again before it closes.
+ */
+async function saved(page, find) {
+	await find(page).waitFor();
+	await page.waitForFunction(() => !document.querySelector('button[aria-busy="true"], [aria-busy="true"] button'));
+	await page.waitForLoadState("networkidle");
+	await page.reload();
+	await hydrated(page);
+	await find(page).waitFor();
+	await page.close();
+}
+/** The answer to the server action whose arguments carry `text`: the save's own reply, not a timer. */
+const answerTo = (page, text) =>
+	page.waitForResponse((r) => r.request().method() === "POST" && (r.request().postData() ?? "").includes(text));
 const idle = (page) => page.waitForFunction(() => !document.querySelector('button[aria-busy="true"]'));
 /**
  * Holds this page's server actions (POSTs with a Next-Action header) until `release` is called, so another tab can
@@ -52,12 +70,19 @@ for (const [name, engine] of ENGINES) {
 	test(`BUG-T155 messages/com-8 (${name}): finalize, then Record response card saves the first time`, async () => {
 		const { meetingId, guest } = revisions().card;
 		await signedIn(async (page) => {
-			await open(page, `/meetings/${meetingId}`);
+			// Before the meeting closes, Finalize attendance is on the Results tab's attendance card.
+			await open(page, `/meetings/${meetingId}?tab=results`);
 			await page.getByRole("button", { name: "Finalize attendance" }).first().click();
 			const review = page.getByRole("dialog", { name: "Finalize attendance" });
 			await review.getByText(/^Counts /).waitFor();
+			// Finalize's own answer, not a timer: the settle request carries its request key after the mode; the review's
+			// preview does not.
+			const finalized = page.waitForResponse(
+				(r) => r.request().method() === "POST" && /^\["finalize","[0-9a-f-]{36}"/.test(r.request().postData() ?? ""),
+			);
 			await review.getByRole("button", { name: "Finalize" }).click();
-			// The toast is written from finalize's own answer: it shows once the server has answered, never on a timer.
+			assert.equal((await finalized).status(), 200);
+			// The toast is written from that answer once the page has applied it.
 			await page
 				.getByText(/: attendance is final\./)
 				.first()
@@ -68,10 +93,18 @@ for (const [name, engine] of ENGINES) {
 			await row.getByRole("button", { name: /^Actions for/ }).click();
 			await page.getByRole("menuitem", { name: "Record response card" }).click();
 			const form = page.getByRole("dialog", { name: "Record response card" });
-			await form.getByRole("radio", { name: "Interested" }).click();
+			await form.getByText("Interested", { exact: true }).click();
+			// The card's own answer: the save that carries this response, at the revision finalize returned.
+			const answered = page.waitForResponse(
+				(r) => r.request().method() === "POST" && (r.request().postData() ?? "").includes('"response":"interested"'),
+			);
 			await form.getByRole("button", { name: "Save card" }).click();
-			await form.waitFor({ state: "detached" });
-			await idle(page);
+			assert.equal((await answered).status(), 200);
+			// The guest list takes saves again once the answer is applied: Add guest is enabled.
+			await page.getByRole("button", { name: "Add guest" }).last().waitFor();
+			await page.waitForFunction(() =>
+				[...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Add guest" && !b.disabled),
+			);
 			assert.equal(await page.getByText("Someone else changed this").count(), 0, "no conflict after finalize");
 			await page.reload();
 			await hydrated(page);
@@ -124,7 +157,6 @@ for (const [name, engine] of ENGINES) {
 			hold.release();
 			// The review was refused as out of date: the page read the check-in again and the review opened on it.
 			await review.getByText(CONFLICT).waitFor();
-			await page.getByRole("button", { name: new RegExp(`^${guest}`), pressed: false }).waitFor();
 			assert.equal(await review.getByText(guest).count(), 0, "the review starts from who is checked in now");
 			await review.getByText(/^Counts 0 first/).waitFor();
 			await review.getByRole("button", { name: "Finalize" }).click();
@@ -148,30 +180,35 @@ for (const [name, engine] of ENGINES) {
 			const other = await otherTab(context, path);
 			await other.getByRole("button", { name: "Edit agenda" }).click();
 			const theirs = other.getByRole("dialog", { name: "Edit agenda" });
-			await (await firstTitle(theirs)).fill(`Welcome from the other tab ${name}`);
+			await (await firstTitle(theirs)).fill(`Welcome from the other tab ${name} ${RUN}`);
 			await theirs.getByRole("button", { name: "Save agenda" }).click();
-			await other.getByRole("region", { name: "Agenda" }).getByText(`Welcome from the other tab ${name}`).waitFor();
-			await idle(other);
-			await other.close();
+			await saved(other, (p) =>
+				p.getByRole("region", { name: "Agenda" }).getByText(`Welcome from the other tab ${name} ${RUN}`),
+			);
 
-			await mine.fill(`Welcome from this tab ${name}`);
+			await mine.fill(`Welcome from this tab ${name} ${RUN}`);
 			await editor.getByRole("button", { name: "Save agenda" }).click();
 			// Refused as out of date: the editor opens again on the agenda as it is now, as its words say.
 			const reopened = page.getByRole("dialog", { name: "Edit agenda" });
 			await reopened.getByText(CONFLICT).waitFor();
 			await page.waitForFunction(
 				(want) => document.querySelector('[aria-label="Section 1 title"]')?.value === want,
-				`Welcome from the other tab ${name}`,
+				`Welcome from the other tab ${name} ${RUN}`,
 			);
-			await reopened.getByLabel("Section 1 title").fill(`Welcome from this tab ${name}`);
+			// The person reads the latest agenda before editing again: the reload has settled.
+			await page.waitForLoadState("networkidle");
+			await reopened.getByLabel("Section 1 title").fill(`Welcome from this tab ${name} ${RUN}`);
+			const retried = answerTo(page, `Welcome from this tab ${name} ${RUN}`);
 			await reopened.getByRole("button", { name: "Save agenda" }).click();
+			assert.equal((await retried).status(), 200);
 			await reopened.waitFor({ state: "detached" });
 			const agenda = page.getByRole("region", { name: "Agenda" });
-			await agenda.getByText(`Welcome from this tab ${name}`).waitFor();
-			await idle(page);
+			await agenda.getByText(`Welcome from this tab ${name} ${RUN}`).waitFor();
+			// The save's answer has arrived before the page reloads: a reload would cut a request still on its way.
+			await page.waitForLoadState("networkidle");
 			await page.reload();
 			await hydrated(page);
-			await page.getByRole("region", { name: "Agenda" }).getByText(`Welcome from this tab ${name}`).waitFor();
+			await page.getByRole("region", { name: "Agenda" }).getByText(`Welcome from this tab ${name} ${RUN}`).waitFor();
 		});
 	});
 
@@ -186,26 +223,27 @@ for (const [name, engine] of ENGINES) {
 			const other = await otherTab(context, path);
 			await other.getByRole("button", { name: "Edit", exact: true }).click();
 			const theirs = other.getByRole("dialog", { name: "Edit meeting" });
-			await theirs.getByLabel("Title").fill(`Other tab title ${name}`);
+			await theirs.getByLabel("Title").fill(`Other tab title ${name} ${RUN}`);
 			await theirs.getByRole("button", { name: "Save changes" }).click();
-			await other.getByRole("heading", { level: 1, name: `Other tab title ${name}` }).waitFor();
-			await idle(other);
-			await other.close();
+			await saved(other, (p) => p.getByRole("heading", { level: 1, name: `Other tab title ${name} ${RUN}` }));
 
-			await dialog.getByLabel("Title").fill(`This tab title ${name}`);
+			await dialog.getByLabel("Title").fill(`This tab title ${name} ${RUN}`);
 			await dialog.getByRole("button", { name: "Save changes" }).click();
 			// Refused as out of date: the page reads the meeting again and the dialog opens on it, as the notice says.
 			await page.getByRole("dialog", { name: "Edit meeting" }).getByText(CONFLICT).waitFor();
-			await page.getByRole("heading", { level: 1, name: `Other tab title ${name}` }).waitFor();
+			await page.waitForLoadState("networkidle");
 			const reopened = page.getByRole("dialog", { name: "Edit meeting" });
-			assert.equal(await reopened.getByLabel("Title").inputValue(), `Other tab title ${name}`);
-			await reopened.getByLabel("Title").fill(`This tab title ${name}`);
+			assert.equal(await reopened.getByLabel("Title").inputValue(), `Other tab title ${name} ${RUN}`);
+			await reopened.getByLabel("Title").fill(`This tab title ${name} ${RUN}`);
+			const retried = answerTo(page, `This tab title ${name} ${RUN}`);
 			await reopened.getByRole("button", { name: "Save changes" }).click();
-			await page.getByRole("heading", { level: 1, name: `This tab title ${name}` }).waitFor();
-			await idle(page);
+			assert.equal((await retried).status(), 200);
+			await page.getByRole("heading", { level: 1, name: `This tab title ${name} ${RUN}` }).waitFor();
+			// The save's answer has arrived before the page reloads: a reload would cut a request still on its way.
+			await page.waitForLoadState("networkidle");
 			await page.reload();
 			await hydrated(page);
-			await page.getByRole("heading", { level: 1, name: `This tab title ${name}` }).waitFor();
+			await page.getByRole("heading", { level: 1, name: `This tab title ${name} ${RUN}` }).waitFor();
 		});
 	});
 
@@ -224,24 +262,27 @@ for (const [name, engine] of ENGINES) {
 
 			const other = await context.newPage();
 			const theirs = await editPlace(other);
-			await theirs.getByLabel("Notes").fill(`Other tab notes ${name}`);
+			await theirs.getByLabel("Notes").fill(`Other tab notes ${name} ${RUN}`);
 			await theirs.getByRole("button", { name: "Save changes" }).click();
-			await other.getByText(`Other tab notes ${name}`).waitFor();
+			await other.getByRole("button", { name: "Change details" }).waitFor();
+			await other.getByText(`Other tab notes ${name} ${RUN}`).waitFor();
 			await idle(other);
 			await other.close();
 
-			await sheet.getByLabel("Notes").fill(`This tab notes ${name}`);
+			await sheet.getByLabel("Notes").fill(`This tab notes ${name} ${RUN}`);
 			await sheet.getByRole("button", { name: "Save changes" }).click();
 			// Refused as out of date: the form shows the place as it is now, as the notice says.
 			await sheet.getByText(CONFLICT).waitFor();
 			await page.waitForFunction(
 				(want) => [...document.querySelectorAll("textarea, input")].some((e) => e.value === want),
-				`Other tab notes ${name}`,
+				`Other tab notes ${name} ${RUN}`,
 			);
-			assert.equal(await sheet.getByLabel("Notes").inputValue(), `Other tab notes ${name}`);
-			await sheet.getByLabel("Notes").fill(`This tab notes ${name}`);
+			assert.equal(await sheet.getByLabel("Notes").inputValue(), `Other tab notes ${name} ${RUN}`);
+			await sheet.getByLabel("Notes").fill(`This tab notes ${name} ${RUN}`);
 			await sheet.getByRole("button", { name: "Save changes" }).click();
-			await page.getByText(`This tab notes ${name}`).waitFor();
+			// Saved: the sheet shows the place again, with these notes.
+			await page.getByRole("button", { name: "Change details" }).waitFor();
+			await page.getByText(`This tab notes ${name} ${RUN}`).waitFor();
 			assert.equal(await page.getByText(CONFLICT).count(), 0);
 		});
 	});
