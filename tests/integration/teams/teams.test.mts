@@ -8,7 +8,14 @@ import { createSeatService } from "../../../packages/domain/src/identity/index.t
 import { InvitationRefusal } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import { reviewDigest, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import {
+	drawingLines,
+	drawingPdf,
+	drawingSvg,
+	reviewDigest,
+	teamsReader,
+	teamsWriter,
+} from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -713,6 +720,131 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 	}
 	assert.equal(JSON.stringify(exported.nodes).includes("account"), false);
 	assert.equal(Object.hasOwn(exported.nodes[0], "leaderName"), true);
+});
+
+test("AC:TARGET-TEAM-006 an archived ministry no longer counts toward how many ministries someone serves on", async () => {
+	const old = await makeTeam("Archived choir");
+	const pat = await person("Pat Archived", { stage: "launch_team" });
+	const assign = async (team, role) =>
+		ok(
+			await run(teamsWriter.assignRole, {
+				requestKey: key(),
+				expectedRevision: await rev("team_role", role.id),
+				input: { roleId: role.id, teamId: team.id, personId: pat },
+			}),
+		);
+	await assign(old, await makeRole(old.id, "Alto"));
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", old.id),
+			input: { teamId: old.id },
+		}),
+	);
+	// The tenure on the archived ministry stays open.
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM team_tenure tn JOIN team_role r ON r.id = tn.role_id
+				WHERE tn.person_id=${pat} AND r.team_id=${old.id} AND tn.ended_on IS NULL`,
+		),
+		1,
+	);
+	const next = await makeTeam("Current choir");
+	const placed = await assign(next, await makeRole(next.id, "Tenor"));
+	assert.equal(placed.teamCount, 1);
+	assert.equal(placed.warning, null);
+});
+
+/** Each object's byte offset in the xref table points at that object, and startxref points at the table. */
+function assertXref(pdf) {
+	const bytes = Buffer.from(pdf, "latin1");
+	assert.equal(Buffer.byteLength(pdf), bytes.length, "the PDF is plain ASCII");
+	const start = Number(/startxref\n(\d+)\n%%EOF$/.exec(pdf)[1]);
+	assert.equal(bytes.subarray(start, start + 4).toString(), "xref");
+	const [, size] = /^xref\n0 (\d+)\n/.exec(pdf.slice(start));
+	const rows = pdf
+		.slice(start)
+		.split("\n")
+		.slice(3, 2 + Number(size));
+	assert.equal(rows.length, Number(size) - 1);
+	rows.forEach((row, index) => {
+		const offset = Number(row.slice(0, 10));
+		assert.equal(
+			bytes
+				.subarray(offset)
+				.toString()
+				.startsWith(`${index + 1} 0 obj\n`),
+			true,
+			row,
+		);
+	});
+	for (const [, length, stream] of pdf.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g))
+		assert.equal(Buffer.byteLength(stream), Number(length));
+}
+/** Every page's text lines with their baselines, read back from the PDF content streams. */
+function pdfPages(pdf) {
+	return [...pdf.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(([, stream]) => {
+		const [, top] = /50 (\d+) Td/.exec(stream);
+		const [, leading] = /(\d+) TL/.exec(stream);
+		const texts = [...stream.matchAll(/^\((.*)\) Tj$/gm)].map((m) => m[1]);
+		return texts.map((text, index) => ({ text, y: Number(top) - index * Number(leading) }));
+	});
+}
+
+test("AC:TARGET-TEAM-012 the chart PDF writes Latin-1 names in WinAnsi and the export shows José", async () => {
+	const team = await makeTeam("Ministerio de José");
+	const lead = await makeRole(team.id, "Líder", { leadership: true });
+	const zoe = await person("Zoë Núñez", { stage: "launch_team" });
+	ok(
+		await run(teamsWriter.assignRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", lead.id),
+			input: { roleId: lead.id, teamId: team.id, personId: zoe },
+		}),
+	);
+	const exported = ok(await teamsReader.readOrgChartExport(db, await viewer(), {}));
+	assert.equal(exported.lines.includes("Ministerio de José"), true);
+	assert.match(exported.pdf, /\/BaseFont \/Helvetica \/Encoding \/WinAnsiEncoding/);
+	assert.equal(exported.pdf.includes("(Ministerio de Jos\\351) Tj"), true);
+	assert.equal(exported.pdf.includes("(Leader: Zo\\353 N\\372\\361ez) Tj"), true);
+	assert.equal(/[^\x00-\x7f]/.test(exported.pdf), false, "no raw non-ASCII bytes");
+	assert.equal(exported.svg.includes("Ministerio de José"), true);
+	assertXref(exported.pdf);
+	// WinAnsi's own high characters keep their byte; anything outside WinAnsi is a visible "?".
+	const pdf = drawingPdf(["“Café” – €5 (ok) \\ 漢 😀"]);
+	assert.equal(pdf.includes("(\\223Caf\\351\\224 \\226 \\2005 \\(ok\\) \\\\ ? ?) Tj"), true, pdf);
+	assertXref(pdf);
+});
+
+test("AC:TARGET-TEAM-012 a chart of 60 ministries fits every line inside the PDF pages and the SVG", () => {
+	const nodes = Array.from({ length: 60 }, (_, i) => ({
+		name: `Ministry ${i + 1}`,
+		leaderName: `Leader ${i + 1}`,
+		archived: false,
+	}));
+	const lines = drawingLines(nodes);
+	assert.equal(lines.length, 121);
+	const pdf = drawingPdf(lines);
+	assertXref(pdf);
+	const pages = pdfPages(pdf);
+	assert.equal(pages.length > 1, true);
+	assert.match(pdf, new RegExp(`/Count ${pages.length} >>`));
+	assert.equal((pdf.match(/\/Type \/Page /g) ?? []).length, pages.length);
+	const [, , width, height] = /\/MediaBox \[(\d+) (\d+) (\d+) (\d+)\]/.exec(pdf).slice(1).map(Number);
+	assert.deepEqual([width, height], [612, 792]);
+	assert.deepEqual(
+		pages.flat().map((line) => line.text),
+		lines,
+	);
+	for (const line of pages.flat())
+		assert.equal(line.y >= 36 && line.y <= height - 20, true, `${line.text} at ${line.y}`);
+	const svg = drawingSvg(lines);
+	const svgHeight = Number(/<svg [^>]*height="(\d+)"/.exec(svg)[1]);
+	const ys = [...svg.matchAll(/<text x="50" y="(\d+)">/g)].map((m) => Number(m[1]));
+	assert.equal(ys.length, 121);
+	assert.equal(svgHeight > Math.max(...ys) + 11, true, `${svgHeight} vs ${Math.max(...ys)}`);
+	assert.match(svg, new RegExp(`viewBox="0 0 612 ${svgHeight}"`));
+	assert.equal(svg.includes("Leader 60"), true);
 });
 
 test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the root of the chart", async () => {
