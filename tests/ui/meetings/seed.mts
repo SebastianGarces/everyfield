@@ -9,7 +9,7 @@
 // `up` reads the People fixture and writes the meeting and links to $MEETINGS_UI_FIXTURE (default
 // /tmp/everyfield-meetings-ui.json).
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
+import { meetingsWriter, venuesWriter } from "../../../packages/domain/src/meetings/index.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fixturePath } from "../setup.mjs";
@@ -164,7 +164,67 @@ async function up() {
 		}),
 	);
 	if (o.status !== "ok") throw Error("schedule orientation: " + JSON.stringify(o));
+	// T-155: per engine the meetings of the revision and conflict flows. "card" and "preview" started two hours ago with
+	// one guest checked in; "walkIn" started two hours ago with no guests; "agenda" and "plan" are upcoming; "closed" is
+	// a cancelled meeting with an open link for its guest; "venue" is a saved place.
+	const schedule = async (guestNames: readonly string[], past: boolean) => {
+		const r = await runtime.transaction((tx) =>
+			meetingsWriter.schedule(tx as never, ctx, {
+				requestKey: randomUUID(),
+				input: { type: "vision_meeting", date, time: "18:30", guests: guestNames.map((n) => people.people[n]) },
+			}),
+		);
+		if (r.status !== "ok") throw Error("schedule revisions: " + JSON.stringify(r));
+		const id = r.value.meeting.id;
+		if (past)
+			await admin.execute(sql`UPDATE meeting SET starts_at = clock_timestamp() - interval '2 hours',
+				local_date = ((clock_timestamp() - interval '2 hours') AT TIME ZONE timezone)::date WHERE id = ${id}::uuid`);
+		// Checked in at the door, as a tap does: the guest row and the attendance revision move together.
+		if (past && guestNames.length) {
+			await admin.execute(sql`UPDATE participation SET presence = 'attended', revision = revision + 1
+				WHERE meeting_id = ${id}::uuid`);
+			await admin.execute(sql`UPDATE meeting SET attendance_revision = attendance_revision + 1 WHERE id = ${id}::uuid`);
+		}
+		return r.value.meeting;
+	};
+	const revisions: Record<string, Record<string, unknown>> = {};
+	for (const [engine, cardGuest, previewGuest] of [
+		["chromium", "Guest 15", "Guest 17"],
+		["webkit", "Guest 16", "Guest 18"],
+	] as const) {
+		const closed = await schedule([cardGuest], false);
+		const token = randomBytes(32).toString("base64url");
+		await admin.execute(sql`UPDATE participation SET rsvp_token_hash = ${createHash("sha256").update(token).digest("hex")},
+			rsvp_token_expires_at = clock_timestamp() + interval '7 days', rsvp_token_open = true, revision = revision + 1
+			WHERE meeting_id = ${closed.id}::uuid`);
+		const cancelled = await runtime.transaction((tx) =>
+			meetingsWriter.changeStatus(tx as never, ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: closed.revision,
+				input: { meetingId: closed.id, to: "cancelled" },
+			}),
+		);
+		if (cancelled.status !== "ok") throw Error("cancel revisions: " + JSON.stringify(cancelled));
+		const venueName = `Revision Hall ${engine}`;
+		const venue = await runtime.transaction((tx) =>
+			venuesWriter.create(tx as never, ctx, {
+				requestKey: randomUUID(),
+				input: { name: venueName, address: "12 Elm Street", notes: "Side door" },
+			}),
+		);
+		if (venue.status !== "ok") throw Error("venue revisions: " + JSON.stringify(venue));
+		revisions[engine] = {
+			card: { meetingId: (await schedule([cardGuest], true)).id, guest: cardGuest },
+			preview: { meetingId: (await schedule([previewGuest], true)).id, guest: previewGuest },
+			walkIn: (await schedule([], true)).id,
+			agenda: (await schedule([], false)).id,
+			plan: (await schedule([], false)).id,
+			closed: { meetingId: closed.id, token },
+			venue: venueName,
+		};
+	}
 	const fixture = writeFixture("meetings", env.schema, {
+		revisions,
 		meetingId,
 		links,
 		past,
