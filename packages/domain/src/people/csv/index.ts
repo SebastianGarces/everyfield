@@ -629,4 +629,23 @@ export const peopleCsv = {
 			});
 		});
 	},
+	/**
+	 * What exportPeople would say about its file, without building it: the filename, the media type and the receipt.
+	 * One count(*) under the same filters and live access; it selects no contact value, note or person row. Evry uses it.
+	 */
+	async countExport(tx: Tx, ctx: Context, raw: unknown) {
+		return readReply(async () => {
+			plantId(ctx);
+			const filters = parse(c.exportPeopleRequest, raw);
+			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
+ (SELECT count(*)::int FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) AS matched`);
+			const state = z.object({ allowed: z.boolean(), matched: z.number().int() }).parse(result.rows[0]);
+			if (!state.allowed) deny();
+			return c.peopleExport.omit({ text: true }).parse({
+				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
+				mediaType: media,
+				receipt: { filters, matched: state.matched, returned: state.matched, completeness: "complete" },
+			});
+		});
+	},
 };

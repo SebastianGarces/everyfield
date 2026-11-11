@@ -4,12 +4,12 @@ Recorded evals of Evry on the real model. Each `<name>.cases.json` holds labelle
 holds the real model's answers, keyed by a hash of the exact provider call (prompt, tools, tool choice, reasoning,
 output limit, response format, provider options). CI replays the recordings: no paid call, no network, no API key.
 
-| Suite                 | Cases                                                                                                  | What it scores                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (28 extra per-adapter cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
-| `classify.test.mts`   | `classify.cases.json`                                                                                  | `evry.classifyRequest` labels                                                         |
-| `households.test.mts` | `households.cases.json`                                                                                | Household tool selection and the household list answer                                |
-| `followups.test.mts`  | `followups.cases.json`                                                                                 | Follow-up suggestions never name the signed-in user                                   |
+| Suite                 | Cases                                                                                                                   | What it scores                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (29 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
+| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
 
 ## The golden set
 
@@ -17,8 +17,9 @@ output limit, response format, provider options). CI replays the recordings: no 
 `golden.cases.json` holds the approved fields (case ID, scenario, actor, area, question, status, expected operation,
 expected answer, must-not) plus an `eval` block with its checks. A test fails if an approved case is missing,
 duplicated or changed. `adapters.cases.json` holds the cases added beyond the golden set (`"extra": true`, IDs
-`ADP-…`): 5 to 10 natural questions per adapter in `packages/evry/src/adapters`, including near-misses. A test fails
-when an adapter has no such questions or an adapter operation has no case.
+`ADP-…`): 5 to 10 natural questions per adapter in `packages/evry/src/adapters`, including near-misses, and cases
+for the catalog's own tools (`"adapter": "catalog"`, such as `evry.selectReturnedRows`). A test fails when an adapter
+has no such questions, or an adapter operation or catalog tool has no case.
 
 Each case is one turn, asked the way `runTurn` asks it (`golden-harness.mts`). First comes `evry.classifyRequest`.
 Then the real system prompt runs with the actor's read tools, `select_returned_rows` and `propose_change`. Reads are
@@ -71,7 +72,7 @@ limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the env
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
-**Cost.** Recording all 123 cases on `gpt-6-luna` from scratch is 476 calls, about $0.19
+**Cost.** Recording all 124 cases on `gpt-6-luna` from scratch is 481 calls, about $0.19
 (`spend.allMicroUsd` in `golden.recorded.json`). Re-recording only the changed cases costs a fraction of a cent per
 case. If a run would cost more than $1, ask the owner first.
 
