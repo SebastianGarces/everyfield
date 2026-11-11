@@ -49,7 +49,7 @@ export function drawingSvg(lines: readonly string[]) {
 const pageTop = 760;
 const pageLeading = 14;
 /** Lines that fit between the first baseline and a 40 pt bottom margin on a US Letter page. */
-export const pdfLinesPerPage = Math.floor((pageTop - 40) / pageLeading) + 1;
+const pdfLinesPerPage = Math.floor((pageTop - 40) / pageLeading) + 1;
 /** A PDF 1.4 with the same lines, as many US Letter pages as they need. Nothing is stored. */
 export function drawingPdf(lines: readonly string[]) {
 	const pages: (readonly string[])[] = [];
