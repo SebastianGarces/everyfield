@@ -7,12 +7,11 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "oxlint -c .oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs && node scripts/check-corners.mjs",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"share-images": "node scripts/render-share-images.mjs",
 		"mesh-images": "node scripts/render-mesh-images.mjs",
 		"test:unit": "node --conditions=react-server --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts ../../tests/ui/tasks/model.test.mjs ../../tests/ui/phases/model.test.mjs ../../tests/ui/intelligence/model.test.mjs ../../tests/ui/intelligence/signals-model.test.mjs ../../tests/ui/teams/model.test.mjs ../../tests/ui/meetings/model.test.mjs ../../tests/ui/communication/body.test.mts ../../tests/ui/communication/capture.test.mts ../../tests/ui/communication/route.test.mts ../../tests/ui/save/record-dialog-focus-lint.test.mjs ../../tests/ui/settings/brand-model.test.mts ../../tests/ui/settings/brand-assets.test.mts ../../tests/ui/marketing/evry-follow.test.mjs ../../tests/ui/documents/editor-schema.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/ui/evry/markdown.test.mjs ../../tests/ui/evry/model.test.mjs ../../tests/ui/evry/result-card.test.mjs ../../tests/ui/evry/review-model.test.mjs ../../tests/ui/followups/model.test.mjs ../../tests/ui/foundations/evry-geo.test.mjs ../../tests/ui/meetings/status-view.test.mjs ../../tests/ui/onboarding/connection.test.mjs ../../tests/ui/onboarding/model.test.mjs ../../tests/ui/people/fields.test.mjs ../../tests/ui/people/model.test.mjs ../../tests/ui/people/records.test.mjs ../../tests/ui/save/model.test.mjs ../../tests/ui/settings/drafts-model.test.mjs ../../tests/ui/tasks/description.test.mjs",
-		"typecheck:ts7": "tsgo --noEmit",
 		"test:jobs": "node --conditions=react-server --env-file-if-exists=.env.local --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/jobs/*.test.mts"
 	},
 	"dependencies": {
@@ -62,7 +61,6 @@
 		"sharp": "0.35.5",
 		"tailwindcss": "4.3.3",
 		"typescript": "6.0.3",
-		"@typescript/native-preview": "7.0.0-dev.20260707.2",
 		"oxlint": "1.92.0",
 		"eslint-plugin-oxlint": "1.92.0"
 	}

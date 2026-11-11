@@ -3,6 +3,7 @@
 import type { AssetSlot } from "@everyfield/contracts/branding";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorReference } from "../model";
+import { OFFLINE_REFERENCE } from "../save";
 import type { BrandKit, BrandPort, SuggestedColors } from "../port";
 import { useFlowState } from "../store";
 import {
@@ -21,7 +22,7 @@ import { ASSET_FLOW, EMPTY_FLOW, pickFile, releasePick, type AssetFlow, type Not
 
 const OFFLINE_NOTE: Note = {
 	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-	reference: "EF-OFFLINE",
+	reference: OFFLINE_REFERENCE,
 	conflict: true,
 };
 

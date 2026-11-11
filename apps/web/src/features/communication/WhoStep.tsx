@@ -13,6 +13,11 @@ import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type R
 
 const MAX_CHIPS = 8;
 
+/** The day someone unsubscribed, in the reader's own format. */
+const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
+/** Why an unsubscribed person is left out. Nobody on the church's staff can clear it (D-284). */
+export const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+
 /** The whole-audience counts, debounced to one request per 300 ms pause. `ready` is false while a request is out. */
 export function useAudienceSummary(audience: Audience) {
 	const key = JSON.stringify(audience);
@@ -164,7 +169,10 @@ function Counts({
 	const tiles: { label: string; value: number | null }[] = [
 		{ label: "Selected, after duplicates", value: summary?.resolvedDistinctPeople ?? (empty ? 0 : null) },
 		{ label: "Will get this email", value: summary?.eligibleRecipients ?? (empty ? 0 : null) },
-		{ label: "Left out", value: summary ? summary.missingEmailExclusions.length : empty ? 0 : null },
+		{
+			label: "Left out",
+			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
+		},
 	];
 	return (
 		<div className="flex flex-col gap-4">
@@ -186,10 +194,16 @@ function Counts({
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
-					{summary.missingEmailExclusions.length === 0 ? (
+					{summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length === 0 ? (
 						<p className="text-sm text-text-2">Everyone selected can get this email.</p>
 					) : (
 						<ul className="flex flex-col gap-1">
+							{summary.unsubscribedExclusions.map((person) => (
+								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
+									<span>{person.displayName}</span>
+									<span className="text-text-2">{unsubscribedReason(person.unsubscribedAt)}</span>
+								</li>
+							))}
 							{summary.missingEmailExclusions.map((name, index) => (
 								<li key={`${name}-${index}`} className="flex justify-between gap-3 text-md text-ink">
 									<span>{name}</span>
@@ -198,6 +212,11 @@ function Counts({
 							))}
 						</ul>
 					)}
+					{summary.unsubscribedExclusions.length > 0 ? (
+						<p className="text-sm text-text-2">
+							Only the person can undo an unsubscribe, from the link in an email. Staff cannot clear it.
+						</p>
+					) : null}
 					{summary.duplicateAddressesRemoved > 0 ? (
 						<p className="text-sm text-text-2">
 							{plural(summary.duplicateAddressesRemoved, "duplicate address", "duplicate addresses")} removed.
@@ -266,7 +285,7 @@ function ToField({
 
 	const picked = new Set(form.audience.personIds);
 	const add = (person: Recipient) => {
-		if (!person.email || picked.has(person.id)) return;
+		if (!person.email || person.unsubscribedAt || picked.has(person.id)) return;
 		setForm((current) => ({
 			...current,
 			people: [...current.people, person],
@@ -410,7 +429,7 @@ function ToField({
 						className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 					>
 						{shown.map((person, index) => {
-							const disabled = !person.email || picked.has(person.id);
+							const disabled = !person.email || Boolean(person.unsubscribedAt) || picked.has(person.id);
 							return (
 								<li
 									key={person.id}
@@ -422,11 +441,18 @@ function ToField({
 										event.preventDefault();
 										if (!disabled) add(person);
 									}}
-									className="flex min-h-[40px] items-center justify-between gap-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
+									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
 								>
 									<span className="min-w-0 truncate">{person.displayName}</span>
-									<span className="truncate text-sm text-text-3">
-										{!person.email ? "No email address" : picked.has(person.id) ? "Added" : person.email}
+									{/* The reason and its date always show in full; on a narrow screen it wraps below the name. */}
+									<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
+										{!person.email
+											? "No email address"
+											: person.unsubscribedAt
+												? unsubscribedReason(person.unsubscribedAt)
+												: picked.has(person.id)
+													? "Added"
+													: person.email}
 									</span>
 								</li>
 							);
