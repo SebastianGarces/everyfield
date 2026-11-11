@@ -198,12 +198,21 @@ export function canInsert(state: EditorState, kind: InsertKind): boolean {
 	// A budget table sits in the body: the page header and footer print no Excel file.
 	if (kind === "budget" && regionAt(state)) return false;
 	if (kind === "slot" && hasSlot(state.doc)) return false;
+	// The format refuses columns anywhere under a column, a box or conditional text in a column included.
+	if (kind.startsWith("columns") && insideColumn(state)) return false;
 	const { pos, parent, index } = insertionPoint(state, kind);
 	const node = build(state.schema, kind);
 	if (!parent.canReplaceWith(index, index, node.type)) return false;
 	// Conditional text, or a block going into it: the format's rules for where it sits and what it holds.
 	if (kind === "if" || insideCondition(state)) return conditionIssue(state.tr.insert(pos, node).doc) === null;
 	return true;
+}
+
+/** True when a column holds the selection, at any depth. */
+export function insideColumn(state: EditorState) {
+	const $from = state.selection.$from;
+	for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === "column") return true;
+	return state.selection instanceof NodeSelection && state.selection.node.type.name === "column";
 }
 
 /** True when the selection is inside conditional text. */

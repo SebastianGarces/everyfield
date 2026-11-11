@@ -69,7 +69,17 @@ export const notificationCategory = z.enum([
 	"phase_milestone",
 	"launch_milestone",
 	"wiki_upstream_review",
+	"scheduled_email_unsubscribe",
 ]);
+/**
+ * Categories that live in the bell only: a Wiki review request, and a person who unsubscribed from a Messages email
+ * the account scheduled (T-242, D-680). They have no email channel to choose.
+ */
+export const inAppOnlyCategories = ["wiki_upstream_review", "scheduled_email_unsubscribe"] as const;
+/** The channels a category offers: every reader, writer and setting row uses this one rule. */
+export function notificationChannels(category: z.infer<typeof notificationCategory>): readonly ("email" | "in_app")[] {
+	return (inAppOnlyCategories as readonly string[]).includes(category) ? ["in_app"] : ["email", "in_app"];
+}
 /**
  * A channel's state for a person who never saved a choice. Every reader and every sender uses this one rule. The
  * church digest goes by email only; the oversight digest goes to the bell only (WP-030 decision D-a).
@@ -83,11 +93,11 @@ export function defaultChannelEnabled(category: z.infer<typeof notificationCateg
 export const defaultDigestCadence = { planter_digest: "weekly", oversight_digest: "daily" } as const;
 export const notificationChoice = z.union([
 	z.strictObject({
-		category: notificationCategory.exclude(["wiki_upstream_review"]),
+		category: notificationCategory.exclude(inAppOnlyCategories),
 		channel: z.enum(["email", "in_app"]),
 		enabled: z.boolean(),
 	}),
-	z.strictObject({ category: z.literal("wiki_upstream_review"), channel: z.literal("in_app"), enabled: z.boolean() }),
+	z.strictObject({ category: z.enum(inAppOnlyCategories), channel: z.literal("in_app"), enabled: z.boolean() }),
 ]);
 export const notificationPatch = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("channel"), choice: notificationChoice }),
@@ -95,8 +105,8 @@ export const notificationPatch = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("oversight_cadence"), cadence: z.enum(["daily", "weekly"]) }),
 ]);
 export const notificationSettings = z.strictObject({
-	// Ten ordinary categories have two channels; Wiki has only in_app. Unique
-	// pairs therefore cap this closed matrix at 21 without a redundant limit.
+	// Ten ordinary categories have two channels; the in-app-only ones have one.
+	// Unique pairs therefore cap this closed matrix without a redundant limit.
 	choices: z
 		.array(notificationChoice)
 		.refine((v) => new Set(v.map((c) => `${c.category}:${c.channel}`)).size === v.length),

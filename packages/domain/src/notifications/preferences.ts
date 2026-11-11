@@ -8,7 +8,10 @@ import {
 	setPreferenceRequest,
 	setPreferencesRequest,
 } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled as defaultEnabled } from "@everyfield/contracts/settings";
+import {
+	defaultChannelEnabled as defaultEnabled,
+	notificationChannels as channels,
+} from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
@@ -33,10 +36,6 @@ const writeRow = z.object({
 	revision: z.string().nullable(),
 	changed: z.boolean(),
 });
-
-function channels(category: (typeof categories)[number]) {
-	return category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const);
-}
 
 export async function getPreferences(db: Database, authority: RequestActor) {
 	return readReply(async () => {
