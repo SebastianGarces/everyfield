@@ -114,7 +114,12 @@ test("a cleared True as of date is left out of the request and the answer reads 
 	assert.equal("asOf" in input && input.asOf !== undefined, false);
 	assert.equal(JSON.parse(JSON.stringify(input)).asOf, undefined);
 	assert.equal(statedAsOf(draft, TODAY), TODAY);
-	const shown = stated(blank("prayer_rhythm_established"), { ...draft, asOf: statedAsOf(draft, TODAY) }, TODAY, "Daniel Reyes");
+	const shown = stated(
+		blank("prayer_rhythm_established"),
+		{ ...draft, asOf: statedAsOf(draft, TODAY) },
+		TODAY,
+		"Daniel Reyes",
+	);
 	assert.deepEqual([shown.asOf, shown.ageDays, shown.detail], [TODAY, 0, "Thursdays"]);
 	const dated = { ...draft, asOf: "2026-10-01" };
 	assert.equal(signalInput("prayer_rhythm_established", "yes", dated).asOf, "2026-10-01");

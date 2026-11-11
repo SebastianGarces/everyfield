@@ -152,9 +152,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 								variant="outline"
 								size="sm"
 								disabled={busy}
-								onClick={() =>
-									setMove(lostMove ?? { to: journey.state.phase, reason: "", error: null, changed: null })
-								}
+								onClick={() => setMove(lostMove ?? { to: journey.state.phase, reason: "", error: null, changed: null })}
 							>
 								Change phase
 							</Button>
