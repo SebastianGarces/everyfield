@@ -7,7 +7,6 @@ import {
 	contactFields,
 	plantOwner,
 	organizationOwner,
-	tenantOwner,
 	personLifecycle,
 	stage,
 	recruitmentSource,
@@ -133,7 +132,6 @@ export const noteMutationResult = z.strictObject({
 	outcome: z.enum(["changed", "noop"]),
 });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
-export const organizationPersonMutationResult = personMutationResult.extend({ person: organizationPerson });
 // A verified email may propose candidates but never selects a human identity.
 // This output belongs only to the owning authenticated provisioning workflow.
 export const accountPersonResolution = z.discriminatedUnion("status", [
@@ -144,12 +142,6 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("current_account"), accountId }),
 	z.strictObject({ kind: z.literal("former_account"), scopeLocalToken: z.string().min(1).max(200) }),
 ]);
-export const retainedPersonHistory = z.strictObject({
-	owner: tenantOwner,
-	personId,
-	receiptId: operationId,
-	attribution: actorAttribution,
-});
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
 	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: noteBody, editedAt: instant.nullable() }),
@@ -220,35 +212,6 @@ export const classificationMutationResult = z.strictObject({
 	outcome: z.enum(["changed", "noop"]),
 	observation: commitmentObservation,
 });
-const count = z.int().min(0);
-const transition = z
-	.strictObject({ from: stage, to: stage, distinctPeople: count })
-	.refine((v) => stage.options.indexOf(v.to) === stage.options.indexOf(v.from) + 1);
-export const conversion = z.discriminatedUnion("status", [
-	z.strictObject({ status: z.literal("unknown"), reason: z.enum(["cohort_unavailable", "empty_cohort"]) }),
-	z
-		.strictObject({ status: z.literal("known"), cohortPeople: z.int().positive(), cohortTransitionPeople: count })
-		.refine((v) => v.cohortTransitionPeople <= v.cohortPeople),
-]);
-export const pipelineMetricsResult = z
-	.strictObject({
-		owner: plantOwner,
-		asOf: instant,
-		zone: timeZone,
-		sourceRevision: revision,
-		from: localDate,
-		through: localDate,
-		unit: z.literal("distinct_canonical_people"),
-		currentStages: z
-			.array(z.strictObject({ stage, distinctPeople: count }))
-			.length(7)
-			.refine((v) => new Set(v.map((r) => r.stage)).size === 7),
-		transitions: z
-			.array(transition.safeExtend({ conversion }))
-			.max(6)
-			.refine((v) => new Set(v.map((r) => r.from)).size === v.length),
-	})
-	.refine((v) => v.from <= v.through);
 type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
