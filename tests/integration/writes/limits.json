@@ -1348,6 +1348,11 @@
 		"limit": 11,
 		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 6 locked read, 3 write."
 	},
+	"people/core.withPeopleWrite:people.removeFromHousehold": {
+		"limit": 7,
+		"retry": 9,
+		"reason": "Leave-and-delete: the last member leaves and the empty household is deleted in one transaction, two producer writes (people.removeFromHousehold, people.deleteHousehold) at the revision the leave answers. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write. A plain leave stays within the pattern."
+	},
 	"people/core.withPeopleWrite:people.retirePerson": {
 		"limit": 13,
 		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 7 locked read, 4 write."
