@@ -1,7 +1,6 @@
 {
   "internalFeedback": {
     "repo": "SebastianGarces/everyfield",
-    "priorities": ["P0", "P1"],
-    "triageCron": "*/5 * * * *"
+    "priorities": ["P0", "P1"]
   }
 }
