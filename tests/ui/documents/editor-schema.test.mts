@@ -1,6 +1,7 @@
 // WP-036 slice 2: the editor's free parts and its schema. No browser, no database.
 //   AC:CASE-DOC-016: the plain document editor (OPS-87) holds a native body unchanged and has no template-only node.
-//   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package; no private registry.
+//   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package. The private-registry
+//   check is scripts/lint/check-repo-files.mjs, which `pnpm lint` runs.
 //   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
 //   T-20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
 //   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
@@ -49,16 +50,6 @@ test("AC:DOC-EDIT-FREE: each Tiptap package the workspace depends on is installe
 		}
 	}
 	assert.ok(found.includes("@tiptap/react"), "the web app depends on @tiptap/react");
-});
-
-test("AC:DOC-EDIT-FREE: no committed .npmrc names a Tiptap private registry or token", () => {
-	for (const dir of workspacePackages()) {
-		const file = join(dir, ".npmrc");
-		if (!existsSync(file)) continue;
-		const text = readFileSync(file, "utf8");
-		assert.doesNotMatch(text, /tiptap/i, `${file} mentions Tiptap`);
-		assert.doesNotMatch(text, /_authToken|registry\.tiptap\.dev/i, `${file} holds a registry token`);
-	}
 });
 
 const schema = editorSchema();
