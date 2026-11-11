@@ -105,7 +105,7 @@ jobs:
 
   tools:
     # The product tools. The QA seed tests migrate a Docker Postgres with db:migrate.
-    name: tools (CI test coverage, QA previews)
+    name: tools (CI test coverage, QA previews, actionable watcher)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -129,6 +129,9 @@ jobs:
         run: node --test tools/ci/tests/*.test.ts
       - name: QA preview tool
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
+      # The launchd watcher (ops/actionable-watch). Its one plutil test needs macOS and is skipped here.
+      - name: Actionable watcher
+        run: node --test ops/actionable-watch/test/*.test.mts
 
   db:
     # One job per package with a test:db script, each with its own Postgres service, so the
