@@ -55,6 +55,23 @@ brew install ffmpeg                      # macOS; video recording only
 agent-browser drives Chrome only. Its Safari backend needs the iOS Simulator and Appium and
 cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `capture.mjs`.
 
+## Shared preview service
+
+These Everyfield rules sit on top of the verbatim `portless-preview` skill and apply to every role that runs a preview.
+
+- An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless
+  replaces it with the preview's own URL.
+- Timing previews: D81's quiet timing runner retired with evf v1. Do not time on a shared preview and call it a
+  qualifying timing set; report the measurement and what it shared the machine with.
+- Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the
+  limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview
+  runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts
+  it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
+- Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR`
+  and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never
+  restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart
+  removed every live preview.
+
 ## 1. Read
 
 Read your brief (the ask and the spec) and the full diff against the merge base. Read the

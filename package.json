@@ -9,7 +9,8 @@
 		"dev": "pnpm --filter @everyfield/web dev",
 		"build": "pnpm --filter @everyfield/web build",
 		"prepare": "bin/dev hooks install",
-		"lint": "pnpm -r --if-present lint",
+		"lint": "pnpm -r --if-present lint && pnpm run lint:repo",
+		"lint:repo": "packages/evry/node_modules/.bin/oxlint -c tools/.oxlintrc.json --max-warnings=0 tools && node scripts/lint/check-repo-files.mjs",
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:bun": "pnpm -r --if-present typecheck:bun",
 		"access:export": "pnpm --filter @everyfield/db export",
@@ -24,6 +25,7 @@
 	"devDependencies": {
 		"bun": "1.4.4",
 		"eslint-config-prettier": "10.1.8",
-		"prettier": "3.9.10"
+		"prettier": "3.9.10",
+		"typescript-7": "npm:typescript@7.0.2"
 	}
 }
