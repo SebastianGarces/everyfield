@@ -4233,6 +4233,9 @@ export const relationship_invitation = pgTable(
 			sql`((length(inviter_description) >= 1) AND (length(inviter_description) <= 500))`,
 		),
 		check("relationship_invitation_subject_revision_check", sql`(subject_revision >= 1)`),
+		index("relationship_invitation_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("relationship_invitation_ref_1").using("btree", table.account_id.asc().nullsLast()),
+		index("relationship_invitation_ref_2").using("btree", table.organization_id.asc().nullsLast()),
 	],
 );
 export const residency_link = pgTable(
@@ -5270,6 +5273,7 @@ export const proposal = pgTable(
 		}).onDelete("cascade"),
 		foreignKey({ name: "proposal_job", columns: [t.job_id, t.tenant_id], foreignColumns: [job.id, job.tenant_id] }),
 		index("proposal_conversation").on(t.conversation_id),
+		index("proposal_ref_0").on(t.job_id, t.tenant_id),
 	],
 );
 
@@ -5461,6 +5465,7 @@ export const record_correction = pgTable(
 		}).onDelete("cascade"),
 		check("record_correction_type", sql`${t.record_type} IN ('assessment','interview','commitment')`),
 		index("record_correction_record").on(t.plant_id, t.record_id, t.corrected_at),
+		index("record_correction_ref_0").on(t.person_id, t.plant_id),
 	],
 );
 /**

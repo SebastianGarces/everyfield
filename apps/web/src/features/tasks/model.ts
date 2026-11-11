@@ -136,6 +136,49 @@ export function ownerWarning(owner: Pick<FollowUpOwner, "eligible" | "reason">):
 	return owner.eligible || !owner.reason ? null : `Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
 }
 
+/**
+ * The people a task form holds in its "Assigned to" picker: everyone chosen, on the task or only in the draft (the
+ * viewer a new task starts with), with the warning they earn. The picker lists one of them who is not an eligible
+ * choice with that warning, so they can be seen and removed. `refused` is the account a refusal named as unable to own
+ * follow-ups.
+ */
+export function heldAssignees(
+	ids: readonly string[],
+	names: Readonly<Record<string, string>>,
+	current: readonly { accountId: string; displayName: string }[],
+	owners: readonly Pick<FollowUpOwner, "accountId" | "eligible" | "reason">[],
+	refused?: string | null,
+): { accountId: string; displayName: string; warning: string | null }[] {
+	const warningOf = (accountId: string) => {
+		const view = owners.find((o) => o.accountId === accountId);
+		return (view ? ownerWarning(view) : null) ?? (accountId === refused ? "Can't own follow-ups now" : null);
+	};
+	const drafted = ids.filter((id) => !current.some((a) => a.accountId === id));
+	return [
+		...current.map((a) => ({ accountId: a.accountId, displayName: a.displayName, warning: warningOf(a.accountId) })),
+		...drafted.map((id) => ({ accountId: id, displayName: names[id] ?? "", warning: warningOf(id) })),
+	];
+}
+
+/**
+ * A task save's send that notices an `owner_ineligible` refusal: it forgets the cached assignee lists, so the next
+ * picker open reads who may own follow-ups now, and hands on the account the refusal named.
+ */
+export function noticingIneligible<T>(
+	send: (key: string) => Promise<Outcome<T>>,
+	forget: () => void,
+	named: (accountId: string | undefined) => void,
+): (key: string) => Promise<Outcome<T>> {
+	return async (key) => {
+		const r = await send(key);
+		if (r.status === "refused" && r.code === "owner_ineligible") {
+			forget();
+			named(r.error?.code === "owner_ineligible" ? r.error.details.accountId : undefined);
+		}
+		return r;
+	};
+}
+
 /** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
 export const lacksOwner = (owners: readonly Pick<FollowUpOwner, "eligible">[]) => !owners.some((o) => o.eligible);
 /** Every assignee's name, in the order the server lists them. */
@@ -518,8 +561,14 @@ export function groupsOf(items: TaskItem[], sort: TaskQuery["sort"]): Group[] {
 // ---------------------------------------------------------------------------------------------------------------
 // Words for refusals. Nothing here reveals another church's records.
 
-export function problemText(code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied"): string {
+/** `name` is the person a refusal is about, when the form knows them (an `owner_ineligible` assignee). */
+export function problemText(
+	code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied",
+	name?: string | null,
+): string {
 	switch (code) {
+		case "owner_ineligible":
+			return `${name?.trim() || "Someone you assigned"} cannot own follow-ups now. Remove them from Assigned to or choose someone else, then save again.`;
 		case "conflict":
 			return "This task changed while you were working. We loaded the latest version; check it and try again.";
 		case "lost":
