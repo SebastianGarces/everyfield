@@ -6,7 +6,7 @@ import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database } from "@everyfield/db/client";
 import { responsibilityReader, responsibilityWriter } from "@everyfield/domain/teams";
 import type { Outcome } from "../model.ts";
-import { outcome, write, type Viewer } from "../server.ts";
+import { outcome, readRevision, write, type Viewer } from "../server.ts";
 
 // Browser boundary for responsibilities (REQ-TEAM-007). The producer parses every value. A read writes nothing.
 // A lost answer may be retried with the same request key; the producer replays a write that did commit.
@@ -44,6 +44,13 @@ export async function previewResponsibilities(teamId: string) {
 	const v = await seat();
 	if (!v) return noSeat;
 	return read(v, (db, authority) => responsibilityReader.previewResponsibilities(db, authority, { teamId }));
+}
+
+/** The ministry's current revision alone, after a write was refused as stale. One statement, not the whole page. */
+export async function readTeamRevision(teamId: string) {
+	const v = await seat();
+	if (!v) return noSeat;
+	return outcome(await readRevision(v, teamId));
 }
 
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
