@@ -66,7 +66,7 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 | Architecture | `docs/architecture/README.md` |
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks | `.agents/skills/verify/SKILL.md` |
-| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
+| Verify a change as the independent verifier | `.agents/skills/verify-preview/SKILL.md` |
 | Workflow, progress and merge rules | `docs/build-agent-workflow.md` |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |

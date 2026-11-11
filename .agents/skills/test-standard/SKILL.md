@@ -14,7 +14,7 @@ the repository only when a silent break would cost us. Suite size is not evidenc
 1. Acceptance behavior from `docs/catalog/index.json` and its selected current clauses/cases.
    Mark literal case IDs in names or annotations with `AC:<case-id>`, for example
    `AC:MTG-CASE-001 AC:MTG-CASE-002 finalization creates the expected follow-up tasks`.
-   `{acGrep}` selects this same form. One passing test may cover several case IDs.
+   One passing test may cover several case IDs.
 2. An invariant the type system cannot enforce: tenancy, privacy, transaction races, idempotency,
    counts, denominators or date/DST math. Name it `INV-<area>: ...`, for example
    `INV-tenancy: member cannot read another plant's people`.
