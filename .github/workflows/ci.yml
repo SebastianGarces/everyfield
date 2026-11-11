@@ -40,10 +40,7 @@ jobs:
       # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
       # cache below calls pnpm, so it comes after.
       - name: pnpm from corepack (retries registry errors)
-        run: |
-          corepack enable
-          .github/scripts/corepack-install.sh
-          echo "pnpm $(pnpm --version)"
+        run: .github/scripts/corepack-install.sh
       - name: pnpm store cache
         uses: actions/setup-node@v7
         with:
@@ -91,10 +88,7 @@ jobs:
       # pnpm comes from corepack at the packageManager version in package.json (tools/wiki pins the same), installed
       # once. The pnpm store cache below calls pnpm, so it comes after.
       - name: pnpm from corepack (retries registry errors)
-        run: |
-          corepack enable
-          .github/scripts/corepack-install.sh
-          echo "pnpm $(pnpm --version)"
+        run: .github/scripts/corepack-install.sh
       - name: pnpm store cache
         uses: actions/setup-node@v7
         with:
@@ -183,10 +177,7 @@ jobs:
       # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
       # cache below calls pnpm, so it comes after.
       - name: pnpm from corepack (retries registry errors)
-        run: |
-          corepack enable
-          .github/scripts/corepack-install.sh
-          echo "pnpm $(pnpm --version)"
+        run: .github/scripts/corepack-install.sh
       - name: pnpm store cache
         uses: actions/setup-node@v7
         with:
@@ -246,10 +237,7 @@ jobs:
       # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
       # cache below calls pnpm, so it comes after.
       - name: pnpm from corepack (retries registry errors)
-        run: |
-          corepack enable
-          .github/scripts/corepack-install.sh
-          echo "pnpm $(pnpm --version)"
+        run: .github/scripts/corepack-install.sh
       - name: pnpm store cache
         uses: actions/setup-node@v7
         with:
