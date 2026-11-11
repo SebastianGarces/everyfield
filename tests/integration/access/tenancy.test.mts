@@ -220,7 +220,6 @@ async function seedChurchA() {
 	const tag = ok(
 		await people((t, c) => personFields.createTag(t, c, { requestKey: key(), input: { name: `${MARK} tag` } })),
 	).tag;
-	a.tag = tag.id;
 	ok(
 		await people((t, c) =>
 			personFields.assignTag(t, c, { requestKey: key(), input: { personId: avery.id, tagId: tag.id } }),

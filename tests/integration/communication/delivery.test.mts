@@ -255,10 +255,7 @@ test("INV-access: a member cannot send or schedule a message", async () => {
 		{ draft: before.draft.state, ready: before.ready.state, unsent: before.ready.requests },
 		{ draft: "draft", ready: "scheduled", unsent: 0 },
 	);
-	const carrier = port({
-		send: () => ({ outcome: "ids", ids: ["prov-member"] }),
-		lookup: () => ({ outcome: "ids", ids: ["prov-member"] }),
-	});
+	const carrier = port({});
 
 	refused(
 		await write(member, "scheduleReviewed", {
