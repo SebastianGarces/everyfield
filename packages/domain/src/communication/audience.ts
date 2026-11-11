@@ -94,6 +94,7 @@ export function summarizeAudience(raw: unknown) {
 	return audienceResult.parse({
 		resolvedDistinctPeople: rows.length,
 		eligibleRecipients: withEmail.length,
+		cappedRecipients: reviewedParts(rows).people.length,
 		missingEmailExclusions: missing,
 		duplicateAddressesRemoved: occurrences - emails.size,
 		eligibleEmails: [...emails].sort(),

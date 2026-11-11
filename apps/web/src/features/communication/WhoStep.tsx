@@ -182,7 +182,7 @@ function Counts({
 			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
 		},
 	];
-	const cap = summary ? capText(summary.eligibleRecipients) : null;
+	const cap = summary ? capText(summary.cappedRecipients, summary.cappedRecipients - summary.eligibleRecipients) : null;
 	return (
 		<div className="flex flex-col gap-4">
 			<div aria-live="polite" className="grid max-w-3xl grid-cols-3 gap-3">

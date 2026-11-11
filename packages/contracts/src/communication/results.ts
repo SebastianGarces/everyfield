@@ -74,6 +74,11 @@ export const previewResult = z.strictObject({
 export const audienceResult = z.strictObject({
 	resolvedDistinctPeople: z.number().int().nonnegative(),
 	eligibleRecipients: z.number().int().nonnegative(),
+	/**
+	 * People with an address, unsubscribed people included: the count the `AUDIENCE_LIMIT` cap applies to at schedule and
+	 * at handoff, because the handoff's frozen request holds a member for each of them.
+	 */
+	cappedRecipients: z.number().int().nonnegative(),
 	missingEmailExclusions: z.array(z.string()),
 	duplicateAddressesRemoved: z.number().int().nonnegative(),
 	eligibleEmails: z.array(z.string()),

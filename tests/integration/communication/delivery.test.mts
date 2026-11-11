@@ -1076,6 +1076,56 @@ test("the handoff refuses an audience that grew past the cap after scheduling, b
 	assert.equal((await mailFor(saved.communicationId)).length, 0);
 });
 
+test("the Who step counts what the cap counts: an unsubscribed person over the line is named and refused", async () => {
+	const ids = await crowd(101, "Optout");
+	await f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant.id}, ${ids[0]})`);
+	const whoStep = async (personIds) =>
+		ok(await f.db.transaction((tx) => communicationWriter.readAudience(tx, owner.actor, { ...emptyAudience, personIds })));
+	const over = await whoStep(ids);
+	assert.deepEqual([over.eligibleRecipients, over.cappedRecipients], [100, 101]);
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Optout", bodyHtml: "<p>Hello all.</p>", audience: { ...emptyAudience, personIds: ids } },
+		}),
+	);
+	const error = refused(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+		"audience_too_large",
+	);
+	assert.deepEqual(error.details, { limit: 100, recipients: over.cappedRecipients });
+
+	// At 100 with the unsubscribed person kept, it schedules: 99 go to the provider and the unsubscribed one is refused.
+	const within = ids.slice(0, 100);
+	assert.equal((await whoStep(within)).cappedRecipients, 100);
+	const hundred = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: {
+				communicationId: saved.communicationId,
+				subject: "Optout",
+				bodyHtml: "<p>Hello all.</p>",
+				audience: { ...emptyAudience, personIds: within },
+			},
+		}),
+	);
+	const accepted = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: hundred.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+	);
+	const carrier = accepting();
+	const sent = ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
+	assert.deepEqual([carrier.calls.send, sent.acceptedCount, sent.unsubscribedCount], [1, 99, 1]);
+});
+
 test("the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
 	const tom = await person("Tom", { email: "tom-text@example.test" });
 	const saved = ok(

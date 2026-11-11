@@ -73,6 +73,8 @@ export type Recipient = { id: string; displayName: string; email: string | null;
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
+	/** People with an address, unsubscribed included: what the 100-person cap counts. */
+	cappedRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
 	recipients: { id: string; displayName: string; email: string }[];
@@ -98,13 +100,16 @@ export type Outcome<T> =
 /** The most people one message reaches. Schedule and Send now refuse a larger audience. The type pins the contract's value. */
 export const AUDIENCE_LIMIT: typeof CONTRACT_AUDIENCE_LIMIT = 100;
 
-/** The Who step's cap line: the count, the cap, and what to do when the count is over it. */
-export function capText(eligible: number): { text: string; over: boolean } {
-	const over = eligible > AUDIENCE_LIMIT;
-	const count = `${eligible} ${eligible === 1 ? "person" : "people"}`;
+/**
+ * The Who step's cap line: the count the cap applies to, the cap, and what to do when the count is over it. Unsubscribed
+ * people count against the cap, so the line names them when there are any.
+ */
+export function capText(capped: number, unsubscribed: number): { text: string; over: boolean } {
+	const over = capped > AUDIENCE_LIMIT;
+	const count = `${capped} ${capped === 1 ? "person" : "people"}${unsubscribed ? `, including ${unsubscribed} unsubscribed` : ""}`;
 	return {
 		text: over
-			? `${count} · messages go to at most ${AUDIENCE_LIMIT}. Remove ${eligible - AUDIENCE_LIMIT} to schedule or send it.`
+			? `${count} · messages go to at most ${AUDIENCE_LIMIT}. Remove ${capped - AUDIENCE_LIMIT} to schedule or send it.`
 			: `${count} · messages go to at most ${AUDIENCE_LIMIT}`,
 		over,
 	};
@@ -116,7 +121,7 @@ export function refusalText(code: string, details?: Readonly<Record<string, unkn
 		case "audience_too_large": {
 			const count =
 				typeof details?.recipients === "number" ? `${details.recipients} people` : `more than ${AUDIENCE_LIMIT} people`;
-			return `This message would go to ${count}. Messages go to at most ${AUDIENCE_LIMIT} people. Remove people in Who, then try again. Nothing was sent.`;
+			return `This message is addressed to ${count}. Messages go to at most ${AUDIENCE_LIMIT} people, counting anyone who unsubscribed. Remove people in Who, then try again. Nothing was sent.`;
 		}
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
