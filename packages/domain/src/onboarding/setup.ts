@@ -248,16 +248,18 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				ids.push(await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration"));
 			}
 			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id)).for("update");
+			let written: { revision: string } | undefined;
 			if (q.input.launch.answer === "planned") {
 				revision(q.input.launch.expectedScheduleRevision, schedule?.revision ?? "1");
 				if (schedule?.status === "completed") deny("conflict");
-				await tx
+				[written] = await tx
 					.insert(t.launch)
 					.values({ plant_id: a.plant.id, target_date: q.input.launch.date, status: "scheduled" })
 					.onConflictDoUpdate({
 						target: t.launch.plant_id,
 						set: { target_date: q.input.launch.date, status: "scheduled", revision: sql`${t.launch.revision}+1` },
-					});
+					})
+					.returning({ revision: t.launch.revision });
 				ids.push(await event(tx, cx, a.plant.id, "launch.changed"));
 			}
 			await tx.update(t.onboarding_setup).set({ journey, launch }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
@@ -275,6 +277,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				launch,
 				scheduledLaunchDate:
 					q.input.launch.answer === "planned" ? q.input.launch.date : (schedule?.target_date ?? null),
+				scheduleRevision: written?.revision ?? schedule?.revision ?? "1",
 			}));
 		});
 	},
@@ -358,6 +361,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				completedAt: a.plant.onboarding_completed_at,
 				setup: a.setup,
 				scheduledLaunchDate: schedule?.target_date ?? null,
+				scheduleRevision: schedule?.revision ?? "1",
 				extraPeople: extraPeople.length > 0,
 				reading: await plantReading(tx, a.plant.id),
 				values: values.length > 0,
@@ -378,6 +382,8 @@ function resumeFrom(f: {
 		"lead" | "journey" | "launch" | "people_step" | "completed_material_revision"
 	>;
 	scheduledLaunchDate: string | null;
+	/** The launch row's revision, or "1" while the plant has no launch row (the first planned date expects "1"). */
+	scheduleRevision: string;
 	extraPeople: boolean;
 	reading: z.infer<typeof c.foundationReading>;
 	values: boolean;
@@ -393,6 +399,7 @@ function resumeFrom(f: {
 		journey: f.setup.journey ?? pending,
 		launch: f.setup.launch ?? pending,
 		scheduledLaunchDate: f.scheduledLaunchDate,
+		scheduleRevision: f.scheduleRevision,
 		peopleStep: f.extraPeople ? "saved" : f.setup.people_step,
 		completion: f.completedAt
 			? {
@@ -420,6 +427,7 @@ const entryRow = z.object({
 	people_step: z.string().nullable(),
 	completed_material_revision: z.string().nullable(),
 	target_date: z.string().nullable(),
+	schedule_revision: z.string().nullable(),
 	values: z.boolean(),
 	creation: z.unknown(),
 	extra_people: z.boolean(),
@@ -442,8 +450,8 @@ const entryRow = z.object({
 });
 /**
  * A plant Owner's onboarding entry as one statement, no transaction: the same facts the separate reads give (the
- * account, plant and setup rows, the launch date, recorded core values, the creation result, other People and the
- * foundation reading of the current Owner and Admin lead) and the plant's name for the heading.
+ * account, plant and setup rows, the launch date and its revision, recorded core values, the creation result, other
+ * People and the foundation reading of the current Owner and Admin lead) and the plant's name for the heading.
  */
 export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadContext) {
 	const a = ctx.authority.actor;
@@ -479,6 +487,7 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
   (SELECT launch FROM st) AS launch, (SELECT people_step FROM st) AS people_step,
   (SELECT completed_material_revision::text FROM st) AS completed_material_revision,
   (SELECT target_date::text FROM launch WHERE plant_id=${plantId}::uuid) AS target_date,
+  (SELECT revision::text FROM launch WHERE plant_id=${plantId}::uuid) AS schedule_revision,
   EXISTS(SELECT FROM document d JOIN document_revision dr ON dr.id=d.current_revision_id AND dr.tenant_id=d.tenant_id
    WHERE d.tenant_id=${plantId}::uuid AND d.kind='core_values' AND d.archived_at IS NULL AND length(btrim(dr.body))>0
    AND dr.import_state IS DISTINCT FROM 'failed') AS values,
@@ -518,6 +527,7 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
 				completed_material_revision: r.completed_material_revision,
 			},
 			scheduledLaunchDate: r.target_date,
+			scheduleRevision: r.schedule_revision ?? "1",
 			extraPeople: r.extra_people,
 			reading: readingFrom(plantId, r.candidates, rows),
 			values: r.values,

@@ -328,6 +328,109 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 	);
 });
 
+test("T-130 an Owner saves a planned launch date again and again, each time sending the revision it last read", async () => {
+	const f = await makePlant();
+	let r = await resume(f);
+	assert.equal(r.scheduleRevision, "1");
+	let { revision, scheduleRevision } = r;
+	for (const date of ["2027-03-07", "2027-04-11", "2027-05-16", "2027-06-20"]) {
+		const saved = ok(
+			await call(
+				"declareJourney",
+				f.a,
+				command(
+					{
+						journey: { answer: "unsure" },
+						launch: { answer: "planned", date, expectedScheduleRevision: scheduleRevision },
+					},
+					revision,
+				),
+				f.p,
+			),
+		);
+		assert.equal(saved.scheduledLaunchDate, date);
+		const [row] = await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id));
+		assert.equal(saved.scheduleRevision, row.revision, "the reply names the launch row it wrote");
+		r = await resume(f);
+		assert.equal(r.scheduledLaunchDate, date);
+		assert.equal(r.scheduleRevision, saved.scheduleRevision);
+		({ revision, scheduleRevision } = saved);
+	}
+	assert.equal(scheduleRevision, "4");
+	// No date keeps the schedule and still names its revision.
+	const kept = ok(
+		await call(
+			"declareJourney",
+			f.a,
+			command({ journey: { answer: "unsure" }, launch: { answer: "no_date" } }, revision),
+			f.p,
+		),
+	);
+	assert.equal(kept.scheduledLaunchDate, "2027-06-20");
+	assert.equal(kept.scheduleRevision, "4");
+	// Another tab moved the date: the revision this screen read is stale, so the save is refused.
+	await admin
+		.update(t.launch)
+		.set({ target_date: "2027-07-04", revision: sql`${t.launch.revision}+1` })
+		.where(eq(t.launch.plant_id, f.p.id));
+	const stale = command(
+		{ journey: { answer: "unsure" }, launch: { answer: "planned", date: "2027-08-01", expectedScheduleRevision: "4" } },
+		kept.revision,
+	);
+	denied(await call("declareJourney", f.a, stale, f.p), "conflict");
+	r = await resume(f);
+	assert.equal(r.scheduledLaunchDate, "2027-07-04");
+	assert.equal(r.scheduleRevision, "5");
+});
+
+test("T-130 a lock timeout or statement timeout refuses as temporary with retry same_request and writes nothing", async () => {
+	for (const [setting, code] of [
+		["lock_timeout", "55P03"],
+		["statement_timeout", "57014"],
+	]) {
+		const f = await makePlant(),
+			r = await resume(f);
+		const q = command(
+			{
+				journey: { answer: "unsure" },
+				launch: { answer: "planned", date: "2027-03-07", expectedScheduleRevision: "1" },
+			},
+			r.revision,
+		);
+		const before = await counts();
+		let release, held;
+		const locked = new Promise((resolve) => (held = resolve));
+		// A second connection holds the plant row until the save gives up waiting for it.
+		const holder = admin.transaction(async (tx) => {
+			await tx.execute(sql`SELECT id FROM plant WHERE id=${f.p.id}::uuid FOR UPDATE`);
+			held();
+			await new Promise((resolve) => (release = resolve));
+		});
+		await locked;
+		let result;
+		try {
+			result = await db.transaction(async (tx) => {
+				await tx.execute(sql.raw(`SET LOCAL ${setting}='200ms'`));
+				return api.declareJourney(tx, ctx(f.a, f.p), q);
+			});
+		} finally {
+			release();
+			await holder;
+		}
+		assert.equal(result.status, "refused", `${code}: ${JSON.stringify(result)}`);
+		assert.equal(result.error.code, "temporary", code);
+		assert.equal(result.error.retry, "same_request", code);
+		assert.deepEqual(result.error.details, {});
+		assert.deepEqual(await counts(), before, `${code}: nothing is written`);
+		assert.equal((await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id))).length, 0);
+		const after = await resume(f);
+		assert.equal(after.revision, r.revision);
+		assert.equal(after.journey.status, "pending");
+		// The same request goes through once the row is free.
+		assert.equal(ok(await call("declareJourney", f.a, q, f.p)).scheduledLaunchDate, "2027-03-07");
+	}
+});
+
 test("AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps", async () => {
 	for (const answer of ["unsure", "discerning", "skip"]) {
 		const f = await makePlant();
