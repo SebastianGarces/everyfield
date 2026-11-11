@@ -110,7 +110,9 @@ function mailOn(plantId: string) {
 }
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
+ * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
+ * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
+ * unsubscribed from this church's email, so nothing goes out. A
  * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
  * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
  * done only when no accepted recipient is left open.
@@ -122,9 +124,11 @@ function hubState(plantId: string) {
 		WHEN c.state = 'draft' THEN 'draft'
 		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
 		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
+		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS DISTINCT FROM 'unsubscribed'`)} THEN 'unsubscribed'
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
 		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
@@ -446,7 +450,8 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
 				LEFT JOIN LATERAL (
 					SELECT count(*)::int AS total,
-						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled'))::int AS attempted,
+						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
+						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
 						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
 						count(*) FILTER (WHERE m.state = 'sent' OR m.sent_at IS NOT NULL)::int AS sent,
@@ -464,9 +469,10 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						count(*) FILTER (WHERE m.cancel_requested_at IS NOT NULL
 							AND m.state IN ('accepted', 'unknown', 'dispatched'))::int AS cancel_open,
 						count(*) FILTER (WHERE m.state <> 'sent' AND m.delivered_at IS NULL)::int AS not_sent,
-						count(*) FILTER (WHERE ${word} = 'accepted')::int AS word_accepted,
-						count(*) FILTER (WHERE ${word} = 'unknown')::int AS word_unknown,
-						count(*) FILTER (WHERE ${word} = 'rejected')::int AS word_rejected
+						-- Outcomes: only what the email service answered, not a recipient still waiting, nor one skipped for an opt-out.
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'accepted')::int AS word_accepted,
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'unknown')::int AS word_unknown,
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'rejected')::int AS word_rejected
 					FROM mail m WHERE ${on}
 				) t ON c.id IS NOT NULL`,
 			),

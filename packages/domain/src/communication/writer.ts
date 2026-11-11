@@ -18,6 +18,7 @@ import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
+import { optedOutAtSql } from "./opt-out.ts";
 import { personSearchMatch } from "../people/search.ts";
 import {
 	correctContactLog as correctContactLogCommand,
@@ -889,7 +890,8 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 			whenLive(
 				allowed(access, reader, true),
 				sql`SELECT coalesce((
-					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), '')))
+					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), ''),
+						'unsubscribedAt', ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`found.id`)}))
 					FROM (
 						SELECT id, display_name, email FROM person
 						WHERE plant_id = ${reader.plantId}::uuid AND tenant_id = ${reader.plantId}::uuid AND state = 'live'
@@ -902,7 +904,16 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 	) as { allowed: boolean };
 	requireAllowed(raw.allowed);
 	const found = z
-		.object({ people: z.array(z.object({ id: z.uuid(), displayName: z.string(), email: z.string().nullable() })) })
+		.object({
+			people: z.array(
+				z.object({
+					id: z.uuid(),
+					displayName: z.string(),
+					email: z.string().nullable(),
+					unsubscribedAt: z.string().nullable(),
+				}),
+			),
+		})
 		.parse(raw);
 	return c.recipientResult.parse({ people: found.people, limit: 20 });
 }

@@ -82,9 +82,26 @@ export const audienceResult = z.strictObject({
 	/** The reachable people by name, capped at 200. `complete` is false when the cap cut the list. */
 	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(200),
 	complete: z.boolean(),
+	/**
+	 * People with an address who unsubscribed from this church's Messages email, and when. They are not in
+	 * `eligibleRecipients` and get nothing. Capped at 200.
+	 */
+	unsubscribedExclusions: z
+		.array(z.strictObject({ id: recordId, displayName: z.string(), unsubscribedAt: instant }))
+		.max(200),
 });
 export const recipientResult = z.strictObject({
-	people: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string().nullable() })).max(20),
+	/** `unsubscribedAt`: when the person unsubscribed from this church's Messages email; they cannot be added. */
+	people: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				displayName: z.string(),
+				email: z.string().nullable(),
+				unsubscribedAt: instant.nullable(),
+			}),
+		)
+		.max(20),
 	limit: z.literal(20),
 });
 export const teamListResult = z.strictObject({
@@ -172,8 +189,9 @@ export const retryResult = z.strictObject({
 });
 
 /**
- * The state history shows for a message. `scheduled`: the email service holds at least one recipient for the send
- * time. `not_scheduled`: a scheduled message the email service refused for every recipient. `failed`: a send the email
+ * The state history shows for a message. `scheduled`: at least one recipient waits for the send time, in Everyfield
+ * or at the email service. `unsubscribed`: every recipient unsubscribed from this church's email, so it does not go
+ * out; it is neither a failure nor a cancel. `not_scheduled`: a scheduled message the email service refused for every recipient. `failed`: a send the email
  * service refused for every recipient ("Not sent"). `unknown`: no recipient confirmed ("Not confirmed").
  * `cancel_unconfirmed` and `time_unconfirmed`: a cancel or time change still open for some recipient.
  */
@@ -181,6 +199,7 @@ export const hubStates = [
 	"draft",
 	"scheduled",
 	"not_scheduled",
+	"unsubscribed",
 	"sending",
 	"sent",
 	"logged",

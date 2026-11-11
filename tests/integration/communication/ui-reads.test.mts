@@ -67,7 +67,7 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	assert.deepEqual(await names("ez"), []);
 	const none = await person("Pat NoMail", null);
 	const found = ok(await read("readRecipients", { query: "NoMail" })).people;
-	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null }]);
+	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null }]);
 });
 
 test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words (D-434)", async () => {

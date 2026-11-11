@@ -68,7 +68,8 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-export type Recipient = { id: string; displayName: string; email: string | null };
+/** `unsubscribedAt`: when they unsubscribed from this church's Messages email. They cannot be added then. */
+export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
@@ -76,6 +77,8 @@ export type AudienceSummary = {
 	duplicateAddressesRemoved: number;
 	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
+	/** People who unsubscribed from this church's email. Not in eligibleRecipients; they get nothing. */
+	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 };
 
 export type PageData = {
@@ -187,6 +190,8 @@ const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
 	unsubscribedNote(report.unsubscribedCount);
 
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+
 /** The count of people who unsubscribed from this church's email, when there are any. */
 export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
 
@@ -209,12 +214,12 @@ export function deliveryText(report: DeliveryReport): string {
 }
 
 /**
- * A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. With no answer
- * the email service may still hold it, so that is "Not confirmed"; "Not scheduled" is a refusal for everyone.
+ * A scheduled handoff result. Everyfield keeps a scheduled email until its send time, so "Scheduled" counts the people
+ * it goes to then; anyone who unsubscribes before then gets nothing. "Not scheduled" is a refusal for everyone.
  */
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
+		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
@@ -235,7 +240,7 @@ export function cancelText(report: CancelReport): string {
 			? `${wentOut(report.sentCount)} Nothing was cancelled.`
 			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
 	if (report.confirmedCount === 0) return "Not cancelled.";
-	return `Cancelled. The email service confirmed the cancel for ${report.confirmedCount}.`;
+	return `Cancelled for ${people(report.confirmedCount)}. No email went out.`;
 }
 
 export function replaceText(report: ReplaceReport): string {
@@ -264,6 +269,7 @@ export const hubStates = [
 	"draft",
 	"scheduled",
 	"not_scheduled",
+	"unsubscribed",
 	"sending",
 	"sent",
 	"logged",
@@ -278,6 +284,7 @@ export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
 	not_scheduled: "Not scheduled",
+	unsubscribed: "Not sent: unsubscribed",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",

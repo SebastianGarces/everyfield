@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
 import * as c from "@everyfield/contracts/communication";
 import {
@@ -79,6 +79,8 @@ type Member = {
 type Mode = "now" | "scheduled" | "lookup";
 /** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
 const holding = (row: Member) => row.state === "accepted" || row.state === "unknown" || row.state === "dispatched";
+/** Recipients Everyfield still holds for the send time: a cancel or time change needs no provider call. */
+const waiting = (row: Member) => row.state === "scheduled";
 
 const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
@@ -147,7 +149,10 @@ function requireActor(authority: RequestActor) {
 	return actor;
 }
 function counts(members: readonly Member[]) {
-	const accepted = members.filter((row) => row.state === "accepted" || row.state === "sent");
+	// A recipient waiting in Everyfield for its send time counts as accepted: it goes out then unless they opt out.
+	const accepted = members.filter(
+		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
+	);
 	const rejected = members.filter(
 		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
@@ -442,12 +447,15 @@ async function prepare(
 	const attemptId = randomUUID();
 	// One set-based token write in the same statement as the mail rows, for the guests whose message carries a link.
 	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
+	// A scheduled handoff waits in Everyfield: the minute runner hands it to the email service at its send time
+	// (runDueScheduled), so an opt-out until then always wins (T-241).
+	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
 	const tokens = minted
 		? sql`,
 			ins_tok AS (${rsvpTokenUpdate(
 				actor.plantId,
 				found.meeting_id!,
-				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state = 'dispatched'
+				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state IN ('dispatched', 'scheduled')
 					WHERE i.token_hash IS NOT NULL)`,
 			)})`
 		: sql``;
@@ -466,7 +474,7 @@ async function prepare(
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) THEN 'refused' ELSE 'dispatched' END,
+					) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
 					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
 					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
@@ -497,8 +505,8 @@ async function prepare(
 			ins_attempt AS (
 				INSERT INTO mail_attempt (id, tenant_id, request_id, attempt_number, claim_generation, started_at, outcome, completed_at)
 				SELECT ${attemptId}::uuid, ${actor.plantId}::uuid, r.id, 1, 1, clock_timestamp(),
-					CASE WHEN bool_or(m.state = 'dispatched') THEN 'in_flight' ELSE 'refused' END,
-					CASE WHEN bool_or(m.state = 'dispatched') THEN NULL ELSE clock_timestamp() END
+					CASE WHEN bool_or(m.state IN ('dispatched', 'scheduled')) THEN 'in_flight' ELSE 'refused' END,
+					CASE WHEN bool_or(m.state IN ('dispatched', 'scheduled')) THEN NULL ELSE clock_timestamp() END
 				FROM ins_req r
 				JOIN ins_mail m ON true
 				GROUP BY r.id
@@ -537,9 +545,20 @@ async function prepare(
 	return { kind: "send", requestId, attemptId, providerKey, messages, members };
 }
 
+/**
+ * Who records an outcome: a staff member's live seat for a handoff they asked for, or the minute runner for a scheduled
+ * email at its send time. The runner has no session; its gate is that the church is not being deleted.
+ */
+type Recorder = { plantId: string; gate: SQL; actorId: string | null };
+const staff = (actor: Actor): Recorder => ({
+	plantId: actor.plantId,
+	gate: adminGate(actor),
+	actorId: actor.accountId,
+});
+
 async function record(
 	db: Database,
-	actor: Actor,
+	who: Recorder,
 	communicationId: string,
 	requestId: string,
 	attemptId: string,
@@ -562,18 +581,18 @@ async function record(
 			accepted_at = CASE WHEN x.outcome = 'accepted' AND m.accepted_at IS NULL THEN clock_timestamp() ELSE m.accepted_at END
 		FROM mail_request_member mem
 		JOIN input x ON x.position = mem.position
-		WHERE mem.request_id = ${requestId}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
+		WHERE mem.request_id = ${requestId}::uuid AND mem.tenant_id = ${who.plantId}::uuid
 			AND mem.mail_id = m.id AND m.state IN ('dispatched', 'unknown')
-			AND ${adminGate(actor)}
+			AND ${who.gate}
 		RETURNING m.id
 	), attempt AS (
 		UPDATE mail_attempt SET outcome = ${outcome}, completed_at = clock_timestamp()
-		WHERE id = ${attemptId}::uuid AND tenant_id = ${actor.plantId}::uuid AND ${adminGate(actor)}
+		WHERE id = ${attemptId}::uuid AND tenant_id = ${who.plantId}::uuid AND ${who.gate}
 		AND (EXISTS (SELECT 1 FROM updated) OR NOT EXISTS (SELECT 1 FROM input))
 		RETURNING id
 	)
-	INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
-	SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, ${action}, 'outcome', 'record', ${communicationId}::uuid,
+	INSERT INTO audit_event (tenant_id, actor_id, system_cause, action, kind, subject_type, subject_id, event_key, metadata, after_value)
+	SELECT ${who.plantId}::uuid, ${who.actorId}::uuid, CASE WHEN ${who.actorId}::uuid IS NULL THEN 'mail_transport' END, ${action}, 'outcome', 'record', ${communicationId}::uuid,
 		${"outcome/" + requestId + "/" + outcome}, '{}'::jsonb, jsonb_build_object('outcome', ${outcome}::text)
 	WHERE EXISTS (SELECT 1 FROM attempt)
 	ON CONFLICT (subject_id, event_key) DO NOTHING`);
@@ -649,7 +668,7 @@ async function handoff(
 	const updates = applyIds(batch, positions, prepared.kind === "resume" ? "absolute" : "compressed");
 	await record(
 		db,
-		actor,
+		staff(actor),
 		input.input.communicationId,
 		prepared.requestId,
 		prepared.attemptId,
@@ -775,7 +794,8 @@ function answered(members: readonly Member[], answers: readonly Answer[], done: 
 }
 
 /**
- * Cancel a scheduled message at the email service, one recipient at a time by its own id. The message counts as
+ * Cancel a scheduled message. Recipients still waiting in Everyfield are cancelled at once. An email the email
+ * service already holds is cancelled there, one recipient at a time by its own id. The message counts as
  * cancelled only when no recipient is open. A run asks only about open recipients, so a check after the cancel is
  * confirmed sends nothing and writes nothing.
  */
@@ -786,6 +806,24 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		const { found, members } = await loadHandoff(db, actor, input.input.communicationId, input.expectedRevision);
 		const open = members.filter(holding);
 		let next = members;
+		// Recipients still waiting in Everyfield are cancelled at once: the email service never had them.
+		const local = members.filter(waiting);
+		if (found.request_id && local.length) {
+			await db.execute(sql`WITH updated AS (
+					UPDATE mail m SET state = 'cancelled', cancel_requested_at = coalesce(m.cancel_requested_at, clock_timestamp()),
+						cancel_confirmed_at = clock_timestamp()
+					FROM mail_request_member mem
+					WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
+						AND mem.mail_id = m.id AND m.state = 'scheduled' AND ${adminGate(actor)}
+					RETURNING m.id
+				)
+				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
+				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
+					${"cancel-waiting/" + found.id}, '{}'::jsonb, jsonb_build_object('cancelled', (SELECT count(*) FROM updated))
+				WHERE EXISTS (SELECT 1 FROM updated)
+				ON CONFLICT (subject_id, event_key) DO NOTHING`);
+			next = next.map((row) => (waiting(row) ? { ...row, state: "cancelled" } : row));
+		}
 		if (found.request_id && open.length) {
 			// The request is stored before the calls, so a lost answer still shows as a cancel not confirmed.
 			if (open.some((row) => !row.cancelRequested))
@@ -803,7 +841,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 					WHERE EXISTS (SELECT 1 FROM updated)
 					ON CONFLICT (subject_id, event_key) DO NOTHING`);
 			const answers = await askEach(open, (providerIds) => transport.cancel(providerIds, signal()));
-			next = answered(members, answers, (row) => ({ ...row, state: "cancelled" }));
+			next = answered(next, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
 				await recordAnswers(db, actor, found.id!, found.request_id, answers, null, {
@@ -816,13 +854,13 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 				});
 			}
 		}
-		const held = next.some((row) => row.provider !== null || holding(row));
+		const held = local.length > 0 || next.some((row) => row.provider !== null || holding(row));
 		const openCount = next.filter(holding).length;
 		return c.cancelScheduledResult.parse({
 			newHandoffs: 0,
 			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
-			cancelRequested: open.length > 0,
+			cancelRequested: open.length + local.length > 0,
 			recallGuaranteed: false,
 			newSend: false,
 			existingUrlMayWorkUntil: input.input.signedUrlExpires ?? null,
@@ -850,7 +888,8 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 }
 
 /**
- * Change the send time. Before a scheduled handoff only the saved time changes. After one, each accepted recipient
+ * Change the send time. Before a scheduled handoff, and for recipients still waiting in Everyfield, only the saved
+ * time changes. For an email the email service already holds (handed off before T-241), each accepted recipient
  * moves by its own email-service id; history shows the new time only when every one of them holds it. Running it
  * again with the same time asks only about recipients that still hold the old time.
  */
@@ -876,6 +915,13 @@ export function rescheduleDispatched(
 					WHERE id = ${found.id}::uuid AND plant_id = ${actor.plantId}::uuid AND state = 'scheduled'
 					AND revision = ${found.revision}::bigint AND ${adminGate(actor)}
 					RETURNING id
+				), waiting AS (
+					-- Recipients Everyfield still holds move with the saved time; the email service never had them.
+					UPDATE mail m SET scheduled_at = ${requested}::timestamptz
+					FROM mail_request_member mem
+					WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
+						AND mem.mail_id = m.id AND m.state = 'scheduled' AND EXISTS (SELECT 1 FROM updated)
+					RETURNING m.id
 				)
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, before_value, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.rescheduled', 'edit', 'record', ${found.id}::uuid,
@@ -911,7 +957,8 @@ export function rescheduleDispatched(
 			newCommunications: 0,
 			scheduledAt: requested,
 			heldAt: still.map((row) => row.scheduledAt!).sort()[0] ?? null,
-			confirmedCount: next.filter((row) => row.state === "accepted" && row.scheduledAt === requested).length,
+			confirmedCount: next.filter((row) => waiting(row) || (row.state === "accepted" && row.scheduledAt === requested))
+				.length,
 			sentCount: next.filter((row) => row.state === "sent").length,
 			openCount: still.length,
 		});
@@ -1079,4 +1126,216 @@ export function sendTransactionalMail(
 		}
 		return c.transactionalResult.parse({ purposeMailAttempted: true, deliveryStatus, sentAt: null });
 	});
+}
+
+/** The church is being deleted: the runner hands off nothing for it and cancels nothing in its name. */
+const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
+	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
+
+const claimedSchema = z.object({
+	request_id: z.uuid(),
+	tenant_id: z.uuid(),
+	provider_key: z.string(),
+	attempt_id: z.uuid(),
+	communication_id: z.uuid(),
+	members: z.array(
+		z.object({
+			position: z.number().int(),
+			id: z.uuid(),
+			state: z.string(),
+			personId: z.uuid().nullable(),
+			unsubscribed: z.boolean(),
+			payload: z.object({ v: z.literal(1), sealed: z.string() }).nullable(),
+			address: z.string().nullable(),
+		}),
+	),
+});
+const sealedMessage = z.object({
+	subject: z.string(),
+	text: z.string(),
+	html: z.string(),
+	headers: z.record(z.string(), z.string()).optional(),
+});
+
+/**
+ * Claim one due scheduled email (every recipient of one handoff, so its batch goes under its own idempotency key) and
+ * decide each recipient at the send time, in one statement: a person who unsubscribed from this church, or a blocked
+ * address, is refused and never handed off; everyone else is marked sending. Two runners never claim the same email.
+ */
+async function claimDue(db: Database) {
+	const raw = one(
+		await db.execute(sql`WITH pick AS MATERIALIZED (
+				SELECT mem.request_id FROM mail m
+				JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
+				WHERE m.purpose = 'communication' AND m.state = 'scheduled' AND m.scheduled_at IS NOT NULL
+					AND m.scheduled_at <= clock_timestamp() AND NOT ${churchClosing(sql`m.tenant_id`)}
+				ORDER BY m.scheduled_at, mem.request_id
+				LIMIT 1
+			), locked AS MATERIALIZED (
+				SELECT r.id, r.tenant_id, r.provider_key FROM mail_request r
+				WHERE r.id IN (SELECT request_id FROM pick)
+				FOR UPDATE SKIP LOCKED
+			), decided AS MATERIALIZED (
+				SELECT m.id, mem.position,
+					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL) AS blocked
+				FROM locked r
+				JOIN mail_request_member mem ON mem.request_id = r.id AND mem.tenant_id = r.tenant_id
+				JOIN mail m ON m.id = mem.mail_id AND m.tenant_id = mem.tenant_id
+				WHERE m.state = 'scheduled'
+			), flipped AS (
+				-- The held time is cleared: the email now goes out at once, like a send now.
+				UPDATE mail m SET
+					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
+					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
+					scheduled_at = NULL
+				FROM decided d
+				WHERE m.id = d.id AND m.state = 'scheduled'
+				RETURNING m.id, m.state, m.refusal, m.recipient_person_id, m.frozen_payload, m.recipient_address_encrypted,
+					m.logical_key, d.position
+			)
+			SELECT r.id AS request_id, r.tenant_id, r.provider_key,
+				(SELECT a.id FROM mail_attempt a WHERE a.request_id = r.id AND a.attempt_number = 1) AS attempt_id,
+				(SELECT split_part(f.logical_key, '/', 2) FROM flipped f LIMIT 1) AS communication_id,
+				coalesce((SELECT jsonb_agg(jsonb_build_object('position', f.position, 'id', f.id, 'state', f.state,
+					'personId', f.recipient_person_id, 'unsubscribed', f.refusal IS NOT NULL,
+					'payload', f.frozen_payload, 'address', f.recipient_address_encrypted) ORDER BY f.position)
+					FROM flipped f), '[]'::jsonb) AS members
+			FROM locked r
+			WHERE EXISTS (SELECT 1 FROM flipped)`),
+	);
+	return raw
+		? claimedSchema.parse({ ...(raw as object), members: asJson((raw as { members: unknown }).members) })
+		: null;
+}
+
+/**
+ * Hand due scheduled Messages email to the email service: the minute runner's job (T-241). A scheduled email waits in
+ * Everyfield until its send time, so a person who unsubscribes before then gets nothing, whether or not the email service
+ * can be reached, and everyone else on the email still gets it. It returns how many emails it handed off or settled.
+ */
+export async function runDueScheduled(
+	db: Database,
+	transport: DeliveryTransport,
+	keys: DeliveryKeys,
+	limit: number,
+	until: number,
+): Promise<number> {
+	const ready = keysOf(keys);
+	let handled = 0;
+	while (handled < limit && Date.now() < until) {
+		const claimed = await claimDue(db);
+		if (!claimed) break;
+		handled += 1;
+		const who: Recorder = {
+			plantId: claimed.tenant_id,
+			gate: sql`NOT ${churchClosing(sql`${claimed.tenant_id}::uuid`)}`,
+			actorId: null,
+		};
+		const base: Member[] = claimed.members.map((row) => ({
+			position: row.position,
+			state: row.state,
+			personId: row.personId,
+			provider: null,
+			scheduledAt: null,
+			cancelRequested: false,
+			unsubscribed: row.unsubscribed,
+		}));
+		const sending = claimed.members.filter((row) => row.state === "dispatched");
+		const opened = sending.map((row) => {
+			const json =
+				row.payload &&
+				openText(ready.encryptionKey, row.payload.sealed, `${claimed.tenant_id}/${row.id}/communication`);
+			const to = row.address && openText(ready.encryptionKey, row.address, addressAad(claimed.tenant_id, row.id));
+			const message = json ? sealedMessage.safeParse(JSON.parse(json)) : null;
+			return { position: row.position, message: message?.success && to ? { ...message.data, to } : null };
+		});
+		// A recipient whose sealed email no longer opens is refused, never sent blank.
+		const updates: { position: number; outcome: "accepted" | "refused" | "unknown"; providerId: string | null }[] =
+			opened
+				.filter((row) => !row.message)
+				.map((row) => ({ position: row.position, outcome: "refused", providerId: null }));
+		const messages = opened.filter((row) => row.message);
+		if (messages.length) {
+			let batch: DeliveryBatch;
+			try {
+				batch = await transport.send(
+					{ key: claimed.provider_key, messages: messages.map((row) => row.message!), scheduledAt: null },
+					signal(),
+				);
+			} catch {
+				batch = { outcome: "unknown" };
+			}
+			updates.push(
+				...applyIds(
+					batch,
+					messages.map((row) => row.position),
+					"compressed",
+				),
+			);
+		}
+		await record(db, who, claimed.communication_id, claimed.request_id, claimed.attempt_id, updates, base);
+	}
+	return handled;
+}
+
+const heldSchema = z.array(
+	z.object({ id: z.uuid(), tenant_id: z.uuid(), provider_message_id: z.string(), communication_id: z.uuid() }),
+);
+
+/**
+ * Cancel at the email service the emails it already holds (handed off with a send time before T-241) for a person who
+ * has since unsubscribed from that church. A cancel the email service does not confirm stays open and the next minute
+ * asks again, until the send time passes. A confirmed cancel shows as unsubscribed; an email that already went out
+ * shows as sent.
+ */
+export async function cancelUnsubscribedHeld(db: Database, transport: DeliveryTransport, limit: number) {
+	const held = heldSchema.parse(
+		(
+			await db.execute(sql`SELECT m.id, m.tenant_id, m.provider_message_id, split_part(m.logical_key, '/', 2) AS communication_id
+				FROM mail m
+				WHERE m.purpose = 'communication' AND m.state = 'accepted' AND m.provider_message_id IS NOT NULL
+					AND m.scheduled_at IS NOT NULL AND m.scheduled_at > clock_timestamp()
+					AND m.sent_at IS NULL AND m.delivered_at IS NULL
+					AND ${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)}
+					AND NOT ${churchClosing(sql`m.tenant_id`)}
+				ORDER BY m.scheduled_at, m.id
+				LIMIT ${limit}`)
+		).rows,
+	);
+	if (!held.length) return 0;
+	let replies: readonly ProviderAnswer[];
+	try {
+		replies = await transport.cancel(
+			held.map((row) => row.provider_message_id),
+			signal(),
+		);
+	} catch {
+		return 0;
+	}
+	const answers = held.flatMap((row, index) => {
+		const outcome = replies[index]?.outcome ?? "unknown";
+		return outcome === "unknown"
+			? []
+			: [{ id: row.id, tenant: row.tenant_id, communication: row.communication_id, outcome }];
+	});
+	if (!answers.length) return 0;
+	await db.execute(sql`WITH input AS (
+			SELECT * FROM jsonb_to_recordset(${JSON.stringify(answers)}::jsonb) AS x(id uuid, tenant uuid, communication uuid, outcome text)
+		), updated AS (
+			UPDATE mail m SET
+				state = CASE WHEN x.outcome = 'sent' THEN 'sent' ELSE 'refused' END,
+				refusal = CASE WHEN x.outcome = 'sent' THEN NULL ELSE 'unsubscribed' END,
+				cancel_confirmed_at = CASE WHEN x.outcome = 'done' THEN clock_timestamp() ELSE m.cancel_confirmed_at END,
+				sent_at = CASE WHEN x.outcome = 'sent' THEN coalesce(m.sent_at, clock_timestamp()) ELSE m.sent_at END
+			FROM input x
+			WHERE m.id = x.id AND m.tenant_id = x.tenant AND m.state = 'accepted'
+			RETURNING m.id, m.tenant_id, x.communication, x.outcome
+		)
+		INSERT INTO audit_event (tenant_id, system_cause, action, kind, subject_type, subject_id, event_key, metadata, after_value)
+		SELECT u.tenant_id, 'mail_transport', 'mail.cancelled', 'outcome', 'record', u.communication,
+			'unsubscribed-cancel/' || u.id::text, '{}'::jsonb, jsonb_build_object('outcome', u.outcome)
+		FROM updated u
+		ON CONFLICT (subject_id, event_key) DO NOTHING`);
+	return answers.length;
 }
