@@ -2,8 +2,10 @@
 // the adapter source (reads and commands) and catalog tools from packages/evry/src/catalog/catalog.ts, never from a
 // hand-kept list. This is the only test that asserts operation coverage. An operation is covered when a case object in
 // tests/evry/evals/*.cases.json has "operation": "<name>". The baseline lists operations uncovered today and only
-// shrinks (rule: .agents/skills/test-standard/SKILL.md). Source-text parse: no database, env, network or build.
+// shrinks (rule: .agents/skills/test-standard/SKILL.md). Discovery is held to what the package itself registers: its
+// read domains, its reviewed writes and the catalog's exported tool names. No database, env, network or build.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -11,7 +13,6 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 const path = (relative) => fileURLToPath(new URL(relative, root));
 const NAME = "[a-z][A-Za-z]*\\.[a-z][A-Za-z]*";
-const EXPECTED_TODAY = 22;
 
 // An operation is a string in an `operation: "x.y",` property or a factory call such as `readHousehold("x.y")`
 // inside an exported declaration. A union type (`"a" | "b"`) and non-exported helpers add nothing by themselves.
@@ -42,6 +43,22 @@ function discoverOperations() {
 function discoverCatalogTools() {
 	const source = readFileSync(path("packages/evry/src/catalog/catalog.ts"), "utf8");
 	return [...source.matchAll(/^export const \w+\s*=\s*"(evry\.[a-z][A-Za-z]*)"/gm)].map((m) => m[1]).sort();
+}
+
+// What the package registers: every read adapter in READ_DOMAINS, every reviewed write in REVIEWED_WRITES and every
+// exported "evry.…" string in catalog.ts. The package needs the react-server condition, so a child process reads it.
+function registered() {
+	const script = `
+		const catalog = await import(${JSON.stringify(path("packages/evry/src/catalog/catalog.ts"))});
+		const writes = await import(${JSON.stringify(path("packages/evry/src/proposals/store.ts"))});
+		console.log(JSON.stringify({
+			operations: [...Object.values(catalog.READ_DOMAINS).flat().map((a) => a.operation), ...Object.keys(writes.REVIEWED_WRITES)].sort(),
+			tools: Object.values(catalog).filter((v) => typeof v === "string" && v.startsWith("evry.")).sort(),
+		}));`;
+	const out = execFileSync(process.execPath, ["--conditions=react-server", "--input-type=module", "-e", script], {
+		encoding: "utf8",
+	});
+	return JSON.parse(out);
 }
 
 function coveredOperations() {
@@ -76,12 +93,10 @@ function coverageProblems(operations, covered, baseline) {
 
 const baseline = JSON.parse(readFileSync(path("tests/workflow/evry-evals-baseline.json"), "utf8"));
 
-test(`INV-OPS102: discovery finds the ${EXPECTED_TODAY} adapter operations on main`, () => {
-	assert.equal(discoverOperations().length, EXPECTED_TODAY);
-});
-
-test("INV-OPS102: discovery finds the catalog's own tool evry.selectReturnedRows", () => {
-	assert.deepEqual(discoverCatalogTools(), ["evry.selectReturnedRows"]);
+test("INV-OPS102: discovery finds exactly the operations and catalog tools the package registers", () => {
+	const { operations, tools } = registered();
+	assert.deepEqual(discoverOperations(), operations);
+	assert.deepEqual(discoverCatalogTools(), tools);
 });
 
 test("INV-OPS102: the baseline is sorted, unique and one name each", () => {
