@@ -1,5 +1,5 @@
 // WP-036 criteria 8 and 9: the Word file and the ledger workbook are tree walkers over the same document as the PDF.
-// LibreOffice headless opens each file independently of the writers; outside CI those checks skip when it is missing.
+// LibreOffice headless opens each file independently of the writers; those checks skip when it is missing unless REQUIRE_SOFFICE=1.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -193,47 +193,44 @@ test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals 
 	await assert.rejects(() => renderDocFile(policy, "xlsx", THEME, SAVED), /render_failed/);
 });
 
-sofficeTest(
-	"WP-036 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
-	async () => {
-		const { doc, table } = await seededBudget();
-		const xlsx = await renderDocFile(doc, "xlsx", THEME, SAVED);
-		const dir = mkdtempSync(join(tmpdir(), "wp036-xlsx-"));
-		writeFileSync(join(dir, "budget.xlsx"), xlsx);
-		execFileSync(
-			"soffice",
-			[
-				"--headless",
-				`-env:UserInstallation=file://${dir}/profile`,
-				"--convert-to",
-				"csv",
-				"--outdir",
-				dir,
-				join(dir, "budget.xlsx"),
-			],
-			{
-				stdio: "ignore",
-				timeout: 120_000,
-			},
-		);
-		const csv = readFileSync(join(dir, "budget.csv"), "utf8")
-			.trim()
-			.split("\n")
-			.map((line) => line.split(","));
-		const expected = computeTable(table);
-		const rows = table.content!;
-		assert.equal(csv.length, 3 + rows.length);
-		rows.forEach((row, ri) => {
-			const role = row.attrs?.role ?? "item";
-			if (role === "group") return;
-			const cells = csv[3 + ri]!;
-			assert.equal(Number(cells[1]), expected[ri]![1], `row ${ri + 1} monthly`);
-			assert.equal(Number(cells[2]), expected[ri]![2], `row ${ri + 1} annual`);
-		});
-		assert.deepEqual(csv.at(-1), ["Net (income minus expenses)", "-9002.5", "-108030"]);
-		assert.deepEqual(expected.at(-1), [null, -9002.5, -108030]);
-	},
-);
+sofficeTest("WP-036 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives", async () => {
+	const { doc, table } = await seededBudget();
+	const xlsx = await renderDocFile(doc, "xlsx", THEME, SAVED);
+	const dir = mkdtempSync(join(tmpdir(), "wp036-xlsx-"));
+	writeFileSync(join(dir, "budget.xlsx"), xlsx);
+	execFileSync(
+		"soffice",
+		[
+			"--headless",
+			`-env:UserInstallation=file://${dir}/profile`,
+			"--convert-to",
+			"csv",
+			"--outdir",
+			dir,
+			join(dir, "budget.xlsx"),
+		],
+		{
+			stdio: "ignore",
+			timeout: 120_000,
+		},
+	);
+	const csv = readFileSync(join(dir, "budget.csv"), "utf8")
+		.trim()
+		.split("\n")
+		.map((line) => line.split(","));
+	const expected = computeTable(table);
+	const rows = table.content!;
+	assert.equal(csv.length, 3 + rows.length);
+	rows.forEach((row, ri) => {
+		const role = row.attrs?.role ?? "item";
+		if (role === "group") return;
+		const cells = csv[3 + ri]!;
+		assert.equal(Number(cells[1]), expected[ri]![1], `row ${ri + 1} monthly`);
+		assert.equal(Number(cells[2]), expected[ri]![2], `row ${ri + 1} annual`);
+	});
+	assert.deepEqual(csv.at(-1), ["Net (income minus expenses)", "-9002.5", "-108030"]);
+	assert.deepEqual(expected.at(-1), [null, -9002.5, -108030]);
+});
 
 test("AC:DOC-EDIT-PLACEHOLDERS the PDF paints a fill under each bracketed placeholder and the Word file shades its run", async () => {
 	const doc = await fork("conflict-of-interest-policy");

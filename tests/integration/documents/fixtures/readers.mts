@@ -96,13 +96,14 @@ let soffice: boolean | undefined;
 const hasSoffice = () => (soffice ??= spawnSync("soffice", ["--version"], { stdio: "ignore" }).status === 0);
 
 /**
- * A check that opens a file in LibreOffice. Without `soffice` it skips, except in CI: CI installs LibreOffice, so there
- * the check runs and fails instead of passing while it covers less than it claims.
+ * A check that opens a file in LibreOffice. Without `soffice` it skips, except where `REQUIRE_SOFFICE=1`: the CI step that
+ * installs LibreOffice sets it, so there the check runs and fails instead of passing while it covers less than it
+ * claims. Other CI jobs (the db census) run these files without LibreOffice and skip.
  */
 export function sofficeTest(name: string, fn: () => Promise<void>) {
-	const ci = process.env.CI === "true";
-	return test(name, { skip: !ci && !hasSoffice() && "LibreOffice is not installed" }, async () => {
-		assert.ok(hasSoffice(), "LibreOffice (soffice) is not on PATH. CI installs it so this check runs.");
+	const required = process.env.REQUIRE_SOFFICE === "1";
+	return test(name, { skip: !required && !hasSoffice() && "LibreOffice is not installed" }, async () => {
+		assert.ok(hasSoffice(), "LibreOffice (soffice) is not on PATH, and REQUIRE_SOFFICE=1 says this check must run.");
 		await fn();
 	});
 }

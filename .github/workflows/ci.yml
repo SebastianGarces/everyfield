@@ -63,14 +63,22 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
       - name: Server traces hold the runtime reference files (WP-032)
         run: node --test tests/reference/server-trace.test.mjs
-      # The documents tests open the Word and Excel exports in LibreOffice, and they fail in CI when soffice is missing.
-      - name: LibreOffice for the documents tests
+      # The documents tests open the Word and Excel exports in LibreOffice, so they paginate with the fonts the files name.
+      # Only the upright DM Sans files: the italic ones alone carry the legacy family name "DM Sans", and LibreOffice would
+      # set all body text in italic.
+      - name: LibreOffice and the document fonts for the documents tests
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc
+          sudo mkdir -p /usr/local/share/fonts/everyfield
+          sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
+          fc-cache -f
           soffice --version
+      # REQUIRE_SOFFICE=1 makes the LibreOffice checks fail instead of skip when soffice is missing (sofficeTest).
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
+        env:
+          REQUIRE_SOFFICE: "1"
 
   docs:
     name: docs (documentation and case checks)
