@@ -3,7 +3,8 @@ import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@every
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { gate } from "../routes.tsx";
-import { canWrite, read } from "../server.ts";
+import { canWrite } from "../../shared/seat-role.ts";
+import { read } from "../server.ts";
 import { DuplicatesScreen } from "./DuplicatesScreen.tsx";
 import { pairHref } from "./model.ts";
 import { readPair } from "./server.ts";

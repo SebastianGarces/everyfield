@@ -20,6 +20,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from "react
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { MONTHS } from "../shared/dates.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
 /** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
@@ -372,7 +373,6 @@ const FIELD_NAME: Record<string, string> = {
 	active: "archived state",
 };
 const fieldName = (k: string) => FIELD_NAME[k] ?? k;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "Oct 12, 2026" from an instant, by its UTC day, so the server and browser print the same words. */
 const dayText = (at: string) => {
 	const d = new Date(at);

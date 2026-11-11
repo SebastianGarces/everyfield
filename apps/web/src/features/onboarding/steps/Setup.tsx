@@ -31,7 +31,7 @@ import { ChoiceCard, Notice, SavedCard, StepFooter, StepHeading } from "../parts
 import type { Actions } from "../store";
 
 type Props = { state: State; actions: Actions; resume: Resume; plantName: string | null };
-/** The product home: the app shell's homeHref (PeopleFrame). There is no separate /dashboard route. */
+/** The product home: the app shell's homeHref (features/shell/ProductFrame.tsx). There is no separate /dashboard route. */
 const DASHBOARD_HREF = "/people";
 const churchName = (name: string | null) => name ?? "your church";
 const phaseName = (n: number) => PHASES[n]?.name ?? `Phase ${n}`;
@@ -131,7 +131,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 					{problem}
 				</p>
 			) : null}
-			<Notice code={state.notice?.op === "declareJourney" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={() => actions.go("church")}
 				onSkip={() => {
@@ -174,7 +174,10 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 	const busy = state.pending === "declareJourney";
 	const save = (launch: LaunchDraft) => {
 		if (!journey) return actions.go("journey");
-		void actions.run("declareJourney", { journey: journeyInput(journey), launch: launchInput(launch) });
+		void actions.run("declareJourney", {
+			journey: journeyInput(journey),
+			launch: launchInput(launch, resume.scheduleRevision),
+		});
 	};
 	const saved = resume.scheduledLaunchDate;
 	return (
@@ -228,7 +231,7 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 					}
 				/>
 			</fieldset>
-			<Notice code={state.notice?.op === "declareJourney" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={back}
 				busy={busy}
@@ -341,7 +344,7 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 					{choiceProblem}
 				</p>
 			) : null}
-			<Notice code={state.notice?.op === "answerLead" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="answerLead" />
 			<StepFooter
 				onBack={back}
 				busy={busy}
@@ -426,7 +429,7 @@ export function FinishStep({
 					</ul>
 				</div>
 			) : null}
-			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="complete" />
 			{done ? (
 				<div className="mx-auto mt-[30px] max-w-[820px]">
 					<div className="flex flex-wrap items-center justify-between gap-3">
