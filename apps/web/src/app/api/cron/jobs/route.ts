@@ -1,5 +1,5 @@
 import { privateStorage } from "@everyfield/db/schema";
-import { jobDatabase } from "@/server/database";
+import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestsMount } from "@/server/jobs/digest";
 import { scheduledJobs } from "@/server/jobs/scheduled";
 import { tasksMount } from "@/server/tasks";
@@ -19,6 +19,7 @@ export function GET(request: Request): Promise<Response> {
 		secret: process.env.CRON_SECRET,
 		db,
 		storage: privateStorage(),
+		cleanup: cleanupDatabase(),
 		reminders: tasksMount()?.reminders ?? null,
 		digests: digestsMount(db),
 		mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
