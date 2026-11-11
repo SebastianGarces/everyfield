@@ -118,13 +118,14 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		});
 	});
 
+	// The text on a fill is the one the PDF prints there (T-123): the renderer's rule picks white or the document ink.
 	test("AC:CASE-BRD-006 operational: small mark, accent fill on table headers and checkboxes with the derived text color", () => {
 		const theme = resolveDocumentTheme(church(kit()), "operational");
 		if (theme.layout.documentClass !== "operational") throw Error("class");
 		assert.equal(theme.layout.mark?.alt, "Mark alt");
 		assert.equal(theme.layout.markHeightMm, 10);
-		assert.deepEqual(theme.layout.tableHeader, { fill: "#D4A017", text: "#000000" });
-		assert.deepEqual(theme.layout.checkbox, { fill: "#D4A017", text: "#000000" });
+		assert.deepEqual(theme.layout.tableHeader, { fill: "#D4A017", text: "#181D19" });
+		assert.deepEqual(theme.layout.checkbox, { fill: "#D4A017", text: "#181D19" });
 	});
 
 	test("AC:CASE-BRD-006 email: logo at most 200 px, primary-color button with derived text, web-safe stacks, footer with name and address", () => {
@@ -157,8 +158,8 @@ describe("WP-104/api resolveDocumentTheme", () => {
 			// The color stays on rules and fills, with the derived text color on the fill.
 			assert.equal(theme.colors.rule, "#F2D74A");
 			if (theme.layout.documentClass === "operational") {
-				assert.deepEqual(theme.layout.tableHeader, { fill: "#F2D74A", text: "#000000" });
-				assert.deepEqual(theme.layout.checkbox, { fill: "#F2D74A", text: "#000000" });
+				assert.deepEqual(theme.layout.tableHeader, { fill: "#F2D74A", text: "#181D19" });
+				assert.deepEqual(theme.layout.checkbox, { fill: "#F2D74A", text: "#181D19" });
 			}
 		}
 		// A color at 3:1 or more may head a section.
