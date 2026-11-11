@@ -170,14 +170,16 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				const reservation = await budget
 					.reserve("email_change", a.principal.email, a.ingress.trustedIp)
 					.catch(() => deny("temporary"));
+				// Only the budget's refusal above is `temporary`. A failed send has an unknown outcome: the link may have
+				// gone out, and the try is given back so a resend still has it.
 				try {
 					await auth.api.changeEmail({ headers: a.ingress.request.headers, body: { newEmail: v.newEmail } });
-					await settle(reservation, true);
-					return { status: "ok" as const, value: { status: "verification_requested" as const } };
 				} catch {
-					await budget.finish(reservation, false);
-					deny("temporary");
+					await budget.release(reservation).catch(() => undefined);
+					deny("unknown");
 				}
+				await settle(reservation, true);
+				return { status: "ok" as const, value: { status: "verification_requested" as const } };
 			}),
 		confirmEmailChange: async (ctx, raw) => {
 			const correlationId = randomUUID();
