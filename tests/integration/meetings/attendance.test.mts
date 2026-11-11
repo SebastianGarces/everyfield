@@ -163,7 +163,7 @@ test("INV-statements: finalizing 500 attendees sends the same statements as fina
 		await meeting("vision_meeting", "2026-09-17T23:00:00Z"),
 		many.map((r) => r.id),
 	);
-	assert.ok(one > 0, "no statements counted");
+	assert.equal(one, 5);
 	assert.equal(fiveHundred, one);
 });
 
@@ -1035,7 +1035,7 @@ test("INV-statements: a reconcile that adds, removes, advances and closes sends 
 	};
 	const three = await statementsFor(3);
 	const fifty = await statementsFor(50);
-	assert.ok(three > 0, "no statements counted");
+	assert.equal(three, 5);
 	assert.equal(fifty, three);
 });
 

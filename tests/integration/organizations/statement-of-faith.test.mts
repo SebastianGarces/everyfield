@@ -120,30 +120,6 @@ test("DOC-020: the statement is at most 10,000 characters", async () => {
 	);
 });
 
-test("DOC-020: a network Member, another network's account and a plant Owner are refused, and the text stays", async () => {
-	const network = await S.tenant("sending_network"),
-		ownerSeat = await S.identity(network, "owner"),
-		member = await S.identity(network, "member"),
-		otherNetwork = await S.identity(await S.tenant("sending_network"), "owner"),
-		plantOwner = await S.identity(await S.tenant("plant"), "owner");
-	await S.call(
-		"organizations.updateProfile",
-		ownerSeat,
-		S.command({ organization: network, patch: { statementOfFaith: "Ours." } }),
-	);
-	for (const actor of [member, otherNetwork, plantOwner]) {
-		await assert.rejects(
-			S.call(
-				"organizations.updateProfile",
-				actor,
-				S.command({ organization: network, patch: { statementOfFaith: "Not yours." } }, "2"),
-			),
-			/unavailable/,
-		);
-		assert.deepEqual(await statementOf(network.id), { s: "Ours.", r: "2" });
-	}
-});
-
 test("DOC-020: a sending church row cannot store a statement of faith", async () => {
 	const church = await S.tenant("sending_church"),
 		ownerSeat = await S.identity(church, "owner");

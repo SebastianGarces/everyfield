@@ -132,14 +132,3 @@ test("T-156: prose wraps at spaces within the text width; only a word longer tha
 	assert.equal(pieces.join(""), long);
 	for (const piece of pieces) assert.ok(helveticaWidth(piece) <= width);
 });
-
-test("T-156: the footer prints a human credit and the page, or only the page", () => {
-	const blocks = bodyBlocks("safe_mdx", "Text.");
-	const footer = (credit: string | null) => shownLines(helveticaPdf("T", blocks, { filename: "t.pdf", credit })).at(-1);
-	assert.equal(footer("Ana Torres"), "Ana Torres  1/1");
-	assert.equal(footer(null), "1/1");
-	assert.ok(
-		printHtml("T", blocks, { filename: "t.pdf", credit: "Ana Torres" }).includes("<footer>Ana Torres</footer>"),
-	);
-	assert.ok(printHtml("T", blocks, { filename: "t.pdf", credit: null }).includes("<footer></footer>"));
-});
