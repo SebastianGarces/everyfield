@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Reject dangling operation IDs in catalog, plan and schema references."""
+"""Reject dangling operation IDs in catalog, plan and schema references, and malformed
+operation implementation records."""
 import argparse
 import json
 from pathlib import Path
@@ -24,10 +25,46 @@ def references(value, location='$'):
             yield from references(child, f'{location}[{index}]')
 
 
+IMPLEMENTATION_STATUSES = {'not_built', 'hand_written'}
+
+
+def implementation_errors(root, operation):
+    """An optional implementation record says how an operation is built today (D-646)."""
+    if 'implementation' not in operation:
+        return []
+    record, op_id = operation['implementation'], operation['id']
+    if not isinstance(record, dict):
+        return [f'{op_id}: implementation must be an object']
+    errors = []
+    unknown = set(record) - {'status', 'paths', 'note'}
+    if unknown:
+        errors.append(f'{op_id}: implementation has unknown fields {sorted(unknown)}')
+    status = record.get('status')
+    if status not in IMPLEMENTATION_STATUSES:
+        errors.append(f'{op_id}: implementation status {status!r} must be not_built or hand_written')
+    note = record.get('note')
+    if not isinstance(note, str) or not note.strip():
+        errors.append(f'{op_id}: implementation needs a non-empty note')
+    paths = record.get('paths')
+    if status == 'not_built' and 'paths' in record:
+        errors.append(f'{op_id}: not_built implementation takes no paths')
+    if status == 'hand_written':
+        if not isinstance(paths, list) or not paths:
+            errors.append(f'{op_id}: hand_written implementation needs a non-empty paths list')
+        else:
+            for path in paths:
+                inside = isinstance(path, str) and path and not Path(path).is_absolute() and \
+                    (root / path).resolve().is_relative_to(root.resolve())
+                if not inside or not (root / path).is_file():
+                    errors.append(f'{op_id}: implementation path {path!r} does not exist')
+    return errors
+
+
 def check(root):
     inventory = root / 'docs/catalog/operations.json'
-    ids = {op['id'] for op in json.loads(inventory.read_text())['operations']}
-    errors = []
+    operations = json.loads(inventory.read_text())['operations']
+    ids = {op['id'] for op in operations}
+    errors = [error for op in operations for error in implementation_errors(root, op)]
     # Case action/result labels include synthetic inspection helpers, not inventory IDs.
     paths = [path for folder in ['docs/catalog', 'docs/plan', 'docs/schema']
              for path in (root / folder).rglob('*.json')]
@@ -44,7 +81,8 @@ def main():
     args = parser.parse_args()
     errors = check(args.root)
     print('\n'.join('FAIL: ' + error for error in errors) if errors else
-          'PASS: documentation operation references resolve against operations.json')
+          'PASS: documentation operation references resolve against operations.json; '
+          'implementation records are well formed')
     return bool(errors)
 
 
