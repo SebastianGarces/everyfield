@@ -1,72 +1,19 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 
 export async function fixture() {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if (
-		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved shared development database required");
-	if (!ci) source.searchParams.set("sslmode", "verify-full");
-	const schema = "wp005_" + randomUUID().replaceAll("-", ""),
-		role = "wp005_" + randomBytes(8).toString("hex"),
-		password = randomBytes(32).toString("hex");
-	const db = createDatabase({
-		connectionString: source.href,
-		max: 8,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	await db.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
-	await db.execute(
-		querySql.raw(
-			`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await db.execute(querySql.raw(`GRANT everyfield_runtime,everyfield_auth TO ${role}`));
-	const authRole = role + "_auth";
-	await db.execute(
-		querySql.raw(
-			`CREATE ROLE ${authRole} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await db.execute(querySql.raw(`REVOKE everyfield_auth FROM ${role}`));
-	await db.execute(querySql.raw(`GRANT everyfield_auth TO ${authRole}`));
-	const runtimeUrl = new URL(source);
-	runtimeUrl.username = role;
-	runtimeUrl.password = password;
-	const runtime = createDatabase({
-		connectionString: runtimeUrl.href,
-		max: 8,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	const authUrl = new URL(runtimeUrl);
-	authUrl.username = authRole;
-	const authDb = createDatabase({
-		connectionString: authUrl.href,
-		max: 8,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	const admissionDb = createDatabase({
-		connectionString: runtimeUrl.href,
-		max: 3,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
+	const t = await testDatabase({ prefix: "wp005", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 8 });
+	const { admin: db } = t,
+		{ runtime, auth: authDb } = t.pools;
+	const admissionDb = t.connect("runtime", { max: 3 });
 	const deliveryRequests: Array<() => Promise<void>> = [];
 	const effects: Array<{ to: string; text: string; key: string }> = [],
 		diagnostics: unknown[] = [];
@@ -184,18 +131,10 @@ export async function fixture() {
 	async function close() {
 		server.closeAllConnections();
 		await new Promise<void>((r) => server.close(() => r()));
-		await closeDatabase(runtime);
-		await closeDatabase(authDb);
-		await closeDatabase(admissionDb);
-		await db.execute(querySql.raw(`DROP SCHEMA ${schema} CASCADE`));
-		await db.execute(querySql.raw(`DROP ROLE ${role}`));
-		await db.execute(querySql.raw(`DROP ROLE ${authRole}`));
-		await closeDatabase(db);
+		await t.close();
 	}
-	const runtimeSettingsUrl = new URL(runtimeUrl),
-		authSettingsUrl = new URL(authUrl);
-	for (const url of [runtimeSettingsUrl, authSettingsUrl])
-		url.searchParams.set("options", `-c search_path=${schema},pg_catalog,pg_temp`);
+	const runtimeSettingsUrl = t.logins.runtime.url,
+		authSettingsUrl = t.logins.auth.url;
 	const previewSettings = {
 		IDENTITY_DATABASE_URL: runtimeSettingsUrl.href,
 		IDENTITY_AUTH_DATABASE_URL: authSettingsUrl.href,

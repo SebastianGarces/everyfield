@@ -61,6 +61,9 @@ function tooltipFor(name: string) {
 }
 const title = (s: string) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
+/** A card sheet repeats each card's fields with a `_t<n>` suffix per card; the field is the same one without it. */
+const unsuffixed = (name: string) => name.replace(/_t\d+$/, "");
+
 /** Names that become signature fields (/FT /Sig): every place a person signs. */
 const isSignature = (name: string) => name === "signature" || name.endsWith("_signature");
 
@@ -76,10 +79,11 @@ export async function finishForm(pdf: Uint8Array, highlights: readonly Highlight
 	const fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[] = [];
 	for (const field of form.getFields()) {
 		const name = field.getName();
-		const tooltip = tooltipFor(name);
+		const base = unsuffixed(name);
+		const tooltip = tooltipFor(base);
 		const dict = field.acroField.dict;
 		dict.set(PDFName.of("TU"), PDFString.of(tooltip));
-		const sig = isSignature(name);
+		const sig = isSignature(base);
 		if (sig) {
 			dict.set(PDFName.of("FT"), PDFName.of("Sig"));
 			for (const key of ["DA", "Ff", "Q", "V"]) dict.delete(PDFName.of(key));

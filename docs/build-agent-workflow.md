@@ -3,7 +3,7 @@
 The DAG defines packages and dependencies. evf v2 (the `evf` in `~/.cargo/bin`) runs the work, and its task records are the live
 state. `evf status` and the dashboard at `http://localhost:4384` show them.
 
-`docs/build-progress.json` stopped updating at the evf v2 cutover in November 2026, and nothing writes it now. It stays as
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235, and nothing writes it now. It stays as
 the frozen record of what evf v1 shipped, because the explorer reads it. Do not read it as current state, and do not edit
 it to record new work.
 
@@ -31,7 +31,7 @@ WP-097 keeps the owner's 2026-10-14 fast-track history in the frozen record, wit
 and owner go-live references. Preserve that evidence.
 
 Keep media and traces outside the repository. Generate the explorer outside the checkout; it is a read-only view of the
-frozen record, so it does not show work landed since the cutover. Global kickoff and concrete spending approvals remain
+frozen record, so it does not show work landed after 2026-10-22. Global kickoff and concrete spending approvals remain
 separate from milestone readiness. G-WORKFLOW closes when W0 to W5 merge and one task runs end to end through Phase 7.
 This document does not claim that closure.
 

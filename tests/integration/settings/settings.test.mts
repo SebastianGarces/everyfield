@@ -2,8 +2,7 @@ import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/n
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
@@ -22,26 +21,14 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 import { insertTasks } from "../task-assignees.mts";
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp010_" + randomUUID().replaceAll("-", ""),
-	role = "wp010_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
+const database = await testDatabase({
+	prefix: "wp010",
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 	max: 8,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
-let db, cleanupDb, authDb, api, onboarding, mail, producerDeps;
+const { admin } = database;
+const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
+let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
@@ -125,33 +112,6 @@ const effect = async (tx, input) => {
 	});
 };
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [suffix, cap] of [
-		["", "everyfield_runtime"],
-		["_cleanup", "everyfield_cleanup"],
-		["_auth", "everyfield_auth"],
-	]) {
-		const password = randomBytes(32).toString("hex"),
-			name = role + suffix;
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${cap} TO ${name}`));
-		const url = new URL(source);
-		url.username = name;
-		url.password = password;
-		const client = createDatabase({
-			connectionString: url.href,
-			max: 8,
-			options: `-c search_path=${schema},pg_catalog,pg_temp`,
-		});
-		if (suffix === "") db = client;
-		else if (suffix === "_cleanup") cleanupDb = client;
-		else authDb = client;
-	}
 	mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -308,16 +268,7 @@ before(async () => {
 		},
 	});
 });
-after(async () => {
-	for (const client of [db, cleanupDb, authDb]) if (client) await closeDatabase(client);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const suffix of ["", "_cleanup", "_auth"])
-			await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role + suffix}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-});
+after(database.close);
 
 test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped settings preserve nullable locality and reject stale or foreign saves", async () => {
 	const f = await plant(),

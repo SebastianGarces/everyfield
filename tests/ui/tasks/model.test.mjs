@@ -22,7 +22,10 @@ import {
 	bulkActions,
 	countsAfter,
 	dueInputOf,
+	heldAssignees,
 	listRequest,
+	noticingIneligible,
+	problemText,
 	matches,
 	ownerLabel,
 	NO_PENDING,
@@ -38,6 +41,16 @@ import {
 } from "../../../apps/web/src/features/tasks/model.ts";
 
 const parse = (s) => parseQuery(new URLSearchParams(s));
+
+test("BUG-551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
+	// A loose uuid test accepts both; the contract's recordId refuses version nibble 0 and variant c.
+	for (const team of ["0b6c3f1e-2a7d-0c3b-9f5e-1d2c3b4a5f60", "0b6c3f1e-2a7d-4c3b-cf5e-1d2c3b4a5f60"]) {
+		const q = parse(`team=${team}&status=blocked&q=call&page=2`);
+		assert.equal(q.teamId, null, team);
+		assert.deepEqual([q.statuses, q.search, q.page], [["blocked"], "call", 2], team);
+		assert.equal("teamId" in listRequest(q), false, team);
+	}
+});
 
 test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and keep their siblings", () => {
 	const q = parse(
@@ -68,6 +81,7 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 	assert.equal(withFilters(withTeam, { search: "x" }).teamId, team);
 	assert.equal(parse(querySearch(withTeam).slice(1)).teamId, team);
 	assert.equal(parse("team=not-a-uuid").teamId, null);
+	assert.equal(parse(`team=${team.toUpperCase()}`).teamId, team, "an upper-case id reads as the same team");
 	// No status in the address is the open list; status=any is every status. Both survive a round trip.
 	assert.deepEqual(parse("").statuses, ["not_started", "in_progress", "blocked"]);
 	assert.equal(querySearch(parse("")), "");
@@ -297,4 +311,57 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(settled), { kind: "settled", settled: 2 });
 	for (const status of settled) assert.deepEqual(bulkActions([status]), { kind: "settled", settled: 1 }, status);
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
+});
+
+test("com-21: an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
+	const text = problemText("owner_ineligible", "Ana Lee");
+	assert.match(text, /^Ana Lee cannot own follow-ups now/);
+	assert.doesNotMatch(text, /Your seat/);
+	assert.match(problemText("owner_ineligible"), /^Someone you assigned cannot own follow-ups now/);
+	assert.match(problemText("access_denied"), /Your seat may have changed/);
+});
+
+test("com-21: an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
+	const refusal = {
+		status: "refused",
+		code: "owner_ineligible",
+		error: { code: "owner_ineligible", details: { accountId: "acc-ana" } },
+	};
+	const calls = [];
+	const send = noticingIneligible(
+		async (key) => (calls.push(key), refusal),
+		() => calls.push("forget"),
+		(id) => calls.push(`named:${id}`),
+	);
+	assert.equal(await send("k1"), refusal);
+	assert.deepEqual(calls, ["k1", "forget", "named:acc-ana"]);
+	calls.length = 0;
+	const other = noticingIneligible(
+		async () => ({ status: "refused", code: "conflict" }),
+		() => calls.push("forget"),
+		() => calls.push("named"),
+	);
+	await other("k2");
+	assert.deepEqual(calls, [], "another refusal keeps the cached lists");
+});
+
+test("com-21: every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
+	const viewer = "acc-viewer";
+	// A new follow-up starts with the viewer, who is on no task yet.
+	assert.deepEqual(heldAssignees([viewer], { [viewer]: "Daniel Reyes" }, [], []), [
+		{ accountId: viewer, displayName: "Daniel Reyes", warning: null },
+	]);
+	const current = [{ accountId: "acc-ana", displayName: "Ana Lee" }];
+	const owners = [{ accountId: "acc-ana", eligible: false, reason: "not_committed" }];
+	const held = heldAssignees(["acc-ana", viewer], { [viewer]: "Daniel Reyes" }, current, owners, viewer);
+	assert.deepEqual(
+		held.map((h) => [h.displayName, h.warning]),
+		[
+			["Ana Lee", "Can't own follow-ups: Person not in a core group, launch team or leader stage"],
+			["Daniel Reyes", "Can't own follow-ups now"],
+		],
+	);
+	// A refused draft keeps who the refusal named when it opens again on the task.
+	const mine = { assigneeIds: [viewer], ineligible: viewer };
+	assert.equal(rebase(mine, { assigneeIds: [viewer] }, { assigneeIds: [viewer] }).ineligible, viewer);
 });

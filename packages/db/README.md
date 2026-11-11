@@ -5,8 +5,9 @@ Neon project `everyfield-v3` has two branches. `main` is production.
 `early-access-preview`. Local portless previews and Vercel's development
 variables use `development`. Vercel builds only Git branch `main`.
 
-Use the ignored `/Users/sebastian/dev/everyfield_v3/.env.v3.local` as the
-source for a worktree's `apps/web/.env.local`, with file permissions `600`.
+Use the ignored `<main checkout>/.env.v3.local` (at the root of the main
+checkout, not a worktree) as the source for a worktree's
+`apps/web/.env.local`, with file permissions `600`.
 Never copy the legacy v2 database settings or `.env.prod` into a preview.
 Each worktree needs its own env file and dependencies. The migration and
 reset commands load `apps/web/.env.local`; an already exported

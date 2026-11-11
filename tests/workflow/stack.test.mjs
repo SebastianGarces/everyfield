@@ -59,12 +59,10 @@ test("INV-workflow: repeated starts and stops stay confined to the selected work
 		const b = join(dir, "b");
 		mkdirSync(a);
 		mkdirSync(b);
-		const runtime = join(dir, "runtime");
 		const env = {
 			...process.env,
 			PATH: `${bin}:${process.env.PATH}`,
 			FAKE_REGISTRY: join(dir, "registry.json"),
-			EVF_RUNTIME_DIR: runtime,
 		};
 		function command(action, project, ...extra) {
 			return spawnSync(process.execPath, [script, action, "--project", project, ...extra], { env, encoding: "utf8" });
@@ -89,7 +87,6 @@ test("INV-workflow: repeated starts and stops stay confined to the selected work
 			state: "ready",
 			url: "http://p2.localhost:1355",
 		});
-		assert.equal(JSON.parse(readFileSync(join(runtime, "stack.json"), "utf8")).id, "2");
 		assert.equal(ok("down", a).state, "stopped");
 		assert.equal(ok("down", b).state, "stopped");
 		assert.deepEqual(
@@ -115,7 +112,6 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 			...process.env,
 			PATH: `${bin}:${process.env.PATH}`,
 			FAKE_REGISTRY: join(dir, "registry.json"),
-			EVF_RUNTIME_DIR: join(dir, "runtime"),
 		};
 		const realConfig = fileURLToPath(new URL("../../scripts/preview.json", import.meta.url));
 		const stale = "IDENTITY_ORIGIN=https://stale.localhost\n";

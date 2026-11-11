@@ -94,7 +94,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = process.argv.slice(2);
   const at = args.indexOf("--project");
   try {
-    const project = realpathSync(resolve(at === -1 ? (process.env.EVF_WORKTREE ?? process.cwd()) : args[at + 1]));
+    const project = realpathSync(resolve(at === -1 ? process.cwd() : args[at + 1]));
     await ensurePreviewSlot({ project });
   } catch (error) {
     console.error(error.message);
