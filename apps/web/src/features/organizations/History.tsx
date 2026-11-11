@@ -5,7 +5,8 @@ import { Button } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { formatDay, historyReason, subjectOf } from "./model";
+import { historyReason, subjectOf } from "./model";
+import { formatDay } from "../shared/dates.ts";
 import type { History, HistoryItem, NameOf, RelationshipPair } from "./port";
 
 /** Reads the next page of the same history scope. `after` is the contract's `next` cursor. */

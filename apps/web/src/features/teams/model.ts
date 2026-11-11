@@ -17,6 +17,7 @@ import type { Tone } from "@everyfield/ui/controls";
 import type { Status } from "@everyfield/ui/display";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The teams screens' shared words and shapes. No React and no server code. The producer calls a team a ministry in
 // the product's words; code and contracts say team.
@@ -108,7 +109,6 @@ export function people(members: readonly Member[]): Person[] {
 	return [...byId.values()];
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** A LocalDate (YYYY-MM-DD) as "Jul 14, 2026". No time zone is involved: the date is the church's own day. */
 export function dayText(day: string): string {
 	const [y, m, d] = day.split("-").map(Number);
