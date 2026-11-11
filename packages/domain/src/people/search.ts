@@ -5,9 +5,10 @@ import { z } from "zod";
 import { authorizeRead, deny, readReply, type Context, type Tx } from "./core.ts";
 
 /**
- * The person-search rule, built once (REQ-MTG pickers now, Compose recipients later). Each whitespace-separated query
- * word must match the start of a name word or the start of a word of the email local part. Name words split on spaces
- * and hyphens; the local part splits on `.`, `_`, `-` and `+`. A word that starts the whole address (a typed email)
+ * The one person-search rule, used by the REQ-MTG pickers and the Compose recipient search. Each whitespace-separated
+ * query word must match the start of a name word or the start of a word of the email local part. Name words split on
+ * spaces, hyphens and apostrophes (`'` and `’`), in the stored name and in the query word alike (D-434), so "brien" and
+ * "o'brien" both find "O'Brien"; the local part splits on `.`, `_`, `-` and `+`. A word that starts the whole address (a typed email)
  * also matches. The email domain never matches, because every match is anchored at the start of the address or of a
  * name word. Case and diacritics are ignored through a fixed Latin translate(), because a migration and a new
  * extension fall outside this rule. A query of phone characters with 3 or more digits also matches people whose phone
@@ -34,17 +35,19 @@ const TO = FOLD.map(([from, to]) => to.repeat(from.length)).join("");
 const fold = (value: SQL | string) => sql`translate(lower(${value}),${FROM},${TO})`;
 
 const SEARCH_WORDS = 8;
+const NAME_SEPARATORS = "-'\u2019";
+const nameWords = (value: SQL) => sql`' ' || translate(${value},${NAME_SEPARATORS}::text,${" ".repeat(NAME_SEPARATORS.length)}::text)`;
 const PHONE_QUERY = /^[\d\s+\-().]+$/;
 
 /** SQL true when the person (display name, email, phone columns of `person`) matches the query. Empty query: no one. */
 export function personSearchMatch(query: string): SQL {
 	const words = query.trim().split(/\s+/).filter(Boolean).slice(0, SEARCH_WORDS);
 	if (!words.length) return sql`false`;
-	const name = sql`' ' || translate(${fold(sql`${tables.person.display_name}`)},'-',' ')`;
+	const name = nameWords(fold(sql`${tables.person.display_name}`));
 	const local = sql`' ' || translate(${fold(sql`split_part(coalesce(${tables.person.email},''),'@',1)`)},'._+-','    ')`;
 	const byWords = sql.join(
 		words.map((word) => {
-			const start = sql`' ' || translate(${fold(word)},'-',' ')`;
+			const start = nameWords(fold(word));
 			const address = sql`starts_with(${fold(sql`coalesce(${tables.person.email},'')`)},${fold(word)})`;
 			return sql`(strpos(${name},${start})>0 OR strpos(${local},${start})>0 OR ${address})`;
 		}),
