@@ -43,8 +43,8 @@ type W = DocxCtx & {
 	drawings: { n: number };
 };
 
-const onFill = (w: W) =>
-	w.fill && w.fill !== w.p.muted ? (w.fill === w.p.primary ? w.p.onPrimary : w.p.onAccent) : null;
+// Text on a fill takes the color the PDF and the workbook pick for it (textOn), whatever palette token the fill is.
+const onFill = (w: W) => (w.fill && w.fill !== w.p.muted ? textOn(w.fill, w.p.ink) : null);
 
 type RunStyle = {
 	bold?: boolean;
@@ -329,13 +329,7 @@ function table(w: W, node: TableNode) {
 		row.content.some((cell) => typeof cell.attrs?.value === "number"),
 	);
 	const headFill = tokenColor(w.p, a.headerFill);
-	const headColor = headFill
-		? headFill === w.p.muted
-			? w.p.ink
-			: headFill === w.p.primary
-				? w.p.onPrimary
-				: w.p.onAccent
-		: w.p.ink;
+	const headColor = headFill && headFill !== w.p.muted ? textOn(headFill, w.p.ink) : w.p.ink;
 	const align = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "right");
 	const cellText = (c: ColumnSpec, text: string, bold = false) =>
 		para(run(text, { bold, size: 10 }), `<w:spacing w:before="20" w:after="20"/>${jc(align(c))}`);

@@ -136,7 +136,10 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		assert.equal(theme.layout.logoMaxWidthPx, 200);
 		assert.deepEqual(theme.layout.button, { fill: "#1F4E79", text: "#FFFFFF" });
 		// The button follows the primary color of any kit, not the example value.
-		for (const [primaryColor, text] of [["#8B1E3F", "#FFFFFF"], ["#F2D74A", "#000000"]] as const) {
+		for (const [primaryColor, text] of [
+			["#8B1E3F", "#FFFFFF"],
+			["#F2D74A", "#000000"],
+		] as const) {
 			const other = resolveDocumentTheme(church(kit({ primaryColor })), "email").layout;
 			if (other.documentClass !== "email") throw Error("class");
 			assert.deepEqual(other.button, { fill: primaryColor, text });
