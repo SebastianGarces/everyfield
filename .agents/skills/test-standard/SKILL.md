@@ -20,10 +20,16 @@ the repository only when a silent break would cost us. Suite size is not evidenc
    `INV-tenancy: member cannot read another plant's people`.
 3. An escaped bug. Name it `BUG-<short-sha or PR>: ...`. Reproduce the failure first, then fix it.
 
-4. The performance budget. Each new write and page read gets a statement-count test at the production
-   boundary: call the public operation against real Postgres, as the app does, and assert the exact
-   number of statements it sends. The budget is the recorded rule in `docs/architecture/patterns.md`
-   (Performance; D69, D70), not a new number. Write it before the PR opens.
+4. The performance budget. One shared census in `tests/integration/writes/` checks every write and page
+   read. `statements.test.mts` runs the HTTP requests on a production build, the native write boundaries
+   and every behavior suite in `suites.json` against real Postgres, and counts the statements each named
+   operation sends. It finds a new write by itself and fails when that write has no budget in
+   `limits.json`. It also fails when a run exceeds its budget, when a budget is never measured and when a
+   page read's count grows with its data. A new write or page read gets a `limits.json` entry at the
+   recorded rule in `docs/architecture/patterns.md` (Performance; D69, D70) and a behavior test that
+   exercises it, not its own statement-count test. Write a per-file count only for what the census cannot
+   see, such as a read other than a page that must send the same statements at 3 and 50 rows, and assert
+   the exact number.
 
 Prefer an added row or assertion in an existing test over another test. Use table-driven tests for
 combinatorial behavior. Count case IDs covered per test, never require one test per case.
@@ -62,7 +68,8 @@ message or partial receipt. Generic input validation gets no regression test.
 ## Review the suite
 
 Test names start with `AC:`, `INV-` or `BUG-`, or use case annotations alongside an invariant/bug name.
-Every owned case must appear in at least one passing test name or annotation. Reports use the exact
+Every owned acceptance case with real behavior must appear in at least one passing test name or
+annotation. A case that only restates a type, schema or constant needs no test. Reports use the exact
 `AC:<case-id>` marker. Duplicate coverage is flagged for verifier review; keep another test only
 when it protects a distinct costly failure. Fix or delete flaky tests; retries do not prove a pass.
 Explain deletion of useless tests in the PR body.

@@ -2,6 +2,12 @@ import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
+import {
+	cancelUnsubscribedHeld,
+	runDueScheduled,
+	type DeliveryKeys,
+	type DeliveryTransport,
+} from "@everyfield/domain/communication";
 import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
@@ -21,6 +27,15 @@ import { runDueObjectCleanup } from "./object-cleanup.ts";
 const START_MS = 60_000;
 
 /**
+ * The runner's Messages work (T-241): cancel what the email service already holds for people who unsubscribed, then
+ * hand each due scheduled email to the email service, checking every recipient's opt-out at that moment.
+ */
+export function scheduledMessages(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
+	return async (limit: number, until: number) =>
+		(await cancelUnsubscribedHeld(db, transport, 50)) + (await runDueScheduled(db, transport, keys, limit, until));
+}
+
+/**
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
  * runs the existing workers, each of which returns expired leases to the queue first. Requested deletions whose
@@ -28,7 +43,7 @@ const START_MS = 60_000;
  * ended at the run's clock and delivers a bounded batch of them (WP-030). The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
  * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
- * `mail`. Other queued mail (identity, settings, organization connection, task, onboarding, phase, notification and
+ * `mail`, and scheduled Messages email through `messages`. Other queued mail (identity, settings, organization connection, task, onboarding, phase, notification and
  * digest mail) has no sending worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
  */
 export function scheduledJobs(config: {
@@ -43,6 +58,11 @@ export function scheduledJobs(config: {
 	reminders: TaskReminders | null;
 	/** Sends one bounded batch of due invitation mail; null when the deployment has no mail transport. */
 	mail: ((limit: number, until: number) => Promise<number>) | null;
+	/**
+	 * Hands due scheduled Messages email to the email service at its send time, checking opt-outs then, and cancels
+	 * emails the email service already holds for people who unsubscribed (T-241). Null without mail configuration.
+	 */
+	messages?: ((limit: number, until: number) => Promise<number>) | null;
 	/** Null on a deployment without mail configuration: no digest is planned or delivered there. */
 	digests: DigestWorker | null;
 	/** The clock digests are planned and compiled at. Tests move it; the route uses the real time. */
@@ -69,7 +89,19 @@ export function scheduledJobs(config: {
 			const planned = config.digests ? await planDigests(db, asOf) : null;
 			const digests = config.digests ? await config.digests.run(db, asOf, undefined, until) : 0;
 			const mailed = config.mail ? await config.mail(20, until) : 0;
-			return Response.json({ status: "ok", closed, removed, purged, effects, turns, planned, digests, mailed });
+			const messages = config.messages ? await config.messages(20, until) : 0;
+			return Response.json({
+				status: "ok",
+				closed,
+				removed,
+				purged,
+				effects,
+				turns,
+				planned,
+				digests,
+				mailed,
+				messages,
+			});
 		} catch {
 			// No error text: it can carry row values.
 			console.error(JSON.stringify({ component: "scheduled-jobs", outcome: "error" }));
