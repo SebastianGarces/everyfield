@@ -81,8 +81,10 @@ export async function loadChurchDocument(
 		mergeValues: Record<string, string>;
 		template: TemplateState;
 		exports: SavedExport[];
-		/** Newest first. */
+		/** The newest 1000 revisions, newest first. */
 		revisions: RevisionRow[];
+		/** True when the document has older revisions than `revisions` holds. */
+		revisionsTruncated: boolean;
 	}>
 > {
 	const db = requestDatabase();
@@ -126,6 +128,7 @@ export async function loadChurchDocument(
 				revisions: history.value.revisions
 					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName }))
 					.toSorted((a, b) => b.number - a.number),
+				revisionsTruncated: history.value.truncated,
 				template: d.template,
 			},
 		};

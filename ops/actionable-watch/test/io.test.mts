@@ -26,8 +26,11 @@ describe("command allowlist", () => {
 		assert.match(COMMANDS["evf-status"].bin, /\/\.cargo\/bin\/evf$/);
 		assert.deepEqual(COMMANDS["evf-status"].args, ["status", "--json"]);
 		assert.equal(COMMANDS["gh-main-ci"].bin, "/opt/homebrew/bin/gh");
-		assert.deepEqual(COMMANDS["gh-main-ci"].args.slice(0, 2), ["run", "list"]);
-		assert.ok(COMMANDS["gh-main-ci"].args.includes("main"));
+		// D-588: main's push runs and its nightly schedule runs; --branch main alone keeps PR runs out.
+		assert.deepEqual(COMMANDS["gh-main-ci"].args, [
+			"run", "list", "--repo", "SebastianGarces/everyfield", "--branch", "main", "--workflow", "CI",
+			"--limit", "10", "--json", "headSha,status,conclusion,createdAt",
+		]);
 	});
 
 	test("an unlisted command name is refused", async () => {
@@ -329,6 +332,10 @@ describe("webhook send", () => {
 	});
 });
 
+/** The README's `plutil` lines that switch ProgramArguments.3: to webhook, then back to dry-run. */
+const readmeSwitches = (readme: string) =>
+	readme.split("\n").filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l)).map((l) => l.trim());
+
 describe("install docs", () => {
 	test("README rollback, plist and code agree on label and paths", async () => {
 		const { LOG_DIR, STATE_DIR } = await import("../io.mts");
@@ -353,19 +360,7 @@ describe("install docs", () => {
 		const run = await readFile(join(here, "run.mts"), "utf8");
 		const args = [...plist.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
 		assert.deepEqual(args.slice(2), ["--transport", "dry-run"], "ProgramArguments.3 is the transport");
-		// Run the README's own switch and rollback lines on a copy of the template and read the result back.
-		const switches = readme.split("\n").filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l)).map((l) => l.trim());
-		assert.equal(switches.length, 2, "one switch to webhook, one rollback to dry-run");
-		const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
-		await writeFile(copy, plist);
-		for (const [line, want] of [[switches[0], "webhook"], [switches[1], "dry-run"]]) {
-			await new Promise<void>((resolve, reject) =>
-				execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) => (e ? reject(e) : resolve())),
-			);
-			const now = await readFile(copy, "utf8");
-			const got = [...now.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
-			assert.deepEqual(got.slice(2), ["--transport", want], line);
-		}
+		assert.equal(readmeSwitches(readme).length, 2, "one switch to webhook, one rollback to dry-run");
 		assert.ok(readme.includes("plutil -extract ProgramArguments.0 raw"));
 		const rel = WEBHOOK_CONFIG.replace(/^.*?\/Library\//, "Library/");
 		assert.ok(readme.includes(`install -m 600 /dev/null "$HOME/${rel}"`));
@@ -374,5 +369,24 @@ describe("install docs", () => {
 		assert.match(run, /"test-wake": \{ type: "boolean"/);
 		assert.match(readme, /BUILT\/TESTED, AWAITING LIVE RECEPTION/);
 		assert.doesNotMatch(readme, /pending the contract/);
+	});
+
+	// plutil ships with macOS only; CI runs on Linux, where this one test is skipped and every other runs.
+	test("README switch and rollback lines flip the transport on a copy of the plist", {
+		skip: process.platform !== "darwin" && "plutil exists only on macOS",
+	}, async () => {
+		const readme = await readFile(join(here, "README.md"), "utf8");
+		const plist = await readFile(join(here, "com.everyfield.actionable-watch.plist"), "utf8");
+		const [toWebhook, toDryRun] = readmeSwitches(readme);
+		const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
+		await writeFile(copy, plist);
+		for (const [line, want] of [[toWebhook, "webhook"], [toDryRun, "dry-run"]]) {
+			await new Promise<void>((resolve, reject) =>
+				execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) => (e ? reject(e) : resolve())),
+			);
+			const now = await readFile(copy, "utf8");
+			const got = [...now.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
+			assert.deepEqual(got.slice(2), ["--transport", want], line);
+		}
 	});
 });
