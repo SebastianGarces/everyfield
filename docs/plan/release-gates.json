@@ -16,7 +16,7 @@
       "id": "G-AUTH",
       "title": "Implementation kickoff",
       "owner": "Owner",
-      "closure": "Separate explicit implementation authorization for the reviewed frozen version. docs/build-progress.json stopped updating at the evf v2 cutover; evf v2's task records are the live state.",
+      "closure": "Separate explicit implementation authorization for the reviewed frozen version. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.",
       "status": "authorized",
       "work_packages": [],
       "authorization": {
