@@ -14,8 +14,8 @@ You own the assigned task through a commit evf can review. Your seat's brief and
    UI work: read `ui-designer.md` and use the better-* skills.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
    summary (`test-standard`).
-4. Run focused tests for the files you change with `node --test <files>`. evf runs the fast checks;
-   GitHub CI runs everything.
+4. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
+   `bin/dev check --full`; GitHub CI also runs the database suites.
 5. Say what changed, how you checked it and any risk in your summary file.
 6. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
 
