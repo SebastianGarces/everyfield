@@ -4,11 +4,9 @@ import { eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { liveAccess } from "../../../packages/domain/src/access/session.ts";
 import {
-	connectionRevision,
 	namesFor,
 	pendingFor,
 	residencyLinks,
-	residencyRevision,
 	subjectFacts,
 	targetsFor,
 } from "../../../packages/domain/src/organizations/reads.ts";
@@ -41,16 +39,14 @@ async function answers(db, viewer, ids) {
 		// The pages ask for targets only for a viewer who can manage, which a resident never is.
 		targetsFor: viewer.kind === "account" ? [] : (await targetsFor(db, viewer, new Set())).map((r) => r.name),
 		subjectFacts: await subjectFacts(db, viewer),
-		connectionRevision: ids.connection ? await connectionRevision(db, viewer, ids.connection) : null,
 		residencyLinks: (await residencyLinks(db, viewer)).map((l) => l.linkId),
-		residencyRevision: ids.link ? await residencyRevision(db, viewer, ids.link) : null,
+		residencyRevision: ids.link ? ((await residencyLinks(db, viewer, ids.link))[0]?.linkRevision ?? null) : null,
 	};
 }
 
 test("C13 organization reads: a plant viewer whose seat ended reads no tenant data", async () => {
 	const s = await f.setup(),
-		church = await f.workspace("sending_church"),
-		network = await f.workspace("sending_network");
+		church = await f.workspace("sending_church");
 	await f.admin.update(t.plant).set({ timezone: "America/Chicago" }).where(eq(t.plant.id, s.w.id));
 	const invitationId = key();
 	await f.admin.insert(t.invitation).values({
@@ -70,29 +66,14 @@ test("C13 organization reads: a plant viewer whose seat ended reads no tenant da
 		inviter_description: "Synthetic inviter",
 		subject_revision: "1",
 	});
-	const connection = key();
-	await f.admin.insert(t.affiliation).values({
-		id: connection,
-		plant_id: s.w.id,
-		organization_id: network.id,
-		accepted_at: new Date(),
-		share_people: false,
-		share_meetings: false,
-		share_tasks: false,
-		share_ministry_teams: false,
-		share_wiki: false,
-		share_activity: false,
-		shared_findings: false,
-	});
 	const viewer = viewerOf(await f.actor(s.sender.session), "plant"),
-		ids = { subject: s.w.id, connection };
+		ids = { subject: s.w.id };
 
 	const live = await answers(f.db, viewer, ids);
 	assert.deepEqual(live.namesFor, { [s.w.id]: "Synthetic plant" });
 	assert.deepEqual(live.pendingFor, [invitationId]);
 	assert.ok(live.targetsFor.includes("Synthetic organization"));
 	assert.deepEqual(live.subjectFacts, { revision: "1", zone: "America/Chicago" });
-	assert.equal(live.connectionRevision, "1");
 
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, s.sender.id));
 	assert.deepEqual(await answers(f.db, viewer, ids), {
@@ -100,7 +81,6 @@ test("C13 organization reads: a plant viewer whose seat ended reads no tenant da
 		pendingFor: [],
 		targetsFor: [],
 		subjectFacts: { revision: "0", zone: "UTC" },
-		connectionRevision: null,
 		residencyLinks: [],
 		residencyRevision: null,
 	});

@@ -2,7 +2,6 @@
 
 import {
 	leaveResidencyRequest,
-	residencySharingRequest,
 	setResidencySharingRequest,
 	type residencySharingResult,
 	type residentChoices,
@@ -96,22 +95,33 @@ export function ResidencyDisclosure({
  * and the consent revision inside it (REQ-MUL-003). The contract read returns only the consent revision, so the
  * caller supplies the link revision (ruling D16).
  */
-export type ReadResidency = (linkId: string) => Promise<{ sharing: Sharing; linkRevision: string }>;
+export type ResidencyRow = { sharing: Sharing; linkRevision: string };
+export type ReadResidency = (linkId: string) => Promise<ResidencyRow>;
+/** Saves one choice. The answer is the link as saved now, or null when nothing was saved. */
+export type SaveResidency = (
+	command: ReturnType<typeof setResidencySharingRequest.parse>,
+) => Promise<ResidencyRow | null>;
 
 export function ResidencySharing({
 	linkId,
 	organizationName,
+	initial,
 	read,
+	save,
 	run,
 }: {
 	linkId: string;
 	organizationName: string;
+	/** The link as the page read it; the card reads again only after Leave or for Load latest. */
+	initial?: ResidencyRow;
 	read: ReadResidency;
+	save: SaveResidency;
+	/** Sends Leave. */
 	run: Run;
 }) {
 	const titleId = useId();
-	const fetch = useCallback(() => read(residencySharingRequest.parse({ linkId }).linkId), [linkId, read]);
-	const { state, reload: load, refreshing } = useLoad(fetch, "Your residency sharing did not load");
+	const fetch = useCallback(() => read(linkId), [linkId, read]);
+	const { state, reload: load, update, refreshing } = useLoad(fetch, "Your residency sharing did not load", initial);
 
 	return (
 		<Card as="section" aria-labelledby={titleId} className="w-full">
@@ -146,6 +156,8 @@ export function ResidencySharing({
 							data={data}
 							linkRevision={linkRevision}
 							organizationName={organizationName}
+							save={save}
+							onSaved={(row) => update(() => row)}
 							run={run}
 							reload={load}
 							refreshing={refreshing}
@@ -162,6 +174,8 @@ function ActiveResidency({
 	linkRevision,
 	organizationName,
 	refreshing,
+	save: send,
+	onSaved,
 	run,
 	reload,
 }: {
@@ -170,6 +184,8 @@ function ActiveResidency({
 	organizationName: string;
 	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
+	save: SaveResidency;
+	onSaved: (row: ResidencyRow) => void;
 	run: Run;
 	reload: () => void;
 }) {
@@ -192,11 +208,11 @@ function ActiveResidency({
 						choices: { ...data.choices, [key]: value },
 					},
 				}),
-			(command) => run("residency.setSharing", command),
-			(r) => r.status === "committed",
+			send,
+			(row) => row !== null,
 		);
-		// On success the card re-mounts on the new consent revision; until then the switch keeps the saved value.
-		if (result.ok) reload();
+		// On success the card re-mounts on the saved consent revision; until then the switch keeps the saved value.
+		if (result.ok && result.reply) onSaved(result.reply);
 		else setBusy(null);
 	};
 

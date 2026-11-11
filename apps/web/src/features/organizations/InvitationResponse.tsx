@@ -9,7 +9,7 @@ import { useIntent } from "./intent";
 import { NEVER_SHARED, subjectName } from "./model";
 import { formatDay } from "../shared/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";
-import type { NameOf, PendingInvitation, Run } from "./port";
+import type { NameOf, Invitation, Run } from "./port";
 
 /**
  * The receiving organization's answer to one connection request (REQ-IDN-020). Only an Owner or Admin of that exact
@@ -25,7 +25,7 @@ export function InvitationResponse({
 	connectionsHref,
 }: {
 	/** null when the link is expired, withdrawn, answered, or not for this account: one shared refusal. */
-	invitation: PendingInvitation | null;
+	invitation: Invitation | null;
 	proof: string;
 	nameOf: NameOf;
 	zone: string;
