@@ -52,8 +52,6 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 }
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
 
-/** A team as the screens show it: the team and its leader's name. */
-export type TeamCard = ListedTeam;
 /** The organization view's nodes, drawn from the list with the producer's own root rule. */
 const chartOf = (teams: readonly ListedTeam[]): ChartNode[] =>
 	withParents(
@@ -77,7 +75,7 @@ export type TeamsView = Awaited<ReturnType<typeof loadTeams>>;
  */
 export async function loadTeams(viewer: Viewer) {
 	const list = value(await read(viewer, (db, a) => teamsReader.list(db, a, { includeArchived: true })));
-	const teams: TeamCard[] | null = list ? list.items : null;
+	const teams = list?.items ?? null;
 	return { teams, nodes: teams ? chartOf(teams) : [] };
 }
 
@@ -94,7 +92,7 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: 50 })),
 	]);
 	if (list.status === "failed") return { status: "failed" } as const;
-	const teams: TeamCard[] = list.status === "ok" ? list.value.items : [];
+	const teams = list.status === "ok" ? list.value.items : [];
 	const team = teams.find((t) => t.id === teamId);
 	if (!team) return { status: "missing" } as const;
 	const page = value(members);
