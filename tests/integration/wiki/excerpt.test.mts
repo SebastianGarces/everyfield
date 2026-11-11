@@ -14,4 +14,4 @@ const names: Record<string, string> = {
 };
 
 for (const [criterion, check] of Object.entries(checks))
-	test(`WP-034/api criterion ${criterion}: ${names[criterion]}`, () => check());
+	test(`AC:WP-034 WP-034/api criterion ${criterion}: ${names[criterion]}`, () => check());

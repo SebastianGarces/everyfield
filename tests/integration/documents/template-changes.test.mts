@@ -261,7 +261,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.deepEqual([found.changes[5].document, found.changes[5].template], [own22, null]);
 	});
 
-	test("criteria 6, 7: one accepted item lands in its place; one revision records v2; declined ones move to All differences", async () => {
+	test("AC:DOC-TEMPLATE-CHANGES criteria 6, 7: one accepted item lands in its place; one revision records v2; declined ones move to All differences", async () => {
 		const templates = await sources();
 		const doc = await create(OWNER, POLICY);
 		const own = ok(await save(OWNER, doc.id, "1", ownEdits(doc.body)));

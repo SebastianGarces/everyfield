@@ -177,7 +177,7 @@ test("AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private 
 	assert.equal(fallback.visibleCount, 2);
 });
 
-test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
+test("AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address", async () => {
 	const alex = await person("Alex Detail", { email: "old@example.test" });
 	const meet = await meeting("Vision");
 	const emptyMeeting = await meeting("Empty vision");
@@ -219,6 +219,21 @@ test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
 	refused(await read(owner, "listForMeeting", { meetingId: randomUUID() }), "not_found");
 	refused(await read(owner, "listForPerson", { personId: randomUUID() }), "not_found");
 	refused(await read(owner, "getDetail", { id: randomUUID() }, keys), "not_found");
+
+	// A message written before the HTML editor has no stored HTML: detail returns its plain text exactly as stored.
+	const legacy = await message({ subject: "LEGACY-PLAIN" });
+	await f.admin.execute(
+		sql`UPDATE communication SET body_html = NULL, body_text = 'Line one' || chr(10) || 'Line two' WHERE id = ${legacy}`,
+	);
+	const plain = ok(await read(owner, "getDetail", { id: legacy }, keys));
+	assert.equal(plain.subject, "LEGACY-PLAIN");
+	assert.equal(plain.bodyHtml, null);
+	assert.equal(plain.bodyText, "Line one\nLine two");
+	const legacyPage = ok(await read(owner, "listHistory", { query: "LEGACY-PLAIN" }));
+	assert.deepEqual(
+		legacyPage.items.map((item) => item.id),
+		[legacy],
+	);
 });
 
 test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until every recipient is sent", async () => {
@@ -262,7 +277,7 @@ test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until ever
 	refused(await read(owner, "getExecutionResult", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay", async () => {
+test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps delivered non-openers and one replay", async () => {
 	const alex = await person("Alex", { email: "alex@example.test" });
 	const casey = await person("Casey", { email: "casey@example.test" });
 	const jamie = await person("Jamie", { email: "jamie@example.test" });
@@ -316,6 +331,32 @@ test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay
 	assert.equal(copy.body_html, "<p>Please read</p>");
 	assert.equal(copy.template_source, `lineage:${id}`);
 	assert.deepEqual(copy.audience.personIds, [alex]);
+	// The reviewed copy is locked: its subject and body cannot be edited, and it cannot be deleted as a draft.
+	const copyRevision = (
+		await rows(sql`SELECT revision::text AS r FROM communication WHERE id = ${created.communicationId}`)
+	)[0].r;
+	refused(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId, subject: "Changed", bodyHtml: "<p>Changed</p>" },
+		}),
+		"conflict",
+	);
+	refused(
+		await write(owner, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId },
+		}),
+		"conflict",
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT state, subject, body_html, revision::text AS r FROM communication WHERE id = ${created.communicationId}`,
+		),
+		[{ state: "reviewed", subject: "Please read", body_html: "<p>Please read</p>", r: copyRevision }],
+	);
 	assert.equal(
 		await countOf(
 			sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id = ${plant.id} AND logical_key LIKE ${"communication/" + created.communicationId + "/%"}`,

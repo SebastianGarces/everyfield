@@ -398,7 +398,7 @@ test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a l
 	);
 });
 
-test("AC:TARGET-TEAM-006 an Owner or Admin corrects a role's dates with a reason, and the history names it", async () => {
+test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's dates with a reason, and the history names it", async () => {
 	const team = await makeTeam("Dates ministry");
 	const role = await makeRole(team.id, "Greeter");
 	const alex = await person("Alex Dates");

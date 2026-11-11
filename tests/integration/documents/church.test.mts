@@ -8,7 +8,7 @@ import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
-import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
@@ -232,7 +232,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(await counts(), before);
 	});
 
-	test("WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
+	test("AC:DOC-EDIT-SAVE AC:WP-036-9 WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
 		const doc = state.policy;
 		const before = await counts();
 		const oldShape = [{ kind: "paragraph", text: "An old block list." }];
@@ -246,6 +246,13 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		broken.body.content.push({ type: "paragraph", content: [{ type: "field", attrs: { key: "pastor_name" } }] });
 		const fault = refused(await save(ADMIN, doc.id, "1", broken), "invalid_input");
 		assert.match(fault.details.issues[0].problem, /the merge field "pastor_name" is not declared in "fields"/);
+		// A total is computed: a typed amount on a budget's subtotal row is refused.
+		const typedTotal = structuredClone(state.budget.body);
+		const ledger = typedTotal.body.content.find((n) => n.type === "table");
+		const subtotal = ledger.content.find((r) => r.attrs?.role === "subtotal");
+		subtotal.content[1] = { type: "cell", attrs: { value: 999 } };
+		const total = refused(await save(ADMIN, state.budget.id, "1", typedTotal), "invalid_input");
+		assert.match(total.details.issues[0].problem, /a subtotal row computes its numbers; it holds no typed value/);
 		assert.deepEqual(await counts(), before, "a refused save writes nothing");
 
 		const edited = structuredClone(doc.body);
@@ -265,7 +272,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
-	test("WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
+	test("AC:DOC-EDIT-MARKS-PDF WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
 		const doc = state.policy;
 		// The editor holds the body in its own schema and builds the stored document with documentFrom. Edit it the way
 		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
@@ -285,6 +292,10 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 					{ type: "text", marks: [{ type: "link", attrs: { href: "https://example.com/policy" } }], text: "read" },
 					{ type: "hardBreak" },
 					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "bold" }], text: "bold" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "italic" }], text: "italic" },
 				],
 			},
 			...tail,
@@ -303,6 +314,18 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.revision, String(Number(doc.revision) + 1));
 		assert.deepEqual(saved.body, edited);
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		// Each face the saved revision's PDF names embeds that face's own font program, not the regular one.
+		const faces = await pdfFontFaces(bytesFrom(ok(await fileOf(MEMBER, doc.id, "pdf", Number(saved.revision)))));
+		// BaseFont "DMSans-Bold-Italic" is the font program whose own name table says family "DM Sans", style "Bold Italic".
+		const named = faces.map((f) => [f.baseFont, `${f.family.replace(/ 14pt$/, "")} ${f.style}`]);
+		for (const [baseFont, held] of named) {
+			const [family, ...style] = baseFont.split("-");
+			const expected = `${{ DMSans: "DM Sans", DMSerifDisplay: "DM Serif Display", EFFigures: "EF Figures" }[family]} ${style.join(" ") || "Regular"}`;
+			assert.equal(held, expected, `${baseFont} embeds its own face`);
+		}
+		const embedded = new Set(faces.map((f) => f.baseFont));
+		for (const face of ["DMSans", "DMSans-Bold", "DMSans-Italic", "DMSans-Bold-Italic", "DMSerifDisplay"])
+			assert.ok(embedded.has(face), `${face} is embedded: ${[...embedded]}`);
 		state.policy = saved;
 	});
 
@@ -425,7 +448,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = gone;
 	});
 
-	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
+	test("AC:CASE-DOC-019-EDIT AC:DOC-EDIT-LEGAL a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
 		const doc = state.policy;
 		const wiped = structuredClone(doc.body);
 		wiped.body = { type: "doc", content: [] };
@@ -443,7 +466,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
-	test("AC:CASE-DOC-023 the preview, Download PDF and the saved export of one revision have the same sha256", async () => {
+	test("AC:CASE-DOC-023 AC:DOC-EDIT-PREVIEW the preview, Download PDF and the saved export of one revision have the same sha256", async () => {
 		const card = state.card;
 		const preview = ok(await fileOf(MEMBER, card.id, "pdf"));
 		const download = ok(await fileOf(OWNER, card.id, "pdf", 1));
@@ -460,7 +483,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.savedTemplateName, docTemplateById("commitment-card").title);
 	});
 
-	test("WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
+	test("AC:DOC-EDIT-MEMBER AC:DOC-LAYOUT-ACCESS AC:WP-036-15 WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
 		const budget = state.budget;
 		const library = ok(await documentsWriter.listChurch(db, await authority(MEMBER), {}));
 		assert.deepEqual(library.documents.map((d) => d.templateId).sort(), [
@@ -1056,6 +1079,34 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		}
 	});
 
+	test("T-117 history lists the newest 1000 revisions and says when older ones are left out", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t117-many"));
+		const list = async () =>
+			ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		// Copies of revision 1 numbered from..to, written beside it as saves would be.
+		const addRevisions = (from, to) =>
+			admin.execute(
+				sql`INSERT INTO document_revision (tenant_id, document_id, version_number, body, content_hash, recorded_at)
+					SELECT r.tenant_id, r.document_id, n, r.body, r.content_hash, clock_timestamp()
+					FROM document_revision r, generate_series(${from}::int, ${to}::int) n
+					WHERE r.document_id = ${doc.id}::uuid AND r.version_number = 1`,
+			);
+		const one = await list();
+		assert.deepEqual([one.revisions.length, one.truncated], [1, false], "one revision is the whole history");
+		await addRevisions(2, 1000);
+		const full = await list();
+		assert.equal(full.revisions.length, 1000);
+		assert.equal(full.truncated, false, "exactly 1000 revisions are all listed");
+		await addRevisions(1001, 1001);
+		const cut = await list();
+		assert.equal(cut.truncated, true, "a 1001st revision leaves the oldest out");
+		assert.deepEqual(
+			cut.revisions.map((r) => r.number),
+			Array.from({ length: 1000 }, (_, i) => i + 2),
+			"the newest 1000, oldest first, without revision 1",
+		);
+	});
+
 	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
 		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
@@ -1116,7 +1167,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
 	});
 
-	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+	test("AC:DOC-LAYOUT-MISSING T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
 		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
 		assert.equal(edit.useChurchBranding, true);

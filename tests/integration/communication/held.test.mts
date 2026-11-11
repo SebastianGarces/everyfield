@@ -134,6 +134,8 @@ async function shown(message) {
 	const item = page.items.find((row) => row.id === message.id);
 	const detail = ok(await read("getDetail", { id: message.id }, keys));
 	const totals = ok(await read("getDeliveryTotals", { communicationId: message.id }));
+	// BUG-T44: the message header badge reads the totals state, which always matches history, not the stored state.
+	assert.equal(totals.state, item.state);
 	return { item, detail, totals };
 }
 
@@ -147,7 +149,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message waits in Everyfield and goes to the email service at its send time, storing each recipient's id", async () => {
+test("BUG-T44 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message waits in Everyfield and goes to the email service at its send time, storing each recipient's id", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
@@ -165,6 +167,7 @@ test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled m
 	let view = await shown(message);
 	assert.equal(view.item.state, "scheduled");
 	assert.equal(hubLabel[view.item.state], "Scheduled");
+	assert.equal(view.totals.state, "scheduled");
 	assert.equal(view.item.scheduledAt, friday);
 	assert.equal(view.item.sentAt, null);
 	assert.equal(view.detail.scheduledAt, friday);
@@ -272,7 +275,7 @@ test("AC:MAIL51-004 AC:MAIL51-005 a waiting message is cancelled or moved at onc
 	assert.deepEqual(resend.take(), []);
 });
 
-test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
+test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -308,12 +311,14 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email ser
 	);
 	const view = await shown(message);
 	assert.equal(view.item.state, "cancelled");
+	assert.equal(view.totals.state, "cancelled");
+	assert.equal(view.detail.state, "scheduled");
 	assert.equal(view.totals.cancelled, 3);
 	assert.equal(view.totals.cancelOpen, 0);
 	assert.equal([...resend.emails.values()].filter((email) => email.lastEvent === "canceled").length, 3);
 });
 
-test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
+test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -334,6 +339,8 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not co
 	let view = await shown(message);
 	assert.equal(view.item.state, "cancel_unconfirmed");
 	assert.equal(hubLabel[view.item.state], "Cancel not confirmed");
+	assert.equal(view.totals.state, "cancel_unconfirmed");
+	assert.equal(view.detail.state, "scheduled");
 	assert.deepEqual([view.totals.cancelled, view.totals.cancelOpen], [1, 2]);
 	const blocked = ok(
 		await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
@@ -460,7 +467,7 @@ test("AC:MAIL51-004 a time change without confirmation names the requested and h
 	assert.equal(await auditsOf(message), audits);
 });
 
-test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
+test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
@@ -487,6 +494,8 @@ test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sen
 	const view = await shown(message);
 	assert.equal(view.item.state, "sent");
 	assert.notEqual(view.item.state, "cancelled");
+	assert.equal(view.totals.state, "sent");
+	assert.equal(view.detail.state, "scheduled");
 	assert.equal(view.totals.sent, 1);
 	assert.equal(view.totals.cancelled, 2);
 

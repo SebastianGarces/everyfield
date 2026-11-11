@@ -168,7 +168,7 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	]);
 });
 
-test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
+test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
 	// The literal case: Noah's row fails in the database before it commits; Mara and Lia are still saved.
 	const file =
 		"\ufeff" +
@@ -423,7 +423,7 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 	assert.deepEqual(ok(await receiptOf(requestKey)).counts, { created: 498, skipped: 0, failed: 3, remaining: 3 });
 	assert.equal(await count("person"), peopleBefore + 498);
 });
-test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
+test("AC:TARGET-PPL-018 INV-tenancy BUG-198-unconfirmed an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
 	const existing = await person("Rae Existing", { phone: "(555) 010-2030" });
 	const file =
 		"first_name,last_name,phone,email\r\nRae,Import,555-010-2030,\r\nSam,One,,sam@example.test\r\nSam,Two,,SAM@example.test\r\nUma,,,uma@example.test\r\n,,,bad\r\n";
@@ -525,7 +525,7 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 	}
 });
 
-test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy the export matches the directory's filters as formula-safe CSV without private fields", async () => {
+test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy INV-filters the export matches the directory's filters as formula-safe CSV without private fields", async () => {
 	const plant = (who) =>
 		write(who, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Choir" } }));
 	const choir = ok(await plant(0)).tag;
@@ -735,7 +735,7 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	}
 });
 
-test("AC:TARGET-PPL-019 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
+test("AC:TARGET-PPL-019 BUG-export-names the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
 	const maria = await person("Maria Santos");
 	const mary = await person("Mary Ann  Smith");
 	const grace = await person("Grace");

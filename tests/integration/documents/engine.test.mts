@@ -91,7 +91,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(loaded.templates.find((t) => t.id === "launch-sunday-checklists")!.pageCount, 2);
 	});
 
-	test("DOC-007: the template view carries class, page size, page count and fillable", async () => {
+	test("INV-doc-aspect INV-doc-fillable DOC-007: the template view carries class, page size, page count and fillable", async () => {
 		const loaded = await library();
 		const view = (id: string) => templateView(loaded.templates.find((t) => t.id === id)!);
 		assert.deepEqual(view("commitment-card").pageSize, { width: 306, height: 396 });
@@ -168,7 +168,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(fontDigests().length, 9);
 	});
 
-	test("DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {
+	test("INV-doc-bytes DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {
 		const run = () =>
 			execFileSync(
 				"node_modules/.bin/tsx",
@@ -218,7 +218,7 @@ describe("WP-036/api engine", () => {
 		);
 	});
 
-	test("DOC-017: each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
+	test("INV-doc-fillable DOC-017: each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, NEUTRAL_VALUES);
 			const doc = await PDFDocument.load(out.bytes, { updateMetadata: false });

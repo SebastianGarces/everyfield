@@ -46,6 +46,9 @@ import {
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
+import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
+import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
+import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -143,6 +146,8 @@ function discoverReads() {
 
 let f, plantA, plantB, ownerA, ownerB;
 const a = {};
+/** What an area's case module reads: the fixture, church A's ids in `a`, both owners and the shared helpers. */
+let t;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -331,7 +336,8 @@ async function seedChurchA() {
 	);
 	await runDueImports(f.db, 10);
 
-	// Teams and meetings come from their own areas; rows here, as the communication suites seed them.
+	// Teams come from their own area; rows here, as the communication suites seed them. This meeting row is the
+	// communication cases' own; the meetings cases read the meetings seed (tenancy-meetings.mts).
 	a.team = randomUUID();
 	const role = randomUUID();
 	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order)
@@ -658,6 +664,9 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
+		...meetingsCases(t, who),
+		...followUpsCases(t, who),
+		...documentsCases(t, who),
 	]);
 }
 
@@ -673,6 +682,10 @@ before(async () => {
 	ownerA = await seated(plantA);
 	ownerB = await seated(plantB);
 	await seedChurchA();
+	t = { f, a, MARK, key, ok, rows, occurredOn, personA, storage, plantA, ownerA };
+	await seedMeetings(t);
+	await seedFollowUps(t);
+	await seedDocuments(t);
 });
 after(() => f?.close());
 

@@ -159,7 +159,7 @@ test("INV-statements: finalizing 500 attendees sends the same statements as fina
 	assert.equal(fiveHundred, one);
 });
 
-test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card", async () => {
+test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card", async () => {
 	const m = await meeting();
 	const [alex, casey, retired] = [await person("Alex"), await person("Casey"), await person("Retired")];
 	await f.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
@@ -246,6 +246,17 @@ test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDAN
 	const summary = ok(await read(owner, "attendanceSummary", { meetingId: m }));
 	assert.equal(summary.attended, 2);
 	assert.equal(summary.finalized, null);
+	// Check-in works on a meeting that is still ready and leaves its status as it was.
+	const ready = await meeting("vision_meeting", "2026-10-03T23:00:00Z");
+	await f.admin.execute(sql`UPDATE meeting SET status='ready' WHERE id=${ready}`);
+	const early = ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: ready, personId: alex } }));
+	assert.deepEqual(
+		early.attendees.map((a) => a.presence),
+		["attended"],
+	);
+	const readySummary = ok(await read(owner, "attendanceSummary", { meetingId: ready }));
+	assert.deepEqual([readySummary.attended, readySummary.finalized], [1, null]);
+	assert.equal((await one(sql`SELECT status FROM meeting WHERE id=${ready}`)).status, "ready");
 
 	// Finalizing a practice records attendance only: the practice is not completed by it (REQ-KNOW-043).
 	const practice = await meeting("prelaunch_practice", "2026-10-02T23:00:00Z");

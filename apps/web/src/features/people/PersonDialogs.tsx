@@ -284,6 +284,9 @@ export function ClassificationDialog({
 		reason: "",
 	};
 	const [touched, setTouched] = useState(false);
+	// The date the server last refused as after the church's today. Its error stays until the date changes, so the same
+	// date is not sent again; any other refusal shows below the form.
+	const [refusedOn, setRefusedOn] = useState<string | null>(null);
 	const set = (patch: Partial<ClassifyDraft>) =>
 		store.dispatch({ type: "edit", slot: "classify", draft: { ...draft, ...patch } });
 	const close = (next: boolean) => {
@@ -291,12 +294,12 @@ export function ClassificationDialog({
 		if (!next) {
 			store.dispatch({ type: "discard", slot: "classify" });
 			setTouched(false);
+			setRefusedOn(null);
 		}
 		onOpenChange(next);
 	};
 	const missing = draft.reason.trim() === "" || draft.occurredOn === "";
-	// Every other field is checked here first, so the server's invalid_input for this form means a church-future date.
-	const futureDate = state.errors.classify === "invalid_input";
+	const futureDate = refusedOn !== null && draft.occurredOn === refusedOn;
 
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
@@ -316,6 +319,7 @@ export function ClassificationDialog({
 			(key) => classifyAdult(key, rev, correction, input),
 			{ fresh, toPerson: (v) => v.person },
 		);
+		if (result) setRefusedOn(result.status === "refused" && result.reason === "future_date" ? input.occurredOn : null);
 		if (result?.status === "ok") {
 			close(false);
 			const action = correction ? "classification_corrected" : "classification_recorded";
@@ -375,7 +379,7 @@ export function ClassificationDialog({
 								onChange={(e) => set({ reason: e.target.value })}
 							/>
 						</Field>
-						<FormProblem code={futureDate ? undefined : state.errors.classify} />
+						<FormProblem code={refusedOn === null ? state.errors.classify : undefined} />
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="secondary" type="button" onClick={() => close(false)} disabled={pending}>

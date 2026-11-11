@@ -9,6 +9,8 @@ import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import * as W from "./fixtures/word.mts";
+import { syncBuiltinESMExports } from "node:module";
+import zlib from "node:zlib";
 
 const database = await fixture({ prefix: "wp037", plant: { name: "Harvest Point" } });
 const { admin, schema } = database;
@@ -93,6 +95,20 @@ const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
 const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
+/** A Word file whose one entry's header declares `declared` bytes while its deflate stream inflates to `inflated`. */
+function lyingZip(declared, inflated) {
+	const name = Buffer.from("word/document.xml");
+	const data = zlib.deflateRawSync(Buffer.alloc(inflated));
+	const local = Buffer.alloc(30 + name.length);
+	local.writeUInt32LE(0x04034b50, 0);
+	local.writeUInt16LE(20, 4);
+	local.writeUInt16LE(8, 8);
+	local.writeUInt32LE(data.length, 18);
+	local.writeUInt32LE(declared, 22);
+	local.writeUInt16LE(name.length, 26);
+	name.copy(local, 30);
+	return Buffer.concat([local, data]);
+}
 function zipBomb() {
 	const name = Buffer.from("word/document.xml");
 	const local = Buffer.alloc(30 + name.length + 1);
@@ -723,6 +739,35 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal((await fileKey(generated.id)).state, "ready");
 		assert.equal(ok(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: witness })).removed, 0);
 		refusedPrivate(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: randomUUID() }), "unavailable");
+	});
+
+	test("AC:CASE-DOC-016 T-117 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
+		const owner = await authority(2);
+		const bytes = lyingZip(10, 100 * 1024 * 1024);
+		// Every inflate the import runs is watched for how much output it may make.
+		const real = zlib.inflateRawSync;
+		const limits = [];
+		zlib.inflateRawSync = (input, options) => {
+			limits.push(options?.maxOutputLength ?? Infinity);
+			return real(input, options);
+		};
+		syncBuiltinESMExports();
+		try {
+			refusedPrivate(
+				await documentsWriter.importTextOrWord(
+					db,
+					owner,
+					{ title: "Lying header", format: "docx", bytes, expectedRevision: "0", requestKey: "t117-lying-header" },
+					storage,
+				),
+				"invalid_input",
+			);
+		} finally {
+			zlib.inflateRawSync = real;
+			syncBuiltinESMExports();
+		}
+		assert.equal(limits.length, 1, "the one entry is inflated once");
+		assert.ok(limits[0] <= 40 * 1024 * 1024, `the inflate may make at most the cap, not ${limits[0]} bytes`);
 	});
 
 	test("AC:CASE-DOC-016 INV-documents: a native body is checked at the boundary, old text opens intact, and Use for this church writes one copy", async () => {

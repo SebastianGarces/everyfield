@@ -6,14 +6,8 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import {
-	drawingLines,
-	drawingPdf,
-	drawingSvg,
-	reviewDigest,
-	teamsReader,
-	teamsWriter,
-} from "../../../packages/domain/src/teams/index.ts";
+import { drawingLines, drawingPdf, drawingSvg } from "../../../packages/domain/src/teams/chart.ts";
+import { reviewDigest, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
