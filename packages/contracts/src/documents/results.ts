@@ -240,10 +240,12 @@ export const churchRevisionSummary = z.strictObject({
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
 });
+/** The most revisions one church revision list holds: the newest ones. */
+export const CHURCH_REVISION_LIST_MAX = 1000;
 export const churchRevisionList = z.strictObject({
 	documentId: recordId,
-	/** The newest 1000 revisions, oldest first. */
-	revisions: z.array(churchRevisionSummary).max(1000),
+	/** The newest CHURCH_REVISION_LIST_MAX revisions, oldest first. */
+	revisions: z.array(churchRevisionSummary).max(CHURCH_REVISION_LIST_MAX),
 	/** True when the document has older revisions than the list holds. */
 	truncated: z.boolean(),
 });

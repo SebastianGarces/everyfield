@@ -805,7 +805,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		refused(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: randomUUID() }), "unavailable");
 	});
 
-	test("AC:CASE-DOC-016 T-117 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating it", async () => {
+	test("AC:CASE-DOC-016 T-117 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
 		const owner = await authority(2);
 		const bytes = lyingZip(10, 100 * 1024 * 1024);
 		// Every inflate the import runs is watched for how much output it may make.

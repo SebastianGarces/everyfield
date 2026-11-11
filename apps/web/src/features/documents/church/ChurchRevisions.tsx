@@ -15,8 +15,6 @@ import type { RevisionRow } from "./server.ts";
 type Format = keyof typeof FORMAT_LABEL;
 
 const FIRST_SHOWN = 10;
-/** The most revisions the list holds: the newest ones, matching the bound on the server's revision list. */
-export const REVISIONS_LISTED = 1000;
 
 export function ChurchRevisions({
 	revisions,

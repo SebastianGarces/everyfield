@@ -1,14 +1,20 @@
 "use client";
 
 import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { exportsFor, type DocBrands, type DocDocument, type SavedExport } from "@everyfield/contracts/documents";
+import {
+	CHURCH_REVISION_LIST_MAX,
+	exportsFor,
+	type DocBrands,
+	type DocDocument,
+	type SavedExport,
+} from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
-import { ChurchRevisions, REVISIONS_LISTED } from "./ChurchRevisions.tsx";
+import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
@@ -49,7 +55,7 @@ export function ChurchDocumentScreen({
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The newest saved revisions, newest first, at most REVISIONS_LISTED. */
+	/** The newest saved revisions, newest first, at most CHURCH_REVISION_LIST_MAX. */
 	revisions: RevisionRow[];
 	/** True when the document has older revisions than `revisions` holds. */
 	revisionsTruncated: boolean;
@@ -80,8 +86,8 @@ export function ChurchDocumentScreen({
 			now.revisions.some((r) => r.number === row.number)
 				? now
 				: {
-						revisions: [row, ...now.revisions].slice(0, REVISIONS_LISTED),
-						truncated: now.truncated || now.revisions.length >= REVISIONS_LISTED,
+						revisions: [row, ...now.revisions].slice(0, CHURCH_REVISION_LIST_MAX),
+						truncated: now.truncated || now.revisions.length >= CHURCH_REVISION_LIST_MAX,
 					},
 		);
 	};

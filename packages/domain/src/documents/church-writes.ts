@@ -54,8 +54,6 @@ function readerScope(authority: RequestActor) {
 
 type Provenance = { key: string; value: string | null; source: string }[];
 
-/** The most revisions one list answers: the newest ones, matching the contract's bound on churchRevisionList. */
-const REVISION_LIST_MAX = 1000;
 /**
  * The name of the church template a Church Document `d` was made from, or null for a built-in template. A deleted
  * template keeps its row, so a document made from it still names it.
@@ -1639,7 +1637,7 @@ export const churchWriter = {
 					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 				ORDER BY r.version_number DESC
-				LIMIT ${REVISION_LIST_MAX + 1}`,
+				LIMIT ${c.CHURCH_REVISION_LIST_MAX + 1}`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
@@ -1647,9 +1645,9 @@ export const churchWriter = {
 			const saved = found.filter((row) => row.id);
 			return c.churchRevisionList.parse({
 				documentId: input.documentId,
-				truncated: saved.length > REVISION_LIST_MAX,
+				truncated: saved.length > c.CHURCH_REVISION_LIST_MAX,
 				revisions: saved
-					.slice(0, REVISION_LIST_MAX)
+					.slice(0, c.CHURCH_REVISION_LIST_MAX)
 					.reverse()
 					.map((row) => ({
 						id: row.id,
