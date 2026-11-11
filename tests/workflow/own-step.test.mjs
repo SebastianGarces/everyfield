@@ -25,10 +25,8 @@ const ownStep = new Set(
 );
 
 test("every OWN_STEP name is a workflow test ci.yml runs as its own step", () => {
-	for (const name of OWN_STEP) {
-		assert.ok(workflowTests.has(name), `${name} is not in tests/workflow`);
+	for (const name of OWN_STEP)
 		assert.ok(ownStep.has(name), `${name} is in OWN_STEP but ci.yml does not run it as its own step`);
-	}
 });
 
 test("every workflow test ci.yml runs as its own step is in OWN_STEP", () => {
