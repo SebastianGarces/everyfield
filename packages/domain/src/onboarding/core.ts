@@ -246,13 +246,26 @@ export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, res
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
-export async function bump(tx: Tx, id: string) {
+/** The command's one plant write: its own columns, both revisions, and the statement clock for its saved times. */
+export async function bump(
+	tx: Tx,
+	id: string,
+	set: Pick<Partial<typeof t.plant.$inferInsert>, "lead_answer" | "journey_answer" | "launch_answer"> & {
+		onboarding_completed_at?: typeof now;
+	},
+) {
 	const [plant] = await tx
 		.update(t.plant)
-		.set({ revision: sql`${t.plant.revision}+1`, material_revision: sql`${t.plant.material_revision}+1` })
+		.set({ ...set, revision: sql`${t.plant.revision}+1`, material_revision: sql`${t.plant.material_revision}+1` })
 		.where(eq(t.plant.id, id))
-		.returning();
-	return plant!;
+		.returning({
+			revision: t.plant.revision,
+			material_revision: t.plant.material_revision,
+			phase: t.plant.phase,
+			onboarding_completed_at: t.plant.onboarding_completed_at,
+			at: now,
+		});
+	return { ...plant!, at: plant!.at.toISOString() };
 }
 
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {

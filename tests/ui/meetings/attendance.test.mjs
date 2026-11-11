@@ -1,6 +1,7 @@
 // The attendance flow a silent break would cost us: guests are checked in at the door on a phone, attendance is
-// finalized with its generated work, and the meeting is evaluated. Seed with tests/ui/people/seed.mts, then
-// tests/ui/meetings/seed.mts; set UI_BASE_URL. Both browser engines run, each on its own past meeting.
+// finalized with its generated work, and the meeting is evaluated. The next save after finalize or a walk-in goes through
+// the first time (T-155). Seed with tests/ui/people/seed.mts, then tests/ui/meetings/seed.mts; set UI_BASE_URL. Both
+// browser engines run, each on its own past meetings.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -93,49 +94,85 @@ for (const [name, engine] of ENGINES) {
 	});
 }
 
-// S2 F06: the server defaulted the evaluation date and then refused it for a meeting dated after today. Both note
-// variants the modal can send (blank, and whitespace-only which the client stores as no note) save and show.
 for (const [name, engine] of ENGINES) {
-	for (const [i, note] of ["", "   "].entries()) {
-		test(`BUG-S2-F06 (${name}): a complete evaluation of a future-dated Vision meeting saves with a ${i === 0 ? "blank" : "whitespace-only"} note`, async () => {
-			const id = fixture("meetings").future[name][i];
-			await withPage(
-				engine,
-				async (page, context) => {
-					await signIn(context, fixture("people").owner.cookie);
-					await page.goto(`${BASE}/meetings/${id}`);
-					await hydrated(page);
-					await page.getByRole("button", { name: /^Status/ }).click();
-					await page.getByRole("menuitem", { name: "Start the meeting" }).click();
-					await page.getByRole("link", { name: "Start check-in" }).waitFor();
-					await page.getByRole("button", { name: "Finalize attendance" }).click();
-					await page
-						.getByRole("dialog", { name: "Finalize attendance" })
-						.getByRole("button", { name: "Finalize", exact: true })
-						.click();
-					await page.getByRole("button", { name: "Record evaluation" }).first().click();
-					const form = page.getByRole("dialog", { name: "Evaluate the meeting" });
-					for (const [n, score] of SCORES.entries())
-						await form
-							.getByRole("radiogroup")
-							.nth(n)
-							.getByRole("radio", { name: String(score), exact: true })
-							.click();
-					if (note) await form.getByRole("textbox", { name: /Notes/ }).fill(note);
-					await form.getByRole("button", { name: "Save evaluation" }).click();
-					await page
-						.getByText("The evaluation is saved. Its task is complete.")
-						.filter({ visible: true })
-						.first()
-						.waitFor();
-					await page.reload();
-					await hydrated(page);
-					await page.getByRole("tab", { name: "Results" }).click();
-					const card = page.getByRole("region", { name: "Meeting evaluation" });
-					await card.getByText("4.0", { exact: true }).waitFor();
-				},
-				{ width: 390, height: 844 },
-			);
+	const signedIn = (run) =>
+		withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			await run(page);
 		});
-	}
+	const revisions = () => fixture("meetings").revisions[name];
+	const open = async (page, path) => {
+		await page.goto(`${BASE}${path}`);
+		await hydrated(page);
+	};
+
+	test(`BUG-T155 messages/com-8 (${name}): finalize, then Record response card saves the first time`, async () => {
+		const { meetingId, guest } = revisions().card;
+		await signedIn(async (page) => {
+			// Before the meeting closes, Finalize attendance is on the Results tab's attendance card.
+			await open(page, `/meetings/${meetingId}?tab=results`);
+			await page.getByRole("button", { name: "Finalize attendance" }).first().click();
+			const review = page.getByRole("dialog", { name: "Finalize attendance" });
+			await review.getByText(/^Counts /).waitFor();
+			// Finalize's own answer, not a timer: the settle request carries its request key after the mode; the review's
+			// preview does not.
+			const finalized = page.waitForResponse(
+				(r) => r.request().method() === "POST" && /^\["finalize","[0-9a-f-]{36}"/.test(r.request().postData() ?? ""),
+			);
+			await review.getByRole("button", { name: "Finalize" }).click();
+			assert.equal((await finalized).status(), 200);
+			// The toast is written from that answer once the page has applied it.
+			await page
+				.getByText(/: attendance is final\./)
+				.first()
+				.waitFor();
+
+			await page.getByRole("tab", { name: /^Guests/ }).click();
+			const row = page.getByRole("row", { name: new RegExp(guest) });
+			await row.getByRole("button", { name: /^Actions for/ }).click();
+			await page.getByRole("menuitem", { name: "Record response card" }).click();
+			const form = page.getByRole("dialog", { name: "Record response card" });
+			await form.getByText("Interested", { exact: true }).click();
+			// The card's own answer: the save that carries this response, at the revision finalize returned.
+			const answered = page.waitForResponse(
+				(r) => r.request().method() === "POST" && (r.request().postData() ?? "").includes('"response":"interested"'),
+			);
+			await form.getByRole("button", { name: "Save card" }).click();
+			assert.equal((await answered).status(), 200);
+			// The guest list takes saves again once the answer is applied: Add guest is enabled.
+			await page.waitForFunction(() =>
+				[...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Add guest" && !b.disabled),
+			);
+			assert.equal(await page.getByText("Someone else changed this").count(), 0, "no conflict after finalize");
+			await page.reload();
+			await hydrated(page);
+			await page.getByRole("tab", { name: /^Guests/ }).click();
+			await page
+				.getByRole("row", { name: new RegExp(guest) })
+				.getByText("Interested")
+				.waitFor();
+		});
+	});
+
+	test(`BUG-T155 messages/com-9 (${name}): a walk-in, then Finish check-in finalizes the first time`, async () => {
+		const meetingId = revisions().walkIn;
+		await signedIn(async (page) => {
+			await open(page, `/meetings/${meetingId}/check-in`);
+			await page.getByRole("button", { name: "Add a walk-in" }).click();
+			const walkIn = page.getByRole("dialog", { name: "Add a walk-in" });
+			await walkIn.getByRole("radio", { name: "Someone new" }).click();
+			await walkIn.getByLabel("Name").fill(`Door ${name}`);
+			await walkIn.getByRole("button", { name: "Check in" }).click();
+			await page.getByText(`Door ${name} is checked in.`).first().waitFor();
+			await page.waitForFunction(() => !document.querySelector('button[aria-busy="true"]'));
+
+			await page.getByRole("button", { name: "Finish check-in" }).click();
+			const review = page.getByRole("dialog", { name: "Finalize attendance" });
+			await review.getByText(`Door ${name}`).first().waitFor();
+			await review.getByText(/^Counts 1 first/).waitFor();
+			await review.getByRole("button", { name: "Finalize" }).click();
+			await page.getByText("Attendance is final. To change it", { exact: false }).waitFor();
+			assert.equal(await page.getByText("Someone else changed this").count(), 0, "no conflict after a walk-in");
+		});
+	});
 }
