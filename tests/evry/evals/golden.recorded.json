@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-09T17:02:06.998Z",
+	"recordedAt": "2026-11-11T06:11:18.856Z",
 	"spend": {
-		"newCalls": 8,
-		"newMicroUsd": 1234,
-		"allCalls": 476,
-		"allMicroUsd": 189004
+		"newCalls": 5,
+		"newMicroUsd": 1829,
+		"allCalls": 481,
+		"allMicroUsd": 190833
 	},
 	"calls": {
 		"0291377685df67df": {
@@ -798,6 +798,108 @@
 			"usage": {
 				"input": 116,
 				"output": 12
+			}
+		},
+		"08c8cc7374860953": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_05267c536be785f4006af406ff83dc87d19aa56fa0d0ac2e17",
+					"timestamp": "2026-11-11T06:11:11.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_05267c536be785f4006af407002e9487d1a45c10c83d188fcf:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_05267c536be785f4006af407002e9487d1a45c10c83d188fcf",
+							"reasoningEncryptedContent": "gAAAAABq9AcAYwL0SZua0OUbTfRiVCWK1bdFy2TZzlX_shkVcHHdN4TWS0KqZueTsw7Y2O2rSAxS4zjaWnlh9qpkscDQ_HcGRcAoy1ftSjMPbTslw20gUtPlmNs6Yc30QYLy1vx6x259lJSKwdv7wyPZ99nzrbw7aD3S7NiYKE4BUEtmMPD6NR_zbur-jcl-9hapTNTFwSH3Zz6kZU3yQ7RvImXGb59VbP57pltEisJ1jxGgA4qT8zerchy2P37YZUkV9xVc9-50ntZlH0usXKo5-aBQjCe2qrk4XHFK-AsxN-z9LrDf39n4QWZgGgtkXxaTmjbkElzZADlVC2r3zCzEPKy8PEZhJKXn6MqTqUm-Ot_qVlA0ebB25FdembDPaXn5kSTlLMwiSjRMlIcPVmhu6mxlF_Y-M2zpLdFd079dJViJCzG1JPrWBR4fEIB5Ukv5SHsNhrXe_ROKS-QFKC7mYy8DQfR9MSY9R_ry8uuz_GGi9iLclAJF9X6B5dB50ten-aTURfdrnbWIpZZKPejilQWBHYqiB-nsRiFGhgckzlC51Tt-it5aqoPfmi8VHzDGmvKS4fI_Opubs16Rbcrf3F2PcZ-89vMpsTlupfm5fH8AvzZkfKlyZtpHR2kktZ9Jo1CYynzq2KhYldQArBjYVO3Je-mriAkk-Aa8FLCAanVpAMayR-i22Br2MY38slaZOefjIEiwxtS-SaeHSEhuNyXIw_iRQSLX_MsS6priRayZB5ikfleZPuBeCz0CxFFK_ULF_KX-qEQJnG2Jmp5bxBYsQcqnBtGIUKBJ5r_ZvnEb5ENsyyH0yONqB6JfsF8sNW651lPdA1cSjays9tXyFbAwf476UWJiQf2iRAPU8ngBhlWcOKfJpz2O8fWtaEoJrI5d9MdPQ5ZBs6BTsViAM8-7Qw2R4wiDKK69j6iDjRnM906u7B5OHbpP8KUc9p1PD9hTuilKc1kg65pfqBoOyizyZ73jE9IHdY9jhvcwj1EQFUabWSMKY4-37M1JoxcwhIItinxY4R32Bf6S9kPmrU1Pof8b0W-oq4jJav80mXxaKMmHeZpl6fD3V53gHE6JT7fiatRyW2VNXQplsH_GJZz9jSwiB_iYAEgyuE3z-c52C_SJ7nuRWsttNtYd4NaQcV7qlkSSUTCWS5D-xCYs32yM_I2VTWof2Im7qGrZOhbcxQk9WiJnup6GaxH_Ec3mufFMqnaI0-NPxDcTCWVPK1Sol_SGLcasShLaPh-G1aZhGtrzJarFWAUFe1lUJRDUu8X22rgK9-Dhw6YdKEddo1bY-tV-dWbsBk8VJMUEtXpfTeIMi-1b3fVOOpWnQNfcc8XSn_QvMHHLObUOXR_TI26Cbji3jkcEe5zq4gmPT8Jp3hKElmM="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_05267c536be785f4006af407002e9487d1a45c10c83d188fcf:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_05267c536be785f4006af407002e9487d1a45c10c83d188fcf",
+							"reasoningEncryptedContent": "gAAAAABq9AcAaQ20-fcIBE02H4bQsZ7Lb7Q2joVPVluh3DlGFq3kLkURpFit8qWOqhf8bYeogwtq-TRnVgkVkur9ji6ut54dBY_oRwhk_0jK7YwkStl_zLCkehC_bwqKP5elgu6RV-k6UbbDTCo4OvDyoc1SBEprqFzSx_uMLzEGl7kL0c9SvpdJviEq7gnITEGcyw5o1EmVdSsE4mZgIK_vtHRN2EMHcPhaS3snVEPsRdwhVvu2sDCO8_smPwAiR2-6OBFi9_UGbArDLdmEdYVL4el70ldUdGiv7V_75KDka6m8C2_oIOMLLDm2n8EpkKFsgtOAjJeo0os0W7z26sKPu0rsAQKrdHDT_709AhNozMXN1BNxQfFSe0OT2MBaoXTQEyYf-MMAn1msYHYoyXZkARZkKBnyBG4T2P7s5tEQaO1MjsYu18UKbUwATsmXIuxDGNiVlpdLHJphkYpquCRINajxZc8FlIuRYMIjTJfC_tqmbJfX2mCCQhYNfpeHJGs2NrsRZcX0PH2-DRPiZgW9380cFaVd4qiBqNpm_CyvVuNfQEEfqAxuNF6HM0l02YLmTg3GbA4UWRxhaWfA15QQNLZ7_l_wsKINrMhup-MS5gZ6pqSx_MZ2u2V9Gxgl5oXzyzMIp3AFHW1Gxs8w6cuWeDcHhKTPL7PM7sY2_-d97cYGkbxwFAQqd8nKa-Vl_s6EWBPmgV1OGNdTjLT22RyRPSUNB-tf57Fm8zyQbvGtFMlIwpSOhWTjvL_7MxD76WCRqV0d0lzkUIEJ0hQV8t5Xxd8o1w3T3Yq3mKKRyRWlsU3W10JyIzDof8yGRJ7mJGTOo1YZr759PzihR-qomnvN_mtan-YD5zBhSuHPX7mhwffA_wh_YECwU0Uglhoyou7BSuXxRxUPZ4r64XKbtjtYYxsm7Z0ZT-nfclnxyggTab0kOPkD0YfHB1Jrg0iJAptomKuLnwCyWB8nuQHTNXUrgFCHRmZAuLG-3s-v9HysDvEHlwkdzi_5YD_0ImDoufiOkISxHns1vplthSbou3klKLF3zH9W5TdsKM3PV9TWAmd-XK7fl6ydrZe331ag52JpSH3ga9Am3OTGFiq_mYg2PyF2oSILEY5fLP15AdGyCIPt2vd2SE8TFjVQUULxmJGX8eZHTcXV7MTzIUju5xfxrOEf90x7bw3FWChx5idT20qklFMC5y2ecQVgAIZMeXEgM8z_NRbSTHQROw7wSXec_E-NjYYyEoczg7LO8SjF6siCsDSyZpDJt2x-ySyWmFcMBB_7c5QdRM8j5d34XKP7nkq_YxOTtNY4F4-7l8AvlQJsS_BdIHCt7RTX9PModowG2_qDIYz5YKHoB8zaUjU60AAEuna8zfg70Qz0ZFlY04fWZ4VhkhVQ5qCaYhcYMV-qIgEv3xwSpzxlaMMKjCwrX7DDje3twhjq49kU6wK0wM_w0ckmzL1CScy1SIs-Aj5kiD7oflFpvHMX99QvYPm4Y3kVjZAp2CY96r8waqEs-XOcI3OIIiGEU5kmgOlyDVw6dZ09tnNgv2JM8KhTZmrS7L4U7oEXZCIG4djhPQIKSSI-aaeWZ5z8Er9nERcY_W2LkIhAtOi7J1yuzwR1jAuiVaof7hoArDH6kQQqXbjQToz1pj4Oovqv8vQQ1r8ZmzLUCL8qPJ1AphjscbHMEO9bilpqdEbhn9H4qghcIzb1QuZF3m4Z5JR5zUXu8iZVSvgNFEQlRSZ8PYrqrVzE0PzxUgzymr6X19ND7CwIL15HJbD6_VCLjHRXVvNdgAmXeG9gLagXFgho4IGkr20FEmIJSgaDJ_vK0f4QhSkVTUIMMygEdeDi303ow2KjfUHQt59lGTk9bS_ElxUrUOFBibIxJP2veMkQdWkQzGq7OUkeURG799MbxP_75hWb5xe3w9Wt54pRdBtYQn-7UXdpcw8VLPbc-ChDlvEx0cb5w38kgumrviIm30S5czLXFszD4-Qcbi1qB7tJfjX75X1p8Q-2ZXxRJO2cmdrfyVmkk_jFgaY7p1_DJi8="
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_ND0UITSEHh7N40z9nPopPhg0",
+					"toolName": "select_returned_rows"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_ND0UITSEHh7N40z9nPopPhg0",
+					"delta": "{\"resultId\":1,\"ids\":[\"5b6d1f0e-0000-4000-8000-00000000011c\"]}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_ND0UITSEHh7N40z9nPopPhg0"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_ND0UITSEHh7N40z9nPopPhg0",
+					"toolName": "select_returned_rows",
+					"input": "{\"resultId\":1,\"ids\":[\"5b6d1f0e-0000-4000-8000-00000000011c\"]}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_05267c536be785f4006af40700d29c87d1bf47efa45039fedd"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5472,
+							"noCache": 3,
+							"cacheRead": 5285,
+							"cacheWrite": 184
+						},
+						"outputTokens": {
+							"total": 85,
+							"text": 50,
+							"reasoning": 35
+						},
+						"raw": {
+							"input_tokens": 5472,
+							"input_tokens_details": {
+								"cache_write_tokens": 184,
+								"cached_tokens": 5285
+							},
+							"output_tokens": 85,
+							"output_tokens_details": {
+								"reasoning_tokens": 35
+							},
+							"total_tokens": 5557
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_05267c536be785f4006af406ff83dc87d19aa56fa0d0ac2e17",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5472,
+				"output": 85
 			}
 		},
 		"0bfeb2c28de41ccd": {
@@ -3113,6 +3215,25 @@
 			"usage": {
 				"input": 5678,
 				"output": 156
+			}
+		},
+		"188bffd7f7a515dd": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It is brief, plain, and free of unnecessary commentary.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It shows only Maria Delgado from Austin, as requested.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0410bce2b180c079006af40705edb487d1941f46bd5da2b6bf",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 290,
+				"output": 146
 			}
 		},
 		"18aaf9fed51db739": {
@@ -10247,6 +10368,88 @@
 			"usage": {
 				"input": 119,
 				"output": 12
+			}
+		},
+		"4b75386a98025e8d": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0c9e82665effc0f3006af406fe147887d1aeb1e930c21df45f",
+					"timestamp": "2026-11-11T06:11:10.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_O83PdKxctltx9Omlx8Yyqg7K",
+					"toolName": "people_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_O83PdKxctltx9Omlx8Yyqg7K",
+					"delta": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"Maria\",\"limit\":100}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_O83PdKxctltx9Omlx8Yyqg7K"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_O83PdKxctltx9Omlx8Yyqg7K",
+					"toolName": "people_read",
+					"input": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"Maria\",\"limit\":100}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0c9e82665effc0f3006af406feefa487d180f22c7e24e78d74"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5288,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 5285
+						},
+						"outputTokens": {
+							"total": 30,
+							"text": 30,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 5288,
+							"input_tokens_details": {
+								"cache_write_tokens": 5285,
+								"cached_tokens": 0
+							},
+							"output_tokens": 30,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 5318
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0c9e82665effc0f3006af406fe147887d1aeb1e930c21df45f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5288,
+				"output": 30
 			}
 		},
 		"4c46460c806a20a0": {
@@ -17617,6 +17820,88 @@
 				"output": 12
 			}
 		},
+		"817e2dcd3210f93b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_05267c536be785f4006af407019f6c87d1b1b962d3b43e8711",
+					"timestamp": "2026-11-11T06:11:13.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_05267c536be785f4006af40703874c87d1891fb009519bf63f",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05267c536be785f4006af40703874c87d1891fb009519bf63f",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_05267c536be785f4006af40703874c87d1891fb009519bf63f",
+					"delta": "Maria Delgado — Austin; stage: prospect."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_05267c536be785f4006af40703874c87d1891fb009519bf63f",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05267c536be785f4006af40703874c87d1891fb009519bf63f",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5666,
+							"noCache": 3,
+							"cacheRead": 5469,
+							"cacheWrite": 194
+						},
+						"outputTokens": {
+							"total": 13,
+							"text": 13,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 5666,
+							"input_tokens_details": {
+								"cache_write_tokens": 194,
+								"cached_tokens": 5469
+							},
+							"output_tokens": 13,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 5679
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_05267c536be785f4006af407019f6c87d1b1b962d3b43e8711",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5666,
+				"output": 13
+			}
+		},
 		"822b84206313db9a": {
 			"kind": "generate",
 			"content": [
@@ -21117,6 +21402,25 @@
 			"usage": {
 				"input": 5406,
 				"output": 20
+			}
+		},
+		"9fa62baa2cb978eb": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0bba1f7536553d0f006af406fd7e3887d18c2ab8d54284835f",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 130,
+				"output": 12
 			}
 		},
 		"a054b281b43f0b41": {
