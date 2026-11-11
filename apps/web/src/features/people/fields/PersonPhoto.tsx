@@ -154,7 +154,6 @@ export function PersonPhoto({
 			},
 		});
 		setBusy(null);
-		if (input.current) input.current.value = "";
 		if (!settled) setPreview(null);
 	}
 
@@ -243,6 +242,8 @@ export function PersonPhoto({
 						aria-hidden="true"
 						onChange={(e) => {
 							const file = e.target.files?.[0];
+							// Cleared on every change, refused or not, so choosing the same file again fires a change again.
+							e.target.value = "";
 							if (file) void upload(file);
 						}}
 					/>

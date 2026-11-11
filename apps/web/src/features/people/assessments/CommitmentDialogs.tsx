@@ -406,6 +406,8 @@ export function LifecycleDialog({
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
 	const early = since !== null && draft.effectiveOn !== "" && draft.effectiveOn < since;
+	// The refusal stays until the refused date changes, so the same date is not sent again.
+	const futureDate = problem === "future_date" && draft.effectiveOn === initial.effectiveOn;
 	const complete = draft.effectiveOn !== "" && !early;
 	const withdraw = change === "withdraw";
 	return (
@@ -436,7 +438,7 @@ export function LifecycleDialog({
 						? "Choose the date."
 						: early && since
 							? `Choose ${new Date(`${since}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} or later.`
-							: problem === "future_date"
+							: futureDate
 								? "Choose today or an earlier date."
 								: null
 				}
@@ -485,6 +487,8 @@ export function CorrectionDialog({
 	const set = (patch: Partial<CorrectionDraft>) => setDraft((d) => ({ ...d, ...patch }));
 	const voiding = draft.action === "void";
 	const unchanged = !voiding && draft.occurredOn === card.occurredOn && draft.kind === card.kind;
+	// The refusal stays until the refused date changes, so the same date is not sent again.
+	const futureDate = problem === "future_date" && draft.occurredOn === initial.occurredOn;
 	const complete = draft.reason.trim() !== "" && (voiding || (draft.occurredOn !== "" && !unchanged));
 	return (
 		<RecordDialog
@@ -531,7 +535,7 @@ export function CorrectionDialog({
 								? "Choose the date the card was signed."
 								: touched && unchanged
 									? "Change the date or the card, or cancel."
-									: problem === "future_date"
+									: futureDate
 										? "Choose today or an earlier date."
 										: null
 						}
