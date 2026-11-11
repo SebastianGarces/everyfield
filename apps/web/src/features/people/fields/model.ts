@@ -96,16 +96,37 @@ export function skillGroups(skills: readonly Skill[]): { category: SkillCategory
 
 /** One line for an address, or null when every part is blank. */
 export function addressLine(a: {
-	street: string | null;
-	city: string | null;
-	stateProvince: string | null;
-	postalCode: string | null;
-	country: string | null;
+	street?: string | null;
+	city?: string | null;
+	stateProvince?: string | null;
+	postalCode?: string | null;
+	country?: string | null;
 }): string | null {
 	const line = [a.street, [a.city, a.stateProvince].filter(Boolean).join(", "), a.postalCode, a.country]
 		.filter((x) => x && x.trim())
 		.join(" · ");
 	return line || null;
+}
+
+export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX = 3 * 1024 * 1024;
+
+/** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
+export function photoProblem(file: { size: number; type: string }): string | null {
+	if (file.size === 0) return "This file is empty. Choose a photo.";
+	if (!PHOTO_TYPES.includes(file.type)) return "Use a JPG, PNG or WebP photo.";
+	if (file.size > MAX) return "Choose a photo smaller than 3 MB.";
+	return null;
+}
+
+/**
+ * The file a picker's change chose, with the picker cleared at once, refused file or not. A browser fires change only
+ * when the picker's value differs, so without the clear choosing the same file again does nothing.
+ */
+export function takeFile(input: { files: ArrayLike<File> | null; value: string }): File | null {
+	const file = input.files?.[0] ?? null;
+	input.value = "";
+	return file;
 }
 
 /** The words for a household change in Activity, from the membership before and after (REQ-PPL-009). */

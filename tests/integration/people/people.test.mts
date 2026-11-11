@@ -1840,6 +1840,23 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 	assert.deepEqual([both.adultClassification, both.adultClassificationSource], ["adult", "birth_date"]);
 });
 
+test("AC:REQ-PPL-026 adult or child dated after the church's today is refused with reason future_date", async () => {
+	const p = await create("Dated tomorrow");
+	// Three days ahead is after the church's today in every time zone.
+	const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+	for (const method of ["recordAdultClassification", "correctAdultClassification"])
+		rejected(
+			await tx((t) =>
+				write[method](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, classification: "adult", occurredOn: ahead, reason: "Said so" },
+				}),
+			),
+			"future_date",
+		);
+});
+
 test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async (t) => {
 	const names = {
 		eve: await create("Birthday Eve Sam", { birthDate: await daysFromBirthday(18, 1) }),
