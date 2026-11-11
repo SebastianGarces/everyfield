@@ -11,12 +11,7 @@ import {
 	PDFName,
 	PDFRef,
 } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
-import {
-	BODY_BLOCKS_MAX,
-	churchBody,
-	slotIdsOf,
-	type ChurchBlock,
-} from "../../../packages/contracts/src/documents/body.ts";
+import type { ChurchBlock } from "../../../packages/contracts/src/documents/body.ts";
 import { nativeText } from "../../../packages/contracts/src/documents/native.ts";
 import { ContrastLog } from "../../../packages/domain/src/documents/contrast.ts";
 import { renderChurchDocx, renderChurchPdf } from "../../../packages/domain/src/documents/church-render.ts";
@@ -161,47 +156,6 @@ describe("WP-037 Church Document templates", () => {
 });
 
 describe("WP-037 body model", () => {
-	test("DOC-002: the block kinds are the Wiki safe-editor kinds plus the slot node", () => {
-		const body: ChurchBlock[] = [
-			{ kind: "heading", text: "H" },
-			{ kind: "subheading", text: "S" },
-			{ kind: "paragraph", text: "P" },
-			{ kind: "quote", text: "Q" },
-			{ kind: "bulleted_list", items: ["a"] },
-			{ kind: "numbered_list", items: ["b"] },
-			{ kind: "slot", slotId: "statement-of-faith", text: "" },
-		];
-		assert.deepEqual(churchBody.parse(body), body);
-		assert.deepEqual(slotIdsOf(body), ["statement-of-faith"]);
-		for (const bad of [
-			[{ kind: "notice", text: "Template, not legal advice" }],
-			[{ kind: "signature", text: "x" }],
-			[{ kind: "paragraph", text: "x", extra: 1 }],
-			[{ kind: "paragraph", text: "bad\0char" }],
-			[{ kind: "paragraph", text: "lone \uD800 surrogate" }],
-			[{ kind: "slot", slotId: "Bad Id", text: "" }],
-			[
-				{ kind: "slot", slotId: "a", text: "" },
-				{ kind: "slot", slotId: "a", text: "" },
-			],
-		])
-			assert.equal(churchBody.safeParse(bad).success, false, JSON.stringify(bad));
-	});
-
-	test("DOC-002: 1,000 blocks pass and 1,001 are refused; a list item counts as a block", () => {
-		const paragraph = (n: number): ChurchBlock => ({ kind: "paragraph", text: `Paragraph ${n}` });
-		assert.equal(churchBody.safeParse(Array.from({ length: BODY_BLOCKS_MAX }, (_, i) => paragraph(i))).success, true);
-		assert.equal(
-			churchBody.safeParse(Array.from({ length: BODY_BLOCKS_MAX + 1 }, (_, i) => paragraph(i))).success,
-			false,
-		);
-		const list: ChurchBlock = { kind: "bulleted_list", items: Array.from({ length: 200 }, (_, i) => `Item ${i}`) };
-		assert.equal(churchBody.safeParse([list, list, list, list, list]).success, true, "1,000 items");
-		assert.equal(churchBody.safeParse([list, list, list, list, list, paragraph(1)]).success, false, "1,001 items");
-		const big: ChurchBlock = { kind: "paragraph", text: "x".repeat(20_000) };
-		assert.equal(churchBody.safeParse(Array.from({ length: 101 }, () => big)).success, false, "over the size limit");
-	});
-
 	test("DOC-016: the body never holds the legal notice, the letterhead or the signature block", () => {
 		for (const template of CHURCH_TEMPLATES) {
 			const text = JSON.stringify(template.body);

@@ -1,8 +1,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
@@ -599,30 +599,8 @@ test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 criterion 10: the canary and every p
 		tools.replace(/"private care"/g, "").match(/privateCare|private.?care|private_week|weekly check-?in/gi),
 		null,
 	);
-	// Only the intelligence domain names the private tables: no Evry, job, export, PI, organization or log path reads them.
-	const offenders = [];
-	const walk = (dir) => {
-		for (const name of readdirSync(dir)) {
-			const path = join(dir, name);
-			if (name === "node_modules" || name.startsWith(".")) continue;
-			if (statSync(path).isDirectory()) walk(path);
-			else if (
-				/\.(ts|tsx|mts|mjs|js)$/.test(name) &&
-				/private_(week|calendar)|privateCare|createPrivateCare/.test(readFileSync(path, "utf8"))
-			)
-				offenders.push(path);
-		}
-	};
-	for (const dir of ["packages/evry/src", "packages/domain/src", "apps/web/src"]) walk(join(root, dir));
-	assert.deepEqual(
-		offenders
-			.map((p) => relative(root, p))
-			.filter(
-				(p) =>
-					!p.startsWith("packages/domain/src/intelligence/") && !p.startsWith("apps/web/src/features/intelligence/"),
-			),
-		[],
-	);
+	// Only the intelligence domain names the private tables in source: the everyfield/private-care-scope lint rule
+	// (.oxlintrc.json, apps/web/.oxlintrc.json).
 });
 
 /** A deletion request whose 30-day hold has passed, as the purge worker finds it. */

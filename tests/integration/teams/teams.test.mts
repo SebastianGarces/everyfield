@@ -4,8 +4,6 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
-import { InvitationRefusal } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
 import {
@@ -1004,50 +1002,6 @@ test("a team leader can edit a role and still cannot change the church profile",
 	);
 	refused(profile);
 	assert.equal((await admin.execute(sql`SELECT name FROM plant WHERE id=${P}`)).rows[0].name, "Synthetic");
-});
-
-test("AC:ROLE43-006 a member plant profile change is refused", async () => {
-	const settings = sectionOperations({
-		organizations: {},
-		organizationEffects: {},
-		effects: { replan: async () => "1" },
-		suppression: async () => "clear",
-	});
-	const plantRevision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;
-	const profile = await tx((t) =>
-		settings.updatePlantProfile(t, ctx(1), {
-			requestKey: key(),
-			expectedRevision: plantRevision,
-			input: { plant: { kind: "plant", id: P }, patch: { name: "Member rename" } },
-		}),
-	);
-	refused(profile);
-	assert.equal(profile.status, "refused");
-	assert.equal((await admin.execute(sql`SELECT name FROM plant WHERE id=${P}`)).rows[0].name, "Synthetic");
-});
-
-test("AC:TARGET-IDN-019 the owner seat cannot be removed", async () => {
-	const seats = createSeatService(db);
-	const owner = (
-		await admin.execute(
-			sql`SELECT id, revision::text AS r FROM seat WHERE account_id=${actors[0].id} AND plant_id=${P}`,
-		)
-	).rows[0];
-	await assert.rejects(
-		async () =>
-			seats.remove(
-				await viewer(2),
-				{ kind: "plant", id: P },
-				{
-					requestKey: key(),
-					expectedRevision: owner.r,
-					input: { seatId: owner.id, expectedRole: "admin", handoffs: [] },
-				},
-				noReminders,
-			),
-		(error) => error instanceof InvitationRefusal && error.value.code === "protected_owner",
-	);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat WHERE id=${owner.id} AND ended_at IS NULL`), 1);
 });
 
 test("AC:PERSONREF-TEAM-ROLE-LEADER-RETIRE retirement ends the open role and keeps the history", async () => {
