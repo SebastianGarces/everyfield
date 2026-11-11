@@ -448,10 +448,9 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const bytes = input.bytes;
 			let read: c.DocNode;
 			try {
-				read = readImport(bytes, input.format);
+				read = readImport(input.bytes, input.format);
 			} catch (error) {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
@@ -484,7 +483,7 @@ const generatedWriter = {
 				scope,
 				"native_import",
 				input.format === "text" ? "text/plain" : MEDIA.docx,
-				bytes,
+				input.bytes,
 				`import:${scope.tenantId}:${input.requestKey}`,
 			);
 			const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
