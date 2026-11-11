@@ -87,7 +87,8 @@ def anchors(text):
 
 
 def check(root, tracked):
-    errors = []
+    """Disallowed-scheme links, then every other failure."""
+    schemes, errors = [], []
     anchor_cache = {}
 
     def resolves(target, fragment):
@@ -126,7 +127,7 @@ def check(root, tracked):
             parts = urlsplit(url)
             # A link to another tool's private address (such as a retired harness note) can never open from the repo.
             if parts.scheme and parts.scheme not in WEB_SCHEMES:
-                errors.append(f'{relative}: {url} (only web links leave the repository)')
+                schemes.append(f'{relative}: {url}')
                 continue
             if parts.scheme or parts.netloc or parts.path.startswith('/') or (relative, url) in UPSTREAM_LINKS:
                 continue
@@ -136,7 +137,7 @@ def check(root, tracked):
             elif parts.fragment and target.suffix == '.md' and not resolves(target, parts.fragment):
                 errors.append(f'{relative}: {url}')
     errors += skills_lock_problems(root)
-    return errors
+    return schemes, errors
 
 
 def self_test():
@@ -156,24 +157,29 @@ def self_test():
             (root / relative).write_text(text)
         (root / 'skills-lock.json').write_text(json.dumps({'skills': {'demo': {'sha256': digest(b'demo\n')}}}))
         tracked = list(files)
-        assert check(root, tracked) == [], check(root, tracked)
+        failures = lambda: sum(check(root, tracked), [])
+        assert failures() == [], failures()
 
         clean = (root / 'docs/b.md').read_text()
         (root / 'docs/b.md').write_text(clean + '[bad](a.md#fenced) [row](a.md#T.99)\n')
-        assert check(root, tracked) == ['docs/b.md: a.md#fenced', 'docs/b.md: a.md#T.99'], check(root, tracked)
+        assert failures() == ['docs/b.md: a.md#fenced', 'docs/b.md: a.md#T.99'], failures()
+        (root / 'docs/b.md').write_text(clean)
+
+        (root / 'docs/b.md').write_text(clean + '[app](intent://open) [gone](missing.md)\n')
+        assert check(root, tracked) == (['docs/b.md: intent://open'], ['docs/b.md: missing.md']), check(root, tracked)
         (root / 'docs/b.md').write_text(clean)
 
         (root / 'docs/catalog/x.json').write_text(json.dumps({'spec': ['docs/a.md#nope', 'docs/gone.md#title']}))
-        assert check(root, tracked) == ['docs/catalog/x.json: docs/a.md#nope', 'docs/catalog/x.json: docs/gone.md#title'], \
-            check(root, tracked)
+        assert failures() == ['docs/catalog/x.json: docs/a.md#nope', 'docs/catalog/x.json: docs/gone.md#title'], \
+            failures()
         (root / 'docs/catalog/x.json').write_text(files['docs/catalog/x.json'])
 
         (root / '.agents/skills/demo/SKILL.md').write_text('demo!\n')
-        found = check(root, tracked)
+        found = failures()
         assert len(found) == 1 and 'does not match its skills-lock.json hash' in found[0], found
         (root / '.agents/skills/demo/SKILL.md').write_text('demo\n')
-        assert check(root, tracked) == []
-    print('PASS: link check self-test (bad heading anchor, bad JSON anchor ref, changed lock hash)')
+        assert failures() == []
+    print('PASS: link check self-test (bad heading anchor, disallowed scheme, bad JSON anchor ref, changed lock hash)')
     return 0
 
 
@@ -181,9 +187,12 @@ def main(argv):
     if argv == ['--self-test']:
         return self_test()
     tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
-    errors = check(ROOT, tracked)
+    schemes, errors = check(ROOT, tracked)
+    if schemes:
+        print('FAIL: disallowed link schemes (only web links leave the repository)\n' + '\n'.join(schemes))
     if errors:
         print('FAIL: missing local link targets or anchors\n' + '\n'.join(errors))
+    if schemes or errors:
         return 1
     print('PASS: local documentation links, anchors and pinned skills resolve')
     return 0
