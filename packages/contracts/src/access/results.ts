@@ -34,14 +34,6 @@ export const currentActorResult = z.discriminatedUnion("status", [
 ]);
 export type CurrentActorResult = z.infer<typeof currentActorResult>;
 
-// Refusals disclose neither a hidden subject nor a policy reason. A positive
-// observation never replaces the operation's own fresh transaction checks.
-export const operationCheckResult = z.discriminatedUnion("status", [
-	z.strictObject({ status: z.literal("unavailable") }),
-	z.strictObject({ status: z.literal("allowed") }),
-]);
-export type OperationCheckResult = z.infer<typeof operationCheckResult>;
-
 // Fixed duty projections, not configurable permission rows. Multiple current
 // duties may coexist; directing alone cannot imply responsible-staff notes.
 export const pipelineDuty = z.discriminatedUnion("kind", [
@@ -72,7 +64,6 @@ export const ownResidencyProjection = z.strictObject({
 	linkId: recordId,
 	revision,
 });
-export type OwnResidencyProjection = z.infer<typeof ownResidencyProjection>;
 
 // Protected native-only output of orgPeople.readNotes, after exact live duty
 // checks. These bodies are absent from all general/model/export results above.
