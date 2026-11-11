@@ -324,7 +324,7 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	});
 	recording = false;
 	assert.deepEqual(observed, shown);
-	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(statements.length, 4, `respond read: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
 		false,
