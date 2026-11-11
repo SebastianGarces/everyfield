@@ -7,11 +7,11 @@
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../../packages/db/src/client.ts";
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { liveAccess, RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { createIdentityService } from "../../../../packages/domain/src/identity/index.ts";
 import { createPrivateCare } from "../../../../packages/domain/src/intelligence/index.ts";
-import { idsIn, namesFor, readHistory } from "../../../../packages/domain/src/organizations/index.ts";
+import { idsIn, namesFor, readHistory, type Viewer } from "../../../../packages/domain/src/organizations/index.ts";
 import { peopleReader, readPersonPage } from "../../../../packages/domain/src/people/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
 
@@ -121,13 +121,14 @@ try {
 		const context = who.authority.actor.context;
 		const selected = context.owner;
 		// The two reads /settings/sharing makes for this viewer (apps/web/src/features/organizations/routes.tsx).
-		const viewer = {
+		const viewer: Viewer = {
 			kind: selected.kind === "organization" ? selected.organizationKind : selected.kind,
-			session: who.session.sessionId,
+			session: who.session.sessionId as Viewer["session"],
 			accountId: who.session.accountId,
 			selected,
 			canManage: context.kind === "seat" && context.role !== "member",
-		} as never;
+			access: liveAccess(who.authority),
+		};
 		const history = await readHistory(runtime, who.authority, { organization: selected });
 		const names = history.status === "available" ? await namesFor(runtime, viewer, idsIn(history as never)) : null;
 		const plantCtx = { session: who.session.sessionId, selected: { kind: "plant", id: plant } } as never;

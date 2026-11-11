@@ -76,10 +76,10 @@ class SeatRefusal extends Refusal {
 	}
 }
 
-type Load = { attempt: number; data: SeatsData } | { attempt: number; gone: true };
+type Load = { data: SeatsData } | { gone: true };
 
 export function SeatsScreen({ initial }: { initial: SeatsData }) {
-	const [state, setState] = useState<Load>({ attempt: 0, data: initial });
+	const [state, setState] = useState<Load>({ data: initial });
 	const [refreshing, setRefreshing] = useState(false);
 	const [reloadFailed, setReloadFailed] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		try {
 			const r = await readSeats();
 			if (mine !== attempt.current) return;
-			setState(r.status === "ready" ? { attempt: mine, data: parseSeats(r) } : { attempt: mine, gone: true });
+			setState(r.status === "ready" ? { data: parseSeats(r) } : { gone: true });
 		} catch {
 			if (mine === attempt.current) setReloadFailed(true);
 		} finally {
@@ -133,7 +133,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		setStatus(message);
 		if (change.removed) {
 			frameSeat(null);
-			setState((s) => ({ attempt: s.attempt, gone: true }));
+			setState({ gone: true });
 			return;
 		}
 		frameSeat("member");
@@ -162,9 +162,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 					}
 				/>
 			) : null}
-			{data.canManage ? (
-				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
-			) : null}
+			{data.canManage ? <InviteCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} /> : null}
 			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} onOwnSeat={ownSeat} />
 			{data.canManage && data.invitations ? (
 				<PendingCard
@@ -245,6 +243,7 @@ function InviteCard({
 			emailRef.current?.focus();
 			return;
 		}
+		let stale = false;
 		const result = await intent.run(
 			"invite",
 			(requestKey) =>
@@ -258,6 +257,7 @@ function InviteCard({
 					return await send("invite", command, invitationSentResult);
 				} catch (e) {
 					setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
+					stale = e instanceof SeatRefusal && e.code === "conflict";
 					throw e;
 				}
 			},
@@ -269,6 +269,8 @@ function InviteCard({
 			const invitation = result.reply.invitation;
 			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
 		}
+		// The workspace changed since this page loaded: the message stays and the page data loads again at once.
+		else if (stale) onStale();
 	}
 
 	return (
