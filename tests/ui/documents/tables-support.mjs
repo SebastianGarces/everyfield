@@ -2,6 +2,7 @@
 // Every flow runs on a forked document in a real browser. `checked` is the heart of it: it runs one action, then Undo and
 // Redo, and compares the whole document JSON at each step, as the ask requires.
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
@@ -12,6 +13,15 @@ export const MOD = "ControlOrMeta";
 
 /** The text of a stored cell. */
 export const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
+
+/** Clicks the Download button named `label`, as a person does, and returns the bytes of the file it saves. */
+export async function clickDownload(page, label) {
+	const [download] = await Promise.all([
+		page.waitForEvent("download"),
+		page.getByRole("button", { name: label }).click(),
+	]);
+	return new Uint8Array(await readFile(await download.path()));
+}
 
 /** The stored form of each template the tests fork, for `documentFrom`. */
 export const bases = {};
