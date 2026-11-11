@@ -938,10 +938,7 @@ test("BUG-T155: guest, walk-in, finalize and reconcile results carry the revisio
 	);
 	assert.equal(final.attendanceRevision, await revision(m));
 	// The written rows come back as stored: the attendees, the newcomer's new row and Sam, marked but not kept.
-	assert.deepEqual(
-		final.attendees,
-		await Promise.all([alex, door, sam, newcomer].map((id) => storedAttendee(m, id))),
-	);
+	assert.deepEqual(final.attendees, await Promise.all([alex, door, sam, newcomer].map((id) => storedAttendee(m, id))));
 	assert.deepEqual(
 		final.attendees.map((a) => [a.person.displayName, a.presence]),
 		[
