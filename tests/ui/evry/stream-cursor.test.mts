@@ -45,12 +45,12 @@ async function cursorFor(after: string) {
 	return { read: [...calls.read], observe: [...calls.observe] };
 }
 
-test("a malformed ?after= reads from cursor 0", async () => {
+test("BUG-551: a malformed ?after= reads from cursor 0", async () => {
 	for (const after of ["abc", "-1", "1.5", "", "1e400"])
 		assert.deepEqual(await cursorFor(after), { read: [0], observe: [0] }, `after=${after}`);
 });
 
-test("a valid ?after= is passed through", async () => {
+test("BUG-551: a valid ?after= is passed through", async () => {
 	assert.deepEqual(await cursorFor("7"), { read: [7], observe: [7] });
 	assert.deepEqual(await cursorFor("0"), { read: [0], observe: [0] });
 });
