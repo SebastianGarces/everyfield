@@ -116,3 +116,36 @@ test("INV-migration-artifacts: committed migration checks reject raw Kit qualifi
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+test("INV-migration-artifacts: the last audit_action list keeps every action an earlier timestamped migration allowed", async () => {
+	const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { pathToFileURL } = await import("node:url");
+	const { checkMigrationArtifacts } = await import("../../../packages/db/src/schema/artifacts.ts");
+	const directory = await mkdtemp(tmpdir() + "/db1-audit-actions-");
+	const url = pathToFileURL(directory + "/");
+	const actions = (...names: string[]) =>
+		'ALTER TABLE "audit_event" DROP CONSTRAINT "audit_action";--> statement-breakpoint\n' +
+		`ALTER TABLE "audit_event" ADD CONSTRAINT "audit_action" CHECK ((action IN (${names.map((name) => `'${name}'`).join(",")})));`;
+	try {
+		await mkdir(directory + "/meta");
+		await writeFile(directory + "/frozen.json", JSON.stringify({ files: [] }));
+		await writeFile(directory + "/meta/_journal.json", JSON.stringify({ entries: [] }));
+		await writeFile(directory + "/20261101000000_first.sql", actions("person.created", "person.updated", "wiki.hidden"));
+		await writeFile(directory + "/20261102000000_second.sql", actions("person.created", "person.updated", "wiki.hidden"));
+		await writeFile(directory + "/20261103000000_last.sql", actions("person.created"));
+		await assert.rejects(
+			checkMigrationArtifacts(url),
+			(error: Error) =>
+				error.message ===
+				"20261103000000_last.sql drops audit actions 20261101000000_first.sql allowed: person.updated, wiki.hidden",
+		);
+		await writeFile(
+			directory + "/20261103000000_last.sql",
+			actions("person.created", "person.updated", "wiki.hidden", "wiki.published"),
+		);
+		await assert.doesNotReject(checkMigrationArtifacts(url));
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
