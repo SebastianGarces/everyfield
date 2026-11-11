@@ -79,7 +79,8 @@ export const RULES: readonly Rule[] = [
 		packages: true,
 		checks: ["ci-coverage"],
 	},
-	// Browser suites run nightly and in the verifier's preview; their models and the app they drive run here.
+	// The app job runs the tests/ui model tests, the ones that do not import tests/ui/setup.mjs, through apps/web
+	// test:unit. Browser suites, which import setup.mjs, run nightly and in the verifier's preview.
 	{ name: "browser suite", paths: ["tests/ui/**"], packages: true, fallbackPackage: "@everyfield/web" },
 	{
 		name: "documentation",
