@@ -24,7 +24,7 @@ chat. This list names every variable `src/` reads, never a value.
 - `RESEND_WEBHOOK_SECRET`: verifies Resend delivery webhooks at `/api/webhooks/resend`.
 - `NOTIFICATION_OPT_OUT_KEYS`: the key ring that seals email opt-out and unsubscribe links.
 - `CRON_SECRET`: the bearer secret both scheduled routes require (see Scheduled routes).
-- `PLATFORM_PROOF_SECRET`: outside production only, turns on proof mode for a request that sends it in `x-platform-proof`.
+- `PLATFORM_PROOF_SECRET`: outside production only, turns on proof mode for a request sending it in `x-platform-proof`.
 - `EVERYFIELD_DEV_OUTBOX`: optional folder for captured dev mail; defaults to a folder under the system temp dir.
 
 Set by the platform, read but never configured here: `VERCEL`, `VERCEL_ENV`, `NODE_ENV`, `NEXT_RUNTIME`, `PGOPTIONS`.
