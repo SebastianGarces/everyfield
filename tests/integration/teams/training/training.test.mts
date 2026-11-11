@@ -395,7 +395,7 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 			},
 			3,
 		),
-		"access_denied",
+		"unavailable",
 	);
 	refused(await trainingReader.readTrainingHistory(db, await viewer(3), { personId: alex }), "access_denied");
 });
@@ -410,14 +410,12 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 	const yes = ok(
 		await run(trainingWriter.attestCompletion, {
 			requestKey: key(),
-			expectedRevision: "1",
 			input: { kind: "service", personId: alex, attendanceDays: 60, volunteerDays: 60 },
 		}),
 	);
 	const no = ok(
 		await run(trainingWriter.attestCompletion, {
 			requestKey: key(),
-			expectedRevision: "1",
 			input: { kind: "service", personId: casey, attendanceDays: 60, volunteerDays: 59 },
 		}),
 	);
@@ -429,8 +427,16 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 	refused(
 		await run(trainingWriter.attestCompletion, {
 			requestKey: key(),
-			expectedRevision: "1",
 			input: { kind: "service", personId: alex, attendanceDays: 60, volunteerDays: 60, testimony: "model" },
+		}),
+		"invalid_input",
+	);
+	// A service span has no revision to compare, so the program envelope is not accepted for it.
+	refused(
+		await run(trainingWriter.attestCompletion, {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { kind: "service", personId: alex, attendanceDays: 60, volunteerDays: 60 },
 		}),
 		"invalid_input",
 	);
@@ -1073,7 +1079,7 @@ test("AC:S2-11 the session account is the actor", async () => {
 			},
 			3,
 		),
-		"access_denied",
+		"unavailable",
 	);
 	refused(
 		await trainingReader.readPersonTraining(db, await viewer(3), { personId: await person("Local only") }),
@@ -1093,4 +1099,195 @@ test("AC:S2-11 the session account is the actor", async () => {
 	} finally {
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
 	}
+});
+
+test("two admins saving one required list: the second is refused and a lost reply replays", async () => {
+	const team = await makeTeam("Roster race");
+	const alex = await person("Alex Race");
+	const casey = await person("Casey Race");
+	const item = await program("Race course", { teamId: team.id });
+	// Both dialogs open on the same revision and freeze what their preview read.
+	const first = await preview(item.id, [alex], 0);
+	const second = await preview(item.id, [casey], 2);
+	assert.equal(first.revision, second.revision);
+	const request = {
+		requestKey: key(),
+		expectedRevision: first.revision,
+		input: { programId: item.id, personIds: [alex], rosterDigest: first.rosterDigest },
+	};
+	const saved = ok(await run(trainingWriter.setRequiredTrainingParticipants, request, 0));
+	assert.deepEqual(saved.personIds, [alex]);
+	assert.equal(saved.outcome, "changed");
+	refused(
+		await run(
+			trainingWriter.setRequiredTrainingParticipants,
+			{
+				requestKey: key(),
+				expectedRevision: second.revision,
+				input: { programId: item.id, personIds: [casey], rosterDigest: second.rosterDigest },
+			},
+			2,
+		),
+		"conflict",
+	);
+	const stored = async () =>
+		(
+			await admin.execute(
+				sql`SELECT person_id FROM training_assignment WHERE program_id=${item.id} AND state='active' ORDER BY person_id`,
+			)
+		).rows.map((row) => row.person_id);
+	assert.deepEqual(await stored(), [alex]);
+	// The first reply was lost. The same request, with the same frozen revision and digest, returns the saved result.
+	const programRevision = await rev("training_program", item.id);
+	const replay = ok(await run(trainingWriter.setRequiredTrainingParticipants, request, 0));
+	assert.deepEqual(replay, saved);
+	assert.deepEqual(await stored(), [alex]);
+	assert.equal(await rev("training_program", item.id), programRevision);
+});
+
+test("a credit sent from a dialog opened before Correct program is refused", async () => {
+	const team = await makeTeam("Revision team");
+	const alex = await person("Alex Revision");
+	const item = await program("Revision course", { teamId: team.id });
+	await saveRoster(item.id, [alex]);
+	const opened = await rev("training_program", item.id);
+	ok(
+		await run(trainingWriter.attestCompletion, {
+			requestKey: key(),
+			expectedRevision: opened,
+			input: { kind: "program", personId: alex, programId: item.id, earnedOn: "2026-10-01" },
+		}),
+	);
+	ok(
+		await run(trainingWriter.correctProgram, {
+			requestKey: key(),
+			expectedRevision: opened,
+			input: { programId: item.id, name: "Revision course 2", required: true, reason: "New content" },
+		}),
+	);
+	assert.notEqual(await rev("training_program", item.id), opened);
+	const credits = () =>
+		count(sql`SELECT count(*)::int AS n FROM training_credit WHERE program_id=${item.id} AND person_id=${alex}`);
+	const before = await credits();
+	const marks = await plantRevision();
+	refused(
+		await run(trainingWriter.attestCompletion, {
+			requestKey: key(),
+			expectedRevision: opened,
+			input: { kind: "program", personId: alex, programId: item.id, earnedOn: "2026-10-02" },
+		}),
+		"conflict",
+	);
+	refused(
+		await run(trainingWriter.revokeCompletion, {
+			requestKey: key(),
+			expectedRevision: opened,
+			input: { personId: alex, programId: item.id },
+		}),
+		"conflict",
+	);
+	refused(
+		await run(trainingWriter.recompleteTraining, {
+			requestKey: key(),
+			expectedRevision: opened,
+			input: { personId: alex, programId: item.id, earnedOn: "2026-10-03" },
+		}),
+		"conflict",
+	);
+	assert.equal(await credits(), before);
+	assert.equal(await plantRevision(), marks);
+	// The current revision is accepted.
+	ok(
+		await run(trainingWriter.recompleteTraining, {
+			requestKey: key(),
+			expectedRevision: await rev("training_program", item.id),
+			input: { personId: alex, programId: item.id, earnedOn: "2026-10-03" },
+		}),
+	);
+	assert.equal(await credits(), before + 1);
+});
+
+test("REQ-IDN-005 an unknown or another church's program or team is unavailable to every training write", async () => {
+	const alex = await person("Alex Unknown");
+	const foreignTeam = await makeTeam("Foreign training team", 3);
+	const foreign = await program("Foreign course", { teamId: foreignTeam.id, who: 3 });
+	const archivedTeam = await makeTeam("Archived training team");
+	const archivedItem = await program("Archived team course", { teamId: archivedTeam.id });
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", archivedTeam.id),
+			input: { teamId: archivedTeam.id },
+		}),
+	);
+	for (const programId of [randomUUID(), foreign.id]) {
+		const expectedRevision = programId === foreign.id ? foreign.revision : "1";
+		refused(
+			await run(trainingWriter.correctProgram, {
+				requestKey: key(),
+				expectedRevision,
+				input: { programId, name: "Probe", required: true, reason: "Probe" },
+			}),
+		);
+		refused(
+			await run(trainingWriter.setRequiredTrainingParticipants, {
+				requestKey: key(),
+				expectedRevision,
+				input: { programId, personIds: [], rosterDigest: "0".repeat(64) },
+			}),
+		);
+		refused(
+			await run(trainingWriter.attestCompletion, {
+				requestKey: key(),
+				expectedRevision,
+				input: { kind: "program", personId: alex, programId, earnedOn: "2026-10-01" },
+			}),
+		);
+		refused(
+			await run(trainingWriter.revokeCompletion, {
+				requestKey: key(),
+				expectedRevision,
+				input: { personId: alex, programId },
+			}),
+		);
+		refused(
+			await run(trainingWriter.recompleteTraining, {
+				requestKey: key(),
+				expectedRevision,
+				input: { personId: alex, programId, earnedOn: "2026-10-01" },
+			}),
+		);
+	}
+	for (const teamId of [randomUUID(), foreignTeam.id, archivedTeam.id]) {
+		refused(
+			await run(trainingWriter.createProgram, {
+				requestKey: key(),
+				input: { name: "Probe", required: false, teamId },
+			}),
+		);
+		refused(
+			await run(trainingWriter.scheduleMeeting, {
+				requestKey: key(),
+				expectedRevision: teamId === archivedTeam.id ? await rev("team", teamId) : "1",
+				input: { teamId, subtype: "training", date: "2026-12-01", time: "18:00", guestIds: [] },
+			}),
+		);
+	}
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM training_program WHERE plant_id=${P} AND name='Probe'`),
+		0,
+	);
+	// A member who leads no ministry is still refused for permission, not for the row.
+	refused(
+		await run(
+			trainingWriter.correctProgram,
+			{
+				requestKey: key(),
+				expectedRevision: archivedItem.revision,
+				input: { programId: randomUUID(), name: "Probe", required: true, reason: "Probe" },
+			},
+			1,
+		),
+		"access_denied",
+	);
 });

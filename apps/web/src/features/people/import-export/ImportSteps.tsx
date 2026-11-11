@@ -604,8 +604,12 @@ export function DoneStep({
 }) {
 	const { counts } = receipt;
 	const failed = receipt.rows.filter((r): r is FailedRow => r.status === "failed");
-	const unsaved = failed.filter((r) => r.reason === "row_write_failed");
 	const invalid = failed.filter((r) => r.reason === "invalid");
+	// Every row the import did not add, each with its reason: the ones that need a fix, the ones the job could not
+	// write and the ones it never reached.
+	const notImported = receipt.rows.filter(
+		(r): r is NotImportedRow => r.status === "failed" || r.status === "remaining",
+	);
 	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
 	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
@@ -673,7 +677,7 @@ export function DoneStep({
 				/>
 				<Stat label="Needed a fix" value={invalid.length} note="Not imported" />
 			</div>
-			{unsaved.length || invalid.length ? (
+			{notImported.length ? (
 				<Card className="gap-4">
 					<CardHeader>
 						<CardHeading>
@@ -681,14 +685,22 @@ export function DoneStep({
 							<CardDescription>Each row with the reason.</CardDescription>
 						</CardHeading>
 					</CardHeader>
-					<FailedRows rows={failed} name={name} />
+					<NotImportedRows rows={notImported} name={name} />
 				</Card>
 			) : null}
 		</div>
 	);
 }
 
-function FailedRows({ rows, name }: { rows: FailedRow[]; name: (row: number) => string | null }) {
+type NotImportedRow = FailedRow | Extract<ImportReceipt["rows"][number], { status: "remaining" }>;
+
+function reasonOf(r: NotImportedRow): string {
+	if (r.status === "remaining") return "Not reached. Try it again.";
+	if (r.reason === "row_write_failed") return "Could not be saved. Try it again.";
+	return r.problems.length ? r.problems.map(problemText).join(". ") : "Needs a fix in the file";
+}
+
+function NotImportedRows({ rows, name }: { rows: NotImportedRow[]; name: (row: number) => string | null }) {
 	const [page, setPage] = useState(1);
 	const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
 	const slice = rows.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
@@ -706,15 +718,11 @@ function FailedRows({ rows, name }: { rows: FailedRow[]; name: (row: number) => 
 						</span>
 						<div className="min-w-0">
 							<p className="truncate font-medium text-ink">
-								{r.reason === "invalid" ? "Needs a fix" : (name(r.row) ?? "Not saved")}
+								{r.status === "failed" && r.reason === "invalid" ? "Needs a fix" : (name(r.row) ?? "Not saved")}
 							</p>
 							<p className="flex items-start gap-1.5 text-sm text-magenta-600">
 								<Icon icon={Alert02Icon} size={16} className="mt-0.5 flex-none" />
-								{r.reason === "row_write_failed"
-									? "Could not be saved. Try it again."
-									: r.problems.length
-										? r.problems.map(problemText).join(". ")
-										: "Needs a fix in the file"}
+								{reasonOf(r)}
 							</p>
 						</div>
 					</li>
