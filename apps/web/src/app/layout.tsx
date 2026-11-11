@@ -1,22 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, DM_Serif_Display, DM_Serif_Text } from "next/font/google";
 import type { ReactNode } from "react";
 import "../styles/marketing.css";
 import { PageScroll } from "../components/frame/PageScroll";
 import { JS_FLAG_SCRIPT, READER_INPUT_SCRIPT } from "../components/frame/reader-input";
 import { PAGES, SITE_NAME, fullTitle } from "../marketing/meta";
 import { SITE_URL } from "../site";
-
-// The brand fonts (foundations.md, Type): DM Serif Display for headings and numbers at 24px and up, DM Serif Text below
-// 24px, DM Sans for everything else. The serifs have one weight; font-synthesis-weight: none keeps the browser from faking bold.
-const display = DM_Serif_Display({
-	weight: "400",
-	subsets: ["latin"],
-	variable: "--font-dm-serif-display",
-	display: "swap",
-});
-const title = DM_Serif_Text({ weight: "400", subsets: ["latin"], variable: "--font-dm-serif-text", display: "swap" });
-const body = DM_Sans({ subsets: ["latin"], axes: ["opsz"], variable: "--font-dm-sans", display: "swap" });
+import { FONT_VARIABLES } from "./fonts";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),
@@ -31,7 +20,7 @@ export const viewport: Viewport = { themeColor: "#FCFBF8", colorScheme: "light" 
 
 export default function RootLayout({ children }: { children: ReactNode }) {
 	return (
-		<html lang="en" className={`${display.variable} ${title.variable} ${body.variable}`} suppressHydrationWarning>
+		<html lang="en" className={FONT_VARIABLES} suppressHydrationWarning>
 			<body>
 				<script dangerouslySetInnerHTML={{ __html: READER_INPUT_SCRIPT + ";" + JS_FLAG_SCRIPT }} />
 				{children}
