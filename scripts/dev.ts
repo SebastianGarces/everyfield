@@ -16,7 +16,6 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         GitHub CI also runs: format:check, build then server-trace, test:logs, db, census, wiki
   dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
         time; skips when the machine is loaded or no preview slot is free
-  dev traces                               says what to read instead: no trace reader exists yet
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
@@ -130,10 +129,6 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return fastCheckCommand(args);
 		case "hooks":
 			return hooks(args);
-		case "traces":
-			throw new DevError(
-				"No trace reader exists yet: the observability package has not landed. Read bin/dev logs instead, and say so in your report.",
-			);
 		case "help":
 		case "--help":
 		case undefined:
