@@ -1,11 +1,7 @@
 [
-	"access:liveAccess",
 	"branding:brandReader.get",
 	"branding:brandReader.resolveTheme",
 	"branding:brandReader.suggestColors",
 	"branding:readBrandAsset",
-	"onboarding:readOnboardingEntry",
-	"organizations:readHistory",
-	"organizations:readPlantSharing",
 	"settings:readAvatar"
 ]
