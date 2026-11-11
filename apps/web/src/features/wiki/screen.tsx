@@ -9,6 +9,7 @@ import {
 	PageHeader,
 	StatePanel,
 } from "@everyfield/ui/controls";
+import { humanCredit } from "@everyfield/contracts/wiki";
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import {
@@ -29,7 +30,6 @@ import {
 	articleBlocks,
 	articlePath,
 	editPath,
-	humanCredit,
 	percentLabel,
 	PHASE_NAME,
 	stepsAround,
