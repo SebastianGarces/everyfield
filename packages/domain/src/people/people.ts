@@ -610,7 +610,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 							.from(tables.plant)
 							.where(eq(tables.plant.id, ctx.selected.id))
 					)[0]!;
-					if (input.input.occurredOn > now.today) deny("invalid_input");
+					if (input.input.occurredOn > now.today) deny("invalid_input", { reason: "future_date" });
 					audit.writes.push(
 						tx
 							.update(tables.person)
