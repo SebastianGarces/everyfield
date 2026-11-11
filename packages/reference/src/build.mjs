@@ -7,22 +7,18 @@ import { verifySources } from "../verify.mjs";
 const root = new URL("../../../", import.meta.url);
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const write = process.argv.includes("--write");
-// A reviewed catalog identity is an operation input, never an implicit refreeze or a stored value.
-let expectedCatalogSha256;
-if (write) {
-	const index = process.argv.indexOf("--catalog-sha256");
-	expectedCatalogSha256 = index === -1 ? undefined : process.argv[index + 1];
-	if (!/^[a-f0-9]{64}$/.test(expectedCatalogSha256 ?? ""))
-		throw Error("Catalog SHA-256 required: pass --catalog-sha256 <digest>");
-}
 const frozen = JSON.parse(await readFile(new URL("freeze.json", import.meta.url), "utf8"));
 const manifestBytes = await readFile(new URL("docs/reference/manifest.json", root));
 const sourceManifestSha256 = hash(manifestBytes);
 const manifest = JSON.parse(manifestBytes.toString("utf8"));
 if (write) {
+	// A reviewed catalog identity is an operation input, never an implicit refreeze or a stored value.
+	const index = process.argv.indexOf("--catalog-sha256");
+	const expected = index === -1 ? undefined : process.argv[index + 1];
+	if (!/^[a-f0-9]{64}$/.test(expected)) throw Error("Catalog SHA-256 required: pass --catalog-sha256 <digest>");
 	const report = await verifySources(fileURLToPath(root));
 	if (!report.ok) throw Error("Source verification failed");
-	if (report.catalog.sha256 !== expectedCatalogSha256) throw Error("catalog_digest_mismatch");
+	if (report.catalog.sha256 !== expected) throw Error("catalog_digest_mismatch");
 } else if (sourceManifestSha256 !== frozen.sourceManifestSha256) {
 	throw Error("Frozen reference differs: source manifest");
 }
