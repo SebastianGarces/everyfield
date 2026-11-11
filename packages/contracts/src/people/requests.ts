@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { instant, localDate } from "../common/time.ts";
+import { localDate } from "../common/time.ts";
 import { personId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import {
@@ -108,17 +108,9 @@ export const reorderPipelineRequest = commandEnvelope(
 		})
 		.refine((v) => v.afterId !== v.personId),
 );
-export const pipelineMetricsRequest = z
-	.strictObject({ asOf: instant, from: localDate, through: localDate })
-	.refine((v) => v.from <= v.through);
 
 // Organization identity never carries plant recruitment or commitment fields.
 export const createOrganizationPersonRequest = z.strictObject({ requestKey, input: z.strictObject(contactFields) });
-export const updateOrganizationPersonRequest = commandEnvelope(
-	z.strictObject({ personId, patch: z.strictObject(contactFields).partial() }),
-);
-export const removeOrganizationPersonRequest = commandEnvelope(z.strictObject({ personId, reason }));
-export const exportOrganizationPersonRequest = z.strictObject({ personId, format: z.literal("csv") });
 /** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
 export const duplicateCheckRequest = z.strictObject({
 	displayName: z.string().max(255).optional(),
