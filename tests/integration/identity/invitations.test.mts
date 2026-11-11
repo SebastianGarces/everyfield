@@ -817,7 +817,7 @@ test("AC:ADR1-004 INV-resident: foreign Person, foreign linked account and stale
 	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, own)), 0);
 });
 
-test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or list administrative invitations", async () => {
+test("AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member actors cannot send or list administrative invitations", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s);
 	await denied(f.actor(s.recipient.session).then((a) => f.invitations.list(a, { workspace: s.w })));

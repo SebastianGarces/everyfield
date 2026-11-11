@@ -19,7 +19,6 @@
       "domain": "admin",
       "depends_on": [],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "ADM-006: Early access site and one access-request form"
       ],
@@ -28,7 +27,6 @@
         "packages/db/",
         "packages/domain/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-ADM-006"
       ],
@@ -40,7 +38,6 @@
         "apps/web/README.md",
         "apps/web/package.json"
       ],
-      "specialist": "implementor",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [
@@ -92,7 +89,6 @@
         "WP-087"
       ],
       "estimate_engineer_days": 1.0,
-      "inputs": [],
       "outputs": [
         "REF-001: Canonical SME Launch Playbook source",
         "REF-002: Approved global Wiki article/section bootstrap",
@@ -107,7 +103,6 @@
         "packages/reference/",
         "tests/integration/reference/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/product/knowledge-documents.md",
@@ -144,7 +139,6 @@
         "WP-001"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Shared identity, access, time and change-history behavior."
       ],
@@ -152,7 +146,6 @@
         "packages/contracts/src/common/",
         "tests/contracts/common/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-001",
         "AUDIT-002",
@@ -211,7 +204,7 @@
           "REQ-PPL-024": "People remain identifiable across change history and corrections."
         },
         "chapter_links": [
-          "docs/architecture/core.md#one-short-transaction-protocol",
+          "docs/architecture/core.md#transaction-boundary",
           "docs/architecture/audit.md",
           "docs/product/tasks.md#req-tsk-018",
           "docs/product/identity-access.md#req-idn-029",
@@ -241,7 +234,6 @@
         "WP-002"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Secure sign-in, private files and streamed responses."
       ],
@@ -249,7 +241,6 @@
         "apps/web/src/server/platform/",
         "tests/integration/platform/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-002",
         "AI44-004",
@@ -309,7 +300,6 @@
         "WP-003"
       ],
       "estimate_engineer_days": 4.0,
-      "inputs": [],
       "outputs": [
         "DOC-015: Private storage service and uploaded commitment attachments",
         "IDN-006: Account avatar upload, replacement, removal and authenticated delivery",
@@ -321,7 +311,6 @@
         "packages/db/migrations/",
         "tests/integration/db/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-001",
         "AUDIT-002",
@@ -420,7 +409,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-001: Sign-in, session lifecycle, logout and safe return navigation",
         "IDN-002: Registration and account-entity provisioning",
@@ -436,7 +424,6 @@
         "apps/web/src/features/identity/",
         "tests/integration/identity/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUTH-001",
         "AUTH-003",
@@ -497,7 +484,6 @@
         "WP-005"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-005: Current tenancy, capability and own-duty guards",
         "IDN-019: Seat roster, Admin appointment/demotion and authority removal",
@@ -510,7 +496,6 @@
         "apps/web/src/features/access/",
         "tests/integration/access/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-002",
         "AUDIT-005",
@@ -579,7 +564,6 @@
         "WP-006"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-011: Church profile, locality, timezone, inactivity and digest schedule",
         "IDN-016: Discovery identity, associations and conversion to plant",
@@ -600,7 +584,6 @@
         "apps/web/src/features/organizations/",
         "tests/integration/organizations/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-003",
         "ADR1-016",
@@ -702,7 +685,6 @@
         "WP-011"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-002: Registration and account-entity provisioning",
         "IDN-003: Beta gate and meaningful invitation-origin registration",
@@ -718,7 +700,6 @@
         "apps/web/src/features/identity/",
         "tests/integration/identity/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-004",
         "AF-001",
@@ -805,7 +786,6 @@
         "WP-008"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-003: Beta gate and meaningful invitation-origin registration",
         "IDN-013: Church creation, onboarding basics and account-person bootstrap",
@@ -821,7 +801,6 @@
         "tests/integration/onboarding/",
         "packages/domain/src/phases/creation-entry/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-006",
         "AF-012",
@@ -891,7 +870,6 @@
         "WP-009"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-006: Account avatar upload, replacement, removal and authenticated delivery",
         "IDN-007: Email change request, proof, confirmation and security notice",
@@ -908,7 +886,6 @@
         "apps/web/src/features/settings/",
         "tests/integration/settings/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-001",
         "AUTH-005",
@@ -994,7 +971,6 @@
         "WP-006"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-013: Church creation, onboarding basics and account-person bootstrap",
         "MUL-001: Organization Person lifecycle",
@@ -1014,7 +990,6 @@
         "apps/web/src/features/people/",
         "tests/integration/people/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-001",
         "ADR1-005",
@@ -1082,7 +1057,6 @@
         "WP-011"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "PPL-005: Private person photo lifecycle",
         "PPL-009: Household lifecycle, member roles and deliberate address propagation",
@@ -1097,7 +1071,6 @@
         "apps/web/src/features/people/fields/",
         "tests/integration/people/fields/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-PPL-010",
         "GAP-PPL-011",
@@ -1152,7 +1125,6 @@
         "WP-012"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "PPL-018: CSV template, preview, row validation, duplicate resolutions and partial import",
         "PPL-019: Filtered CSV export and file serialization"
@@ -1163,7 +1135,6 @@
         "apps/web/src/features/people/import-export/",
         "tests/integration/people/csv/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
         "TARGET-PPL-018",
@@ -1209,7 +1180,6 @@
         "WP-012"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "PPL-012: SME 4 C’s assessment recording, latest result and history",
         "PPL-013: SME five-criterion interview, result, next steps and progression",
@@ -1225,7 +1195,6 @@
         "apps/web/src/features/people/assessments/",
         "tests/integration/people/assessments/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CA021",
         "GAP-PPL-006",
@@ -1288,7 +1257,6 @@
         "WP-014"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "MUL-017: Organization duplicates, merge and guarded Unmerge",
         "PPL-015: Correct assessment, interview and commitment records",
@@ -1304,7 +1272,6 @@
         "apps/web/src/features/people/corrections/",
         "tests/integration/people/corrections/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-017",
         "CA013",
@@ -1389,7 +1356,6 @@
         "WP-020"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-014: Leadership attestation and onboarding prompts",
         "IDN-019: Seat roster, Admin appointment/demotion and authority removal",
@@ -1408,7 +1374,6 @@
         "apps/web/src/features/teams/",
         "tests/integration/teams/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-004",
         "B01-010",
@@ -1479,7 +1444,6 @@
         "WP-017"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "TEAM-007: Team responsibilities"
       ],
@@ -1489,7 +1453,6 @@
         "apps/web/src/features/teams/responsibilities/",
         "tests/integration/teams/responsibilities/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-028",
         "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
@@ -1534,7 +1497,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "PPL-021: Person teams, training and communication tabs",
         "TEAM-004: Appoint and synchronize team leaders",
@@ -1551,7 +1513,6 @@
         "apps/web/src/features/teams/training/",
         "tests/integration/teams/training/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-001",
         "B01-003",
@@ -1621,7 +1582,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 3.0,
-      "inputs": [],
       "outputs": [
         "COM-010: Public token RSVP and email engagement linkage",
         "MTG-001: Meeting list, detail and history",
@@ -1645,7 +1605,6 @@
         "apps/web/src/features/meetings/",
         "tests/integration/meetings/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-007",
         "B02-008",
@@ -1732,7 +1691,6 @@
         "WP-014"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "MTG-010: Attendance, check-in and walk-ins",
         "MTG-012: Finalize and reconcile attendance",
@@ -1748,7 +1706,6 @@
         "apps/web/src/features/meetings/",
         "tests/integration/meetings/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-010",
         "CASE-OPS-004",
@@ -1814,7 +1771,6 @@
         "WP-024"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "COM-011: Person contact log derived from completed person-linked task",
         "PPL-022: Explicit follow-up creation and task suggestions",
@@ -1830,7 +1786,6 @@
         "apps/web/src/features/followups/",
         "tests/integration/followups/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B03-004",
         "B03-005",
@@ -1897,7 +1852,6 @@
         "WP-011"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "TSK-001: Task views, search, filters and counts",
         "TSK-002: Create, edit and delete tasks",
@@ -1912,7 +1866,6 @@
         "apps/web/src/features/tasks/",
         "tests/integration/tasks/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B03-001",
         "B03-002",
@@ -1973,7 +1926,6 @@
         "WP-024"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "TSK-005: One-level subtasks and checklists",
         "TSK-006: Task prerequisites and derived blocking",
@@ -1986,7 +1938,6 @@
         "apps/web/src/features/tasks/",
         "tests/integration/tasks/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "EVRY-REAL-CHILD-TASK-PARITY",
         "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
@@ -2039,7 +1990,6 @@
         "WP-038"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "PHASE-005: Typed phase.changed and assessment.created events",
         "PHASE-006: Phase-driven task-template prompt and Wiki recommendations",
@@ -2053,7 +2003,6 @@
         "apps/web/src/features/tasks/",
         "tests/integration/tasks/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PHASE-CASE-005",
         "PHASE-CASE-006",
@@ -2100,7 +2049,6 @@
         "WP-020"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "COM-003: Compose and preview sanitized rich-text email with merge fields",
         "COM-004: Recipient search and closed quick-select groups",
@@ -2114,7 +2062,6 @@
         "apps/web/src/features/communication/",
         "tests/integration/communication/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-COM-003",
         "CASE-COM-004",
@@ -2161,7 +2108,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "COM-005: Bulk provider dispatch and per-recipient outcome correlation",
         "COM-006: Truthful provider rejection in the composer",
@@ -2178,7 +2124,6 @@
         "tests/integration/communication/",
         "apps/web/src/app/api/webhooks/resend/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-007",
         "CASE-COM-005",
@@ -2244,7 +2189,6 @@
         "WP-028"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "COM-001: Communication hub, filtered history and delivery overview",
         "COM-002: Message detail, recipient and person/meeting communication histories",
@@ -2259,7 +2203,6 @@
         "apps/web/src/features/communication/",
         "tests/integration/communication/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-COM-001",
         "CASE-COM-002",
@@ -2320,7 +2263,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-012: Per-account notification preferences, cadence and self suppression recovery",
         "IDN-022: Privacy pull sharing, push consent and first-invitation defaults",
@@ -2338,7 +2280,6 @@
         "apps/web/src/features/notifications/",
         "tests/integration/notifications/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AF-027",
         "AF-030",
@@ -2404,7 +2345,6 @@
         "WP-004"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "COM-012: Native drafts and reviewed scheduled email",
         "NTF-001: Tenant and organization notifications with duplicate suppression",
@@ -2423,7 +2363,6 @@
         "apps/web/src/server/jobs/",
         "tests/integration/jobs/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B03-002",
         "B03-010",
@@ -2484,7 +2423,6 @@
         "WP-004"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "COM-008: Canonical message-template bootstrap and meeting invitation selection",
         "PHASE-008: Seven church-planting phases and Playbook criteria catalog",
@@ -2501,7 +2439,6 @@
         "packages/contracts/src/reference/",
         "tests/reference/releases/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-COM-008",
         "CONTENT50-001",
@@ -2552,7 +2489,6 @@
         "WP-032"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "REF-002: Approved global Wiki article/section bootstrap",
         "WIKI-010: Available checksummed global reference snapshot and reproducible bootstrap contract"
@@ -2562,7 +2498,6 @@
         "packages/reference/src/starter/manifest/",
         "tests/reference/starter/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-WIKI-010",
         "CONTENT50-001",
@@ -2607,7 +2542,6 @@
         "WP-033"
       ],
       "estimate_engineer_days": 4.0,
-      "inputs": [],
       "outputs": [
         "REF-002: Approved global Wiki article/section bootstrap",
         "WIKI-001: Published Wiki corpus visibility, church overrides and MDX rendering",
@@ -2626,7 +2560,6 @@
         "apps/web/src/features/wiki/",
         "tests/integration/wiki/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-WIKI-001",
         "CASE-WIKI-002",
@@ -2755,7 +2688,6 @@
         "WP-034"
       ],
       "estimate_engineer_days": 4.0,
-      "inputs": [],
       "outputs": [
         "NTF-014: Declared notification producers and unused email helpers",
         "WIKI-001: Published Wiki corpus visibility, church overrides and MDX rendering",
@@ -2769,7 +2701,6 @@
         "apps/web/src/features/wiki/",
         "tests/integration/wiki/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-NTF-014",
         "CASE-WIKI-001",
@@ -2902,7 +2833,6 @@
         "WP-032"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "DOC-001: Document template library, filtering and contextual entry points",
         "DOC-002: Merge-value generation and exact-byte PDF/DOCX/XLSX previews",
@@ -2932,7 +2862,6 @@
         "tests/integration/documents/",
         "apps/web/src/components/rich-text/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-DOC-001",
         "CASE-DOC-002",
@@ -2994,7 +2923,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "DOC-002: Merge-value generation and exact-byte PDF/DOCX/XLSX previews",
         "DOC-003: Saved generated-document history and fresh signed re-download",
@@ -3009,7 +2937,6 @@
         "apps/web/src/features/documents/",
         "tests/integration/documents/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "BKT60-002",
         "CASE-DOC-002",
@@ -3081,7 +3008,6 @@
         "WP-032"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-015: Journey declaration, launch-date setup, completion and resume",
         "NTF-009: Relationship, sharing, phase and launch milestone fanout",
@@ -3102,7 +3028,6 @@
         "apps/web/src/features/phases/",
         "tests/integration/phases/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-032",
         "CASE-NTF-009",
@@ -3168,7 +3093,6 @@
         "WP-010"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-010: Settings dialog, deep links and draft protection",
         "PI-014: Eight-lens measured/attested/unknown evidence profile",
@@ -3184,7 +3108,6 @@
         "apps/web/src/features/intelligence/",
         "tests/integration/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-004",
         "B01-025",
@@ -3275,7 +3198,6 @@
         "WP-004"
       ],
       "estimate_engineer_days": 3.0,
-      "inputs": [],
       "outputs": [
         "PI-001: Deterministic fact-snapshot assembly",
         "PI-002: Committed adult growth, first commitments and flat streak",
@@ -3303,7 +3225,6 @@
         "tests/integration/intelligence/",
         "packages/db/migrations/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ASMT-006",
         "ASMT-011",
@@ -3470,7 +3391,6 @@
         "WP-040"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "PI-016: Active and historical rubric version registry",
         "PI-017: Phase-filtered dense/sparse methodology retrieval",
@@ -3484,7 +3404,6 @@
         "apps/web/src/features/intelligence/",
         "tests/integration/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ASMT-006",
         "ASMT-011",
@@ -3544,7 +3463,6 @@
         "WP-047"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "PI-018: Typed dual-audience judge and product-rule validation",
         "PI-019: Bounded corrective draft retries",
@@ -3559,7 +3477,6 @@
         "apps/web/src/features/intelligence/",
         "tests/integration/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-003",
         "AI44-004",
@@ -3693,7 +3610,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "PI-019: Bounded corrective draft retries",
         "PI-020: Provider throttling, backoff and learned token pacing",
@@ -3711,7 +3627,6 @@
         "apps/web/src/features/intelligence/",
         "tests/integration/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-004",
         "AI44-005",
@@ -3865,7 +3780,6 @@
         "WP-047"
       ],
       "estimate_engineer_days": 3.5,
-      "inputs": [],
       "outputs": [
         "PI-024: Cached assessment reads, as-of and seen marker",
         "PI-025: Primary focus, two supplements, separate positive surface",
@@ -3888,7 +3802,6 @@
         "tests/integration/intelligence/",
         "apps/web/src/features/oversight/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ASMT-005",
         "B01-005",
@@ -4100,7 +4013,6 @@
         "WP-020"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "IDN-015: Journey declaration, launch-date setup, completion and resume",
         "LCH-001: Set, move, postpone and recommit canonical launch date",
@@ -4117,7 +4029,6 @@
         "apps/web/src/features/launch/",
         "tests/integration/launch/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-032",
         "B02-001",
@@ -4179,7 +4090,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 3.0,
-      "inputs": [],
       "outputs": [
         "LCH-002: Launch date/status journal and actor names",
         "LCH-003: Nine Playbook milestones and 23 linked preparation tasks",
@@ -4197,7 +4107,6 @@
         "apps/web/src/features/launch/",
         "tests/integration/launch/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-002",
         "B02-005",
@@ -4287,7 +4196,6 @@
         "WP-046"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "IDN-023: Oversight dashboard, plant directory, consent-gated aggregates and health entry",
         "IDN-024: Network sending-church roster and member detail",
@@ -4301,7 +4209,6 @@
         "apps/web/src/features/oversight/",
         "tests/integration/oversight/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AF-013",
         "AF-027",
@@ -4472,7 +4379,6 @@
         "WP-047"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "ADM-004: Dashboard routing by identity and onboarding/plant state",
         "ADM-005: Plant metrics, activity feed, quick actions and operational prompts",
@@ -4484,7 +4390,6 @@
         "apps/web/src/features/dashboard/",
         "tests/integration/dashboard/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-ADM-004",
         "CASE-ADM-005",
@@ -4532,7 +4437,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "ADM-001: Feedback dialog with private page and device details",
         "ADM-002: Platform-wide feedback triage and status transitions",
@@ -4550,7 +4454,6 @@
         "apps/web/src/app/privacy/",
         "apps/web/src/app/terms/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-ADM-001",
         "CASE-ADM-002",
@@ -4605,7 +4508,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 3.5,
-      "inputs": [],
       "outputs": [
         "IDN-004: Development and managed-preview account switching",
         "IDN-028: Request boundary, CSRF exceptions, trusted routing and expired-session recovery",
@@ -4628,7 +4530,6 @@
         "packages/domain/src/operations/",
         "tests/integration/operations/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-002",
         "AI44-003",
@@ -4739,7 +4640,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "EVR-001: Application-only policy and fixed pastoral boundary",
         "EVR-002: Fresh tenancy, account and per-operation permission",
@@ -4764,7 +4664,6 @@
         "packages/evry/src/catalog/",
         "tests/evry/catalog/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B03-008",
         "B03-009",
@@ -4880,7 +4779,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "EVR-010: Read, clarification, review, progress, outcome and boundary cards",
         "EVR-011: Changed proposals invalidate prior approval",
@@ -4896,7 +4794,6 @@
         "apps/web/src/features/evry/review/",
         "tests/evry/execution/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-001",
         "AUDIT-002",
@@ -5008,7 +4905,6 @@
         "WP-037"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "EVR-007: Contextual suggestions and eligibility probe",
         "EVR-009: Bounded structured references, choices and context",
@@ -5023,7 +4919,6 @@
         "apps/web/src/features/evry/artifacts/",
         "tests/evry/artifacts/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "EVRY-CONTEXT-BOUNDS",
         "INH-DOCUMENTS-07",
@@ -5097,7 +4992,6 @@
         "WP-085"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "EVR-015: Deterministic recipes and dependency-output reuse",
         "EVR-019: Cost, latency, usage normalization and privacy-safe Langfuse tracing",
@@ -5111,7 +5005,6 @@
         "packages/evry/src/policy/",
         "tests/evry/evaluation/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-003",
         "AI44-006",
@@ -5272,7 +5165,6 @@
         "WP-102"
       ],
       "estimate_engineer_days": 14.5,
-      "inputs": [],
       "outputs": [
         "ADM-001: Feedback dialog with private page and device details",
         "ADM-002: Platform-wide feedback triage and status transitions",
@@ -5571,7 +5463,6 @@
         "apps/web/src/server/integration/wp-056/",
         "tests/integration/target/wp-056/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/product/scope.md",
@@ -5609,7 +5500,6 @@
         "WP-102"
       ],
       "estimate_engineer_days": 14.5,
-      "inputs": [],
       "outputs": [
         "ADM-001: Feedback dialog with private page and device details",
         "ADM-002: Platform-wide feedback triage and status transitions",
@@ -5908,7 +5798,6 @@
         "apps/web/src/server/integration/wp-057/",
         "tests/integration/target/wp-057/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/product/scope.md",
@@ -5942,7 +5831,6 @@
         "WP-033"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "PI-043: Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
         "PI-044: Location Insights: Regions, state/province, Country and Whole portfolio"
@@ -5952,7 +5840,6 @@
         "tests/integration/operations/",
         "packages/reference/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-008",
         "B02-029",
@@ -6015,7 +5902,6 @@
         "WP-012"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry people read and command adapters."
       ],
@@ -6025,7 +5911,6 @@
         "packages/evry/src/adapters/people/commands/",
         "tests/evry/adapters/people/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "INH-COMMITMENTS-03",
         "INH-CROSS-06",
@@ -6128,7 +6013,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry people-assessments reads/helper adapters."
       ],
@@ -6136,7 +6020,6 @@
         "packages/evry/src/adapters/people-assessments/reads/",
         "tests/evry/adapters/people-assessments/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-423",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
@@ -6194,7 +6077,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry people-assessments draft/propose/execute adapters."
       ],
@@ -6202,7 +6084,6 @@
         "packages/evry/src/adapters/people-assessments/commands/",
         "tests/evry/adapters/people-assessments/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CA021",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
@@ -6264,7 +6145,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry people-organization reads/helper adapters."
       ],
@@ -6272,7 +6152,6 @@
         "packages/evry/src/adapters/people-organization/reads/",
         "tests/evry/adapters/people-organization/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -6333,7 +6212,6 @@
         "WP-013"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry people-organization draft/propose/execute adapters."
       ],
@@ -6341,7 +6219,6 @@
         "packages/evry/src/adapters/people-organization/commands/",
         "tests/evry/adapters/people-organization/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -6419,7 +6296,6 @@
         "WP-017"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry meetings reads/helper adapters."
       ],
@@ -6427,7 +6303,6 @@
         "packages/evry/src/adapters/meetings/reads/",
         "tests/evry/adapters/meetings/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-408",
         "GAP-EVR-409",
@@ -6492,7 +6367,6 @@
         "WP-017"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry meetings draft/propose/execute adapters."
       ],
@@ -6500,7 +6374,6 @@
         "packages/evry/src/adapters/meetings/commands/",
         "tests/evry/adapters/meetings/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-007",
         "B02-008",
@@ -6599,7 +6472,6 @@
         "WP-026"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry tasks reads/helper adapters."
       ],
@@ -6607,7 +6479,6 @@
         "packages/evry/src/adapters/tasks/reads/",
         "tests/evry/adapters/tasks/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "EVRY-REAL-CHILD-TASK-PARITY",
         "GAP-EVR-405",
@@ -6674,7 +6545,6 @@
         "WP-026"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry tasks draft/propose/execute adapters."
       ],
@@ -6682,7 +6552,6 @@
         "packages/evry/src/adapters/tasks/commands/",
         "tests/evry/adapters/tasks/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B03-008",
         "B03-009",
@@ -6763,7 +6632,6 @@
         "WP-019"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry teams reads/helper adapters."
       ],
@@ -6771,7 +6639,6 @@
         "packages/evry/src/adapters/teams/reads/",
         "tests/evry/adapters/teams/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-410",
         "GAP-EVR-411",
@@ -6847,7 +6714,6 @@
         "WP-019"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry teams draft/propose/execute adapters."
       ],
@@ -6855,7 +6721,6 @@
         "packages/evry/src/adapters/teams/commands/",
         "tests/evry/adapters/teams/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-035",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
@@ -6940,7 +6805,6 @@
         "WP-029"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry communication reads/helper adapters."
       ],
@@ -6948,7 +6812,6 @@
         "packages/evry/src/adapters/communication/reads/",
         "tests/evry/adapters/communication/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "INH-COMMUNICATION-05",
         "INH-CROSS-07",
@@ -7026,7 +6889,6 @@
         "WP-029"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry communication draft/propose/execute adapters."
       ],
@@ -7034,7 +6896,6 @@
         "packages/evry/src/adapters/communication/commands/",
         "tests/evry/adapters/communication/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "MAIL51-009",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
@@ -7090,7 +6951,6 @@
         "WP-044"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "PI-043: Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
         "PI-044: Location Insights: Regions, state/province, Country and Whole portfolio"
@@ -7101,7 +6961,6 @@
         "packages/evry/src/adapters/organization-intelligence/reads/",
         "tests/evry/adapters/organization-intelligence/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-027",
         "B02-027",
@@ -7207,7 +7066,6 @@
         "WP-044"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "PI-043: Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
         "PI-044: Location Insights: Regions, state/province, Country and Whole portfolio"
@@ -7218,7 +7076,6 @@
         "packages/evry/src/adapters/organization-intelligence/commands/",
         "tests/evry/adapters/organization-intelligence/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B01-027",
         "B02-017",
@@ -7298,7 +7155,6 @@
         "WP-046"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry launch reads/helper adapters."
       ],
@@ -7306,7 +7162,6 @@
         "packages/evry/src/adapters/launch/reads/",
         "tests/evry/adapters/launch/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-022",
         "INH-LAUNCH-02",
@@ -7363,7 +7218,6 @@
         "WP-046"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry launch draft/propose/execute adapters."
       ],
@@ -7371,7 +7225,6 @@
         "packages/evry/src/adapters/launch/commands/",
         "tests/evry/adapters/launch/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-006",
         "B02-022",
@@ -7431,7 +7284,6 @@
         "WP-035"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry wiki reads/helper adapters."
       ],
@@ -7439,7 +7291,6 @@
         "packages/evry/src/adapters/wiki/reads/",
         "tests/evry/adapters/wiki/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-417",
         "GAP-EVR-418",
@@ -7493,7 +7344,6 @@
         "WP-035"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry wiki draft/propose/execute adapters."
       ],
@@ -7501,7 +7351,6 @@
         "packages/evry/src/adapters/wiki/commands/",
         "tests/evry/adapters/wiki/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7544,7 +7393,6 @@
         "WP-037"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "DOC-016: Account/plant-owned native documents, parsed text/Word imports and core-values evidence"
       ],
@@ -7552,7 +7400,6 @@
         "packages/evry/src/adapters/documents/reads/",
         "tests/evry/adapters/documents/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-416",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
@@ -7608,7 +7455,6 @@
         "WP-037"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "DOC-016: Account/plant-owned native documents, parsed text/Word imports and core-values evidence"
       ],
@@ -7616,7 +7462,6 @@
         "packages/evry/src/adapters/documents/commands/",
         "tests/evry/adapters/documents/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -7660,7 +7505,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry notifications reads/helper adapters."
       ],
@@ -7668,7 +7512,6 @@
         "packages/evry/src/adapters/notifications/reads/",
         "tests/evry/adapters/notifications/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AI44-001",
         "AI44-002",
@@ -7721,7 +7564,6 @@
         "WP-031"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry notifications draft/propose/execute adapters."
       ],
@@ -7729,7 +7571,6 @@
         "packages/evry/src/adapters/notifications/commands/",
         "tests/evry/adapters/notifications/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "NOTIFY47-001",
         "NOTIFY47-010",
@@ -7778,7 +7619,6 @@
         "WP-050"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry platform reads/helper adapters."
       ],
@@ -7788,7 +7628,6 @@
         "packages/evry/src/adapters/identity/reads/",
         "tests/evry/adapters/identity/reads/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7831,7 +7670,6 @@
         "WP-050"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Evry platform draft/propose/execute adapters."
       ],
@@ -7841,7 +7679,6 @@
         "packages/evry/src/adapters/identity/commands/",
         "tests/evry/adapters/identity/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "PUB57-006"
       ],
@@ -7885,7 +7722,6 @@
         "WP-053"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Evry named helpers and candidate preparation.",
         "EVR-017: Plant-local natural-language date resolution"
@@ -7896,7 +7732,6 @@
         "packages/evry/src/adapters/helpers/commands/",
         "tests/evry/adapters/helpers/commands/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "GAP-EVR-400",
         "GAP-EVR-422",
@@ -7965,7 +7800,6 @@
         "WP-097"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Local development and repository workflow."
       ],
@@ -7975,14 +7809,12 @@
         "tests/workflow/",
         "apps/web/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/build-agent-workflow.md",
         "evf.toml",
         "docs/architecture/core.md"
       ],
-      "specialist": "implementor",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [],
@@ -8025,7 +7857,6 @@
         "WP-087"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Product design foundations, dark mode and application shell."
       ],
@@ -8035,7 +7866,6 @@
         "tests/ui/foundations/",
         "tests/ui/shell/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "design/handoff/README.md",
@@ -8044,7 +7874,6 @@
         "design/handoff/screens.md",
         "design/everyfield-ui.html"
       ],
-      "specialist": "ui-designer",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [],
@@ -8067,7 +7896,6 @@
         "case_days": 0,
         "table_days": 0
       },
-      "model": "Opus 5.5",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "Scope: Product design foundations, dark mode and application shell."
@@ -8082,7 +7910,6 @@
         "WP-088"
       ],
       "estimate_engineer_days": 3.0,
-      "inputs": [],
       "outputs": [
         "Shared controls, surfaces and overlays."
       ],
@@ -8090,7 +7917,6 @@
         "packages/ui/src/controls/",
         "tests/ui/controls/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "design/handoff/foundations.md",
@@ -8098,7 +7924,6 @@
         "design/handoff/screens.md",
         "design/everyfield-ui.html"
       ],
-      "specialist": "ui-designer",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [],
@@ -8121,7 +7946,6 @@
         "case_days": 0,
         "table_days": 0
       },
-      "model": "Opus 5.5",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "Scope: Shared controls, surfaces and overlays."
@@ -8137,7 +7961,6 @@
         "WP-089"
       ],
       "estimate_engineer_days": 3.5,
-      "inputs": [],
       "outputs": [
         "Shared data, content and domain displays."
       ],
@@ -8145,7 +7968,6 @@
         "packages/ui/src/display/",
         "tests/ui/display/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "design/handoff/foundations.md",
@@ -8153,7 +7975,6 @@
         "design/handoff/screens.md",
         "design/everyfield-ui.html"
       ],
-      "specialist": "ui-designer",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [],
@@ -8176,7 +7997,6 @@
         "case_days": 0,
         "table_days": 0
       },
-      "model": "Opus 5.5",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "Scope: Shared data, content and domain displays."
@@ -8201,7 +8021,6 @@
         "WP-055"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "Identity, people, meetings, tasks, teams, Evry and operations integration."
       ],
@@ -8209,7 +8028,6 @@
         "apps/web/src/server/integration/sql/core/",
         "tests/integration/target/sql/core/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "EVRY-PERSON-UNMERGE",
         "FDB56-002",
@@ -8339,7 +8157,6 @@
         "WP-055"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Knowledge, communication and reference integration."
       ],
@@ -8347,7 +8164,6 @@
         "apps/web/src/server/integration/sql/knowledge/",
         "tests/integration/target/sql/knowledge/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "BKT60-002",
         "BKT60-004",
@@ -8407,7 +8223,6 @@
         "WP-055"
       ],
       "estimate_engineer_days": 2.0,
-      "inputs": [],
       "outputs": [
         "Phases, intelligence and Launch integration."
       ],
@@ -8415,7 +8230,6 @@
         "apps/web/src/server/integration/sql/intelligence/",
         "tests/integration/target/sql/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ASMT-001",
         "ASMT-002",
@@ -8490,7 +8304,6 @@
         "WP-056"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Core browser, file and native/Evry feature parity."
       ],
@@ -8499,7 +8312,6 @@
         "tests/integration/target/browser/core/",
         "tests/e2e/target/core/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "AUDIT-008",
         "DEL58-009",
@@ -8543,7 +8355,6 @@
         "WP-056"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Knowledge browser, file and native/Evry feature parity."
       ],
@@ -8552,7 +8363,6 @@
         "tests/integration/target/browser/knowledge/",
         "tests/e2e/target/knowledge/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "BKT60-003",
         "BKT60-004",
@@ -8598,7 +8408,6 @@
         "WP-056"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "Intelligence browser, file and native/Evry feature parity."
       ],
@@ -8607,7 +8416,6 @@
         "tests/integration/target/browser/intelligence/",
         "tests/e2e/target/intelligence/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "B02-029",
         "GEO-001",
@@ -8678,7 +8486,6 @@
         "WP-015"
       ],
       "estimate_engineer_days": 3.5,
-      "inputs": [],
       "outputs": [
         "MUL-007: Sending goals and observed counts",
         "MUL-008: Configurable human pipeline stages",
@@ -8690,7 +8497,6 @@
         "apps/web/src/features/multiplication/pipeline/",
         "tests/integration/multiplication/pipeline/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-007",
         "ADR1-008",
@@ -8702,7 +8508,6 @@
         "docs/architecture/security.md",
         "docs/architecture/person-references.json"
       ],
-      "specialist": "implementor",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "ui_depends_on": [
@@ -8739,7 +8544,6 @@
         "WP-098"
       ],
       "estimate_engineer_days": 3.5,
-      "inputs": [],
       "outputs": [
         "MUL-010: Apprenticeship and residency program definitions",
         "MUL-011: Enrollment, cohort and deliberate plan changes",
@@ -8751,7 +8555,6 @@
         "apps/web/src/features/multiplication/development/",
         "tests/integration/multiplication/development/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-010",
         "ADR1-011",
@@ -8763,7 +8566,6 @@
         "docs/architecture/security.md",
         "docs/architecture/person-references.json"
       ],
-      "specialist": "implementor",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "ui_depends_on": [
@@ -8803,7 +8605,6 @@
         "WP-035"
       ],
       "estimate_engineer_days": 2.5,
-      "inputs": [],
       "outputs": [
         "MUL-013: My residency without a seat",
         "MUL-014: Consented foundations and reading sources"
@@ -8814,7 +8615,6 @@
         "apps/web/src/features/multiplication/residency/",
         "tests/integration/multiplication/residency/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-013",
         "ADR1-014"
@@ -8825,7 +8625,6 @@
         "docs/architecture/security.md",
         "docs/architecture/person-references.json"
       ],
-      "specialist": "implementor",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "ui_depends_on": [
@@ -8865,7 +8664,6 @@
         "WP-053"
       ],
       "estimate_engineer_days": 3.0,
-      "inputs": [],
       "outputs": [
         "MUL-015: Pipeline and residency Evry boundaries"
       ],
@@ -8873,7 +8671,6 @@
         "apps/web/src/server/evry/multiplication/",
         "tests/evals/multiplication/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-015"
       ],
@@ -8883,7 +8680,6 @@
         "docs/architecture/security.md",
         "docs/architecture/person-references.json"
       ],
-      "specialist": "implementor",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "ui_depends_on": [
@@ -8920,7 +8716,6 @@
         "WP-101"
       ],
       "estimate_engineer_days": 4.5,
-      "inputs": [],
       "outputs": [
         "MUL-001: Organization Person lifecycle",
         "MUL-002: Pipeline duty authority and restricted projections",
@@ -8945,7 +8740,6 @@
         "tests/integration/target/multiplication/",
         "tests/e2e/target/multiplication/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "ADR1-001",
         "ADR1-002",
@@ -8971,7 +8765,6 @@
         "docs/architecture/security.md",
         "docs/architecture/person-references.json"
       ],
-      "specialist": "implementor",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "ui_depends_on": [
@@ -9006,7 +8799,6 @@
       "domain": "workflow",
       "depends_on": [],
       "estimate_engineer_days": 0.5,
-      "inputs": [],
       "outputs": [
         "Everyfield brand spelling in app copy and email and notification text."
       ],
@@ -9032,13 +8824,11 @@
         "tests/integration/identity/",
         "tools/wiki/"
       ],
-      "interfaces": [],
       "acceptance_gates": [],
       "spec_paths": [
         "docs/architecture/decisions.md",
         "docs/product/operations.md"
       ],
-      "specialist": "ui-designer",
       "context_scope": {
         "features": "explicit",
         "feature_ids": [],
@@ -9064,7 +8854,6 @@
       "integration_rule": "Text-only changes of the brand spelling in UI copy and email and notification text (R2). No logic, schema, route or file moves. Preserve lowercase identifiers. Keep DB defaults and migrations (R1), stored phase-history reasons (R3), frozen references (R4) and owner approval records (R6) unchanged. Leave apps/web/README.md and bin/wiki unchanged. Published Wiki content changes only through Wiki F6. The owner-approved copy-only overlap exemption changes no prerequisite or merge gate; overlapping open PRs need fresh review after this task merges.",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "model": "Opus 5.5",
       "overlap_exempt": {
         "kind": "copy-only",
         "ruling": "docs/architecture/decisions.md#2026-10-23-everyfield-brand-spelling-ops-44-wp-103"
@@ -9081,7 +8870,6 @@
         "WP-036"
       ],
       "estimate_engineer_days": 1.5,
-      "inputs": [],
       "outputs": [
         "BRD-001: Brand settings",
         "BRD-002: Logo assets",
@@ -9098,7 +8886,6 @@
         "tests/integration/branding/",
         "apps/web/src/features/settings/brand/"
       ],
-      "interfaces": [],
       "acceptance_gates": [
         "CASE-BRD-001",
         "CASE-BRD-002",

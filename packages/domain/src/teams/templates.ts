@@ -4,8 +4,8 @@ import "server-only";
 /** The generation a client must send. Version "1" is stale against this catalog. */
 export { TEMPLATE_VERSION } from "@everyfield/contracts/teams";
 
-export type CatalogRole = { key: string; name: string; leadership: boolean; responsibilityKey: string | null };
-export type CatalogTeam = { key: string; name: string; roles: CatalogRole[] };
+type CatalogRole = { key: string; name: string; leadership: boolean; responsibilityKey: string | null };
+type CatalogTeam = { key: string; name: string; roles: CatalogRole[] };
 
 const lead = (key: string, name: string, responsibilityKey: string | null): CatalogRole => ({
 	key,

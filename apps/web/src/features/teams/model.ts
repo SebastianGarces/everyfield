@@ -241,7 +241,7 @@ export function shownValue(key: string, value: unknown): string | null {
 }
 
 /** What a ministry Edit save does. A reason is not a change: with no field changed, nothing is sent. */
-export type EditPlan = "send" | "close" | "close-and-say";
+type EditPlan = "send" | "close" | "close-and-say";
 export function planTeamEdit(
 	was: Pick<Team, "name" | "icon" | "state"> & { description: string },
 	now: typeof was & { reason: string },

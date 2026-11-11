@@ -45,16 +45,15 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 		setBusyId(entry.id);
 		setNote(null);
 		setLink(null);
-		const result = await downloadSavedDocument(entry.id);
+		// A call that never reached the server reads as a dropped connection, and the row can be downloaded again.
+		const result = await downloadSavedDocument(entry.id).catch(() => ({ status: "lost" }) as const);
 		setBusyId(null);
-		if (result.status !== "ok") {
-			setNote(
-				documentProblem(
-					result.status === "refused" ? result.code : "lost",
-					result.status === "refused" ? result.problem : undefined,
-					"This download did not start. Try again.",
-				),
-			);
+		if (result.status === "lost") {
+			setNote("The connection dropped, so the download did not start. Try again.");
+			return;
+		}
+		if (result.status === "refused") {
+			setNote(documentProblem(result.code, result.problem, "This download did not start. Try again."));
 			return;
 		}
 		const opened = window.open(result.value.url, "_blank", "noopener,noreferrer");
