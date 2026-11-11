@@ -21,8 +21,8 @@ import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { compileContext } from "../../../packages/evry/src/context/compile.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { recorder } from "./golden-harness.mts";
-import { id, readAs, realReads, smallChurch, type Call } from "./small-church.mts";
+import { recorder, type ToolCall } from "./golden-harness.mts";
+import { id, readAs, realReads, smallChurch } from "./small-church.mts";
 
 type Case = {
 	text: string;
@@ -67,7 +67,7 @@ const read = (operation: string, input: unknown) => readAs(church.db, actor, ope
 
 /** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
 async function converse(model: LanguageModelV4, text: string) {
-	const calls: Call[] = [];
+	const calls: ToolCall[] = [];
 	const tools = readTools(actor, realReads(church.db, actor, calls));
 	const context = compileContext({ actor, catalog: readCatalog(actor), history: [], text, references: [], now: NOW });
 	const run = streamText({

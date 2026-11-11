@@ -18,6 +18,7 @@ import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { resultForModel, type ToolHandlers } from "../../../packages/evry/src/runtime/tools.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
+import type { ToolCall } from "./golden-harness.mts";
 
 /** A pinned id in the eval namespace, as golden-church.mts writes them. */
 export const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -114,23 +115,21 @@ const ADAPTERS = new Map<string, ReadAdapter<unknown>>(
 export const readAs = (db: Database, actor: EvryActor, operation: string, input: unknown): Promise<SourceResult> =>
 	invokeRead(db, actor, ADAPTERS.get(operation)!, input);
 
-export type Call = { operation: string; input: any; result?: SourceResult; error?: string };
 /**
  * The read handler of one conversation: each read the model calls runs the real adapter through invokeRead, and is
- * pushed to `calls` with its result. The turn runs a step's tool calls side by side; here they run one after another
+ * pushed to `calls`. The turn runs a step's tool calls side by side; here they run one after another
  * in call order, and each takes its result id before its first await, so a replay sends exactly the recorded prompt.
  * A refused read answers `source_unavailable`, as the golden harness answers it.
  */
-export function realReads(db: Database, actor: EvryActor, calls: Call[]): ToolHandlers["read"] {
+export function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandlers["read"] {
 	let queue: Promise<unknown> = Promise.resolve();
 	return (adapter, input) => {
-		const call: Call = { operation: adapter.operation, input };
+		const call: ToolCall = { operation: adapter.operation, input };
 		calls.push(call);
 		const resultId = calls.length;
 		const next = queue.then(async () => {
 			try {
-				call.result = await invokeRead(db, actor, adapter, input);
-				return resultForModel(resultId, call.result);
+				return resultForModel(resultId, await invokeRead(db, actor, adapter, input));
 			} catch (error) {
 				call.error = error instanceof EvryRefusal ? error.code : "source_unavailable";
 				return { error: "source_unavailable" };

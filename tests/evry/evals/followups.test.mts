@@ -26,8 +26,8 @@ import { compileContext } from "../../../packages/evry/src/context/compile.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
-import { recorder } from "./golden-harness.mts";
-import { id, readAs, realReads, smallChurch, type Call } from "./small-church.mts";
+import { recorder, type ToolCall } from "./golden-harness.mts";
+import { id, readAs, realReads, smallChurch } from "./small-church.mts";
 
 type Case = {
 	text: string;
@@ -68,7 +68,7 @@ const { daniel, lena } = church.actors;
 
 /** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
 async function converse(model: LanguageModelV4, who: EvryActor, text: string) {
-	const calls: Call[] = [];
+	const calls: ToolCall[] = [];
 	const tools = readTools(who, realReads(church.db, who, calls));
 	const context = compileContext({
 		actor: who,
