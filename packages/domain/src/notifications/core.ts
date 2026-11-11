@@ -1,5 +1,10 @@
 import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common";
-import { notificationError, type NotificationError, type NotificationReply } from "@everyfield/contracts/notifications";
+import {
+	notificationCategory,
+	notificationError,
+	type NotificationError,
+	type NotificationReply,
+} from "@everyfield/contracts/notifications";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -158,8 +163,7 @@ export function selfSql(session: string, accountId: string): SQL {
 		   AND w.kind = 'account' AND w.opaque_subject_id = i.account_id)
 	)`;
 }
-const categories =
-	"'task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review'";
+const categories = notificationCategory.options.map((category) => `'${category}'`).join(",");
 /** Rows the signed-in recipient may see in the feed, the bell, and mark. */
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
