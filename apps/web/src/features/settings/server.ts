@@ -25,6 +25,7 @@ import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { mailEnv } from "../../server/mail-env.ts";
 import { database } from "@/server/database";
 import { createMailService } from "@/server/jobs/mail";
 import { enqueueJob, queueJobs } from "@/server/jobs/queue";
@@ -49,9 +50,7 @@ const env = z.object({
 	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
 	IDENTITY_SECRET: z.string().min(32),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
