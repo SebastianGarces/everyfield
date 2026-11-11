@@ -2,7 +2,15 @@ import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
 import { docDocument } from "./format/index.ts";
 import { nativeBody } from "./native.ts";
-import { MERGE_KEY_MAX, MERGE_VALUE_MAX, documentCategory, documentFormat, templateId } from "./values.ts";
+import {
+	IMPORT_BYTES_MAX,
+	IMPORT_TOO_LARGE,
+	MERGE_KEY_MAX,
+	MERGE_VALUE_MAX,
+	documentCategory,
+	documentFormat,
+	templateId,
+} from "./values.ts";
 
 const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERGE_VALUE_MAX)).optional();
 
@@ -150,10 +158,14 @@ export const archiveDocumentRequest = z.strictObject({
 	expectedRevision: revisionToken,
 });
 export const designateCoreValuesRequest = archiveDocumentRequest;
+/** The import route's input: the file's raw bytes, at most IMPORT_BYTES_MAX, and where they go. */
 export const importDocumentRequest = z.strictObject({
 	title: documentTitle,
 	format: z.enum(["text", "docx"]),
-	bytes: z.string().min(1).max(14_000_000),
+	bytes: z
+		.instanceof(Uint8Array)
+		.refine((bytes) => bytes.length > 0, "The file is empty.")
+		.refine((bytes) => bytes.length <= IMPORT_BYTES_MAX, IMPORT_TOO_LARGE),
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 	requestKey: z.string().trim().min(1).max(80),

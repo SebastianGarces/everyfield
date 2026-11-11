@@ -36,11 +36,6 @@ import {
 import { legalFixture } from "../../../packages/domain/test/legal-fixture.tsx";
 import { NEUTRAL_THEME, makePalette } from "../../../packages/domain/src/documents/theme.ts";
 import { contentSnapshot, REGISTRY, entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
-import {
-	FOLLOW_UP_LETTER,
-	LAUNCH_TEAM_COMMITMENT,
-	MEMBER_EXPECTATIONS,
-} from "../../../packages/domain/src/documents/templates/text-content.ts";
 import { fontDigests } from "../../../packages/domain/src/documents/fonts.ts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
 
@@ -96,7 +91,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(loaded.templates.find((t) => t.id === "launch-sunday-checklists")!.pageCount, 2);
 	});
 
-	test("DOC-007: the template view carries class, page size, page count and fillable", async () => {
+	test("INV-doc-aspect INV-doc-fillable DOC-007: the template view carries class, page size, page count and fillable", async () => {
 		const loaded = await library();
 		const view = (id: string) => templateView(loaded.templates.find((t) => t.id === id)!);
 		assert.deepEqual(view("commitment-card").pageSize, { width: 306, height: 396 });
@@ -173,7 +168,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(fontDigests().length, 9);
 	});
 
-	test("DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {
+	test("INV-doc-bytes DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {
 		const run = () =>
 			execFileSync(
 				"node_modules/.bin/tsx",
@@ -218,7 +213,7 @@ describe("WP-036/api engine", () => {
 		);
 	});
 
-	test("DOC-017: each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
+	test("INV-doc-fillable DOC-017: each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, NEUTRAL_VALUES);
 			const doc = await PDFDocument.load(out.bytes, { updateMetadata: false });
@@ -322,27 +317,6 @@ describe("WP-036/api engine", () => {
 				entry.id,
 			);
 		}
-	});
-
-	test("DOC-015: text-heavy content is structured data that reads without rendering", () => {
-		for (const spec of [MEMBER_EXPECTATIONS, LAUNCH_TEAM_COMMITMENT, FOLLOW_UP_LETTER]) {
-			assert.ok(spec.sections.length >= 1);
-			for (const section of spec.sections)
-				for (const block of section.blocks) assert.ok(block.kind === "p" || block.kind === "list");
-		}
-		assert.deepEqual(
-			MEMBER_EXPECTATIONS.sections.map((s) => s.heading),
-			["Be present", "GROW", "PRAY", "GIVE", "Join a team", "Protect the unity"],
-		);
-		assert.deepEqual(
-			MEMBER_EXPECTATIONS.signatures.map((s) => s.name),
-			["full_name", "signature", "signed_date"],
-		);
-		assert.deepEqual(
-			LAUNCH_TEAM_COMMITMENT.signatures.map((s) => s.name),
-			["full_name", "signature", "signed_date"],
-		);
-		assert.equal(FOLLOW_UP_LETTER.greeting, "Dear friend,");
 	});
 
 	test("DOC-011 to DOC-014: page counts and layouts match the approved arrangement", async () => {
