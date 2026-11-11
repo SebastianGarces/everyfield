@@ -44,6 +44,7 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { readBrandAssetIfChanged } from "../../../packages/domain/src/branding/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
@@ -667,6 +668,14 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
+		[
+			"branding:readBrandAssetIfChanged",
+			{
+				run: () => readBrandAssetIfChanged(f.db, storage, who.actor, key(), () => true),
+				// The seed stores no brand asset, so church A has nothing to read back either.
+				expected: { refused: "unavailable", control: null },
+			},
+		],
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
