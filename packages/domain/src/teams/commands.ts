@@ -665,6 +665,14 @@ export const teamsWriter = {
 						revision = revision + 1
 						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid
 							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
+					// Turning leadership on fills an empty leader from the occupant and never replaces one (D-561).
+					const promoted =
+						!before.leadership && after.leadership && before.leaderPersonId === null ? before.occupantPersonId : null;
+					if (promoted)
+						audit.writes.push(sql`UPDATE team SET leader_person_id = ${promoted}::uuid,
+						leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
+						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid AND leader_person_id IS NULL`);
+					const leader = promoted ? { leaderPersonId: promoted } : {};
 					return {
 						value: roleResult(
 							audit.id,
@@ -678,7 +686,7 @@ export const teamsWriter = {
 						kind: "edit",
 						outcome: noop ? "noop" : "changed",
 						before: { name: before.name, desiredSkills: before.desiredSkills, leadership: before.leadership },
-						after: { name: after.name, desiredSkills: after.desiredSkills, leadership: after.leadership },
+						after: { name: after.name, desiredSkills: after.desiredSkills, leadership: after.leadership, ...leader },
 						revision: { before: before.revision, after: noop ? before.revision : after.revision },
 					};
 				},
