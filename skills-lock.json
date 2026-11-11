@@ -14,49 +14,57 @@
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-accessibility/SKILL.md",
-      "computedHash": "828416336ea982ac71add19e0998ce1dc560d28a912718693a01de7276594ac2"
+      "computedHash": "828416336ea982ac71add19e0998ce1dc560d28a912718693a01de7276594ac2",
+      "sha256": "edc88a7a5be16c03d9ff96139b060a218e603c8e28a833e6f0f057c030796dc6"
     },
     "better-colors": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-colors/SKILL.md",
-      "computedHash": "aee99741f731a9cbc0c2f3c782bdaaa39d4e4fedb657a7bdc80a6519f9a9a0da"
+      "computedHash": "aee99741f731a9cbc0c2f3c782bdaaa39d4e4fedb657a7bdc80a6519f9a9a0da",
+      "sha256": "31fec0b8d25dabea26d63d0e6d2b79c29ae1eb14f0a6398f5307fc4381e9266a"
     },
     "better-interface": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-interface/SKILL.md",
-      "computedHash": "3d974ecb37be195d400cf964164ef5ac84cccd995b41847a46e344488be47e93"
+      "computedHash": "3d974ecb37be195d400cf964164ef5ac84cccd995b41847a46e344488be47e93",
+      "sha256": "85679e6fd21178e0deda4a2a26d56e20e94d07c9460ffa784f15d28d64b2ca23"
     },
     "better-layout": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-layout/SKILL.md",
-      "computedHash": "d166f32df548e6da2d45677d959d7020668316b036e8c495b76233b05f7a6c4e"
+      "computedHash": "d166f32df548e6da2d45677d959d7020668316b036e8c495b76233b05f7a6c4e",
+      "sha256": "7f53b2c4be8c4ed9ac3ff58874fda7874bcf24a0056cdcd3c5274c47ef1a0553"
     },
     "better-typography": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-typography/SKILL.md",
-      "computedHash": "a43f293432e6df33b62553b67bc1c60e01f7ec66894da9d6bdb8fb95027f6d8d"
+      "computedHash": "a43f293432e6df33b62553b67bc1c60e01f7ec66894da9d6bdb8fb95027f6d8d",
+      "sha256": "7a6cead7b7ddc2e659b482ab184164edd1f10800fc8016d425d1cd164fe86281"
     },
     "better-ui": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-ui/SKILL.md",
-      "computedHash": "d9924d70217ff33a659bafcf78b68189156c406c633e4e958c7d764b3b528517"
+      "computedHash": "d9924d70217ff33a659bafcf78b68189156c406c633e4e958c7d764b3b528517",
+      "sha256": "301b4e6a6f3a2b5420cf0e960163ccdae4a7002f1b20f6f3afbea195ffc1a90f"
     },
     "better-writing": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-writing/SKILL.md",
-      "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344"
+      "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344",
+      "sha256": "5508ab735dac93a0d3409408048c7929a9e089319b30d3199c754a436b8a86ae"
     },
     "pr": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/pr/SKILL.md",
-      "computedHash": "22a15d4d469344b38e03eb0e95772478393975836289393b1bad3c0febcdc679"
+      "computedHash": "22a15d4d469344b38e03eb0e95772478393975836289393b1bad3c0febcdc679",
+      "sha256": "ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd"
     },
     "principle-attack-the-premise": {
       "source": "cursor/plugins (pstack/skills), MIT",
@@ -255,6 +263,7 @@
       "sourceType": "github",
       "skillPath": "skills/react-best-practices/SKILL.md",
       "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212",
+      "sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
       "fileHashes": {
         "AGENTS.md": "fc93e7421177bbf869cce892bc60a6c83a4517d974bc3bf65c4e2c1e58a6ccf6"
       }
