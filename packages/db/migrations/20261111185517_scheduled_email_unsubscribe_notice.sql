@@ -1,0 +1,8 @@
+ALTER TABLE "notice" DROP CONSTRAINT "notice_ck_1";--> statement-breakpoint
+ALTER TABLE "notice" DROP CONSTRAINT "notice_ck_2";--> statement-breakpoint
+ALTER TABLE "notification_preference" DROP CONSTRAINT "notification_preference_ck_1";--> statement-breakpoint
+ALTER TABLE "notification_preference" DROP CONSTRAINT "notification_preference_ck_6";--> statement-breakpoint
+ALTER TABLE "notice" ADD CONSTRAINT "notice_ck_1" CHECK ((category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text])));--> statement-breakpoint
+ALTER TABLE "notice" ADD CONSTRAINT "notice_ck_2" CHECK ((purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text])));--> statement-breakpoint
+ALTER TABLE "notification_preference" ADD CONSTRAINT "notification_preference_ck_1" CHECK (category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe'));--> statement-breakpoint
+ALTER TABLE "notification_preference" ADD CONSTRAINT "notification_preference_ck_6" CHECK (((category <> ALL (ARRAY['wiki_upstream_review'::text, 'scheduled_email_unsubscribe'::text])) OR (channel = 'in_app'::text)));

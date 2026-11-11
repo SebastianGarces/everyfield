@@ -6,6 +6,7 @@ import {
 	CheckListIcon,
 	Clock01Icon,
 	Link01Icon,
+	MailRemove01Icon,
 	Rocket01Icon,
 	Share08Icon,
 	StartUp02Icon,
@@ -67,6 +68,7 @@ const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }>
 	phase_milestone: { area: "Phase", icon: StartUp02Icon, tone: "violet" },
 	launch_milestone: { area: "Launch", icon: Rocket01Icon, tone: "violet" },
 	wiki_upstream_review: { area: "Wiki", icon: BookOpen01Icon, tone: "teal" },
+	scheduled_email_unsubscribe: { area: "Messages", icon: MailRemove01Icon, tone: "magenta" },
 };
 export const areaOf = (category: Category) => AREA[category];
 export const categoryLabel = (category: Category) => CATEGORY_TEXT[category].label;
