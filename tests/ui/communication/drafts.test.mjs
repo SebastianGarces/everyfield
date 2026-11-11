@@ -126,6 +126,42 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:CASE-COM-003 (${name}): a draft saved, left for history and reopened shows the saved text and saves again`, async () => {
+		const rows = await database();
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			const subject = `Reopen ${name} ${Date.now().toString(36)}`;
+			await startWrite(page, subject);
+			await saveDraft(page);
+			// A full load of Messages while the draft is at its first revision, then a later save inside the page.
+			await open(page, "/communication");
+			const row = () =>
+				page.getByRole("region", { name: "History" }).getByRole("button", { name: new RegExp(subject) });
+			await row().click();
+			await heading(page, "Write the message").waitFor();
+			const message = page.getByRole("combobox", { name: "Message" });
+			assert.equal(await message.inputValue(), "Hello {{name}}.");
+			await message.fill("Second text {{name}}.");
+			await page.getByRole("button", { name: "Save draft" }).first().click();
+			await page.getByText("Draft saved.").waitFor();
+
+			// Back to history and in again: the editor holds the second save, not the page's first copy.
+			await page.getByRole("button", { name: "Back to messages" }).click();
+			await page.getByRole("button", { name: "New message" }).first().waitFor();
+			await row().click();
+			await heading(page, "Write the message").waitFor();
+			assert.equal(await message.inputValue(), "Second text {{name}}.");
+			assert.equal(await page.getByLabel("Subject").inputValue(), subject);
+
+			// The next save goes through: no stale-revision refusal.
+			await message.fill("Third text {{name}}.");
+			await page.getByRole("button", { name: "Save draft" }).first().click();
+			await page.getByText("Draft saved.").waitFor();
+			assert.equal(await page.getByText("This record changed. Reload it, then try again.").count(), 0);
+			assert.equal(await rows.count("draft", subject), 1);
+		});
+	});
+
 	test(`AC:CASE-COM-003 (${name}): the form survives Write to Who to Write, and a reload opens a new message at Who`, async () => {
 		const rows = await database();
 		await withPage(engine, async (page, context) => {
