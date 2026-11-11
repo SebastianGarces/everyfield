@@ -305,8 +305,9 @@ export default function ChurchEditor({
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
 		return {
-			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
-			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
+			// A card is its tile cell, padding inside, so its text column is the PDF's: the cell less twice the padding.
+			"--page-w": px(width),
+			"--page-h": px(height),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
 			...paletteVars(brand.palette),
