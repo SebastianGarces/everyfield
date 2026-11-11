@@ -2,6 +2,7 @@
 
 import { Camera01Icon, Delete02Icon, ImageUpload01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { photoMime } from "@everyfield/contracts/people";
 import {
 	Menu,
 	MenuContent,
@@ -24,7 +25,7 @@ import { throughStore, type PersonStore } from "../model.ts";
 import { problemText, useStore } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
-import { PHOTO_TYPES, photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
+import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 /** The words for a refused photo change. */
@@ -226,7 +227,7 @@ export function PersonPhoto({
 					<input
 						ref={input}
 						type="file"
-						accept={PHOTO_TYPES.join(",")}
+						accept={photoMime.options.join(",")}
 						className="sr-only"
 						tabIndex={-1}
 						aria-hidden="true"

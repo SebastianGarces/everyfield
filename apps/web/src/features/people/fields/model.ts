@@ -2,6 +2,7 @@
 // change in Activity. No React and no server code, so they run the same in the browser, on the server and in node tests.
 
 import type * as people from "@everyfield/contracts/people";
+import { householdRole, PHOTO_MAX_BYTES, photoMime, proficiency, skillCategory } from "@everyfield/contracts/people";
 import type { Tone } from "@everyfield/ui/display";
 import type { z } from "zod";
 
@@ -25,7 +26,7 @@ export type PersonFields = {
 	photo: PhotoResult;
 };
 
-export const SKILL_CATEGORIES = ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"] as const;
+export const SKILL_CATEGORIES = skillCategory.options;
 export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	worship: "Worship",
 	tech: "Tech",
@@ -35,14 +36,14 @@ export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	leadership: "Leadership",
 	other: "Other",
 };
-export const PROFICIENCIES = ["beginner", "intermediate", "advanced", "expert"] as const;
+export const PROFICIENCIES = proficiency.options;
 export const PROFICIENCY_LABEL: Record<Proficiency, string> = {
 	beginner: "Beginner",
 	intermediate: "Intermediate",
 	advanced: "Advanced",
 	expert: "Expert",
 };
-export const ROLES = ["head", "spouse", "child", "other"] as const;
+export const ROLES = householdRole.options;
 export const ROLE_LABEL: Record<HouseholdRole, string> = {
 	head: "Head",
 	spouse: "Spouse",
@@ -108,14 +109,11 @@ export function addressLine(a: {
 	return line || null;
 }
 
-export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX = 3 * 1024 * 1024;
-
 /** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
 export function photoProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
-	if (!PHOTO_TYPES.includes(file.type)) return "Use a JPG, PNG or WebP photo.";
-	if (file.size > MAX) return "Choose a photo smaller than 3 MB.";
+	if (!photoMime.safeParse(file.type).success) return "Use a JPG, PNG or WebP photo.";
+	if (file.size > PHOTO_MAX_BYTES) return "Choose a photo smaller than 3 MB.";
 	return null;
 }
 

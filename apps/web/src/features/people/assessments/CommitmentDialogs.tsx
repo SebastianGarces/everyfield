@@ -8,6 +8,7 @@ import {
 	UserRemove01Icon,
 	UserCheck01Icon,
 } from "@hugeicons/core-free-icons";
+import { COMMITMENT_MAX_BYTES, commitmentMime } from "@everyfield/contracts/people";
 import {
 	Button,
 	Field,
@@ -27,15 +28,14 @@ import { findWitnesses } from "./actions.ts";
 import { KIND_LABEL, today, type Commitment, type Kind } from "./model.ts";
 import { ChoiceField, recordProblem } from "./parts.tsx";
 
-export const DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"] as const;
-const MAX_BYTES = 10 * 1024 * 1024;
+export const DOCUMENT_TYPES = commitmentMime.options;
 const KINDS = (["core_group", "launch_team"] as const).map((k) => ({ value: k, label: KIND_LABEL[k] }));
 
 /** The client check before an upload (REQ-PPL-014). The server checks the bytes and type again. */
 export function documentProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose the signed card.";
-	if (!(DOCUMENT_TYPES as readonly string[]).includes(file.type)) return "Use a PDF, JPG or PNG file.";
-	if (file.size > MAX_BYTES) return "Choose a file of 10 MB or less.";
+	if (!commitmentMime.safeParse(file.type).success) return "Use a PDF, JPG or PNG file.";
+	if (file.size > COMMITMENT_MAX_BYTES) return "Choose a file of 10 MB or less.";
 	return null;
 }
 export const fileSize = (bytes: number) =>
