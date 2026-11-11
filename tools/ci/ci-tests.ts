@@ -74,7 +74,7 @@ export function checkCiTests(root: string): void {
 				}
 			} else if (["node", "tsx"].includes(tokens[0]) && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {
-					if (!/\.test\.(?:mts|ts)$/.test(token)) continue;
+					if (!/\.(?:test\.(?:mts|ts|mjs)|db\.mts)$/.test(token)) continue;
 					for (const file of globSync(token, { cwd: resolve(root, pkg.dir) })) {
 						covered.add(relative(root, resolve(root, pkg.dir, file)));
 						// The write budget harness executes exactly the same checked-in suite manifest.
@@ -127,7 +127,18 @@ export function checkCiTests(root: string): void {
 	const unrun = packages.filter((p) => p.dir !== "." && p.scripts["test:db"] && !visited.has(`${p.dir}:test:db`));
 	if (unrun.length)
 		fail(`ci.yml runs no test:db for ${unrun.map((p) => p.name || p.dir).join(", ")}. Add a step to the db job.`);
-	const files = globSync(["tests/integration/**/*.test.mts", "packages/*/test/**/*.test.mts"], { cwd: root }).sort();
+	// Browser suites, the tests/ui files that import tests/ui/setup.mjs, run nightly and in the verifier's preview.
+	const browserSuite = (file: string) =>
+		[...readFileSync(join(root, file), "utf8").matchAll(/\b(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)].some(
+			([, spec]) => relative(root, resolve(root, dirname(file), spec)) === "tests/ui/setup.mjs",
+		);
+	const files = [
+		...globSync(
+			["tests/{integration,evry,reference,contracts}/**/*.{test,db}.mts", "packages/*/{src,test}/**/*.test.{ts,mts}"],
+			{ cwd: root },
+		),
+		...globSync("tests/ui/**/*.test.{mjs,mts}", { cwd: root }).filter((file) => !browserSuite(file)),
+	].sort();
 	const exceptionFile = join(root, "tools/ci/ci-test-exceptions.json");
 	const exceptions = new Set<string>();
 	if (existsSync(exceptionFile)) {
