@@ -90,4 +90,3 @@ export const removePreview = (root: string, id: string) =>
 	change(root, (records) => {
 		records.previews = records.previews.filter((preview) => preview.id !== id);
 	});
-

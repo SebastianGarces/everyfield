@@ -52,9 +52,7 @@ async function main() {
 	if (values.mode && action !== "up") throw new Error("--mode is only valid with up.");
 	const mode = values.mode ?? "development";
 	if (!["development", "production"].includes(mode)) throw new Error("Choose development or production mode.");
-	const project = realpathSync(
-		resolve(values.project ?? join(dirname(fileURLToPath(import.meta.url)), "..")),
-	);
+	const project = realpathSync(resolve(values.project ?? join(dirname(fileURLToPath(import.meta.url)), "..")));
 	const records = portless(["status"]);
 	if (!Array.isArray(records)) throw new Error("Portless status must return an array.");
 	const previews = records.filter((p) => p.project === project && !["removed", "failed"].includes(p.state));
