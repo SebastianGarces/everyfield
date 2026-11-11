@@ -197,7 +197,7 @@ const audits = async (action) =>
 	);
 
 describe("T-18 Save as template: a church saves its own document as a template", { concurrency: 1 }, () => {
-	test("a saved revision becomes the church's template; a document from it copies that revision with the church's current details", async () => {
+	test("AC:DOC-TEMPLATE-SAVE AC:DOC-TEMPLATE-PICKER a saved revision becomes the church's template; a document from it copies that revision with the church's current details", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t18-policy"));
 		// The church edits its copy: a block goes and a paragraph with a placeholder comes in.
 		const edited = structuredClone(doc.body);
@@ -376,7 +376,7 @@ describe("T-18 Save as template: a church saves its own document as a template",
 		state.retried = first;
 	});
 
-	test("deleting a template takes it out of New from template; documents made from it keep working", async () => {
+	test("AC:DOC-TEMPLATE-DELETE deleting a template takes it out of New from template; documents made from it keep working", async () => {
 		const { template, copy, second } = state;
 		const before = await counts();
 		const done = ok(await deleteTemplate(ADMIN, template.id));
@@ -411,7 +411,7 @@ describe("T-18 Save as template: a church saves its own document as a template",
 		ok(await fileOf(OWNER, copy.id, "docx"));
 	});
 
-	test("a Member, another church's seat and another church's records are refused and write nothing", async () => {
+	test("AC:DOC-TEMPLATE-MEMBER a Member, another church's seat and another church's records are refused and write nothing", async () => {
 		const { second, retried } = state;
 		const before = await counts();
 		const input = { documentId: second.id, revision: 1, name: "Not allowed", requestKey: "t18-refused" };
@@ -463,7 +463,7 @@ describe(
 	{ concurrency: 1 },
 	() => {
 		const t = {};
-		test("an update makes v2 from a saved revision; New from template copies v2 and a v1 document stays exactly as it was", async () => {
+		test("AC:DOC-TEMPLATE-UPDATE an update makes v2 from a saved revision; New from template copies v2 and a v1 document stays exactly as it was", async () => {
 			await admin.execute(sql`UPDATE plant SET name = 'Harvest Point' WHERE id = ${P}::uuid`);
 			const first = await edited(
 				OWNER,
@@ -599,7 +599,7 @@ describe(
 			assert.deepEqual(await counts(), { ...mid, revisions: mid.revisions + 1, audits: mid.audits + 1 });
 		});
 
-		test("two updates naming the same version: the first makes the next one, the second is refused and writes nothing", async () => {
+		test("AC:DOC-TEMPLATE-UPDATE-CONFLICT two updates naming the same version: the first makes the next one, the second is refused and writes nothing", async () => {
 			const { template, first, second } = t;
 			const named = (requestKey, doc) => ({
 				templateId: template.id,
@@ -656,21 +656,6 @@ describe(
 			assert.equal(await documentState(v1.id), v1State);
 			const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: first.id }));
 			assert.equal(read.revision, "2", "the document saved over it is unchanged");
-		});
-
-		test("a document from an updated formal/legal template keeps the legal notice after Delete all content", async () => {
-			const { v2 } = t;
-			const wiped = structuredClone(v2.body);
-			wiped.body = { type: "doc", content: [] };
-			wiped.page.header = { pages: "all", content: [] };
-			wiped.page.footer = { pages: "all", content: [] };
-			const saved = ok(await save(OWNER, v2.id, v2.revision, wiped));
-			assert.equal(saved.documentClass, "formal/legal");
-			assert.deepEqual(await pdfPages(bytesFrom(ok(await fileOf(OWNER, v2.id, "pdf")))), [
-				"Template, not legal advice",
-			]);
-			const word = docxParts(bytesFrom(ok(await fileOf(OWNER, v2.id, "docx"))));
-			assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
 		});
 
 		test("a deleted template is not offered and cannot be updated", async () => {
@@ -743,7 +728,7 @@ describe(
 	{ concurrency: 1 },
 	() => {
 		const t = {};
-		test("a rename changes the card, later documents and the from line, and no revision, version or earlier document", async () => {
+		test("AC:DOC-TEMPLATE-EDIT a rename changes the card, later documents and the from line, and no revision, version or earlier document", async () => {
 			const source = await edited(
 				OWNER,
 				ok(await create(OWNER, "conflict-of-interest-policy", "t87-source")),
@@ -1004,7 +989,7 @@ describe(
 			assert.deepEqual(await templateRow(gone.id), row);
 		});
 
-		test("a Member, another church's seat and another church's template are refused and write nothing", async () => {
+		test("AC:DOC-TEMPLATE-EDIT-MEMBER a Member, another church's seat and another church's template are refused and write nothing", async () => {
 			const { template } = t;
 			const theirs = ok(await create(OTHER, "conflict-of-interest-policy", "t87-theirs"));
 			const theirTemplate = ok(

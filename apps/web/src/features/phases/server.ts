@@ -11,7 +11,7 @@ import type { Outcome } from "./model.ts";
 // The journey screen reaches the phases domain here. Pages and actions share the request's one viewer (D59/D60). Every
 // read and write rechecks the live Owner or Admin seat inside its own statement (C13, D70).
 
-export type PhaseViewer = {
+type PhaseViewer = {
 	authority: RequestActor;
 	accountId: string;
 	role: "owner" | "admin" | "member";
