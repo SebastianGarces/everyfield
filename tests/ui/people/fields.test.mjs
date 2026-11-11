@@ -4,7 +4,13 @@
 //     viewed person comes only from the members list, so after leaving the card shows no household.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addressLine, householdChange, membershipOf, photoProblem, takeFile } from "../../../apps/web/src/features/people/fields/model.ts";
+import {
+	addressLine,
+	householdChange,
+	membershipOf,
+	photoProblem,
+	takeFile,
+} from "../../../apps/web/src/features/people/fields/model.ts";
 
 const santos = (role) => ({ householdId: "h1", name: "Santos household", role });
 

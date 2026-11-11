@@ -8,11 +8,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
-import {
-	effectiveAdult,
-	effectiveAdultSql,
-	plantTodaySql,
-} from "../../../packages/domain/src/people/adult.ts";
+import { effectiveAdult, effectiveAdultSql, plantTodaySql } from "../../../packages/domain/src/people/adult.ts";
 import {
 	assessments,
 	peopleWriter as write,
@@ -1742,8 +1738,7 @@ test("INV-adult: the plant-local date decides, not the UTC date", async () => {
 	// 2026-06-15T03:00Z is still June 14 in Chicago and already June 15 in UTC. The 18th birthday is June 15.
 	const instant = "2026-06-15T03:00:00Z";
 	const day = async (zone) =>
-		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`))
-			.rows[0].day;
+		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`)).rows[0].day;
 	assert.equal(await day("America/Chicago"), "2026-06-14");
 	assert.equal(await day("UTC"), "2026-06-15");
 	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("America/Chicago")).value, "child");
