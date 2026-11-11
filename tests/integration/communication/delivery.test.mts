@@ -606,6 +606,35 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal(bad.status, 401);
 	assert.equal((await bad.json()).code, "invalid_signature");
+	// An unsigned stream past 16 KB is refused at the limit: the route stops pulling and never buffers the rest.
+	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0].n;
+	const beforeAll = await allEvents();
+	const chunks = 64;
+	let pulled = 0;
+	let cancelled = false;
+	const stream = new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (pulled === chunks) return controller.close();
+			pulled++;
+			controller.enqueue(new Uint8Array(1024).fill(0x20));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+	const oversize = await POST(
+		new Request("https://example.test/api/webhooks/resend", {
+			method: "POST",
+			body: stream,
+			duplex: "half",
+			headers: { "svix-id": "oversize", "svix-timestamp": String(Math.floor(Date.now() / 1000)) },
+		} as RequestInit),
+	);
+	assert.equal(oversize.status, 413);
+	assert.equal((await oversize.json()).code, "invalid_input");
+	assert.ok(pulled < chunks, `pulled ${pulled} of ${chunks} chunks`);
+	assert.ok(cancelled);
+	assert.equal(await allEvents(), beforeAll);
 	const got = await GET();
 	assert.equal(got.status, 405);
 	assert.equal((await got.json()).code, "method_not_allowed");
