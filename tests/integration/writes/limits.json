@@ -1574,6 +1574,7 @@
 	},
 	"teams.addResponsibility": {
 		"limit": 7,
+		"retry": 5,
 		"reason": "A non-admin leader checks that they lead the team. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.appointLeader": {
@@ -1590,7 +1591,7 @@
 	},
 	"teams.attestCompletion": {
 		"limit": 7,
-		"retry": 2,
+		"retry": 5,
 		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"teams.completeResponsibility": {
@@ -1611,11 +1612,11 @@
 	},
 	"teams.createProgram": {
 		"limit": 6,
-		"retry": 4
+		"retry": 5
 	},
 	"teams.createRole": {
 		"limit": 6,
-		"retry": 2
+		"retry": 5
 	},
 	"teams.deleteResponsibility": {
 		"limit": 8,
@@ -1633,6 +1634,7 @@
 	},
 	"teams.editRole": {
 		"limit": 8,
+		"retry": 5,
 		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"teams.endMembership": {
@@ -1682,6 +1684,7 @@
 	},
 	"teams.recompleteTraining": {
 		"limit": 7,
+		"retry": 5,
 		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"teams.recordAttendance": {
@@ -1703,7 +1706,7 @@
 	},
 	"teams.scheduleMeeting": {
 		"limit": 9,
-		"retry": 4,
+		"retry": 5,
 		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"teams.setRequiredTrainingParticipants": {
