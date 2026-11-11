@@ -116,8 +116,7 @@ const restoreSeat = (accountId) =>
 const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
-const docx = (text, extra = []) =>
-	storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
+const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
 function zipBomb() {
 	const name = Buffer.from("word/document.xml");
 	const local = Buffer.alloc(30 + name.length + 1);

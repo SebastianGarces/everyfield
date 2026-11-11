@@ -206,4 +206,3 @@ export async function copyToChurch(input: {
 		return { status: "ok", value: { id: reply.value.id } };
 	});
 }
-

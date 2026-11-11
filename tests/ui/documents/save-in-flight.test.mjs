@@ -161,7 +161,10 @@ const fillTo = (page, target) =>
 			if (child.type.name === "paragraph") end = offset + child.nodeSize;
 		});
 		ed.chain()
-			.insertContentAt(end, Array.from({ length: room }, () => paragraph))
+			.insertContentAt(
+				end,
+				Array.from({ length: room }, () => paragraph),
+			)
 			.run();
 		return size();
 	}, target);

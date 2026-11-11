@@ -72,7 +72,9 @@ export async function importRoute(request: Request) {
 		if (reply.status === "refused") {
 			const error = reply.error;
 			const problem = error.code === "invalid_input" ? error.details.issues[0]?.problem : undefined;
-			return answer(problem ? { status: "refused", code: error.code, problem } : { status: "refused", code: error.code });
+			return answer(
+				problem ? { status: "refused", code: error.code, problem } : { status: "refused", code: error.code },
+			);
 		}
 		return answer({ status: "ok", value: writtenView(reply.value) });
 	} catch (error) {

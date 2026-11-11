@@ -26,12 +26,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-	archiveOwnedDocument,
-	designateOwnedDocument,
-	saveOwnedDocument,
-	type DocumentOutcome,
-} from "../actions.ts";
+import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
@@ -60,10 +55,7 @@ function fileFormat(file: File): "text" | "docx" | null {
 }
 
 /** Sends the file's raw bytes to the import route (a server action caps its body far below the import limit). */
-async function importWritten(
-	file: File,
-	params: Record<string, string>,
-): Promise<DocumentOutcome<WrittenView>> {
+async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
 	try {
 		const response = await fetch(`/documents/written/import?${new URLSearchParams(params)}`, {
 			method: "POST",
