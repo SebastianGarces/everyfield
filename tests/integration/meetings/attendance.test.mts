@@ -72,6 +72,23 @@ const reconcile = async (who, meetingId, attendeeIds) =>
 const work = (meetingId) =>
 	rows(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b LEFT JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${meetingId} ORDER BY b.kind, b.person_id`);
+/** A participation row as the attendance contract shows it, read back from the database. */
+async function storedAttendee(meetingId, personId) {
+	const g = await one(sql`SELECT g.id, g.revision::text AS revision, g.presence, coalesce(g.rsvp, 'pending') AS rsvp,
+		g.card_response IS NOT NULL AS has_card, g.classification, g.classification_stage, g.prior_vision_id, p.display_name,
+		p.state FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id=${meetingId} AND g.person_id=${personId}`);
+	return {
+		guestId: g.id,
+		revision: g.revision,
+		person: { personId, displayName: g.display_name, state: g.state },
+		presence: g.presence,
+		rsvp: g.rsvp,
+		hasCard: g.has_card,
+		classification: g.classification,
+		classificationStage: g.classification_stage,
+		priorVisionId: g.prior_vision_id,
+	};
+}
 const stageOf = async (id) => (await one(sql`SELECT stage FROM person WHERE id=${id}`)).stage;
 const classOf = async (meetingId, personId) =>
 	one(
@@ -910,6 +927,109 @@ test("INV-attendance: guest list writes that change the attended set move its re
 	assert.deepEqual(await attended(), ["Alex"]);
 });
 
+test("BUG-T155: guest, walk-in, finalize and reconcile results carry the revisions they wrote, so the next save goes through", async () => {
+	const m = await meeting();
+	const [alex, casey, dana, newcomer] = [
+		await person("Alex"),
+		await person("Casey"),
+		await person("Dana"),
+		await person("Newcomer"),
+	];
+	const guestRevision = async (personId) => (await storedAttendee(m, personId)).revision;
+	const invite = (personId) =>
+		guestWrite(owner, "inviteGuest", { requestKey: key(), input: { meetingId: m, personId } });
+	// Every guest result names the attendance revision the meeting holds after it: moved by an attended guest
+	// joining or leaving, unchanged otherwise.
+	const steps = [];
+	const step = async (what, result) => {
+		const value = ok(await result);
+		assert.equal(value.attendanceRevision, await revision(m), what);
+		steps.push(value.attendanceRevision);
+		return value;
+	};
+	await step("invite", invite(alex));
+	await step("invite", invite(casey));
+	await step("invite", invite(dana));
+	for (const personId of [alex, casey])
+		ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId } }));
+	const before = await revision(m);
+	const door = (
+		await step(
+			"walk-in",
+			guestWrite(owner, "createWalkInContact", { requestKey: key(), input: { meetingId: m, displayName: "Door" } }),
+		)
+	).guest.person.personId;
+	const sam = (
+		await step(
+			"attended contact",
+			guestWrite(owner, "createGuestContact", {
+				requestKey: key(),
+				input: { meetingId: m, displayName: "Sam", attendance: "attended" },
+			}),
+		)
+	).guest.person.personId;
+	await step(
+		"absent contact",
+		guestWrite(owner, "createGuestContact", {
+			requestKey: key(),
+			input: { meetingId: m, displayName: "Later", attendance: "not_recorded" },
+		}),
+	);
+	const removed = await step(
+		"remove an attended guest",
+		guestWrite(owner, "removeGuest", {
+			requestKey: key(),
+			expectedRevision: await guestRevision(casey),
+			input: { meetingId: m, personId: casey },
+		}),
+	);
+	assert.equal(BigInt(removed.attendanceRevision) - BigInt(before), 3n, "a walk-in, an attended contact, a removal");
+
+	// Walk-in, then Finish check-in: the finalize reviewed at the revision the last guest answer returned goes through.
+	const final = ok(
+		await write(owner, "finalizeAttendance", {
+			requestKey: key(),
+			expectedRevision: removed.attendanceRevision,
+			input: { meetingId: m, attendeeIds: [alex, door, newcomer] },
+		}),
+	);
+	assert.equal(final.attendanceRevision, await revision(m));
+	// The written rows come back as stored: the attendees, the newcomer's new row and Sam, marked but not kept.
+	assert.deepEqual(final.attendees, await Promise.all([alex, door, sam, newcomer].map((id) => storedAttendee(m, id))));
+	assert.deepEqual(
+		final.attendees.map((a) => [a.person.displayName, a.presence]),
+		[
+			["Alex", "attended"],
+			["Door", "attended"],
+			["Sam", "absent"],
+			["Newcomer", "attended"],
+		],
+	);
+	// A response card at the revision finalize returned saves the first time.
+	const alexRow = final.attendees.find((a) => a.person.personId === alex);
+	ok(
+		await guestWrite(owner, "recordCard", {
+			requestKey: key(),
+			expectedRevision: alexRow.revision,
+			input: { meetingId: m, personId: alex, response: "interested" },
+		}),
+	);
+
+	// A correction returns each row it wrote, the removed attendee too.
+	const corrected = ok(
+		await write(owner, "reconcileAttendance", {
+			requestKey: key(),
+			expectedRevision: final.attendanceRevision,
+			input: { meetingId: m, attendeeIds: [alex, newcomer, casey], reason: "Sign-in sheet checked" },
+		}),
+	);
+	assert.deepEqual(corrected.attendees, await Promise.all([casey, door].map((id) => storedAttendee(m, id))));
+	assert.equal(corrected.attendanceRevision, await revision(m));
+	// A finalize that changes nothing writes no row and returns none.
+	const again = ok(await finalize(owner, m, [alex, newcomer, casey]));
+	assert.deepEqual([again.outcome, again.attendees], ["noop", []]);
+});
+
 test("INV-statements: a finalize preview runs the command once and saves nothing", async () => {
 	const m = await meeting();
 	const [alex, casey] = [await person("Alex"), await person("Casey")];
@@ -1144,6 +1264,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			}),
 			stageChanges: [{ personId: c.extra, from: "prospect", to: "attendee" }],
 			work: expectedWork,
+			// The rows it wrote, as stored now: the leaver's existing row, then the added Person's new one.
+			attendees: await Promise.all([c.leaver, c.extra].map((id) => storedAttendee(c.v, id))),
 		},
 	);
 
