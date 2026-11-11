@@ -6,15 +6,16 @@ import { parseArgs } from "node:util";
 import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./typecheck.ts";
 
 /**
- * Time tsc, tsgo and bun check on each typecheck package (T-53).
+ * Time TypeScript 7 (the `typecheck` scripts' tsc), TypeScript 6 (each package's own `typescript`, which lint, Next and
+ * the reference build still need) and bun check on each typecheck package (T-53, T-252).
  * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
  * Each run records the 1-minute load average before it starts, wall time, CPU time (user + system, children
- * included) and peak resident memory, from /usr/bin/time. tsc and tsgo run with --incremental false, so every run
+ * included) and peak resident memory, from /usr/bin/time. ts6 and ts7 run with --incremental false, so every run
  * is a full check, as on a fresh checkout or in GitHub CI.
  */
 
-type Tool = "tsc" | "tsgo" | "bun";
-const TOOLS: Tool[] = ["tsc", "tsgo", "bun"];
+type Tool = "ts6" | "ts7" | "bun";
+const TOOLS: Tool[] = ["ts6", "ts7", "bun"];
 
 export type Measurement = {
 	package: string;
@@ -30,13 +31,13 @@ export type Measurement = {
 };
 
 function commands(root: string, dir: string): Record<Tool, string[]> {
-	const tsc = join(root, dir, "node_modules/.bin/tsc");
-	const tsgo = join(root, "apps/web/node_modules/.bin/tsgo");
+	const ts6 = join(root, dir, "node_modules/typescript/bin/tsc");
+	const ts7 = join(root, "node_modules/typescript-7/bin/tsc");
 	const bun = join(realpathSync(join(root, "node_modules/bun")), "bin/bun.exe");
-	for (const bin of [tsc, tsgo, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
+	for (const bin of [ts6, ts7, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
 	return {
-		tsc: [tsc, "--noEmit", "--pretty", "false", "--incremental", "false"],
-		tsgo: [tsgo, "--noEmit", "--pretty", "false", "--incremental", "false"],
+		ts6: [ts6, "--noEmit", "--pretty", "false", "--incremental", "false"],
+		ts7: [ts7, "--noEmit", "--pretty", "false", "--incremental", "false"],
 		bun: [bun, "check", "--no-script", "--no-pretty", "--all"],
 	};
 }
@@ -159,8 +160,8 @@ export async function compare(
 		`## Typecheck comparison, ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
 		"",
 		`${platform()} ${release()}, ${cpus()[0]?.model ?? "?"}, ${availableParallelism()} cores, ${Math.round(totalmem() / 2 ** 30)} GB. ` +
-			`tsc ${version(cmd.tsc)}, tsgo ${version(cmd.tsgo)}, bun ${version(cmd.bun)}. ${runs} runs per package, tools interleaved. ` +
-			"Load is the 1-minute load average when each run started. CPU is user plus system time. tsc and tsgo ran with --incremental false.",
+			`ts6 ${version(cmd.ts6)}, ts7 ${version(cmd.ts7)}, bun ${version(cmd.bun)}. ${runs} runs per package, tools interleaved. ` +
+			"Load is the 1-minute load average when each run started. CPU is user plus system time. ts6 and ts7 ran with --incremental false.",
 	];
 	return { rows, markdown: table(rows, header) };
 }
