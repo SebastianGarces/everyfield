@@ -189,7 +189,10 @@ test("com-36: the stream route's access check is its first page, so an idle conv
 	const counted = { execute: (...args: unknown[]) => (statements++, (db.execute as Function)(...args)) } as typeof db;
 	const seen: Observed[] = [];
 	for await (const item of observeRun(counted, owner, c.id, 0, AbortSignal.timeout(5_000), { first })) seen.push(item);
-	assert.deepEqual(seen, first.events.map((event) => ({ event })));
+	assert.deepEqual(
+		seen,
+		first.events.map((event) => ({ event })),
+	);
 	assert.equal(statements, 0);
 });
 

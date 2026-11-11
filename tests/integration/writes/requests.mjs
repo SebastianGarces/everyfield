@@ -336,7 +336,10 @@ try {
 		return found[0][0];
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
-		const r = await fetch(origin + path, { headers: { ...headers, "x-evf-request": name, cookie }, redirect: "manual" });
+		const r = await fetch(origin + path, {
+			headers: { ...headers, "x-evf-request": name, cookie },
+			redirect: "manual",
+		});
 		await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
 	};
