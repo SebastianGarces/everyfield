@@ -795,7 +795,16 @@ test("OPS-126: the runbook's login table lists exactly the QA logins and says wh
 	);
 	assert.deepEqual(
 		table.map((cells) => cells[1]),
-		["Owner", "Admin", "Member", "Network Admin", "Sending-church director", "Second Member", "Sign-up", "Riverside Owner"],
+		[
+			"Owner",
+			"Admin",
+			"Member",
+			"Network Admin",
+			"Sending-church director",
+			"Second Member",
+			"Sign-up",
+			"Riverside Owner",
+		],
 	);
 	for (const words of [
 		ORGS.network,
@@ -948,7 +957,10 @@ test("T-255: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one deployment
 		// The record and the list hold no address.
 		const stored = readFileSync(join(s.root, ".git/qa/previews.json"), "utf8");
 		assert.ok(!stored.includes("example."), stored);
-		assert.match(s.qa("list").stdout.trim(), new RegExp(`^${id}  feature/nora-qa  ${url}  neon:${id}  age 0m  [0-9a-f]{12}$`));
+		assert.match(
+			s.qa("list").stdout.trim(),
+			new RegExp(`^${id}  feature/nora-qa  ${url}  neon:${id}  age 0m  [0-9a-f]{12}$`),
+		);
 	} finally {
 		s.done();
 	}
@@ -1035,7 +1047,9 @@ test("T-255: Riverside (QA) is a church plant with its own Owner login, whose se
 		],
 	);
 	// A plant, not an organization: no sending church or network carries the name.
-	assert.deepEqual(await query("SELECT count(*)::int AS n FROM organization WHERE name = 'Riverside (QA)'"), [{ n: 0 }]);
+	assert.deepEqual(await query("SELECT count(*)::int AS n FROM organization WHERE name = 'Riverside (QA)'"), [
+		{ n: 0 },
+	]);
 	const seen = churches((await fresh()).env);
 	assert.deepEqual(seen.riverside.context, { kind: "seat", selected: "plant", church: "Riverside (QA)" });
 	assert.deepEqual(seen.owner.context, { kind: "seat", selected: "plant", church: "Harvest Point (QA)" });
@@ -1044,7 +1058,10 @@ test("T-255: Riverside (QA) is a church plant with its own Owner login, whose se
 test("T-255: with no test recipients, Ana Lee is in both churches at her resend.dev address, and each Owner sees only its church", async () => {
 	const seen = churches((await fresh()).env);
 	const ana = { name: "Ana Lee", email: "delivered+qa-ana@resend.dev" };
-	assert.ok(seen.owner.people.some((p: any) => p.name === "Ana Lee" && p.email === ana.email), JSON.stringify(seen.owner));
+	assert.ok(
+		seen.owner.people.some((p: any) => p.name === "Ana Lee" && p.email === ana.email),
+		JSON.stringify(seen.owner),
+	);
 	assert.deepEqual(
 		seen.riverside.people.filter((p: any) => p.name !== "Rachel Moss"),
 		[ana],

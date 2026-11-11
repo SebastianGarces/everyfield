@@ -115,7 +115,8 @@ const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
  */
 export function parseTestRecipients(raw: string): string[] | string {
 	const entries = raw.split(",").map((entry) => entry.trim());
-	if (!raw.trim()) return "--test-recipients needs one or more full addresses, comma-separated: --test-recipients a@example.com";
+	if (!raw.trim())
+		return "--test-recipients needs one or more full addresses, comma-separated: --test-recipients a@example.com";
 	const bad = entries.filter((entry) => !FULL_ADDRESS.test(entry));
 	if (bad.length)
 		return `--test-recipients takes full addresses only, comma-separated, with no empty entry, bare domain or wildcard. Fix: ${bad.map((b) => JSON.stringify(b)).join(", ")}`;

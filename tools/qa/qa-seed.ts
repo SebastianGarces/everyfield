@@ -576,7 +576,13 @@ async function fill(
 	// T-255: Riverside (QA), a second church plant with its own Owner, and Ana Lee as a person there too, at the same
 	// address she has in Harvest Point (QA). Before the wiki parts, which the OPS-106 tests expect last.
 	const riversideOwner = await account(RIVERSIDE.owner, QA_LOGINS.riverside);
-	const riverside = await church(RIVERSIDE.name, RIVERSIDE.city, riversideOwner, QA_LOGINS.riverside, ` ${RIVERSIDE.name}`);
+	const riverside = await church(
+		RIVERSIDE.name,
+		RIVERSIDE.city,
+		riversideOwner,
+		QA_LOGINS.riverside,
+		` ${RIVERSIDE.name}`,
+	);
 	if (!(await personIn(riverside, SHARED.name))) {
 		const c = { session: await sessionOf(QA_LOGINS.riverside), selected: { kind: "plant", id: riverside } };
 		ok(

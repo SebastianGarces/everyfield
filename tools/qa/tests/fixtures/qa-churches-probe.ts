@@ -60,9 +60,15 @@ async function people(sessionId: string, plant: string) {
 	const ctx = { session: sessionId, selected: { kind: "plant", id: plant } } as never;
 	const reply = (await runtime.transaction((tx) =>
 		peopleReader.listPeople(tx as never, ctx, { page: 1, limit: 100 } as never),
-	)) as { status: string; value?: { items: { displayName: string; email: string | null }[] }; error?: { code: string } };
+	)) as {
+		status: string;
+		value?: { items: { displayName: string; email: string | null }[] };
+		error?: { code: string };
+	};
 	if (reply.status !== "ok") return { refused: reply.error?.code ?? reply.status };
-	return reply.value!.items.map((p) => ({ name: p.displayName, email: p.email })).sort((a, b) => a.name.localeCompare(b.name));
+	return reply
+		.value!.items.map((p) => ({ name: p.displayName, email: p.email }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const out: Record<string, unknown> = {};
