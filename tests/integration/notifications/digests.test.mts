@@ -321,7 +321,7 @@ test("AC:CASE-NTF-008 AC:NOTIFY47-005 WP-030 criteria 4, 8, 9: the 07:00 oversig
 		category: "oversight_digest",
 		unsubscribeRevision: "0",
 	});
-	const described = await feedApi.describeEmailOptOut(runtime, undefined as never, { token });
+	const described = await feedApi.describeEmailOptOut(runtime, { token });
 	assert.equal(described.status, "ok", JSON.stringify(described));
 	const choice = (described as { value: { emailEnabled: boolean; inAppEnabled: boolean } }).value;
 	assert.deepEqual([choice.inAppEnabled, choice.emailEnabled], [true, false]);
@@ -536,13 +536,13 @@ test("T-25 criterion 5: each digest email carries the Unsubscribe link and heade
 		[church_, planter, "planter_digest"],
 		[oversight, overseer, "oversight_digest"],
 	] as const) {
-		const described = await feedApi.describeEmailOptOut(runtime, undefined as never, { token: token(m) });
+		const described = await feedApi.describeEmailOptOut(runtime, { token: token(m) });
 		assert.equal(described.status, "ok", JSON.stringify(described));
 		assert.equal((described as { value: { category: string } }).value.category, category, who.email);
 	}
 	// One-click from the church digest's header: the church digest stops emailing and its bell entry keeps coming. No
 	// other category changes, and the oversight digest still emails.
-	const off = await feedApi.applyEmailOptOut(runtime, { token: token(church_), oneClick: true });
+	const off = await feedApi.applyEmailOptOut(runtime, { token: token(church_) });
 	assert.equal(off.status, "ok", JSON.stringify(off));
 	const prefs = await admin.execute(
 		sql`SELECT category,channel,enabled FROM notification_preference WHERE account_id=${planter.id} AND channel='email' ORDER BY category`,
@@ -558,7 +558,7 @@ test("T-25 criterion 5: each digest email carries the Unsubscribe link and heade
 	assert.equal((await notices(planter.id)).length, 2);
 	assert.equal(emails(overseer).length, 2);
 	// One-click from the latest oversight email stops that digest too; its bell entry keeps coming.
-	const off2 = await feedApi.applyEmailOptOut(runtime, { token: token(emails(overseer).at(-1)), oneClick: true });
+	const off2 = await feedApi.applyEmailOptOut(runtime, { token: token(emails(overseer).at(-1)) });
 	assert.equal(off2.status, "ok", JSON.stringify(off2));
 	await activity(linked, "2026-11-03T15:00:00Z", 1);
 	await run("2026-11-04T08:00:00Z");

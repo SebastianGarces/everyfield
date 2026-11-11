@@ -180,10 +180,9 @@ export function getArticle(db: Database, authority: RequestActor, raw: unknown) 
 export function bookmarksList(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(listArticlesRequest, raw);
-		const owner = selectedOwner(authority);
 		const page = await readPage(
 			db,
-			accessFor(authority, owner.kind === "account" ? owner : selectedOwner(authority)),
+			accessFor(authority),
 			sourceOf(input.source),
 			input.page ?? 1,
 			sql`NOT p.hidden AND EXISTS (
@@ -320,7 +319,6 @@ const navRow = z.object({
 	slug: z.string(),
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
-	relatedIds: z.array(z.uuid()),
 });
 export function navigation(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -346,8 +344,6 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 					phase: item.phase,
 				})),
 			})),
-			breadcrumbs: articles.map((item) => ({ articleId: item.articleId, crumbs: [item.sectionKey, item.title] })),
-			relatedIds: [...new Set(articles.flatMap((item) => item.relatedIds))],
 		});
 	});
 }

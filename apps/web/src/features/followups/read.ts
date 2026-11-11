@@ -44,15 +44,14 @@ export async function GET(request: Request) {
 						page: Number(p.get("page")),
 						limit: HISTORY_PAGE,
 					},
-					(v) =>
-						read(viewer, async (tx) => outcomeOf(await followUpReader.listContactHistory(tx, viewer.authority, v))),
+					(v) => read(async (tx) => outcomeOf(await followUpReader.listContactHistory(tx, viewer.authority, v))),
 				),
 			);
 		// The Person page's follow-up part again, after a refusal because it was out of date.
 		case "person":
 			return answer(
 				await parsed(c.listContactHistoryRequest.pick({ personId: true }), { personId: p.get("person") }, (v) =>
-					read(viewer, async (tx) => ok(await readPersonFollowUps(tx, viewer.authority, v.personId))),
+					read(async (tx) => ok(await readPersonFollowUps(tx, viewer.authority, v.personId))),
 				),
 			);
 		// The next page of a Person's open follow-ups or Vision follow-ups, after the first page of the person page.
@@ -61,8 +60,7 @@ export async function GET(request: Request) {
 				await parsed(
 					c.listFollowUpOwnersRequest,
 					{ personId: p.get("person"), page: Number(p.get("page")), limit: PERSON_PAGE },
-					(v) =>
-						read(viewer, async (tx) => outcomeOf(await followUpReader.listFollowUpOwners(tx, viewer.authority, v))),
+					(v) => read(async (tx) => outcomeOf(await followUpReader.listFollowUpOwners(tx, viewer.authority, v))),
 				),
 			);
 		case "obligations":
@@ -75,7 +73,7 @@ export async function GET(request: Request) {
 						page: Number(p.get("page")),
 						limit: p.get("meeting") ? 100 : PERSON_PAGE,
 					},
-					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
+					(v) => read(async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
 				),
 			);
 		// The Follow-ups page's current view again, after a refusal because a row was out of date.
@@ -84,17 +82,17 @@ export async function GET(request: Request) {
 				await parsed(
 					c.followUpCoverageRequest,
 					{ coverage: p.get("show") ?? "any", page: Number(p.get("page") ?? "1"), limit: COVERAGE_PAGE },
-					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.followUpCoverage(tx, viewer.authority, v))),
+					(v) => read(async (tx) => outcomeOf(await followUpReader.followUpCoverage(tx, viewer.authority, v))),
 				),
 			);
 		case "call":
-			return answer(await parsed(recordId, p.get("id"), (id) => read(viewer, (tx) => loadCall(tx, viewer, id))));
+			return answer(await parsed(recordId, p.get("id"), (id) => read((tx) => loadCall(tx, viewer, id))));
 		case "owners":
-			return answer(await read(viewer, (tx) => readOwners(tx, viewer)));
+			return answer(await read((tx) => readOwners(tx, viewer)));
 		case "plan":
 			return answer(
 				await parsed(c.planHandoffRequest, { fromAccountId: p.get("from") }, (v) =>
-					read(viewer, async (tx) => outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, v))),
+					read(async (tx) => outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, v))),
 				),
 			);
 		default:

@@ -1,7 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { tasksMount } from "@/server/tasks";
 import { personId as personIdOf } from "@everyfield/contracts/common";
-import type { FollowUpError } from "@everyfield/contracts/followups";
 import type { Transaction } from "@everyfield/db/client";
 import {
 	createFollowUpWriter,
@@ -35,7 +34,7 @@ import {
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
-export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -177,5 +176,3 @@ export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: stri
 		: null;
 	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent, others, record } } };
 }
-
-export type { FollowUpError };

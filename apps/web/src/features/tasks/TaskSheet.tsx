@@ -39,11 +39,11 @@ import {
 	type Outcome,
 	type TaskHistory,
 	type TaskItem,
+	type Viewer,
 } from "./model.ts";
 import { DescriptionView } from "./description.ts";
-import { DueLine, STATUS_TONE } from "./parts.tsx";
+import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
 import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
-import { StatusItems, type Viewer } from "./TasksScreen.tsx";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
 /**

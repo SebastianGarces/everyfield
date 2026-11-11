@@ -101,11 +101,16 @@ function feedValue(items: z.infer<typeof itemRow>[]) {
 	});
 }
 
-export async function readFeed(db: Database, authority: RequestActor, raw: unknown) {
+export async function readFeed(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	now: () => Date = () => new Date(),
+) {
 	return readReply(async () => {
 		const input = parse(readFeedRequest, raw);
 		const cursor = input.cursor?.split("|");
-		const asOf = input.asOf ?? new Date().toISOString();
+		const asOf = now().toISOString();
 		const result = await db.execute(
 			feedSql(
 				authority.session,
@@ -127,7 +132,12 @@ export async function readFeed(db: Database, authority: RequestActor, raw: unkno
  * The feed's first page, the unread count of the same category and the account revision that marks carry, in one
  * statement (REQ-NTF-003). The feed page and the bell open read this.
  */
-export async function readFeedPage(db: Database, authority: RequestActor, raw: unknown) {
+export async function readFeedPage(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	now: () => Date = () => new Date(),
+) {
 	return readReply(async () => {
 		const input = parse(readFeedRequest.omit({ cursor: true }), raw);
 		const category = input.category ?? null;
@@ -138,7 +148,7 @@ export async function readFeedPage(db: Database, authority: RequestActor, raw: u
 				category,
 				null,
 				null,
-				input.asOf ?? new Date().toISOString(),
+				now().toISOString(),
 				input.unread === true,
 				sql`(SELECT count(*)::int FROM notice n WHERE ${noticeVisible()} AND n.read_at IS NULL
 					AND (${category}::text IS NULL OR split_part(n.logical_key,'/',2) = ${category})) AS unread,

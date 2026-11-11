@@ -2,8 +2,6 @@
 
 import {
 	Add01Icon,
-	ArrowTurnBackwardIcon,
-	Cancel01Icon,
 	Delete02Icon,
 	FilterHorizontalIcon,
 	LockKeyIcon,
@@ -117,9 +115,10 @@ import {
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type Viewer,
 } from "./model.ts";
 import { DescriptionPreview } from "./description.ts";
-import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
+import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
@@ -127,7 +126,6 @@ import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
 
-export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
 	query: TaskQuery;
 	page: { items: TaskItem[]; total: number; page: number };
@@ -1267,50 +1265,6 @@ function TaskRow({
 			)}
 			<SaveNotice {...notice} dialogOpen={modal} className="basis-full pt-2.5 pl-[58px] max-app-sm:pl-0" />
 		</li>
-	);
-}
-
-/** The status choices for one task, shared by the row menu and the task panel. */
-export function StatusItems({
-	task,
-	disabled = false,
-	onAction,
-}: {
-	task: Pick<TaskItem, "status">;
-	/** The task's last save is in flight or unknown (C68). */
-	disabled?: boolean;
-	onAction: (a: StatusAction) => void;
-}) {
-	if (isSettled(task.status))
-		return (
-			<MenuItem icon={ArrowTurnBackwardIcon} disabled={disabled} onSelect={() => onAction({ kind: "reopen" })}>
-				Reopen
-			</MenuItem>
-		);
-	return (
-		<>
-			<MenuItem icon={Tick02Icon} disabled={disabled} onSelect={() => onAction({ kind: "complete" })}>
-				Mark done
-			</MenuItem>
-			<MenuLabel>Status</MenuLabel>
-			<MenuRadioGroup
-				value={task.status}
-				onValueChange={(v) => {
-					const status = OPEN_STATUSES.find((s) => s === v);
-					if (status && status !== task.status) onAction({ kind: "status", status });
-				}}
-			>
-				{OPEN_STATUSES.map((s) => (
-					<MenuRadioItem key={s} value={s} disabled={disabled}>
-						{STATUS_LABEL[s]}
-					</MenuRadioItem>
-				))}
-			</MenuRadioGroup>
-			<MenuSeparator />
-			<MenuItem icon={Cancel01Icon} disabled={disabled} onSelect={() => onAction({ kind: "waive", reason: null })}>
-				Close as no longer needed
-			</MenuItem>
-		</>
 	);
 }
 

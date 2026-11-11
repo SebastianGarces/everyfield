@@ -157,8 +157,6 @@ export const navigationResult = z.strictObject({
 			),
 		}),
 	),
-	breadcrumbs: z.array(z.strictObject({ articleId: z.uuid(), crumbs: z.array(z.string()) })),
-	relatedIds: z.array(z.uuid()),
 });
 export const neighborsResult = z.strictObject({
 	articles: z.array(

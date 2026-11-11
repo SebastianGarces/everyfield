@@ -1,6 +1,7 @@
 // Pure rules of the follow-up screens (REQ-MTG-021, REQ-MTG-022, REQ-TSK-004, REQ-TSK-012, REQ-TSK-013). No React and
 // no server code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/followups";
+import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
 import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
@@ -197,7 +198,6 @@ export function withOutcome(items: readonly OutcomeItem[], m: Pick<OutcomeMutati
 	);
 }
 
-export const FOLLOW_UP_WINDOW_MS = 48 * 60 * 60 * 1000;
 /**
  * The 48-hour window of a first-Vision follow-up at `now`, from the meeting's actual start (REQ-MTG-021): hours left
  * while it is open, rounded down, or closed. The measure itself is the server's; this is only the countdown.
@@ -229,8 +229,6 @@ export function measurementText(m: NonNullable<ObligationItem["measurement"]>): 
 export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */
 export const COVERAGE_PAGE = 24;
-/** The most follow-ups one handoff request may move (REQ-TSK-013). */
-export const HANDOFF_LIMIT = 100;
 /**
  * A handoff selection after the preview was read again: the person's own choice, kept for the follow-ups still in the
  * preview, with their latest revisions. Follow-ups that left the preview drop out; none is added.
