@@ -53,9 +53,17 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<Onboardi
 export async function readReply<T>(body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	return recover(async () => ({ status: "ok", value: await body() }));
 }
+/** Postgres lock_not_available (a lock_timeout) and query_canceled (a statement_timeout): the same request may pass later. */
+const MOMENTARY = new Set(["55P03", "57014"]);
+function momentary(error: unknown): boolean {
+	for (let e = error, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++)
+		if (MOMENTARY.has(String((e as { code?: unknown }).code))) return true;
+	return false;
+}
 async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<OnboardingReply<T>> {
 	return body().catch((error) => {
 		if (error instanceof WriteUnavailable) error = new Refusal("unavailable");
+		else if (momentary(error)) error = new Refusal("temporary");
 		if (!(error instanceof Refusal)) throw error;
 		return {
 			status: "refused" as const,
