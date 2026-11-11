@@ -241,7 +241,9 @@ test("INV-stream-end: Stop keeps the partial text and ends the stream promptly",
 			{ gap: () => 50 },
 		),
 	);
-	for (let n = 0; n < 100 && lives(seen).length < 3; n++) await sleep(20);
+	// Stop keeps the text saved before it; live text skips the database (D81), so wait for the save, not for live parts.
+	for (let n = 0; n < 200 && !savedText(saved(seen)).startsWith("w0 w1 "); n++) await sleep(20);
+	assert.ok(savedText(saved(seen)).startsWith("w0 w1 "), "the partial text was saved before Stop");
 	const stoppedAt = Date.now();
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);
 	assert.equal(await running, "lost");
