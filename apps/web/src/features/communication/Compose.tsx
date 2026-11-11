@@ -82,7 +82,7 @@ export function Compose({
 	onSaved: (id: string, step: Step) => void;
 	onLeave: () => void;
 	/** The draft was deleted. The screen returns to Messages. */
-	onDeleted: (id: string) => void;
+	onDeleted: () => void;
 	onDone: (messageId: string, text: string) => void;
 }) {
 	const keys = useKeys();
@@ -298,7 +298,7 @@ export function Compose({
 		if (result.status !== "ok") {
 			throw new Error(`${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`);
 		}
-		onDeleted(form.communicationId);
+		onDeleted();
 	};
 
 	const applyTemplate = (key: string) => {

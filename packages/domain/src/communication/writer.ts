@@ -348,10 +348,9 @@ export const communicationWriter = {
 	readMergeFields: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => merge(tx, authority, raw)),
 	readMeetingTemplate: (tx: Tx, authority: RequestActor, raw: unknown) =>
 		readReply(() => meetingTemplate(tx, authority, raw)),
-	list: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, null)),
 	get: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	getDraft: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
-	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, "draft")),
+	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority)),
 	readChurchName: (tx: Tx, authority: RequestActor) => readReply(() => churchName(tx, authority)),
 	listAudienceTeams: (tx: Tx, authority: RequestActor) => readReply(() => teams(tx, authority)),
 	listTemplates: (tx: Tx, authority: RequestActor) => readReply(() => templates(tx, authority)),
@@ -1004,7 +1003,7 @@ async function getDraft(tx: Tx, authority: RequestActor, request: unknown) {
 	if (!found.row) deny("not_found");
 	return asDraft(found.row);
 }
-async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null) {
+async function listDrafts(tx: Tx, authority: RequestActor) {
 	const { reader, access } = accessOf(authority);
 	const raw = one(
 		await tx.execute(
@@ -1016,7 +1015,7 @@ async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null
 						'template_id', template_id, 'template_source', template_source, 'meeting_id', meeting_id, 'audience', audience,
 						'scheduled_at', to_char(scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'review_digest', review_digest
 					) ORDER BY created_at, id)
-					FROM communication WHERE plant_id = ${reader.plantId}::uuid AND (${state}::text IS NULL OR state = ${state})
+					FROM communication WHERE plant_id = ${reader.plantId}::uuid AND state = 'draft'
 				), '[]'::jsonb) AS rows`,
 			),
 		),
