@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
-import { teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import {
 	createRsvpToken,
 	describeRsvpToken,
@@ -633,6 +633,58 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "access_denied");
 	// Reading the history rewrites no stored audit row.
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
+});
+
+test("training filed under a ministry never shows in that ministry's history", async () => {
+	const team = await makeTeam("Training history");
+	const role = await makeRole(team.id, "Usher");
+	const pat = await person("Pat Training", { stage: "launch_team" });
+	await assign(team, role, pat);
+	const history = async () => ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
+	const shown = (entries) => entries.map((e) => [e.kind, e.subject, e.about]);
+	const before = await history();
+	assert.deepEqual(shown(before), [
+		["assign", "tenure", { personName: "Pat Training", roleName: "Usher" }],
+		["create", "role", { personName: null, roleName: "Usher" }],
+		["create", "ministry", null],
+	]);
+	// A program and its roster (assignments) are filed under the ministry's id; the credit is filed under the person.
+	const program = ok(
+		await run(trainingWriter.createProgram, {
+			requestKey: key(),
+			input: { name: "Usher basics", required: true, teamId: team.id },
+		}),
+	).program;
+	const seen = ok(
+		await trainingReader.readRequiredTrainingPreview(db, await viewer(), { programId: program.id, personIds: [pat] }),
+	);
+	ok(
+		await run(trainingWriter.setRequiredTrainingParticipants, {
+			requestKey: key(),
+			expectedRevision: seen.revision,
+			input: { programId: program.id, personIds: [pat], rosterDigest: seen.rosterDigest },
+		}),
+	);
+	ok(
+		await run(trainingWriter.attestCompletion, {
+			requestKey: key(),
+			expectedRevision: await rev("training_program", program.id),
+			input: { kind: "program", personId: pat, programId: program.id, earnedOn: day(0) },
+		}),
+	);
+	const filed = (
+		await admin.execute(
+			sql`SELECT DISTINCT subject_type FROM audit_event WHERE subject_id=${team.id} AND subject_type LIKE 'training%'
+				ORDER BY subject_type`,
+		)
+	).rows.map((r) => r.subject_type);
+	assert.deepEqual(filed, ["training_assignment", "training_program"]);
+	const after = await history();
+	assert.deepEqual(
+		after.map((e) => e.id),
+		before.map((e) => e.id),
+	);
+	assert.deepEqual(shown(after), shown(before));
 });
 
 const leaderOf = async (teamId) =>
