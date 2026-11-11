@@ -25,7 +25,7 @@ export const MAX_BYTES = 10 * 1024 * 1024;
 export const ROWS_PER_PAGE = 24;
 
 /** A valid row with an existing or earlier-row match: it needs a person's choice. */
-export const isDuplicate = (r: ValidRow) => r.existingDuplicates.length > 0 || r.withinFileDuplicateOf !== null;
+const isDuplicate = (r: ValidRow) => r.existingDuplicates.length > 0 || r.withinFileDuplicateOf !== null;
 
 export type Group = "check" | "fix" | "all";
 export function rowsIn(rows: PreviewRow[], group: Group): PreviewRow[] {
