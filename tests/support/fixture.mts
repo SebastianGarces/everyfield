@@ -131,9 +131,9 @@ export function seeds(admin: Database) {
 	async function actor(
 		workspace?: Workspace | null,
 		role: "owner" | "admin" | "member" = "owner",
-		overrides: { id?: string; email?: string; account?: Row; user?: Row } = {},
+		overrides: { email?: string; account?: Row; user?: Row } = {},
 	): Promise<Actor> {
-		const id = overrides.id ?? randomUUID();
+		const id = randomUUID();
 		const user = randomUUID();
 		const session = randomUUID();
 		const email = overrides.email ?? `${id}@example.test`;
