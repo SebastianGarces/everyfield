@@ -93,6 +93,7 @@ if (a.includes("db:migrate")) {
 }
 fs.writeFileSync(path.join(S, "role-password"), process.env.QA_ROLE_PASSWORD || "");
 write("seed-keys.json", { IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY, IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY });
+write("seed-recipients.json", { QA_TEST_RECIPIENTS: process.env.QA_TEST_RECIPIENTS ?? null });
 console.log("seeded with " + process.env.QA_ROLE_PASSWORD);
 // A FAIL_SEED file makes the seed fail and print the keys it got, as a leaky seed would.
 if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
@@ -226,6 +227,10 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
 		assert.ok(s.calls("vercel").some((c) => c.includes("--target") && c.includes("preview")));
 		assert.ok(!s.calls("vercel").some((c) => c.includes("--prod") || c.includes("production")));
+		// T-255: without --test-recipients nothing extra is approved, and the shared environments are never touched.
+		assert.ok(!s.calls("vercel").some((c) => c[0] === "env"));
+		assert.deepEqual(s.stubState("seed-recipients.json"), { QA_TEST_RECIPIENTS: null });
+		assert.match(up.stderr, /Real mail on this preview reaches no extra address: only delivered\+\.\.\.@resend\.dev\./);
 		assert.deepEqual(s.stubState("alias.json"), {
 			[`everyfield-${id}.vercel.app`]: "https://everyfield-abc123-team.vercel.app",
 		});
@@ -510,7 +515,7 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 	);
 });
 
-test("OPS-126: seven QA logins; the seed makes both organization logins verified and active, and each signs in (AC:OPS-126-1)", async () => {
+test("OPS-126: eight QA logins; the seed makes both organization logins verified and active, and each signs in (AC:OPS-126-1)", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -519,6 +524,7 @@ test("OPS-126: seven QA logins; the seed makes both organization logins verified
 		sending: "delivered+qa-sending-director@resend.dev",
 		member2: "delivered+qa-member-2@resend.dev",
 		signup: "delivered+qa-signup@resend.dev",
+		riverside: "delivered+qa-riverside-owner@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -741,6 +747,7 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 			`login ${QA_LOGINS.signup}, spare member seat Owen Price, ${NOV4_MAIL}, ` +
 			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
+			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
 		", owner timezone, 13 check-in weeks.",
 	]);
@@ -748,7 +755,10 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
 	assert.deepEqual(
 		(await logins()).filter(
-			(l) => ![QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup].includes(String(l.email)),
+			(l) =>
+				![QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside].includes(
+					String(l.email),
+				),
 		),
 		beforeLogins,
 	);
@@ -785,7 +795,7 @@ test("OPS-126: the runbook's login table lists exactly the QA logins and says wh
 	);
 	assert.deepEqual(
 		table.map((cells) => cells[1]),
-		["Owner", "Admin", "Member", "Network Admin", "Sending-church director", "Second Member", "Sign-up"],
+		["Owner", "Admin", "Member", "Network Admin", "Sending-church director", "Second Member", "Sign-up", "Riverside Owner"],
 	);
 	for (const words of [
 		ORGS.network,
@@ -903,4 +913,169 @@ test("T-51: the first run names each new part once; the second writes nothing", 
 	assert.equal(parts.filter((p) => p.startsWith("wiki church versions of ")).length, 1, first);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
+});
+
+// T-255: real test inboxes on one deployment, and a second church that shares a person with the first.
+
+/** Placeholder addresses only: the repository never holds a real inbox. */
+const ANA = "ana.qa@example.com",
+	OTHER = "second.qa@example.org";
+
+test("T-255: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one deployment and the seed, and stores no address", () => {
+	const s = setup();
+	try {
+		const up = s.qa("up", "feature/nora-qa", "--test-recipients", ` ${ANA}, ${OTHER}`);
+		assert.equal(up.status, 0, up.stderr);
+		const [idLine, url] = up.stdout.trim().split("\n");
+		const id = idLine!.replace("QA preview ", "");
+		// The per-deployment -e flag, next to the other per-deployment settings.
+		const env = s.stubState<Record<string, string>>("deploy-env.json");
+		assert.equal(env.EMAIL_TEST_RECIPIENTS, `${ANA},${OTHER}`);
+		assert.equal(env.IDENTITY_ORIGIN, url);
+		const deploy = s.calls("vercel").find((c) => c[0] === "deploy")!;
+		assert.equal(deploy[deploy.indexOf(`EMAIL_TEST_RECIPIENTS=${ANA},${OTHER}`) - 1], "-e");
+		// Nothing changes the shared Preview or Production environment.
+		assert.deepEqual(
+			s.calls("vercel").map((c) => c[0]),
+			["deploy", "alias"],
+		);
+		assert.deepEqual(s.stubState("seed-recipients.json"), { QA_TEST_RECIPIENTS: `${ANA},${OTHER}` });
+		// The lead reads which extra addresses get real mail, after the URL. No secret is printed.
+		const line = `Real mail on this preview also reaches: ${ANA}, ${OTHER}. Ana Lee uses ${ANA} in both churches.`;
+		assert.ok(up.stderr.includes(line), up.stderr);
+		for (const [k, v] of Object.entries(env))
+			if (!["IDENTITY_ORIGIN", "EMAIL_TEST_RECIPIENTS"].includes(k)) assert.ok(!(up.stdout + up.stderr).includes(v), k);
+		// The record and the list hold no address.
+		const stored = readFileSync(join(s.root, ".git/qa/previews.json"), "utf8");
+		assert.ok(!stored.includes("example."), stored);
+		assert.match(s.qa("list").stdout.trim(), new RegExp(`^${id}  feature/nora-qa  ${url}  neon:${id}  age 0m  [0-9a-f]{12}$`));
+	} finally {
+		s.done();
+	}
+});
+
+test("T-255: a bad --test-recipients list exits 2 and says what to fix before anything is made; help lists the flag", () => {
+	for (const value of [
+		"",
+		" , ",
+		`${ANA},`,
+		"example.com",
+		`*@example.com`,
+		"ana@*.example.com",
+		"@example.com",
+		"ana@",
+		"ana@example",
+		"ana @example.com",
+	]) {
+		const s = setup();
+		try {
+			const r = s.qa("up", "feature/nora-qa", `--test-recipients=${value}`);
+			assert.equal(r.status, 2, `${JSON.stringify(value)}: ${r.stderr}`);
+			assert.match(r.stderr, /qa up refused before creating anything\. --test-recipients (needs|takes) /, value);
+			assert.deepEqual(s.calls("neonctl"), [], value);
+			assert.deepEqual(s.calls("vercel"), [], value);
+			assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
+		} finally {
+			s.done();
+		}
+	}
+	const s = setup();
+	try {
+		for (const args of [
+			["up", "feature/nora-qa", "--test-recipients"],
+			["up", "feature/nora-qa", "--recipients", ANA],
+			["up", "feature/nora-qa", "--test-recipients", ANA, "extra"],
+			["up", "--test-recipients", ANA],
+		]) {
+			const r = s.qa(...args);
+			assert.equal(r.status, 2, args.join(" "));
+			assert.deepEqual(s.calls("neonctl"), [], args.join(" "));
+		}
+		assert.match(s.qa("help").stdout, /qa up <branch> \[--test-recipients a@x,b@x\]/);
+	} finally {
+		s.done();
+	}
+});
+
+/** What the two church Owners see (fixtures/qa-churches-probe.ts). */
+function churches(env: Record<string, string>) {
+	const r = tsxRun(["tools/qa/tests/fixtures/qa-churches-probe.ts"], env);
+	assert.equal(r.status, 0, r.stderr);
+	return JSON.parse(r.stdout) as Record<string, any>;
+}
+
+let givenRun: Promise<{ first: string; seen: Record<string, any>; query: (sql: string) => Promise<any[]> }> | undefined;
+/** A second fresh database, seeded with two test recipients as `bin/qa up --test-recipients` passes them. */
+const given = () =>
+	(givenRun ??= (async () => {
+		const q = quiet("qa-seed-given");
+		const r = runSeed({ ...q.env, QA_TEST_RECIPIENTS: `${ANA},${OTHER}` });
+		assert.equal(r.status, 0, r.stderr);
+		return { first: r.stdout.trim(), seen: churches(q.env), query: q.query };
+	})());
+
+test("T-255: Riverside (QA) is a church plant with its own Owner login, whose session lands on it", async () => {
+	const { query, first } = await fresh();
+	assert.ok(first.includes(`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA)`), first);
+	assert.deepEqual(
+		await query(`SELECT p.name, p.onboarding_completed_at IS NOT NULL AS onboarded, u.email, u.email_verified,
+			a.registration_state, s.role, s.ended_at IS NULL AS live
+			FROM plant p JOIN seat s ON s.plant_id = p.id JOIN account a ON a.id = s.account_id
+			JOIN auth_user u ON u.id = a.auth_user_id WHERE p.name = 'Riverside (QA)'`),
+		[
+			{
+				name: "Riverside (QA)",
+				onboarded: true,
+				email: QA_LOGINS.riverside,
+				email_verified: true,
+				registration_state: "active",
+				role: "owner",
+				live: true,
+			},
+		],
+	);
+	// A plant, not an organization: no sending church or network carries the name.
+	assert.deepEqual(await query("SELECT count(*)::int AS n FROM organization WHERE name = 'Riverside (QA)'"), [{ n: 0 }]);
+	const seen = churches((await fresh()).env);
+	assert.deepEqual(seen.riverside.context, { kind: "seat", selected: "plant", church: "Riverside (QA)" });
+	assert.deepEqual(seen.owner.context, { kind: "seat", selected: "plant", church: "Harvest Point (QA)" });
+});
+
+test("T-255: with no test recipients, Ana Lee is in both churches at her resend.dev address, and each Owner sees only its church", async () => {
+	const seen = churches((await fresh()).env);
+	const ana = { name: "Ana Lee", email: "delivered+qa-ana@resend.dev" };
+	assert.ok(seen.owner.people.some((p: any) => p.name === "Ana Lee" && p.email === ana.email), JSON.stringify(seen.owner));
+	assert.deepEqual(
+		seen.riverside.people.filter((p: any) => p.name !== "Rachel Moss"),
+		[ana],
+	);
+	// Neither Owner reads the other church's people: the read refuses, as for any church the login has no seat in.
+	assert.deepEqual(seen.owner.other, { refused: "unavailable" });
+	assert.deepEqual(seen.riverside.other, { refused: "unavailable" });
+	assert.ok(!seen.owner.people.some((p: any) => p.name === "Rachel Moss"));
+	assert.ok(!seen.riverside.people.some((p: any) => p.name === "Daniel Reyes" || p.name === "Maria Santos"));
+});
+
+test("T-255: given test recipients, Ana Lee has the first address in both churches and no one else has a given address", async () => {
+	const { seen, query, first } = await given();
+	assert.ok(first.includes("person Ana Lee in Riverside (QA)"), first);
+	const ana = { name: "Ana Lee", email: ANA };
+	assert.deepEqual(
+		seen.owner.people.filter((p: any) => p.name === "Ana Lee"),
+		[ana],
+	);
+	assert.deepEqual(
+		seen.riverside.people.filter((p: any) => p.name !== "Rachel Moss"),
+		[ana],
+	);
+	// Every other seeded person keeps a resend.dev address, and the second given address is only an approved recipient.
+	assert.deepEqual(
+		await query(`SELECT p.display_name, pl.name AS church, p.email FROM person p JOIN plant pl ON pl.id = p.plant_id
+			WHERE p.email NOT LIKE 'delivered+%@resend.dev' ORDER BY 2, 1`),
+		[
+			{ display_name: "Ana Lee", church: "Harvest Point (QA)", email: ANA },
+			{ display_name: "Ana Lee", church: "Riverside (QA)", email: ANA },
+		],
+	);
+	assert.deepEqual([seen.owner.other, seen.riverside.other], [{ refused: "unavailable" }, { refused: "unavailable" }]);
 });

@@ -106,7 +106,23 @@ function resolveHead(root: string, branch: string): string {
 	fail(`No branch ${branch} on origin or in this checkout.`);
 }
 
-export function qaUp(root: string, branch: string): number {
+/** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
+const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
+
+/**
+ * The `--test-recipients` list: one or more full addresses, comma-separated, or what to fix. The value goes only to this
+ * one deployment (EMAIL_TEST_RECIPIENTS) and to the seed (QA_TEST_RECIPIENTS); it is never stored.
+ */
+export function parseTestRecipients(raw: string): string[] | string {
+	const entries = raw.split(",").map((entry) => entry.trim());
+	if (!raw.trim()) return "--test-recipients needs one or more full addresses, comma-separated: --test-recipients a@example.com";
+	const bad = entries.filter((entry) => !FULL_ADDRESS.test(entry));
+	if (bad.length)
+		return `--test-recipients takes full addresses only, comma-separated, with no empty entry, bare domain or wildcard. Fix: ${bad.map((b) => JSON.stringify(b)).join(", ")}`;
+	return entries;
+}
+
+export function qaUp(root: string, branch: string, recipients: string[] = []): number {
 	if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("-")) fail(`${branch} is not a branch name.`);
 	const redactor = new Redactor();
 	const head = resolveHead(root, branch);
@@ -150,7 +166,7 @@ export function qaUp(root: string, branch: string): number {
 		};
 		const direct = cs(),
 			pooled = cs("--pooled");
-		deployCheckout(root, redactor, { id, head, url, direct, pooled });
+		deployCheckout(root, redactor, { id, head, url, direct, pooled, recipients });
 	} catch (error) {
 		console.error(`qa up: ${id} failed; removing what it made.`);
 		try {
@@ -162,7 +178,12 @@ export function qaUp(root: string, branch: string): number {
 	}
 	console.log(`QA preview ${id}\n${url}`);
 	console.error(
-		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+	);
+	console.error(
+		recipients.length
+			? `Real mail on this preview also reaches: ${recipients.join(", ")}. Ana Lee uses ${recipients[0]} in both churches. Other addresses go to /api/dev/outbox.`
+			: "Real mail on this preview reaches no extra address: only delivered+...@resend.dev. Other addresses go to /api/dev/outbox.",
 	);
 	return 0;
 }
@@ -170,7 +191,7 @@ export function qaUp(root: string, branch: string): number {
 function deployCheckout(
 	root: string,
 	redactor: Redactor,
-	p: { id: string; head: string; url: string; direct: string; pooled: string },
+	p: { id: string; head: string; url: string; direct: string; pooled: string; recipients: string[] },
 ): void {
 	const checkout = mkdtempSync(join(tmpdir(), "evf-qa-"));
 	tool(redactor, "git", ["-C", root, "worktree", "add", "--quiet", "--detach", checkout, p.head]);
@@ -188,15 +209,24 @@ function deployCheckout(
 		// preview must run with the same two values.
 		const mailKeys = { IDENTITY_MAIL_KEY: key(), IDENTITY_ADDRESS_KEY: key() };
 		redactor.add(rolePassword, ...Object.values(mailKeys));
-		console.error("qa up: seeding the test church.");
+		console.error("qa up: seeding the test churches.");
 		tool(
 			redactor,
 			"corepack",
 			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
-			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword, ...mailKeys } },
+			{
+				cwd: checkout,
+				env: {
+					...dbEnv,
+					QA_ROLE_PASSWORD: rolePassword,
+					...mailKeys,
+					QA_TEST_RECIPIENTS: p.recipients.length ? p.recipients.join(",") : undefined,
+				},
+			},
 		);
-		// Per-deployment settings: this preview's database and its own identity keys. Shared credentials (mail,
-		// storage, cron, Langfuse, Evry) come from the Vercel Preview environment.
+		// Per-deployment settings: this preview's database, its own identity keys and, when given, the extra addresses
+		// that get real mail. Shared credentials (mail, storage, cron, Langfuse, Evry) come from the Vercel Preview
+		// environment, which qa never changes.
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
@@ -206,8 +236,10 @@ function deployCheckout(
 			IDENTITY_SECRET: key(),
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
+			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
-		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (k === "IDENTITY_ORIGIN" ? [] : [v])));
+		const notSecret = new Set(["IDENTITY_ORIGIN", "EMAIL_TEST_RECIPIENTS"]);
+		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (notSecret.has(k) ? [] : [v])));
 		mkdirSync(join(checkout, ".vercel"));
 		writeFileSync(join(checkout, ".vercel/project.json"), JSON.stringify(VERCEL));
 		const flags = Object.entries(settings).flatMap(([k, v]) => ["-e", `${k}=${v}`, "-b", `${k}=${v}`]);

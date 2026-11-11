@@ -1,7 +1,7 @@
 # QA preview runbook (OPS-106)
 
 A QA preview is a Vercel preview of one branch with its own database. It gives Nora a working copy of the app to test,
-with seeded data, seven known logins and the same shared credentials as every preview. Nothing builds on a normal push
+with seeded data, eight known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
 `bin/qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md). The code is in `tools/qa/`.
@@ -11,6 +11,9 @@ or PR. A preview exists only when someone asks for one, and the lead removes it 
 Nora posts one message to the engineering lead (Jonah) in the team thread:
 
 > QA preview please: `<branch name or PR link>`. What I want to test: `<one line>`.
+
+When the test needs mail to reach an inbox she can read, she names those addresses in the same message (see
+"Real test inboxes" below).
 
 She never pastes a password, key or bypass secret into the request. The lead answers in the same thread with the URL
 and the preview id.
@@ -22,7 +25,8 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
 1. Make sure the branch is pushed and contains current main. The QA seed (`tools/qa/qa-seed.ts`) runs from the
    branch's own code, so a branch made before OPS-106 merged must merge main first. A branch made before the seed moved
    still works: `bin/qa` runs the older seed path that branch still carries.
-2. Run `bin/qa up <branch>`. It takes 5 to 10 minutes. It does these steps in order:
+2. Run `bin/qa up <branch>`, or `bin/qa up <branch> --test-recipients a@example.com,b@example.com` when Nora named
+   inboxes (below). It takes 5 to 10 minutes. It does these steps in order:
    1. Finds the development Neon branch (endpoint ep-autumn-dew). It stops before it creates anything if that branch
       is missing or also serves production (ep-gentle-dust).
    2. Creates a Neon branch named `qa-<branch>-<4 hex>` off development.
@@ -35,7 +39,8 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       environment.
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
-3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora.
+3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora. Below them it prints which extra
+   addresses this preview mails for real, or that it mails none. Check that line against Nora's request first.
 
 If a step fails, the command removes what it made and prints the error with every secret masked.
 
@@ -50,6 +55,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Sending-church director | `delivered+qa-sending-director@resend.dev`  | `Everyfield-QA-preview-1` |
 | Second Member           | `delivered+qa-member-2@resend.dev`          | `Everyfield-QA-preview-1` |
 | Sign-up                 | `delivered+qa-signup@resend.dev`            | `Everyfield-QA-preview-1` |
+| Riverside Owner         | `delivered+qa-riverside-owner@resend.dev`   | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
 Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
@@ -76,6 +82,21 @@ and the organization's login accepted it.
 - `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
 - These logins do not see planter-private data such as check-ins. They see the church only through what the
   connection shares.
+
+### Two churches and a shared person (T-255)
+
+The seed makes a second church plant, "Riverside (QA)", in Dallas. It is a real church, not a sending church or a
+network. Rachel Moss owns it through the Riverside Owner login, and signing in as that login lands on Riverside (QA).
+Riverside (QA) has no other seats and no other data.
+
+Ana Lee is a person in both churches, Harvest Point (QA) and Riverside (QA), with the same email address in each. She
+has no login. Her address is the first address given to `--test-recipients`, so mail to her reaches a real inbox. On a
+preview made without the flag, it is `delivered+qa-ana@resend.dev`. Every other seeded person keeps a
+`delivered+…@resend.dev` address.
+
+The two churches do not see each other. The Harvest Point (QA) logins see no Riverside (QA) people, and the Riverside
+Owner sees no Harvest Point (QA) people. The seed adds no message, schedule or opt-out for Ana. Nora sets those up
+herself.
 
 ### Removable Member seat and sign-up login (T-51)
 
@@ -172,6 +193,45 @@ without a Resend key. Only `VERCEL_ENV=production` lets mail reach any address. 
 
 Every other address goes to the capture outbox and never appears in a request to Resend, also when a tester types a real
 address. Read the outbox at `/api/dev/outbox` on the preview. "Accepted" in Messages does not say which mode ran.
+
+#### Real test inboxes: `--test-recipients`
+
+Use the flag when Nora needs to see mail arrive in a real inbox, for example to check what a recipient gets or that an
+opted-out person gets nothing:
+
+    bin/qa up main --test-recipients nora-inbox@example.com
+
+- The value is one or more full addresses, comma-separated. `bin/qa up` refuses before it makes anything when an entry
+  is empty, has no `@`, is a bare domain or holds a wildcard, and says which entry to fix.
+- It sets `EMAIL_TEST_RECIPIENTS` on this one deployment only, with the same per-deployment setting as the database
+  and identity keys. It never changes the Vercel Preview or Production environment, so other previews are not affected.
+- These addresses receive real mail through Resend, with the preview's shared Resend key. Only use addresses whose
+  owner agreed to get test mail.
+- The first address is Ana Lee's address in both churches (above).
+- The list is fixed when the preview is made. To change it, make a new preview and remove the old one.
+- `bin/qa list` and the preview records do not hold the addresses.
+
+#### See what was delivered
+
+Three places together show what a preview really sent:
+
+- **The real inbox.** Mail to an address given to `--test-recipients` arrives there, like any other email. Check spam
+  too.
+- **The Resend email log.** In the Resend dashboard, open Emails. Every email the preview handed to Resend is listed
+  with its recipient, subject, time and status. All previews share one Resend key, so filter by the recipient address.
+  `delivered+…@resend.dev` sends show there too.
+- **The capture outbox.** Every other address is in `/api/dev/outbox` on the preview, never in Resend. It has the
+  one-instance limit described above.
+
+To prove that an opted-out person got nothing:
+
+1. Pick a person whose address is a real test inbox, for example Ana Lee.
+2. Opt that person out: send them a message, open it in their inbox and use its Unsubscribe link, or follow the test
+   case's own steps. Note the time.
+3. Send a message from Messages with "Send now" to an audience that includes that person and at least one other.
+4. Check that the other recipients got the message (their inbox, the Resend log or the outbox).
+5. Check that nothing new reached the opted-out person's inbox, that the Resend log has no email to that address
+   after the opt-out time, and that `/api/dev/outbox` has none either.
 
 The outbox is a temp folder on one server instance. On Vercel, another instance may not see a capture, so the outbox can
 miss it and a cancel or time change can answer unknown. Nothing is sent in that case.
