@@ -606,6 +606,8 @@ export function DoneStep({
 	const failed = receipt.rows.filter((r): r is FailedRow => r.status === "failed");
 	const unsaved = failed.filter((r) => r.reason === "row_write_failed");
 	const invalid = failed.filter((r) => r.reason === "invalid");
+	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
+	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
 	const name = (row: number) => (review ? nameOf(review.preview, row) : null);
 	const flagged = receipt.rows.filter((r) => r.status === "created" && r.reviewWith !== null).length;
@@ -626,7 +628,7 @@ export function DoneStep({
 					<div className="min-w-0">
 						<StepHeading heading={heading}>
 							{partial
-								? `${plural(counts.created, "person", "people")} added. ${plural(unsaved.length, "row")} did not save.`
+								? `${plural(counts.created, "person", "people")} added. ${plural(notSaved, "row")} did not save.`
 								: `${plural(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
@@ -641,7 +643,7 @@ export function DoneStep({
 				<div className="flex flex-wrap gap-2">
 					{partial && onRetry ? (
 						<Button variant="primary" onClick={onRetry}>
-							Try {plural(unsaved.length, "row")} again
+							Try {plural(notSaved, "row")} again
 						</Button>
 					) : null}
 					<IntentLink
@@ -665,9 +667,9 @@ export function DoneStep({
 				<Stat label="Skipped" value={counts.skipped} note="By your choice" />
 				<Stat
 					label="Did not save"
-					value={unsaved.length}
-					note={unsaved.length ? "Can try again" : "None"}
-					tone={unsaved.length ? "text-magenta-600" : undefined}
+					value={notSaved}
+					note={notSaved ? "Can try again" : "None"}
+					tone={notSaved ? "text-magenta-600" : undefined}
 				/>
 				<Stat label="Needed a fix" value={invalid.length} note="Not imported" />
 			</div>

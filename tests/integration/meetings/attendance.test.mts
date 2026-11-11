@@ -110,7 +110,8 @@ before(async () => {
 		const query = client.query;
 		client.query = function (...args) {
 			statements++;
-			if (typeof args[0] === "object" && typeof args[0]?.text === "string") sent.push({ text: args[0].text, values: args[1] ?? [] });
+			if (typeof args[0] === "object" && typeof args[0]?.text === "string")
+				sent.push({ text: args[0].text, values: args[1] ?? [] });
 			if (sent.length > 400) sent.shift();
 			return Reflect.apply(query, this, args);
 		};
@@ -508,7 +509,9 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	ok(await finalize(owner, samEarly, [sam]));
 	const undone = ok(await reconcile(owner, samEarly, []));
 	assert.deepEqual(
-		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeIds, w.needsOwner]),
+		undone.work
+			.filter((w) => w.meetingId === samLater)
+			.map((w) => [w.personId, w.outcome, w.assigneeIds, w.needsOwner]),
 		[[sam, "existing", [samOwner.id], false]],
 	);
 	// The answer names the closed later duty's owner view from the assignee, not null.
@@ -1012,7 +1015,12 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeIds: [member.id] }));
 	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up");
 	assert.deepEqual(
-		[followUp.owners[0].accountId, followUp.owners[0].eligible, followUp.owners[0].reason, typeof followUp.owners[0].displayName],
+		[
+			followUp.owners[0].accountId,
+			followUp.owners[0].eligible,
+			followUp.owners[0].reason,
+			typeof followUp.owners[0].displayName,
+		],
 		[member.id, true, null, "string"],
 	);
 	const request = (extra) => async () => ({
@@ -1024,15 +1032,21 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [unlinked.id] })()),
 		"owner_ineligible",
 	);
-	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
+	const corrected = ok(
+		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()),
+	);
 	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created");
 	assert.deepEqual([added.owners[0].accountId, added.owners[0].eligible], [member.id, true]);
 	// An ineligible assignee already on an existing duty reads with the reason, not as a different person.
-	await f.admin.execute(sql`WITH d AS (DELETE FROM task_assignee WHERE task_id IN (SELECT id FROM task WHERE obligation_id=${followUp.obligationId}))
+	await f.admin
+		.execute(sql`WITH d AS (DELETE FROM task_assignee WHERE task_id IN (SELECT id FROM task WHERE obligation_id=${followUp.obligationId}))
 		INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT plant_id,id,${unlinked.id} FROM task WHERE obligation_id=${followUp.obligationId}`);
 	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
 	const kept = again.work.find((w) => w.obligationId === followUp.obligationId);
-	assert.deepEqual([kept.owners[0].accountId, kept.owners[0].eligible, kept.owners[0].reason], [unlinked.id, false, "no_person"]);
+	assert.deepEqual(
+		[kept.owners[0].accountId, kept.owners[0].eligible, kept.owners[0].reason],
+		[unlinked.id, false, "no_person"],
+	);
 	// The evaluation owner keeps the seated rule: a seat is enough.
 	const empty = await meeting("vision_meeting", "2026-10-13T23:00:00Z");
 	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [unlinked.id] })).work[0];
@@ -1055,12 +1069,20 @@ async function crowd(size) {
 		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Crowd ${sql.raw(String(day))} Person '||n,
 		'other',CASE WHEN n % 10 = 0 THEN 'core_group' ELSE 'prospect' END,'unknown','unknown',0,'live',clock_timestamp()
 		FROM generate_series(0,${size - 1}) n RETURNING id, display_name`);
-	const ids = made.sort((a, b) => Number(a.display_name.split(" ").pop()) - Number(b.display_name.split(" ").pop())).map((r) => r.id);
+	const ids = made
+		.sort((a, b) => Number(a.display_name.split(" ").pop()) - Number(b.display_name.split(" ").pop()))
+		.map((r) => r.id);
 	const extra = await person(`Crowd ${day} Extra`);
 	const leaver = ids[2];
 	const at = (days) => new Date(Date.UTC(2026, 0, 1) + (day * 10 + days) * 86400_000 + 23 * 3600_000).toISOString();
 	const earlier = await meeting("vision_meeting", at(0));
-	ok(await finalize(owner, earlier, ids.filter((_, i) => i % 5 === 1)));
+	ok(
+		await finalize(
+			owner,
+			earlier,
+			ids.filter((_, i) => i % 5 === 1),
+		),
+	);
 	const v = await meeting("vision_meeting", at(5));
 	const first = ok(await finalize(owner, v, ids));
 	return { ids, extra, leaver, earlier, v, first };
@@ -1096,13 +1118,16 @@ test("INV-statements: a reconcile that adds, removes, advances and closes sends 
 
 test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the exact result and writes the exact audit rows", async () => {
 	const c = await crowd(50);
-	const duty = await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
+	const duty =
+		await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${c.v}`);
 	const dutyOf = (personId) => duty.find((d) => d.person_id === personId);
 	const evaluation = duty.find((d) => d.kind === "evaluation");
 	assert.equal(duty.length, 50 - 10 + 1, "a follow-up for each attendee without an earlier Vision, and the evaluation");
 	const seen = new Set((await rows(sql`SELECT id FROM audit_event WHERE tenant_id=${plant.id}`)).map((r) => r.id));
-	const finalizedAt = new Date((await one(sql`SELECT finalized_at FROM meeting WHERE id=${c.v}`)).finalized_at).toISOString();
+	const finalizedAt = new Date(
+		(await one(sql`SELECT finalized_at FROM meeting WHERE id=${c.v}`)).finalized_at,
+	).toISOString();
 	const request = await swap(c);
 	const result = ok(await write(owner, "reconcileAttendance", request));
 
@@ -1116,11 +1141,51 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			.filter((id) => !priorOf(id))
 			.map((id) =>
 				id === c.extra
-					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeIds: [], needsOwner: true, owners: [] }
-					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owners: [] },
+					? {
+							meetingId: c.v,
+							kind: "first_vision_follow_up",
+							personId: id,
+							obligationId: created.obligationId,
+							taskId: created.taskId,
+							outcome: "created",
+							assigneeIds: [],
+							needsOwner: true,
+							owners: [],
+						}
+					: {
+							meetingId: c.v,
+							kind: "first_vision_follow_up",
+							personId: id,
+							obligationId: dutyOf(id).obligation_id,
+							taskId: dutyOf(id).task_id,
+							outcome: "existing",
+							assigneeIds: [],
+							needsOwner: true,
+							owners: [],
+						},
 			),
-		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owners: [] },
-		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeIds: [], needsOwner: false, owners: [] },
+		{
+			meetingId: c.v,
+			kind: "meeting_evaluation",
+			personId: null,
+			obligationId: evaluation.obligation_id,
+			taskId: evaluation.task_id,
+			outcome: "existing",
+			assigneeIds: [],
+			needsOwner: true,
+			owners: [],
+		},
+		{
+			meetingId: c.v,
+			kind: "first_vision_follow_up",
+			personId: c.leaver,
+			obligationId: dutyOf(c.leaver).obligation_id,
+			taskId: dutyOf(c.leaver).task_id,
+			outcome: "closed",
+			assigneeIds: [],
+			needsOwner: false,
+			owners: [],
+		},
 	];
 	assert.deepEqual(
 		{ ...result, receiptId: undefined },
@@ -1137,7 +1202,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 				const prior = id === c.extra ? null : priorOf(id);
 				return {
 					personId: id,
-					classification: id !== c.extra && stageOfIndex(id) === "core_group" ? "core_group" : prior ? "returning" : "first_time",
+					classification:
+						id !== c.extra && stageOfIndex(id) === "core_group" ? "core_group" : prior ? "returning" : "first_time",
 					firstVision: prior === null,
 					priorVisionId: prior,
 				};
@@ -1150,10 +1216,10 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 	);
 
 	// The audit rows of this one command: the reconcile, the one advance and one row for each created or closed task.
-	const written = (await rows(sql`SELECT id, subject_type, subject_id, action, kind, before_value, after_value,
-		before_revision, after_revision, reason, metadata FROM audit_event WHERE tenant_id=${plant.id}`)).filter(
-		(r) => !seen.has(r.id),
-	);
+	const written = (
+		await rows(sql`SELECT id, subject_type, subject_id, action, kind, before_value, after_value,
+		before_revision, after_revision, reason, metadata FROM audit_event WHERE tenant_id=${plant.id}`)
+	).filter((r) => !seen.has(r.id));
 	const byAction = (action) => written.filter((r) => r.action === action);
 	const current = c.ids.slice().sort();
 	assert.deepEqual(
@@ -1206,7 +1272,10 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 	// The saved state is the reply's: the added Person attends and advanced, the leaver is absent and their task closed.
 	assert.equal(await stageOf(c.extra), "attendee");
 	assert.equal((await classOf(c.v, c.leaver)).presence, "absent");
-	assert.equal((await one(sql`SELECT status FROM task WHERE id=${dutyOf(c.leaver).task_id}`)).status, "no_longer_needed");
+	assert.equal(
+		(await one(sql`SELECT status FROM task WHERE id=${dutyOf(c.leaver).task_id}`)).status,
+		"no_longer_needed",
+	);
 });
 
 test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not allowed writes nothing, and a replay writes nothing", async () => {
@@ -1214,8 +1283,12 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 	const snapshot = async () => ({
 		audit: (await one(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${plant.id}`)).n,
 		revision: await revision(c.v),
-		guests: await rows(sql`SELECT person_id, presence, revision::text FROM participation WHERE meeting_id=${c.v} ORDER BY person_id`),
-		tasks: (await one(sql`SELECT count(*)::int n, string_agg(status, ',' ORDER BY id) s FROM task WHERE plant_id=${plant.id}`)),
+		guests: await rows(
+			sql`SELECT person_id, presence, revision::text FROM participation WHERE meeting_id=${c.v} ORDER BY person_id`,
+		),
+		tasks: await one(
+			sql`SELECT count(*)::int n, string_agg(status, ',' ORDER BY id) s FROM task WHERE plant_id=${plant.id}`,
+		),
 	});
 	const nothing = async (body) => {
 		const before = await snapshot();
@@ -1226,7 +1299,13 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 	// A stale expectedRevision.
 	const stale = await swap(c);
 	await nothing(async () =>
-		refused(await write(owner, "reconcileAttendance", { ...stale, expectedRevision: String(BigInt(stale.expectedRevision) - 1n) }), "conflict"),
+		refused(
+			await write(owner, "reconcileAttendance", {
+				...stale,
+				expectedRevision: String(BigInt(stale.expectedRevision) - 1n),
+			}),
+			"conflict",
+		),
 	);
 	// A retired Person and a Person of another church cannot be added; both are named.
 	const retired = await person("Retired Rae");
@@ -1296,10 +1375,7 @@ test("INV-locking: two concurrent reconciles at one revision apply once and neve
 	const ids = people.map((r) => r.id);
 	const m = await meeting("vision_meeting", "2026-12-05T23:00:00Z");
 	const request = await finalizeRequest(m, ids);
-	const [first, second] = await Promise.all([
-		write(owner, "finalizeAttendance", request),
-		finalize(owner, m, ids),
-	]);
+	const [first, second] = await Promise.all([write(owner, "finalizeAttendance", request), finalize(owner, m, ids)]);
 	assert.deepEqual([ok(first).outcome, ok(second).outcome].sort(), ["changed", "noop"]);
 	assert.equal((await work(m)).length, 51);
 });
@@ -1310,7 +1386,9 @@ test("INV-planning: the locked fact read of a settle plans below the JIT thresho
 	const c = await crowd(50);
 	const request = await swap(c);
 	ok(await write(owner, "reconcileAttendance", request));
-	const lock = sent.findLast((q) => q.text.startsWith("SELECT m.id, m.type, m.status") && q.text.includes("obligation_facts"));
+	const lock = sent.findLast(
+		(q) => q.text.startsWith("SELECT m.id, m.type, m.status") && q.text.includes("obligation_facts"),
+	);
 	assert.ok(lock, "the settle's locked fact read was not captured");
 	// EXPLAIN takes no bind parameters: write each one into the text as a literal.
 	const literal = (v) =>

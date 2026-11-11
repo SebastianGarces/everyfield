@@ -1,6 +1,6 @@
 # Glossary
 
-These terms describe approved behavior. They grant no access and prescribe no storage or code names. Default mechanisms follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+These terms describe approved behavior. They grant no access and prescribe no storage or code names. Default mechanisms follow [Everyfield patterns](../architecture/patterns.md).
 
 | Term | Meaning in Everyfield |
 |---|---|
