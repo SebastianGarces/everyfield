@@ -281,7 +281,9 @@ export function createNotificationService(config: {
 	async function syncTaskReminders(
 		tx: Transaction,
 		inputs: readonly {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient">;
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient" | "title">;
+			/** The notice title of each reminder slot: the due reminder and the overdue one read differently. */
+			titles: Record<ReturnType<typeof taskReminderTimes>[number]["slot"], string>;
 			/** Every assignee of the task: each gets their own due and overdue notices (REQ-TSK-014). */
 			recipients: readonly string[];
 			due: Parameters<typeof taskReminderTimes>[0];
@@ -313,6 +315,7 @@ export function createNotificationService(config: {
 						.map((t) =>
 							noticeInput.parse({
 								...i.base,
+								title: i.titles[t.slot],
 								recipient,
 								category: t.slot === "due" ? "task_due" : "task_overdue",
 								occurrence: t.slot,
