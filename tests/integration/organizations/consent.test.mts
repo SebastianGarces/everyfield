@@ -4,7 +4,13 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-import { readSharingDisclosure, createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	readPipelineConsents,
+	readSharingDisclosure,
+	residencyLinks,
+} from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
 test("INV-consent: first approval defaults on while rejoin preserves independent saved choices", async () => {
@@ -233,4 +239,84 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 			.material_revision,
 		"1",
 	);
+});
+test("T-141 a sending church's page read gives each live network connection's pipeline choice, as readConsent does", async () => {
+	const church = await S.tenant("sending_church"),
+		admin = await S.identity(church),
+		member = await S.identity(church, "member"),
+		beta = await S.tenant("sending_network", "Beta Network"),
+		alpha = await S.tenant("sending_network", "Alpha Network"),
+		ended = await S.tenant("sending_network", "Ended Network"),
+		toBeta = await S.affiliation(church, beta),
+		toAlpha = await S.affiliation(church, alpha),
+		toEnded = await S.affiliation(church, ended);
+	await S.db.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${sql.param(toEnded)}`);
+	await S.call("pipelineSharing.setConsent", admin, S.command({ relationshipId: toBeta, sharePipelineTotals: true }));
+	const consent = async (relationshipId: string) => S.call("pipelineSharing.readConsent", admin, { relationshipId });
+	const authority = await RequestActor.resolve(S.runtime, admin.session);
+	assert.deepEqual(await readPipelineConsents(S.runtime, authority), [
+		{ networkName: "Alpha Network", consent: await consent(toAlpha) },
+		{ networkName: "Beta Network", consent: await consent(toBeta) },
+	]);
+	const [saved] = await readPipelineConsents(S.runtime, authority, toBeta);
+	assert.equal(saved.consent.sharePipelineTotals, true);
+	assert.equal(saved.consent.revision, "2");
+	assert.deepEqual(await readPipelineConsents(S.runtime, authority, toEnded), []);
+	assert.deepEqual(await readPipelineConsents(S.runtime, authority, "not-a-uuid"), []);
+	// Members never see the choice, and a seat that ended after the request began reads nothing (C13).
+	assert.deepEqual(await readPipelineConsents(S.runtime, await RequestActor.resolve(S.runtime, member.session)), []);
+	await S.db.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(admin.account)}`);
+	assert.deepEqual(await readPipelineConsents(S.runtime, authority), []);
+});
+test("T-141 a resident's page read gives each own residency link's consent and revision, as readSharing does", async () => {
+	const { r, link } = await resident(),
+		other = await resident();
+	const viewer = {
+		kind: "account" as const,
+		session: r.session,
+		accountId: r.account,
+		selected: r.selected,
+		canManage: false,
+		access: { session: r.session, owner: r.selected },
+	};
+	const read = () => S.call("residency.readSharing", r, { linkId: link });
+	const expected = async (linkRevision: string) => [
+		{ linkId: link, organizationName: "Synthetic", linkRevision, sharing: await read() },
+	];
+	assert.equal((await read()).status, "active");
+	assert.deepEqual(await residencyLinks(S.runtime, viewer), await expected("1"));
+	await S.call(
+		"residency.setSharing",
+		r,
+		S.command({
+			linkId: link,
+			expectedConsentRevision: "1",
+			choices: { shareFoundations: false, shareMilestones: true },
+		}),
+	);
+	assert.deepEqual(await residencyLinks(S.runtime, viewer, link), await expected("2"));
+	assert.deepEqual(await residencyLinks(S.runtime, viewer, other.link), []);
+	assert.deepEqual(await residencyLinks(S.runtime, viewer, "not-a-uuid"), []);
+	await S.call("residency.leave", r, S.command({ linkId: link, expectedConsentRevision: "2" }, "2"));
+	assert.deepEqual(await residencyLinks(S.runtime, viewer), await expected("3"));
+	assert.deepEqual((await residencyLinks(S.runtime, viewer))[0].sharing, { status: "ended", linkId: link });
+	// A live residency the account no longer may read (its person retired) shows unavailable, as the operation does.
+	const { r: removed, link: removedLink, person } = await resident();
+	await S.db.execute(sql`UPDATE person SET state='retired' WHERE id=${sql.param(person)}`);
+	const removedViewer = {
+		...viewer,
+		session: removed.session,
+		accountId: removed.account,
+		selected: removed.selected,
+		access: { session: removed.session, owner: removed.selected },
+	};
+	assert.deepEqual(await S.call("residency.readSharing", removed, { linkId: removedLink }), { status: "unavailable" });
+	assert.deepEqual((await residencyLinks(S.runtime, removedViewer))[0].sharing, { status: "unavailable" });
+});
+test("T-141 only a plant pair has a disclosure", async () => {
+	const church = await S.tenant("sending_church"),
+		ca = await S.identity(church),
+		network = await S.tenant("sending_network");
+	const pair = { kind: "sending_church", subject: church, organization: network };
+	assert.deepEqual(await S.tx((c) => readSharingDisclosure(c, ca.session, church, pair)), { status: "unavailable" });
 });

@@ -10,7 +10,7 @@ import type { z } from "zod";
 import { columnOf, parseQuery } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { boundary, invalid, outcome, receipt, type Receipt } from "./boundary.ts";
-import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } from "./server.ts";
+import { loadPeople, loadPerson, read, write, type PeopleView } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -24,32 +24,14 @@ type PlantPerson = z.infer<typeof c.plantPerson>;
  * are refused there and nothing is saved.
  */
 const unplanned = { status: "refused", code: "unavailable" } as const;
-type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Saved = { person: PlantPerson; receipt: Receipt };
-/** A note change: the person as saved now, the note's ID and revision, and the receipt. */
-type NoteSaved = Saved & { note: { id: z.infer<typeof recordId>; revision: z.infer<typeof revision> } };
+/** A note change: the person's revision as saved now, the note's ID and revision, and the receipt. */
+type NoteSaved = {
+	personRevision: z.infer<typeof revision>;
+	receipt: Receipt;
+	note: { id: z.infer<typeof recordId>; revision: z.infer<typeof revision> };
+};
 export type { Receipt };
-
-/** A fresh read of one plant person, for answers whose producer result has no person (classification, notes). */
-async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<PlantPerson>> {
-	const r = outcome(await read(v, (tx, ctx) => peopleReader.getPerson(tx, ctx, { personId })), (r) => r);
-	if (r.status !== "ok") return r;
-	return r.value.status === "available" && "stage" in r.value.person
-		? { status: "ok", value: r.value.person }
-		: { status: "refused", code: "unavailable" };
-}
-
-/** A saved write whose producer result has no person: the person read again, then the answer built from both. */
-async function withPerson<T, U>(
-	v: Viewer,
-	personId: PersonId,
-	done: Outcome<T>,
-	answer: (person: PlantPerson, value: T) => U,
-): Promise<Outcome<U>> {
-	if (done.status !== "ok") return done;
-	const p = await plantPerson(v, personId);
-	return p.status === "ok" ? { status: "ok", value: answer(p.value, done.value) } : p;
-}
 
 /**
  * The person page again after this screen's change was refused as out of date: the person and the first Activity page,
@@ -185,14 +167,16 @@ export async function classifyAdult(
 ): Promise<Outcome<Saved>> {
 	return boundary(c.classifyAdultRequest, { requestKey, expectedRevision, input }, async (v, request) => {
 		const method = correction ? peopleWriter.correctAdultClassification : peopleWriter.recordAdultClassification;
-		const done = outcome(await write(v, (tx, ctx) => method(tx, ctx, request)), (r) => r);
-		return withPerson(v, request.input.personId, done, (person, r) => ({ person, receipt: receipt(r) }));
+		return outcome(await write(v, (tx, ctx) => method(tx, ctx, request)), (r) => ({
+			person: r.person,
+			receipt: receipt(r),
+		}));
 	});
 }
 
-// A note changes the person revision, so a note answer is the person as saved now, with the note's own revision.
-const noteSaved = (person: PlantPerson, r: z.infer<typeof c.noteMutationResult>): NoteSaved => ({
-	person,
+// A note moves the person revision on, so a note answer carries the person's new revision with the note's own.
+const noteSaved = (r: z.infer<typeof c.noteMutationResult>): NoteSaved => ({
+	personRevision: r.personRevision,
 	receipt: receipt(r),
 	note: { id: r.noteId, revision: r.revision },
 });
@@ -201,30 +185,27 @@ export async function addNote(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(c.addNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.addNote(tx, ctx, request)), (r) => r);
-		return withPerson(v, request.input.personId, done, noteSaved);
-	});
+	return boundary(c.addNoteRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => peopleWriter.addNote(tx, ctx, request)), noteSaved),
+	);
 }
 export async function editNote(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(c.editNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.editNote(tx, ctx, request)), (r) => r);
-		return withPerson(v, request.input.personId, done, noteSaved);
-	});
+	return boundary(c.editNoteRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => peopleWriter.editNote(tx, ctx, request)), noteSaved),
+	);
 }
 export async function deleteNote(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(c.deleteNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.deleteNote(tx, ctx, request)), (r) => r);
-		return withPerson(v, request.input.personId, done, noteSaved);
-	});
+	return boundary(c.deleteNoteRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => peopleWriter.deleteNote(tx, ctx, request)), noteSaved),
+	);
 }
 
 export async function loadActivities(personId: string, page = 1): Promise<Outcome<z.infer<typeof c.activitiesResult>>> {
