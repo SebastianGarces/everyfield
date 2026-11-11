@@ -238,7 +238,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 	return check;
 }
 /** How long a signed upload URL works. The pending file row lives longer (15 minutes), so the save can follow. */
-export const UPLOAD_URL_SECONDS = 300;
+const UPLOAD_URL_SECONDS = 300;
 /**
  * A five-minute PUT URL for one exact key, content type and length. If-None-Match makes the object write-once, so a
  * second PUT to the same URL gets 412. Signed locally: no network call after the first privacy check. The browser must
