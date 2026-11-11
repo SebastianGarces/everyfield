@@ -1,4 +1,4 @@
-import { dateText, defaultTitle, sectionStarts, timeText } from "@everyfield/contracts/common";
+import { dateText, meetingTitle, sectionStarts, timeText } from "@everyfield/contracts/common";
 import type { MeetingRead } from "./meeting-read.ts";
 
 // What an agenda print reads from one meeting (WP-036/api, REQ-DOC-007). Plain data and pure text rules: no database and
@@ -34,7 +34,7 @@ export function agendaKindOf(m: Pick<MeetingRead, "type" | "leadership">): Agend
 }
 
 export function displayTitle(m: Pick<MeetingRead, "title" | "type" | "visionNumber">) {
-	return m.title?.trim() || defaultTitle(m);
+	return meetingTitle(m);
 }
 
 export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting {

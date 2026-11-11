@@ -1,4 +1,5 @@
 import {
+	MEETING_TYPE_TITLE,
 	localDate,
 	localDateTime,
 	resolveCalendar,
@@ -187,6 +188,10 @@ const compiled = <T extends z.ZodType>(line: T) =>
  * The church digest's open items for one recipient (REQ-NTF-007): their open dated tasks due on or before `through`
  * (overdue ones included) and the church's meetings still ahead that fall on or before `through`. One statement.
  */
+/** The title the app shows for meeting m (meetingTitle in contracts), built in SQL from the same type names. */
+const meetingTitleSql = sql`coalesce(nullif(btrim(m.title), ''),
+	(${JSON.stringify(MEETING_TYPE_TITLE)}::jsonb ->> m.type) || coalesce(' #' || nullif(m.vision_number, 0), ''))`;
+
 export async function compilePlanterDigest(
 	db: Execute,
 	input: { plant: string; recipient: string; asOf: string; through: string },
@@ -199,7 +204,7 @@ export async function compilePlanterDigest(
 				AND EXISTS (SELECT FROM task_assignee ta WHERE ta.task_id = t.id AND ta.account_id = ${input.recipient}::uuid)
 				AND coalesce(t.due_date, (t.due_at AT TIME ZONE p.timezone)::date) <= ${input.through}::date
 			UNION ALL
-			SELECT 'meeting', m.local_date, coalesce(m.title, initcap(replace(m.type, '_', ' ')))
+			SELECT 'meeting', m.local_date, ${meetingTitleSql}
 			FROM meeting m
 			WHERE m.plant_id = ${input.plant}::uuid AND m.retired_at IS NULL AND m.status NOT IN ('cancelled','completed')
 				AND m.starts_at > ${input.asOf}::timestamptz AND m.local_date <= ${input.through}::date
