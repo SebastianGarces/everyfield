@@ -13,7 +13,7 @@ export type ProcessedAsset = { bytes: Buffer; mediaType: "image/png" | "image/jp
 
 const startsWith = (bytes: Uint8Array, ...prefix: number[]) => prefix.every((value, index) => bytes[index] === value);
 /** True when the file starts with the signature of the media type the upload was staged for. */
-export function matchesSignature(bytes: Uint8Array, mediaType: BrandAssetMedia): boolean {
+function matchesSignature(bytes: Uint8Array, mediaType: BrandAssetMedia): boolean {
 	if (mediaType === "image/png") return startsWith(bytes, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
 	if (mediaType === "image/webp")
 		return (
@@ -27,7 +27,7 @@ export function matchesSignature(bytes: Uint8Array, mediaType: BrandAssetMedia):
  * An SVG with a script, a `foreignObject`, an entity or a reference to any URL that is not a `data:` URI is refused.
  * A `#fragment` points inside the file and is allowed.
  */
-export function svgIsSafe(source: string): boolean {
+function svgIsSafe(source: string): boolean {
 	if (/<script|<foreignObject|<!DOCTYPE|<!ENTITY|<\?xml-stylesheet|@import|javascript:|\son[a-z]+\s*=/i.test(source))
 		return false;
 	const local = (value: string) => /^\s*(#|data:)/i.test(value);
