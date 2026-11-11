@@ -57,7 +57,7 @@ function readDocx(bytes: Uint8Array) {
 	}
 	for (const [name, data] of entries) {
 		if (!name.toLowerCase().endsWith(".rels")) continue;
-		refuseExternal(data.toString("utf8"));
+		refuseExternal(data.toString("utf8"), sourceDir(name));
 	}
 	const xml = entries.get("word/document.xml");
 	if (!xml) throw new ImportRejected("The Word file has no document text.");
@@ -102,7 +102,7 @@ function unzip(bytes: Uint8Array, started: number) {
 		declared += uncompressed;
 		if (declared > EXPANDED_MAX) throw new ImportRejected("The Word file expands past 40 MiB.");
 		const raw = Buffer.from(bytes.subarray(dataAt, dataEnd));
-		const data = method === 0 ? raw : inflate(raw);
+		const data = method === 0 ? raw : inflate(raw, uncompressed);
 		if (data.length !== uncompressed) throw new ImportRejected("The Word file is not a valid document.");
 		if (crc32(data) >>> 0 !== crc) throw new ImportRejected("The Word file is not a valid document.");
 		entries.set(name, data);
@@ -112,9 +112,11 @@ function unzip(bytes: Uint8Array, started: number) {
 	return entries;
 }
 
-function inflate(raw: Buffer) {
+/** Inflates one entry, stopping at the size its header declares: the 40 MiB cap counts declared sizes, so an entry
+ * that inflates past its own declaration is refused before the extra bytes are allocated. */
+function inflate(raw: Buffer, declared: number) {
 	try {
-		return inflateRawSync(raw);
+		return inflateRawSync(raw, { maxOutputLength: Math.max(1, declared) });
 	} catch {
 		throw new ImportRejected("The Word file is not a valid document.");
 	}
@@ -127,16 +129,39 @@ function refuseName(name: string) {
 		throw new ImportRejected("The Word file is not a valid document.");
 }
 
-function refuseExternal(xml: string) {
-	const tags = xml.match(/<Relationship\b[^>]*\/>/gi) ?? [];
+/** The folder of the part a relationships file belongs to: `word/_rels/document.xml.rels` is `word/document.xml`'s, so
+ * its targets resolve from `word/`; the package's own `_rels/.rels` resolves from the root. */
+function sourceDir(relsName: string) {
+	const at = relsName.lastIndexOf("_rels/");
+	return relsName.slice(0, Math.max(0, at)).split("/").filter(Boolean);
+}
+
+/** Whether a part target stays inside the package once resolved from `dir` (OPC part names, ECMA-376 part 2 9.3). */
+function insidePackage(target: string, dir: readonly string[]) {
+	const path = target.startsWith("/") ? [] : [...dir];
+	for (const part of target.split(/[?#]/, 1)[0]!.split("/")) {
+		if (part === "..") {
+			if (!path.length) return false;
+			path.pop();
+		} else if (part && part !== ".") path.push(part);
+	}
+	return true;
+}
+
+function refuseExternal(xml: string, dir: readonly string[]) {
+	// Self-closing or not: readLinks reads both forms, so both are checked.
+	const tags = xml.match(/<Relationship\b[^>]*>/gi) ?? [];
 	for (const tag of tags) {
-		const mode = attr(tag, "TargetMode");
+		const external = attr(tag, "TargetMode")?.toLowerCase() === "external";
 		const target = attr(tag, "Target") ?? "";
 		const type = (attr(tag, "Type") ?? "").toLowerCase();
-		if (target.split("/").some((part) => part === "..") || target.toLowerCase().startsWith("file:"))
+		// A part target may climb to a sibling folder (textutil links `../docProps/meta.xml`) but not out of the package.
+		// An external target is not a part, so any `..` in it points at the disk around the file.
+		const outside = external ? target.split("/").includes("..") : !insidePackage(target, dir);
+		if (outside || target.toLowerCase().startsWith("file:"))
 			throw new ImportRejected("The Word file points outside the document.");
-		if (mode?.toLowerCase() !== "external") continue;
-		if (!type.endsWith("/hyperlink")) throw new ImportRejected("The Word file points outside the document.");
+		if (external && !type.endsWith("/hyperlink"))
+			throw new ImportRejected("The Word file points outside the document.");
 	}
 }
 
@@ -414,6 +439,8 @@ function wordBody(xml: string, word: Word): DocNode {
 			inText = true;
 			textFrom = found.index + found[0].length;
 		} else if (name === "w:br" || name === "w:cr") add({ type: "hardBreak" });
+		// A tab in a run reads as a space; a tab stop in w:pPr is caught above.
+		else if (name === "w:tab") add({ type: "text", text: " ", href: links.at(-1) ?? null });
 	}
 	// Text and paragraphs the file never closes still land, so no text is lost.
 	if (inText) add({ type: "text", text: decodeEntities(xml.slice(textFrom)), href: links.at(-1) ?? null });
@@ -426,13 +453,24 @@ function wordBody(xml: string, word: Word): DocNode {
 	return { type: "doc", content: blocks } as DocNode;
 }
 
+const NAMED: Record<string, string> = { lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
+/** A code point XML 1.0 allows in a document (its Char production). */
+const xmlChar = (n: number) =>
+	n === 0x9 ||
+	n === 0xa ||
+	n === 0xd ||
+	(n >= 0x20 && n <= 0xd7ff) ||
+	(n >= 0xe000 && n <= 0xfffd) ||
+	(n >= 0x10000 && n <= 0x10ffff);
+
+/** The five named entities and `&#N;` / `&#xN;` references, in one pass so `&amp;#38;` stays `&#38;`. A reference to a
+ * character XML forbids stays as written. */
 function decodeEntities(value: string) {
-	return value
-		.replaceAll("&lt;", "<")
-		.replaceAll("&gt;", ">")
-		.replaceAll("&quot;", '"')
-		.replaceAll("&apos;", "'")
-		.replaceAll("&amp;", "&");
+	return value.replace(/&(?:#(\d{1,7})|#x([0-9a-fA-F]{1,6})|(lt|gt|quot|apos|amp));/g, (whole, dec, hex, named) => {
+		if (named) return NAMED[named]!;
+		const n = dec ? Number.parseInt(dec, 10) : Number.parseInt(hex, 16);
+		return xmlChar(n) ? String.fromCodePoint(n) : whole;
+	});
 }
 
 function u16(bytes: Uint8Array, offset: number) {

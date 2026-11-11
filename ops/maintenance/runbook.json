@@ -7,7 +7,6 @@
     "migration_application": "node ops/maintenance/cli.mts migration-apply --control <private-control-file>",
     "explicit_adoption": "node ops/maintenance/cli.mts migration-adopt --control <private-control-file> --review <private-reviewed-hash-map>",
     "offline_candidate_validation": "node ops/maintenance/cli.mts backup-check --control <private-restricted-backup-control> --manifest <private-manifest>",
-    "database_tests": "corepack pnpm --filter @everyfield/domain test:operations",
     "baseline_tests": "corepack pnpm --filter @everyfield/db test:db"
   },
   "control": {

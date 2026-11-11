@@ -1,13 +1,12 @@
 # D34: source references, design and frozen migrations retain their bytes.
-docs/
-design/
-packages/db/migrations/
+/docs/
+/design/
+/packages/db/migrations/
 
 # Generated source and frozen reference projections.
 **/*.generated.*
 **/generated/**
 **/next-env.d.ts
-packages/contracts/src/common/vocabulary.ts
 packages/reference/src/artifacts.json
 packages/reference/src/freeze.json
 **/*.lock.json

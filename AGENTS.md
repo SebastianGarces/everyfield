@@ -66,7 +66,7 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 | Architecture | `docs/architecture/README.md` |
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks | `.agents/skills/verify/SKILL.md` |
-| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
+| Verify a change as the independent verifier | `.agents/skills/verify-preview/SKILL.md` |
 | Workflow, progress and merge rules | `docs/build-agent-workflow.md` |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
@@ -110,7 +110,7 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-`docs/build-progress.json` stopped updating at the evf v2 cutover. evf v2's task records are the live state.
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235. evf v2's task records are the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.

@@ -1,5 +1,7 @@
+import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The Tasks screen rules that need no React: the address, labels, due-date words, counts after a change and the
 // due-date form value. The screens and the server page share them, and tests/ui/tasks runs them in node.
@@ -132,6 +134,49 @@ export function ownerText(owner: Pick<FollowUpOwner, "displayName" | "eligible" 
 /** Why someone cannot own follow-ups, in the words every screen uses, or null when they can. */
 export function ownerWarning(owner: Pick<FollowUpOwner, "eligible" | "reason">): string | null {
 	return owner.eligible || !owner.reason ? null : `Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
+}
+
+/**
+ * The people a task form holds in its "Assigned to" picker: everyone chosen, on the task or only in the draft (the
+ * viewer a new task starts with), with the warning they earn. The picker lists one of them who is not an eligible
+ * choice with that warning, so they can be seen and removed. `refused` is the account a refusal named as unable to own
+ * follow-ups.
+ */
+export function heldAssignees(
+	ids: readonly string[],
+	names: Readonly<Record<string, string>>,
+	current: readonly { accountId: string; displayName: string }[],
+	owners: readonly Pick<FollowUpOwner, "accountId" | "eligible" | "reason">[],
+	refused?: string | null,
+): { accountId: string; displayName: string; warning: string | null }[] {
+	const warningOf = (accountId: string) => {
+		const view = owners.find((o) => o.accountId === accountId);
+		return (view ? ownerWarning(view) : null) ?? (accountId === refused ? "Can't own follow-ups now" : null);
+	};
+	const drafted = ids.filter((id) => !current.some((a) => a.accountId === id));
+	return [
+		...current.map((a) => ({ accountId: a.accountId, displayName: a.displayName, warning: warningOf(a.accountId) })),
+		...drafted.map((id) => ({ accountId: id, displayName: names[id] ?? "", warning: warningOf(id) })),
+	];
+}
+
+/**
+ * A task save's send that notices an `owner_ineligible` refusal: it forgets the cached assignee lists, so the next
+ * picker open reads who may own follow-ups now, and hands on the account the refusal named.
+ */
+export function noticingIneligible<T>(
+	send: (key: string) => Promise<Outcome<T>>,
+	forget: () => void,
+	named: (accountId: string | undefined) => void,
+): (key: string) => Promise<Outcome<T>> {
+	return async (key) => {
+		const r = await send(key);
+		if (r.status === "refused" && r.code === "owner_ineligible") {
+			forget();
+			named(r.error?.code === "owner_ineligible" ? r.error.details.accountId : undefined);
+		}
+		return r;
+	};
 }
 
 /** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
@@ -281,11 +326,16 @@ export const DEFAULT_QUERY: TaskQuery = {
 	page: 1,
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneOf = <T extends string>(list: readonly T[], v: string | null): T | undefined =>
 	list.find((x) => x === v) as T | undefined;
 const manyOf = <T extends string>(list: readonly T[], vs: string[]): T[] => list.filter((x) => vs.includes(x));
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+/** The team in the address, by the contract's id rule; any other value lists every team, never refusing the request. */
+function teamOf(raw: string | null): string | null {
+	const id = raw?.toLowerCase() ?? "";
+	return recordId.safeParse(id).success ? id : null;
+}
 
 export function parseQuery(p: URLSearchParams): TaskQuery {
 	const raw = p.getAll("status"),
@@ -299,7 +349,7 @@ export function parseQuery(p: URLSearchParams): TaskQuery {
 		categories: manyOf(CATEGORIES, p.getAll("category")),
 		relation: oneOf(RELATIONS, p.get("relation")) ?? "any",
 		due: oneOf(DUE_KINDS, p.get("due")) ?? "any",
-		teamId: UUID.test(p.get("team") ?? "") ? p.get("team")!.toLowerCase() : null,
+		teamId: teamOf(p.get("team")),
 		sort: oneOf(SORTS, p.get("sort")) ?? "due",
 		direction: p.get("dir") === "desc" ? "desc" : "asc",
 		page: Number.isInteger(page) && page >= 1 && page <= 100_000 ? page : 1,
@@ -384,7 +434,6 @@ export function rangeText(q: TaskQuery, shown: number, total: number): string {
 // Due dates. A date-only task shows its church-local day; a deadline shows the wall time it was entered in the church
 // zone. Both are written in the church's own terms, so no browser time zone changes them.
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** "Tue Oct 14" for a church-local date, with the year when it is not `year`. */
 export function dayText(date: string, year?: number): string {
@@ -512,8 +561,14 @@ export function groupsOf(items: TaskItem[], sort: TaskQuery["sort"]): Group[] {
 // ---------------------------------------------------------------------------------------------------------------
 // Words for refusals. Nothing here reveals another church's records.
 
-export function problemText(code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied"): string {
+/** `name` is the person a refusal is about, when the form knows them (an `owner_ineligible` assignee). */
+export function problemText(
+	code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied",
+	name?: string | null,
+): string {
 	switch (code) {
+		case "owner_ineligible":
+			return `${name?.trim() || "Someone you assigned"} cannot own follow-ups now. Remove them from Assigned to or choose someone else, then save again.`;
 		case "conflict":
 			return "This task changed while you were working. We loaded the latest version; check it and try again.";
 		case "lost":

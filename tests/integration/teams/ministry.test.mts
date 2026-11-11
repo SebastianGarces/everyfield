@@ -1,9 +1,8 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
@@ -21,26 +20,9 @@ import { executeWrites } from "../../../packages/domain/src/operations/writes.ts
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp017m_" + randomUUID().replaceAll("-", "");
-const roleName = "wp017m_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp017m", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -84,19 +66,6 @@ async function makeRole(teamId, name, fields = {}) {
 	).role;
 }
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
@@ -127,13 +96,7 @@ before(async () => {
 		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 // WP-017 remaining work: team meetings and their guest list from a ministry (REQ-MTG-007), the ministry's meetings,
@@ -404,6 +367,23 @@ test("AC:TARGET-TEAM-001 a ministry lists its meetings, upcoming first, then pas
 	assert.deepEqual(await list(empty.id, 1), []);
 });
 
+test("the ministries list carries each leader's name, and a stale write reads the revision alone", async () => {
+	const led = await makeTeam("Greeting");
+	const unled = await makeTeam("Parking");
+	const role = await makeRole(led.id, "Greeting lead", { leadership: true });
+	await assign(led, role, await person("Greta Greeter", { stage: "launch_team" }));
+	const items = ok(await teamsReader.list(db, await viewer(), {})).items;
+	assert.equal(items.find((t) => t.id === led.id).leaderName, "Greta Greeter");
+	assert.equal(items.find((t) => t.id === unled.id).leaderName, null);
+	// The revision read answers the ministry's current revision, the one the next write must send.
+	assert.deepEqual(ok(await teamsReader.readRevision(db, await viewer(), { teamId: led.id })), {
+		teamId: led.id,
+		revision: await rev("team", led.id),
+	});
+	refused(await teamsReader.readRevision(db, await viewer(3), { teamId: led.id }), "access_denied");
+	refused(await teamsReader.readRevision(db, await viewer(), { teamId: randomUUID() }));
+});
+
 test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a leader and keeps their history", async () => {
 	const team = await makeTeam("Hospitality");
 	const role = await makeRole(team.id, "Hospitality lead", { leadership: true });
@@ -426,6 +406,7 @@ test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a l
 	);
 	const teams = ok(await teamsReader.list(db, await viewer(), {})).items;
 	assert.equal(teams.find((t) => t.id === team.id).leaderPersonId, null);
+	assert.equal(teams.find((t) => t.id === team.id).leaderName, null);
 	const chart = ok(await teamsReader.readOrgChart(db, await viewer(), {})).nodes;
 	assert.equal(chart.find((n) => n.id === team.id).leaderName, null);
 	// The ministry's history records the leader leaving with the seat, after the role was filled.
@@ -478,7 +459,7 @@ test("AC:TARGET-TEAM-006 an Owner or Admin corrects a role's dates with a reason
 		[["input.endedOn", "before_start"]],
 	);
 	refused(await correct({ ...dates, reason: "Typo" }, 1), "access_denied");
-	refused(await correct({ ...dates, reason: "Typo" }, 3), "access_denied");
+	refused(await correct({ ...dates, reason: "Typo" }, 3), "unavailable");
 	const stored = async () =>
 		(
 			await admin.execute(
@@ -652,4 +633,217 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "access_denied");
 	// Reading the history rewrites no stored audit row.
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
+});
+
+const leaderOf = async (teamId) =>
+	(
+		await admin.execute(
+			sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
+				revision::text AS revision FROM team WHERE id=${teamId}`,
+		)
+	).rows[0];
+const editRole = async (role, fields) =>
+	ok(
+		await run(teamsWriter.editRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, ...fields },
+		}),
+	);
+const lastEdit = async (roleId) =>
+	(
+		await admin.execute(
+			sql`SELECT before_value AS before, after_value AS after FROM audit_event
+				WHERE subject_id=${roleId} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
+		)
+	).rows[0];
+
+test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
+	// Role-derived from this role: the leader steps down with the role.
+	const derived = await makeTeam("Derived leader");
+	const lead = await makeRole(derived.id, "Derived lead", { leadership: true });
+	const holder = await person("Derived Holder");
+	await assign(derived, lead, holder);
+	const held = await leaderOf(derived.id);
+	assert.deepEqual([held.personId, held.source, held.roleId], [holder, "role_derived", lead.id]);
+	const edited = await editRole(lead, { leadership: false });
+	assert.equal(edited.role.leadership, false);
+	const cleared = await leaderOf(derived.id);
+	assert.deepEqual([cleared.personId, cleared.source, cleared.roleId], [null, null, null]);
+	assert.equal(BigInt(cleared.revision), BigInt(held.revision) + 1n);
+	const event = await lastEdit(lead.id);
+	assert.deepEqual([event.before, event.after], [{ leadership: true }, { leadership: false }]);
+
+	// An explicit leader stays.
+	const explicit = await makeTeam("Explicit leader");
+	const chosen = await person("Explicit Leader");
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: await rev("team", explicit.id),
+			input: { teamId: explicit.id, personId: chosen },
+		}),
+	);
+	const explicitRole = await makeRole(explicit.id, "Explicit lead", { leadership: true });
+	const appointed = await leaderOf(explicit.id);
+	await editRole(explicitRole, { leadership: false });
+	assert.deepEqual(await leaderOf(explicit.id), appointed);
+	assert.equal(appointed.source, "explicit");
+
+	// A leader derived from another role stays.
+	const shared = await makeTeam("Two leadership roles");
+	const first = await makeRole(shared.id, "First lead", { leadership: true });
+	const second = await makeRole(shared.id, "Second lead", { leadership: true });
+	const firstHolder = await person("First Holder");
+	await assign(shared, first, firstHolder);
+	const kept = await leaderOf(shared.id);
+	assert.deepEqual([kept.personId, kept.source, kept.roleId], [firstHolder, "role_derived", first.id]);
+	await editRole(second, { leadership: false });
+	assert.deepEqual(await leaderOf(shared.id), kept);
+});
+
+test("turning leadership on a role fills an empty leader from its occupant and never replaces one", async () => {
+	// No leader and an occupant: the occupant becomes the role-derived leader, and the history names them.
+	const empty = await makeTeam("Promotes occupant");
+	const role = await makeRole(empty.id, "Coordinator");
+	const holder = await person("Promoted Holder");
+	await assign(empty, role, holder);
+	const unled = await leaderOf(empty.id);
+	assert.deepEqual([unled.personId, unled.source, unled.roleId], [null, null, null]);
+	const edited = await editRole(role, { leadership: true });
+	assert.equal(edited.role.leadership, true);
+	const led = await leaderOf(empty.id);
+	assert.deepEqual([led.personId, led.source, led.roleId], [holder, "role_derived", role.id]);
+	assert.equal(BigInt(led.revision), BigInt(unled.revision) + 1n);
+	const promotedEvent = await lastEdit(role.id);
+	assert.deepEqual(
+		[promotedEvent.before, promotedEvent.after],
+		[
+			{ leadership: false, leaderPersonId: null },
+			{ leadership: true, leaderPersonId: holder },
+		],
+	);
+
+	// An explicit leader stays, and the history names no new leader.
+	const explicit = await makeTeam("Explicit stays");
+	const chosen = await person("Chosen Leader");
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: await rev("team", explicit.id),
+			input: { teamId: explicit.id, personId: chosen },
+		}),
+	);
+	const explicitRole = await makeRole(explicit.id, "Helper");
+	await assign(explicit, explicitRole, await person("Explicit Helper"));
+	const appointed = await leaderOf(explicit.id);
+	assert.equal(appointed.source, "explicit");
+	await editRole(explicitRole, { leadership: true });
+	assert.deepEqual(await leaderOf(explicit.id), appointed);
+	const keptEvent = await lastEdit(explicitRole.id);
+	assert.deepEqual([keptEvent.before, keptEvent.after], [{ leadership: false }, { leadership: true }]);
+
+	// A leader derived from another role stays.
+	const shared = await makeTeam("Derived stays");
+	const first = await makeRole(shared.id, "First lead", { leadership: true });
+	const second = await makeRole(shared.id, "Second helper");
+	const firstHolder = await person("First Lead Holder");
+	await assign(shared, first, firstHolder);
+	await assign(shared, second, await person("Second Helper Holder"));
+	const derived = await leaderOf(shared.id);
+	assert.deepEqual([derived.personId, derived.source, derived.roleId], [firstHolder, "role_derived", first.id]);
+	await editRole(second, { leadership: true });
+	assert.deepEqual(await leaderOf(shared.id), derived);
+
+	// An unoccupied role leaves the leader empty and the team revision unchanged.
+	const vacant = await makeTeam("Vacant role");
+	const vacantRole = await makeRole(vacant.id, "Open seat");
+	const vacantBefore = await leaderOf(vacant.id);
+	await editRole(vacantRole, { leadership: true });
+	assert.deepEqual(await leaderOf(vacant.id), vacantBefore);
+	assert.equal(vacantBefore.personId, null);
+
+	// An edit that leaves leadership alone promotes no one, even when the team has no leader.
+	const renamed = await makeTeam("Rename only");
+	const leadRole = await makeRole(renamed.id, "Old lead", { leadership: true });
+	const occupant = await person("Rename Occupant");
+	await assign(renamed, leadRole, occupant);
+	// Removing a leader's seat leaves this state (REQ-IDN-019): an occupied leadership role and no leader.
+	await admin.execute(
+		sql`UPDATE team SET leader_person_id=NULL, leader_source=NULL, leader_role_id=NULL WHERE id=${renamed.id}`,
+	);
+	const leaderless = await leaderOf(renamed.id);
+	assert.equal(leaderless.personId, null);
+	await editRole(leadRole, { name: "New lead" });
+	assert.deepEqual(await leaderOf(renamed.id), leaderless);
+	const renameEvent = await lastEdit(leadRole.id);
+	assert.deepEqual([renameEvent.before, renameEvent.after], [{ name: "Old lead" }, { name: "New lead" }]);
+	// Resending leadership the role already has is a noop.
+	const again = await editRole(leadRole, { leadership: true });
+	assert.equal(again.outcome, "noop");
+	assert.deepEqual(await leaderOf(renamed.id), leaderless);
+});
+
+test("REQ-IDN-005 an unknown or another church's team, role or tenure is unavailable to the teams writer", async () => {
+	const foreignTeam = await makeTeam("Foreign ministry", 3);
+	const foreignRole = ok(
+		await run(
+			teamsWriter.createRole,
+			{ requestKey: key(), input: { teamId: foreignTeam.id, name: "Foreign role" } },
+			3,
+		),
+	).role;
+	const foreignHolder = await person("Foreign Holder", { plant: Q });
+	const foreignTenure = ok(
+		await run(
+			teamsWriter.assignRole,
+			{
+				requestKey: key(),
+				expectedRevision: foreignRole.revision,
+				input: { roleId: foreignRole.id, teamId: foreignTeam.id, personId: foreignHolder },
+			},
+			3,
+		),
+	).tenureId;
+	for (const [teamId, roleId, tenureId] of [
+		[randomUUID(), randomUUID(), randomUUID()],
+		[foreignTeam.id, foreignRole.id, foreignTenure],
+	]) {
+		refused(
+			await run(teamsWriter.edit, {
+				requestKey: key(),
+				expectedRevision: foreignTeam.revision,
+				input: { teamId, name: "Probe" },
+			}),
+		);
+		refused(await run(teamsWriter.createRole, { requestKey: key(), input: { teamId, name: "Probe" } }));
+		refused(
+			await run(teamsWriter.editRole, {
+				requestKey: key(),
+				expectedRevision: foreignRole.revision,
+				input: { roleId, name: "Probe" },
+			}),
+		);
+		refused(
+			await run(teamsWriter.correctTenure, {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { tenureId, startedOn: "2026-01-04", endedOn: null, reason: "Probe" },
+			}),
+		);
+	}
+	assert.equal(
+		(await admin.execute(sql`SELECT name FROM team WHERE id=${foreignTeam.id}`)).rows[0].name,
+		"Foreign ministry",
+	);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_role WHERE name='Probe'`), 0);
+	// Without a seat that may change the ministry, the refusal is still about permission.
+	refused(
+		await run(
+			teamsWriter.editRole,
+			{ requestKey: key(), expectedRevision: "1", input: { roleId: randomUUID(), name: "Probe" } },
+			1,
+		),
+		"access_denied",
+	);
 });

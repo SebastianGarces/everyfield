@@ -101,6 +101,7 @@ export const initializeRequest = z.strictObject({
 export const listTeamsRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const teamHistoryRequest = z.strictObject({ teamId: recordId });
 export const listRolesRequest = z.strictObject({ teamId: recordId });
+export const teamRevisionRequest = z.strictObject({ teamId: recordId });
 export const listMembersRequest = z.strictObject({ teamId: recordId });
 export const personAssignmentsRequest = z.strictObject({ personId });
 export const listLeaderCandidatesRequest = z.strictObject({

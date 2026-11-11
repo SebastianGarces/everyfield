@@ -219,11 +219,12 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	const add = (name: string, ok: boolean, detail: string) => out.push({ name, ok, detail });
 	const answer = c.answer;
 	const reads = c.calls.filter((x) => x.operation !== "evry.selectReturnedRows");
-	const callsText = reads.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
+	const callsText = c.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
 	for (const want of spec.calls ?? []) {
 		const ops = [want.operation, ...(want.alsoAccepted ?? [])];
 		const input = resolve(want.input);
-		const hit = reads.some(
+		// A selection is not a read, but a case may expect one: match it against every call.
+		const hit = c.calls.some(
 			(x) => ops.includes(x.operation) && (!input || x.operation !== want.operation || inputMatches(input, x.input)),
 		);
 		add(`calls ${want.operation}${input ? " " + JSON.stringify(want.input) : ""}`, hit, `called: ${callsText}`);
@@ -658,7 +659,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	assert.deepEqual(readCatalog(ACTORS.org.actor).reviewedWrites, []);
 });
 
-test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a near-miss, and every operation has a case", async () => {
+// Every operation and catalog tool having a case is the one coverage test, tests/workflow/evry-evals-coverage.test.mjs.
+test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a near-miss, each on one of its operations", async () => {
 	const root = fileURLToPath(here("../../../packages/evry/src/adapters/"));
 	const adapters = readdirSync(root, { withFileTypes: true })
 		.filter((d) => d.isDirectory())
@@ -669,31 +671,36 @@ test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a 
 		)
 		.sort();
 	assert.deepEqual(adapters, ["people-organization/reads", "people/commands", "people/reads"]);
-	/** Every `operation` string in a value; `past` also looks inside an object that names one (case specs do, modules not). */
-	const operations = (node: unknown, into: Set<string>, past: boolean): Set<string> => {
-		if (Array.isArray(node)) node.forEach((v) => operations(v, into, past));
+	/** Every `operation` string in a module's exports. */
+	const operations = (node: unknown, into: Set<string>): Set<string> => {
+		if (Array.isArray(node)) node.forEach((v) => operations(v, into));
 		else if (node && typeof node === "object") {
 			const op = (node as { operation?: unknown }).operation;
 			if (typeof op === "string") into.add(op);
-			if (past || typeof op !== "string") Object.values(node).forEach((v) => operations(v, into, past));
+			else Object.values(node).forEach((v) => operations(v, into));
 		}
 		return into;
 	};
-	const covered = new Set<string>();
-	for (const file of readdirSync(fileURLToPath(here("."))).filter((f) => f.endsWith(".cases.json")))
-		operations(json(file), covered, true);
 	const problems: string[] = [];
 	for (const adapter of adapters) {
 		const mod = await import(`${root}${adapter}/index.ts`);
-		const ops = operations(Object.values(mod), new Set(), false);
+		const ops = operations(Object.values(mod), new Set());
 		if (!ops.size) problems.push(`${adapter}: no operations found`);
-		for (const op of ops) if (!covered.has(op)) problems.push(`${adapter}: ${op} has no case`);
 		const mine = extras.filter((c) => c.adapter === adapter);
 		if (mine.length < 5 || mine.length > 10) problems.push(`${adapter}: ${mine.length} extra questions, not 5 to 10`);
 		if (!mine.some((c) => c.near_miss)) problems.push(`${adapter}: no near-miss question`);
 		for (const c of mine)
 			if (!ops.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a ${adapter} operation`);
 	}
+	// The extra questions on the catalog's own model tools (every exported "evry.…" name in catalog/catalog.ts) say
+	// adapter "catalog".
+	const catalog = await import(fileURLToPath(here("../../../packages/evry/src/catalog/catalog.ts")));
+	const tools = new Set(
+		Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry.")),
+	);
+	if (!tools.size) problems.push("catalog: no catalog tools found");
+	for (const c of extras.filter((x) => x.adapter === "catalog"))
+		if (!tools.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a catalog tool`);
 	assert.deepEqual(problems, []);
 });
 

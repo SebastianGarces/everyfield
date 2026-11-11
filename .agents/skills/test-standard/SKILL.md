@@ -14,7 +14,7 @@ the repository only when a silent break would cost us. Suite size is not evidenc
 1. Acceptance behavior from `docs/catalog/index.json` and its selected current clauses/cases.
    Mark literal case IDs in names or annotations with `AC:<case-id>`, for example
    `AC:MTG-CASE-001 AC:MTG-CASE-002 finalization creates the expected follow-up tasks`.
-   `{acGrep}` selects this same form. One passing test may cover several case IDs.
+   One passing test may cover several case IDs.
 2. An invariant the type system cannot enforce: tenancy, privacy, transaction races, idempotency,
    counts, denominators or date/DST math. Name it `INV-<area>: ...`, for example
    `INV-tenancy: member cannot read another plant's people`.
@@ -52,7 +52,8 @@ message or partial receipt. Generic input validation gets no regression test.
   `tests/evry/evals/*.cases.json`. The cases cover tool selection for natural questions and answer correctness
   against seeded fixtures. Record them on the real `EVRY_MODEL`; CI replays the recordings with no paid call (D77).
   A case names its operation with `"operation": "<name>"`. List the added or changed cases in the PR body.
-  `tests/workflow/evry-evals-coverage.test.mjs` fails for an adapter operation with no case that is not in
+  `tests/workflow/evry-evals-coverage.test.mjs`, the one coverage test, fails for an adapter operation or catalog
+  tool with no case that is not in
   `tests/workflow/evry-evals-baseline.json`. The baseline only shrinks: remove an entry when its cases land,
   and never add one.
 - Workflow tooling tests use disposable repositories and fake external providers; they establish

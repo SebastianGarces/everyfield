@@ -15,7 +15,7 @@
 		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm test:logs && pnpm build",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
-		"test:access": "pnpm --filter @everyfield/domain test",
+		"test:early-access": "pnpm --filter @everyfield/domain test",
 		"stack:up": "node scripts/stack.mjs up",
 		"stack:status": "node scripts/stack.mjs status",
 		"stack:down": "node scripts/stack.mjs down",
@@ -23,8 +23,8 @@
 		"test:workflow": "node scripts/test-workflow.mjs",
 		"test:logs": "node --test ${EVF_NODE_TEST_FLAGS:-} tests/workflow/server-logs.test.mjs",
 		"test:ui": "node --test 'tests/ui/**/*.test.mjs'",
-		"format": "prettier --write \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
-		"format:check": "prettier --check \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
+		"format": "prettier --write \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
+		"format:check": "prettier --check \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
 	},
 	"devDependencies": {
 		"bun": "1.4.4",

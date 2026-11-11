@@ -1,3 +1,4 @@
+export { withParents } from "./chart.ts";
 export { teamsWriter } from "./commands.ts";
 export { withTeamsWrite } from "./core.ts";
 export { teamsReader } from "./reads.ts";

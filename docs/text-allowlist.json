@@ -298,7 +298,6 @@
     }
   },
   "brand_kept_paths": {
-    "apps/web/README.md": "Kept outside WP-103 to avoid owning all apps/web/ for one README line.",
     "apps/web/src/features/onboarding/preview/fixtures.ts": "R3: stored phase-history reason stays unchanged permanently.",
     "bin/wiki": "Kept permanently: no package owns all of bin/.",
     "docs/acceptance/intelligence.json": "R3: stored phase-history reason stays unchanged permanently.",

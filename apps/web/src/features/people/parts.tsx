@@ -4,7 +4,7 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { statusWarnings } from "./actions.ts";
@@ -62,7 +62,6 @@ export function useStore<P extends Saved, D>(store: PersonStore<P, D>): PersonSt
 }
 
 export const fresh = () => crypto.randomUUID();
-export const isOk = <T,>(o: Outcome<T> | null): o is { status: "ok"; value: T } => o?.status === "ok";
 /** A refusal because this page's copy is out of date: the screen reads the person again. */
 export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
 export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
@@ -95,10 +94,6 @@ export function When({ at, withTime = false }: { at: string; withTime?: boolean 
 export function LocalDay({ day }: { day: string }) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	return <time dateTime={day}>{DAY.format(new Date(Date.UTC(y, m - 1, d)))}</time>;
-}
-
-export function SectionNote({ children }: { children: ReactNode }) {
-	return <p className="text-sm text-text-3">{children}</p>;
 }
 
 /**
