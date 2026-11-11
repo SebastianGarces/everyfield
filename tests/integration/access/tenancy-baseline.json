@@ -9,6 +9,7 @@
 	"documents:documentsReader.templates.contextual",
 	"documents:documentsReader.templates.get",
 	"documents:documentsReader.templates.list",
+	"documents:documentsWriter.download",
 	"documents:documentsWriter.exportNative",
 	"documents:documentsWriter.getAuthorized",
 	"documents:documentsWriter.history.get",

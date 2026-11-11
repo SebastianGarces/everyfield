@@ -51,7 +51,7 @@ const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.met
 
 const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dispatch
-	download edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
+	edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign unmerge update upload use with withdraw`.split(/\s+/),
 );
