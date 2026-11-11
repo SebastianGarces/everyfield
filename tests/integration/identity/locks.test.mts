@@ -354,9 +354,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 					trips.push(statements.length);
 				});
 			}
-			test.diagnostic(
-				JSON.stringify({ actor: c.name, roundTrips: statements.length }),
-			);
+			test.diagnostic(JSON.stringify({ actor: c.name, roundTrips: statements.length }));
 			assert.deepEqual(trips, [1, 1, 1], `${c.name}: ${trips.join(", ")} round trips, expected one statement each`);
 
 			if (!["foreign account", "seatless workspace"].includes(c.name)) {

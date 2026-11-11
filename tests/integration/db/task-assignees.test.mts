@@ -37,7 +37,10 @@ test("AC:TARGET-TSK-002 criterion 1: each task keeps its single assignee after t
 	const seed = seeds(admin);
 	const { id: plant } = await seed.plant({ name: "Synthetic Plant" });
 	const planter = { account: { registration_kind: "planter" } };
-	const [{ id: first }, { id: second }] = [await seed.actor(null, "owner", planter), await seed.actor(null, "owner", planter)];
+	const [{ id: first }, { id: second }] = [
+		await seed.actor(null, "owner", planter),
+		await seed.actor(null, "owner", planter),
+	];
 	const held = new Map<string, string | null>([
 		[randomUUID(), first],
 		[randomUUID(), second],

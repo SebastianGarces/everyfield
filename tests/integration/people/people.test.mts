@@ -1614,7 +1614,10 @@ test("INV-concurrency (RT-3): a change committed while a native write is in flig
 	);
 	// The native write's final statement waits for the other writer's row lock.
 	await waitingOnLock(db);
-	assert.ok(queries.some((q) => q.startsWith("/* evf:final */")), "the final statement is the one waiting");
+	assert.ok(
+		queries.some((q) => q.startsWith("/* evf:final */")),
+		"the final statement is the one waiting",
+	);
 	release();
 	await other;
 	refused(await mine, "conflict");

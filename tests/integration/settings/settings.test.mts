@@ -805,8 +805,7 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(requested.status, "verification_requested");
 	const first = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", b, { proof: first.token })).status, "refused");
-	const dbNow = async () =>
-		Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
+	const dbNow = async () => Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
 	const earliest = await dbNow();
 	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
 	const latest = await dbNow();

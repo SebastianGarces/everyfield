@@ -213,7 +213,10 @@ test("AC:PI-014 criterion 4: a correction to another value keeps history; the sa
 	assert.equal(gone.signal.value, null);
 	assert.equal(gone.signal.renewal.status, "unknown");
 	assert.notEqual(gone.signal.state, "unanswered");
-	refusedBare(await correct(a, { action: "retract", key: "prayer_leader_assigned" }, gone.signal.revision), "not_current");
+	refusedBare(
+		await correct(a, { action: "retract", key: "prayer_leader_assigned" }, gone.signal.revision),
+		"not_current",
+	);
 	refusedBare(
 		await correct(a, { action: "correct", key: "prayer_leader_assigned", value: "yes" }, gone.signal.revision),
 		"not_current",

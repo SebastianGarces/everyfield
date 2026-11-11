@@ -1038,7 +1038,12 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
 	for (const [table, id, patch, restore] of [
 		[t.account, adminReader.id, { registration_state: "pending_domain" }, { registration_state: "active" }],
-		[t.seat, adminSeat.id, { accepted_at: sql`clock_timestamp()+interval '1 day'` }, { accepted_at: adminSeat.accepted_at }],
+		[
+			t.seat,
+			adminSeat.id,
+			{ accepted_at: sql`clock_timestamp()+interval '1 day'` },
+			{ accepted_at: adminSeat.accepted_at },
+		],
 		[t.team, lead.lead.assignment.teamId, { archived_at: new Date() }, { archived_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { retired_at: new Date() }, { retired_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { leadership: false }, { leadership: true }],
@@ -1482,9 +1487,12 @@ for (const [registration, kind, seatRole] of [
 		await admin
 			.insert(t.organization)
 			.values({ id: org, kind, name: "Overseeing organization", timezone: "UTC", material_revision: "1" });
-		await admin
-			.insert(t.seat)
-			.values({ account_id: a.id, organization_id: org, role: seatRole, accepted_at: sql`clock_timestamp()-interval '1 second'` });
+		await admin.insert(t.seat).values({
+			account_id: a.id,
+			organization_id: org,
+			role: seatRole,
+			accepted_at: sql`clock_timestamp()-interval '1 second'`,
+		});
 		const viewer = await readViewer(db, writeSessionId.parse(a.session));
 		const entry = await readOnboardingEntry(
 			db,

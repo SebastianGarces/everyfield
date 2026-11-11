@@ -445,7 +445,11 @@ test("AC:WP-029-7 refusals and capture faults never reach the provider", async (
 	let fetched = 0;
 	globalThis.fetch = async () => {
 		fetched++;
-		return { ok: true, status: 200, json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }) };
+		return {
+			ok: true,
+			status: 200,
+			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
+		};
 	};
 	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
 	try {

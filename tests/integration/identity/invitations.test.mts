@@ -196,7 +196,7 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 		assert.equal(
 			result.error?.value?.code,
 			"invitation_unavailable",
-			via + ": " + JSON.stringify(result.value ?? null)
+			via + ": " + JSON.stringify(result.value ?? null),
 		);
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");

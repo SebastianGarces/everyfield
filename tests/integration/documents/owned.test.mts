@@ -313,7 +313,10 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			),
 		);
 		assert.equal(otherFile.plantId, Q);
-		refusedPrivate(await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage), "unavailable");
+		refusedPrivate(
+			await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage),
+			"unavailable",
+		);
 		refusedPrivate(
 			await documentsWriter.generate(
 				db,

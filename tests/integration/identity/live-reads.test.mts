@@ -23,7 +23,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-
 // People reads have their own 42-path check in tests/integration/people/people.test.mts.
 test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lock on the reader's session, so sign-out never waits for them", async () => {
 	const plant = await f.workspace(),
