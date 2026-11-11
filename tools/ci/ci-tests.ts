@@ -123,6 +123,10 @@ export function checkCiTests(root: string): void {
 			}
 		}
 	}
+	// A database suite reaches CI only through its package's test:db script: each package that defines one needs a step.
+	const unrun = packages.filter((p) => p.dir !== "." && p.scripts["test:db"] && !visited.has(`${p.dir}:test:db`));
+	if (unrun.length)
+		fail(`ci.yml runs no test:db for ${unrun.map((p) => p.name || p.dir).join(", ")}. Add a step to the db job.`);
 	// Browser suites, the tests/ui files that import tests/ui/setup.mjs, run nightly and in the verifier's preview.
 	const browserSuite = (file: string) =>
 		[...readFileSync(join(root, file), "utf8").matchAll(/\b(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)].some(

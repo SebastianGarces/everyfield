@@ -74,18 +74,3 @@ export const pageInput = {
 	// Page numbers in a stable order (D67). The server takes the church from the session.
 	page: z.int().min(1).max(100_000).default(1),
 };
-
-// A pure disposition only. The API must read/lock current lifecycle before use;
-// a restore never restores seats, account consent or private author identity.
-export function ordinaryRestoreDecision(
-	lifecycle: z.infer<typeof personLifecycle>,
-): "noop" | "restore" | "use_reviewed_unmerge" {
-	switch (lifecycle.state) {
-		case "live":
-			return "noop";
-		case "retired":
-			return "restore";
-		case "merged":
-			return "use_reviewed_unmerge";
-	}
-}
