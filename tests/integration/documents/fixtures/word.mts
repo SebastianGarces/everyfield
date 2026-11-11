@@ -65,7 +65,7 @@ export const rels = (...list) =>
 		)
 		.join("")}</Relationships>`;
 
-/** A .docx as base64: the body's paragraphs, with each optional part only when given (a string is the part's XML). */
+/** A .docx file's bytes: the body's paragraphs, with each optional part only when given (a string is the part's XML). */
 export function word(body, parts = {}) {
 	const entries = [
 		{
@@ -76,7 +76,7 @@ export function word(body, parts = {}) {
 	if (parts.styles !== undefined) entries.push({ name: "word/styles.xml", data: parts.styles });
 	if (parts.numbering !== undefined) entries.push({ name: "word/numbering.xml", data: parts.numbering });
 	if (parts.rels !== undefined) entries.push({ name: "word/_rels/document.xml.rels", data: parts.rels });
-	return storedZip(entries).toString("base64");
+	return storedZip(entries);
 }
 
 const OFFICE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -84,7 +84,7 @@ const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const PKG = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
 
 /**
- * A .docx as base64 with the parts, relationships and deflated entries macOS `textutil -convert docx` writes (seen on
+ * A .docx with the parts, relationships and deflated entries macOS `textutil -convert docx` writes (seen on
  * macOS 27): the document part's relationships climb to `../docProps/meta.xml`, and each run carries `w:sz-cs`. Each
  * string in `paragraphs` is the inside of one paragraph's run. `documentRels` replaces the document part's relationships.
  */
@@ -105,5 +105,5 @@ export function textutilWord(paragraphs, documentRels) {
 		"docProps/app.xml": `${XML}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"/>`,
 		"docProps/meta.xml": `${XML}<meta xmlns="http://www.apple.com/metadata"/>`,
 	};
-	return storedZip(Object.entries(parts).map(([name, data]) => ({ name, data, deflate: true }))).toString("base64");
+	return storedZip(Object.entries(parts).map(([name, data]) => ({ name, data, deflate: true })));
 }

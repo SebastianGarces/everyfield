@@ -93,6 +93,8 @@ export const listFollowUpOwnersRequest = z.strictObject({
 });
 export const planHandoffRequest = z.strictObject({ fromAccountId: accountId });
 // At most 100 reviewed follow-ups per request. A larger selection is several requests, each with its own key.
+/** The most follow-ups one handoff request may move (REQ-TSK-013). */
+export const HANDOFF_LIMIT = 100;
 export const executeHandoffRequest = z.strictObject({
 	requestKey,
 	input: z
@@ -102,7 +104,7 @@ export const executeHandoffRequest = z.strictObject({
 			items: z
 				.array(z.strictObject({ taskId: recordId, expectedRevision: revision }))
 				.min(1)
-				.max(100)
+				.max(HANDOFF_LIMIT)
 				.refine((items) => new Set(items.map((i) => i.taskId)).size === items.length),
 		})
 		.refine((v) => v.fromAccountId !== v.toAccountId, { message: "same_account", path: ["toAccountId"] }),

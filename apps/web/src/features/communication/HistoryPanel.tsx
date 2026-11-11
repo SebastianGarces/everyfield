@@ -81,7 +81,12 @@ function listed(items: string[], max = 8): string {
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
 }
 
-function deliveryName(status: string): string {
+/**
+ * One recipient's status. A person who unsubscribed is skipped, never failed: before the email goes out they won't
+ * receive it; after, they are listed as skipped (`gone` true).
+ */
+function deliveryName(status: string, gone = true): string {
+	if (status === "unsubscribed") return gone ? "Skipped: unsubscribed" : "Unsubscribed, won't receive this";
 	const labels: Record<string, string> = {
 		delivered: "Delivered",
 		sent: "Sent",
@@ -199,6 +204,7 @@ const stateTone: Record<HubState, string> = {
 	draft: "bg-surface-2 text-text-2",
 	scheduled: "bg-amber-100 text-amber-600",
 	not_scheduled: "bg-magenta-50 text-magenta-600",
+	unsubscribed: "bg-surface-2 text-text-2",
 	sending: "bg-amber-100 text-amber-600",
 	sent: "bg-green-100 text-green-700",
 	logged: "bg-surface-2 text-text-2",
@@ -330,7 +336,9 @@ function Totals({ view }: { view: MessageView }) {
 			) : null}
 			<p className="text-sm text-text-2">
 				{totals.sentForAll ? "Every recipient record is sent." : "Not every recipient record is sent."}
-				{totals.outcomes.length > 0 ? ` Provider words: ${totals.outcomes.map(deliveryName).join(", ")}.` : ""}
+				{totals.outcomes.length > 0
+					? ` Provider words: ${totals.outcomes.map((word) => deliveryName(word)).join(", ")}.`
+					: ""}
 			</p>
 		</div>
 	);
@@ -369,7 +377,12 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `The email service holds it until then. ${handoffCounts(totals)}`,
+				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes before then gets nothing.${unsubscribedNote(totals.unsubscribed)}`,
+			};
+		case "unsubscribed":
+			return {
+				title: "Not sent: unsubscribed",
+				body: "Every recipient unsubscribed from this church's email, so it does not go out. This is not an error.",
 			};
 		case "not_scheduled":
 			return {
@@ -389,7 +402,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "cancelled":
 			return {
 				title: "Cancelled",
-				body: `The email service confirmed the cancel for ${totals.cancelled}.${went}`,
+				body: `Cancelled for ${plural(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
 			};
 		case "failed":
 			return {
@@ -451,7 +464,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				{state === "time_unconfirmed" && requestedAt
 					? action("reschedule", "Check again", () => actions.onReschedule(new Date(requestedAt)), "primary")
 					: null}
-				{!held && !unconfirmed && state !== "cancelled" ? (
+				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
 						Send now
 					</Button>
@@ -635,7 +648,9 @@ function Detail({
 							return (
 								<li key={`${personId ?? "none"}-${row.sentAt ?? index}`} className="flex flex-col gap-1">
 									<p className="font-medium text-ink">{nameFor(row, index)}</p>
-									<p className="text-sm text-text-2">{deliveryName(row.deliveryStatus)}</p>
+									<p className="text-sm text-text-2">
+										{deliveryName(row.deliveryStatus, !heldStates.includes(totals.state))}
+									</p>
 									<AddressFact label="Address at send" value={row.deliveryAddress} />
 									<AddressFact label="Address now" value={row.currentPersonAddress} />
 									<p className="text-sm text-text-3">
@@ -1117,8 +1132,9 @@ function Browser({
 }
 
 /**
- * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it: only
- * the person can undo it, from the page their Unsubscribe link opens.
+ * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it. The
+ * Unsubscribe page offered the person an Undo for one hour after they pressed Unsubscribe; opening the link again later
+ * only shows that they are unsubscribed.
  */
 function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 	return (
@@ -1126,7 +1142,8 @@ function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 			<p className="font-medium text-ink">Unsubscribed from email</p>
 			<p className="text-sm text-text-2">
 				They unsubscribed from {churchName.trim() || "this church"}&rsquo;s email on {when(at)}. Messages are not sent
-				to them. Only they can undo this, from the Unsubscribe link in an email.
+				to them. They could undo it for one hour on the page their Unsubscribe link opened; it can&rsquo;t be undone
+				here.
 			</p>
 		</div>
 	);

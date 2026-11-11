@@ -140,7 +140,7 @@ export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
 /** Every task and follow-up write name. The wrapper declares each write established (C88), so one declaration decides the path. */
-export type TaskWrite =
+type TaskWrite =
 	| "followups.correctOutcome"
 	| "followups.recordOutcome"
 	| "tasks.acceptPhaseOffer"
