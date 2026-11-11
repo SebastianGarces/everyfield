@@ -61,8 +61,7 @@ const viewRow = z.object({
 export async function describeRsvpToken(db: Reader, raw: unknown) {
 	const input = c.describeRsvpTokenRequest.safeParse(raw);
 	if (!input.success) return c.rsvpTokenView.parse({ state: "unavailable" });
-	const r =
-		await db.execute(sql`SELECT g.rsvp_token_open AS open, NOT (${meetingOpenSql("m")}) AS closed,
+	const r = await db.execute(sql`SELECT g.rsvp_token_open AS open, NOT (${meetingOpenSql("m")}) AS closed,
 			g.rsvp_token_expires_at <= clock_timestamp() AS expired,
 			coalesce(g.rsvp, 'pending') AS rsvp, p.first_name, p.display_name, m.title, m.type, m.vision_number, m.starts_at,
 			m.local_date::text AS local_date, to_char(m.local_time, 'HH24:MI') AS local_time, m.timezone, m.venue_name, m.venue_address

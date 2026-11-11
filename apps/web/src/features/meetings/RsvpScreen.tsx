@@ -121,8 +121,8 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 					</Notice>
 				) : shown.state === "expired" ? (
 					<Notice icon={Alert02Icon} title="This link has expired">
-						A link works for 7 days after it is sent, or until the meeting starts if that is later. Ask the person
-						who invited you for a new one.
+						A link works for 7 days after it is sent, or until the meeting starts if that is later. Ask the person who
+						invited you for a new one.
 					</Notice>
 				) : shown.state === "answered" && shown.rsvp === "pending" ? (
 					<Notice icon={Alert02Icon} title="This link is closed">

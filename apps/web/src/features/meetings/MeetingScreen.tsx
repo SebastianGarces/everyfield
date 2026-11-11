@@ -105,7 +105,14 @@ import {
 import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { defaultTab, nextStep, pickTab, type Primary, type TabId } from "./next-step.ts";
 import { deleteFromList } from "./deletions.ts";
-import { applyChange, withAttendanceRevision, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
+import {
+	applyChange,
+	withAttendanceRevision,
+	withAttendees,
+	type Change,
+	type GuestRow,
+	type PageView,
+} from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import { RosterUpdate } from "./RosterUpdate.tsx";
 import type { MeetingPageData } from "./server.ts";
@@ -270,7 +277,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	 * from who is marked now; a correction keeps only the people this person added and removed, applied to the current
 	 * list, and its reason.
 	 */
-	function settleConflict(mode: SettleEditing["mode"], input: SettleInput, attendance: NonNullable<typeof data.attendance>) {
+	function settleConflict(
+		mode: SettleEditing["mode"],
+		input: SettleInput,
+		attendance: NonNullable<typeof data.attendance>,
+	) {
 		const base = new Set(attended(attendance));
 		void stale().then((latest) => {
 			const now = latest?.attendance ? attended(latest.attendance) : null;
@@ -664,10 +675,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									}
 									onRemoved={(id, revision) =>
 										setData((d) =>
-											withAttendanceRevision(
-												{ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null },
-												revision,
-											),
+											withAttendanceRevision({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }, revision),
 										)
 									}
 									onCard={(personId, card) =>

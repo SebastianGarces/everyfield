@@ -171,9 +171,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			send: (key) => addWalkIn(key, body),
 			ok: ({ guest: g, attendanceRevision }) => {
 				// The walk-in moved the attendance revision; Finish reviews at the one it returned.
-				setData((d) =>
-					withAttendees({ ...d, guests: [...d.guests, g] }, [attendeeOf(g)], attendanceRevision),
-				);
+				setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, [attendeeOf(g)], attendanceRevision));
 				done(g.id);
 			},
 		});
