@@ -147,15 +147,15 @@ export function seeds(admin: Database) {
 		return { kind: "organization", id, organizationKind: kind };
 	}
 	/**
-	 * An account with a live session, seated on `workspace` as `role` when one is given. `account` and `user` override
-	 * the account and auth user rows.
+	 * An account with a live session, seated on `workspace` as `role` when one is given. `id` fixes the account
+	 * id; `account` and `user` override the account and auth user rows.
 	 */
 	async function actor(
 		workspace?: Workspace | null,
 		role: "owner" | "admin" | "member" = "owner",
-		overrides: { email?: string; account?: Row; user?: Row } = {},
+		overrides: { id?: string; email?: string; account?: Row; user?: Row } = {},
 	): Promise<Actor> {
-		const id = randomUUID();
+		const id = overrides.id ?? randomUUID();
 		const user = randomUUID();
 		const session = randomUUID();
 		const email = overrides.email ?? `${id}@example.test`;
