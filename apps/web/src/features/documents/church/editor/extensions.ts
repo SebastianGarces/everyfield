@@ -18,6 +18,7 @@ import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/d
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
 import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { ConditionRules, EfIf } from "./condition-extension.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
@@ -816,6 +817,7 @@ export function editorExtensions(assets: Assets | null = null) {
 		EfImage.configure({ assets }),
 		EfWriteIn,
 		EfSlot,
+		EfIf,
 		EfTable,
 		EfRow,
 		EfCell,
@@ -832,6 +834,7 @@ export function editorExtensions(assets: Assets | null = null) {
 		HeadingNumbers,
 		Placeholders,
 		LayoutRules,
+		ConditionRules,
 		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
 		TableRules,
 	];

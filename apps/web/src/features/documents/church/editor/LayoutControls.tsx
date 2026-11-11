@@ -9,6 +9,7 @@ import { Group, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, WEIGHTS, type Target } from "./layout.ts";
 import { TOOLBAR } from "./tiptap/styles.ts";
 import { setFieldValue } from "./blocks.ts";
+import { ConditionControls } from "./ConditionControls.tsx";
 import { fieldDecl, writeInKindLabel } from "./extensions.ts";
 import { TableControls } from "./TableControls.tsx";
 
@@ -128,6 +129,8 @@ function ControlsFor({ editor, target, palette }: { editor: Editor; target: Targ
 			);
 		case "table":
 			return <TableControls editor={editor} palette={palette} />;
+		case "if":
+			return <ConditionControls editor={editor} target={target} />;
 		case "writeIn":
 			return (
 				<Group label={writeInKindLabel(attrs.kind)}>
