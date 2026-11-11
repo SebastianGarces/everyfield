@@ -43,7 +43,22 @@ export function firstGroup(p: Preview): Group {
 export function suggestedChoices(p: Preview): Map<number, Choice> {
 	return new Map(p.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.suggested] as const] : [])));
 }
-export const choicesPayload = (choices: Map<number, Choice>) => [...choices].map(([row, choice]) => ({ row, choice }));
+/**
+ * Whether "Add, review later" has a Person to pair the row with (D-516): one already in Everyfield, or the earlier
+ * row it repeats when that row is not skipped. The import refuses the choice otherwise, so the screen does not offer it.
+ */
+export const canReview = (r: ValidRow, choices: Map<number, Choice>) =>
+	r.existingDuplicates.length > 0 ||
+	(r.withinFileDuplicateOf !== null && choices.get(r.withinFileDuplicateOf) !== "skip");
+/** The choices with "Add, review later" turned into "Add new" on every row that has nothing left to review against. */
+export function withReviewTargets(p: Preview, choices: Map<number, Choice>): Map<number, Choice> {
+	const next = new Map(choices);
+	for (const r of p.rows)
+		if (r.status === "valid" && next.get(r.row) === "create_and_review" && !canReview(r, choices))
+			next.set(r.row, "create");
+	return next;
+}
+export const choicesPayload =(choices: Map<number, Choice>) => [...choices].map(([row, choice]) => ({ row, choice }));
 export function addCount(choices: Map<number, Choice>): number {
 	let n = 0;
 	for (const c of choices.values()) if (c !== "skip") n++;

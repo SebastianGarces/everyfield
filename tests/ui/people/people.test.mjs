@@ -927,6 +927,99 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:TARGET-PPL-018 D-516 (${name}): a repeat of a skipped row is not offered "Add, review later" and imports`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const tag = `${name}${Date.now().toString(36)}`;
+			await page.goto(`${BASE}/people/import`);
+			await page.locator("input[type=file]").setInputFiles({
+				name: "people.csv",
+				mimeType: "text/csv",
+				buffer: Buffer.from(
+					"first_name,last_name,email\r\n" +
+						`Ada,${tag},ada-${tag}@example.test\r\nAda,Again,ADA-${tag}@example.test\r\n` +
+						`Bo,${tag},bo-${tag}@example.test\r\nBo,Again,BO-${tag}@example.test\r\n`,
+				),
+			});
+			await page.getByRole("heading", { name: "Rows to check" }).waitFor({ timeout: 30_000 });
+			const row = (n) => page.getByRole("group", { name: new RegExp(`^What to do with row ${n},`) });
+			const options = async (n) => (await row(n).getByRole("radio").allInnerTexts()).map((t) => t.trim());
+			const checked = async (n) => (await row(n).getByRole("radio", { checked: true }).innerText()).trim();
+
+			// Row 2 repeats row 1, which imports, so it can be added with a review note.
+			await page.getByRole("radio", { name: /^All/ }).click();
+			assert.deepEqual(await options(2), ["Add new", "Add, review later", "Skip"]);
+			await row(2).getByRole("radio", { name: "Add, review later" }).click();
+			// Skipping row 1 leaves row 2 nothing to review against: it becomes "Add new" and loses the option.
+			await row(1).getByRole("radio", { name: "Skip" }).click();
+			assert.equal(await checked(2), "Add new");
+			assert.deepEqual(await options(2), ["Add new", "Skip"]);
+			assert.deepEqual(await options(4), ["Add new", "Add, review later", "Skip"]);
+
+			// "Choose for all" pairs only the rows that have a target.
+			await page.getByRole("radio", { name: /^Duplicates/ }).click();
+			await page.getByRole("button", { name: "Choose for all 2" }).click();
+			await page.getByRole("menuitem", { name: "Add, review later" }).click();
+			assert.equal(await checked(2), "Add new");
+			assert.equal(await checked(4), "Add, review later");
+
+			await page.getByRole("button", { name: "Import 3 people" }).click();
+			await page.getByRole("heading", { name: "3 people added" }).waitFor({ timeout: 60_000 });
+			assert.equal(await page.locator("[data-import-problem]").count(), 0);
+			await page.getByText("1 person added with a note to review against a possible duplicate.").waitFor();
+		});
+	});
+
+	test(`AC:TARGET-PPL-018 INV-same-origin (${name}): the import routes refuse a cross-site or same-site request`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const http = page.context().request;
+			const headers = (site) => (site ? { "sec-fetch-site": site } : {});
+			const file = (site) => `first_name,email\r\nSite,site-${site ?? "none"}-${name}${Date.now().toString(36)}@example.test\r\n`;
+			const preview = async (text, site) =>
+				(
+					await http.post(`${BASE}/api/people/import/preview`, {
+						headers: { "content-type": "text/csv", ...headers(site) },
+						data: Buffer.from(text),
+					})
+				).json();
+			const send = async (text, value, key, site) =>
+				(
+					await http.post(`${BASE}/api/people/import`, {
+						headers: headers(site),
+						multipart: {
+							file: { name: "people.csv", mimeType: "text/csv", buffer: Buffer.from(text) },
+							review: JSON.stringify({
+								requestKey: key,
+								fileDigest: value.fileDigest,
+								reviewDigest: value.reviewDigest,
+								choices: [{ row: 1, choice: "create" }],
+							}),
+						},
+					})
+				).json();
+			const receipt = async (key) => (await http.get(`${BASE}/api/people/import?key=${key}`)).json();
+			const denied = { status: "refused", code: "access_denied" };
+
+			for (const site of ["cross-site", "same-site"]) {
+				const text = file(site);
+				assert.deepEqual(await preview(text, site), denied, `preview, ${site}`);
+				const allowed = await preview(text);
+				assert.equal(allowed.status, "ok");
+				const key = crypto.randomUUID();
+				assert.deepEqual(await send(text, allowed.value, key, site), denied, `import, ${site}`);
+				assert.equal((await receipt(key)).status, "refused", `nothing saved for ${site}`);
+			}
+			for (const site of ["same-origin", null]) {
+				const text = file(site);
+				const allowed = await preview(text, site);
+				assert.equal(allowed.status, "ok", `preview, ${site ?? "no header"}`);
+				const key = crypto.randomUUID();
+				const sent = await send(text, allowed.value, key, site);
+				assert.equal(sent.status, "ok", `import, ${site ?? "no header"}: ${JSON.stringify(sent)}`);
+				assert.equal((await receipt(key)).status, "ok");
+			}
+		});
+	});
+
 	test(`AC:TARGET-PPL-019 INV-filters (${name}): a Member's export holds exactly the people the filtered directory counts`, async () => {
 		await withPage(engine, "member", async (page) => {
 			await page.goto(`${BASE}/people?stage=prospect`);

@@ -584,6 +584,47 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 	}
 });
 
+test("AC:TARGET-PPL-018 D-516 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
+	const tag = randomUUID().slice(0, 8);
+	const file = `first_name,last_name,email\r\nVi,One,vi-${tag}@example.test\r\nVi,Two,VI-${tag}@example.test\r\n`;
+	const p = ok(await preview(file));
+	assert.deepEqual(
+		p.rows.map((r) => [r.row, r.existingDuplicates.length, r.withinFileDuplicateOf]),
+		[
+			[1, 0, null],
+			[2, 0, 1],
+		],
+	);
+	const peopleBefore = await count("person"),
+		importsBefore = await count("person_import");
+	// The review screen hides "Add, review later" here; the server still refuses it and writes nothing.
+	refused(
+		await importFile(file, p, [
+			{ row: 1, choice: "skip" },
+			{ row: 2, choice: "create_and_review" },
+		]),
+		"invalid_input",
+	);
+	assert.equal(await count("person"), peopleBefore);
+	assert.equal(await count("person_import"), importsBefore);
+
+	const receipt = ok(
+		await importFile(file, p, [
+			{ row: 1, choice: "skip" },
+			{ row: 2, choice: "create" },
+		]),
+	);
+	assert.deepEqual(
+		receipt.rows.map((r) => [r.row, r.status, r.reviewWith ?? null]),
+		[
+			[1, "skipped", null],
+			[2, "created", null],
+		],
+	);
+	assert.deepEqual(receipt.counts, { created: 1, skipped: 1, failed: 0, remaining: 0 });
+	assert.equal(await count("person"), peopleBefore + 1);
+});
+
 test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy the export matches the directory's filters as formula-safe CSV without private fields", async () => {
 	const plant = (who) =>
 		write(who, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Choir" } }));
