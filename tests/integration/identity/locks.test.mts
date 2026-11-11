@@ -350,10 +350,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 			test.diagnostic(
 				JSON.stringify({ actor: c.name, roundTrips: statements.length, milliseconds: times.map((n) => Math.round(n)) }),
 			);
-			assert.ok(
-				trips.every((n) => n <= 1),
-				`${c.name}: ${trips.join(", ")} round trips, expected one statement each`,
-			);
+			assert.deepEqual(trips, [1, 1, 1], `${c.name}: ${trips.join(", ")} round trips, expected one statement each`);
 
 			if (!["foreign account", "seatless workspace"].includes(c.name)) {
 				const resolved = await f.db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(c.account.session)));

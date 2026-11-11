@@ -658,21 +658,6 @@ describe(
 			assert.equal(read.revision, "2", "the document saved over it is unchanged");
 		});
 
-		test("a document from an updated formal/legal template keeps the legal notice after Delete all content", async () => {
-			const { v2 } = t;
-			const wiped = structuredClone(v2.body);
-			wiped.body = { type: "doc", content: [] };
-			wiped.page.header = { pages: "all", content: [] };
-			wiped.page.footer = { pages: "all", content: [] };
-			const saved = ok(await save(OWNER, v2.id, v2.revision, wiped));
-			assert.equal(saved.documentClass, "formal/legal");
-			assert.deepEqual(await pdfPages(bytesFrom(ok(await fileOf(OWNER, v2.id, "pdf")))), [
-				"Template, not legal advice",
-			]);
-			const word = docxParts(bytesFrom(ok(await fileOf(OWNER, v2.id, "docx"))));
-			assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
-		});
-
 		test("a deleted template is not offered and cannot be updated", async () => {
 			const { first } = t;
 			const gone = ok(

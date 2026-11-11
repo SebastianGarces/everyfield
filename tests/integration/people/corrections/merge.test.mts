@@ -563,18 +563,28 @@ test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates 
 	);
 });
 
-const correct = (recordType, personId, recordId, expectedRevision, changes, who = 0, requestKey = key()) =>
+// `reason` is spread into the input: `{}` leaves the key out, as the browser does for a blank field.
+const correct = (
+	recordType,
+	personId,
+	recordId,
+	expectedRevision,
+	changes,
+	who = 0,
+	requestKey = key(),
+	reason: { reason?: string } = { reason: "Entered from the wrong form" },
+) =>
 	tx((t) =>
 		recordCorrections.correctPersonRecord(t, ctx(who), {
 			requestKey,
 			expectedRevision,
-			input: { recordType, personId, recordId, reason: "Entered from the wrong form", changes },
+			input: { recordType, personId, recordId, ...reason, changes },
 		}),
 	);
 const corrections = (personId, who = 0) =>
 	tx((t) => recordCorrections.listRecordCorrections(t, ctx(who), { personId }));
 
-test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep the recorder, recompute the total, never move the stage, clear a note sent as null and keep old and new values out of audit", async () => {
+test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reason corrections keep the recorder, recompute the total, never move the stage, take an optional reason, clear a note sent as null and keep old and new values out of audit", async () => {
 	const p = await person("Morgan Hale", { stage: "leader" });
 	const a = ok(
 		await tx((t) =>
@@ -599,6 +609,11 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep 
 	refused(await correct("assessment", p.id, a.id, a.revision, { total: 20 }), "invalid_input");
 	refused(
 		await correct("assessment", p.id, a.id, a.revision, { recordedAt: new Date().toISOString() }),
+		"invalid_input",
+	);
+	// A reason over 5000 characters is refused.
+	refused(
+		await correct("assessment", p.id, a.id, a.revision, { committed: lens(5) }, 0, key(), { reason: "x".repeat(5001) }),
 		"invalid_input",
 	);
 	assert.equal(ok(await corrections(p.id)).total, 0);
@@ -650,7 +665,8 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep 
 			}),
 		),
 	).interview;
-	ok(await correct("interview", p.id, i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }));
+	// The reason is optional: an omitted one is saved as no reason.
+	ok(await correct("interview", p.id, i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }, 0, key(), {}));
 	refused(await correct("interview", p.id, i.id, "2", { occurredOn: day(-1) }), "invalid_input");
 	assert.equal((await personRow(p.id)).stage, "leader");
 
@@ -676,7 +692,8 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep 
 			}),
 		),
 	);
-	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }));
+	// A blank reason is saved as no reason too.
+	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }, 0, key(), { reason: " \n " }));
 	const history = ok(await corrections(p.id));
 	assert.deepEqual(
 		history.items.map((x) => [x.recordType, x.recordId, x.changes, x.actor.accountId]),
@@ -708,12 +725,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch corrections keep 
 	);
 	assert.deepEqual(
 		history.items.map((x) => x.reason),
-		[
-			"Entered from the wrong form",
-			"Correct source date",
-			"Entered from the wrong form",
-			"Entered from the wrong form",
-		],
+		[null, "Correct source date", null, "Entered from the wrong form"],
 	);
 	refused(await corrections(p.id, 1));
 	// The application role may move a correction to another Person on merge, never rewrite what it recorded.
