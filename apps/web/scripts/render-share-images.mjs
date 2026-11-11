@@ -1,6 +1,6 @@
 // Renders the share images (Open Graph and X cards) for / and /oversight into src/app as static metadata files.
 // Run from apps/web: `node scripts/render-share-images.mjs`. `--check` exits 1 when an image is out of date
-// (copy, styles, logo, fonts, photos or this script changed since the last render, or a PNG was edited by hand).
+// (copy, grain, logo, fonts, photos or this script changed since the last render, or a PNG was edited by hand).
 //
 // Why a browser: each image is the page's hero in the fade style (foundations.md, Brand): the treated hero photo (20 %
 // black overlay, film grain with mix-blend-mode: overlay) fading up from the canvas under the ink lockup and the hero
@@ -29,14 +29,18 @@ const FONTS = ["../src/marketing/share-fonts/dm-serif-display-400.woff2", "../sr
 const photoFile = (img) => `../src/marketing/photo/files/${img.photo}.jpg`;
 const INPUTS = ["./render-share-images.mjs", "../src/marketing/logo-symbols.ts", ...FONTS, ...IMAGES.map(photoFile)];
 const sha = (b) => createHash("sha256").update(b).digest("hex");
-const inputHash = () => sha(Buffer.concat([...INPUTS.map(read), Buffer.from(JSON.stringify(IMAGES))]));
+// The grain is the one value read from marketing.css, so it joins the hash rather than the whole stylesheet: a change to
+// the grain makes --check fail, a change to other marketing rules does not.
+const GRAIN = read("../src/styles/marketing.css").toString().match(/--mk-grain: (url\("data:image\/svg\+xml[^"]+"\));/)?.[1];
+if (!GRAIN) throw new Error("marketing.css: --mk-grain not found");
+const inputHash = () => sha(Buffer.concat([...INPUTS.map(read), Buffer.from(JSON.stringify(IMAGES)), Buffer.from(GRAIN)]));
 const LOCK = "./share-images.lock.json";
 const outputs = (img) => ["opengraph-image.png", "twitter-image.png"].map((f) => `${img.dir}/${f}`);
 
 if (process.argv.includes("--check")) {
   const lock = JSON.parse(read(LOCK).toString());
   const stale = [];
-  if (lock.inputs !== inputHash()) stale.push("copy, styles, logo, fonts, photos or the script changed");
+  if (lock.inputs !== inputHash()) stale.push("copy, grain, logo, fonts, photos or the script changed");
   for (const img of IMAGES) {
     for (const f of outputs(img)) if (lock.outputs[f] !== sha(read(f))) stale.push(`${f} differs from the last render`);
     for (const f of outputs(img).map((p) => p.replace(".png", ".alt.txt"))) if (read(f).toString() !== alt(img.hero)) stale.push(`${f} is out of date`);
@@ -56,8 +60,6 @@ if (!literal) throw new Error("logo-symbols.ts: LOGO_SYMBOLS not found");
 const symbols = JSON.parse(literal);
 const dataUrl = (p, type) => `data:${type};base64,` + read(p).toString("base64");
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const GRAIN = read("../src/styles/marketing.css").toString().match(/--mk-grain: (url\("data:image\/svg\+xml[^"]+"\));/)?.[1];
-if (!GRAIN) throw new Error("marketing.css: --mk-grain not found");
 
 // The hero in the fade style (HeroPanel, the mk-photo and hero-fade utilities in marketing.css), at share-card size: the
 // photo is clear to 40 % of the height and full from 100 %, so the ink copy sits on the canvas.
@@ -105,4 +107,4 @@ for (const img of IMAGES) {
   console.log(`${img.dir}: ${png.length} bytes`);
 }
 await browser.close();
-writeFileSync(here(LOCK), JSON.stringify(lock, null, 2) + "\n");
+writeFileSync(here(LOCK), JSON.stringify(lock, null, "\t") + "\n");
