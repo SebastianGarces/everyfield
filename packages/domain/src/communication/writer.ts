@@ -18,7 +18,7 @@ import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
-import { personMatches } from "./search.ts";
+import { personSearchMatch } from "../people/search.ts";
 import {
 	correctContactLog as correctContactLogCommand,
 	executeResend as executeResendCommand,
@@ -869,7 +869,7 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 					FROM (
 						SELECT id, display_name, email FROM person
 						WHERE plant_id = ${reader.plantId}::uuid AND tenant_id = ${reader.plantId}::uuid AND state = 'live'
-						AND ${personMatches(input.query)}
+						AND ${personSearchMatch(input.query)}
 						ORDER BY display_name, id LIMIT 20
 					) found
 				), '[]'::jsonb) AS people`,
