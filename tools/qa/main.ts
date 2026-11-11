@@ -7,8 +7,9 @@ const HELP = `QA previews for Nora (docs/runbooks/qa-preview.md). Run on Sebasti
                    Neon branch off development, migrate, seed, Vercel preview of the branch head; prints the id and URL.
                    --test-recipients: full addresses that get real mail on this one deployment (EMAIL_TEST_RECIPIENTS);
                    the first is Ana Lee's address in both test churches
+                   Then starts a driver on this Mac that calls the preview's /api/cron/jobs every minute (scheduled sends)
   qa list          open QA previews: id, branch, URL, Neon branch, age, head
-  qa down <id>     remove the alias, the deployment and the Neon branch; a second run does nothing and succeeds`;
+  qa down <id>     stop the driver, remove the alias, the deployment and the Neon branch; a second run does nothing and succeeds`;
 
 const usage = (args: string[], why = "") => {
 	console.error(`${why || `Unknown command: qa ${args.filter(Boolean).join(" ")}`}\n\n${HELP}`);
