@@ -11,7 +11,8 @@ You plan and file work. You write no product code. evf v2 (the `evf` in `~/.carg
    when you file a task, because dependencies cannot be added later.
 3. Repair at-start owned cases before the package builds.
 4. evf starts the seats. `evf.toml` sets every role to Opus 5.5 medium, so do not start seats by hand. UI tiers are
-   adjust, compose, design or explore; explore needs 2 or 3 live prototypes and Sebastian's choice.
+   UI-1 adjust, UI-2 compose, UI-3 design and UI-4 explore. UI-4 is the prototype tier: 2 or 3 live prototypes through
+   evf's `prototype` workflow, and Sebastian picks one.
 5. evf starts the verifier as a fresh session. Give it the ask and the spec, not the author's narrative. Failures go
    back to an implementer on the same branch and PR.
 6. Read the verifier's actual results and the PR state before you report. Held tasks stay held until someone with

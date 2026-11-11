@@ -248,7 +248,7 @@ export function JoinHouseholdDialog({
 			description={
 				creating
 					? `${person.displayName} will be its head. You can add the others next.`
-					: person.street || person.city
+					: addressLine(person)
 						? `${first} keeps their own address.`
 						: `${first} has no address yet, so they take the household's address.`
 			}
