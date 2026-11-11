@@ -26,6 +26,8 @@ CHECKS = [
     ('feature projection', ['docs/catalog/project-features.py']),
     ('document template list', ['docs/catalog/check-document-templates.py']),
     ('acceptance cases', ['docs/acceptance/check.py']),
+    ('acceptance check self-test', ['-m', 'unittest', 'docs/acceptance/test_check.py']),
+    ('document template check self-test', ['-m', 'unittest', 'docs/catalog/test_check_document_templates.py']),
     ('design handoff', ['design/handoff/export.py', '--check']),
     ('feature review page', ['docs/check-feature-review.py', '--check']),
     ('explorer inputs', ['docs/refresh-explorer-plan.py', '--check']),

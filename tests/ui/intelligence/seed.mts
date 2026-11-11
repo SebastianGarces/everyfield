@@ -48,7 +48,13 @@ async function up(origin: string) {
 			.join("; ");
 	async function account(name: string, email: string) {
 		ip++;
-		const r = await call("register", { kind: "plant_precreation", name, email, password: PASSWORD, requestKey: randomUUID() });
+		const r = await call("register", {
+			kind: "plant_precreation",
+			name,
+			email,
+			password: PASSWORD,
+			requestKey: randomUUID(),
+		});
 		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 		await admin.execute(
@@ -142,18 +148,42 @@ async function up(origin: string) {
 	const ago = (days: number) => (now = base - days * DAY);
 	const attest = async (key: string, value: string, days: number, extra: Record<string, unknown> = {}, rev = "0") => {
 		ago(days);
-		return ok(await signals.attest(runtime, actor, { requestKey: randomUUID(), expectedRevision: rev, input: { key, value, ...extra } })).signal;
+		return ok(
+			await signals.attest(runtime, actor, {
+				requestKey: randomUUID(),
+				expectedRevision: rev,
+				input: { key, value, ...extra },
+			}),
+		).signal;
 	};
 	const fix = async (key: string, days: number, input: Record<string, unknown>, rev: string) => {
 		ago(days);
-		return ok(await signals.correct(runtime, actor, { requestKey: randomUUID(), expectedRevision: rev, input: { key, ...input } })).signal;
+		return ok(
+			await signals.correct(runtime, actor, {
+				requestKey: randomUUID(),
+				expectedRevision: rev,
+				input: { key, ...input },
+			}),
+		).signal;
 	};
 	await attest("values_documented", "yes", 41, { detail: "Vision and values document v2" });
-	await attest("financial_base_established", "not_yet", 100, { detail: "Pledges cover about half of the launch budget" });
+	await attest("financial_base_established", "not_yet", 100, {
+		detail: "Pledges cover about half of the launch budget",
+	});
 	let s = await attest("prayer_leader_assigned", "yes", 39, { detail: "Grace Kim" });
 	s = await attest("prayer_rhythm_established", "yes", 70, { detail: "Every other week" });
-	s = await fix("prayer_rhythm_established", 50, { action: "correct", value: "not_yet", detail: "Paused for summer" }, s.revision);
-	s = await fix("prayer_rhythm_established", 34, { action: "correct", value: "yes", detail: "Weekly, Thursday evenings" }, s.revision);
+	s = await fix(
+		"prayer_rhythm_established",
+		50,
+		{ action: "correct", value: "not_yet", detail: "Paused for summer" },
+		s.revision,
+	);
+	s = await fix(
+		"prayer_rhythm_established",
+		34,
+		{ action: "correct", value: "yes", detail: "Weekly, Thursday evenings" },
+		s.revision,
+	);
 	await attest("prayer_in_gatherings", "yes", 12);
 	s = await attest("systems_tested", "not_yet", 10, { detail: "Giving was not tested yet" });
 	await fix("systems_tested", 3, { action: "retract" }, s.revision);
@@ -164,7 +194,14 @@ async function up(origin: string) {
 		await signals.attestCandidate(runtime, actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
-			input: { personId: people["Alex Rivera"], periodStart: day(75), periodEnd: day(8), attended: true, volunteered: true, statement: "Seen at every setup and teardown." },
+			input: {
+				personId: people["Alex Rivera"],
+				periodStart: day(75),
+				periodEnd: day(8),
+				attended: true,
+				volunteered: true,
+				statement: "Seen at every setup and teardown.",
+			},
 		}),
 	);
 	ago(1);
@@ -172,7 +209,13 @@ async function up(origin: string) {
 		await signals.attestCandidate(runtime, actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
-			input: { personId: people["Sam Ortiz"], periodStart: day(40), periodEnd: day(5), attended: true, volunteered: false },
+			input: {
+				personId: people["Sam Ortiz"],
+				periodStart: day(40),
+				periodEnd: day(5),
+				attended: true,
+				volunteered: false,
+			},
 		}),
 	);
 
