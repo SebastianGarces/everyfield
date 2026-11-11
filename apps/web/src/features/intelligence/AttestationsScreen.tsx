@@ -497,11 +497,17 @@ function AnswerDialog({
 }) {
 	const def = definitionOf(entry.key);
 	const group = SIGNAL_GROUPS.find((g) => g.id === def.group)!;
-	// The draft starts from the entry as opened; a later optimistic change to the row never rewrites what is typed.
-	const [opened] = useState(entry);
+	// The draft starts from the entry as opened; the optimistic change of its own save never rewrites what is typed.
+	// A newer entry while no save runs, such as the page loaded again after a conflict, shows here and starts again.
+	const [opened, setOpened] = useState(entry);
 	const [draft, setDraft] = useState<Draft>(() => draftOf(opened, page.today));
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	if (!busy && entry.revision !== opened.revision) {
+		setOpened(entry);
+		setDraft(draftOf(entry, page.today));
+		setError(null);
+	}
 	const what = intent(opened, draft);
 	const history = historyOf(page, entry.key);
 	const future = statedAsOf(draft, page.today) > page.today;
@@ -658,13 +664,16 @@ function RenewDialog({
 	onStillTrue: (entry: SignalEntry) => Promise<string | null>;
 	onReload: () => void;
 }) {
-	const [opened] = useState(entries);
+	// The entries as opened; the optimistic change of a row's own save never shows here. Newer entries while no row
+	// saves, such as the page loaded again after a conflict, replace them, so the next save sends their revision.
+	const [opened, setOpened] = useState(entries);
 	const [rows, setRows] = useState<Record<string, RowState>>(() =>
 		Object.fromEntries(opened.map((e) => [e.key, { pick: null, state: "idle", error: null } as RowState])),
 	);
 	const patch = (key: string, next: Partial<RowState>) => setRows((r) => ({ ...r, [key]: { ...r[key]!, ...next } }));
 	const picked = opened.filter((e) => rows[e.key]!.pick && rows[e.key]!.state !== "saved");
 	const busy = opened.some((e) => rows[e.key]!.state === "saving");
+	if (!busy && entries.some((e, i) => e.revision !== opened[i]?.revision)) setOpened(entries);
 	const stale = (e: SignalEntry) => e.state === "answered" && e.renewal.status === "needs_renewing";
 
 	async function submit() {
