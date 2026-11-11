@@ -8,8 +8,9 @@ import { taskViewer, write } from "./server.ts";
 
 // Server actions for the follow-up screens. Each sends the browser's request to one producer command in one
 // transaction; the producer parses it with the WP-023 contract and checks authority inside its statements. The answer
-// carries what changed, so the screen updates from it and never reloads. A database failure reads as lost: the browser
-// sends the same request key again, and the producer returns the first result instead of acting twice.
+// carries what changed, so the follow-up screen updates from it. A saved outcome also revalidates /tasks (staleTasks
+// below), so the next visit to Tasks reads the page again. A database failure reads as lost: the browser sends the same
+// request key again, and the producer returns the first result instead of acting twice.
 
 type TaskMutation = z.infer<typeof tc.taskMutation>;
 /**

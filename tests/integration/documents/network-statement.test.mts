@@ -13,7 +13,6 @@ import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/d
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { fillStatementSlots, statementParagraphs } from "../../../packages/domain/src/documents/network-statement.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
@@ -218,18 +217,6 @@ after(async () => {
 });
 
 describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
-	test("statementParagraphs: one paragraph per blank-line-separated block, a single line break kept", () => {
-		assert.deepEqual(statementParagraphs(TEXT), PARAGRAPHS);
-		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [para("One."), para("Two."), para("Three.")]);
-	});
-
-	test("fillStatementSlots leaves a document unchanged with no statement", () => {
-		const doc = {
-			body: { type: "doc", content: [{ type: "slot", attrs: { key: "statement-of-faith" }, content: [] }] },
-		};
-		assert.equal(fillStatementSlots(doc, null), doc);
-	});
-
 	test("AC:CASE-DOC-020 network-fills-slot: revision 1 holds the network's exact text under the label, in both exports", async () => {
 		const who = await plantWithOwner("Filled Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));

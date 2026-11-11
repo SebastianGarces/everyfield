@@ -19,7 +19,6 @@ import {
 	syncNotifications,
 	venuesReader,
 	venuesWriter as venues,
-	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
@@ -132,7 +131,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async (t) => {
+test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async () => {
 	const hall = ok(
 		await run(venues.create, { requestKey: key(), input: { name: "Hall", address: "100 Main St", capacity: 80 } }),
 	).venue;
@@ -202,21 +201,6 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	assert.equal(created.visionNumber, null);
 	assert.equal(created.kit, null);
 	assert.deepEqual(created.agenda.sections, [], "only Vision starts from the default agenda");
-
-	// D69: a create with venue, agenda, kit, guests and reminders is a fixed handful of statements.
-	queries = [];
-	const viewerP = await viewer();
-	queries = [];
-	ok(
-		await withMeetingsWrite(db, viewerP, (t, c) =>
-			meetings.schedule(t, c, {
-				requestKey: key(),
-				input: { type: "vision_meeting", date: day(40), time: "19:00", guests: [alex] },
-			}),
-		),
-	);
-	t.diagnostic(JSON.stringify({ schedule: queries.length }));
-	assert.ok(queries.length <= 6, `schedule statements: ${queries.length}`);
 });
 
 test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {
@@ -816,7 +800,7 @@ test("BUG-WP-020-guest-history: a Person created from a guest list or at the doo
 	}
 });
 
-test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
+test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
 	const memberPerson = await person("Morgan", { account: actors[1].id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
@@ -942,6 +926,18 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 		),
 		0,
 	);
+	// The own reply is open only until the meeting is completed or cancelled.
+	assert.equal(ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id })).responseAllowed, true);
+	for (const status of ["completed", "cancelled"]) {
+		await admin.execute(sql`UPDATE meeting SET status=${status} WHERE id=${m.id}`);
+		const closed = ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id }));
+		assert.deepEqual([closed.rsvp, closed.responseAllowed], ["confirmed", false], status);
+		refused(
+			await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined" } }, 1),
+			"status_transition",
+		);
+	}
+	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {

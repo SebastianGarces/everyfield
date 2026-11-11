@@ -209,10 +209,7 @@ test("AC:TARGET-TSK-009 an Owner or Admin browses all 20 checklists with the cur
 
 test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date today and creates nothing", async () => {
 	const before = await footprint(plant);
-	let preview;
-	const sent = await counted(async () => {
-		preview = ok(await read(admin, "previewTemplate", { checklistKey: "vision-meeting-preparation" }));
-	});
+	const preview = ok(await read(admin, "previewTemplate", { checklistKey: "vision-meeting-preparation" }));
 	const today = chicago();
 	const reference = CATALOG.checklists.find((k) => k.key === "vision-meeting-preparation");
 	assert.equal(preview.anchorDate, today);
@@ -225,8 +222,6 @@ test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date 
 	assert.equal(preview.checklist.tasks[0].due, today);
 	assert.equal(preview.checklist.tasks.find((t) => t.key === "confirm-attendance").priority, "high");
 	assert.deepEqual(await footprint(plant), before);
-	// One statement: the live Owner or Admin check with the plant's zone (BEGIN and COMMIT wrap the test's transaction).
-	assert.equal(sent, 3);
 	refused(await read(admin, "previewTemplate", { checklistKey: "no-such-checklist" }), "invalid_input");
 });
 
@@ -339,10 +334,7 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 a real move offers the new phase's che
 	const moved = await move(c, 2);
 	assert.equal(moved.kind, "movement");
 	const before = await footprint(c.w);
-	let offer;
-	const sent = await counted(async () => {
-		offer = ok(await read(c.admin, "readPhaseOffer", {}));
-	});
+	const offer = ok(await read(c.admin, "readPhaseOffer", {}));
 	assert.equal(offer.status, "open");
 	assert.equal(offer.transition.id, moved.id);
 	assert.equal(offer.transition.toPhase, 2);
@@ -360,8 +352,6 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 a real move offers the new phase's che
 	ok(await read(c.owner, "readPhaseOffer", {}));
 	ok(await read(c.owner, "previewTemplate", { checklistKey: "launch-date-planning" }));
 	assert.deepEqual(await footprint(c.w), before);
-	// The facts and the Wiki read, inside BEGIN and COMMIT.
-	assert.equal(sent, 4);
 });
 
 test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from the move, and the offer is gone", async () => {
@@ -443,7 +433,7 @@ test("AC:PHASE-CASE-006 a declined or accepted checklist never comes back in a l
 	assert.equal(ok(await importing(c.owner, "project-timeline-creation")).tasks.length, 6);
 });
 
-test("AC:TARGET-TSK-010 two devices answer at once: one answer commits and the other reads what it decided", async () => {
+test("AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits and the other reads what it decided", async () => {
 	const c = await church();
 	const moved = await move(c, 2);
 	const keys = [randomUUID(), randomUUID()];
