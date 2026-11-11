@@ -1,22 +1,15 @@
 // One golden-set conversation, asked the way runTurn (packages/evry/src/runtime/turn.ts) asks it: evry.classifyRequest
 // first (a pastoral or capabilities request gets the runtime's fixed answer and no tool), then the real system prompt
-// (compileContext over the real catalog) with the same three kinds of model tool the turn gives this actor: the bounded
-// read tools (readTools), select_returned_rows and propose_change. Reads are answered by the in-memory church
-// (golden-church.mts); propose_change only prepares a review card, as in production, and nothing is ever applied.
-// The harness builds those tools with the turn's own builders (runtime/tools.ts), so a change there shows up here as a
-// changed provider call with no recording.
+// (compileContext over the real catalog) with the model tools the turn gives this actor, built by the same function
+// (modelTools in runtime/tools.ts). Every read runs the real adapter through invokeRead against Hope Fellowship, seeded
+// on Postgres (golden-church.mts); a selection re-checks its rows with the real verifyPeople; propose_change prepares a
+// real review card with prepareProposal in an open conversation. Nothing is ever approved and no effect job runs.
 //
 // Each provider call is recorded by the hash of what the provider receives (prompt, tools, tool choice, reasoning,
 // output limit, response format, provider options). Replay serves the recording and makes no network call.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import {
-	generateText,
-	Output,
-	stepCountIs,
-	streamText,
-	type ToolSet,
-} from "../../../packages/evry/node_modules/ai/dist/index.js";
+import { generateText, Output, stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import { z } from "../../../packages/evry/node_modules/zod/index.js";
 import type {
 	LanguageModelV4,
@@ -25,22 +18,35 @@ import type {
 	LanguageModelV4StreamPart,
 	LanguageModelV4Usage,
 } from "@ai-sdk/provider";
-import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
-import type { SourceResult } from "../../../packages/evry/src/catalog/types.ts";
+import { readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
+import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
+import { verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
+import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import {
 	classifyRequest,
 	compileContext,
 	describeCatalog,
 	PASTORAL_BOUNDARY,
 } from "../../../packages/evry/src/context/compile.ts";
-import { scrub } from "../../../packages/evry/src/context/errors.ts";
+import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { proposeChangeTool, readTools, selectReturnedRowsTool } from "../../../packages/evry/src/runtime/tools.ts";
-import { allowedWrites, REVIEW_MINUTES } from "../../../packages/evry/src/proposals/store.ts";
-import type { ConversationEvent } from "../../../packages/evry/src/conversations/store.ts";
-import { ACTORS, NOW, answerRead, prepareReview, type ActorName } from "./golden-church.mts";
+import { modelTools, proposalForModel, resultForModel } from "../../../packages/evry/src/runtime/tools.ts";
+import {
+	prepareProposal,
+	REVIEW_MINUTES,
+	type Proposal as Prepared,
+} from "../../../packages/evry/src/proposals/store.ts";
+import {
+	createConversation,
+	submitTurn,
+	type ConversationEvent,
+} from "../../../packages/evry/src/conversations/store.ts";
+import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
+import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 
 type Usage = { input: number; output: number };
 type Call =
@@ -53,6 +59,9 @@ export type Recorded = {
 	spend: { newCalls: number; newMicroUsd: number; allCalls: number; allMicroUsd: number };
 	calls: Record<string, Call>;
 };
+
+/** The real clock, kept before the golden church pins the host clock (golden-church.mts): it stamps recordedAt. */
+const RealDate = Date;
 
 /** EVRY_EVAL_RECORD=1 records the calls a file does not hold yet (a new or changed case) and drops unused ones. */
 export const recording = process.env.EVRY_EVAL_RECORD === "1";
@@ -205,7 +214,7 @@ export function recorder(name: string) {
 		const all = Object.values(calls).map((c) => c.usage);
 		const out: Recorded = {
 			model: loaded?.model || (process.env.EVRY_MODEL ?? ""),
-			recordedAt: fresh.length ? new Date().toISOString() : (loaded?.recordedAt ?? new Date().toISOString()),
+			recordedAt: fresh.length ? new RealDate().toISOString() : (loaded?.recordedAt ?? new RealDate().toISOString()),
 			spend: {
 				// A run that needed no new call keeps the last paid run's figures.
 				newCalls: fresh.length || (loaded?.spend.newCalls ?? 0),
@@ -231,20 +240,58 @@ export const recordedFile = golden.file;
 
 export type Turn = { user: string } | { assistant: string };
 export type ToolCall = { operation: string; input: any; result?: SourceResult; error?: string };
-export type Proposal = { operation: string; input: any; prepared: boolean; review: ReturnType<typeof prepareReview> };
+export type Proposal = {
+	operation: string;
+	input: any;
+	prepared: boolean;
+	review: Prepared["review"] | null;
+	error?: string;
+};
 export type Conversation = {
 	kind: "application" | "capabilities" | "pastoral_boundary";
 	calls: ToolCall[];
 	proposals: Proposal[];
 	answer: string;
 	keys: string[];
+	/** The refusal that ended the turn, as runTurn ends it when a read fails. */
+	failed?: string;
 };
 
 /** The turn's own stop: the 24-tool budget (a step past it runs nothing). The step bound only backs it up. */
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
-export async function converse(as: ActorName, text: string, history: Turn[] = []): Promise<Conversation> {
-	const { actor, church } = ACTORS[as];
+/** Conversations open one at a time, so each claim takes the turn its own submit just started. */
+let opening: Promise<unknown> = Promise.resolve();
+/**
+ * The conversation a proposal is saved in, with the claim on its submitted turn, as the app worker holds it while the
+ * turn runs. Its turn is never run: the eval itself is the turn.
+ */
+function openConversation(db: GoldenChurch["db"], actor: EvryActor) {
+	const opened = opening.then(async () => {
+		const c = await createConversation(db, actor, { requestKey: randomUUID() });
+		const submitted = await submitTurn(db, actor, c.id, { requestKey: randomUUID(), text: "Golden eval" });
+		const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
+		if (claim?.id !== submitted.turnId) throw Error("another assistant turn was due: the eval schema is not its own");
+		const lease: RunLease = {
+			turnId: claim.id,
+			tenantId: claim.tenant_id,
+			leaseOwner: claim.lease_owner,
+			generation: claim.claim_generation,
+		};
+		return { id: c.id, lease };
+	});
+	opening = opened.catch(() => undefined);
+	return opened;
+}
+
+export async function converse(
+	church: GoldenChurch,
+	as: ActorName,
+	text: string,
+	history: Turn[] = [],
+): Promise<Conversation> {
+	const { db } = church;
+	const actor = church.actors[as];
 	const keys: string[] = [];
 	const model = golden.model(keys);
 	const catalog = readCatalog(actor);
@@ -272,33 +319,55 @@ export async function converse(as: ActorName, text: string, history: Turn[] = []
 	const results = new Map<number, SourceResult>();
 	let sequence = 0;
 	let toolCalls = 0;
+	let failed: string | undefined;
+	const abort = new AbortController();
 	const admit = () => ++toolCalls <= LIMITS.toolCalls;
-	const forModel = (result: SourceResult) => {
-		const resultId = ++sequence;
+	// The turn runs a step's tool calls side by side, so a real read can finish before an earlier one, and the next
+	// prompt lists results as they finish. Here they run one after another in call order, and each takes its result id,
+	// call entry and proposal number before its first await, so a replay sends exactly the recorded prompt.
+	let queue: Promise<unknown> = Promise.resolve();
+	const inOrder =
+		<A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
+		(...args: A) => {
+			const next = queue.then(() => run(...args));
+			queue = next.catch(() => undefined);
+			return next;
+		};
+	const keep = (resultId: number, result: SourceResult) => {
 		results.set(resultId, result);
-		const json = scrub(JSON.stringify({ resultId, ...result }));
-		// The church is sized so no result needs the runtime's section truncation.
-		if (json.length > LIMITS.sectionChars) throw Error(`${result.operation} returned more than one content section`);
-		return JSON.parse(json) as Record<string, unknown>;
+		return resultForModel(resultId, result);
 	};
+	let conversation: ReturnType<typeof openConversation> | null = null;
 
-	const tools: ToolSet = readTools(actor, async (adapter, input) => {
-		if (!admit()) return { error: "tool_budget" };
-		const result = answerRead(actor, church, adapter.operation, input);
-		calls.push({ operation: adapter.operation, input, result });
-		return forModel(result);
-	});
-	if (catalog.selection.length)
-		tools.select_returned_rows = selectReturnedRowsTool(async ({ resultId, ids }) => {
+	const tools = modelTools(actor, {
+		read: inOrder(async (adapter: ReadAdapter<unknown>, input: unknown) => {
+			if (!admit()) return { error: "tool_budget" };
+			const call: ToolCall = { operation: adapter.operation, input };
+			calls.push(call);
+			const resultId = ++sequence;
+			try {
+				call.result = await invokeRead(db, actor, adapter, input);
+				return keep(resultId, call.result);
+			} catch (error) {
+				// A failed read ends the turn with its refusal, as runTurn does.
+				const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
+				call.error = code;
+				failed ??= code;
+				abort.abort();
+				return { error: "source_unavailable" };
+			}
+		}),
+		select: inOrder(async ({ resultId, ids }: { resultId: number; ids: string[] }) => {
 			if (!admit()) return { error: "tool_budget" };
 			const source = results.get(resultId);
 			const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
 			const rejected = ids.filter((rowId) => !returned.has(rowId));
-			calls.push({ operation: "evry.selectReturnedRows", input: { resultId, ids } });
+			calls.push({ operation: SELECT_RETURNED_ROWS, input: { resultId, ids } });
 			if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-			const rows = source.rows.filter((r) => r.kind === "person" && ids.includes(r.id));
-			return forModel({
-				operation: "evry.selectReturnedRows",
+			const selected = ++sequence;
+			const rows = await verifyPeople(db, actor, ids);
+			return keep(selected, {
+				operation: SELECT_RETURNED_ROWS,
 				status: "available",
 				rows,
 				total: rows.length,
@@ -307,27 +376,31 @@ export async function converse(as: ActorName, text: string, history: Turn[] = []
 				completeness: "complete",
 				exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
 			});
-		});
-	const writes = allowedWrites(actor);
-	if (writes.length) {
-		tools.propose_change = proposeChangeTool(writes, async (call) => {
+		}),
+		propose: inOrder(async (call: { operation: string; input: unknown }) => {
 			if (!admit()) return { error: "tool_budget" };
-			const review = prepareReview(church, call.operation, call.input);
-			proposals.push({ operation: call.operation, input: call.input, prepared: !!review, review });
-			if (!review) return { error: "source_unavailable" };
-			const proposalId = `5b6d1f0e-0000-4000-8000-${(0x7000 + proposals.length).toString(16).padStart(12, "0")}`;
-			return JSON.parse(
-				scrub(
-					JSON.stringify({
-						proposalId,
-						status: "awaiting_approval",
-						expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000).toISOString(),
-						rows: review.target ? [{ ...review.target, fields: { changes: review.changes } }] : [],
-					}),
-				),
-			) as Record<string, unknown>;
-		});
-	}
+			const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
+			proposals.push(card);
+			const number = proposals.length;
+			const open = await (conversation ??= openConversation(db, actor));
+			const proposal = await prepareProposal(db, actor, open.lease, open.id, call).catch((error) =>
+				error instanceof EvryRefusal ? error.code : "unknown",
+			);
+			if (typeof proposal === "string" || !proposal) {
+				card.error = proposal || "source_unavailable";
+				return { error: card.error };
+			}
+			card.prepared = true;
+			card.review = proposal.review;
+			// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
+			// recorded call; everything else on the card is the real review.
+			return proposalForModel({
+				...proposal,
+				id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
+				expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
+			});
+		}),
+	});
 
 	const run = streamText({
 		model,
@@ -337,16 +410,17 @@ export async function converse(as: ActorName, text: string, history: Turn[] = []
 		stopWhen: [stepCountIs(MAX_STEPS), () => toolCalls >= LIMITS.toolCalls],
 		maxRetries: 0,
 		maxOutputTokens: LIMITS.outputTokensPerCall,
+		abortSignal: abort.signal,
 		onError: () => undefined,
 	});
 	let answer = "";
 	let failure: unknown = null;
 	for await (const part of run.fullStream) {
 		if (part.type === "text-delta") answer += part.text;
-		else if (part.type === "error") failure ??= part.error;
+		else if (part.type === "error" && !abort.signal.aborted) failure ??= part.error;
 	}
 	if (failure) throw failure;
-	return { kind: "application", calls, proposals, answer, keys };
+	return { kind: "application", calls, proposals, answer, keys, ...(failed ? { failed } : {}) };
 }
 
 /** The tone and usefulness rubric, graded by the same model after the hard checks pass. No weights, no score. */

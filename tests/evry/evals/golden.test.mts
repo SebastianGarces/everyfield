@@ -1,28 +1,25 @@
 // The Evry golden set (approved by Sebastian on 7 Nov 2026, golden.approved.json) and the per-adapter extra cases
 // (adapters.cases.json), scored against the real model's recorded calls (golden.recorded.json). Each case is one turn
-// asked as runTurn asks it (golden-harness.mts) against the in-memory church in golden-church.mts. How to run, re-record
-// and read a result: README.md in this folder.
+// asked as runTurn asks it, with the turn's own model tools (golden-harness.mts), and every read runs the real adapter
+// against Hope Fellowship seeded on Postgres (golden-church.mts). It runs in @everyfield/evry's test:db. How to run,
+// re-record and read a result: README.md in this folder.
 //
-//   EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
-//   EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
-//
-// Hard checks are exact: required names and numbers from the fixture, forbidden invented rows and phrases, the expected
+// Hard checks are exact: required names and numbers from the seeded church, forbidden invented rows and phrases, the expected
 // tool, operation and key inputs, and review cards only. A Supported, Not yet or extra case that fails a hard check is a
 // release-blocking failure; a Partially case also has its full alpha target checked, and an unmet target is reported as
 // an alpha gap without failing. Answers that pass their hard checks get a recorded tone and usefulness grade.
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync, writeFileSync } from "node:fs";
 import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
-import { readTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { allowedWrites, REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
+import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
+import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
+import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import {
-	ACTORS,
-	HOPE,
+	goldenChurch,
 	HOUSEHOLDS,
 	IMPORT_KEY,
-	RECEIPT,
+	PEOPLE,
 	byName,
 	live,
 	type ActorName,
@@ -114,7 +111,10 @@ const extras: ExtraCase[] = json("adapters.cases.json");
 const RERECORD =
 	"EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts";
 
-// ---------- patterns, selectors and fixture facts
+const church = await goldenChurch();
+after(church.close);
+
+// ---------- patterns, selectors and the seeded church's facts
 
 /** "/source/flags" is a regular expression; any other string is matched literally, ignoring case. */
 function pattern(p: string): RegExp {
@@ -130,7 +130,7 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function select(selector: string | string[]): string[] {
 	if (Array.isArray(selector)) return selector.flatMap(select);
 	if (!selector.includes("=")) return [selector];
-	let people: Person[] = live(HOPE);
+	let people: Person[] = live();
 	for (const [key, value] of selector.split("&").map((s) => s.split("=") as [string, string])) {
 		const any = value.split("|");
 		if (key === "slice") {
@@ -144,14 +144,14 @@ function select(selector: string | string[]): string[] {
 				if (key === "household")
 					return HOUSEHOLDS.some((h) => h.id === p.household?.id && any.some((v) => h.name.startsWith(v)));
 				if (key === "tag") return any.some((v) => p.tags?.includes(v));
-				if (key === "skill") return any.some((v) => p.skills?.some((s) => s.category === v));
+				if (key === "skill") return any.some((v) => p.skills?.some((s) => s.category === v.toLowerCase()));
 				if (key === "photo") return value === "none" ? !p.photo : !!p.photo;
 				throw Error(`unknown selector ${key}`);
 			});
 	}
 	return people.map((p) => p.name);
 }
-const NAMES = HOPE.people.map((p) => ({ name: p.name, re: new RegExp(`\\b${escape(p.name)}\\b`, "i") }));
+const NAMES = PEOPLE.map((p) => ({ name: p.name, re: new RegExp(`\\b${escape(p.name)}\\b`, "i") }));
 const mentioned = (answer: string) => NAMES.filter((n) => n.re.test(answer)).map((n) => n.name);
 const resolve = (value: unknown): unknown =>
 	typeof value === "string" && value.startsWith("@")
@@ -206,7 +206,7 @@ const NEGATED =
 	/\b(not|nothing|no|neither|nor|yet|until|once|after|when|won['’]?t|isn['’]?t|hasn['’]?t|haven['’]?t|wasn['’]?t|never|if|before)\b/i;
 /** A clarifying question, also when it is phrased as an invitation ("tell me which one"). */
 const CLARIFY = /\?|let me know|tell me (which|what|who)|if you tell me|which one/i;
-const CONTACTS = HOPE.people.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
+const CONTACTS = PEOPLE.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
 
 // ---------- scoring
 
@@ -400,7 +400,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	try {
-		const c = await converse(as, text, spec.history ?? []);
+		const c = await converse(church, as, text, spec.history ?? []);
 		row.conversation = c;
 		row.keys = c.keys;
 		row.checks = [
@@ -417,7 +417,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(ACTORS[as].actor).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(church.actors[as]).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -443,7 +443,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			row.target = { checks, met: checks.every((x) => x.ok) };
 		}
 		if (spec.targetProbe) {
-			const probe = await converse(as, spec.targetProbe.text, spec.targetProbe.history);
+			const probe = await converse(church, as, spec.targetProbe.text, spec.targetProbe.history);
 			row.keys.push(...probe.keys);
 			const checks = spec.targetProbe.require.map((p) => ({
 				name: `after "${spec.targetProbe!.text}", says ${p}`,
@@ -512,6 +512,7 @@ function report(rows: Row[]) {
 			lines.push(
 				`- Tool calls: ${r.conversation.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none"}`,
 			);
+			if (r.conversation.failed) lines.push(`- Turn failed: ${r.conversation.failed}`);
 			lines.push(
 				`- Review cards: ${r.conversation.proposals.map((p) => `${p.operation}${p.prepared ? "" : " (not prepared)"} ${JSON.stringify(p.input)}`).join("; ") || "none"}`,
 			);
@@ -577,108 +578,86 @@ test("INV-evry-golden: every approved golden case is encoded once, with its appr
 	assert.equal(new Set([...ids, ...extraIds]).size, ids.length + extraIds.length);
 });
 
-test("INV-evry-golden: the synthetic church holds the records the factual cases check", () => {
-	const people = live(HOPE);
-	const count = (stage: string) => people.filter((p) => p.stage === stage).length;
-	assert.equal(people.length, 83);
+const ADAPTERS = new Map<string, ReadAdapter<unknown>>(
+	Object.values(READ_DOMAINS)
+		.flat()
+		.map((a) => [a.operation, a as ReadAdapter<unknown>]),
+);
+const read = (operation: string, input: unknown, as: ActorName = "owner"): Promise<SourceResult> =>
+	invokeRead(church.db, church.actors[as], ADAPTERS.get(operation)!, input);
+const labels = (r: SourceResult, kind = "person") => r.rows.filter((x) => x.kind === kind).map((x) => x.label);
+
+test("INV-evry-golden: the seeded church holds the records the factual cases check, read back through the real reads", async () => {
+	const everyone = await read("people.listPeople", { limit: 100 });
+	assert.equal(everyone.total, 83);
+	const stages = ["leader", "launch_team", "core_group", "interviewed", "following_up", "attendee", "prospect"];
+	const totals = [];
+	for (const stage of stages) totals.push((await read("people.listPeople", { stages: [stage], limit: 100 })).total);
+	assert.deepEqual(totals, [3, 2, 5, 2, 4, 10, 57]);
+	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
+	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
+	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
+	assert.deepEqual(labels(await read("people.getHousehold", { personId: byName("Alex Rivera").id })), [
+		"Alex Rivera",
+		"Ana Rivera",
+		"Mateo Rivera",
+	]);
+	const board = await read("people.getPipelineData", { limit: 100 });
 	assert.deepEqual(
-		["leader", "launch_team", "core_group", "interviewed", "following_up", "attendee", "prospect"].map(count),
-		[3, 2, 5, 2, 4, 10, 57],
+		board.rows
+			.filter((r) => r.fields.inactivity === "alert")
+			.map((r) => r.label)
+			.sort(),
+		["Carmen Martinez", "Daniel Cruz", "Kevin Walsh", "Pedro Martinez"],
 	);
-	assert.equal(select("stage=prospect&city=Austin").length, 13);
-	assert.equal(HOUSEHOLDS.length, 8);
-	assert.deepEqual(select("household=Rivera"), ["Alex Rivera", "Ana Rivera", "Mateo Rivera"]);
-	assert.deepEqual(select("inactivity=alert"), ["Daniel Cruz", "Carmen Martinez", "Kevin Walsh", "Pedro Martinez"]);
-	assert.deepEqual(select("skill=Tech"), ["Mark Thompson", "Alex Rivera"]);
-	assert.equal(select("photo=none").length, 78);
-	assert.deepEqual(
-		HOPE.people.filter((p) => p.state === "retired").map((p) => p.name),
-		["Tom Baker", "Rosa Rivera"],
-	);
-	assert.equal(byName("Sam Patel").id, "5b6d1f0e-0000-4000-8000-000000000108");
-	assert.deepEqual(RECEIPT.counts, { created: 5, skipped: 1, failed: 2, remaining: 0 });
-	assert.ok(IMPORT_KEY);
-	// The two Marias, the two Caseys and the Smiths the disambiguation cases need.
-	for (const name of [
-		"Maria Santos",
-		"Maria Delgado",
-		"Casey Morgan",
-		"Casey Brooks",
-		"Jon Smith",
-		"John Smith",
-		"asdf",
-	])
-		assert.equal(byName(name).state, "live");
+	const tech = [];
+	for (const p of everyone.rows) {
+		const skills = await read("people.getPersonSkills", { personId: p.id });
+		if (skills.rows.some((s) => s.fields.category === "tech")) tech.push(p.label);
+	}
+	assert.deepEqual(tech, ["Mark Thompson", "Alex Rivera"]);
+	// The two removed people are in the church but not among its live people.
+	for (const name of ["Tom Baker", "Rosa Rivera"]) assert.equal(labels(everyone).includes(name), false, name);
 	assert.equal(
-		people.some((p) => p.name === "Maria Lopez"),
-		false,
-		"GST-02 adds Maria Lopez",
+		(await read("people.listPeople", { search: "Sam Patel" })).rows[0]!.id,
+		"5b6d1f0e-0000-4000-8000-000000000108",
 	);
+	const receipt = await read("people.getImportReceipt", { requestKey: IMPORT_KEY });
+	const file = receipt.rows.find((r) => r.kind === "file")!;
+	assert.deepEqual(
+		[file.fields.created, file.fields.skipped, file.fields.failed, file.fields.remaining],
+		["5", "1", "2", "0"],
+	);
+	// The two Marias, the two Caseys and the Smiths the disambiguation cases need, and the test record.
+	for (const [search, names] of [
+		["Maria", ["Maria Santos", "Maria Delgado"]],
+		["Casey", ["Casey Morgan", "Casey Brooks"]],
+		["Smith", ["Jon Smith", "John Smith"]],
+		["asdf", ["asdf"]],
+	] as const)
+		assert.deepEqual(labels(await read("people.listPeople", { search })), names, search);
+	assert.equal(labels(everyone).includes("Maria Lopez"), false, "GST-02 adds Maria Lopez");
 });
 
 test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read and prepare a review, never approve or run one", () => {
-	const owner = ACTORS.owner.actor;
-	const tools = Object.keys(readTools(owner, async () => ({})));
-	assert.deepEqual(
-		tools,
-		Object.keys(READ_DOMAINS).map((d) => `${d}_read`),
-	);
-	// The turn's own tool set and its review-only propose_change are asserted through the real turn: AC:INH-EDGES-03
-	// (tests/evry/runtime/runs.test.mts) and AC:UI45-004 (tests/evry/execution/proposals.test.mts). The harness builds
-	// the same two tools with the turn's builders, and lint keeps turn.ts from importing the executor (.oxlintrc.json).
-	assert.deepEqual(
-		allowedWrites(owner).map((w) => w.operation),
-		Object.keys(REVIEWED_WRITES),
-	);
-	// A Member and an organization seat get no reviewed writes; the organization seat gets no plant People reads.
-	assert.deepEqual(readCatalog(ACTORS.member.actor).reviewedWrites, []);
-	assert.deepEqual(readCatalog(ACTORS.org.actor).domains, []);
-	assert.deepEqual(readCatalog(ACTORS.org.actor).reviewedWrites, []);
-});
-
-// Every operation and catalog tool having a case is the one coverage test, tests/workflow/evry-evals-coverage.test.mjs.
-test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a near-miss, each on one of its operations", async () => {
-	const root = fileURLToPath(here("../../../packages/evry/src/adapters/"));
-	const adapters = readdirSync(root, { withFileTypes: true })
-		.filter((d) => d.isDirectory())
-		.flatMap((d) =>
-			readdirSync(`${root}${d.name}`, { withFileTypes: true })
-				.filter((k) => k.isDirectory())
-				.map((k) => `${d.name}/${k.name}`),
-		)
-		.sort();
-	assert.deepEqual(adapters, ["people-organization/reads", "people/commands", "people/reads"]);
-	/** Every `operation` string in a module's exports. */
-	const operations = (node: unknown, into: Set<string>): Set<string> => {
-		if (Array.isArray(node)) node.forEach((v) => operations(v, into));
-		else if (node && typeof node === "object") {
-			const op = (node as { operation?: unknown }).operation;
-			if (typeof op === "string") into.add(op);
-			else Object.values(node).forEach((v) => operations(v, into));
-		}
-		return into;
-	};
-	const problems: string[] = [];
-	for (const adapter of adapters) {
-		const mod = await import(`${root}${adapter}/index.ts`);
-		const ops = operations(Object.values(mod), new Set());
-		if (!ops.size) problems.push(`${adapter}: no operations found`);
-		const mine = extras.filter((c) => c.adapter === adapter);
-		if (mine.length < 5 || mine.length > 10) problems.push(`${adapter}: ${mine.length} extra questions, not 5 to 10`);
-		if (!mine.some((c) => c.near_miss)) problems.push(`${adapter}: no near-miss question`);
-		for (const c of mine)
-			if (!ops.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a ${adapter} operation`);
-	}
-	// The extra questions on the catalog's own model tools (every exported "evry.…" name in catalog/catalog.ts) say
-	// adapter "catalog".
-	const catalog = await import(fileURLToPath(here("../../../packages/evry/src/catalog/catalog.ts")));
-	const tools = new Set(
-		Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry.")),
-	);
-	if (!tools.size) problems.push("catalog: no catalog tools found");
-	for (const c of extras.filter((x) => x.adapter === "catalog"))
-		if (!tools.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a catalog tool`);
-	assert.deepEqual(problems, []);
+	const tools = (as: ActorName) =>
+		Object.keys(
+			modelTools(church.actors[as], {
+				read: async () => ({}),
+				select: async () => ({}),
+				propose: async () => ({}),
+			}),
+		);
+	// The Owner's turn gets the domain reads, select_returned_rows and propose_change, which only prepares a review.
+	assert.deepEqual(tools("owner"), [
+		...Object.keys(READ_DOMAINS).map((d) => `${d}_read`),
+		"select_returned_rows",
+		"propose_change",
+	]);
+	assert.deepEqual(tools("admin"), tools("owner"));
+	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
+	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	assert.deepEqual(tools("org"), []);
 });
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {

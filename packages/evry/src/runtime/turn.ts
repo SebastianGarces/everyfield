@@ -16,11 +16,11 @@ import {
 } from "../context/compile.ts";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
-import { allowedWrites, prepareProposal } from "../proposals/store.ts";
+import { prepareProposal } from "../proposals/store.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
-import { proposeChangeTool, readTools, selectReturnedRowsTool } from "./tools.ts";
+import { modelTools, proposalForModel, resultForModel } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 
@@ -44,19 +44,6 @@ const transientRead = (error: unknown) => {
 		(error as { cause?: { code?: unknown } })?.cause?.code;
 	return typeof code === "string" && (TRANSIENT_SQL.has(code) || code === "ECONNRESET" || code === "ETIMEDOUT");
 };
-
-/** The model sees the rows' safe fields, the exact total and the paging facts, bounded to one content section. */
-function forModel(resultId: number, result: SourceResult) {
-	const value = { resultId, ...result };
-	const json = scrub(JSON.stringify(value));
-	if (json.length <= LIMITS.sectionChars) return JSON.parse(json) as Record<string, unknown>;
-	const rows: SourceResult["rows"] = [];
-	for (const row of result.rows) {
-		if (JSON.stringify([...rows, row]).length > LIMITS.sectionChars - 1_000) break;
-		rows.push(row);
-	}
-	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
-}
 
 /**
  * Runs one claimed turn to its saved end. Reads run under the actor's authority, re-read before each one; every saved
@@ -300,12 +287,12 @@ async function run(
 				}
 			}
 			const sequence = await save("tool_result", { operation: adapter.operation, input, result });
-			return sequence === null ? { error: "cancelled" } : forModel(sequence, result);
+			return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
 		};
 
-		const tools: ToolSet = readTools(actor, read);
-		if (catalog.selection.length)
-			tools.select_returned_rows = selectReturnedRowsTool(async ({ resultId, ids }) => {
+		const tools = modelTools(actor, {
+			read,
+			select: async ({ resultId, ids }) => {
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
 				const saved = await savedResult(db, turn.conversation_id, resultId);
@@ -331,13 +318,10 @@ async function run(
 					result,
 					originalTotal: source.total,
 				});
-				return sequence === null ? { error: "cancelled" } : forModel(sequence, result);
-			});
-
-		// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
-		const writes = allowedWrites(actor);
-		if (writes.length) {
-			tools.propose_change = proposeChangeTool(writes, async (call) => {
+				return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
+			},
+			// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
+			propose: async (call) => {
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
 				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call).catch((error) =>
@@ -362,30 +346,9 @@ async function run(
 						proposalId: proposal.id,
 					},
 				});
-				if (sequence === null) return { error: "cancelled" };
-				return JSON.parse(
-					scrub(
-						JSON.stringify({
-							proposalId: proposal.id,
-							status: "awaiting_approval",
-							expiresAt: proposal.expiresAt,
-							// The reviewed fields live in their source row, so a later model call withholds them with
-							// the row once the target is no longer available (withLiveRows).
-							rows: target
-								? [
-										{
-											kind: "person",
-											id: target.id,
-											label: target.label,
-											fields: { changes: proposal.review.changes },
-										},
-									]
-								: [],
-						}),
-					),
-				) as Record<string, unknown>;
-			});
-		}
+				return sequence === null ? { error: "cancelled" } : proposalForModel(proposal);
+			},
+		});
 
 		// The classification call counts against the same turn budget as every tool-loop step.
 		const before = { ...usage };
