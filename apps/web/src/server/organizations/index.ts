@@ -36,7 +36,7 @@ const env = z.object({
 export type Operation = keyof OrganizationOperations;
 export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
 export type Mount = NonNullable<ReturnType<typeof current>>;
-export /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
+/** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
 let mount: ReturnType<typeof create> | undefined;
@@ -239,15 +239,14 @@ export async function invitationFor(
 }
 
 export {
-	connectionRevision,
 	idsIn,
 	namesFor,
 	pairOf,
 	pendingFor,
 	readHistory,
+	readPipelineConsents,
 	readPlantSharing,
 	residencyLinks,
-	residencyRevision,
 	subjectFacts,
 	targetsFor,
 } from "@everyfield/domain/organizations";

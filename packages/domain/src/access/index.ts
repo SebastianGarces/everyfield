@@ -1,5 +1,5 @@
 import "server-only";
-export { readOrganizationNotes, readOwnResidency, readPipelinePerson } from "./pipeline.ts";
+export { liveResidency, readOrganizationNotes, readOwnResidency, readPipelinePerson } from "./pipeline.ts";
 export { requestAdmission, safeReturn } from "./security.ts";
 export type { RequestAdmission } from "./security.ts";
 export {

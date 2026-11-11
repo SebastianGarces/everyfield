@@ -66,9 +66,9 @@ export type Drafts = {
 	/** Discovery relationships the person ticked to bring into the new church. None by default. */
 	keep: string[];
 };
-export const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
+const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
 export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership", seniorPastor: false } as const;
-export function emptyDrafts(): Drafts {
+function emptyDrafts(): Drafts {
 	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
 }
 
@@ -102,7 +102,7 @@ export function initialState(entry: Entry, requested: StepKey | null, drafts = e
 
 // ---- Facts and steps ----
 
-export const journeySaved = (r: Resume) => r.journey.status === "saved";
+const journeySaved = (r: Resume) => r.journey.status === "saved";
 /** An existing-journey attestation is once only. After it the phase and the launch answer show read-only (R4). */
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
 /** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
@@ -136,7 +136,7 @@ export function stepDone(key: StepKey, r: Resume): boolean {
 }
 
 /** Where a returning Owner picks up: the first unanswered step, or Finish. */
-export function resumeStep(r: Resume): StepKey {
+function resumeStep(r: Resume): StepKey {
 	if (finished(r)) return "finish";
 	if (!stepDone("journey", r) || !stepDone("launch", r)) return "journey";
 	if (!stepDone("team", r)) return "team";
@@ -148,7 +148,7 @@ export function resumeStep(r: Resume): StepKey {
  * read-only summary: basics are never reentered. Launch date needs a phase answer first, saved or drafted, because
  * the two save together.
  */
-export function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
+function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
 	if (state.entry.kind !== "plant") return "church";
 	const r = state.entry.resume;
 	const view = requested ?? resumeStep(r);
@@ -327,7 +327,7 @@ export type Results = {
 export type Settled = { [K in Op]: { op: K; reply: Reply<Results[K]> } }[Op];
 
 /** Codes after which the screen reloads its facts from the server before the person tries again. */
-export const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
+const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
 	"conflict",
 	"already_declared",
 	"active_seat_conflict",

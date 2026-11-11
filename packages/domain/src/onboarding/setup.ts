@@ -218,9 +218,9 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			);
 			await tx.update(t.onboarding_setup).set({ lead }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
 			await tx.update(t.plant).set({ lead_answer: q.input.answer }).where(eq(t.plant.id, a.plant.id));
-			const plant = await bump(tx, a.plant.id),
-				ids = [await event(tx, cx, a.plant.id, "attestation.recorded")];
-			if (lead.answer === "yes") ids.push(await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign"));
+			const plant = await bump(tx, a.plant.id);
+			await event(tx, cx, a.plant.id, "attestation.recorded");
+			if (lead.answer === "yes") await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign");
 			return finish(tx, cx, c.leadAnswerResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
@@ -235,8 +235,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				cx = await begin(tx, ctx, a.account.id, "onboarding.declareJourney", q);
 			if (cx.kind === "replay") return c.journeyResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
-			const ids = [],
-				at = await stamp(tx, a.plant.id);
+			const at = await stamp(tx, a.plant.id);
 			const journey = savedJourney.parse({ status: "saved", value: q.input.journey, savedAt: at }),
 				launch = savedLaunch.parse({ status: "saved", value: q.input.launch, savedAt: at });
 			if (q.input.journey.answer === "existing") {
@@ -245,7 +244,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
  ${declaration(sql`src`, q.input.journey.phase, cx.id)},
  moved AS (UPDATE plant p SET phase=d.to_phase FROM declared d WHERE p.id=d.plant_id) SELECT d.id FROM declared d`);
 				if (!rows[0]) deny("already_declared");
-				ids.push(await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration"));
+				await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration");
 			}
 			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id)).for("update");
 			let written: { revision: string } | undefined;
@@ -260,7 +259,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 						set: { target_date: q.input.launch.date, status: "scheduled", revision: sql`${t.launch.revision}+1` },
 					})
 					.returning({ revision: t.launch.revision });
-				ids.push(await event(tx, cx, a.plant.id, "launch.changed"));
+				await event(tx, cx, a.plant.id, "launch.changed");
 			}
 			await tx.update(t.onboarding_setup).set({ journey, launch }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
 			await tx
@@ -268,7 +267,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				.set({ journey_answer: q.input.journey.answer, launch_answer: q.input.launch.answer })
 				.where(eq(t.plant.id, a.plant.id));
 			const plant = await bump(tx, a.plant.id);
-			ids.push(await event(tx, cx, a.plant.id, "attestation.recorded"));
+			await event(tx, cx, a.plant.id, "attestation.recorded");
 			return finish(tx, cx, c.journeyResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
