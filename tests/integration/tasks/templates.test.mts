@@ -15,21 +15,13 @@ import {
 } from "../../../packages/domain/src/tasks/index.ts";
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { recommendForPhase } from "../../../packages/domain/src/wiki/reads.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-026: phase checklists. Browse, preview and import the fixed catalog (TSK-009), answer a phase move's offer
 // (TSK-010, PHASE-006) and keep every description safe Markdown (TSK-016). Each church plant is new, so every count
 // below belongs to the test that reads it.
 
 let f, writer, templates, phases, plant, owner, admin, member;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const write = (who, op, input, w = writer) => withTaskWrite(f.db, who.actor, (tx, ctx) => w[op](tx, ctx, input));
 const read = (who, op, input, r = templates) => f.db.transaction((tx) => r[op](tx, who.actor, input));

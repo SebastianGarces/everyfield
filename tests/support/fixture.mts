@@ -42,16 +42,17 @@ export function refusedWith({ details, hidden = [] }: { details?: unknown; hidde
 }
 
 /**
- * Resolves once `count` other sessions of `pool`'s login role wait for a lock. It polls `pg_stat_activity`, so the
- * wait ends on Postgres state, and fails after a bounded number of polls
- * (not a deadline) if the rival never blocks.
+ * Resolves true once `count` other sessions of `pool`'s login role wait for a lock. It polls `pg_stat_activity`, so the
+ * wait ends on Postgres state, and fails after a bounded number of polls (not a deadline) if the rival never blocks.
+ * An aborted `signal` stops the polling and resolves false, for a test that races a read against a lock wait.
  */
-export async function waitingOnLock(pool: Database, { count = 1 } = {}) {
+export async function waitingOnLock(pool: Database, { count = 1, signal }: { count?: number; signal?: AbortSignal } = {}) {
 	for (let poll = 0; poll < 50_000; poll++) {
+		if (signal?.aborted) return false;
 		const r = await pool.execute(
 			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock' AND pid<>pg_backend_pid()`,
 		);
-		if ((r.rows[0] as { n: number }).n >= count) return;
+		if ((r.rows[0] as { n: number }).n >= count) return true;
 	}
 	throw Error("the rival transaction never waited for a lock");
 }

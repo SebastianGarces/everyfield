@@ -21,6 +21,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 import { insertTasks } from "../task-assignees.mts";
+import { ok, waitingOnLock } from "../../support/fixture.mts";
 const database = await testDatabase({
 	prefix: "wp010",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -36,10 +37,6 @@ const ingress = new Map();
 const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
 const denied = (r, code = "unavailable") => {
 	assert.equal(r.status, "refused", JSON.stringify(r));
 	assert.equal(r.error.code, code);
@@ -752,11 +749,12 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	});
 	await locked;
 	try {
-		const read = await Promise.race([
-			readAvatar(db, storage, ctx(a), upload.uploadId),
-			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
-		]);
-		assert.deepEqual(read, bytes);
+		// The read races Postgres lock state: it must finish before any session of the runtime role waits for a lock.
+		const done = new AbortController();
+		const read = readAvatar(db, storage, ctx(a), upload.uploadId).finally(() => done.abort());
+		const waited = await waitingOnLock(db, { signal: done.signal });
+		assert.equal(waited, false, "photo read waited for the session lock");
+		assert.deepEqual(await read, bytes);
 	} finally {
 		release();
 		await holder;
@@ -811,14 +809,19 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(requested.status, "verification_requested");
 	const first = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", b, { proof: first.token })).status, "refused");
+	const dbNow = async () =>
+		Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
+	const earliest = await dbNow();
 	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	const latest = await dbNow();
 	const second = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", a, { proof: first.token })).status, "refused");
 	const proofs = await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id));
 	assert.equal(proofs.filter((p) => p.superseded_at !== null).length, 1);
 	const active = proofs.find((p) => p.superseded_at === null);
 	const expiry = active.expires_at.getTime();
-	assert.equal(Math.round((expiry - Date.now()) / 3600_000), 24);
+	// The proof lives 24 hours from its request, read against the database clock around that request.
+	assert.ok(expiry >= earliest + 86_400_000 && expiry <= latest + 86_400_000 + 1, String(expiry - earliest));
 	const result = await call("confirmEmailChange", a, { proof: second.token });
 	assert.equal(result.status, "succeeded");
 	assert.equal(result.action, "email_changed");
@@ -1249,7 +1252,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	const [outbox] = await admin.select().from(t.mail).where(eq(t.mail.id, overdue.mail));
 	await admin
 		.update(t.job)
-		.set({ eligible_at: new Date(Date.now() - 1000) })
+		.set({ eligible_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.job.id, outbox.job_id));
 	const claims = await claimDue(db, ["mail"], 100);
 	const claim = claims.find((c) => c.id === outbox.job_id);
@@ -1406,7 +1409,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const plantPreview = ok(await call("previewPlantTimezone", f.a, { plant: f.p, timeZone: "America/New_York" }, f.p));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, plantPreview.previewId));
 	denied(
 		await call(
@@ -1420,7 +1423,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const personal = ok(await call("previewPersonalTimezone", f.a, { timeZone: "America/New_York" }));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, personal.previewId));
 	denied(
 		await call(
