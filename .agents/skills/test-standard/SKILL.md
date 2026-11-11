@@ -52,7 +52,8 @@ message or partial receipt. Generic input validation gets no regression test.
   `tests/evry/evals/*.cases.json`. The cases cover tool selection for natural questions and answer correctness
   against seeded fixtures. Record them on the real `EVRY_MODEL`; CI replays the recordings with no paid call (D77).
   A case names its operation with `"operation": "<name>"`. List the added or changed cases in the PR body.
-  `tests/workflow/evry-evals-coverage.test.mjs` fails for an adapter operation with no case that is not in
+  `tests/workflow/evry-evals-coverage.test.mjs`, the one coverage test, fails for an adapter operation or catalog
+  tool with no case that is not in
   `tests/workflow/evry-evals-baseline.json`. The baseline only shrinks: remove an entry when its cases land,
   and never add one.
 - Workflow tooling tests use disposable repositories and fake external providers; they establish
