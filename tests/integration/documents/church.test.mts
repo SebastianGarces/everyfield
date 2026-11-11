@@ -1108,6 +1108,34 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		}
 	});
 
+	test("T-117 history lists the newest 1000 revisions and says when older ones are left out", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t117-many"));
+		const list = async () =>
+			ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		// Copies of revision 1 numbered from..to, written beside it as saves would be.
+		const addRevisions = (from, to) =>
+			admin.execute(
+				sql`INSERT INTO document_revision (tenant_id, document_id, version_number, body, content_hash, recorded_at)
+					SELECT r.tenant_id, r.document_id, n, r.body, r.content_hash, clock_timestamp()
+					FROM document_revision r, generate_series(${from}::int, ${to}::int) n
+					WHERE r.document_id = ${doc.id}::uuid AND r.version_number = 1`,
+			);
+		const one = await list();
+		assert.deepEqual([one.revisions.length, one.truncated], [1, false], "one revision is the whole history");
+		await addRevisions(2, 1000);
+		const full = await list();
+		assert.equal(full.revisions.length, 1000);
+		assert.equal(full.truncated, false, "exactly 1000 revisions are all listed");
+		await addRevisions(1001, 1001);
+		const cut = await list();
+		assert.equal(cut.truncated, true, "a 1001st revision leaves the oldest out");
+		assert.deepEqual(
+			cut.revisions.map((r) => r.number),
+			Array.from({ length: 1000 }, (_, i) => i + 2),
+			"the newest 1000, oldest first, without revision 1",
+		);
+	});
+
 	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
 		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));

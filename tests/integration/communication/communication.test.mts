@@ -809,3 +809,30 @@ test("AC:CASE-COM-003 a read-only member seat and a forged actor with another us
 	assert.equal(swappedSave.error.code, "unavailable");
 	assert.deepEqual(await snapshot(), before);
 });
+
+test("T-159: a draft update that leaves out the subject keeps the stored subject; null clears it", async () => {
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Keep this subject", bodyHtml: "<p>First</p>" },
+		}),
+	);
+	const updated = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, bodyHtml: "<p>Second</p>" },
+		}),
+	);
+	assert.equal(updated.subject, "Keep this subject");
+	const [kept] = await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${saved.communicationId}`);
+	assert.deepEqual([kept.subject, kept.body_html], ["Keep this subject", "<p>Second</p>"]);
+	const cleared = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: updated.revision,
+			input: { communicationId: saved.communicationId, subject: null },
+		}),
+	);
+	assert.equal(cleared.subject, null);
+});

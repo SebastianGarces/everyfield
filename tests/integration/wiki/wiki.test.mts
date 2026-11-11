@@ -1300,6 +1300,24 @@ describe("wiki api", { concurrency: 1 }, () => {
 		assert.equal(table.rows[0].name, null);
 	});
 
+	test("T-159 C13: own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes", async () => {
+		const voter = await enroll("member", { kind: "plant", id: P });
+		const reader = await actor(voter);
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// A pending-deletion witness on the account hides it.
+		const witness = randomUUID();
+		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+			cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${voter.id},1,'pending_deletion',1,
+			'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// An ended seat reads nothing either, though the request's viewer was resolved while it was live.
+		await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${voter.id}`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
+	});
+
 	test(
 		ac(["CASE-WIKI-009", "WR-032", "WR-033", "WR-034", "WR-035", "WR-036", "WR-037"]) +
 			" plant, member, foreign, global, ended and Evry callers publish nothing",

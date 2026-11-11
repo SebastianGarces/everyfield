@@ -103,6 +103,11 @@ export type Draft = {
 	notes: string;
 	/** Complete the follow-up with this outcome. A separate choice from the outcome (REQ-MTG-022). */
 	complete: boolean;
+	/**
+	 * A correction's recorded time: the stored instant and the `at` it shows as. While `at` still reads the same, the
+	 * save sends the stored instant unchanged, so seconds and the zone it was entered in are never rewritten.
+	 */
+	stored?: { at: string; instant: string };
 };
 export const emptyDraft = (): Draft => ({ outcome: "", when: "", at: "", channel: "", notes: "", complete: false });
 /**
@@ -137,7 +142,8 @@ export function outcomeInput(
 	if (!d.outcome) errors.outcome = "Choose what happened.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
-	if (d.when === "earlier") {
+	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;
+	else if (d.when === "earlier") {
 		const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d.at) ? new Date(d.at) : null;
 		if (!parsed || Number.isNaN(parsed.getTime())) errors.at = "Enter the date and time it happened.";
 		else if (parsed.getTime() > now.getTime()) errors.at = "This time is in the future. Choose a time that has passed.";
@@ -174,13 +180,15 @@ export function localInputOf(at: string | Date): string {
 }
 /** The form for correcting a recorded outcome: its current values, said again by the person. */
 export function draftOf(item: OutcomeItem): Draft {
+	const at = localInputOf(item.occurredAt);
 	return {
 		outcome: item.outcome,
 		when: "earlier",
-		at: localInputOf(item.occurredAt),
+		at,
 		channel: item.channel ?? "",
 		notes: item.notes ?? "",
 		complete: item.completedTask,
+		stored: { at, instant: item.occurredAt },
 	};
 }
 
@@ -197,6 +205,10 @@ export function withOutcome(items: readonly OutcomeItem[], m: Pick<OutcomeMutati
 			b.occurredAt.localeCompare(a.occurredAt) || b.recordedAt.localeCompare(a.recordedAt) || b.id.localeCompare(a.id),
 	);
 }
+
+/** The call screen's Recent list after a saved outcome: the latest three by the contact log's order (withOutcome). */
+export const recentAfter = (items: readonly OutcomeItem[], m: Pick<OutcomeMutation, "record" | "previous">) =>
+	withOutcome(items, m).slice(0, 3);
 
 /**
  * The 48-hour window of a first-Vision follow-up at `now`, from the meeting's actual start (REQ-MTG-021): hours left

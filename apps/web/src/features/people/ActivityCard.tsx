@@ -48,6 +48,16 @@ type Base = "id" | "occurredAt" | "recordedAt" | "actor";
 /** An Activity entry without the parts every entry has: what a saved change adds, before its receipt is known. */
 export type EntryFields = Item extends infer I ? (I extends Item ? Omit<I, Base> : never) : never;
 type Store = PersonStore<PlantPerson, PersonDraft>;
+/**
+ * A saved note change moves the person revision on and changes nothing else on the person: the person this page holds
+ * takes the answer's revision, so the next save on this page sends the latest one.
+ */
+const savedAt =
+	(store: Store) =>
+	(v: { personRevision: PlantPerson["revision"] }): PlantPerson => ({
+		...store.get().saved,
+		revision: v.personRevision,
+	});
 type NoteEdit = { body: string; reason: string };
 
 const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
@@ -147,7 +157,7 @@ export function ActivityCard({
 		const rev = person.revision;
 		const r = await runSave(store, "note", { input, rev }, (key) => addNote(key, rev, input), {
 			fresh,
-			toPerson: (v) => v.person,
+			toPerson: savedAt(store),
 		});
 		if (r?.status === "ok") {
 			const { note, receipt } = r.value;
@@ -300,7 +310,7 @@ function Row({
 			const rev = item.revision;
 			const r = await runSave(store, slot, { input, rev }, (key) => editNote(key, rev, input), {
 				fresh,
-				toPerson: (v) => v.person,
+				toPerson: savedAt(store),
 			});
 			if (r?.status === "ok") {
 				setTouched(false);
@@ -486,7 +496,7 @@ function DeleteNoteDialog({
 		const rev = note.revision;
 		const r = await runSave(store, slot, { input, rev }, (key) => deleteNote(key, rev, input), {
 			fresh,
-			toPerson: (v) => v.person,
+			toPerson: savedAt(store),
 		});
 		if (r?.status === "ok") {
 			setTouched(false);

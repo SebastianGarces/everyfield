@@ -133,7 +133,7 @@ export function AttendanceCard({
 	meeting: m,
 	attendance,
 	analytics,
-	canWrite,
+	canSettle,
 	lane,
 	blocked,
 	headerFinalize,
@@ -145,7 +145,8 @@ export function AttendanceCard({
 	meeting: Detail;
 	attendance: Attendance | null;
 	analytics: Analytics | null;
-	canWrite: boolean;
+	/** Finalize and correct: an Owner, an Admin or the team meeting's current leader (REQ-MTG-010, D-562). */
+	canSettle: boolean;
 	/** The finalize and correction lane: while its save is on its way or unknown, nothing here starts another. */
 	lane: SaveIntent<SettleEditing>;
 	/** Presence saves are on their way or unknown; finalizing waits for them. */
@@ -220,7 +221,7 @@ export function AttendanceCard({
 			) : null}
 			{final && vision && analytics ? <Work tasks={analytics.tasks} /> : null}
 			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} className="mt-4" />
-			{canWrite ? (
+			{canSettle ? (
 				<div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
 					{final ? (
 						<Button

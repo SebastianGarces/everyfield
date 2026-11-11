@@ -206,7 +206,8 @@ async function lockAttendance(
 		if (!r.rows[0]) deny();
 		const f = factsRow.parse(r.rows[0]);
 		if (f.snapshot_revision === f.attendance_revision || attempt > 0) {
-			// Only an Owner or Admin, or the current leader of this team meeting, records attendance.
+			// REQ-MTG-010 (D-562): only an Owner or Admin, or the current leader of this team meeting's ministry, records,
+			// finalizes and corrects attendance. Any other Member is refused.
 			if (!w.admin && !f.leads) deny();
 			return f;
 		}
