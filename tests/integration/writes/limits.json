@@ -270,7 +270,7 @@
 		"limit": 1
 	},
 	"communication.handOffScheduled": {
-		"limit": 4
+		"limit": 3
 	},
 	"communication.listDrafts": {
 		"limit": 1

@@ -1425,7 +1425,7 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "either", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ seatlessEntryStatements: statements.length }));
-	assert.ok(statements.length <= 6, `seatless entry: ${statements.length} statements`);
+	assert.equal(statements.length, 5, `seatless entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,
@@ -1474,7 +1474,7 @@ test("INV-reads: a pending account's onboarding entry reads only its account row
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "discovery", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ pendingEntryStatements: statements.length }));
-	assert.ok(statements.length <= 1, `pending entry: ${statements.length} statements`);
+	assert.equal(statements.length, 1, `pending entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,

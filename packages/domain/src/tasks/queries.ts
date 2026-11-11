@@ -15,7 +15,7 @@ export const storedKind = z
 	.transform((k) => (k === "follow_up" ? "first_vision_follow_up" : "meeting_evaluation"));
 export const storageKind = (k: z.infer<typeof c.obligationKind>) =>
 	k === "first_vision_follow_up" ? ("follow_up" as const) : ("evaluation" as const);
-export const taskRow = z.object({
+const taskRow = z.object({
 	id: z.uuid(),
 	revision,
 	title: z.string(),
@@ -81,7 +81,7 @@ export type TaskRow = z.infer<typeof taskRow>;
  * One task as a single-task read returns it: its checklist, its series rule, whether a live successor exists, whether
  * the assignee is still seated and whether the relation is live. A status change needs all of them (REQ-TSK-007).
  */
-export const lockedTask = taskRow.extend({
+const lockedTask = taskRow.extend({
 	checklist: taskRow.shape.checklist
 		.unwrap()
 		.nullable()
