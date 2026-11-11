@@ -42,7 +42,7 @@ const authorize: ReferenceDependencies["authorize"] = async (tx, command) => {
 	const live = await tx.execute(
 		querySql`SELECT id FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE`,
 	);
-	return live.rowCount === 1 ? { ...saved, mode: "operator" } : null;
+	return live.rowCount === 1 ? saved : null;
 };
 const service = referenceService(db, {
 	authorize,

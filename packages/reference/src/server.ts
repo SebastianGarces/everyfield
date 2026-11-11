@@ -21,7 +21,6 @@ type ReferenceErrorCode =
 	| "revision_conflict"
 	| "idempotency_conflict"
 	| "immutable_conflict"
-	| "stale_claim"
 	| "rollback_unavailable";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 function textArray(value: unknown): string[] {
@@ -38,13 +37,11 @@ export class ReferenceRefusal extends Error {
 		this.code = code;
 	}
 }
-interface ReviewedOperator {
+export interface ReferenceAuthority {
 	actorId: string;
 	// Trusted adapter loads current session/lifecycle and exact reviewed command, never client flags.
 	review: { commandDigest: string; approvalLocator: string; approvalHash: string };
 }
-// A build worker's claim-fenced promotion returns with the reference_generation worker (D-530).
-export type ReferenceAuthority = ReviewedOperator & { mode: "operator" };
 export interface ReferenceDependencies {
 	loadArtifact: (locator: string) => Promise<unknown>;
 	policyFor: (key: string) => ValidationPolicy;
