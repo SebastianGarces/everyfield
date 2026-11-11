@@ -58,7 +58,7 @@ export function withReviewTargets(p: Preview, choices: Map<number, Choice>): Map
 			next.set(r.row, "create");
 	return next;
 }
-export const choicesPayload =(choices: Map<number, Choice>) => [...choices].map(([row, choice]) => ({ row, choice }));
+export const choicesPayload = (choices: Map<number, Choice>) => [...choices].map(([row, choice]) => ({ row, choice }));
 export function addCount(choices: Map<number, Choice>): number {
 	let n = 0;
 	for (const c of choices.values()) if (c !== "skip") n++;
