@@ -116,7 +116,7 @@ test("AC:PI-015 criterion 1: another key, including leadership_candidate and a W
 	assert.deepEqual(await counts(w), { attestations: 0, revisions: 0, audits: 0 });
 });
 
-test("AC:PI-015 criterion 2: the page shows seven Unknown signals with counts; a Member, an ended seat and a foreign church get nothing", async () => {
+test("AC:PI-015 AC:WP-039-3 AC:WP-039-5 criterion 2: the page shows seven Unknown signals with counts; a Member, an ended seat and a foreign church get nothing", async () => {
 	const w = await f.workspace(),
 		other = await f.workspace();
 	const admin = await seated(w);
@@ -134,6 +134,9 @@ test("AC:PI-015 criterion 2: the page shows seven Unknown signals with counts; a
 		assert.equal(s.renewal.status, "unknown");
 	}
 	assert.deepEqual(view.counts, { current: 0, needsRenewing: 0, notAnswered: 7 });
+	// An Owner reads the same page as an Admin.
+	const owned = await page(await seated(w, "owner"));
+	assert.deepEqual([owned.signals, owned.counts], [view.signals, view.counts]);
 	refused(await signals.readAttestations(f.db, member.actor, {}), "access_denied");
 	refused(await signals.getHistory(f.db, member.actor, { key: null }), "access_denied");
 	const ended = await seated(w);
@@ -416,7 +419,7 @@ test("AC:B01-025 AC:B01-026 criterion 7: Still true refreshes only that signal; 
 	assert.equal((await entry(a, "prayer_rhythm_established")).revision, String(Number(current.revision) + 1));
 });
 
-test("AC:PI-014 AC:AUDIT-004 criterion 8: every accepted write has one audit row; refusals write nothing; two admins from one revision get one winner", async () => {
+test("AC:PI-014 AC:AUDIT-004 AC:WP-039-4 criterion 8: every accepted write has one audit row; refusals write nothing; two admins from one revision get one winner", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const other = await f.workspace();
@@ -534,6 +537,27 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 		}),
 	).candidate;
 	assert.deepEqual(half.reasons, ["attendance_not_attested", "volunteering_not_attested"]);
+	// Each box is stored as sent, and the list reads back the current statement's values.
+	for (const [name, attended, volunteered, reasons] of [
+		["Pat Mixed", true, false, ["volunteering_not_attested"]],
+		["Ray Mixed", false, true, ["attendance_not_attested"]],
+	] as const) {
+		const who = await person(a, name);
+		const saved = ok(
+			await signals.attestCandidate(f.db, a.actor, {
+				requestKey: randomUUID(),
+				expectedRevision: "0",
+				input: { ...base, personId: who.id, attended, volunteered },
+			}),
+		).candidate;
+		const read = (await page(a)).candidates.find((x) => x.personId === who.id);
+		for (const c of [saved, read])
+			assert.deepEqual(
+				[c.attended, c.volunteered, c.established, c.reasons],
+				[attended, volunteered, false, reasons],
+				name,
+			);
+	}
 	// A retry replays; a period ending after the as-of date, or after today, is invalid.
 	const key = randomUUID();
 	const kay = await person(a, "Kay Lee");
@@ -648,6 +672,8 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 	).candidate;
 	assert.equal(fixed.established, false);
 	assert.equal(fixed.revision, "2");
+	const reread = (await page(a)).candidates[0];
+	assert.deepEqual([reread.personId, reread.attended, reread.volunteered, reread.revision], [mo.id, true, false, "2"]);
 	const gone = ok(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),

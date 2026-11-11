@@ -433,7 +433,7 @@ test("AC:PHASE-CASE-006 a declined or accepted checklist never comes back in a l
 	assert.equal(ok(await importing(c.owner, "project-timeline-creation")).tasks.length, 6);
 });
 
-test("AC:TARGET-TSK-010 two devices answer at once: one answer commits and the other reads what it decided", async () => {
+test("AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits and the other reads what it decided", async () => {
 	const c = await church();
 	const moved = await move(c, 2);
 	const keys = [randomUUID(), randomUUID()];
