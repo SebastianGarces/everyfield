@@ -94,6 +94,8 @@ const setupFacts = {
 	journey: savedJourney,
 	launch: savedLaunch,
 	scheduledLaunchDate: localDate.nullable(),
+	/** The launch schedule's revision, which a planned date sends back as `expectedScheduleRevision`. "1" before any date. */
+	scheduleRevision: revision,
 	peopleStep: z.enum(["pending", "saved", "skipped"]),
 	completion,
 	reading: foundationReading,
@@ -113,6 +115,7 @@ export const journeyResult = z.strictObject({
 	journey: savedJourney.options[1],
 	launch: savedLaunch.options[1],
 	scheduledLaunchDate: localDate.nullable(),
+	scheduleRevision: revision,
 });
 export const completeOnboardingResult = z.strictObject({
 	plant: plantOwner,
