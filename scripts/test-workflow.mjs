@@ -4,7 +4,7 @@ import { readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// With no arguments, CI's workflow job set: every test in tests/workflow except the two CI runs as their own steps
+// With no arguments, CI's tooling job set: every test in tests/workflow except the two CI runs as their own steps
 // (server-logs needs `next dev` and runs in the app job).
 // tests/workflow/own-step.test.mjs holds this list to ci.yml. With file arguments (bin/dev check), exactly those files.
 export const OWN_STEP = new Set(["server-logs.test.mjs", "evry-evals-coverage.test.mjs"]);
