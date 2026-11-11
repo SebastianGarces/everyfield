@@ -255,7 +255,6 @@ def brief(root, manifest, package):
         root_outputs=own.get('root_outputs', []),
         acceptance_gates=own['acceptance_gates'], proof_stage=package['proof_stage'],
         integration_rule=own['integration_rule'], fast_track=own.get('fast_track'),
-        ui_specialist=own.get('ui_specialist'), ui_model=own.get('ui_model'),
         own_requirement_ids=package['own_requirement_ids'], own_case_ids=package['own_case_ids'],
         own_operation_ids=package['own_operation_ids'], context_case_ids=package['context_case_ids'],
         case_requirements_at_start=package['case_requirements_at_start'],
