@@ -70,7 +70,7 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/webhook.ts": ["receiveMailCallback", "replayStoredCallbacks"],
+	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "replayStoredCallbacks"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
