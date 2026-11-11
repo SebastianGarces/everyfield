@@ -277,6 +277,7 @@ test("T-141 a resident's page read gives each own residency link's consent and r
 		accountId: r.account,
 		selected: r.selected,
 		canManage: false,
+		access: { session: r.session, owner: r.selected },
 	};
 	const read = () => S.call("residency.readSharing", r, { linkId: link });
 	const expected = async (linkRevision: string) => [
@@ -302,7 +303,13 @@ test("T-141 a resident's page read gives each own residency link's consent and r
 	// A live residency the account no longer may read (its person retired) shows unavailable, as the operation does.
 	const { r: removed, link: removedLink, person } = await resident();
 	await S.db.execute(sql`UPDATE person SET state='retired' WHERE id=${sql.param(person)}`);
-	const removedViewer = { ...viewer, session: removed.session, accountId: removed.account, selected: removed.selected };
+	const removedViewer = {
+		...viewer,
+		session: removed.session,
+		accountId: removed.account,
+		selected: removed.selected,
+		access: { session: removed.session, owner: removed.selected },
+	};
 	assert.deepEqual(await S.call("residency.readSharing", removed, { linkId: removedLink }), { status: "unavailable" });
 	assert.deepEqual((await residencyLinks(S.runtime, removedViewer))[0].sharing, { status: "unavailable" });
 });

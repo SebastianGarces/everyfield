@@ -1,6 +1,6 @@
 import "server-only";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { eq } from "@everyfield/db/query";
+import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { SessionResult } from "@everyfield/contracts/identity";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
@@ -55,7 +55,14 @@ export async function readOnboardingEntry(
 	const [row] = await db
 		.select({ state: t.account.registration_state, kind: t.account.registration_kind, revision: t.account.revision })
 		.from(t.account)
-		.where(eq(t.account.id, s.accountId));
+		// The session must still be live for this account when its facts are read (C13). A pending account has no seat
+		// or active registration yet, so the check is the session itself.
+		.where(
+			and(
+				eq(t.account.id, s.accountId),
+				sql`EXISTS(SELECT FROM live_session(${s.sessionId}::uuid) l WHERE l.account_id=${t.account.id})`,
+			),
+		);
 	if (!row) return { kind: "elsewhere", reason: "unavailable" };
 	if (!verified) return { kind: "confirm_email" };
 	if (row.state === "active") return { kind: "start", offer: "either", accountRevision: String(row.revision) };
