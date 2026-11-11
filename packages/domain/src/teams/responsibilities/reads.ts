@@ -10,7 +10,7 @@ const pageOf = (page: number | undefined) => page ?? 1;
 
 async function teamRow(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
 	const found = await one(db, viewer, query);
-	if (!found) deny("access_denied");
+	if (!found) deny();
 	return found;
 }
 
