@@ -24,7 +24,7 @@
   "http": {
     "liveness": "/api/health returns process status and UTC time only, private no-store.",
     "executor": "/api/cron/jobs runs every minute from apps/web/vercel.json with the CRON_SECRET bearer. It closes lost Evry jobs and runs one bounded batch of every job kind that has a worker; the schedule grants no domain authority. Mail has no worker yet.",
-    "callback": "/api/callbacks/mail is disabled. mountCallback verifies raw signed bytes before durable safe receipts. No live subscription or credentials are configured.",
+    "callback": "/api/webhooks/resend is the one mail callback endpoint. It reads at most 16,384 bytes, verifies the Resend (svix) signature once and stores a durable safe receipt before applying it. It is not mounted without RESEND_WEBHOOK_SECRET: it answers 404 unavailable. No live subscription or credentials are configured here.",
     "supported_callback_types": [
       "email.accepted",
       "email.scheduled",
