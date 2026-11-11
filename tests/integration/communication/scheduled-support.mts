@@ -34,7 +34,7 @@ export async function minuteRunner(db: Database, transport: DeliveryTransport, k
 
 /**
  * Hand this message's waiting recipients to the email service with the send time, and store each answer, as the
- * scheduled handoff did before T-241. Returns the counts it stored.
+ * scheduled handoff did before T-241. Returns how many it accepted.
  */
 export async function heldAtProvider(
 	admin: Database,
@@ -81,9 +81,5 @@ export async function heldAtProvider(
 		accepted_at = CASE WHEN x.state = 'accepted' THEN clock_timestamp() END
 		FROM jsonb_to_recordset(${JSON.stringify(answers)}::jsonb) AS x(id uuid, state text, provider text)
 		WHERE m.id = x.id`);
-	return {
-		accepted: answers.filter((a) => a.state === "accepted").length,
-		refused: answers.filter((a) => a.state === "refused").length,
-		unknown: answers.filter((a) => a.state === "unknown").length,
-	};
+	return { accepted: answers.filter((a) => a.state === "accepted").length };
 }

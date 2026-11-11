@@ -10,7 +10,7 @@ const personRow = z.object({
 	email: z.string().nullable(),
 	n: z.number().int(),
 	/** When they unsubscribed from this church's Messages email, or null. */
-	optedOutAt: z.string().nullable().optional(),
+	optedOutAt: z.string().nullable(),
 });
 
 /**
