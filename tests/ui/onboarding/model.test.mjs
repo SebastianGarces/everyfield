@@ -48,6 +48,7 @@ function server() {
 		created: false,
 		accountRevision: "1",
 		resume: null,
+		scheduled: false,
 		declared: false,
 		completed: false,
 		replays: new Map(),
@@ -67,6 +68,7 @@ function server() {
 		journey: { status: "pending" },
 		launch: { status: "pending" },
 		scheduledLaunchDate: null,
+		scheduleRevision: "1",
 		peopleStep: "pending",
 		completion: { status: "unfinished" },
 		reading: { status: "incomplete" },
@@ -85,13 +87,20 @@ function server() {
 		if (cmd.expectedRevision !== s.resume.revision) return { refused: "conflict" };
 		if (op === "declareJourney") {
 			const { journey, launch } = cmd.input;
+			// The schedule CAS: a planned date sends the launch revision it read; the first date writes revision 1.
+			if (launch.answer === "planned" && launch.expectedScheduleRevision !== s.resume.scheduleRevision)
+				return { refused: "conflict" };
 			if (journey.answer === "existing") {
 				if (s.declared) return { refused: "already_declared" };
 				s.declared = true;
 				s.declarations++;
 				s.resume.currentPhase = journey.phase;
 			}
-			if (launch.answer === "planned") s.resume.scheduledLaunchDate = launch.date;
+			if (launch.answer === "planned") {
+				if (s.scheduled) s.resume.scheduleRevision = String(Number(s.resume.scheduleRevision) + 1);
+				s.scheduled = true;
+				s.resume.scheduledLaunchDate = launch.date;
+			}
 			s.resume.journey = { status: "saved", value: journey, savedAt: "2026-10-18T00:00:00.000Z" };
 			s.resume.launch = { status: "saved", value: launch, savedAt: "2026-10-18T00:00:00.000Z" };
 			bump();
@@ -104,6 +113,7 @@ function server() {
 					journey: r.journey,
 					launch: r.launch,
 					scheduledLaunchDate: r.scheduledLaunchDate,
+					scheduleRevision: r.scheduleRevision,
 				},
 			};
 		}
@@ -202,7 +212,16 @@ function run(seed) {
 		// After an accepted reply or a reload the screen holds exactly the server facts.
 		if ((reply.status === "ok" || fresh) && state.entry.kind === "plant" && srv.resume) {
 			const shown = facts();
-			for (const key of ["revision", "currentPhase", "journey", "launch", "lead", "completion", "scheduledLaunchDate"])
+			for (const key of [
+				"revision",
+				"currentPhase",
+				"journey",
+				"launch",
+				"lead",
+				"completion",
+				"scheduledLaunchDate",
+				"scheduleRevision",
+			])
 				assert.deepEqual(shown[key], srv.resume[key], `invariant 3: ${key} differs from the server after ${op}`);
 		}
 	}
@@ -226,8 +245,9 @@ function run(seed) {
 				const j = pick(JOURNEYS);
 				const l = pick(LAUNCHES);
 				state = editDrafts(state, { journey: j, launch: l });
-				const held = send("declareJourney", { journey: journeyInput(j), launch: launchInput(l) });
-				if (which === "double") send("declareJourney", { journey: journeyInput(j), launch: launchInput(l) });
+				const input = { journey: journeyInput(j), launch: launchInput(l, r.scheduleRevision) };
+				const held = send("declareJourney", input);
+				if (which === "double") send("declareJourney", input);
 				if (r.journey.status === "saved" && r.journey.value.answer === "existing")
 					assert.notEqual(held, "sent", "invariant 5: a declared journey was sent again");
 			} else if (which === "lead") {
