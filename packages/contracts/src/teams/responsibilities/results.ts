@@ -7,7 +7,7 @@ const receipt = { receiptId: operationId, outcome };
 const offerState = z.enum(["accepted", "declined"]).nullable();
 const lineText = z.string().min(1).max(2000);
 
-export const responsibilityItem = z.strictObject({
+const responsibilityItem = z.strictObject({
 	id: recordId,
 	revision,
 	sourceLine: z.string().min(1).max(120),
@@ -25,12 +25,12 @@ export const responsibilityPage = z.strictObject({
 	items: z.array(responsibilityItem).max(RESPONSIBILITY_PAGE),
 });
 const catalogSha = z.string().regex(/^[a-f0-9]{64}$/);
-export const previewLine = z.strictObject({
+const previewLine = z.strictObject({
 	key: z.string().min(1).max(80),
 	text: lineText,
 	sortOrder: z.int().min(1),
 });
-export const previewCustomization = z.strictObject({
+const previewCustomization = z.strictObject({
 	sourceLine: z.string().min(1).max(120),
 	text: lineText,
 	removed: z.boolean(),
