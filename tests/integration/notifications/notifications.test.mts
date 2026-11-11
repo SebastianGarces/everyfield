@@ -568,6 +568,60 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	assert.equal(ok(await api.getPreferences(db, northReader, {})).oversightCadence, "daily");
 });
 
+test("AC:CASE-NTF-003 T-260 Done 4-8: each feed entry names its subject page's record, digests and phases name none, and the entries are the same", async () => {
+	const church = await plant("Subjects");
+	const sam = await identity(church);
+	const work = await task(church.id);
+	const meeting = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision night','2026-10-20','18:00','America/Chicago','2026-10-20T23:00:00Z','1','ready',1)`,
+	);
+	const rows = [
+		["task", "task_due", "task_due", work, "Call is due"],
+		["task", "task_due", "task_overdue", work, "Call is overdue"],
+		["meeting", "meeting_invitation", "meeting_announcement", meeting, "Vision night is on"],
+		["meeting", "meeting_reminder", "meeting_reminder", meeting, "Vision night tomorrow"],
+		["digest", "oversight_digest", "oversight_digest", church.id, "Your plants this week"],
+		["phase", "phase_transition", "phase_milestone", church.id, "Moved to Launch Team Formation"],
+	];
+	const ids = {};
+	for (const [i, [category, purpose, feedCategory, source, title]] of rows.entries())
+		ids[feedCategory] = await notice({
+			tenant: church.id,
+			recipient: sam.id,
+			category,
+			purpose,
+			key: `${church.id}/${feedCategory}/${source}/1/${i}`,
+			source,
+			title,
+			eligible: `2026-10-13T1${i}:00:00Z`,
+		});
+	const reader = await actor(sam.session);
+	const feed = ok(await api.readFeed(db, reader, {}));
+	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.category, item.subject])), {
+		task_due: { kind: "task", id: work },
+		task_overdue: { kind: "task", id: work },
+		meeting_announcement: { kind: "meeting", id: meeting },
+		meeting_reminder: { kind: "meeting", id: meeting },
+		oversight_digest: null,
+		phase_milestone: null,
+	});
+	// The subject adds nothing to the item set: every entry, newest first, and the same unread count.
+	assert.deepEqual(
+		feed.items.map((item) => item.id),
+		[...Object.values(ids)].reverse(),
+	);
+	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, rows.length);
+	// Following a linked entry marks that entry read and no other.
+	assert.deepEqual(ok(await api.markRead(db, reader, command({ noticeId: ids.task_due }))).markedIds, [ids.task_due]);
+	const later = ok(await api.readFeed(db, reader, {}));
+	assert.deepEqual(
+		later.items.filter((item) => item.read).map((item) => item.id),
+		[ids.task_due],
+	);
+	assert.deepEqual(later.items.find((item) => item.id === ids.task_due).subject, { kind: "task", id: work });
+});
+
 test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app for current editors", async () => {
 	const network = await organization("sending_network", "Editors");
 	const editor = await identity(network);
@@ -632,6 +686,11 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	);
 	const feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(feed.items.map((item) => item.title).sort(), ["Meaningful update", "Typo"]);
+	// T-260 Done 6: each review entry opens the published global article it names, by that revision's slug.
+	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.title, item.subject])), {
+		Typo: { kind: "article", id: article, slug: "typo" },
+		"Meaningful update": { kind: "article", id: article, slug: "update" },
+	});
 	const hidden = ok(await api.readFeed(db, await actor(revoked.session), {}));
 	assert.deepEqual(hidden.items, []);
 	const field = await plant("Field");

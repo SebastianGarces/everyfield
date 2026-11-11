@@ -73,6 +73,24 @@ const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }>
 export const areaOf = (category: Category) => AREA[category];
 export const categoryLabel = (category: Category) => CATEGORY_TEXT[category].label;
 
+/**
+ * The page an entry opens (D-731): the scheduled email in Messages, the task in Tasks, the meeting's page or the
+ * published article in the Wiki. Null for an entry with no subject page; it stays a mark-read button or plain text.
+ */
+export function subjectHref(subject: FeedItem["subject"]): string | null {
+	if (!subject) return null;
+	switch (subject.kind) {
+		case "communication":
+			return `/communication?message=${encodeURIComponent(subject.id)}`;
+		case "task":
+			return `/tasks?task=${encodeURIComponent(subject.id)}`;
+		case "meeting":
+			return `/meetings/${encodeURIComponent(subject.id)}`;
+		case "article":
+			return `/wiki/${subject.slug.split("/").map(encodeURIComponent).join("/")}?source=global`;
+	}
+}
+
 /** The browser's time zone and the minute it is, for "12 min ago" and the day groups. Null until the browser answers. */
 export type Clock = { zone: string; now: number };
 
