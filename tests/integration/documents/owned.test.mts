@@ -1289,6 +1289,32 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		for (const target of ["file:///etc/passwd", "../../outside.docx"])
 			refused(await importWord(hyperlinkTo(target)), "invalid_input");
 
+		// documents/doc-11: a part target resolves from its own part's folder, so the `../docProps/meta.xml` that
+		// macOS textutil writes stays inside the package and imports; a tab reads as a space and character references
+		// decode, named ones as before.
+		assert.deepEqual(
+			await stored(
+				await importWord(
+					W.textutilWord([
+						'<w:t xml:space="preserve">Name:</w:t><w:tab/><w:t xml:space="preserve">Jo&#8217;s</w:t>',
+						'<w:t xml:space="preserve">Hex&#x2019;s &amp; more &#38;#38; &#1;</w:t>',
+					]),
+				),
+			),
+			{ type: "doc", content: [para(text("Name: Jo’s")), para(text("Hex’s & more &#38; &#1;"))] },
+		);
+		const partRel = (target) =>
+			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${target}"/>`;
+		for (const target of ["/docProps/meta.xml", "./theme/../../docProps/meta.xml"])
+			ok(await importWord(W.textutilWord(["<w:t>Inside</w:t>"], partRel(target))));
+		// A target that climbs out of the package is still refused, self-closed or not.
+		for (const rel of [
+			partRel("../../outside.xml"),
+			partRel("theme/../../../outside.xml"),
+			partRel("../../outside.xml").replace("/>", "></Relationship>"),
+		])
+			refused(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
+
 		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
 		const textBox = (inner) =>
 			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;

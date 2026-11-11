@@ -15,7 +15,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import {
 	MAIL_KEYS,
 	runSeed,
@@ -304,18 +303,7 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 	}
 });
 
-test("a branch made before the move seeds from its own tools/evf/qa-seed.ts; a branch with neither seed refuses", () => {
-	const old = setup([DEV, PROD], "tools/evf/qa-seed.ts");
-	try {
-		const up = old.qa("up", "feature/nora-qa");
-		assert.equal(up.status, 0, up.stderr);
-		assert.ok(
-			old.calls("corepack").some((c) => c.at(-1) === "../../tools/evf/qa-seed.ts"),
-			"the seed ran from the old path",
-		);
-	} finally {
-		old.done();
-	}
+test("a branch with no tools/qa/qa-seed.ts refuses", () => {
 	const none = setup([DEV, PROD], "docs/no-seed.txt");
 	try {
 		const up = none.qa("up", "feature/nora-qa");
@@ -327,73 +315,27 @@ test("a branch made before the move seeds from its own tools/evf/qa-seed.ts; a b
 	}
 });
 
-test("qa carry-over copies the v1 previews, stops none of them, and never revives one that qa down removed", () => {
+test("a previews file with a key an older qa wrote still loads, and the next write drops the key", () => {
 	const s = setup();
-	const row = (id: string, deployment: string | null) => ({
-		id,
-		branch: `task/${id}`,
+	const preview = {
+		id: "qa-main-b24e",
+		branch: "task/qa-main-b24e",
 		head: "a".repeat(40),
-		neon_branch: id,
-		url: `https://everyfield-${id}.vercel.app`,
-		deployment,
+		neon_branch: "qa-main-b24e",
+		url: "https://everyfield-qa-main-b24e.vercel.app",
+		deployment: "https://d1.vercel.app",
 		created_at: "2026-11-05T12:00:00.000Z",
-	});
+	};
+	const file = join(s.root, ".git/qa/previews.json");
 	try {
-		assert.equal(s.qa("carry-over").status, 1, "no v1 store is an error");
-		mkdirSync(join(s.root, ".git/evf"));
-		const store = join(s.root, ".git/evf/work.sqlite");
-		const v1 = new DatabaseSync(store);
-		// The v1 table as stores already on disk have it. Inlined so this test outlives tools/evf.
-		v1.exec(`CREATE TABLE qa_previews (
-			id TEXT PRIMARY KEY,
-			branch TEXT NOT NULL,
-			head TEXT NOT NULL,
-			neon_branch TEXT NOT NULL,
-			url TEXT NOT NULL,
-			deployment TEXT,
-			created_at TEXT NOT NULL
-		);`);
-		const insert = v1.prepare("INSERT INTO qa_previews VALUES (?, ?, ?, ?, ?, ?, ?)");
-		for (const r of [row("qa-main-b24e", "https://d1.vercel.app"), row("qa-stale-aaaa", null)])
-			insert.run(r.id, r.branch, r.head, r.neon_branch, r.url, r.deployment, r.created_at);
-		v1.close();
-		const before = readFileSync(store);
-
-		const carried = s.qa("carry-over");
-		assert.equal(carried.status, 0, carried.stderr);
-		assert.match(carried.stdout, /Carried 2 of 2 v1 previews into .*previews\.json\. Nothing was torn down\./);
-		assert.deepEqual(readFileSync(store), before, "the v1 store is read, not written");
-		assert.deepEqual(s.calls("vercel"), [], "nothing is torn down");
-		assert.deepEqual(s.calls("neonctl"), [], "nothing is torn down");
-		const listed = s.qa("list").stdout.trim().split("\n");
-		assert.deepEqual(
-			listed.map((line) => line.split("  ")[0]),
-			["qa-main-b24e", "qa-stale-aaaa"],
-		);
-		const file = JSON.parse(readFileSync(join(s.root, ".git/qa/previews.json"), "utf8"));
-		assert.deepEqual(file.previews[0], row("qa-main-b24e", "https://d1.vercel.app"));
-		assert.equal(statSync(join(s.root, ".git/qa/previews.json")).mode & 0o777, 0o600);
-
-		const again = s.qa("carry-over");
-		assert.match(again.stdout, /Carried 0 of 2 v1 previews/);
-		assert.equal(s.qa("list").stdout.trim().split("\n").length, 2, "a second run adds nothing");
-
-		// A carried preview goes down like any other, and a later carry-over does not bring it back.
-		const down = s.qa("down", "qa-main-b24e");
+		mkdirSync(join(s.root, ".git/qa"), { recursive: true });
+		writeFileSync(file, JSON.stringify({ previews: [preview], retiredIds: [preview.id] }));
+		const listed = s.qa("list");
+		assert.equal(listed.status, 0, listed.stderr);
+		assert.match(listed.stdout, /^qa-main-b24e {2}task\/qa-main-b24e/);
+		const down = s.qa("down", preview.id);
 		assert.equal(down.status, 0, down.stderr);
-		assert.ok(
-			s.calls("vercel").some((c) => c[0] === "remove" && c[1] === "https://d1.vercel.app"),
-			"its deployment record survived the carry",
-		);
-		s.qa("carry-over");
-		assert.deepEqual(
-			s
-				.qa("list")
-				.stdout.trim()
-				.split("\n")
-				.map((line) => line.split("  ")[0]),
-			["qa-stale-aaaa"],
-		);
+		assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), { previews: [] });
 	} finally {
 		s.done();
 	}

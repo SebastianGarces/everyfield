@@ -393,6 +393,20 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	assert.equal(done.status, "complete");
 	assert.deepEqual(done.counts, { created: 1001, skipped: 0, failed: 0, remaining: 0 });
 	assert.equal(await count("person"), peopleBefore + 1001);
+	// BUG-551 (people/peo-6): the directory lists an import in file order, by each Person's created_at. Within one run
+	// that holds across batches of 500: the resumed run wrote rows 501 to 1000, then row 1001 in a batch of its own.
+	const at = new Map(
+		(
+			await rows(
+				sql`SELECT display_name, created_at FROM person WHERE id=ANY(${sql.param(done.rows.map((r) => (r.status === "created" ? r.personId : null)))}::uuid[])`,
+			)
+		).map((r) => [Number(String(r.display_name).slice("Lease".length)), new Date(r.created_at).getTime()]),
+	);
+	assert.equal(at.size, 1001);
+	const outOfOrder = (first, last) =>
+		Array.from({ length: last - first }, (_, i) => first + i + 1).filter((n) => !(at.get(n) > at.get(n - 1)));
+	assert.deepEqual(outOfOrder(1, 500), [], "the first run's rows keep file order");
+	assert.deepEqual(outOfOrder(501, 1001), [], "the resumed run's rows keep file order across its two batches");
 });
 
 test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progress waits for its retry after a transient error, then finishes", async () => {
