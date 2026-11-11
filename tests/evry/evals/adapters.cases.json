@@ -566,5 +566,28 @@
 				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
 			}
 		}
+	},
+	{
+		"case_id": "ADP-S-01",
+		"extra": true,
+		"adapter": "catalog",
+		"operation": "evry.selectReturnedRows",
+		"near_miss": false,
+		"question": "Find everyone named Maria, then narrow that result to just the one in Austin and show me only her.",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "Maria"
+					}
+				},
+				{
+					"operation": "evry.selectReturnedRows"
+				}
+			],
+			"require": ["Maria Delgado"],
+			"derivation": "A search returns both Marias (Round Rock and Austin); the selection keeps Maria Delgado from that result instead of reading again."
+		}
 	}
 ]
