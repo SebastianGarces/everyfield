@@ -10,7 +10,8 @@ import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import * as W from "./fixtures/word.mts";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
+import zlib from "node:zlib";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -121,7 +122,6 @@ const docx = (text, extra = []) =>
 	storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]).toString("base64");
 /** A Word file whose one entry's header declares `declared` bytes while its deflate stream inflates to `inflated`. */
 function lyingZip(declared, inflated) {
-	const zlib = createRequire(import.meta.url)("node:zlib");
 	const name = Buffer.from("word/document.xml");
 	const data = zlib.deflateRawSync(Buffer.alloc(inflated));
 	const local = Buffer.alloc(30 + name.length);
@@ -807,18 +807,13 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 
 	test("AC:CASE-DOC-016 T-117 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating it", async () => {
 		const owner = await authority(2);
-		const inflated = 100 * 1024 * 1024;
-		const bytes = lyingZip(10, inflated);
-		// Every inflate the import runs is watched: how much output it may make and how much it made.
-		const zlib = createRequire(import.meta.url)("node:zlib");
+		const bytes = lyingZip(10, 100 * 1024 * 1024);
+		// Every inflate the import runs is watched for how much output it may make.
 		const real = zlib.inflateRawSync;
-		const calls = [];
+		const limits = [];
 		zlib.inflateRawSync = (input, options) => {
-			const call = { limit: options?.maxOutputLength ?? Infinity, made: 0 };
-			calls.push(call);
-			const out = real(input, options);
-			call.made = out.length;
-			return out;
+			limits.push(options?.maxOutputLength ?? Infinity);
+			return real(input, options);
 		};
 		syncBuiltinESMExports();
 		try {
@@ -835,10 +830,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			zlib.inflateRawSync = real;
 			syncBuiltinESMExports();
 		}
-		assert.equal(calls.length, 1, "the one entry is inflated once");
-		const cap = 40 * 1024 * 1024;
-		assert.ok(calls[0].limit <= cap, `the inflate may make at most the cap, not ${calls[0].limit} bytes`);
-		assert.ok(calls[0].made <= cap, `the inflate made ${calls[0].made} of the ${inflated} bytes the entry holds`);
+		assert.equal(limits.length, 1, "the one entry is inflated once");
+		assert.ok(limits[0] <= 40 * 1024 * 1024, `the inflate may make at most the cap, not ${limits[0]} bytes`);
 	});
 
 	test("AC:CASE-DOC-016 INV-documents: a native body is checked at the boundary, old text opens intact, and Use for this church writes one copy", async () => {
