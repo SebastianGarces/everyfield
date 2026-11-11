@@ -7,7 +7,6 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import {
-	createRsvpToken,
 	describeRsvpToken,
 	guestsWriter,
 	meetingsReader,
@@ -15,7 +14,7 @@ import {
 	rosterReader,
 	rosterWriter,
 } from "../../../packages/domain/src/meetings/index.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
+import { issueRsvpToken } from "../meetings/rsvp-token.mts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -221,12 +220,8 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 	);
 	const departed = w.people[5],
 		present = w.people[4];
-	const token = await tx(async (t) => {
-		const writes = [];
-		const issued = await createRsvpToken(t, ctx(), { meetingId: made.id, personId: departed }, writes);
-		await executeWrites(t, writes);
-		return issued;
-	});
+	const token = await issueRsvpToken(admin, P, made.id, departed);
+	assert.ok(token);
 	await admin.execute(
 		sql`UPDATE participation SET presence='attended' WHERE meeting_id=${made.id} AND person_id=${present}`,
 	);
@@ -282,7 +277,7 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 		)
 	).rows[0];
 	assert.deepEqual(row, { removed: true, rsvp_token_open: false });
-	assert.deepEqual(await describeRsvpToken(db, { token: token.token }), { state: "unavailable" });
+	assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${made.id}`), audits + 1);
 
 	// The same request again returns the first answer and writes nothing.

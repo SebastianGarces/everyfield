@@ -6,6 +6,7 @@ export {
 	signPrivatePut,
 	readPrivateObject,
 	readAuthorizedObject,
+	readAuthorizedObjectIfChanged,
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
 	privateStorage,

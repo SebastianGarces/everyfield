@@ -628,15 +628,25 @@ try {
 	assert.equal(served.headers.get("x-content-type-options"), "nosniff");
 	assert.equal((await served.arrayBuffer()).byteLength > 0, true);
 	// INV-brand-asset-route: a 304 revalidation rechecks the seat and the kit's current reference (setup requests).
-	const etag = served.headers.get("etag");
+	// T-143: the ETag is the stored SHA-256's first 32 hex characters, and a matching If-None-Match gets 304 from the
+	// authorized read alone, with no object read from the bucket. A tag that does not match reads the bytes once.
+	const [{ sha256 }] = (await admin.execute(sql`SELECT sha256 FROM file_object WHERE id=${fileId}::uuid`)).rows;
+	const etag = `"${sha256.slice(0, 32)}"`;
+	assert.equal(served.headers.get("etag"), etag);
 	assert.equal(served.headers.get("content-type"), "image/png");
-	assert.match(etag, /^"[0-9a-f]{32}"$/);
-	const revalidate = async (cookie) => {
-		const r = await asset(null, "GET", fileId, cookie, undefined, { "if-none-match": etag });
-		return [r.status, (await r.arrayBuffer()).byteLength];
-	};
-	assert.deepEqual(await revalidate(owner.cookie), [304, 0]);
-	for (const cookie of [member.cookie, ""]) assert.deepEqual(await revalidate(cookie), [404, 0]);
+	const objectReads = () => bucketCalls.filter((call) => call.startsWith("GET ") && !call.endsWith("?acl=")).length;
+	const held = { "if-none-match": etag };
+	const readsBefore = objectReads();
+	const fresh = await asset(null, "GET", fileId, owner.cookie, undefined, held);
+	assert.equal(fresh.status, 304);
+	assert.equal(fresh.headers.get("etag"), etag);
+	assert.equal(fresh.headers.get("content-type"), "image/png");
+	assert.equal((await fresh.arrayBuffer()).byteLength, 0);
+	assert.equal(objectReads(), readsBefore, "a matching If-None-Match read the object");
+	const missed = await asset(null, "GET", fileId, owner.cookie, undefined, { "if-none-match": '"0"' });
+	assert.equal(missed.status, 200);
+	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
+	assert.equal(objectReads(), readsBefore + 1);
 	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
 		{ assetKind: "full_logo" },
 	]);
@@ -653,7 +663,10 @@ try {
 		assert.deepEqual([refused.status, refused.error?.code], ["refused", "access_denied"], action);
 	}
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
-	for (const cookie of [member.cookie, ""]) assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
+	for (const cookie of [member.cookie, ""]) {
+		assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
+		assert.equal((await asset(null, "GET", fileId, cookie, undefined, held)).status, 404, "a revoked viewer got 304");
+	}
 	const removed = await act(
 		"POST settings.brand.removeAsset",
 		"/settings/brand",
@@ -664,7 +677,8 @@ try {
 	assert.equal(removed.status, "ok", JSON.stringify(removed));
 	assert.equal(removed.value.assets.full_logo, null);
 	assert.equal((await asset(null, "GET", fileId, owner.cookie)).status, 404, "a removed file is not served");
-	assert.deepEqual(await revalidate(owner.cookie), [404, 0], "a removed file does not revalidate");
+	const removedTag = await asset(null, "GET", fileId, owner.cookie, undefined, held);
+	assert.equal(removedTag.status, 404, "a removed file revalidated");
 
 	// The phase journey (WP-038): a declaration, then a backward move with its reason. Each is one write request.
 	const phases = "apps/web/src/features/phases/actions.ts";
