@@ -219,11 +219,12 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	const add = (name: string, ok: boolean, detail: string) => out.push({ name, ok, detail });
 	const answer = c.answer;
 	const reads = c.calls.filter((x) => x.operation !== "evry.selectReturnedRows");
-	const callsText = reads.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
+	const callsText = c.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
 	for (const want of spec.calls ?? []) {
 		const ops = [want.operation, ...(want.alsoAccepted ?? [])];
 		const input = resolve(want.input);
-		const hit = reads.some(
+		// A selection is not a read, but a case may expect one: match it against every call.
+		const hit = c.calls.some(
 			(x) => ops.includes(x.operation) && (!input || x.operation !== want.operation || inputMatches(input, x.input)),
 		);
 		add(`calls ${want.operation}${input ? " " + JSON.stringify(want.input) : ""}`, hit, `called: ${callsText}`);
@@ -658,7 +659,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	assert.deepEqual(readCatalog(ACTORS.org.actor).reviewedWrites, []);
 });
 
-test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a near-miss, and every operation has a case", async () => {
+test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a near-miss, and every operation and catalog tool has a case", async () => {
 	const root = fileURLToPath(here("../../../packages/evry/src/adapters/"));
 	const adapters = readdirSync(root, { withFileTypes: true })
 		.filter((d) => d.isDirectory())
@@ -694,6 +695,19 @@ test("INV-evry-golden: every adapter has 5 to 10 extra natural questions with a 
 		for (const c of mine)
 			if (!ops.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a ${adapter} operation`);
 	}
+	// The catalog's own model tools (every exported "evry.…" name in catalog/catalog.ts) need cases too. Their extra
+	// questions say adapter "catalog".
+	const catalog = await import(fileURLToPath(here("../../../packages/evry/src/catalog/catalog.ts")));
+	const tools = new Set(
+		Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry.")),
+	);
+	if (!tools.size) problems.push("catalog: no catalog tools found");
+	for (const tool of tools) if (!covered.has(tool)) problems.push(`catalog: ${tool} has no case`);
+	for (const c of extras.filter((x) => x.adapter === "catalog"))
+		if (!tools.has(c.operation)) problems.push(`${c.case_id}: ${c.operation} is not a catalog tool`);
+	for (const c of extras)
+		if (c.adapter !== "catalog" && !adapters.includes(c.adapter))
+			problems.push(`${c.case_id}: ${c.adapter} is not an adapter folder or "catalog"`);
 	assert.deepEqual(problems, []);
 });
 
