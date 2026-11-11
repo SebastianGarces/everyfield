@@ -41,7 +41,7 @@ export function SharingDisclosure({
 	);
 }
 
-export function ChoiceList({ choices }: { choices: Choices }) {
+function ChoiceList({ choices }: { choices: Choices }) {
 	return (
 		<ul className="mt-3 flex flex-col">
 			{CATEGORIES.map((category) => (
