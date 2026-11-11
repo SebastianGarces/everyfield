@@ -328,8 +328,11 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 		[owner, 1, "Discernment is done", "forward", 0],
 	];
 	let revision = await revisionOf(plant);
+	const dbNow = async () => Date.parse((await one(sql`SELECT clock_timestamp()::text AS t`)).t);
 	for (const [who, to, reason, direction, from] of steps) {
+		const earliest = await dbNow();
 		const r = ok(await move(who, to, reason, revision));
+		const latest = await dbNow();
 		assert.equal(r.outcome, "moved");
 		assert.equal(r.state.phase, to);
 		assert.equal(BigInt(r.state.revision), BigInt(revision) + 1n);
@@ -346,7 +349,9 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 				occurredAt: null,
 			},
 		);
-		assert.ok(Math.abs(Date.parse(r.entry.occurredAt) - Date.now()) < 60_000);
+		// The move's time is the database's own, read back between two database clock reads around the call.
+		const at = Date.parse(r.entry.occurredAt);
+		assert.ok(at >= earliest && at <= latest, `${r.entry.occurredAt} outside the move`);
 		revision = r.state.revision;
 	}
 	const h = ok(await history(owner));

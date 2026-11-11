@@ -3,6 +3,7 @@
 // against the recording fake of Resend. Nothing calls Resend. The CI db job runs this file.
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { setImmediate } from "node:timers/promises";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -439,11 +440,18 @@ test("AC:WP-029-6 cancel and time change pick capture or Resend from the message
 
 test("AC:WP-029-7 refusals and capture faults never reach the provider", async () => {
 	const realFetch = globalThis.fetch;
-	globalThis.fetch = async () => Response.json({ data: [{ name: "verified.example.org", status: "verified" }] });
+	// The domain list settles through promise jobs only (no body stream), so one event-loop turn after the fetch
+	// settles it: the wait is on the read, not on a clock.
+	let fetched = 0;
+	globalThis.fetch = async () => {
+		fetched++;
+		return { ok: true, status: 200, json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }) };
+	};
 	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
-		await new Promise((done) => setTimeout(done, 100));
+		await setImmediate();
+		assert.equal(fetched, 1, "the domain read started before the send");
 	} finally {
 		globalThis.fetch = realFetch;
 	}
