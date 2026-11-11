@@ -83,7 +83,9 @@ export function ResultCard({
 								) : null}
 								<span className="min-w-0 flex-1">
 									<span className="block truncate font-medium">{view.name}</span>
-									{view.line ? <span className="block truncate text-xs text-text-3">{view.line}</span> : null}
+									{view.line ? (
+										<span className="line-clamp-2 block text-xs break-words text-text-3">{view.line}</span>
+									) : null}
 								</span>
 								<Mark mark={view.mark} />
 							</>

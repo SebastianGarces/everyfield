@@ -280,7 +280,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: columns ? `${count(columns, "column", "columns")} · No church data` : null,
+				line: columns ? count(columns, "column", "columns") : null,
 				avatar: "file",
 			};
 		}

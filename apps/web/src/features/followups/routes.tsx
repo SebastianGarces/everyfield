@@ -150,19 +150,22 @@ export function FollowUpsLoading() {
 			<span className="sr-only" role="status">
 				Loading follow-ups
 			</span>
-			<Skeleton className="h-4 w-36" />
-			<Skeleton className="h-14 w-72 max-w-full rounded-card" />
+			<div className="flex flex-col gap-3">
+				<Skeleton className="w-36" />
+				<Skeleton shape="block" className="h-12 w-60" />
+				<Skeleton className="w-[420px] max-w-full" />
+			</div>
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<Card className="gap-4">
-					<Skeleton className="h-10 w-[420px] max-w-full rounded-md" />
+					<Skeleton shape="block" className="h-10 w-full rounded-md" />
 					{[0, 1, 2, 3, 4].map((i) => (
 						<div key={i} className="flex flex-col gap-2 py-4">
-							<Skeleton className="h-4 w-1/3" />
-							<Skeleton className="h-3 w-2/3" />
+							<Skeleton className="w-1/3" />
+							<Skeleton className="w-2/3" />
 						</div>
 					))}
 				</Card>
-				<Skeleton className="h-48 rounded-card max-app-lg:hidden" />
+				<Skeleton shape="block" className="h-40 rounded-card max-app-lg:hidden" />
 			</div>
 		</div>
 	);

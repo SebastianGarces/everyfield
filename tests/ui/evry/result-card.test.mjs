@@ -318,7 +318,7 @@ test("INV-result-card-import: the template, a preview and a receipt read as a fi
 	assert.deepEqual([template.title, template.summary, template.icon], ["Import template", "1 file", "file"]);
 	assert.deepEqual(
 		template.rows.map((r) => [r.name, r.line, r.avatar, r.href]),
-		[["people-import-template.csv", "4 columns · No church data", "file", null]],
+		[["people-import-template.csv", "4 columns", "file", null]],
 	);
 	assert.deepEqual(template.facts, ["Not included: church data."]);
 
