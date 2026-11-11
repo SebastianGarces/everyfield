@@ -1,12 +1,11 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
 import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
+// The Word writer's escaper: it also drops the control characters XML 1.0 forbids, which make a sheet unreadable.
+import { escape as xml } from "./docx.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
 import { zip } from "./zip.ts";
-
-const xml = (value: string) =>
-	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 function column(index: number) {
 	let value = index;
