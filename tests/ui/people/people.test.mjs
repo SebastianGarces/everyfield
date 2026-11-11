@@ -807,6 +807,29 @@ for (const [name, engine] of ENGINES) {
 				},
 				note,
 			);
+			// A second note right away: the first note's answer carried the person's new revision, so this save is not
+			// refused as out of date.
+			const second = `Called back ${Date.now().toString(36)}`;
+			await one(
+				"a second note",
+				async () => {
+					await page.getByLabel(/^Add a note about/).fill(second);
+					await page.getByRole("button", { name: "Save note" }).click();
+				},
+				second,
+			);
+
+			// Adult or child: the answer is the saved person, so the card shows it and the next save needs no reread.
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Record adult or child" }).click();
+			const classify = page.getByRole("dialog", { name: "Record adult or child" });
+			await classify.getByLabel("As of").fill("2026-01-15");
+			await classify.getByLabel("Reason").fill("Said so at the vision meeting");
+			await one(
+				"an adult or child record",
+				() => classify.getByRole("button", { name: "Record" }).click(),
+				"Adult or child recorded",
+			);
 
 			await page.getByRole("button", { name: "Edit profile" }).first().click();
 			const profile = page.getByRole("dialog", { name: "Edit profile" });
