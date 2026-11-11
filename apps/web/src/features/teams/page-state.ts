@@ -59,7 +59,9 @@ export function apply(v: TeamView, c: Change): TeamView {
 				...v,
 				team,
 				nodes: v.nodes.map((n) =>
-					n.id === team.id ? { ...n, name: team.name, archived: team.archived, leaderName: team.leaderName } : n,
+					n.id === team.id
+						? { ...n, name: team.name, icon: team.icon, archived: team.archived, leaderName: team.leaderName }
+						: n,
 				),
 			};
 		}
