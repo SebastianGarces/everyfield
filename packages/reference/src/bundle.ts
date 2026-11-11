@@ -25,7 +25,7 @@ const article = z.object({
 });
 // Checkout packaging is an explicit release operation. Pure catalog construction below
 // consumes already reviewed data and does not turn unrelated documentation edits into a unit gate.
-export async function packageCheckout(root: URL, expectedCatalogSha256?: string): Promise<ReferenceEntry[]> {
+export async function packageCheckout(root: URL, expectedCatalogSha256: string): Promise<ReferenceEntry[]> {
 	const report = await verifyCheckout(root, expectedCatalogSha256);
 	if (!report.ok) throw Error(report.issues[0]!.code);
 	return packageStarter(await loadStarter(), await loadApprovedSnapshot(root));

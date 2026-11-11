@@ -1,6 +1,8 @@
-// Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React, no
-// server code and no runtime imports, so the rules run the same in the browser, on the server and in node tests.
+// Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React and no
+// server code; the one runtime import is the contract's id rule, so the rules run the same in the browser, on the
+// server and in node tests.
 
+import { recordId } from "@everyfield/contracts/common";
 import type { Outcome } from "../../components/save/model.ts";
 
 export const STAGES = [
@@ -100,10 +102,6 @@ export type PeopleQuery = {
 	page: number;
 };
 export const PAGE_SIZE = 24;
-// The contract's id rule (zod's uuid: a version 1 to 8 with an RFC variant, or the nil or max id). A looser test here
-// lets a tag through that the list and export requests then refuse as a whole.
-const UUID =
-	/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|0{8}-0{4}-0{4}-0{4}-0{12}|f{8}-f{4}-f{4}-f{4}-f{12})$/;
 /** The contract's highest page number; a larger number in the address reads as the last page. */
 const MAX_PAGE = 100_000;
 
@@ -128,7 +126,9 @@ export function parseQuery(params: Params): PeopleQuery {
 					.getAll("tag")
 					.flatMap((t) => t.split(","))
 					.map((t) => t.trim().toLowerCase())
-					.filter((t) => UUID.test(t)),
+					// The contract's id rule: a looser test lets a tag through that the list and export requests then
+					// refuse as a whole.
+					.filter((t) => recordId.safeParse(t).success),
 			),
 		].slice(0, 100),
 		classification:
