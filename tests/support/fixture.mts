@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../packages/db/src/query.ts";
-import { testDatabase, type Capability, type Database, type TestDatabase } from "./test-database.mts";
+import { testDatabase, type Database, type TestDatabase } from "./test-database.mts";
 
 /** A domain result: `{ status: "ok", value }` or `{ status: "refused", error }`. */
 type Result = { status: string; value?: unknown; error?: { code?: string; details?: unknown } };
@@ -42,17 +42,17 @@ export function refusedWith({ details, hidden = [] }: { details?: unknown; hidde
 }
 
 /**
- * Resolves true once `count` other sessions of `pool`'s login role wait for a lock. It polls `pg_stat_activity`, so the
+ * Resolves true once another session of `pool`'s login role waits for a lock. It polls `pg_stat_activity`, so the
  * wait ends on Postgres state, and fails after a bounded number of polls (not a deadline) if the rival never blocks.
  * An aborted `signal` stops the polling and resolves false, for a test that races a read against a lock wait.
  */
-export async function waitingOnLock(pool: Database, { count = 1, signal }: { count?: number; signal?: AbortSignal } = {}) {
+export async function waitingOnLock(pool: Database, { signal }: { signal?: AbortSignal } = {}) {
 	for (let poll = 0; poll < 50_000; poll++) {
 		if (signal?.aborted) return false;
 		const r = await pool.execute(
 			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock' AND pid<>pg_backend_pid()`,
 		);
-		if ((r.rows[0] as { n: number }).n >= count) return true;
+		if ((r.rows[0] as { n: number }).n > 0) return true;
 	}
 	throw Error("the rival transaction never waited for a lock");
 }
@@ -183,10 +183,8 @@ export function seeds(admin: Database) {
 	return { plant, organization, actor, seat };
 }
 
-export type Seeds = ReturnType<typeof seeds>;
-
-export type Fixture<Role extends string> = TestDatabase<Role> &
-	Seeds & {
+type Fixture = TestDatabase<"runtime"> &
+	ReturnType<typeof seeds> & {
 		/** The tenant plant. */
 		tenant: Workspace & { kind: "plant" };
 		/** The plant's owner, admin and member, each with a live session. */
@@ -197,17 +195,15 @@ export type Fixture<Role extends string> = TestDatabase<Role> &
  * A migrated schema with one tenant plant and its owner, admin and member actors. `plant` overrides the tenant's
  * columns; the other options go to `testDatabase`.
  */
-export async function fixture<Role extends string = "runtime">({
+export async function fixture({
 	plant: columns,
 	...options
 }: {
 	prefix: string;
-	roles?: Record<Role, readonly Capability[]>;
 	max?: number;
-	schema?: string;
 	plant?: Row;
-}): Promise<Fixture<Role>> {
-	const database = await testDatabase<Role>(options);
+}): Promise<Fixture> {
+	const database = await testDatabase(options);
 	try {
 		const seed = seeds(database.admin);
 		const tenant = await seed.plant(columns);
