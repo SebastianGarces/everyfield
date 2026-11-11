@@ -12,9 +12,8 @@ import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -33,18 +32,6 @@ assert.ok(
 	"No production build in apps/web/.next. Run `corepack pnpm build` first.",
 );
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Approved development or disposable CI database required");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-
 const port = await new Promise((resolve) => {
 	const probe = createServer().listen(0, "127.0.0.1", () => {
 		const { port } = probe.address();
@@ -52,36 +39,12 @@ const port = await new Promise((resolve) => {
 	});
 });
 const origin = `http://127.0.0.1:${port}`;
-const schema = "wp011rq_" + randomBytes(8).toString("hex"),
-	role = "wp011rq_" + randomBytes(6).toString("hex"),
-	authRole = role + "_auth",
-	password = randomBytes(24).toString("hex"),
-	options = `-c search_path=${schema},pg_catalog,pg_temp`;
-const login = (name) => {
-	const url = new URL(source);
-	url.username = name;
-	url.password = password;
-	url.searchParams.set("options", options);
-	return url.href;
-};
-const admin = createDatabase({ connectionString: source.href, options, max: 2 });
-let runtime, authDb, server, bucket;
+const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
+const { admin } = database,
+	{ runtime, auth: authDb } = database.pools;
+const login = (role) => database.logins[role].url.href;
+let server, bucket;
 try {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [name, grant] of [
-		[role, "everyfield_runtime"],
-		[authRole, "everyfield_auth"],
-	]) {
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${grant} TO ${name}`));
-	}
-	runtime = createDatabase({ connectionString: login(role), max: 2 });
-	authDb = createDatabase({ connectionString: login(authRole), max: 2 });
 	const secret = randomBytes(32).toString("hex");
 
 	// Accounts sign up and sign in through the identity service, each from its own address (registration admission).
@@ -309,8 +272,8 @@ try {
 				NEXT_TELEMETRY_DISABLED: "1",
 				NODE_OPTIONS: "--require=" + fileURLToPath(new URL("./observer.cjs", import.meta.url)),
 				EVF_WRITE_COUNTS: output,
-				IDENTITY_DATABASE_URL: login(role),
-				IDENTITY_AUTH_DATABASE_URL: login(authRole),
+				IDENTITY_DATABASE_URL: login("runtime"),
+				IDENTITY_AUTH_DATABASE_URL: login("auth"),
 				IDENTITY_ORIGIN: origin,
 				IDENTITY_SECRET: secret,
 				IDENTITY_MAIL_KEY: randomBytes(32).toString("hex"),
@@ -833,9 +796,5 @@ try {
 } finally {
 	if (server?.exitCode === null) server.kill("SIGKILL");
 	bucket?.close();
-	if (runtime) await closeDatabase(runtime);
-	if (authDb) await closeDatabase(authDb);
-	await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	for (const name of [role, authRole]) await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${name}`));
-	await closeDatabase(admin);
+	await database.close();
 }

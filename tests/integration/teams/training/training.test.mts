@@ -1,9 +1,8 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { peopleMerge, peopleUnmerge, peopleWriter } from "../../../../packages/domain/src/people/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
@@ -17,26 +16,9 @@ import {
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp019_" + randomUUID().replaceAll("-", "");
-const roleName = "wp019_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp019", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 let memberPerson;
 const P = randomUUID();
 const Q = randomUUID();
@@ -115,19 +97,6 @@ async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
 const idsOf = (names, book) => names.map((name) => book[name]);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
@@ -158,13 +127,7 @@ before(async () => {
 	memberPerson = await person("Member leader", { account: actors[1].id });
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-016 a saved roster stays exact", async () => {

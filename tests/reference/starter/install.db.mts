@@ -1,33 +1,16 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { hash, vectorHash } from "../../../packages/reference/src/hash.ts";
 import { localEmbedding } from "../../../packages/reference/src/starter/verify/embed.ts";
 import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { referenceService } from "../../../packages/reference/src/starter/verify/service.ts";
 import { loadApprovedSnapshot, WikiRefusal } from "../../../packages/reference/src/starter/verify/snapshot.ts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only shared development or disposable CI endpoint permitted");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp033_test_" + randomUUID().replaceAll("-", "");
-const db = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp033_test", roles: {}, max: 4 });
+const { admin: db, schema } = database;
 const actor = randomUUID();
 const user = randomUUID();
 const session = randomUUID();
@@ -93,8 +76,6 @@ async function counts() {
 }
 
 before(async () => {
-	await db.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
 	await db.execute(
 		sql`INSERT INTO auth_user(id, email, email_verified, name) VALUES
       (${user}::uuid, ${user + "@example.test"}, true, 'Publisher'),
@@ -133,10 +114,7 @@ before(async () => {
     )`,
 	);
 });
-after(async () => {
-	await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	await closeDatabase(db);
-});
+after(database.close);
 
 test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wiki snapshot installs, replays, refuses a changed digest, and rolls back without vectors or an organization edition", async () => {
 	const empty = await counts();
