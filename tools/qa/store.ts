@@ -15,6 +15,8 @@ export type QaPreview = {
 	url: string;
 	deployment: string | null;
 	created_at: string;
+	/** T-255: the process id of the preview's scheduled-send driver (cron-driver.ts), once it runs. */
+	driver_pid?: number;
 };
 
 type PreviewFile = { previews: QaPreview[] };
@@ -37,6 +39,9 @@ function commonDir(root: string): string {
 }
 
 const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
+
+/** The scheduled-send driver's log of one preview, next to the records: times, HTTP statuses and counts only. */
+export const driverLogPath = (root: string, id: string) => join(commonDir(root), "qa", `${id}.cron.log`);
 
 function readFile(file: string): PreviewFile {
 	if (!existsSync(file)) return { previews: [] };
@@ -84,6 +89,11 @@ export const addPreview = (root: string, preview: QaPreview) =>
 export const setDeployment = (root: string, id: string, deployment: string) =>
 	change(root, (records) => {
 		for (const preview of records.previews) if (preview.id === id) preview.deployment = deployment;
+	});
+
+export const setDriver = (root: string, id: string, pid: number) =>
+	change(root, (records) => {
+		for (const preview of records.previews) if (preview.id === id) preview.driver_pid = pid;
 	});
 
 export const removePreview = (root: string, id: string) =>
