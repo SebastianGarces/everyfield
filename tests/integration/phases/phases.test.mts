@@ -16,21 +16,13 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/server/phases/notices.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-038: the journey a church plant declares and moves through. Every write runs through the phase writer the
 // /intelligence actions call, on its own schema of the development or CI database.
 
 let f, writer, onboarding;
 let faultyNotices = false;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const history = (who) => phaseReader.readHistory(f.db, who.actor);

@@ -45,6 +45,7 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { ok } from "../../support/fixture.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -149,10 +150,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;

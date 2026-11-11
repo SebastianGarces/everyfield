@@ -5,6 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
 const keys = {
@@ -12,15 +13,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
 };
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;

@@ -28,6 +28,7 @@ import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
+import { ok } from "../../support/fixture.mts";
 
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
@@ -48,10 +49,6 @@ const ready = { keys, apiKey: "re_test_key" };
 const message = (to, subject = "Hello") => ({ to, subject, html: `<p>${subject}</p>`, text: subject });
 const signal = () => AbortSignal.timeout(5_000);
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 /** True when any request the recorder saw holds the address anywhere: path, header key or body. */
 const holds = (requests, address) => JSON.stringify(requests).toLowerCase().includes(address.toLowerCase());
 const outboxTo = async () => (await readOutbox()).map((entry) => entry.to);
@@ -555,10 +552,10 @@ test("AC:WP-029-9 the guard is inside createResendTransport.send", async () => {
 test("AC:WP-029-10 early access with a recipient that is not approved calls no fetch and answers unavailable", async () => {
 	const { f } = await database();
 	for (const [name, extra] of RESTRICTED) {
-		const refused = countingFetch();
-		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), refused.request);
+		const blocked = countingFetch();
+		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), blocked.request);
 		assert.deepEqual(result, { status: "unavailable" }, name);
-		assert.deepEqual(refused.calls, [], name);
+		assert.deepEqual(blocked.calls, [], name);
 		const { rows } = await f.admin.execute(
 			sql`SELECT count(*)::int AS n FROM early_access_request WHERE email = ${email}`,
 		);

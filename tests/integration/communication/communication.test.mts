@@ -6,17 +6,9 @@ import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, foreign;
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const read = (who, op, input) =>

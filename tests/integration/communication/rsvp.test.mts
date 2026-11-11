@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src/meetings/index.ts";
 import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // REQ-COM-010, REQ-MTG-018: an invitation email carries each guest's own RSVP link, minted when the send is handed off.
 
@@ -17,15 +18,6 @@ const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
 const key = () => randomUUID();
 const sha = (token) => createHash("sha256").update(token).digest("hex");
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (op, input) =>
 	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
