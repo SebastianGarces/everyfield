@@ -13,7 +13,15 @@ import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, currentActor, liveOwner, lockWriteAuthority, requestWrite } from "../access/session.ts";
+import {
+	RequestActor,
+	currentActor,
+	liveAccess,
+	liveOwner,
+	liveRead,
+	lockWriteAuthority,
+	requestWrite,
+} from "../access/session.ts";
 import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export type Tx = Transaction;
@@ -115,7 +123,8 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 		return locked;
 	}
 	if (ctx instanceof OnboardingReadContext) {
-		// The request already verified this actor: one statement reads the rows a read needs, without locks.
+		// The request already verified this actor: one statement reads the rows a read needs, without locks, while the
+		// actor still holds this access (C13).
 		const a = ctx.authority.actor;
 		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
 		const plantId = ctx.selected.kind === "plant" ? ctx.selected.id : null;
@@ -124,7 +133,7 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 			.from(t.account)
 			.leftJoin(t.plant, sql`${t.plant.id}=${plantId}::uuid`)
 			.leftJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
-			.where(eq(t.account.id, a.accountId));
+			.where(and(eq(t.account.id, a.accountId), liveRead(liveAccess(ctx.authority))));
 		if (!row) deny();
 		return {
 			account: row.account,
