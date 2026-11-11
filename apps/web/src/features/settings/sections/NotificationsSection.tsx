@@ -1,7 +1,16 @@
 "use client";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { CalloutLabel, CalloutText, Card, SegmentedControl, Skeleton, Spinner, Switch } from "@everyfield/ui/controls";
+import {
+	Button,
+	CalloutLabel,
+	CalloutText,
+	Card,
+	SegmentedControl,
+	Skeleton,
+	Spinner,
+	Switch,
+} from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { preferenceRows } from "../model";
@@ -14,7 +23,7 @@ import { useSection, useSettings } from "../store";
 type Notifications = Extract<SectionResult, { section: "notifications" }>;
 
 export function NotificationsSection() {
-	const { state, replace } = useSection({ section: "notifications" });
+	const { state, replace, reload } = useSection({ section: "notifications" });
 	return (
 		<>
 			<LoadableView
@@ -31,7 +40,7 @@ export function NotificationsSection() {
 					</SectionBody>
 				}
 			>
-				{(section) => <Preferences section={section} replace={replace} />}
+				{(section) => <Preferences section={section} replace={replace} reload={reload} />}
 			</LoadableView>
 			<AutoSaveFooter />
 		</>
@@ -45,7 +54,15 @@ const pairKey = (c: { category: string; channel: string }) => `${c.category}:${c
  * the switch shows the new value and a spinner; if the server refuses, the switch returns to the saved value and
  * the reason shows above the table. Only one save runs at a time, so every save carries the latest revision.
  */
-function Preferences({ section, replace }: { section: Notifications; replace: (value: SectionResult) => void }) {
+function Preferences({
+	section,
+	replace,
+	reload,
+}: {
+	section: Notifications;
+	replace: (value: SectionResult) => void;
+	reload: () => void;
+}) {
 	const { port } = useSettings();
 	const [pending, setPending] = useState<{ key: string; enabled?: boolean; cadence?: string } | null>(null);
 	const [refusal, setRefusal] = useState<{ key: string; refusal: Refusal } | null>(null);
@@ -126,7 +143,26 @@ function Preferences({ section, replace }: { section: Notifications; replace: (v
 	return (
 		<SectionBody>
 			<div aria-live="polite" className="empty:hidden">
-				{refusal ? <SaveError message={refusal.refusal.message} reference={refusal.refusal.reference} /> : null}
+				{refusal ? (
+					<SaveError
+						message={refusal.refusal.message}
+						reference={refusal.refusal.reference}
+						action={
+							refusal.refusal.code === "conflict" || refusal.refusal.code === "unknown" ? (
+								<Button
+									size="sm"
+									variant="secondary"
+									onClick={() => {
+										setRefusal(null);
+										reload();
+									}}
+								>
+									Load latest
+								</Button>
+							) : undefined
+						}
+					/>
+				) : null}
 			</div>
 			{rows.length === 0 ? (
 				<p className="py-6 text-text-2">Nothing here sends you notifications yet.</p>
