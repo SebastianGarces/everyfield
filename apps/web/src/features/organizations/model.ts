@@ -29,13 +29,6 @@ export function subjectName(pair: RelationshipPair, nameOf: NameOf): string {
 	return nameOf(subjectOf(pair));
 }
 
-/** "Mar 2, 2026" in the reader's zone. Relationship dates are calendar facts; the hour adds nothing. */
-export function formatDay(instant: string, zone: string): string {
-	return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "short", day: "numeric", year: "numeric" }).format(
-		new Date(instant),
-	);
-}
-
 /**
  * The words for one history row (REQ-IDN-021). A withheld reason says so, so a Member never reads "no reason" for a
  * reason they may not see. A recorded empty reason shows nothing. Only an end takes a reason, so a withheld reason
