@@ -16,6 +16,7 @@ import {
 	uploadPersonPhoto,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
 // here would be a bug.
@@ -565,6 +566,63 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	);
 	assert.equal((await audit(h.id)).at(-1).action, "people.retired");
 	assert.equal(ok(await tx((t) => fields.listHouseholds(t, ctx(), {}))).total, 0);
+});
+
+test("AC:TARGET-PPL-009 leave-and-delete: one transaction, a replay answers ok, a refused delete keeps the member", async () => {
+	const start = async (name) => {
+		const p = await person(name);
+		const made = ok(
+			await write(0, async (t, c) =>
+				fields.createHouseholdWithHead(t, c, {
+					requestKey: key(),
+					expectedRevision: p.revision,
+					input: { name: `${name} household`, headPersonId: p.id },
+				}),
+			),
+		).result.household;
+		return { p, h: made };
+	};
+	const households = async (id) => rows(sql`SELECT id FROM household WHERE id=${sql.param(id)}`);
+	const membership = async (id) =>
+		(await rows(sql`SELECT household_id FROM person WHERE id=${sql.param(id)}`))[0].household_id;
+	const leaving = (p, k, rev, deleteEmpty) =>
+		write(0, (t, c) => leave(t, c, { requestKey: k, expectedRevision: rev, input: { personId: p.id } }, deleteEmpty));
+
+	// The last member leaves and the empty household goes with them; the same request again answers ok.
+	const one = await start("Morgan Lee");
+	const k = key(),
+		rev = await revisionOf(one.p.id);
+	const first = ok(await leaving(one.p, k, rev, true));
+	assert.equal(first.result.household.memberCount, 0);
+	assert.equal(await membership(one.p.id), null);
+	assert.deepEqual(await households(one.h.id), []);
+	const again = ok(await leaving(one.p, k, rev, true));
+	assert.deepEqual(again, first, "the replay answers with the committed leave");
+	assert.deepEqual(await households(one.h.id), []);
+
+	// Leaving without the delete keeps the household.
+	const two = await start("Sam Ortiz");
+	ok(await leaving(two.p, key(), await revisionOf(two.p.id), false));
+	assert.equal(await membership(two.p.id), null);
+	assert.equal((await households(two.h.id)).length, 1);
+
+	// A household that still has a member refuses the delete, and the leave rolls back with it.
+	const three = await start("Ari Banks");
+	const other = await person("Noa Banks");
+	ok(
+		await write(0, async (t, c) =>
+			fields.addToHousehold(t, c, {
+				requestKey: key(),
+				expectedRevision: other.revision,
+				input: { householdId: three.h.id, personId: other.id, role: "spouse" },
+			}),
+		),
+	);
+	const before = await revisionOf(three.p.id);
+	refused(await leaving(three.p, key(), before, true), "conflict");
+	assert.equal(await membership(three.p.id), three.h.id);
+	assert.equal(await revisionOf(three.p.id), before);
+	assert.equal((await households(three.h.id)).length, 1);
 });
 
 const png = Buffer.from(
