@@ -243,7 +243,7 @@ async function mutate(
 						ELSE 'draft'
 					END,
 					current_revision_id = CASE WHEN ${mode} = 'publish' THEN (SELECT id FROM ins) ELSE e.current_revision_id END,
-					draft_revision_id = CASE WHEN ${mode} = 'publish' THEN e.draft_revision_id ELSE (SELECT id FROM ins) END,
+					draft_revision_id = CASE WHEN ${mode} = 'publish' THEN NULL ELSE (SELECT id FROM ins) END,
 					based_on_upstream_id = COALESCE(e.based_on_upstream_id, (SELECT upstream_id FROM base)),
 					revision = e.revision + 1
 				WHERE e.id = (SELECT id FROM editor) AND EXISTS (SELECT FROM ins)
