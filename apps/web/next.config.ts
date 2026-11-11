@@ -29,7 +29,13 @@ const config: NextConfig = {
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
 	// Forme's WASM layout engine runs from node_modules: bundling it builds a renderer that returns 0 pages (WP-036/api).
 	serverExternalPackages: ["@formepdf/core", "@formepdf/react"],
-	transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui", "@everyfield/evry", "@everyfield/contracts"],
+	transpilePackages: [
+		"@everyfield/domain",
+		"@everyfield/db",
+		"@everyfield/ui",
+		"@everyfield/evry",
+		"@everyfield/contracts",
+	],
 	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
 	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
 	experimental: {
