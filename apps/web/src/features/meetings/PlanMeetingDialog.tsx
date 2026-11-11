@@ -308,7 +308,9 @@ function Form<E extends { problem?: string }>({
 					tone="green"
 					title={editing ? "Edit meeting" : "Plan a meeting"}
 					description={
-						editing ? "Changes apply to this meeting only." : "Guests with a seat get reminders 7, 3 and 1 day before."
+						editing
+							? "Changes apply to this meeting only."
+							: "Choose the kind, date and place. You can add guests next."
 					}
 				/>
 				<DialogBody className="flex flex-col gap-4">

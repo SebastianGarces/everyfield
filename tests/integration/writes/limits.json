@@ -567,7 +567,7 @@
 		"limit": 5
 	},
 	"jobs/notifications.sendOnboardingRelationships": {
-		"limit": 5
+		"limit": 4
 	},
 	"jobs/queue.checkpoint": {
 		"limit": 2
@@ -790,9 +790,6 @@
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation.assigned": {
 		"limit": 6
-	},
-	"meetings/notifications.syncNotifications": {
-		"limit": 2
 	},
 	"meetings/tokens.answerRsvpToken": {
 		"limit": 1
@@ -1100,9 +1097,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 17,
+		"limit": 16,
 		"retry": 7,
-		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement."
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.createDiscovery": {
 		"limit": 8,
@@ -1461,7 +1458,7 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, through the settings producer the app mounts (the actor's lifecycle read included): 2 transaction, 3 locked read, 2 read, 2 write."
 	},
 	"settings.saveChurch": {
-		"limit": 5
+		"limit": 4
 	},
 	"settings.saveSection:account": {
 		"limit": 5,
@@ -1479,12 +1476,11 @@
 		"limit": 5
 	},
 	"settings.saveSection:plant": {
-		"limit": 6,
+		"limit": 5,
 		"retry": 4
 	},
 	"settings.setDigestSchedule": {
-		"limit": 7,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 3 write."
+		"limit": 6
 	},
 	"settings.setPersonalTimezone": {
 		"limit": 10,
@@ -1492,12 +1488,12 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 4 locked read, 2 read, 2 write."
 	},
 	"settings.setPlantTimezone": {
-		"limit": 9,
+		"limit": 8,
 		"retry": 6,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 3 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
 	},
 	"settings.updatePlantProfile": {
-		"limit": 5
+		"limit": 4
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,

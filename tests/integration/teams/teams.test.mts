@@ -896,7 +896,7 @@ test("a team leader can edit a role and still cannot change the church profile",
 	const settings = sectionOperations({
 		organizations: {},
 		organizationEffects: {},
-		effects: { replan: async () => "1", invalidate: async () => {} },
+		effects: { replan: async () => "1" },
 		suppression: async () => "clear",
 	});
 	const plantRevision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;
@@ -915,7 +915,7 @@ test("AC:ROLE43-006 a member plant profile change is refused", async () => {
 	const settings = sectionOperations({
 		organizations: {},
 		organizationEffects: {},
-		effects: { replan: async () => "1", invalidate: async () => {} },
+		effects: { replan: async () => "1" },
 		suppression: async () => "clear",
 	});
 	const plantRevision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;

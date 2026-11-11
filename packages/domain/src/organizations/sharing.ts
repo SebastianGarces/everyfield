@@ -175,8 +175,8 @@ export async function readSharingDisclosure(
 	});
 }
 
-// Both privacy and settings use one locked revision update, audit, invalidation and
-// coarse notice. Caller has freshly checked the exact pair and both CAS revisions.
+// Both privacy and settings use one locked revision update, audit and invalidation.
+// Caller has freshly checked the exact pair and both CAS revisions.
 export async function applySharingMutation(
 	tx: Transaction,
 	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
@@ -203,16 +203,6 @@ export async function applySharingMutation(
 	const next = String(BigInt(a.revision) + 1n);
 	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 	invalidate(tx, effects, c, pairOf(a), a.id, next);
-	c.writes.push(
-		effects.notice(tx, {
-			eventId: event,
-			relationshipId: a.id,
-			pair: pairOf(a),
-			kind: "sharing_changed",
-			revision: next,
-			operationId: c.id,
-		}),
-	);
 	return {
 		changed: true,
 		events: [event],

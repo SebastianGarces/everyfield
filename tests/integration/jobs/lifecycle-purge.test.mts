@@ -105,7 +105,6 @@ before(async () => {
 	}
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx) => queueJobs(tx, []),
 		invalidate: (tx) => queueJobs(tx, []),
 	};
 	credentials = createAccountCredentials({
@@ -126,7 +125,7 @@ before(async () => {
 	api = createSettingsProducer({
 		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
 		organizationEffects,
-		effects: { replan: async () => {}, invalidate: async () => {} },
+		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
 		avatarCleanup: { queue: (tx) => queueJobs(tx, []) },
 		// As the settings mount queues it (apps/web/src/features/settings/server.ts).

@@ -20,6 +20,10 @@ import { runDueObjectCleanup } from "./object-cleanup.ts";
  */
 const START_MS = 60_000;
 
+type StepStatus = { status: "ok"; count: unknown } | { status: "skipped" } | { status: "failed" };
+/** A step's component name, the count key the body has always used (null: none), and its run, or null when unconfigured. */
+type Step = readonly [component: string, key: string | null, run: (() => Promise<unknown>) | null];
+
 /**
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
@@ -28,8 +32,15 @@ const START_MS = 60_000;
  * ended at the run's clock and delivers a bounded batch of them (WP-030). The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
  * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
- * `mail`. Other queued mail (identity, settings, organization connection, task, onboarding, phase, notification and
- * digest mail) has no sending worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
+ * `mail`. Other queued mail (identity, settings, organization connection, task, onboarding, phase and digest mail) has
+ * no sending worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
+ *
+ * Each step runs in its own try, so one that throws (a provider outage, a lost connection) logs one line naming its
+ * component and the later steps still run in the same tick; its own jobs wait for their lease or retry. The body keeps
+ * each step's count under its old name and adds `steps`: every step's `ok` with its count, `skipped` when the
+ * deployment does not configure it, or `failed`; `failed` lists the failed components. A tick with a failed step answers
+ * 500 with `status: "failed"`, so the cron log shows the run as failed while the body shows which work still ran; a tick
+ * where every step ran answers 200 with `status: "ok"`.
  */
 export function scheduledJobs(config: {
 	secret: string | undefined;
@@ -57,23 +68,50 @@ export function scheduledJobs(config: {
 		const db = config.db;
 		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
-		try {
-			const closed = await transaction(db, (tx) => closeLostJobs(tx));
-			await runDueImports(db, 4, until);
-			const removed = config.storage ? await runDueObjectCleanup(db, config.storage, 4, until) : 0;
-			const purged =
-				config.cleanup && config.storage ? await runDuePurges(db, config.cleanup, config.storage, 2, until) : 0;
-			const effects = config.reminders ? await runEffects(db, config.reminders, 4, until) : 0;
-			const turns = await runTurns(db, 4, until);
-			const asOf = (config.now?.() ?? new Date()).toISOString();
-			const planned = config.digests ? await planDigests(db, asOf) : null;
-			const digests = config.digests ? await config.digests.run(db, asOf, undefined, until) : 0;
-			const mailed = config.mail ? await config.mail(20, until) : 0;
-			return Response.json({ status: "ok", closed, removed, purged, effects, turns, planned, digests, mailed });
-		} catch {
-			// No error text: it can carry row values.
-			console.error(JSON.stringify({ component: "scheduled-jobs", outcome: "error" }));
-			return Response.json({ status: "unavailable" }, { status: 503 });
+		const asOf = (config.now?.() ?? new Date()).toISOString();
+		const { storage, cleanup, reminders, digests, mail } = config;
+		const steps: Step[] = [
+			["close-lost-jobs", "closed", () => transaction(db, (tx) => closeLostJobs(tx))],
+			["people-import", null, () => runDueImports(db, 4, until)],
+			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
+			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
+			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
+			["assistant-turn", "turns", () => runTurns(db, 4, until)],
+			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
+			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
+			["mail", "mailed", mail && (() => mail(20, until))],
+		];
+		// The counts a tick has always reported; a step that is skipped or fails keeps its default.
+		const counts: Record<string, unknown> = {
+			closed: null,
+			removed: 0,
+			purged: 0,
+			effects: 0,
+			turns: 0,
+			planned: null,
+			digests: 0,
+			mailed: 0,
+		};
+		const report: Record<string, StepStatus> = {};
+		for (const [component, key, run] of steps) {
+			if (!run) {
+				report[component] = { status: "skipped" };
+				continue;
+			}
+			try {
+				const count = await run();
+				report[component] = { status: "ok", count: count ?? null };
+				if (key) counts[key] = count;
+			} catch {
+				// No error text: it can carry row values.
+				console.error(JSON.stringify({ component, runner: "scheduled-jobs", outcome: "error" }));
+				report[component] = { status: "failed" };
+			}
 		}
+		const failed = Object.keys(report).filter((component) => report[component]!.status === "failed");
+		return Response.json(
+			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
+			{ status: failed.length ? 500 : 200 },
+		);
 	};
 }

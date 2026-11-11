@@ -43,8 +43,8 @@ interface ReviewedOperator {
 	// Trusted adapter loads current session/lifecycle and exact reviewed command, never client flags.
 	review: { commandDigest: string; approvalLocator: string; approvalHash: string };
 }
-export type ReferenceAuthority = ReviewedOperator &
-	({ mode: "operator" } | { mode: "worker"; claim: { jobId: string; generation: string; leaseOwner: string } });
+// A build worker's claim-fenced promotion returns with the reference_generation worker (D-530).
+export type ReferenceAuthority = ReviewedOperator & { mode: "operator" };
 export interface ReferenceDependencies {
 	loadArtifact: (locator: string) => Promise<unknown>;
 	policyFor: (key: string) => ValidationPolicy;
@@ -114,37 +114,6 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			await tx.execute(sql`SELECT pg_advisory_xact_lock(7341032)`);
 			const authority = await authorizeCurrent(tx, command, requestDigest);
 			const actor = authority.actorId;
-			if (authority.mode === "worker") {
-				const claim = await tx
-					.select({ id: tables.job.id })
-					.from(tables.job)
-					.where(
-						and(
-							and(
-								and(
-									and(
-										and(
-											and(
-												and(eq(tables.job.id, authority.claim.jobId), eq(tables.job.tenant_id, GLOBAL)),
-												eq(tables.job.kind, "reference_generation"),
-											),
-											eq(tables.job.state, "claimed"),
-										),
-										eq(tables.job.claim_generation, authority.claim.generation),
-									),
-									eq(tables.job.lease_owner, authority.claim.leaseOwner),
-								),
-								eq(tables.job.checkpoint_key, command.manifestHash),
-							),
-							gt(
-								tables.job.lease_until,
-								sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-							),
-						),
-					)
-					.for("share");
-				if (claim.length !== 1) throw new ReferenceRefusal("stale_claim");
-			}
 			const old = await tx
 				.select({
 					id: tables.audit_event.id,

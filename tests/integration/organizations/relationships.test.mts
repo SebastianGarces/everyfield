@@ -223,10 +223,11 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 	assert.equal(
 		(
 			await S.db.execute(
-				sql`SELECT count(*)::int AS n FROM job WHERE producer_key LIKE 'relationship_ended/%' AND subject_record_id=${sql.param(a.relationship.id)}`,
+				sql`SELECT count(*)::int AS n FROM job WHERE subject_record_id=${sql.param(a.relationship.id)}`,
 			)
 		).rows[0].n,
-		1,
+		0,
+		"ending a link queues no notification job (D-517)",
 	);
 	await assert.rejects(approve(i, oa, approvalKey), /unavailable/);
 	await assert.rejects(approve(i, oa), /stale_revision|unavailable/);

@@ -10,7 +10,6 @@ import "server-only";
 import { z } from "zod";
 import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
 import { createMailService, type MailIntent } from "./mail.ts";
-import { enqueueJobs } from "./queue";
 export { notificationCategory as category } from "@everyfield/contracts/settings";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
@@ -546,7 +545,7 @@ export async function sendDiscoveryAssociationReceipt(
 /** One durable notice batch for all links changed by a discovery conversion. */
 export async function sendOnboardingRelationships(
 	tx: Transaction,
-	inputs: readonly Parameters<import("@everyfield/domain/organizations").OrganizationEffects["notice"]>[1][],
+	inputs: readonly import("@everyfield/domain/organizations").RelationshipNotice[],
 	mail: ReturnType<typeof createMailService>,
 ) {
 	if (!inputs.length) return;
@@ -565,17 +564,6 @@ export async function sendOnboardingRelationships(
 		].map((recipient) => ({ i, recipient })),
 	);
 	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
-	await enqueueJobs(
-		tx,
-		inputs.map((i) => ({
-			tenant: i.pair.organization.id,
-			kind: "assessment",
-			subject: i.relationshipId,
-			key: "onboarding/" + i.relationshipId + "/" + i.revision,
-			revision: i.revision,
-			eligibleAt: new Date().toISOString(),
-		})),
-	);
 	await mail.enqueueMany(
 		tx,
 		notices.map(({ i, recipient }) => {

@@ -194,22 +194,19 @@ export interface OrganizationEffects {
 		},
 		writes: SQLWrapper[],
 	): Promise<void>;
-	/** One job row for the coarse notice. The command runs it inside its single write statement (D70). */
-	notice(
-		tx: Transaction,
-		input: {
-			eventId: string;
-			actorId?: string;
-			relationshipId: string;
-			pair: RelationshipPair;
-			kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
-			revision: string;
-			operationId: string;
-		},
-	): SQLWrapper;
 	/** Stops queued work that read the old grant. Runs inside the command's single write statement (D70). */
 	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): SQLWrapper;
 }
+/** A coarse relationship change the connected parties are told about by receipt mail (REQ-NTF-009). */
+export type RelationshipNotice = {
+	eventId: string;
+	actorId?: string;
+	relationshipId: string;
+	pair: RelationshipPair;
+	kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
+	revision: string;
+	operationId: string;
+};
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
 export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
 	const identity = requestIdentity.parse({

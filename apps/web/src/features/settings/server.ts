@@ -72,17 +72,6 @@ function create(v: z.infer<typeof env>) {
 				revision: i.revision,
 				eligibleAt: new Date().toISOString(),
 			}),
-		// A material plant fact changed: assessments that read the old value are computed again.
-		invalidate: async (tx: Transaction, i: { owner: Owner; revision: string; operationId: string }) => {
-			await enqueueJob(tx, {
-				tenant: i.owner.id,
-				kind: "assessment",
-				subject: i.owner.id,
-				key: `settings/${i.operationId}`,
-				revision: i.revision,
-				eligibleAt: new Date().toISOString(),
-			});
-		},
 	};
 	const mail = createMailService({
 		db,
