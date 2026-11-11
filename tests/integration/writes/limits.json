@@ -602,8 +602,8 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 4 write."
 	},
 	"lifecycle.purge": {
-		"limit": 24,
-		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements."
+		"limit": 28,
+		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Largest run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write."
 	},
 	"mail.dispatch": {
 		"limit": 21,
@@ -1349,6 +1349,11 @@
 		"limit": 11,
 		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 6 locked read, 3 write."
 	},
+	"people/core.withPeopleWrite:people.removeFromHousehold": {
+		"limit": 7,
+		"retry": 9,
+		"reason": "Leave-and-delete: the last member leaves and the empty household is deleted in one transaction, two producer writes (people.removeFromHousehold, people.deleteHousehold) at the revision the leave answers. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write. A plain leave stays within the pattern."
+	},
 	"people/core.withPeopleWrite:people.retirePerson": {
 		"limit": 13,
 		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 7 locked read, 4 write."
@@ -1450,9 +1455,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 5 read, 4 write."
 	},
 	"settings.requestWorkspaceDeletion": {
-		"limit": 8,
+		"limit": 9,
 		"retry": 3,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, through the settings producer the app mounts (the actor's lifecycle read included): 2 transaction, 3 locked read, 2 read, 2 write."
 	},
 	"settings.saveChurch": {
 		"limit": 5
