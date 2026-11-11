@@ -8,7 +8,11 @@ import {
 	setPreferenceRequest,
 	setPreferencesRequest,
 } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled as defaultEnabled, defaultDigestCadence } from "@everyfield/contracts/settings";
+import {
+	defaultChannelEnabled as defaultEnabled,
+	defaultDigestCadence,
+	notificationChannels as channels,
+} from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
@@ -35,10 +39,6 @@ const writeRow = z.object({
 	revision: z.string().nullable(),
 	changed: z.boolean(),
 });
-
-function channels(category: (typeof categories)[number]) {
-	return category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const);
-}
 
 /**
  * The account's notification choices, in one statement: its revision, its stored choices with the defaults filled in
