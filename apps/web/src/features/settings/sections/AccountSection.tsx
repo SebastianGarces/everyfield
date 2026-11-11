@@ -123,7 +123,12 @@ function AccountForm({
 				>
 					<PersonalTimezone
 						preference={account.personalTimezone}
-						onSaved={(personalTimezone) => replace({ ...account, personalTimezone })}
+						onSaved={(personalTimezone) => {
+							// The save also moved the account revision, which only a fresh read carries. Show the new zone
+							// at once, then read the section so the next name or notification save sends the current revision.
+							replace({ ...account, personalTimezone });
+							reload();
+						}}
 					/>
 				</SettingRow>
 				<SettingRow label="Sessions" description="Sign out here, or on every other device at once.">
