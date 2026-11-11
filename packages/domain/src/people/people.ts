@@ -313,14 +313,14 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.retirePersonRequest, raw);
-			return c.plantPersonMutationResult.parse(await retire(tx, ctx, input, "people.deletePerson", reminders));
+			return c.plantPersonMutationResult.parse(await retire(tx, ctx, input, reminders));
 		});
 	},
 	async restorePerson(tx, ctx, raw) {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.restorePersonRequest, raw);
-			return c.plantPersonMutationResult.parse(await restore(tx, ctx, input, "people.restorePerson"));
+			return c.plantPersonMutationResult.parse(await restore(tx, ctx, input));
 		});
 	},
 	async addNote(tx, ctx, raw) {
@@ -355,27 +355,24 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 		});
 	},
 };
-export async function retire(
+/** Retires a plant's Person. The caller has refused an organization context. */
+async function retire(
 	tx: Tx,
 	ctx: WriteContext,
 	input: z.infer<typeof c.retirePersonRequest>,
-	name: Parameters<typeof mutation>[2],
 	reminders: TaskReminders,
 ) {
-	return mutation(tx, ctx, name, input, async (_a, id, audit) => {
+	return mutation(tx, ctx, "people.deletePerson", input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
-		const review =
-			ctx.selected.kind === "plant"
-				? (
-						await tx
-							.select({ material_revision: tables.plant.material_revision })
-							.from(tables.plant)
-							.where(eq(tables.plant.id, ctx.selected.id))
-							.for("share")
-					)[0]!.material_revision
-				: before.revision;
+		const review = (
+			await tx
+				.select({ material_revision: tables.plant.material_revision })
+				.from(tables.plant)
+				.where(eq(tables.plant.id, ctx.selected.id))
+				.for("share")
+		)[0]!.material_revision;
 		if (input.input.reviewRevision !== review) deny("conflict");
 		let after = before;
 		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
@@ -385,41 +382,40 @@ export async function retire(
 				.update(tables.person)
 				.set({
 					state: "retired",
-					...(ctx.selected.kind === "plant" ? { household_id: null, household_role: null } : {}),
+					household_id: null,
+					household_role: null,
 					retired_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 					revision: sql<unknown>`(${tables.person.revision} + 1)`,
 				})
 				.where(eq(tables.person.id, before.id))
 				.returning();
 			after = personRow.parse({ ...updated, plant_today: before.plant_today });
-			if (ctx.selected.kind === "plant") {
-				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
-				audit.writes.push(
-					tx
-						.update(tables.team_tenure)
-						.set({
-							ended_on: sql<string>`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM ${tables.plant} WHERE ${tables.plant.id}=${ctx.selected.id}))::date`,
-							revision: sql<unknown>`(${tables.team_tenure.revision} + 1)`,
-						})
-						.where(
-							and(
-								and(eq(tables.team_tenure.person_id, before.id), eq(tables.team_tenure.plant_id, ctx.selected.id)),
-								isNull(tables.team_tenure.ended_on),
-							),
+			audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
+			audit.writes.push(
+				tx
+					.update(tables.team_tenure)
+					.set({
+						ended_on: sql<string>`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM ${tables.plant} WHERE ${tables.plant.id}=${ctx.selected.id}))::date`,
+						revision: sql<unknown>`(${tables.team_tenure.revision} + 1)`,
+					})
+					.where(
+						and(
+							and(eq(tables.team_tenure.person_id, before.id), eq(tables.team_tenure.plant_id, ctx.selected.id)),
+							isNull(tables.team_tenure.ended_on),
 						),
-				);
-				audit.writes.push(
-					tx
-						.update(tables.team)
-						.set({
-							leader_person_id: null,
-							leader_source: null,
-							leader_role_id: null,
-							revision: sql<unknown>`(${tables.team.revision} + 1)`,
-						})
-						.where(and(eq(tables.team.plant_id, ctx.selected.id), eq(tables.team.leader_person_id, before.id))),
-				);
-			}
+					),
+			);
+			audit.writes.push(
+				tx
+					.update(tables.team)
+					.set({
+						leader_person_id: null,
+						leader_source: null,
+						leader_role_id: null,
+						revision: sql<unknown>`(${tables.team.revision} + 1)`,
+					})
+					.where(and(eq(tables.team.plant_id, ctx.selected.id), eq(tables.team.leader_person_id, before.id))),
+			);
 		}
 		const outcome = before.state === "retired" ? "noop" : "changed";
 		return {
@@ -433,13 +429,9 @@ export async function retire(
 		};
 	});
 }
-export async function restore(
-	tx: Tx,
-	ctx: WriteContext,
-	input: z.infer<typeof c.restorePersonRequest>,
-	name: Parameters<typeof mutation>[2],
-) {
-	return mutation(tx, ctx, name, input, async (_a, id, audit) => {
+/** Restores a plant's retired Person. The caller has refused an organization context. */
+async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restorePersonRequest>) {
+	return mutation(tx, ctx, "people.restorePerson", input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
@@ -488,8 +480,6 @@ export async function restore(
 type NoteInput =
 	z.infer<typeof c.addNoteRequest> | z.infer<typeof c.editNoteRequest> | z.infer<typeof c.deleteNoteRequest>;
 async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "edit" | "delete") {
-	// Organization notes remain native-only, including when the author is an admin.
-	if (ctx.selected.kind === "organization" && false) deny();
 	return mutation(
 		tx,
 		ctx,
