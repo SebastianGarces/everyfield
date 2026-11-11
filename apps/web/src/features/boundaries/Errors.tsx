@@ -64,3 +64,18 @@ export function RootError({ error, reset }: BoundaryProps) {
 		</RootState>
 	);
 }
+
+/**
+ * The document global-error renders when the root layout itself fails: its own <html> and <body> around the root error
+ * page. `className` carries the font variables the layout would have set.
+ */
+export function GlobalErrorDocument({ className, ...props }: BoundaryProps & { className?: string }) {
+	return (
+		<html lang="en" className={className}>
+			<body>
+				<title>Something went wrong · Everyfield</title>
+				<RootError {...props} />
+			</body>
+		</html>
+	);
+}

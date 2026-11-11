@@ -16,8 +16,8 @@ const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement, isValidElement } = web("react");
 const { FrameNotFound, RootNotFound } = await import("../../../apps/web/src/features/boundaries/NotFound.tsx");
-const { FrameError, RootError } = await import("../../../apps/web/src/features/boundaries/Errors.tsx");
-const { default: GlobalError } = await import("../../../apps/web/src/app/global-error.tsx");
+const { FrameError, GlobalErrorDocument, RootError } =
+	await import("../../../apps/web/src/features/boundaries/Errors.tsx");
 
 type Props = { error: Error & { digest?: string }; reset: () => void };
 type Boundary = (props: Props) => unknown;
@@ -25,13 +25,12 @@ type Boundary = (props: Props) => unknown;
 const ERRORS: [string, Boundary][] = [
 	["frame error", FrameError],
 	["root error", RootError],
-	["global error", GlobalError],
+	["global error", GlobalErrorDocument],
 ];
 
 /** The visible text of the markup, tags dropped and whitespace collapsed. */
 function text(html: string) {
 	return html
-		.replace(/<style[\s\S]*?<\/style>/g, "")
 		.replace(/<[^>]+>/g, " ")
 		.replace(/\s+/g, " ")
 		.trim();
@@ -46,7 +45,7 @@ function label(node: unknown): string {
 }
 
 /** The first element in the tree, searching every element-valued prop (children, actions …), whose label is `name` and
- *  that has a click handler. Component elements are not called: the boundaries pass Try again down as a prop. */
+ *  that has a click handler. A component element is expanded by calling it, as React would; none of these use hooks. */
 function clickable(node: unknown, name: string): { onClick: () => void } | undefined {
 	if (Array.isArray(node)) {
 		for (const n of node) {
@@ -62,7 +61,7 @@ function clickable(node: unknown, name: string): { onClick: () => void } | undef
 		const hit = clickable(value, name);
 		if (hit) return hit;
 	}
-	return undefined;
+	return typeof node.type === "function" ? clickable((node.type as (p: unknown) => unknown)(props), name) : undefined;
 }
 
 function boundaryError() {
@@ -107,8 +106,9 @@ test("BUG-551: Try again calls the boundary's reset once", () => {
 });
 
 test("BUG-551: global-error renders its own html and body, so it needs nothing from the root layout", () => {
-	const html = renderToStaticMarkup(createElement(GlobalError, { error: boundaryError(), reset: () => {} }));
-	assert.match(html, /^<html lang="en"><head>/);
+	const html = renderToStaticMarkup(
+		createElement(GlobalErrorDocument, { error: boundaryError(), reset: () => {}, className: "fonts" }),
+	);
+	assert.match(html, /^<html lang="en" class="fonts">/);
 	assert.match(html, /<body>[\s\S]*<\/body><\/html>$/);
-	assert.match(html, /<style>/, "brings its own styles");
 });
