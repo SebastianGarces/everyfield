@@ -15,6 +15,7 @@ export const CHECKS = {
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
 	"github-scripts": { kind: "suite", root: ".github/scripts", files: ".github/scripts/*.test.cjs" },
+	"ops-watch": { kind: "suite", root: "ops/actionable-watch/test", files: "ops/actionable-watch/test/*.test.mts" },
 } as const satisfies Record<string, Check>;
 
 export type CheckId = keyof typeof CHECKS;
@@ -126,6 +127,8 @@ export const RULES: readonly Rule[] = [
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
+	// The watcher's tests read its README and plist as text, so every file under it runs the whole suite.
+	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{
 		name: "failure reporting and feedback queue input",
 		paths: [".github/internal-feedback.json", ".github/ISSUE_TEMPLATE/**", ".github/scripts/*.sh"],

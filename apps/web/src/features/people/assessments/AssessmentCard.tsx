@@ -277,7 +277,8 @@ function AssessmentDialog({
 	const setLens = (l: Lens, patch: Partial<Draft[Lens]>) => setDraft((d) => ({ ...d, [l]: { ...d[l], ...patch } }));
 	const total = totalOf(LENSES.map((l) => (draft[l].score ? Number(draft[l].score) : null)));
 	const complete = draft.occurredOn !== "" && LENSES.every((l) => draft[l].score !== "");
-	const futureDate = editing.problem === "future_date";
+	// The refusal stays until the refused date changes, so the same date is not sent again.
+	const futureDate = editing.problem === "future_date" && draft.occurredOn === editing.draft.occurredOn;
 	return (
 		<RecordDialog
 			wait={wait}

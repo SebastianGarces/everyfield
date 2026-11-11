@@ -119,6 +119,34 @@ try {
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${member.accountId},${plant.id},'member',clock_timestamp())`,
 	);
 	const ctx = { session: owner.sessionId, selected: plant };
+	// T-141: a seatless resident with a residency at a sending church (REQ-MUL-003); the plant connects with each church.
+	const resident = await account("Resident");
+	const sendingChurch = async (name) => {
+		const id = randomUUID(),
+			person = randomUUID(),
+			invitation = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${id},'sending_church',${name},'America/Chicago',1)`,
+		);
+		await admin.execute(
+			sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${plant.id},${id},clock_timestamp(),true,true,false,false,true,false,false)`,
+		);
+		const [{ id: link }] = (
+			await admin.execute(
+				sql`INSERT INTO affiliation(account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${resident.accountId},${id},clock_timestamp(),false,false,false,false,false,false,false) RETURNING id`,
+			)
+		).rows;
+		await admin.execute(
+			sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,linked_account_id,created_at,revision) VALUES(${person},${id},${id},'Resident','other','live',${resident.accountId},clock_timestamp(),1)`,
+		);
+		await admin.execute(
+			sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES(${invitation},${id},'residency_link','resident@requests.example.test',${randomUUID()},'accepted',clock_timestamp(),${resident.accountId},${person})`,
+		);
+		await admin.execute(
+			sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,revision,share_foundations,share_milestones) VALUES(${randomUUID()},${id},${person},${resident.accountId},${link},${invitation},clock_timestamp(),1,1,true,false)`,
+		);
+	};
+	await sendingChurch("Harbor Sending Church");
 	// WP-036: Church Documents made from a built-in template, through the producer the New from template action calls.
 	const churchDocument = async (templateId) => {
 		const actor = await RequestActor.resolve(runtime, owner.sessionId);
@@ -366,6 +394,10 @@ try {
 		["GET /meetings/[meetingId]/agenda:leadership team meeting", `/meetings/${boardMeeting}/agenda`, owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
 		["GET /settings/brand", "/settings/brand", owner.cookie],
+		// T-141: 2 statements, the session and one residency read with each link's consent; 61845391 sent 4 (the session,
+		// residencyLinks twice and subjectFacts). The plant's page sends 9 on both.
+		["GET /settings/sharing", "/settings/sharing", resident.cookie],
+		["GET /settings/sharing (plant)", "/settings/sharing", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
 		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
 		["GET /ministries", "/ministries", owner.cookie],
@@ -416,6 +448,11 @@ try {
 	// Warm every route once (module load, first connections), then read each page with little data.
 	for (const [, path, cookie] of pages) await fetch(origin + path, { headers: { cookie } }).then((r) => r.text());
 	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
+	// The resident's budget is the page with its residency card, not the refusal a seatless account without one gets.
+	const sharingPage = await fetch(origin + "/settings/sharing", { headers: { cookie: resident.cookie } }).then((r) =>
+		r.text(),
+	);
+	assert.match(sharingPage, /Residency with <!-- -->Harbor Sending Church|Residency with Harbor Sending Church/);
 
 	const people = "apps/web/src/features/people/actions.ts";
 	const key = randomUUID();
@@ -809,6 +846,8 @@ try {
 		]);
 		assert.equal(declined.status, "ok", JSON.stringify(declined));
 	}
+	// A second residency and connection before the second read: the sharing page's count stays the same.
+	await sendingChurch("Cedar Sending Church");
 	// The native page's body grows to many blocks before the second read: its count stays the same.
 	await saveWritten(
 		nativeFromText(Array.from({ length: 400 }, (_, i) => `Line ${i + 1}`).join("\n")),

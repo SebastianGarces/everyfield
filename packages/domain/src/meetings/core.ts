@@ -160,6 +160,13 @@ export async function read<T>(
 }
 export type Viewer = { plantId: string; accountId: string; access: Parameters<typeof liveRead>[0] };
 /**
+ * Access for a meetings statement that runs with no session, such as a public RSVP link (C13): no lifecycle witness hides
+ * the plant. A session read checks the same witness through `one` (access.liveRead). `plant` is a column, never input.
+ */
+export const plantVisible = (plant: SQL) =>
+	sql`NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = ${plant}
+		AND w.state NOT IN ('active', 'cancelled'))`;
+/**
  * One statement of a tenant read: the first row of `query`, returned only while the reader's session, seat, role
  * (Owner or Admin when `admin`) and lifecycle are live in that same statement (C13, C27). A reader who lost access
  * reads nothing. `admin` is the live role, which decides what a privileged field shows; `row` is undefined when the

@@ -12,6 +12,7 @@ import {
 	readHistory,
 	readPlantSharing,
 	readSharingDisclosure,
+	residencyLinks,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { signedSessionToken } from "../../../packages/domain/src/identity/index.ts";
@@ -102,16 +103,23 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	assert.equal(sharing.value[relationshipId].sharing.view, "plant_administration");
 	assert.deepEqual(sharing.value[relationshipId].sharing.choices.people, false);
 	assert.equal(sharing.value[relationshipId].relationshipRevision, "1");
+	// As the mount runs it (disclosureFor): a read transaction that observed the request actor, one statement inside.
 	const disclosure = await count(() =>
-		f.db.transaction((tx) =>
-			readSharingDisclosure(tx, authority.session, s.w, {
+		f.db.transaction((tx) => {
+			authority.observe(tx);
+			return readSharingDisclosure(tx, authority.session, s.w, {
 				kind: "plant",
 				subject: s.w,
 				organization: { kind: "organization", id: network.id, organizationKind: "sending_church" },
-			}),
-		),
+			});
+		}),
 	);
 	assert.equal(disclosure.value.kind, "existing_consent");
+	assert.equal(disclosure.value.choices.people, false);
+	assert.deepEqual(
+		disclosure.statements.map((q) => q.trim().split(/\s/)[0].toUpperCase()),
+		["BEGIN", "SELECT", "COMMIT"],
+	);
 	// A read transaction that observed the request actor answers currentActor without a statement (D59).
 	const observed = await count(() =>
 		f.db.transaction(async (tx) => {
@@ -210,6 +218,22 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 	);
 	assert.equal(residency.value?.personId, person);
 	assert.equal(residency.value?.organization.id, s.w.id);
+	// The sharing page reads every residency link of the account with its consent in one statement.
+	const links = await count(() =>
+		residencyLinks(f.db, {
+			kind: "account",
+			session: authority.session,
+			accountId: authority.actor.accountId,
+			selected: authority.actor.context.owner,
+			canManage: false,
+			access: { session: authority.session, owner: authority.actor.context.owner },
+		}),
+	);
+	assert.equal(links.statements.length, 1);
+	assert.deepEqual(
+		links.value.map((l) => [l.linkId, l.linkRevision, l.sharing.status]),
+		[[residency.value?.linkId, residency.value?.revision, "active"]],
+	);
 	t.diagnostic(JSON.stringify({ residency: residency.statements.length }));
 	assert.equal(residency.statements.length, 4, `residency read: ${residency.statements.length} statements`);
 	assert.equal(
