@@ -81,7 +81,7 @@ export function Compose({
 	/** The draft has an id now. The address changes to it by replace. */
 	onSaved: (id: string, step: Step) => void;
 	onLeave: () => void;
-	/** The draft was deleted. The screen drops it from its list and returns to Messages. */
+	/** The draft was deleted. The screen returns to Messages. */
 	onDeleted: (id: string) => void;
 	onDone: (messageId: string, text: string) => void;
 }) {
@@ -124,8 +124,8 @@ export function Compose({
 			// The address moves from "new" to the saved id after the first save. The form already holds it.
 			if (id !== "new" && heldId.current === id) return;
 			if (id !== "new") {
-				const row = data.drafts.find((d) => d.communicationId === id);
-				const draft = row ?? (await readDraft(id).then((r) => (r.status === "ok" ? r.value : null)));
+				// Always the stored draft: a copy held by the page can carry old text and an old revision.
+				const draft = await readDraft(id).then((r) => (r.status === "ok" ? r.value : null));
 				if (!draft) return fail("That message is not here. It may have been deleted.");
 				if (!live) return;
 				const next = formFrom(draft, data.templates);

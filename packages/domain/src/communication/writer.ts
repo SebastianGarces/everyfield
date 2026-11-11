@@ -666,7 +666,30 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 					FROM message_template WHERE plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey} AND ${writeBound(cmd.actor, context.session)}`),
 			),
 		);
-		if (existing.success) return asTemplate(existing.data);
+		if (existing.success && !existing.data.archived_at) return asTemplate(existing.data);
+		// D-449: forking a source whose church fork is archived brings that fork back, with the church's edits.
+		if (existing.success) {
+			const current = existing.data;
+			const revision = bump(current.revision);
+			cmd.writes.push(sql`UPDATE message_template SET archived_at = NULL, revision = ${revision}::bigint
+				WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${writeBound(cmd.actor, context.session)}`);
+			const next = { ...current, revision, archived_at: null };
+			audit(
+				cmd,
+				fact(
+					cmd,
+					"message_template",
+					"edit",
+					current.id,
+					current.revision,
+					revision,
+					"communication.templates.fork",
+					current,
+					next,
+				),
+			);
+			return asTemplate(next);
+		}
 		const id = forkId(cmd.actor.plantId, source.sourceKey);
 		const bodyText = plainText(source.bodyHtml);
 		cmd.writes
