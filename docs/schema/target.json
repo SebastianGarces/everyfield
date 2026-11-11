@@ -22455,6 +22455,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "mail_waiting": {
+          "name": "mail_waiting",
+          "isUnique": false,
+          "where": "((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL))",
+          "columns": [
+            {
+              "expression": "scheduled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {

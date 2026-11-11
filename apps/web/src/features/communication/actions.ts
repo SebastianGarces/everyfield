@@ -130,8 +130,8 @@ export async function rescheduleReviewed(
 }
 
 /**
- * Hand a scheduled email to the email service: at once for `now`, held until its saved time for `held`. The provider
- * key is the domain idempotency key.
+ * Hand a scheduled email over: to the email service at once for `now`; for `held` Everyfield keeps it, and the minute
+ * runner hands it off at its saved time (T-241). The provider key is the domain idempotency key.
  */
 export async function sendReviewed(
 	requestKey: string,
