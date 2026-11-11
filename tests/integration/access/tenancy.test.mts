@@ -178,9 +178,6 @@ const transport = {
 	async send(batch) {
 		return { outcome: "ids", ids: batch.messages.map(() => `prov-${key()}`) };
 	},
-	async lookup() {
-		return { outcome: "ids", ids: [] };
-	},
 };
 // Private storage that no cross-church read may reach.
 let storageCalls = 0;
