@@ -13,6 +13,7 @@ import type { Outcome } from "../../../components/save/model.ts";
 import { read, write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
 import { privateStorage } from "@everyfield/db/schema";
+import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
 
 // Server actions for the person fields (REQ-PPL-005, 009, 010, 011). Each parses the browser's input with the WP-012
@@ -227,8 +228,8 @@ export async function setHouseholdRole(
 
 const leaveInput = z.strictObject({
 	personId: c.personFieldsRequest.shape.personId,
-	// The household to delete once this person has left it, when they were its last member.
-	deleteEmpty: z.uuid().nullable(),
+	// Delete the household once this person has left it, when they were its last member.
+	deleteEmpty: z.boolean(),
 });
 /**
  * Takes a person out of their household; their own address stays. When they were the last member and the screen asks
@@ -238,26 +239,13 @@ export async function leaveHousehold(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<MembershipSaved & { deleted: boolean }>> {
+): Promise<Outcome<MembershipSaved>> {
 	return boundary(leaveInput, input, async (v, i) => {
 		const request = { requestKey, expectedRevision, input: { personId: i.personId } };
-		const saved = await write(v, async (tx, ctx) => {
-			const left = await f.removeFromHousehold(tx, ctx, request);
-			if (left.status !== "ok" || !i.deleteEmpty) return andPerson(tx, ctx, i.personId, left);
-			// Leaving moved the household's revision on; delete it at the revision read now, in this transaction.
-			const now = await f.getHousehold(tx, ctx, { householdId: i.deleteEmpty });
-			if (now.status !== "ok") return now;
-			if (now.value.status === "available") {
-				const gone = await f.deleteHousehold(tx, ctx, {
-					requestKey: `${requestKey}:delete`,
-					expectedRevision: now.value.household.revision,
-					input: { householdId: i.deleteEmpty },
-				});
-				if (gone.status !== "ok") return gone;
-			}
-			return andPerson(tx, ctx, i.personId, left);
-		});
-		return outcome(saved, (r) => ({ ...membershipSaved(r), deleted: i.deleteEmpty !== null }));
+		const saved = await write(v, async (tx, ctx) =>
+			andPerson(tx, ctx, i.personId, await leave(tx, ctx, request, i.deleteEmpty)),
+		);
+		return outcome(saved, membershipSaved);
 	});
 }
 

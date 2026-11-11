@@ -61,6 +61,7 @@ before(async () => {
 		secret,
 		db: runtime,
 		storage: null,
+		cleanup: null,
 		reminders: null,
 		digests: worker,
 		mail: null,
