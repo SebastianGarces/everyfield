@@ -8,7 +8,6 @@ import { digestCadence, digestPeriod, feedCursor, notificationCategory } from ".
 const page = z.strictObject({
 	category: notificationCategory.optional(),
 	cursor: feedCursor.optional(),
-	asOf: instant.optional(),
 });
 export const readFeedRequest = page.extend({
 	unread: z.boolean().optional(),
@@ -33,7 +32,6 @@ export const markSelectedReadRequest = commandEnvelope(z.strictObject({ noticeId
 export const markAllVisibleReadRequest = commandEnvelope(z.strictObject({ cutoff: instant }));
 export const emailOptOutRequest = z.strictObject({
 	token: z.string().min(1).max(4000),
-	oneClick: z.boolean().optional(),
 });
 export const readOversightDigestRequest = z.strictObject({
 	organizationId: z.uuid(),

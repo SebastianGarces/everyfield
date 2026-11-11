@@ -26,20 +26,18 @@ export async function GET(request: Request) {
 	switch (p.get("what")) {
 		case "task":
 			return answer(
-				await parsed(c.getTaskRequest, { taskId: p.get("id") }, (v) =>
-					read(viewer, (tx) => loadTask(tx, viewer, v.taskId)),
-				),
+				await parsed(c.getTaskRequest, { taskId: p.get("id") }, (v) => read((tx) => loadTask(tx, viewer, v.taskId))),
 			);
 		case "history":
 			return answer(
 				await parsed(c.statusHistoryRequest, { taskId: p.get("id"), page: Number(p.get("page")), limit: 50 }, (v) =>
-					read(viewer, (tx) => reader.history(tx, viewer, v.taskId, v.page)),
+					read((tx) => reader.history(tx, viewer, v.taskId, v.page)),
 				),
 			);
 		// The current page's derived "Blocked by" counts, after a task they may wait for settled, reopened or was deleted.
 		// The same scope as the page; only the badge leaves the server.
 		case "blocking": {
-			const r = await read(viewer, (tx) => reader.list(tx, viewer, parseQuery(p)));
+			const r = await read((tx) => reader.list(tx, viewer, parseQuery(p)));
 			return answer(
 				r.status === "ok"
 					? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })) }
@@ -48,37 +46,35 @@ export async function GET(request: Request) {
 		}
 		case "seats":
 			return answer(
-				await read(viewer, async (tx) =>
+				await read(async (tx) =>
 					refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: p.get("purpose") ?? "any" })),
 				),
 			);
 		case "candidates":
 			return answer(
 				await parsed(c.prerequisiteCandidatesRequest, { taskId: p.get("id"), search: p.get("search") ?? "" }, (v) =>
-					read(viewer, async (tx) => refusalOf(await taskReader.prerequisiteCandidates(tx, viewer.authority, v))),
+					read(async (tx) => refusalOf(await taskReader.prerequisiteCandidates(tx, viewer.authority, v))),
 				),
 			);
 		case "relations":
 			return answer(
 				await parsed(c.relationOptionsRequest, { kind: p.get("kind"), search: p.get("search") ?? "" }, (v) =>
-					read(viewer, async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
+					read(async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
 				),
 			);
 		// The checklist catalog, one checklist's preview and one phase offer by its move (WP-026). Owner and Admin only.
 		case "templates":
-			return answer(
-				await read(viewer, async (tx) => refusalOf(await templates.listTemplates(tx, viewer.authority, {}))),
-			);
+			return answer(await read(async (tx) => refusalOf(await templates.listTemplates(tx, viewer.authority, {}))));
 		case "preview":
 			return answer(
 				await parsed(c.previewTemplateRequest, { checklistKey: p.get("key") }, (v) =>
-					read(viewer, async (tx) => refusalOf(await templates.previewTemplate(tx, viewer.authority, v))),
+					read(async (tx) => refusalOf(await templates.previewTemplate(tx, viewer.authority, v))),
 				),
 			);
 		case "offer":
 			return answer(
 				await parsed(c.readPhaseOfferRequest, { transitionId: p.get("id") ?? undefined }, (v) =>
-					read(viewer, (tx) => reader.offer(tx, viewer, v.transitionId)),
+					read((tx) => reader.offer(tx, viewer, v.transitionId)),
 				),
 			);
 		default:
