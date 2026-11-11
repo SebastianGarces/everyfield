@@ -1,6 +1,7 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"plugins": ["nextjs", "typescript", "unicorn"],
+	"jsPlugins": ["../../scripts/lint/everyfield-plugin.mjs"],
 	"categories": {
 		"correctness": "off"
 	},
@@ -61,7 +62,9 @@
 		"typescript/no-wrapper-object-types": "error",
 		"typescript/prefer-as-const": "error",
 		"typescript/prefer-namespace-keyword": "error",
-		"typescript/triple-slash-reference": "error"
+		"typescript/triple-slash-reference": "error",
+		// AC:WP-029-13: only the guarded senders import resend (any form) or name api.resend.com. Tests are spared below.
+		"everyfield/resend-senders": "error"
 	},
 	"overrides": [
 		{
@@ -110,7 +113,11 @@
 				"react/error-boundaries": "error",
 				"react/purity": "error",
 				"react/set-state-in-render": "error",
-				"react/unsupported-syntax": "warn"
+				"react/unsupported-syntax": "warn",
+				// Model and person text renders as text (INV-markdown); layout.tsx disables this for its own inline script.
+				"everyfield/no-inner-html": "error",
+				"jsx-a11y/no-static-element-interactions": "error",
+				"jsx-a11y/click-events-have-key-events": "error"
 			},
 			"globals": {
 				"AbsoluteOrientationSensor": "readonly",
@@ -1246,6 +1253,32 @@
 				"react/immutability": "off"
 			},
 			"plugins": ["react"]
+		},
+		{
+			"files": [
+				"**/*.test.*",
+				"**/test/**",
+				"**/tests/**",
+				"src/features/communication/mail.ts",
+				"src/server/jobs/resend.ts"
+			],
+			"rules": {
+				// The two guarded senders in apps/web; .oxlintrc.json spares early access.
+				"everyfield/resend-senders": "off"
+			}
+		},
+		{
+			"files": ["src/**"],
+			"rules": {
+				// INV-privacy: only the intelligence feature names the private-care tables and operations.
+				"everyfield/private-care-scope": "error"
+			}
+		},
+		{
+			"files": ["src/features/intelligence/**"],
+			"rules": {
+				"everyfield/private-care-scope": "off"
+			}
 		}
 	]
 }
