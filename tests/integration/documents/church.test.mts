@@ -1220,7 +1220,9 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 				[2, ["pdf", "docx", "xlsx"]],
 			],
 		);
-		const one = ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }));
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
+		);
 		assert.deepEqual(one.formats, ["pdf", "docx"]);
 
 		// A save that takes the table away stops offering Excel on that revision only.
@@ -1253,7 +1255,10 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 				await exportDoc(MEMBER, doc.id, 3, "xlsx", "t124-no-excel-3"),
 			]) {
 				const error = refused(result, "invalid_input");
-				assert.equal(EXPORT_MESSAGES[error.code], "That format is not offered for this document, so nothing was saved.");
+				assert.equal(
+					EXPORT_MESSAGES[error.code],
+					"That format is not offered for this document, so nothing was saved.",
+				);
 			}
 			assert.equal(reads, 0, "an unoffered format reads no brand asset");
 			assert.deepEqual(await counts(), before, "nothing is saved");

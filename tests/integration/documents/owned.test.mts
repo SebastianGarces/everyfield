@@ -1501,5 +1501,4 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },
 		);
 	});
-
 });
