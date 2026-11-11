@@ -1,0 +1,19 @@
+{
+	// tools/ has no general lint yet (T-176). The root `pnpm lint` runs only the rules here over it.
+	"jsPlugins": ["../scripts/lint/everyfield-plugin.mjs"],
+	"categories": {
+		"correctness": "off"
+	},
+	"rules": {
+		// AC:WP-029-13: no tool imports resend (any form) or names api.resend.com; mail goes through the guarded senders.
+		"everyfield/resend-senders": "error"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.*", "**/test/**", "**/tests/**"],
+			"rules": {
+				"everyfield/resend-senders": "off"
+			}
+		}
+	]
+}
