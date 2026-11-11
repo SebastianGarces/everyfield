@@ -941,7 +941,7 @@ for (const [name, engine] of ENGINES) {
 				),
 			});
 			await page.getByRole("heading", { name: "Rows to check" }).waitFor({ timeout: 30_000 });
-			const row = (n) => page.getByRole("group", { name: new RegExp(`^What to do with row ${n},`) });
+			const row = (n) => page.getByRole("radiogroup", { name: new RegExp(`^What to do with row ${n},`) });
 			const options = async (n) => (await row(n).getByRole("radio").allInnerTexts()).map((t) => t.trim());
 			const checked = async (n) => (await row(n).getByRole("radio", { checked: true }).innerText()).trim();
 
