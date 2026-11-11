@@ -211,7 +211,7 @@ export async function now(tx: Transaction) {
 	if (!v) throw Error("clock_unavailable");
 	return v.now;
 }
-export const expires = (i: Invitation) => new Date(i.created_at.getTime() + 30 * 86400000);
+export const expires = (i: Pick<Invitation, "created_at">) => new Date(i.created_at.getTime() + 30 * 86400000);
 export async function pending(tx: Transaction, i: Invitation, expected?: string) {
 	current(i, await now(tx), expected);
 }
