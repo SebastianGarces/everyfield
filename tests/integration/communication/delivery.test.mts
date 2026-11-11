@@ -7,7 +7,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { GET, POST, resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
 
-let f, plant, other, owner;
+let f, plant, other, owner, member;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -130,6 +130,9 @@ before(async () => {
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
+	const seated = await f.account();
+	await f.seat(seated, plant, "member");
+	member = { ...seated, actor: await f.actor(seated.session) };
 });
 after(() => f?.close());
 
@@ -221,6 +224,55 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 	assert.equal(carrier.calls.send, 1);
 	const staleMail = await mailFor(staleDraft.communicationId);
 	assert.equal(staleMail.length, 0);
+});
+
+test("INV-access: a member cannot send or schedule a message", async () => {
+	const ready = await scheduled("Member", `member-${key().slice(0, 8)}@example.test`, AT);
+	const scheduledId = ready.saved.communicationId;
+	const scheduledRevision = ok(ready.accepted).revision;
+	const draft = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Not yet",
+				bodyHtml: "<p>Not yet.</p>",
+				audience: { ...emptyAudience, personIds: [ready.personId] },
+			},
+		}),
+	);
+	const stored = async (communicationId) => {
+		const prefix = "communication/" + communicationId + "/%";
+		const [row] = await rows(sql`SELECT c.state, c.revision::text AS revision,
+			(SELECT count(*)::int FROM mail WHERE logical_key LIKE ${prefix}) AS mail,
+			(SELECT count(DISTINCT mem.request_id)::int FROM mail m JOIN mail_request_member mem ON mem.mail_id = m.id
+				WHERE m.logical_key LIKE ${prefix}) AS requests,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id = c.id) AS audits
+			FROM communication c WHERE c.id = ${communicationId}::uuid`);
+		return row;
+	};
+	const before = { draft: await stored(draft.communicationId), ready: await stored(scheduledId) };
+	assert.deepEqual(
+		{ draft: before.draft.state, ready: before.ready.state, unsent: before.ready.requests },
+		{ draft: "draft", ready: "scheduled", unsent: 0 },
+	);
+	const carrier = port({
+		send: () => ({ outcome: "ids", ids: ["prov-member"] }),
+		lookup: () => ({ outcome: "ids", ids: ["prov-member"] }),
+	});
+
+	refused(
+		await write(member, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: draft.revision,
+			input: { communicationId: draft.communicationId, scheduledAt: AT },
+		}),
+		"access_denied",
+	);
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "sendReviewed"), "access_denied");
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "handOffScheduled"), "access_denied");
+
+	assert.deepEqual({ draft: await stored(draft.communicationId), ready: await stored(scheduledId) }, before);
+	assert.deepEqual(carrier.calls, { send: 0, lookup: 0, cancel: 0, reschedule: 0 });
 });
 
 test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the answered recipient", async () => {
