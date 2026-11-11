@@ -629,8 +629,8 @@ try {
 		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
-		const refused = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
-		assert.deepEqual([refused.status, refused.error?.code], ["refused", "access_denied"], action);
+		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
+		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
