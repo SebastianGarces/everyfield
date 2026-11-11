@@ -80,6 +80,40 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:CASE-COM-003 (${name}): the section control changes the address with no page request, and Back returns`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication");
+			await page.getByRole("button", { name: "New message" }).first().waitFor();
+			// A server render of this page is a document load or an RSC fetch of /communication. Server actions are
+			// POSTs, and a production build prefetches the other nav routes as RSC, so both stay out.
+			const pageRequests = [];
+			page.on("request", (r) => {
+				if (r.method() !== "GET" || new URL(r.url()).pathname !== "/communication") return;
+				const rsc = r.headers()["rsc"] !== undefined || /[?&]_rsc=/.test(r.url());
+				if (rsc || r.resourceType() === "document") pageRequests.push(r.url());
+			});
+			const section = (label) => page.getByRole("radio", { name: label });
+			await section("Templates").click();
+			await page.waitForURL(/view=templates/);
+			await page.getByRole("heading", { name: "System" }).waitFor();
+			await section("Your address").click();
+			await page.waitForURL(/view=address/);
+			await section("Messages").click();
+			await page.waitForURL((url) => url.search === "");
+			await page.getByRole("button", { name: "New message" }).first().waitFor();
+			await page.goBack();
+			await page.waitForURL(/view=address/);
+			await page.goBack();
+			await page.waitForURL(/view=templates/);
+			await page.getByRole("heading", { name: "System" }).waitFor();
+			await page.goForward();
+			await page.waitForURL(/view=address/);
+			assert.equal(await section("Your address").getAttribute("aria-checked"), "true");
+			assert.deepEqual(pageRequests, []);
+		});
+	});
+
 	test(`AC:CASE-COM-003 (${name}): a read-only seat sees history, no compose action and the read-only line`, async () => {
 		await withPage(engine, async (page, context) => {
 			await signIn(context, member());
@@ -325,7 +359,9 @@ for (const [name, engine] of ENGINES) {
 			await hydrated(page);
 			await page.getByRole("button", { name: new RegExp(`Draft row ${name} ${run}`) }).click();
 			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
-			assert.equal(await page.getByLabel("Subject").inputValue(), `Draft row ${name} ${run}`);
+			// The draft loads from the server as Compose opens, so wait for Write before reading the field.
+			await heading(page, "Write the message").waitFor();
+			assert.equal(await page.getByLabel("Subject", { exact: true }).inputValue(), `Draft row ${name} ${run}`);
 		});
 	});
 
@@ -504,7 +540,7 @@ for (const [name, engine] of ENGINES) {
 			await page.locator('iframe[title="Email preview"]').waitFor();
 			assert.doesNotMatch(await page.locator("main").innerText(), /HTML/);
 			await page.getByRole("button", { name: "Fork template" }).click();
-			await page.getByText("Template forked. You can edit the church copy.").waitFor();
+			await page.getByText(/^Template forked\. The church copy is in the list under Your church/).waitFor();
 			await page.getByRole("button", { name: "Save template" }).waitFor();
 			// A fresh church copy has no messages, so a delete goes through and the list returns.
 			await page.getByRole("button", { name: "Delete template" }).click();
