@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
-import { canWrite, communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
 
 // The Messages route. apps/web/src/app only re-exports this module. The screen and its states stay in this feature.
 

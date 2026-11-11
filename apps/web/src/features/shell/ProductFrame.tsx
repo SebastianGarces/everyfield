@@ -25,7 +25,7 @@ import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
-import type { Role } from "./server.ts";
+import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
 // The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
@@ -100,7 +100,7 @@ type FrameProps = {
 const OwnSeat = createContext<(role: Role | null) => void>(() => {});
 export const useOwnSeatChange = () => use(OwnSeat);
 
-export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
+export function ProductFrame({ settings: initial, seed, ...props }: FrameProps) {
 	// The server's viewer is the source until a page reports a change to the viewer's own seat.
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
