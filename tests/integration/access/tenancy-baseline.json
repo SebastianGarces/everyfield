@@ -1,4 +1,5 @@
 [
+	"access:liveAccess",
 	"branding:brandReader.get",
 	"branding:brandReader.resolveTheme",
 	"branding:brandReader.suggestColors",
