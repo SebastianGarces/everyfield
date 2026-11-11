@@ -1,5 +1,7 @@
 import "server-only";
-import { eq } from "@everyfield/db/query";
+import { and, eq } from "@everyfield/db/query";
+import { liveAccess, liveRead } from "../access/session.ts";
+import { OnboardingReadContext } from "./core.ts";
 import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
@@ -17,7 +19,16 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 				parse(c.getDiscoveryProfileRequest, raw);
 				if (ctx.selected.kind !== "account") deny();
 				const a = await actor(tx, ctx);
-				const [d] = await tx.select().from(t.discovery).where(eq(t.discovery.account_id, a.account.id));
+				// A request read checks its live access again in the statement that reads the profile (C13).
+				const [d] = await tx
+					.select()
+					.from(t.discovery)
+					.where(
+						and(
+							eq(t.discovery.account_id, a.account.id),
+							ctx instanceof OnboardingReadContext ? liveRead(liveAccess(ctx.authority)) : undefined,
+						),
+					);
 				if (!d) return c.discoveryProfileResult.parse({ status: "unavailable" });
 				if (d.converted_at)
 					return c.discoveryProfileResult.parse({
