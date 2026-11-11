@@ -12,6 +12,8 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path
+        checks: lint, typecheck, test:unit, docs, ci-coverage, workflow, tools-ci, tools-qa, github-scripts
+        GitHub CI also runs: format:check, build then server-trace, test:logs, db, census, wiki
   dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
         time; skips when the machine is loaded or no preview slot is free
   dev traces                               says what to read instead: no trace reader exists yet
