@@ -1,6 +1,20 @@
 import * as C from "@everyfield/contracts/onboarding";
 import { z } from "zod";
-import type { Command, Entry, Op, OnboardingError, Reply, Results } from "./model";
+import {
+	begin,
+	needsReload,
+	reload,
+	settle,
+	type Command,
+	type Entry,
+	type Hold,
+	type Op,
+	type OnboardingError,
+	type Reply,
+	type Results,
+	type Settled,
+	type State,
+} from "./model.ts";
 
 // The one door from the onboarding screens to the API. The real port calls the server actions; the design preview
 // passes a fixture port (preview/fixtures.ts). Every reply is parsed here by the WP-009 contract, so a screen sees a
@@ -41,16 +55,16 @@ const RESULT: { [K in Op]: z.ZodType<Results[K]> } = {
 	complete: C.completeOnboardingResult,
 };
 
-function unavailable(): OnboardingError {
+function refusal(code: "unavailable" | "unknown"): OnboardingError {
 	return C.onboardingError.parse({
-		code: "unavailable",
+		code,
 		details: {},
 		correlationId: crypto.randomUUID(),
-		retry: "never",
+		retry: code === "unknown" ? "reconcile" : "never",
 	});
 }
 
-/** A reply outside the contract, or a failed call, reads as unavailable. */
+/** A reply that arrived outside the contract reads as unavailable. */
 export function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 	const shape = z.object({ status: z.enum(["ok", "refused"]), value: z.unknown(), error: z.unknown() }).partial();
 	const r = shape.safeParse(raw);
@@ -62,11 +76,13 @@ export function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 		const error = C.onboardingError.safeParse(r.data.error);
 		if (error.success) return { status: "refused", error: error.data };
 	}
-	return { status: "refused", error: unavailable() };
+	return { status: "refused", error: refusal("unavailable") };
 }
 
-export type EntryLoad = { kind: "entry"; entry: Entry } | { kind: "signed_out" };
-export function parseEntry(raw: unknown): EntryLoad {
+/** `offline`: the entry call itself failed (a dropped connection), so nothing is known about where the account stands. */
+export type ParsedEntry = { kind: "entry"; entry: Entry } | { kind: "signed_out" };
+export type EntryLoad = ParsedEntry | { kind: "offline" };
+export function parseEntry(raw: unknown): ParsedEntry {
 	if (z.object({ kind: z.literal("signed_out") }).safeParse(raw).success) return { kind: "signed_out" };
 	const parsed = entry.safeParse(raw);
 	return { kind: "entry", entry: parsed.success ? parsed.data : { kind: "elsewhere", reason: "unavailable" } };
@@ -83,15 +99,59 @@ export function createPort(transport: OnboardingTransport): OnboardingPort {
 			try {
 				return parseEntry(await transport.entry());
 			} catch {
-				return { kind: "entry", entry: { kind: "elsewhere", reason: "unavailable" } };
+				return { kind: "offline" };
 			}
 		},
 		async command<O extends Op>(op: O, command: Command): Promise<Reply<Results[O]>> {
+			let raw: unknown;
 			try {
-				return parseReply<Results[O]>(RESULT[op], await transport.command(op, command));
+				raw = await transport.command(op, command);
 			} catch {
-				return { status: "refused", error: unavailable() };
+				// No reply arrived, so the write may or may not have happened: keep the request key and reconcile.
+				return { status: "refused", error: refusal("unknown") };
 			}
+			return parseReply<Results[O]>(RESULT[op], raw);
 		},
 	};
+}
+
+/** Where the store keeps its one State. */
+export type StateCell = { get(): State; set(next: State): void };
+
+/**
+ * The latest entry from the server, or null when none arrived: signed out (the page goes to sign-in) or offline. On
+ * null the step, its drafts and the entry it shows stay as they are.
+ */
+async function freshEntry(port: OnboardingPort, signIn: () => void): Promise<Entry | null> {
+	const load = await port.entry();
+	if (load.kind === "signed_out") signIn();
+	return load.kind === "entry" ? load.entry : null;
+}
+
+/**
+ * One command as the store runs it: begin, send, reload the entry when the reply asks for it, settle. Resolves to the
+ * hold when nothing was sent, else to whether the server accepted it.
+ */
+export async function runCommand(
+	port: OnboardingPort,
+	cell: StateCell,
+	op: Op,
+	input: unknown,
+	newKey: () => string,
+	signIn: () => void,
+): Promise<Hold | "ok" | "refused"> {
+	const started = begin(cell.get(), op, input, newKey);
+	if ("hold" in started) return started.hold;
+	cell.set(started.state);
+	const reply = await port.command(op, started.send);
+	const settled = { op, reply } as Settled;
+	const entry = needsReload(settled) ? await freshEntry(port, signIn) : null;
+	cell.set(settle(cell.get(), settled, entry));
+	return reply.status;
+}
+
+/** Load the latest facts from the server, keeping drafts. Nothing changes when no entry arrived. */
+export async function refreshEntry(port: OnboardingPort, cell: StateCell, signIn: () => void): Promise<void> {
+	const entry = await freshEntry(port, signIn);
+	if (entry) cell.set(reload(cell.get(), entry));
 }
