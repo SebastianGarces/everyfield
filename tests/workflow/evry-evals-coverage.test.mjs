@@ -1,5 +1,6 @@
-// OPS-102: every Evry adapter operation ships with recorded eval cases. Operations are discovered from the adapter
-// source (reads and commands), never from a hand-kept list. An operation is covered when a case object in
+// OPS-102: every Evry adapter operation and catalog tool ships with recorded eval cases. Operations are discovered from
+// the adapter source (reads and commands) and catalog tools from packages/evry/src/catalog/catalog.ts, never from a
+// hand-kept list. This is the only test that asserts operation coverage. An operation is covered when a case object in
 // tests/evry/evals/*.cases.json has "operation": "<name>". The baseline lists operations uncovered today and only
 // shrinks (rule: .agents/skills/test-standard/SKILL.md). Source-text parse: no database, env, network or build.
 import assert from "node:assert/strict";
@@ -35,6 +36,12 @@ function discoverOperations() {
 		}
 	}
 	return [...found].sort();
+}
+
+// A catalog tool is an exported `"evry.x"` string constant in catalog.ts, such as SELECT_RETURNED_ROWS.
+function discoverCatalogTools() {
+	const source = readFileSync(path("packages/evry/src/catalog/catalog.ts"), "utf8");
+	return [...source.matchAll(/^export const \w+\s*=\s*"(evry\.[a-z][A-Za-z]*)"/gm)].map((m) => m[1]).sort();
 }
 
 function coveredOperations() {
@@ -73,18 +80,26 @@ test(`INV-OPS102: discovery finds the ${EXPECTED_TODAY} adapter operations on ma
 	assert.equal(discoverOperations().length, EXPECTED_TODAY);
 });
 
+test("INV-OPS102: discovery finds the catalog's own tool evry.selectReturnedRows", () => {
+	assert.deepEqual(discoverCatalogTools(), ["evry.selectReturnedRows"]);
+});
+
 test("INV-OPS102: the baseline is sorted, unique and one name each", () => {
 	assert.deepEqual(baseline, [...new Set(baseline)].sort());
 });
 
-test("INV-OPS102: every adapter operation has an eval case or sits in the shrinking baseline", () => {
-	assert.deepEqual(coverageProblems(discoverOperations(), coveredOperations(), baseline), []);
+test("INV-OPS102: every adapter operation and catalog tool has an eval case or sits in the shrinking baseline", () => {
+	const names = [...discoverOperations(), ...discoverCatalogTools()];
+	assert.deepEqual(coverageProblems(names, coveredOperations(), baseline), []);
 });
 
-test("INV-OPS102: an uncovered operation, a covered baseline entry and a vanished baseline entry each fail by name", () => {
+test("INV-OPS102: an uncovered operation or catalog tool, a covered baseline entry and a vanished baseline entry each fail by name", () => {
 	const ops = ["people.a", "people.b"];
 	assert.deepEqual(coverageProblems(ops, new Set(["people.a"]), []), [
 		"people.b has no eval case in tests/evry/evals/*.cases.json and is not in the baseline",
+	]);
+	assert.deepEqual(coverageProblems(["people.a", "evry.pickRows"], new Set(["people.a"]), []), [
+		"evry.pickRows has no eval case in tests/evry/evals/*.cases.json and is not in the baseline",
 	]);
 	assert.deepEqual(coverageProblems(ops, new Set(["people.a", "people.b"]), ["people.b"]), [
 		"people.b now has an eval case: remove it from the baseline",

@@ -1,40 +1,29 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { InvitationRefusal } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import { reviewDigest, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import {
+	drawingLines,
+	drawingPdf,
+	drawingSvg,
+	reviewDigest,
+	teamsReader,
+	teamsWriter,
+} from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp017_" + randomUUID().replaceAll("-", "");
-const roleName = "wp017_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "wp017", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
@@ -98,19 +87,6 @@ function initInput(input) {
 const init = (input, who = 0) => run(teamsWriter.initialize, initInput(input), who);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const a of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
@@ -140,13 +116,7 @@ before(async () => {
 		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:B01-004 AC:B01-011 AC:B01-032 AC:B01-035 skip, read and cancel add no teams and keep history", async () => {
@@ -254,7 +224,7 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 			},
 			3,
 		),
-		"access_denied",
+		"unavailable",
 	);
 	refused(
 		await run(teamsWriter.edit, {
@@ -750,6 +720,131 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 	}
 	assert.equal(JSON.stringify(exported.nodes).includes("account"), false);
 	assert.equal(Object.hasOwn(exported.nodes[0], "leaderName"), true);
+});
+
+test("AC:TARGET-TEAM-006 an archived ministry no longer counts toward how many ministries someone serves on", async () => {
+	const old = await makeTeam("Archived choir");
+	const pat = await person("Pat Archived", { stage: "launch_team" });
+	const assign = async (team, role) =>
+		ok(
+			await run(teamsWriter.assignRole, {
+				requestKey: key(),
+				expectedRevision: await rev("team_role", role.id),
+				input: { roleId: role.id, teamId: team.id, personId: pat },
+			}),
+		);
+	await assign(old, await makeRole(old.id, "Alto"));
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", old.id),
+			input: { teamId: old.id },
+		}),
+	);
+	// The tenure on the archived ministry stays open.
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM team_tenure tn JOIN team_role r ON r.id = tn.role_id
+				WHERE tn.person_id=${pat} AND r.team_id=${old.id} AND tn.ended_on IS NULL`,
+		),
+		1,
+	);
+	const next = await makeTeam("Current choir");
+	const placed = await assign(next, await makeRole(next.id, "Tenor"));
+	assert.equal(placed.teamCount, 1);
+	assert.equal(placed.warning, null);
+});
+
+/** Each object's byte offset in the xref table points at that object, and startxref points at the table. */
+function assertXref(pdf) {
+	const bytes = Buffer.from(pdf, "latin1");
+	assert.equal(Buffer.byteLength(pdf), bytes.length, "the PDF is plain ASCII");
+	const start = Number(/startxref\n(\d+)\n%%EOF$/.exec(pdf)[1]);
+	assert.equal(bytes.subarray(start, start + 4).toString(), "xref");
+	const [, size] = /^xref\n0 (\d+)\n/.exec(pdf.slice(start));
+	const rows = pdf
+		.slice(start)
+		.split("\n")
+		.slice(3, 2 + Number(size));
+	assert.equal(rows.length, Number(size) - 1);
+	rows.forEach((row, index) => {
+		const offset = Number(row.slice(0, 10));
+		assert.equal(
+			bytes
+				.subarray(offset)
+				.toString()
+				.startsWith(`${index + 1} 0 obj\n`),
+			true,
+			row,
+		);
+	});
+	for (const [, length, stream] of pdf.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g))
+		assert.equal(Buffer.byteLength(stream), Number(length));
+}
+/** Every page's text lines with their baselines, read back from the PDF content streams. */
+function pdfPages(pdf) {
+	return [...pdf.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(([, stream]) => {
+		const [, top] = /50 (\d+) Td/.exec(stream);
+		const [, leading] = /(\d+) TL/.exec(stream);
+		const texts = [...stream.matchAll(/^\((.*)\) Tj$/gm)].map((m) => m[1]);
+		return texts.map((text, index) => ({ text, y: Number(top) - index * Number(leading) }));
+	});
+}
+
+test("AC:TARGET-TEAM-012 the chart PDF writes Latin-1 names in WinAnsi and the export shows José", async () => {
+	const team = await makeTeam("Ministerio de José");
+	const lead = await makeRole(team.id, "Líder", { leadership: true });
+	const zoe = await person("Zoë Núñez", { stage: "launch_team" });
+	ok(
+		await run(teamsWriter.assignRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", lead.id),
+			input: { roleId: lead.id, teamId: team.id, personId: zoe },
+		}),
+	);
+	const exported = ok(await teamsReader.readOrgChartExport(db, await viewer(), {}));
+	assert.equal(exported.lines.includes("Ministerio de José"), true);
+	assert.match(exported.pdf, /\/BaseFont \/Helvetica \/Encoding \/WinAnsiEncoding/);
+	assert.equal(exported.pdf.includes("(Ministerio de Jos\\351) Tj"), true);
+	assert.equal(exported.pdf.includes("(Leader: Zo\\353 N\\372\\361ez) Tj"), true);
+	assert.equal(/[^\x00-\x7f]/.test(exported.pdf), false, "no raw non-ASCII bytes");
+	assert.equal(exported.svg.includes("Ministerio de José"), true);
+	assertXref(exported.pdf);
+	// WinAnsi's own high characters keep their byte; anything outside WinAnsi is a visible "?".
+	const pdf = drawingPdf(["“Café” – €5 (ok) \\ 漢 😀"]);
+	assert.equal(pdf.includes("(\\223Caf\\351\\224 \\226 \\2005 \\(ok\\) \\\\ ? ?) Tj"), true, pdf);
+	assertXref(pdf);
+});
+
+test("AC:TARGET-TEAM-012 a chart of 60 ministries fits every line inside the PDF pages and the SVG", () => {
+	const nodes = Array.from({ length: 60 }, (_, i) => ({
+		name: `Ministry ${i + 1}`,
+		leaderName: `Leader ${i + 1}`,
+		archived: false,
+	}));
+	const lines = drawingLines(nodes);
+	assert.equal(lines.length, 121);
+	const pdf = drawingPdf(lines);
+	assertXref(pdf);
+	const pages = pdfPages(pdf);
+	assert.equal(pages.length > 1, true);
+	assert.match(pdf, new RegExp(`/Count ${pages.length} >>`));
+	assert.equal((pdf.match(/\/Type \/Page /g) ?? []).length, pages.length);
+	const [, , width, height] = /\/MediaBox \[(\d+) (\d+) (\d+) (\d+)\]/.exec(pdf).slice(1).map(Number);
+	assert.deepEqual([width, height], [612, 792]);
+	assert.deepEqual(
+		pages.flat().map((line) => line.text),
+		lines,
+	);
+	for (const line of pages.flat())
+		assert.equal(line.y >= 36 && line.y <= height - 20, true, `${line.text} at ${line.y}`);
+	const svg = drawingSvg(lines);
+	const svgHeight = Number(/<svg [^>]*height="(\d+)"/.exec(svg)[1]);
+	const ys = [...svg.matchAll(/<text x="50" y="(\d+)">/g)].map((m) => Number(m[1]));
+	assert.equal(ys.length, 121);
+	assert.equal(svgHeight > Math.max(...ys) + 11, true, `${svgHeight} vs ${Math.max(...ys)}`);
+	assert.match(svg, new RegExp(`viewBox="0 0 612 ${svgHeight}"`));
+	assert.equal(svg.includes("Leader 60"), true);
 });
 
 test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the root of the chart", async () => {

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "@everyfield/db/client";
 import { auth_user, auth_account, auth_session, auth_verification } from "@everyfield/db/tables";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { authStorage } from "@everyfield/db/auth-storage";
+import { authStorage } from "@everyfield/db/schema";
 
 export function identityAuth(config: {
 	db: Database;
