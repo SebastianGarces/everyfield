@@ -204,6 +204,59 @@ test("AC:INH-COMMUNICATION-05 a preview drops a missing email and a repeated add
 	assert.equal(after.attempts, before.attempts);
 });
 
+test("forking a source whose church fork is archived brings the fork back with its edits (D-449)", async () => {
+	const sourceKey = "vision-meeting-reminder";
+	const fork = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	const edited = ok(
+		await write(owner, "updateTemplate", {
+			requestKey: key(),
+			expectedRevision: fork.revision,
+			input: {
+				templateId: fork.templateId,
+				patch: templateInput({ name: "Our reminder", category: "meeting_reminder" }),
+			},
+		}),
+	);
+	const archived = ok(
+		await write(owner, "archiveTemplate", {
+			requestKey: key(),
+			expectedRevision: edited.revision,
+			input: { templateId: fork.templateId },
+		}),
+	);
+	const auditRows = () =>
+		rows(
+			sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${fork.templateId}::uuid ORDER BY recorded_at, id`,
+		);
+	const beforeFork = (await auditRows()).length;
+
+	const restored = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	assert.equal(restored.templateId, fork.templateId);
+	assert.equal(restored.archived, false);
+	assert.equal(restored.name, "Our reminder");
+	assert.equal(BigInt(restored.revision), BigInt(archived.revision) + 1n);
+	const [row] = await rows(
+		sql`SELECT archived_at, revision::text AS revision, name FROM message_template WHERE id = ${fork.templateId}::uuid`,
+	);
+	assert.equal(row.archived_at, null);
+	assert.equal(row.revision, restored.revision);
+	assert.equal(row.name, "Our reminder");
+	const afterFork = await auditRows();
+	assert.equal(afterFork.length, beforeFork + 1);
+	const forkAudit = afterFork.at(-1);
+	assert.equal(forkAudit.action, "communication.template_forked");
+	assert.equal(typeof forkAudit.before_value.archived_at, "string");
+	assert.equal(forkAudit.after_value.archived_at, null);
+	const listed = ok(await read(owner, "listTemplates"));
+	const shown = listed.templates.find((template) => template.sourceKey === sourceKey);
+	assert.equal(shown.origin, "plant");
+	assert.equal(shown.templateId, fork.templateId);
+
+	const again = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	assert.deepEqual(again, restored);
+	assert.equal((await auditRows()).length, afterFork.length);
+});
+
 test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenced history", async () => {
 	const beforeCatalog = catalog();
 	const [first, second] = await Promise.all([

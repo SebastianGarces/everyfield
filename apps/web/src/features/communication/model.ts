@@ -76,7 +76,6 @@ export type AudienceSummary = {
 };
 
 export type PageData = {
-	drafts: Draft[];
 	templates: Template[];
 	teams: Team[];
 	churchName: string;
