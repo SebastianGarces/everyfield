@@ -10,7 +10,7 @@ import { referenceService } from "../../../packages/reference/src/starter/verify
 import { loadApprovedSnapshot, WikiRefusal } from "../../../packages/reference/src/starter/verify/snapshot.ts";
 
 const database = await testDatabase({ prefix: "wp033_test", roles: {}, max: 4 });
-const { admin: db, schema } = database;
+const { admin: db } = database;
 const actor = randomUUID();
 const user = randomUUID();
 const session = randomUUID();

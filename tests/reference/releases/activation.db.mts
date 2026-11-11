@@ -11,7 +11,7 @@ import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import { fixture } from "./fixtures.mts";
 
 const database = await testDatabase({ prefix: "wp032_test", roles: {}, max: 6 });
-const { admin: db, schema } = database;
+const { admin: db } = database;
 const actor = randomUUID(),
 	user = randomUUID(),
 	session = randomUUID(),

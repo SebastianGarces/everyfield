@@ -3,10 +3,13 @@
 // (CI=true and EARLY_ACCESS_TEST_DATABASE=1), and never runs with NODE_ENV=production. It creates a random schema named
 // from `prefix`, an admin pool pinned to it, one random login role per entry of `roles` (granted the named
 // `everyfield_*` capabilities) with a pool each, applies every migration, and `close()` drops all of it.
-import { createDatabase, closeDatabase, type Database } from "../../packages/db/src/client.ts";
+import { createDatabase, closeDatabase } from "../../packages/db/src/client.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { migrate as applyMigrations } from "../../packages/db/src/schema/migrate.ts";
 import { randomBytes, randomUUID } from "node:crypto";
+
+/** A pool as createDatabase returns it, with its client to close. */
+export type Database = ReturnType<typeof createDatabase>;
 
 const DEVELOPMENT_HOST = "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech";
 
