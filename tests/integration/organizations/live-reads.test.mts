@@ -124,7 +124,10 @@ test("C13 organization reads: a resident whose session ended reads no residency 
 	assert.equal(live.subjectFacts.zone, "UTC");
 	assert.notEqual(live.subjectFacts.revision, "0");
 
-	await f.admin.update(t.auth_session).set({ expires_at: new Date(0) }).where(eq(t.auth_session.id, s.recipient.session));
+	await f.admin
+		.update(t.auth_session)
+		.set({ expires_at: new Date(0) })
+		.where(eq(t.auth_session.id, s.recipient.session));
 	const ended = await answers(f.db, viewer, ids);
 	assert.deepEqual(ended.namesFor, {});
 	assert.deepEqual(ended.residencyLinks, []);

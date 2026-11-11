@@ -2,7 +2,7 @@ import { sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, getTableColumns, gt, isNull, or, sql, type SQL } from "@everyfield/db/query";
+import { and, eq, gt, isNull, or, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";

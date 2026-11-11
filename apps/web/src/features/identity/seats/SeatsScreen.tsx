@@ -162,9 +162,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 					}
 				/>
 			) : null}
-			{data.canManage ? (
-				<InviteCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
-			) : null}
+			{data.canManage ? <InviteCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} /> : null}
 			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} onOwnSeat={ownSeat} />
 			{data.canManage && data.invitations ? (
 				<PendingCard

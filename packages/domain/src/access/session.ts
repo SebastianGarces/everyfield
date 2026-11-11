@@ -450,7 +450,14 @@ export async function liveRows(db: Executor, live: SQL, query: SQLWrapper): Prom
  LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x) q ON a.access_live`);
 	const rows = found.rows as Record<string, unknown>[];
 	if (rows[0]?.access_live !== true) return null;
-	return rows.filter((r) => r.access_found === true).map(({ access_live: _, access_found: __, ...row }) => row);
+	return rows
+		.filter((r) => r.access_found === true)
+		.map((r) => {
+			const row = { ...r };
+			delete row.access_live;
+			delete row.access_found;
+			return row;
+		});
 }
 export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
 	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);

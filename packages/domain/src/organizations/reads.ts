@@ -122,7 +122,12 @@ export async function targetsFor(db: Database, viewer: Viewer, active: Set<strin
 	const rows = await db
 		.select({ id: t.organization.id, kind: t.organization.kind, name: t.organization.name })
 		.from(t.organization)
-		.where(and(viewer.kind === "sending_church" ? eq(t.organization.kind, "sending_network") : undefined, live(viewer, true)))
+		.where(
+			and(
+				viewer.kind === "sending_church" ? eq(t.organization.kind, "sending_network") : undefined,
+				live(viewer, true),
+			),
+		)
 		.orderBy(t.organization.name)
 		.limit(500);
 	return rows
