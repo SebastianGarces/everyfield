@@ -18,7 +18,7 @@ import {
 	revision,
 	type Tx,
 } from "./core.ts";
-import { requestWrite } from "../access/session.ts";
+import { liveAccess, liveRead, requestWrite } from "../access/session.ts";
 import { declaration } from "../phases/declaration.ts";
 import { pending } from "./creation.ts";
 import { plantReading, readingFrom, foundationArticles, type ReadingRow } from "./reading.ts";
@@ -459,6 +459,8 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
 		deny();
 	const plantId = ctx.selected.id;
 	const none = "00000000-0000-0000-0000-000000000000";
+	// The Owner seat must still be live when the facts are read: otherwise the statement returns no row (C13).
+	const live = liveRead({ ...liveAccess(ctx.authority), role: "owner" });
 	const result = await tx.execute(sql`WITH acct AS (SELECT id FROM account WHERE id=${a.accountId}::uuid),
  pl AS (SELECT * FROM plant WHERE id=${plantId}::uuid),
  st AS (SELECT * FROM onboarding_setup WHERE plant_id=(SELECT id FROM pl)),
@@ -495,7 +497,8 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
   EXISTS(SELECT FROM person WHERE plant_id=${plantId}::uuid AND state='live'
    AND id::text IS DISTINCT FROM (SELECT result->'ownerSeat'->>'personId' FROM cr)) AS extra_people,
   coalesce((SELECT jsonb_agg(jsonb_build_object('accountId',account_id,'role',role,'personId',person_id,'lead',lead)) FROM cand),'[]') AS candidates,
-  coalesce((SELECT jsonb_agg(to_jsonb(rd)) FROM rd),'[]') AS readings`);
+  coalesce((SELECT jsonb_agg(to_jsonb(rd)) FROM rd),'[]') AS readings WHERE ${live}`);
+	if (!result.rows[0]) deny();
 	const r = entryRow.parse(result.rows[0]);
 	if (!r.account) deny();
 	if (!r.plant_id || !r.setup_account_id || r.setup_account_id !== a.accountId) deny();

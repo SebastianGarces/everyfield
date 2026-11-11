@@ -163,7 +163,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 				/>
 			) : null}
 			{data.canManage ? (
-				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
+				<InviteCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
 			) : null}
 			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} onOwnSeat={ownSeat} />
 			{data.canManage && data.invitations ? (
@@ -245,6 +245,7 @@ function InviteCard({
 			emailRef.current?.focus();
 			return;
 		}
+		let stale = false;
 		const result = await intent.run(
 			"invite",
 			(requestKey) =>
@@ -258,6 +259,7 @@ function InviteCard({
 					return await send("invite", command, invitationSentResult);
 				} catch (e) {
 					setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
+					stale = e instanceof SeatRefusal && e.code === "conflict";
 					throw e;
 				}
 			},
@@ -269,6 +271,8 @@ function InviteCard({
 			const invitation = result.reply.invitation;
 			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
 		}
+		// The workspace changed since this page loaded: the message stays and the page data loads again at once.
+		else if (stale) onStale();
 	}
 
 	return (

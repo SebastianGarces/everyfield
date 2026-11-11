@@ -5,8 +5,10 @@ export type { RequestAdmission } from "./security.ts";
 export {
 	RequestActor,
 	currentActor,
+	liveAccess,
 	liveOwner,
 	liveRead,
+	liveRows,
 	readRequestViewer,
 	readViewer,
 	writeVisibility,

@@ -3,7 +3,7 @@ import type { OrganizationOperations } from "@everyfield/contracts/organizations
 import * as C from "@everyfield/contracts/organizations";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import type { RequestActor } from "@everyfield/domain/access";
+import { liveAccess, type RequestActor } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction } from "@everyfield/domain/operations";
 import {
@@ -152,6 +152,7 @@ export async function viewerOf(): Promise<
 			accountId: s.accountId,
 			selected,
 			canManage: context.kind === "seat" ? context.role !== "member" : s.discovery,
+			access: liveAccess(authority),
 		},
 	};
 }

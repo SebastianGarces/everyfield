@@ -5,7 +5,7 @@ import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } f
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { type RequestActor } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
@@ -30,17 +30,23 @@ export function createSeatService(db: Database) {
 			seat = a.context;
 		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.refuse();
 		const column = v.workspace.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
-		const rows = z.array(seatListRow).parse(
-			(
-				await db.execute(sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
+		// The caller's seat must still be live when the roster is read, in the same statement (C13).
+		const found = await liveRows(
+			db,
+			liveRead(liveAccess(authority)),
+			sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
 					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at
 				FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 				LEFT JOIN invitation inv ON inv.id=s.invitation_id AND inv.tenant_id=${v.workspace.id}
 					AND inv.state='accepted' AND inv.accepted_account_id=s.account_id
 				WHERE ${column}=${v.workspace.id} ${v.after ? sql`AND s.id>${v.after}` : sql``}
-				ORDER BY s.id LIMIT 101`)
-			).rows,
+				ORDER BY s.id LIMIT 101`,
 		);
+		if (!found) d.refuse();
+		const rows = z
+			.array(seatListRow)
+			.parse(found)
+			.sort((x, y) => (x.id < y.id ? -1 : 1));
 		const items = rows.slice(0, 100).map((s) => ({
 			seatId: s.id,
 			displayName: s.display_name,

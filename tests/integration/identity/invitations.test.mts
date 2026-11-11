@@ -726,6 +726,58 @@ test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or li
 	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
 });
 
+test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s);
+	// The same address again at the current revision: the duplicate keeps its own code.
+	await denied(
+		f.invitations.invite(await f.actor(s.sender.session), { ...i.command, requestKey: key() }),
+		"invitation_unavailable",
+	);
+	// Another tab saved the church settings, so the page's revision is behind.
+	await f.admin.update(t.plant).set({ revision: "2" }).where(eq(t.plant.id, s.w.id));
+	const before = await count(t.invitation, eq(t.invitation.tenant_id, s.w.id));
+	await denied(
+		f.invitations.invite(await f.actor(s.sender.session), {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
+		}),
+		"conflict",
+	);
+	assert.equal(await count(t.invitation, eq(t.invitation.tenant_id, s.w.id)), before);
+	const sent = await f.invitations.invite(await f.actor(s.sender.session), {
+		requestKey: key(),
+		expectedRevision: "2",
+		input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
+	});
+	assert.equal(sent.invitation.status, "pending");
+});
+test("AC:ROLE43-006 C13: seats.list and invitations.list read nothing for an actor whose seat ended or role changed", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s),
+		admin = await f.account();
+	const adminSeat = await f.seat(admin, s.w, "admin");
+	const owner = await f.actor(s.sender.session),
+		appointed = await f.actor(admin.session);
+	assert.equal((await f.invitations.list(owner, { workspace: s.w })).items[0].invitationId, i.result.invitation.invitationId);
+	assert.equal((await f.invitations.list(appointed, { workspace: s.w })).items.length, 1);
+	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
+	// Demoted after the request resolved its actor: the roster stays readable, the invitations do not.
+	await f.admin.update(t.seat).set({ role: "member" }).where(eq(t.seat.id, adminSeat));
+	await denied(f.invitations.list(appointed, { workspace: s.w }));
+	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
+	// Seat ended after the request resolved its actor: both reads refuse with the same RequestActor.
+	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, adminSeat));
+	await denied(f.seats.list(appointed, { workspace: s.w }));
+	await f.admin
+		.update(t.seat)
+		.set({ ended_at: new Date() })
+		.where(and(eq(t.seat.account_id, s.sender.id), eq(t.seat.plant_id, s.w.id)));
+	await denied(f.invitations.list(owner, { workspace: s.w }));
+	await denied(f.seats.list(owner, { workspace: s.w }));
+});
+
 test("AC:TARGET-IDN-017 INV-mail: revoked invitation cancels its pending outbox handoff", async () => {
 	const s = await f.setup(),
 		result = await f.invitations.invite(await f.actor(s.sender.session), {

@@ -6,6 +6,7 @@ import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
+import { liveRead } from "../access/session.ts";
 
 /** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
  * links. */
@@ -17,7 +18,11 @@ export type Viewer = {
 	/** The exact workspace (or own account for Discovery) every command is checked against. */
 	selected: Owner;
 	canManage: boolean;
+	/** The request actor's live access (liveAccess), which every read below checks in its own statement (C13). */
+	access: Parameters<typeof liveRead>[0];
 };
+/** The viewer still holds this access now; `admin` also needs an Owner or Admin seat. */
+const live = (viewer: Viewer, admin = false) => liveRead(viewer.access, admin);
 
 /**
  * Display names for the IDs a page shows. Plants and organizations by name. Accounts only when they hold a seat in
@@ -30,14 +35,14 @@ export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Pro
 	// One statement. Account names come through seat_identity, the reviewed definer function (auth_user is not readable
 	// by the runtime role).
 	const rows = await db.execute<{ id: string; name: string | null }>(sql`
-		SELECT p.id, p.name FROM plant p WHERE p.id=ANY(${sql.param(unique)}::uuid[])
+		SELECT n.* FROM (SELECT p.id, p.name FROM plant p WHERE p.id=ANY(${sql.param(unique)}::uuid[])
 		UNION ALL SELECT o.id, o.name FROM organization o WHERE o.id=ANY(${sql.param(unique)}::uuid[])
 		UNION ALL SELECT a.id, identity.display_name FROM account a CROSS JOIN LATERAL seat_identity(a.id) identity
 		WHERE a.id=ANY(${sql.param(unique)}::uuid[]) AND (a.id=${viewer.accountId} OR ${
 			workspace
 				? sql`EXISTS (SELECT 1 FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL AND (s.plant_id=${workspace.id} OR s.organization_id=${workspace.id}))`
 				: sql`false`
-		})`);
+		})) n WHERE ${live(viewer)}`);
 	return Object.fromEntries(rows.rows.filter((r) => r.name).map((r) => [r.id, r.name!]));
 }
 
@@ -80,6 +85,7 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 		sql`SELECT r.invitation_id, r.organization_id, o.kind AS organization_kind, i.revision::text AS revision, to_char(i.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at, r.inviter_description
 		FROM relationship_invitation r JOIN invitation i ON i.id = r.invitation_id JOIN organization o ON o.id = r.organization_id
 		WHERE r.${sql.raw(column)} = ${subject} AND i.state = 'pending' AND i.created_at > clock_timestamp() - interval '30 days'
+		AND ${live(viewer)}
 		ORDER BY i.created_at DESC LIMIT 50`,
 	);
 	return rows.rows.map((r) =>
@@ -116,7 +122,7 @@ export async function targetsFor(db: Database, viewer: Viewer, active: Set<strin
 	const rows = await db
 		.select({ id: t.organization.id, kind: t.organization.kind, name: t.organization.name })
 		.from(t.organization)
-		.where(viewer.kind === "sending_church" ? eq(t.organization.kind, "sending_network") : sql`true`)
+		.where(and(viewer.kind === "sending_church" ? eq(t.organization.kind, "sending_network") : undefined, live(viewer, true)))
 		.orderBy(t.organization.name)
 		.limit(500);
 	return rows
@@ -133,20 +139,20 @@ export async function subjectFacts(db: Database, viewer: Viewer) {
 		const [a] = await db
 			.select({ revision: t.account.revision })
 			.from(t.account)
-			.where(eq(t.account.id, viewer.accountId));
+			.where(and(eq(t.account.id, viewer.accountId), live(viewer)));
 		return { revision: String(a?.revision ?? "0"), zone: "UTC" };
 	}
 	if (viewer.kind === "plant") {
 		const [p] = await db
 			.select({ revision: t.plant.revision, zone: t.plant.timezone })
 			.from(t.plant)
-			.where(eq(t.plant.id, viewer.selected.id));
+			.where(and(eq(t.plant.id, viewer.selected.id), live(viewer)));
 		return { revision: String(p?.revision ?? "0"), zone: p?.zone ?? "UTC" };
 	}
 	const [o] = await db
 		.select({ revision: t.organization.revision, zone: t.organization.timezone })
 		.from(t.organization)
-		.where(eq(t.organization.id, viewer.selected.id));
+		.where(and(eq(t.organization.id, viewer.selected.id), live(viewer)));
 	return { revision: String(o?.revision ?? "0"), zone: o?.zone ?? "UTC" };
 }
 
@@ -156,7 +162,7 @@ export async function residencyLinks(db: Database, viewer: Viewer) {
 		.select({ linkId: t.residency_link.id, organizationName: t.organization.name })
 		.from(t.residency_link)
 		.innerJoin(t.organization, eq(t.organization.id, t.residency_link.organization_id))
-		.where(eq(t.residency_link.account_id, viewer.accountId))
+		.where(and(eq(t.residency_link.account_id, viewer.accountId), live(viewer)))
 		.orderBy(sql`${t.residency_link.accepted_at} DESC`)
 		.limit(20);
 }
@@ -167,7 +173,7 @@ export async function residencyRevision(db: Database, viewer: Viewer, linkId: st
 	const [r] = await db
 		.select({ revision: t.residency_link.revision })
 		.from(t.residency_link)
-		.where(and(eq(t.residency_link.id, linkId), eq(t.residency_link.account_id, viewer.accountId)));
+		.where(and(eq(t.residency_link.id, linkId), eq(t.residency_link.account_id, viewer.accountId), live(viewer)));
 	return r ? String(r.revision) : null;
 }
 
@@ -177,6 +183,6 @@ export async function connectionRevision(db: Database, viewer: Viewer, relations
 	const [r] = await db
 		.select({ revision: t.affiliation.revision })
 		.from(t.affiliation)
-		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id)));
+		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id), live(viewer)));
 	return r ? String(r.revision) : null;
 }
