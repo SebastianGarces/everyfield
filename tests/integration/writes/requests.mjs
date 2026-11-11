@@ -7,7 +7,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
+import { EventEmitter } from "node:events";
+import { dirname } from "node:path";
 import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
 import { createServer } from "node:net";
@@ -235,9 +237,12 @@ try {
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl), keeps the objects a brand asset
 	// upload puts and records every call it gets. Signing an upload URL needs no other bucket call.
 	const bucketCalls = [];
+	// Every server log chunk, bucket call and counts-file write is a change; `until` re-checks its condition on each.
+	const changes = new EventEmitter();
 	const objects = new Map();
 	bucket = httpServer(async (request, response) => {
 		bucketCalls.push(`${request.method} ${request.url}`);
+		changes.emit("change");
 		const key = new URL(request.url, "http://bucket").pathname;
 		if (request.method === "PUT") {
 			const chunks = [];
@@ -288,19 +293,38 @@ try {
 		},
 	);
 	let log = "";
-	for (const stream of [server.stdout, server.stderr]) stream.on("data", (chunk) => (log += chunk));
+	for (const stream of [server.stdout, server.stderr])
+		stream.on("data", (chunk) => {
+			log += chunk;
+			changes.emit("change");
+		});
 	const exited = new Promise((resolve) => server.once("exit", resolve));
-	for (let ready = false, started = Date.now(); !ready;) {
-		assert.ok(
-			Date.now() - started < 60_000 && server.exitCode === null,
-			"next start did not answer:\n" + log.slice(-2000),
-		);
-		ready = await fetch(origin + "/signin").then(
-			(r) => r.ok,
-			() => false,
-		);
-		if (!ready) await new Promise((resolve) => setTimeout(resolve, 250));
-	}
+	const watcher = watch(dirname(output), () => changes.emit("change"));
+	watcher.unref();
+	/** Resolves with `check()`'s first truthy value, re-checked on every change; rejects if the server exits first. */
+	const until = (check, message) =>
+		new Promise((resolve, reject) => {
+			const finish = (settle, value) => {
+				changes.off("change", probe);
+				server.off("exit", gone);
+				settle(value);
+			};
+			const gone = () => finish(reject, Error(message + "\n" + log.slice(-2000)));
+			const probe = () => {
+				try {
+					const value = check();
+					if (value !== undefined && value !== false) finish(resolve, value);
+				} catch (error) {
+					finish(reject, error);
+				}
+			};
+			changes.on("change", probe);
+			server.once("exit", gone);
+			probe();
+		});
+	// next start prints its Ready line once it listens; the first request then answers.
+	await until(() => /Ready in/.test(log), "next start never became ready");
+	assert.equal((await fetch(origin + "/signin")).ok, true, "next start did not answer:\n" + log.slice(-2000));
 
 	// Server actions by exported name and file, from the build's action manifest.
 	const manifest = JSON.parse(readFileSync(web + ".next/server/server-reference-manifest.json", "utf8"));
@@ -381,24 +405,28 @@ try {
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
 	// the connections one request uses (the first before it answers, the rest just after: warm_rest), so the first
 	// person page (two reads at once) and the first upload sign open no connection and call no bucket.
-	for (
-		const started = Date.now();
-		!bucketCalls.length || !log.includes('"event":"warm_rest"');
-		await new Promise((resolve) => setTimeout(resolve, 50))
-	)
-		assert.ok(Date.now() - started < 10_000, "server start never checked the bucket or never opened every connection");
+	await until(
+		() => bucketCalls.length > 0 && log.includes('"event":"warm_rest"'),
+		"server start never checked the bucket or never opened every connection",
+	);
 	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="]);
-	const opened = async (name) => {
-		for (const started = Date.now(); ; await new Promise((resolve) => setTimeout(resolve, 20))) {
-			const row = readFileSync(output, "utf8")
-				.split("\n")
-				.filter(Boolean)
-				.map((line) => JSON.parse(line))
-				.find((r) => r.name === name);
-			if (row) return row.connects;
-			assert.ok(Date.now() - started < 5_000, `${name}: no sample`);
-		}
-	};
+	const opened = (name) =>
+		until(
+			() =>
+				readFileSync(output, "utf8")
+					.split("\n")
+					.filter(Boolean)
+					.flatMap((line) => {
+						// A line being written as the watcher fires is not a sample yet.
+						try {
+							return [JSON.parse(line)];
+						} catch {
+							return [];
+						}
+					})
+					.find((r) => r.name === name)?.connects,
+			`${name}: no sample`,
+		);
 	await get("GET /people/[personId]", `/people/${maria.id}`, owner.cookie);
 	assert.equal(await opened("GET /people/[personId]"), 0, "the first person page opened a database connection");
 	const sign = "POST people.assessments.signCommitmentUpload";

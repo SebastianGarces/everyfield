@@ -82,13 +82,13 @@ try {
 		const pid = await locked;
 		try {
 			const result = body();
-			for (let waited = 0; ; waited++) {
+			// Waits on Postgres lock state, bounded by a poll count rather than a clock.
+			for (let poll = 0; ; poll++) {
 				const r = await f.db.execute(
 					sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`,
 				);
 				if (r.rows[0].n > 0) break;
-				if (waited > 200) throw Error("no write waited for the church row");
-				await new Promise((resolve) => setTimeout(resolve, 25));
+				if (poll > 50_000) throw Error("no write waited for the church row");
 			}
 			release();
 			return await result;
