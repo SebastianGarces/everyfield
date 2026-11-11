@@ -54,7 +54,13 @@ test("T-81 criterion 1: an edit without a new version, a gap and a missing super
 	// Version 2 is published, but version 1's body was not kept.
 	const v2 = { ...edited, version: 2 };
 	const h2 = await templateHash(v2);
-	const two = { ...store, [POLICY]: [{ version: 1, hash: h1 }, { version: 2, hash: h2 }] };
+	const two = {
+		...store,
+		[POLICY]: [
+			{ version: 1, hash: h1 },
+			{ version: 2, hash: h2 },
+		],
+	};
 	assert.deepEqual(await publishedProblems([...others, v2], two, {}), [
 		`${POLICY}.v1: the superseded body is missing or does not validate`,
 	]);
@@ -67,7 +73,13 @@ test("T-81 criterion 1: an edit without a new version, a gap and a missing super
 
 	// The file jumps to version 3: the store skips version 2.
 	const v3 = { ...edited, version: 3 };
-	const gap = { ...store, [POLICY]: [{ version: 1, hash: h1 }, { version: 3, hash: await templateHash(v3) }] };
+	const gap = {
+		...store,
+		[POLICY]: [
+			{ version: 1, hash: h1 },
+			{ version: 3, hash: await templateHash(v3) },
+		],
+	};
 	assert.deepEqual(await publishedProblems([...others, v3], gap, { [`${POLICY}.v1`]: v1 }), [
 		`${POLICY}: versions must run 1, 2, 3 with no gap`,
 	]);

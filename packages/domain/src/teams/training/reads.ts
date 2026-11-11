@@ -194,7 +194,7 @@ export const trainingReader = {
 						ORDER BY c.recorded_at, c.id)
 					FROM (SELECT * FROM training_credit c
 						WHERE c.person_id = ${input.personId}::uuid AND c.plant_id = ${viewer.plantId}::uuid
-						ORDER BY c.recorded_at, c.id LIMIT 200) c), '[]'::json) AS credits`,
+						ORDER BY c.recorded_at DESC, c.id DESC LIMIT 200) c), '[]'::json) AS credits`,
 			);
 			owner(viewer.plantId, found.owner);
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });

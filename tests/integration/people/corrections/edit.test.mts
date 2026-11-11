@@ -52,8 +52,7 @@ const tx = (body) => db.transaction(body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const one = async (query) => (await rows(query))[0];
-const personRow = (id) =>
-	one(sql`SELECT stage FROM person WHERE id=${sql.param(id)}`);
+const personRow = (id) => one(sql`SELECT stage FROM person WHERE id=${sql.param(id)}`);
 
 async function person(name, input = {}) {
 	return ok(
