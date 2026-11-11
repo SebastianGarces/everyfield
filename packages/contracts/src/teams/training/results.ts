@@ -102,7 +102,7 @@ export const teamFacts = z.strictObject({
 	weights: z.tuple([z.number(), z.number(), z.number()]),
 	composite: z.number().nullable(),
 });
-export const teamMeetingRow = z.strictObject({
+const teamMeetingRow = z.strictObject({
 	id: recordId,
 	subtype: meetingSubtype.nullable(),
 	status: z.string().min(1).max(40),
