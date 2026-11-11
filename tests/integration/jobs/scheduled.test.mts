@@ -32,7 +32,7 @@ const run = async () => {
 
 before(async () => {
 	await setup();
-	tick = scheduledJobs({ secret, db, storage: null, reminders: noReminders, digests: null, mail: null });
+	tick = scheduledJobs({ secret, db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null });
 });
 after(teardown);
 
@@ -66,6 +66,7 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 		secret: undefined,
 		db,
 		storage: null,
+		cleanup: null,
 		reminders: noReminders,
 		digests: null,
 		mail: null,
