@@ -75,6 +75,8 @@ test("WP-034/ui: a diagram fence becomes the parsed diagram", () => {
 					title: "Welcome",
 					nodes: [{ label: "Greet", detail: "At the door" }, { label: "Follow up" }],
 				},
+				info: "diagram flow",
+				source: "title: Welcome\n- Greet | At the door\n- Follow up",
 			},
 		],
 	);
