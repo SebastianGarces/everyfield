@@ -200,6 +200,19 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 	useEffect(() => {
 		latest.current = query;
 	});
+	// The terms this box sent and the address has not shown yet. Its own echo leaves the typed value alone; any other term
+	// (back or forward, a link, "Clear filters") replaces it and drops a pending send.
+	const sent = useRef<string[]>([]);
+	useEffect(() => {
+		const i = sent.current.indexOf(query.search);
+		if (i >= 0) {
+			sent.current = sent.current.slice(i + 1);
+			return;
+		}
+		sent.current = [];
+		clearTimeout(timer.current);
+		setValue(query.search);
+	}, [query.search]);
 	useEffect(() => () => clearTimeout(timer.current), []);
 	// Typing waits for a pause before it changes the address, so each keystroke is not a page load.
 	return (
@@ -214,7 +227,10 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 					setValue(next);
 					clearTimeout(timer.current);
 					timer.current = setTimeout(() => {
-						if (next.trim() !== latest.current.search) go(withFilters(latest.current, { search: next.trim() }), true);
+						const term = next.trim();
+						if (term === latest.current.search) return;
+						if (sent.current.at(-1) !== term) sent.current.push(term);
+						go(withFilters(latest.current, { search: term }), true);
 					}, 300);
 				}}
 				data-people-search=""
@@ -236,7 +252,7 @@ function Toolbar({
 }) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
-			<SearchBox key={query.search} query={query} go={go} />
+			<SearchBox query={query} go={go} />
 			<FilterChip
 				label="Stage"
 				icon={FilterHorizontalIcon}
