@@ -47,7 +47,7 @@ type Row = Coverage["items"][number];
  * or no follow-up at all, which is not late work and shows no invented date. They assign, add a follow-up and hand off
  * an account's follow-ups. A Member sees the follow-ups they own.
  */
-export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filter: Filter; accountId: string }) {
+export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }) {
 	return (
 		<>
 			<Breadcrumb items={[{ label: "Tasks", href: "/tasks" }, { label: "Follow-ups" }]} className="mb-4" />
@@ -59,7 +59,7 @@ export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filte
 					filter={filter}
 				/>
 			) : (
-				<Mine owners={data.owners} accountId={accountId} />
+				<Mine owners={data.owners} />
 			)}
 		</>
 	);
@@ -369,7 +369,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 }
 
 /** The follow-ups a Member owns, 50 to a page, with the pages in the address (D67). */
-function Mine({ owners }: { owners: Owners; accountId: string }) {
+function Mine({ owners }: { owners: Owners }) {
 	const router = useRouter();
 	const path = usePathname();
 	const pageCount = Math.max(1, Math.ceil(owners.matched / 50));

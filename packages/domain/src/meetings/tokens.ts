@@ -8,7 +8,8 @@ import { deny, parse, writer, type MeetingsContext, type Reader, type Tx } from 
 import { displayTitle } from "./rows.ts";
 
 // Public RSVP links (COM-010, REQ-MTG-009). The token is random, bound to one guest row (one meeting and one Person of
-// one church), lives seven days and is stored only as its SHA-256. A newer token replaces the older one, so a guest has
+// one church) and is stored only as its SHA-256. A token minted by an invitation send lives until the later of seven
+// days from the send and the meeting start; one minted alone (createRsvpToken) lives seven days. A newer token replaces the older one, so a guest has
 // at most one live link. Opening a link reads only; an explicit answer sets the canonical RSVP and closes the link.
 
 const TOKEN_DAYS = 7;
@@ -37,9 +38,11 @@ export async function createRsvpToken(tx: Tx, ctx: MeetingsContext, raw: unknown
 	return c.rsvpTokenIssued.parse({ token, expiresAt: g.expires_at.toISOString(), guestId: g.id });
 }
 
+/** The answering statuses as SQL literals. They are contract constants, never input. */
+const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
 /** One rule for an open meeting: not retired and still taking answers. `alias` is a fixed table alias, never input. */
 export const meetingOpenSql = (alias: string) =>
-	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN ('planning', 'ready', 'in_progress')`;
+	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
 
 /** A fresh raw RSVP token. The caller keeps it only inside the message it builds; the database keeps only `rsvpTokenDigest`. */
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
