@@ -1117,14 +1117,14 @@
 		"limit": 1
 	},
 	"onboarding.answerLead": {
-		"limit": 15,
-		"retry": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 8 write."
+		"limit": 13,
+		"retry": 7,
+		"reason": "Above the pattern: the lead role and Senior pastor fill write team rows. The answer, both revisions and the saved time share one plant UPDATE. Its largest first run: 2 transaction, 3 locked read, 1 read, 7 write."
 	},
 	"onboarding.complete": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 3,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
+		"reason": "Above the pattern: the claim, setup and audit writes run beside one plant UPDATE that sets the completion time and both revisions. Its largest first run: 2 transaction, 1 locked read, 1 read, 3 write."
 	},
 	"onboarding.convertDiscovery": {
 		"limit": 17,
@@ -1142,9 +1142,9 @@
 		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write) and one final statement; the producer-level count adds the caller's savepoint. RT-6a brought it from 20; per HTTP request it is 9 (was 13), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.declareJourney": {
-		"limit": 12,
-		"retry": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 6 write."
+		"limit": 10,
+		"retry": 6,
+		"reason": "Above the pattern: the declaration and launch writes run beside one plant UPDATE that sets both answers, both revisions and the saved time. Its largest first run: 2 transaction, 2 locked read, 1 read, 5 write."
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 8,
