@@ -25,7 +25,7 @@ export type Occurrence = z.infer<typeof c.openOccurrence>;
 export type BulkResult = z.infer<typeof c.bulkResult>;
 export type BulkOutcome = z.infer<typeof c.bulkOutcome>;
 export type TemplateCatalog = z.infer<typeof c.templateCatalog>;
-export type ChecklistSummary = TemplateCatalog["checklists"][number];
+type ChecklistSummary = TemplateCatalog["checklists"][number];
 export type TemplatePreview = z.infer<typeof c.templatePreview>;
 export type TemplateImport = z.infer<typeof c.templateImport>;
 export type PhaseOffer = z.infer<typeof c.phaseOffer>;
@@ -403,14 +403,6 @@ export function dueText(due: Due, year?: number): string | null {
 	if (due.kind === "local_date") return dayText(due.date, year);
 	return `${dayText(due.local.slice(0, 10), year)} · ${timeText(due.local.slice(11))}`;
 }
-/** "UTC−5" or "UTC+5:30" for an offset in seconds. */
-export function offsetText(seconds: number): string {
-	const sign = seconds < 0 ? "−" : "+";
-	const abs = Math.abs(seconds),
-		h = Math.floor(abs / 3600),
-		m = Math.round((abs % 3600) / 60);
-	return `UTC${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
-}
 
 /** The due-date form value. `offsetSeconds` is the occurrence chosen for a time the clocks repeat. */
 export type DueDraft = {
@@ -643,3 +635,6 @@ export function checklistGroups(list: readonly ChecklistSummary[]) {
 }
 /** "1 task", "9 tasks". */
 export const taskCount = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);
+
+/** The signed-in person the Tasks screens act for. */
+export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };

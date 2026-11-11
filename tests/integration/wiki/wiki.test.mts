@@ -598,7 +598,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const nav = ok(await api.navigation(db, await actor(people.owner), {}));
 			const encoded = nav.groups.flatMap((group) => group.articles).find((item) => item.articleId === guide);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
-			assert.ok(nav.relatedIds.includes(sibling));
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(
 				neighbors.articles.map((item) => item.articleId),

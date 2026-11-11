@@ -183,7 +183,10 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		eligible: "2026-10-13T22:00:00Z",
 	});
 	const reader = await actor(a.session);
-	const feed = ok(await api.readFeed(db, reader, { asOf: "2026-10-14T03:00:00Z" }));
+	const clockBefore = clock.at;
+	clock.at = new Date("2026-10-14T03:00:00Z");
+	const feed = ok(await api.readFeed(db, reader, {}));
+	clock.at = clockBefore;
 	const item = feed.items.find((row) => row.id === due);
 	assert.ok(item);
 	assert.equal(item.dueLocalDate, "2026-10-13");
@@ -416,11 +419,11 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp,
 		unsubscribeRevision: "0",
 	});
-	const described = ok(await api.describeEmailOptOut(db, reader, { token: expired }));
+	const described = ok(await api.describeEmailOptOut(db, { token: expired }));
 	assert.equal(described.expired, true);
 	assert.equal(described.changed, false);
 	assert.equal(described.inAppEnabled, true);
-	const refused = ok(await api.applyEmailOptOut(db, { token: expired, oneClick: true }));
+	const refused = ok(await api.applyEmailOptOut(db, { token: expired }));
 	assert.equal(refused.changed, false);
 	assert.equal(refused.emailEnabled, true);
 	assert.equal(
@@ -435,7 +438,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp: "2027-04-11T00:00:00Z",
 		unsubscribeRevision: "0",
 	});
-	const applied = ok(await api.applyEmailOptOut(db, { token, oneClick: true }));
+	const applied = ok(await api.applyEmailOptOut(db, { token }));
 	assert.equal(applied.changed, true);
 	assert.equal(applied.emailEnabled, false);
 	assert.equal(applied.inAppEnabled, true);
@@ -468,7 +471,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp: "2027-04-01T00:00:00Z",
 		unsubscribeRevision: "0",
 	});
-	assert.equal(ok(await rotated.describeEmailOptOut(db, reader, { token: previous })).category, "task_overdue");
+	assert.equal(ok(await rotated.describeEmailOptOut(db, { token: previous })).category, "task_overdue");
 	const tooLong = issueEmailOptOutToken(optOutKey, {
 		purpose: "disable",
 		accountId: a.id,
@@ -477,7 +480,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		unsubscribeRevision: "0",
 	});
 	denied(await api.applyEmailOptOut(db, { token: tooLong }), "access_denied");
-	denied(await api.describeEmailOptOut(db, reader, { token: "not-a-token" }), "access_denied");
+	denied(await api.describeEmailOptOut(db, { token: "not-a-token" }), "access_denied");
 });
 
 test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-IDN-022 oversight counts shared activity only", async () => {

@@ -6,6 +6,7 @@ import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@eve
 import { useEffect, useRef, useState } from "react";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
+import { offsetText } from "../shared/dates.ts";
 import { createTask, editTask } from "./actions.ts";
 import { AssigneePicker } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";
@@ -15,7 +16,6 @@ import {
 	DUE_KIND_LABEL,
 	dueDraftOf,
 	dueInputOf,
-	offsetText,
 	ownerWarning,
 	PRIORITIES,
 	PRIORITY_LABEL,
@@ -33,8 +33,8 @@ import {
 	type TaskDetail,
 	type TaskError,
 	type TaskItem,
+	type Viewer,
 } from "./model.ts";
-import type { Viewer } from "./TasksScreen.tsx";
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
@@ -60,7 +60,6 @@ export type Commit = {
 	draft: Draft;
 };
 export type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
-const RELATION_NAME = { person: "person", meeting: "meeting", team: "team" } as const;
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
 
 /** The warning a person already on the task earns beside their name, or null when they may still hold it. */
@@ -508,7 +507,7 @@ function RelationField({
 						<p className="px-1 py-2 text-sm text-text-3">No {RELATION_PLURAL[kind]} match.</p>
 					) : (
 						<RadioGroup
-							aria-label={`Choose a ${RELATION_NAME[kind]}`}
+							aria-label={`Choose a ${kind}`}
 							value={value?.kind === kind ? value.id : ""}
 							onValueChange={(id) => {
 								const hit = listed.find((c) => c.id === id);

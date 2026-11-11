@@ -32,10 +32,10 @@ export type RunDeps = {
 	freshActor(session: string): Promise<EvryActor | null>;
 	now?: () => Date;
 };
-/** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
 const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no longer available.]";
 
+/** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 export type RunOutcome = "succeeded" | "failed" | "lost";
 
 const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);

@@ -1,5 +1,5 @@
-// The shapes the Messages screens share. They match the WP-027 contract results. The client does not import the
-// sanitizer.
+// The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
+// type; the client's preview (preview.ts) imports the contract renderer, which runs the sanitizer in the browser.
 
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 
