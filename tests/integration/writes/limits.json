@@ -936,6 +936,9 @@
 	"native.people.getPersonTags": {
 		"limit": 3
 	},
+	"native.people.listDuplicatePairs": {
+		"limit": 3
+	},
 	"native.people.listHouseholds": {
 		"limit": 3
 	},

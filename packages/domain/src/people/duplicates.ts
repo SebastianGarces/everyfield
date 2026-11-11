@@ -2,6 +2,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/people";
 import "server-only";
 import { z } from "zod";
+import { adminRead } from "./assessments/shared.ts";
 import { authorizeRead, deny, parse, readReply, type Context, type Tx } from "./core.ts";
 
 /**
@@ -107,5 +108,44 @@ export async function checkForDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 		const input = parse(c.duplicateCheckRequest, raw);
 		const { gate } = await authorizeRead(tx, ctx);
 		return matchPeople(tx, plant, gate, input, input.excludePersonId);
+	});
+}
+
+const PAIRS = 100;
+const pairRows = z.object({
+	allowed: z.boolean(),
+	pairs: z.array(
+		z.object({
+			person: z.object({ id: z.uuid(), displayName: z.string() }),
+			with: z.object({ id: z.uuid(), displayName: z.string() }),
+		}),
+	),
+});
+/**
+ * people.listDuplicatePairs (REQ-PPL-018): the pairs a CSV import added with "Add, review later", read from each imported
+ * person's people.created audit row (`import.reviewWith`), so imports made before this read show too. A pair shows
+ * while both people are live in this church: a merge or retirement of either one removes it. Oldest first, the first
+ * 100. One statement, with the live Owner or Admin check inside it (C13).
+ */
+export async function listDuplicatePairs(tx: Tx, ctx: Context) {
+	return readReply(async () => {
+		if (ctx.selected.kind !== "plant") deny();
+		const plant = ctx.selected.id;
+		const r = await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
+  'person',jsonb_build_object('id',x.id,'displayName',x.display_name),
+  'with',jsonb_build_object('id',x.with_id,'displayName',x.with_name)) ORDER BY x.created_at,x.id) FROM (
+  SELECT p.id,p.display_name,p.created_at,m.id with_id,m.display_name with_name
+  FROM person p
+  JOIN audit_event e ON e.tenant_id=p.tenant_id AND e.subject_id=p.id AND e.action='people.created'
+  JOIN person m ON m.id=(e.metadata->'import'->>'reviewWith')::uuid AND m.tenant_id=p.tenant_id AND m.state='live'
+  WHERE g.allowed AND p.tenant_id=${plant}::uuid AND p.state='live' AND jsonb_typeof(e.metadata->'import'->'reviewWith')='string'
+  ORDER BY p.created_at,p.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs
+ FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
+		const row = pairRows.parse(r.rows[0]);
+		if (!row.allowed) deny();
+		return c.duplicatePairs.parse({
+			items: row.pairs.slice(0, PAIRS),
+			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
+		});
 	});
 }

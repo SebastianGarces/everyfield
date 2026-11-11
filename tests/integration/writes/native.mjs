@@ -13,6 +13,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import {
 	executeBulkImport,
 	PeopleReadContext,
+	listDuplicatePairs,
 	peopleCsv,
 	peopleWriter,
 	runPeopleImport,
@@ -614,8 +615,17 @@ try {
 		);
 		assert.equal(receipt.counts.created, n);
 		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
+		// The duplicates list (T-193) reads every flagged pair in one statement, however many people there are.
+		value(await view("listDuplicatePairs", (tx, ctx) => listDuplicatePairs(tx, ctx)));
 	}
-	for (const name of ["previewImport", "executeBulkImport", "runPeopleImport", "getImportReceipt", "exportPeople"])
+	for (const name of [
+		"previewImport",
+		"executeBulkImport",
+		"runPeopleImport",
+		"getImportReceipt",
+		"exportPeople",
+		"listDuplicatePairs",
+	])
 		await fixed(name);
 	// WP-015 merge, Unmerge and record corrections at the native boundary. Each runs on a pair whose source holds one
 	// skill and on a pair whose source holds twenty, and must use the same statement count.
