@@ -6,6 +6,8 @@
 //   A photo of exactly 3 MiB (PHOTO_MAX_BYTES) reaches the server and saves; the server action body limit does not
 //     refuse it. A file one byte over, sent to the same action without the page's own check, is refused as invalid
 //     input by the action, not by the transport.
+// Photo uploads stay hidden on the shipped page until T-196. The preview must be a development server started with
+// EVERYFIELD_TEST_PERSON_PHOTOS=1 and private storage set up; only then does the page show the photo control.
 // PHOTO_SHOTS names the directory for the 390 and 1440 px screenshots (default /tmp/everyfield-photo-shots).
 //   UI_BASE_URL=https://wp-....localhost:1355 UI_ENGINE=chromium node --test tests/ui/people/photo.test.mjs
 import assert from "node:assert/strict";
@@ -97,10 +99,12 @@ test("peo-51 peo-52 a photo over 1 MB saves, a replay after a lost answer says s
 
 		// The first send reaches the server and saves; its answer is lost. The lane sends the same key again.
 		const sent = [];
+		let action = null;
 		await context.route("**/*", async (route) => {
 			const r = route.request();
 			if (!isUpload(r)) return route.fallback();
 			sent.push(r.postDataBuffer());
+			action = r.headers()["next-action"];
 			if (sent.length > 1) return route.continue();
 			await route.fetch();
 			return route.abort("failed");
@@ -109,7 +113,7 @@ test("peo-51 peo-52 a photo over 1 MB saves, a replay after a lost answer says s
 		await addPerson(page, second);
 		const replayed = await pickPhoto(page, second, await jpegOf(1_200_000, "#1f4e79"));
 		assert.equal(sent.length, 2, "one send, then one replay");
-		const key = (body) => /name="1_requestKey"\r\n\r\n([^\r]+)/.exec(body.toString("latin1"))?.[1];
+		const key = (body) => /name="[^"]*requestKey"\r\n\r\n([^\r]+)/.exec(body.toString("latin1"))?.[1];
 		assert.ok(key(sent[0]));
 		assert.equal(key(sent[1]), key(sent[0]), "the replay carries the same request key");
 		await page.reload();
@@ -123,21 +127,18 @@ test("peo-51 peo-52 a photo over 1 MB saves, a replay after a lost answer says s
 		// Exactly 3 MiB passes the server action's body limit and saves.
 		const third = `Largest ${Date.now().toString(36)}`;
 		const thirdId = await addPerson(page, third);
-		let action = null;
-		page.on("request", (r) => {
-			if (isUpload(r)) action = r.headers()["next-action"];
-		});
 		await pickPhoto(page, third, await jpegOf(3 * MiB, "#d4a017"));
-		assert.ok(action);
+		await shots(page, "photo-3mib");
+		assert.ok(action, "the upload's action ID");
 
 		// One byte over, sent straight to the action as the page would send it: the action itself refuses it.
 		const over = await page.evaluate(
 			async ({ action, personId, size }) => {
 				const f = new FormData();
-				f.set("1_requestKey", crypto.randomUUID());
-				f.set("1_expectedRevision", "1");
-				f.set("1_personId", personId);
-				f.set("1_file", new File([new Uint8Array(size)], "big.jpg", { type: "image/jpeg" }));
+				f.set("_1_requestKey", crypto.randomUUID());
+				f.set("_1_expectedRevision", "1");
+				f.set("_1_personId", personId);
+				f.set("_1_file", new File([new Uint8Array(size)], "big.jpg", { type: "image/jpeg" }));
 				f.set("0", '["$K1"]');
 				const r = await fetch(location.href, {
 					method: "POST",
