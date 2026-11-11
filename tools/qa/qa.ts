@@ -12,7 +12,7 @@ import {
 	type NeonBranch,
 	type NeonEndpoint,
 } from "./qa-guard.ts";
-import { addPreview, carryOverV1, fail, previewsPath, readPreviews, removePreview, setDeployment } from "./store.ts";
+import { addPreview, fail, readPreviews, removePreview, setDeployment } from "./store.ts";
 
 /**
  * OPS-106: on-demand QA previews. `qa up <branch>` makes a Neon branch off the development branch, migrates and
@@ -27,8 +27,8 @@ import { addPreview, carryOverV1, fail, previewsPath, readPreviews, removePrevie
 const VERCEL = { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" };
 const QA_ID = /^qa-[a-z0-9]+(-[a-z0-9]+)*$/;
 const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
-/** The seed runs from the branch's own code. A branch made before the move still has it at the old path. */
-const SEED_PATHS = ["tools/qa/qa-seed.ts", "tools/evf/qa-seed.ts"];
+/** The seed runs from the branch's own code. */
+const SEED_PATHS = ["tools/qa/qa-seed.ts"];
 
 /** Hides connection strings and Neon passwords in text that leaves a process. */
 const redactConnections = (text: string) =>
@@ -272,13 +272,5 @@ export function qaDown(root: string, id: string): number {
 			? `Removed QA preview ${id}: ${removed.join(", ") || "its record"}.`
 			: `No QA preview ${id}. Nothing to remove.`,
 	);
-	return 0;
-}
-
-/** Brings the previews recorded in the v1 store into the preview file. Every preview keeps running. */
-export function qaCarryOver(root: string): number {
-	const { added, seen } = carryOverV1(root);
-	for (const preview of added) console.log(`carried ${preview.id}  ${preview.branch}  ${preview.url}`);
-	console.log(`Carried ${added.length} of ${seen} v1 previews into ${previewsPath(root)}. Nothing was torn down.`);
 	return 0;
 }
