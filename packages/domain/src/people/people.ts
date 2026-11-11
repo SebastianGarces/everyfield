@@ -443,14 +443,14 @@ async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restor
 					.set({
 						state: "live",
 						retired_at: null,
-						// Back at the end of its column with a fresh key (D68); organization people have no position.
-						...(before.pipeline_position === null ? {} : { pipeline_position: freshPosition(before.id) }),
+						// Back at the end of its column with a fresh key (D68).
+						pipeline_position: freshPosition(before.id),
 						revision: sql<unknown>`(${tables.person.revision} + 1)`,
 					})
 					.where(eq(tables.person.id, before.id))
 					.returning();
 				after = personRow.parse({ ...updated, plant_today: before.plant_today });
-				if (before.pipeline_position !== null) audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
+				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 			} catch (error) {
 				// The unique live account/plant index also arbitrates concurrent relinks.
 				// reply() rolls this statement back to its savepoint before returning.
