@@ -34,6 +34,10 @@ const config: NextConfig = {
 	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
 	experimental: {
 		optimizePackageImports: ["@hugeicons/core-free-icons"],
+		// A person photo goes to the server action as form data, up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005), and the 1 MB
+		// default refused it before the action ran (peo-51). 64 KiB above it holds the form's other fields and its
+		// multipart framing, so a larger file is still refused before any action code runs.
+		serverActions: { bodySizeLimit: 3 * 1024 * 1024 + 64 * 1024 },
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
 	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.

@@ -3,6 +3,7 @@ import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
@@ -632,6 +633,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 		const pending = ok(
 			await write(who, async (t, c) =>
 				fields.requestPersonPhotoUpload(t, c, {
+					requestKey: key(),
 					personId: alex.id,
 					mime: "image/png",
 					byteLength: bytes.length,
@@ -662,7 +664,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	// A failed upload keeps the current photo; a member cannot upload; a foreign church reads nothing.
 	const broken = ok(
 		await write(0, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: alex.id, mime: "image/png", byteLength: 9 }),
+			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: alex.id, mime: "image/png", byteLength: 9 }),
 		),
 	);
 	refused(
@@ -672,7 +674,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await set(broken.uploadId));
 	refused(
 		await write(1, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: alex.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: alex.id, mime: "image/png", byteLength: png.length }),
 		),
 	);
 	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(), { personId: alex.id }))), {
@@ -734,6 +736,111 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: third.pending.uploadId }));
 });
 
+const sharp = createRequire(import.meta.url)("../../../../packages/db/node_modules/sharp");
+/** A valid JPEG of exactly `size` bytes: a small image padded with comment segments after its start marker. */
+async function jpegOf(size) {
+	const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#2e7d32" } })
+		.jpeg()
+		.toBuffer();
+	const parts = [image.subarray(0, 2)];
+	for (let left = size - image.length; left > 0; ) {
+		const payload = Math.min(65533, left - 4);
+		assert.ok(payload >= 0, "a size the padding can reach");
+		const segment = Buffer.alloc(4 + payload, 0x20);
+		segment.writeUInt16BE(0xfffe, 0);
+		segment.writeUInt16BE(payload + 2, 2);
+		parts.push(segment);
+		left -= segment.length;
+	}
+	parts.push(image.subarray(2));
+	const bytes = Buffer.concat(parts);
+	assert.equal(bytes.length, size);
+	return bytes;
+}
+
+test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its request key after a lost answer answers the saved change with one upload", async () => {
+	const storage = privateStorage();
+	const send = storage.client.send;
+	let puts = 0;
+	storage.client.send = async (command) => {
+		if (command.constructor.name === "PutObjectCommand") puts++;
+		return send(command);
+	};
+	const sam = await person("Sam Ortiz");
+	const photo = await jpegOf(1_500_000);
+	// The three steps uploadPhoto takes (apps/web/src/features/people/fields/actions.ts), each with the change's request key.
+	const change = async (requestKey, expectedRevision, bytes) => {
+		const staged = ok(
+			await write(0, async (t, c) =>
+				fields.requestPersonPhotoUpload(t, c, {
+					requestKey,
+					personId: sam.id,
+					mime: "image/jpeg",
+					byteLength: bytes.length,
+				}),
+			),
+		);
+		ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: staged.uploadId, bytes }));
+		const saved = ok(
+			await write(0, async (t, c) =>
+				fields.setPersonPhoto(t, c, {
+					requestKey,
+					expectedRevision,
+					input: { personId: sam.id, uploadId: staged.uploadId },
+				}),
+			),
+		);
+		return { uploadId: staged.uploadId, saved };
+	};
+	const uploads = async () =>
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM file_object WHERE tenant_id=${sql.param(plants[0])} AND purpose='person_photo'`,
+			)
+		)[0].n;
+	const updates = async () =>
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(sam.id)} AND command_id=id AND action='people.updated'`,
+			)
+		)[0].n;
+	const before = { uploads: await uploads(), updates: await updates() };
+
+	const requestKey = key();
+	const first = await change(requestKey, sam.revision, photo);
+	assert.equal(first.saved.outcome, "changed");
+	assert.deepEqual(first.saved.photo, { status: "available", personId: sam.id, versionId: first.uploadId });
+	// The answer is lost; the save lane sends the same request again. It answers the saved change, with its receipt.
+	const replay = await change(requestKey, sam.revision, photo);
+	assert.deepEqual(replay, first);
+	// One upload, stored once; one revision step and one audit entry.
+	assert.equal((await uploads()) - before.uploads, 1);
+	assert.equal(puts, 1);
+	assert.equal(storage.objects.size, 1);
+	assert.equal(await revisionOf(sam.id), String(Number(sam.revision) + 1));
+	assert.equal((await updates()) - before.updates, 1);
+	// Reading the photo back gives the new version and its bytes.
+	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(1), { personId: sam.id }))), first.saved.photo);
+	const delivered = ok(await readPersonPhoto(db, storage, ctx(1), { personId: sam.id, versionId: first.uploadId }));
+	assert.deepEqual([Buffer.from(delivered.bytes).equals(photo), delivered.mediaType], [true, "image/jpeg"]);
+
+	// The upload ID comes from the church and the request key: another key names another upload, and the same key with
+	// another file is a conflict, not a replay.
+	const stage = (requestKey, byteLength) =>
+		write(0, async (t, c) =>
+			fields.requestPersonPhotoUpload(t, c, { requestKey, personId: sam.id, mime: "image/jpeg", byteLength }),
+		);
+	assert.equal(ok(await stage(requestKey, photo.length)).uploadId, first.uploadId);
+	assert.notEqual(ok(await stage(key(), photo.length)).uploadId, first.uploadId);
+	refused(await stage(requestKey, photo.length - 1), "conflict");
+
+	// A photo of exactly PHOTO_MAX_BYTES (3 MiB) passes the photo checks; one byte more is invalid.
+	const largest = await jpegOf(3 * 1024 * 1024);
+	const big = await change(key(), await revisionOf(sam.id), largest);
+	assert.equal(big.saved.outcome, "changed");
+	refused(await stage(key(), largest.length + 1), "invalid_input");
+});
+
 test("INV-tenancy C13: a seat ended after the request resolved its actor reads no people-fields data", async () => {
 	const p = await person("Morgan Lee");
 	const home = ok(
@@ -748,7 +855,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	const storage = privateStorage();
 	const pending = ok(
 		await write(0, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: p.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: p.id, mime: "image/png", byteLength: png.length }),
 		),
 	);
 	ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: pending.uploadId, bytes: png }));

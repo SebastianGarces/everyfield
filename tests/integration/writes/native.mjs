@@ -372,6 +372,7 @@ try {
 	const upload = value(
 		await run("requestPersonPhotoUpload", (tx, ctx) =>
 			personFields.requestPersonPhotoUpload(tx, ctx, {
+				requestKey: randomUUID(),
 				personId: people[3].id,
 				mime: "image/png",
 				byteLength: png.length,

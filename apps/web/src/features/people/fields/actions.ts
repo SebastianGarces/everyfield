@@ -285,9 +285,16 @@ const photoForm = z.object({
 	personId: c.personFieldsRequest.shape.personId,
 	file: z.instanceof(File),
 });
+/** Deletes the bytes of the photo an ok photo change released, after the response. Only a saved change schedules it. */
+function drainAfter<T>(saved: Outcome<T>): Outcome<T> {
+	if (saved.status === "ok") drainObjectCleanup();
+	return saved;
+}
+
 /**
  * Stores a new photo for a person: ask for an upload, send the verified bytes to the private bucket, then point the
- * Person at that exact version. Until the last step succeeds the person keeps the photo they had (REQ-PPL-005).
+ * Person at that exact version. Until the last step succeeds the person keeps the photo they had (REQ-PPL-005). The
+ * request key names the upload, so a replay after a lost answer reuses the stored bytes and answers the saved change.
  */
 export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> {
 	const parsed = photoForm.safeParse(Object.fromEntries(form));
@@ -295,14 +302,13 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	const { requestKey, expectedRevision, personId, file } = parsed.data;
 	const mime = c.photoMime.safeParse(file.type);
 	if (!mime.success || file.size < 1 || file.size > c.PHOTO_MAX_BYTES) return invalid;
-	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return boundary(c.personFieldsRequest, { personId }, async (v) => {
 		const storage = privateStorage();
 		const db = requestDatabase();
 		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
 		const staged = outcome(
 			await write(v, (tx, ctx) =>
-				f.requestPersonPhotoUpload(tx, ctx, { personId, mime: mime.data, byteLength: file.size }),
+				f.requestPersonPhotoUpload(tx, ctx, { requestKey, personId, mime: mime.data, byteLength: file.size }),
 			),
 			(r) => r,
 		);
@@ -314,15 +320,17 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 		}).catch(() => ({ status: "failed" }) as const);
 		if (stored.status !== "ok")
 			return stored.status === "failed" ? { status: "lost" } : { status: "refused", code: stored.error.code };
-		return outcome(
-			await write(v, (tx, ctx) =>
-				f.setPersonPhoto(tx, ctx, {
-					requestKey,
-					expectedRevision,
-					input: { personId, uploadId: staged.value.uploadId },
-				}),
+		return drainAfter(
+			outcome(
+				await write(v, (tx, ctx) =>
+					f.setPersonPhoto(tx, ctx, {
+						requestKey,
+						expectedRevision,
+						input: { personId, uploadId: staged.value.uploadId },
+					}),
+				),
+				(r) => ({ photo: r.photo, personRevision: r.personRevision, receipt: receipt(r) }),
 			),
-			(r) => ({ photo: r.photo, personRevision: r.personRevision, receipt: receipt(r) }),
 		);
 	});
 }
@@ -339,15 +347,16 @@ export async function removePhoto(
 	expectedRevision: string,
 	personId: string,
 ): Promise<Outcome<PhotoSaved>> {
-	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return boundary(
 		c.removePersonPhotoRequest,
 		{ requestKey, expectedRevision, input: { personId } },
 		async (v, request) =>
-			outcome(await write(v, (tx, ctx) => f.removePersonPhoto(tx, ctx, request)), (r) => ({
-				photo: r.photo,
-				personRevision: r.personRevision,
-				receipt: receipt(r),
-			})),
+			drainAfter(
+				outcome(await write(v, (tx, ctx) => f.removePersonPhoto(tx, ctx, request)), (r) => ({
+					photo: r.photo,
+					personRevision: r.personRevision,
+					receipt: receipt(r),
+				})),
+			),
 	);
 }
