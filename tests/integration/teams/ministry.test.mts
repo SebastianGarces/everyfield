@@ -654,23 +654,30 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
 });
 
-test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
-	const leaderOf = async (teamId) =>
-		(
-			await admin.execute(
-				sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
-					revision::text AS revision FROM team WHERE id=${teamId}`,
-			)
-		).rows[0];
-	const editRole = async (role, fields) =>
-		ok(
-			await run(teamsWriter.editRole, {
-				requestKey: key(),
-				expectedRevision: await rev("team_role", role.id),
-				input: { roleId: role.id, ...fields },
-			}),
-		);
+const leaderOf = async (teamId) =>
+	(
+		await admin.execute(
+			sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
+				revision::text AS revision FROM team WHERE id=${teamId}`,
+		)
+	).rows[0];
+const editRole = async (role, fields) =>
+	ok(
+		await run(teamsWriter.editRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, ...fields },
+		}),
+	);
+const lastEdit = async (roleId) =>
+	(
+		await admin.execute(
+			sql`SELECT before_value AS before, after_value AS after FROM audit_event
+				WHERE subject_id=${roleId} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
+		)
+	).rows[0];
 
+test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
 	// Role-derived from this role: the leader steps down with the role.
 	const derived = await makeTeam("Derived leader");
 	const lead = await makeRole(derived.id, "Derived lead", { leadership: true });
@@ -683,12 +690,7 @@ test("turning leadership off a role clears only the leader that role made, and t
 	const cleared = await leaderOf(derived.id);
 	assert.deepEqual([cleared.personId, cleared.source, cleared.roleId], [null, null, null]);
 	assert.equal(BigInt(cleared.revision), BigInt(held.revision) + 1n);
-	const event = (
-		await admin.execute(
-			sql`SELECT before_value AS before, after_value AS after FROM audit_event
-				WHERE subject_id=${lead.id} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
-		)
-	).rows[0];
+	const event = await lastEdit(lead.id);
 	assert.deepEqual([event.before, event.after], [{ leadership: true }, { leadership: false }]);
 
 	// An explicit leader stays.
@@ -720,29 +722,6 @@ test("turning leadership off a role clears only the leader that role made, and t
 });
 
 test("turning leadership on a role fills an empty leader from its occupant and never replaces one", async () => {
-	const leaderOf = async (teamId) =>
-		(
-			await admin.execute(
-				sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
-					revision::text AS revision FROM team WHERE id=${teamId}`,
-			)
-		).rows[0];
-	const editRole = async (role, fields) =>
-		ok(
-			await run(teamsWriter.editRole, {
-				requestKey: key(),
-				expectedRevision: await rev("team_role", role.id),
-				input: { roleId: role.id, ...fields },
-			}),
-		);
-	const lastEdit = async (roleId) =>
-		(
-			await admin.execute(
-				sql`SELECT before_value AS before, after_value AS after FROM audit_event
-					WHERE subject_id=${roleId} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
-			)
-		).rows[0];
-
 	// No leader and an occupant: the occupant becomes the role-derived leader, and the history names them.
 	const empty = await makeTeam("Promotes occupant");
 	const role = await makeRole(empty.id, "Coordinator");
