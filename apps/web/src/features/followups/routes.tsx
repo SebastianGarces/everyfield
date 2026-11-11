@@ -2,7 +2,7 @@ import { getViewer } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
-import { buttonVariants, Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -62,7 +62,7 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 	const g = await gate(`/follow-ups/${raw}`, "Follow-up");
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
-	const loaded = await read(viewer, (tx) => loadCall(tx, viewer, id.data));
+	const loaded = await read((tx) => loadCall(tx, viewer, id.data));
 	if (loaded.status !== "ok") return <LoadFailed title="Follow-up" />;
 	if (loaded.value.kind === "missing") notFound();
 	if (loaded.value.kind === "not_follow_up")
@@ -99,7 +99,7 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 	const admin = administers(viewer);
-	const loaded = await read(viewer, async (tx): Promise<Outcome<Data>> => {
+	const loaded = await read(async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
 			const own = (p: number) =>
 				followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page: p, limit: 50 });
@@ -140,5 +140,33 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 				</StatePanel>
 			</Blocked>
 		);
-	return <FollowUpsScreen data={loaded.value} filter={filter} accountId={viewer.accountId} />;
+	return <FollowUpsScreen data={loaded.value} filter={filter} />;
+}
+
+/** The first paint while /tasks/follow-ups loads: the coverage list's shape, under its own status text. */
+export function FollowUpsLoading() {
+	return (
+		<div aria-busy="true" className="flex flex-col gap-6">
+			<span className="sr-only" role="status">
+				Loading follow-ups
+			</span>
+			<div className="flex flex-col gap-3">
+				<Skeleton className="w-36" />
+				<Skeleton shape="block" className="h-12 w-60" />
+				<Skeleton className="w-[420px] max-w-full" />
+			</div>
+			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
+				<Card className="gap-4">
+					<Skeleton shape="block" className="h-10 w-full rounded-md" />
+					{[0, 1, 2, 3, 4].map((i) => (
+						<div key={i} className="flex flex-col gap-2 py-4">
+							<Skeleton className="w-1/3" />
+							<Skeleton className="w-2/3" />
+						</div>
+					))}
+				</Card>
+				<Skeleton shape="block" className="h-40 rounded-card max-app-lg:hidden" />
+			</div>
+		</div>
+	);
 }

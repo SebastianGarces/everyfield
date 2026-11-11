@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 export const metadata = { title: "App shell" };
 
 export default async function ShellPage({ params }: { params: Promise<{ role: string; page?: string[] }> }) {
-  const role = parsePreviewRole((await params).role);
-  if (!role) notFound();
-  return <ShellPreview role={role} />;
+	const role = parsePreviewRole((await params).role);
+	if (!role) notFound();
+	return <ShellPreview role={role} />;
 }

@@ -1,5 +1,5 @@
 import { normalizedEmail } from "@everyfield/contracts/identity";
-import type { Category, Choices, HistoryItem, NameOf, Organization, RelationshipPair } from "./port";
+import type { Category, HistoryItem, NameOf, Organization, RelationshipPair } from "./port";
 
 /** REQ-IDN-022 categories, in the words the settings sharing card already uses (WP-010/ui). */
 export const CATEGORY_TEXT: Record<Category, { label: string; description: string }> = {
@@ -27,10 +27,6 @@ export function subjectOf(pair: RelationshipPair) {
 
 export function subjectName(pair: RelationshipPair, nameOf: NameOf): string {
 	return nameOf(subjectOf(pair));
-}
-
-export function countOn(choices: Choices): number {
-	return CATEGORIES.filter((c) => choices[c]).length;
 }
 
 /**

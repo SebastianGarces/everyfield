@@ -66,10 +66,14 @@ function facts(plantId: string, teamId: string) {
 			WHERE a.plant_id = ${plantId}::uuid AND a.state = 'active') train`;
 }
 
+/** Without a ministry, every program; with one, that ministry's own and the church-wide ones (team_id null). */
+const ownOrChurchWide = (teamId: string | undefined) =>
+	teamId === undefined ? sql`true` : sql`(g.team_id = ${teamId}::uuid OR g.team_id IS NULL)`;
+
 export const trainingReader = {
 	async listTraining(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			parse(c.listTrainingRequest, raw);
+			const input = parse(c.listTrainingRequest, raw);
 			const found = await row(
 				db,
 				viewer,
@@ -83,7 +87,8 @@ export const trainingReader = {
 							JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 							WHERE a.program_id = g.id AND a.state = 'active' AND ${compatible}))
 						ORDER BY g.name, g.id)
-					FROM (SELECT * FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid ORDER BY g.name, g.id LIMIT 100) g),
+					FROM (SELECT * FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
+						ORDER BY g.name, g.id LIMIT 100) g),
 					'[]'::json) AS programs`,
 			);
 			return c.trainingList.parse({ programs: found.programs });
@@ -121,7 +126,7 @@ export const trainingReader = {
 	},
 	async readTrainingMatrix(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			parse(c.trainingMatrixRequest, raw);
+			const input = parse(c.trainingMatrixRequest, raw);
 			const found = await row(
 				db,
 				viewer,
@@ -129,7 +134,8 @@ export const trainingReader = {
 						SELECT json_agg(a.person_id ORDER BY a.person_id) FROM training_assignment a
 						JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 						WHERE a.program_id = g.id AND a.state = 'active'), '[]'::json)) ORDER BY g.name, g.id)
-					FROM (SELECT id, name FROM training_program WHERE plant_id = ${viewer.plantId}::uuid ORDER BY name, id LIMIT 100) g),
+					FROM (SELECT g.id, g.name FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
+						ORDER BY g.name, g.id LIMIT 100) g),
 					'[]'::json) AS programs`,
 			);
 			return c.trainingMatrix.parse({ programs: found.programs });
@@ -194,7 +200,7 @@ export const trainingReader = {
 						ORDER BY c.recorded_at, c.id)
 					FROM (SELECT * FROM training_credit c
 						WHERE c.person_id = ${input.personId}::uuid AND c.plant_id = ${viewer.plantId}::uuid
-						ORDER BY c.recorded_at, c.id LIMIT 200) c), '[]'::json) AS credits`,
+						ORDER BY c.recorded_at DESC, c.id DESC LIMIT 200) c), '[]'::json) AS credits`,
 			);
 			owner(viewer.plantId, found.owner);
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });

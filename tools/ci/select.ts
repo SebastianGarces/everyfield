@@ -15,6 +15,7 @@ export const CHECKS = {
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
 	"github-scripts": { kind: "suite", root: ".github/scripts", files: ".github/scripts/*.test.cjs" },
+	"ops-watch": { kind: "suite", root: "ops/actionable-watch/test", files: "ops/actionable-watch/test/*.test.mts" },
 } as const satisfies Record<string, Check>;
 
 export type CheckId = keyof typeof CHECKS;
@@ -78,7 +79,8 @@ export const RULES: readonly Rule[] = [
 		packages: true,
 		checks: ["ci-coverage"],
 	},
-	// Browser suites run nightly and in the verifier's preview; their models and the app they drive run here.
+	// The app job runs the tests/ui model tests, the ones that do not import tests/ui/setup.mjs, through apps/web
+	// test:unit. Browser suites, which import setup.mjs, run nightly and in the verifier's preview.
 	{ name: "browser suite", paths: ["tests/ui/**"], packages: true, fallbackPackage: "@everyfield/web" },
 	{
 		name: "documentation",
@@ -93,7 +95,7 @@ export const RULES: readonly Rule[] = [
 		],
 		checks: ["docs"],
 	},
-	// The docs check runs the wiki seed check. The wiki tool's own tests run in GitHub CI's wiki job only.
+	// The docs check runs the wiki seed check. The wiki tool's own tests run in GitHub CI's tooling job only.
 	{ name: "wiki tool", paths: ["tools/wiki/**"], checks: ["docs"] },
 	{
 		name: "role prompts and evf roles",
@@ -125,6 +127,8 @@ export const RULES: readonly Rule[] = [
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
+	// The watcher's tests read its README and plist as text, so every file under it runs the whole suite.
+	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{
 		name: "failure reporting and feedback queue input",
 		paths: [".github/internal-feedback.json", ".github/ISSUE_TEMPLATE/**", ".github/scripts/*.sh"],

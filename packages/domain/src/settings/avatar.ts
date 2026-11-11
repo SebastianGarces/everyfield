@@ -1,5 +1,5 @@
 import * as q from "@everyfield/contracts/settings";
-import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
+import type { NativeAccountProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
 import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import {
@@ -159,7 +159,7 @@ export function avatarOperations(
  * hides it, in one statement. A read uses the lock-free live check (C27); the upload, a write, keeps the share locks of
  * access_session.
  */
-function liveSelf(ctx: NativeSettingsContext, read: boolean) {
+function liveSelf(ctx: SettingsContext, read: boolean) {
 	if (ctx.selected.kind !== "account") return sql`false`;
 	const account = ctx.selected.id;
 	const live = read
@@ -167,7 +167,7 @@ function liveSelf(ctx: NativeSettingsContext, read: boolean) {
 		: sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)}`;
 	return sql<boolean>`(${t.account.id}=${account}::uuid AND ${live})`;
 }
-function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
+function authorization(ctx: SettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		const [a] = await tx
 			.select({ id: t.account.id, avatar: t.account.avatar_object_id })
@@ -195,7 +195,7 @@ function signature(bytes: Uint8Array) {
 export async function uploadAvatar(
 	db: Database,
 	storage: PrivateStorage,
-	ctx: NativeSettingsContext,
+	ctx: SettingsContext,
 	raw: { uploadId: string; bytes: Uint8Array },
 ) {
 	const id = parse(z.uuid(), raw.uploadId);
@@ -227,6 +227,6 @@ export async function uploadAvatar(
 		uploadKey: file.upload_key,
 	});
 }
-export async function readAvatar(db: Database, storage: PrivateStorage, ctx: NativeSettingsContext, versionId: string) {
+export async function readAvatar(db: Database, storage: PrivateStorage, ctx: SettingsContext, versionId: string) {
 	return readAuthorizedObject(db, storage, authorization(ctx, parse(z.uuid(), versionId), false), versionId);
 }

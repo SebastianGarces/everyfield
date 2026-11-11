@@ -1,5 +1,5 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
@@ -8,7 +8,6 @@ import { readAnswerableInvitation } from "../../../packages/domain/src/organizat
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
-before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
 	const r = Q.acceptedInvitationResult.parse(v);
@@ -325,7 +324,7 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	});
 	recording = false;
 	assert.deepEqual(observed, shown);
-	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(statements.length, 4, `respond read: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
 		false,

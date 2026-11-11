@@ -1,5 +1,6 @@
 "use server";
 
+import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
 import { articlePath, parseSource, sourceInput } from "./model.ts";
 import {
@@ -341,7 +342,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 	const editor = editorContext(ready.actor);
 	if (!editor || editor.organizationId !== command.organizationId) return { status: "denied" };
 	if (!/^(0|[1-9]\d*)$/.test(command.expectedRevision)) return { status: "invalid" };
-	if (mode !== "hide" && (!command.body || command.body.length > 20000)) return { status: "invalid" };
+	if (mode !== "hide" && (!command.body || !organizationBodyFits(command.body))) return { status: "invalid" };
 	const cachePath = command.cachePath?.slice(0, 400);
 	const input = {
 		articleId: command.articleId,

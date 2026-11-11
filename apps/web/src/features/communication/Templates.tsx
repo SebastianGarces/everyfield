@@ -269,7 +269,7 @@ function Editor({
 			keys.settle("fork", result);
 			if (result.status !== "ok") return setIssues({ form: outcomeText(result) ?? undefined });
 			keep(result.value);
-			setStatus("Template forked. You can edit the church copy.");
+			setStatus("Template forked. The church copy is in the list under Your church, with any edits it had before.");
 		});
 
 	return (

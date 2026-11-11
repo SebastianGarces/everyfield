@@ -22389,6 +22389,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "mail_waiting": {
+          "name": "mail_waiting",
+          "isUnique": false,
+          "where": "((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL))",
+          "columns": [
+            {
+              "expression": "scheduled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -32212,6 +32228,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "proposal_ref_0": {
+          "name": "proposal_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -33895,6 +33932,27 @@
             },
             {
               "expression": "corrected_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "record_correction_ref_0": {
+          "name": "record_correction_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -35920,7 +35978,53 @@
         "((length(inviter_description) >= 1) AND (length(inviter_description) <= 500))",
         "(subject_revision >= 1)"
       ],
-      "indexes": {},
+      "indexes": {
+        "relationship_invitation_ref_0": {
+          "name": "relationship_invitation_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_1": {
+          "name": "relationship_invitation_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_2": {
+          "name": "relationship_invitation_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "constraint_names": {
         "primary": [
           "relationship_invitation_pkey"

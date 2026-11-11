@@ -1,6 +1,5 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
@@ -9,7 +8,7 @@ import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
-import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
@@ -17,32 +16,14 @@ import { editorSchema } from "../../../apps/web/src/features/documents/church/ed
 import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp036c_" + randomUUID().replaceAll("-", "");
-const roleName = "wp036c_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp036c" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-let db;
 let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 
@@ -141,19 +122,6 @@ const logoPng = await sharp({ create: { width: 480, height: 120, channels: 4, ba
 	.toBuffer();
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	for (const actor of actors) {
 		await admin.execute(
 			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
@@ -198,13 +166,7 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 const state = {};
@@ -299,7 +261,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(await counts(), before);
 	});
 
-	test("WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
+	test("AC:DOC-EDIT-SAVE AC:WP-036-9 WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
 		const doc = state.policy;
 		const before = await counts();
 		const oldShape = [{ kind: "paragraph", text: "An old block list." }];
@@ -313,6 +275,13 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		broken.body.content.push({ type: "paragraph", content: [{ type: "field", attrs: { key: "pastor_name" } }] });
 		const fault = refused(await save(ADMIN, doc.id, "1", broken), "invalid_input");
 		assert.match(fault.details.issues[0].problem, /the merge field "pastor_name" is not declared in "fields"/);
+		// A total is computed: a typed amount on a budget's subtotal row is refused.
+		const typedTotal = structuredClone(state.budget.body);
+		const ledger = typedTotal.body.content.find((n) => n.type === "table");
+		const subtotal = ledger.content.find((r) => r.attrs?.role === "subtotal");
+		subtotal.content[1] = { type: "cell", attrs: { value: 999 } };
+		const total = refused(await save(ADMIN, state.budget.id, "1", typedTotal), "invalid_input");
+		assert.match(total.details.issues[0].problem, /a subtotal row computes its numbers; it holds no typed value/);
 		assert.deepEqual(await counts(), before, "a refused save writes nothing");
 
 		const edited = structuredClone(doc.body);
@@ -332,7 +301,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
-	test("WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
+	test("AC:DOC-EDIT-MARKS-PDF WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
 		const doc = state.policy;
 		// The editor holds the body in its own schema and builds the stored document with documentFrom. Edit it the way
 		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
@@ -352,6 +321,10 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 					{ type: "text", marks: [{ type: "link", attrs: { href: "https://example.com/policy" } }], text: "read" },
 					{ type: "hardBreak" },
 					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "bold" }], text: "bold" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "italic" }], text: "italic" },
 				],
 			},
 			...tail,
@@ -370,6 +343,18 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.revision, String(Number(doc.revision) + 1));
 		assert.deepEqual(saved.body, edited);
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		// Each face the saved revision's PDF names embeds that face's own font program, not the regular one.
+		const faces = await pdfFontFaces(bytesFrom(ok(await fileOf(MEMBER, doc.id, "pdf", Number(saved.revision)))));
+		// BaseFont "DMSans-Bold-Italic" is the font program whose own name table says family "DM Sans", style "Bold Italic".
+		const named = faces.map((f) => [f.baseFont, `${f.family.replace(/ 14pt$/, "")} ${f.style}`]);
+		for (const [baseFont, held] of named) {
+			const [family, ...style] = baseFont.split("-");
+			const expected = `${{ DMSans: "DM Sans", DMSerifDisplay: "DM Serif Display", EFFigures: "EF Figures" }[family]} ${style.join(" ") || "Regular"}`;
+			assert.equal(held, expected, `${baseFont} embeds its own face`);
+		}
+		const embedded = new Set(faces.map((f) => f.baseFont));
+		for (const face of ["DMSans", "DMSans-Bold", "DMSans-Italic", "DMSans-Bold-Italic", "DMSerifDisplay"])
+			assert.ok(embedded.has(face), `${face} is embedded: ${[...embedded]}`);
 		state.policy = saved;
 	});
 
@@ -492,7 +477,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = gone;
 	});
 
-	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
+	test("AC:CASE-DOC-019-EDIT AC:DOC-EDIT-LEGAL a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
 		const doc = state.policy;
 		const wiped = structuredClone(doc.body);
 		wiped.body = { type: "doc", content: [] };
@@ -510,7 +495,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
-	test("AC:CASE-DOC-023 the preview, Download PDF and the saved export of one revision have the same sha256", async () => {
+	test("AC:CASE-DOC-023 AC:DOC-EDIT-PREVIEW the preview, Download PDF and the saved export of one revision have the same sha256", async () => {
 		const card = state.card;
 		const preview = ok(await fileOf(MEMBER, card.id, "pdf"));
 		const download = ok(await fileOf(OWNER, card.id, "pdf", 1));
@@ -527,7 +512,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.savedTemplateName, docTemplateById("commitment-card").title);
 	});
 
-	test("WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
+	test("AC:DOC-EDIT-MEMBER AC:DOC-LAYOUT-ACCESS AC:WP-036-15 WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
 		const budget = state.budget;
 		const library = ok(await documentsWriter.listChurch(db, await authority(MEMBER), {}));
 		assert.deepEqual(library.documents.map((d) => d.templateId).sort(), [
@@ -589,6 +574,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
 			"unavailable",
 		);
+		// BUG: a deleted document was still exported and its revisions still read by anyone who kept its id.
+		refused(await exportDoc(MEMBER, sign.id, 1, "pdf", "wp036-export-after-delete"), "unavailable");
+		refused(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: sign.id }), "unavailable");
+		refused(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: sign.id, revision: 1 }),
+			"unavailable",
+		);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 });
 	});
 
 	test("AC:CASE-DOC-020-EDIT a doctrinal slot saves blank, takes the church's words and deletes; history keeps each revision", async () => {
@@ -1175,7 +1168,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
 	});
 
-	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+	test("AC:DOC-LAYOUT-MISSING T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
 		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
 		assert.equal(edit.useChurchBranding, true);

@@ -9,7 +9,7 @@ import {
 } from "@everyfield/domain/communication";
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
-import { appOrigin, deliveryTransport, mailReady, type MailReady } from "./mail.ts";
+import { appOrigin, mailReady, type MailReady } from "./mail.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
 // The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
@@ -95,16 +95,12 @@ export async function deliver<T>(
 	}
 }
 
-export { deliveryTransport };
-
-/** Drafts, templates, teams and the church name for the page. A member skips the team read. */
+/** Templates, teams and the church name for the page. A member skips the team read. */
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
 	// The sample RSVP link needs the configured origin. Without it the page says so instead of linking nowhere.
 	const origin = appOrigin();
 	if (origin === null) return Promise.resolve({ status: "refused", code: "unavailable" });
 	return read(viewer, async (tx) => {
-		const drafts = await communicationWriter.list(tx, viewer.authority);
-		if (drafts.status !== "ok") return drafts;
 		const templates = await communicationWriter.listTemplates(tx, viewer.authority);
 		if (templates.status !== "ok") return templates;
 		const church = await communicationWriter.readChurchName(tx, viewer.authority);
@@ -113,7 +109,7 @@ export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>
 		if (!canWrite(viewer)) {
 			return {
 				status: "ok",
-				value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: [], churchName, origin },
+				value: { templates: templates.value.templates, teams: [], churchName, origin },
 			};
 		}
 		const teams = await communicationWriter.listAudienceTeams(tx, viewer.authority);
@@ -121,7 +117,6 @@ export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>
 		return {
 			status: "ok",
 			value: {
-				drafts: drafts.value.drafts,
 				templates: templates.value.templates,
 				teams: teams.value.teams,
 				churchName,

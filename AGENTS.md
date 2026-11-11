@@ -37,6 +37,9 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
+- The repository is public. PR bodies, commit messages and committed docs never describe an unfixed security
+  weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
+  "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Decide reversible ambiguities and record them in task notes, using `decisions`.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
@@ -66,12 +69,12 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 | Architecture | `docs/architecture/README.md` |
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks | `.agents/skills/verify/SKILL.md` |
-| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
+| Verify a change as the independent verifier | `.agents/skills/verify-preview/SKILL.md` |
 | Workflow, progress and merge rules | `docs/build-agent-workflow.md` |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
-| Previews | `.agents/skills/portless-preview/SKILL.md` |
+| Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
 | Browser runs, preview stack, logs | `bin/dev help` |
 | QA previews | `docs/runbooks/qa-preview.md` |
@@ -110,7 +113,7 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-`docs/build-progress.json` stopped updating at the evf v2 cutover. evf v2's task records are the live state.
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235. evf v2's task records are the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.

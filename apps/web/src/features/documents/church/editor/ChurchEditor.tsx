@@ -187,14 +187,15 @@ export default function ChurchEditor({
 		return () => void editor.off("update", sync);
 	}, [editor, isSaved]);
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const doc = editor.state.doc;
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
 		const run = (async () => {
-			const result = await saveChurchDocument(docId, revision.current, body);
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
+			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
 			if (result.status === "saved") {
 				revision.current = result.revision;
 				savedDoc.current = doc;
@@ -221,6 +222,22 @@ export default function ChurchEditor({
 		inflight.current = run;
 		return run;
 	}, [editor, docId, onRevision]);
+
+	/**
+	 * Saves the document on screen. A save already in flight sent the document as it was when it started, so after it
+	 * resolves, edits typed meanwhile get a save of their own. True only when what is on screen is saved; a failed save
+	 * keeps its reason on the page.
+	 */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		let joined = false;
+		while (inflight.current) {
+			joined = true;
+			if (!(await inflight.current)) return false;
+		}
+		if (joined && isSaved(editor.state.doc)) return true;
+		return saveNow();
+	}, [editor, isSaved, saveNow]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -508,18 +525,21 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
-			<SaveAsTemplateDialog
-				key={templateDialog.opening}
-				open={templateDialog.open}
-				onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
-				docId={docId}
-				title={title}
-				revision={shownRevision}
-				unsaved={status.kind !== "saved"}
-				saving={status.kind === "saving"}
-				onSaveFirst={save}
-				onSaved={setSavedTemplate}
-			/>
+			{/* Mounted from its first opening on: the dialog reads the church templates when it mounts. */}
+			{templateDialog.opening > 0 ? (
+				<SaveAsTemplateDialog
+					key={templateDialog.opening}
+					open={templateDialog.open}
+					onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
+					docId={docId}
+					title={title}
+					revision={shownRevision}
+					unsaved={status.kind !== "saved"}
+					saving={status.kind === "saving"}
+					onSaveFirst={save}
+					onSaved={setSavedTemplate}
+				/>
+			) : null}
 		</EditorContext.Provider>
 	);
 }

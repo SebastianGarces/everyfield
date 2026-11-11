@@ -3,6 +3,8 @@
 //     household icon, no link and no person wording.
 //   INV-household-detail: getHousehold and getHouseholdMembers name people in the count; member rows show the household
 //     role and link to the person; no household row links to /people/.
+//   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
+//     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -105,11 +107,7 @@ test("INV-household-detail: titles, a people count, member roles and links; the 
 	);
 });
 
-test("INV-household-detail: only person rows link; other kinds keep the generic card without a person link", () => {
-	const tag = { kind: "tag", id: H, label: "Volunteers", fields: { name: "Volunteers" } };
-	const view = cardView("people.listTags", result("people.listTags", [tag]), null);
-	assert.equal(view.title, "Records");
-	assert.equal(view.rows[0].href, null);
+test("INV-household-detail: only person rows link; a person row keeps its city and stage", () => {
 	const person = cardView(
 		"people.listPeople",
 		result("people.listPeople", [
@@ -121,4 +119,325 @@ test("INV-household-detail: only person rows link; other kinds keep the generic 
 		[person.title, person.summary, person.rows[0].href, person.rows[0].mark],
 		["People", "1 person", `/people/${P1}`, { kind: "stage", stage: "prospect" }],
 	);
+});
+
+// ---------- each non-person read has its own card (T-160)
+const T1 = "44444444-4444-4444-8444-444444444441";
+const T2 = "44444444-4444-4444-8444-444444444442";
+const T3 = "44444444-4444-4444-8444-444444444443";
+const tag = (id, name, linkedPeople) => ({
+	kind: "tag",
+	id,
+	label: name,
+	fields: { name, color: "blue", linkedPeople, revision: "1" },
+});
+const linksNoPerson = (view) => view.rows.every((r) => r.href === null && r.avatar !== "person");
+
+test("INV-result-card-tags: listTags is a Tags card with tag rows, a tag count and no person link or avatar", () => {
+	const three = cardView(
+		"people.listTags",
+		result("people.listTags", [tag(T1, "Volunteers", "12"), tag(T2, "Worship team", "1"), tag(T3, "New", "0")]),
+		null,
+	);
+	assert.equal(three.title, "Tags");
+	assert.equal(three.summary, "3 tags");
+	assert.equal(three.icon, "tag");
+	assert.deepEqual(
+		three.rows.map((r) => [r.name, r.line, r.avatar, r.href, r.mark]),
+		[
+			["Volunteers", "12 people", "tag", null, null],
+			["Worship team", "1 person", "tag", null, null],
+			["New", "0 people", "tag", null, null],
+		],
+	);
+	assert.deepEqual(three.facts, []);
+	assert.equal(
+		cardView("people.listTags", result("people.listTags", [tag(T1, "Volunteers", "12")]), null).summary,
+		"1 tag",
+	);
+	assert.deepEqual(cardView("people.listTags", result("people.listTags", []), null).facts, [
+		"This church has no tags yet, or you can't see them.",
+	]);
+});
+
+test("INV-result-card-person-fields: a person's tags and skills have their own titles and nouns and no /people/ link", () => {
+	const tags = cardView(
+		"people.getPersonTags",
+		result("people.getPersonTags", [
+			{ kind: "tag", id: T1, label: "Volunteers", fields: { name: "Volunteers", color: "blue" } },
+			{ kind: "tag", id: T2, label: "Greeters", fields: { name: "Greeters", color: "green" } },
+		]),
+		null,
+	);
+	assert.deepEqual([tags.title, tags.summary, tags.icon], ["Assigned tags", "2 tags", "tag"]);
+	assert.deepEqual(
+		tags.rows.map((r) => [r.name, r.line]),
+		[
+			["Volunteers", null],
+			["Greeters", null],
+		],
+	);
+	assert.ok(linksNoPerson(tags));
+	const skill = (id, name, category, proficiency) => ({
+		kind: "skill",
+		id,
+		label: name,
+		fields: { name, category, proficiency },
+	});
+	const skills = cardView(
+		"people.getPersonSkills",
+		result(
+			"people.getPersonSkills",
+			[skill(T1, "Guitar", "worship", "advanced"), skill(T2, "Sound desk", "tech", null)],
+			{
+				exclusions: ["skill notes"],
+			},
+		),
+		null,
+	);
+	assert.deepEqual([skills.title, skills.summary, skills.icon], ["Skills", "2 skills", "skill"]);
+	assert.deepEqual(
+		skills.rows.map((r) => [r.name, r.line, r.avatar]),
+		[
+			["Guitar", "Worship · Advanced", "skill"],
+			["Sound desk", "Tech", "skill"],
+		],
+	);
+	assert.ok(linksNoPerson(skills));
+	assert.deepEqual(skills.facts, ["Not included: skill notes."]);
+	assert.equal(
+		cardView("people.getPersonSkills", result("people.getPersonSkills", [skill(T1, "Guitar", "worship", null)]), null)
+			.summary,
+		"1 skill",
+	);
+});
+
+test("INV-result-card-history: getActivities is a History card that names what happened, with no note text and no people wording", () => {
+	// Midday UTC, so the date reads the same in any time zone the test runs in.
+	const at = "2026-11-03T12:00:00.000Z";
+	const activity = (id, label, fields) => ({
+		kind: "activity",
+		id,
+		label,
+		fields: { personId: P1, occurredAt: at, ...fields },
+	});
+	const rows = [
+		activity(T1, "Note", { kind: "note", revision: "2" }),
+		activity(T2, "Note removed", { kind: "note_removed", revision: "3" }),
+		activity(T3, "Stage", { kind: "stage_changed", from: "prospect", to: "attendee" }),
+		activity(H, "commitment_recorded", {
+			kind: "activity",
+			action: "commitment_recorded",
+			from: null,
+			to: null,
+			householdFrom: null,
+			householdTo: null,
+		}),
+		activity(P2, "updated", {
+			kind: "activity",
+			action: "updated",
+			from: null,
+			to: null,
+			householdFrom: null,
+			householdTo: "Okafor household (head)",
+		}),
+	];
+	const view = cardView(
+		"people.getActivities",
+		result("people.getActivities", rows, {
+			total: null,
+			completeness: "partial",
+			next: 2,
+			exclusions: ["note bodies"],
+		}),
+		null,
+	);
+	assert.deepEqual([view.title, view.summary, view.icon], ["History", "5 activities", "activity"]);
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line]),
+		[
+			["Note added", "Nov 3, 2026"],
+			["Note removed", "Nov 3, 2026"],
+			["Stage changed", "Prospect → Attendee · Nov 3, 2026"],
+			["Commitment recorded", "Nov 3, 2026"],
+			["Details changed", "No household → Okafor household (head) · Nov 3, 2026"],
+		],
+	);
+	assert.ok(linksNoPerson(view));
+	assert.deepEqual(view.facts, ["More activities match. Ask Evry for page 2.", "Not included: note bodies."]);
+	assert.doesNotMatch(JSON.stringify(view), /\bpeople\b|\bperson\b/i);
+	assert.equal(cardView("people.getActivities", result("people.getActivities", [rows[0]]), null).summary, "1 activity");
+});
+
+test("INV-result-card-pipeline: getPipelineData is a Pipeline card of linked people with stage marks", () => {
+	const card = (id, label, stage) => ({
+		kind: "person",
+		id,
+		label,
+		fields: { city: "Austin", stage, column: stage, inactivity: "none", coverage: "uncovered" },
+	});
+	const view = cardView(
+		"people.getPipelineData",
+		result("people.getPipelineData", [card(P1, "James Okafor", "interviewed"), card(P2, "Ruth Allen", "prospect")], {
+			total: 30,
+			completeness: "partial",
+			next: 2,
+			exclusions: ["email", "phone"],
+		}),
+		null,
+	);
+	assert.deepEqual([view.title, view.summary, view.icon], ["Pipeline", "2 of 30", "people"]);
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.avatar, r.href, r.mark]),
+		[
+			["James Okafor", "Austin", "person", `/people/${P1}`, { kind: "stage", stage: "interviewed" }],
+			["Ruth Allen", "Austin", "person", `/people/${P2}`, { kind: "stage", stage: "prospect" }],
+		],
+	);
+	assert.deepEqual(view.facts, ["More people match. Ask Evry for page 2.", "Not included: email, phone."]);
+});
+
+const DIGEST = "a".repeat(64);
+test("INV-result-card-import: the template, a preview and a receipt read as a file and its rows, not as people", () => {
+	const template = cardView(
+		"people.generateCsvTemplate",
+		result(
+			"people.generateCsvTemplate",
+			[
+				{
+					kind: "file",
+					id: "people-import-template.csv",
+					label: "people-import-template.csv",
+					fields: { mediaType: "text/csv; charset=utf-8", columns: "first_name,last_name,email,phone\r\n" },
+				},
+			],
+			{ exclusions: ["church data"] },
+		),
+		null,
+	);
+	assert.deepEqual([template.title, template.summary, template.icon], ["Import template", "1 file", "file"]);
+	assert.deepEqual(
+		template.rows.map((r) => [r.name, r.line, r.avatar, r.href]),
+		[["people-import-template.csv", "4 columns", "file", null]],
+	);
+	assert.deepEqual(template.facts, ["Not included: church data."]);
+
+	const file = {
+		kind: "file",
+		id: DIGEST,
+		label: "Import preview",
+		fields: {
+			fileDigest: DIGEST,
+			reviewDigest: DIGEST,
+			rows: "3",
+			valid: "2",
+			invalid: "1",
+			existingDuplicates: "1",
+			withinFileDuplicates: "1",
+		},
+	};
+	const valid = (n, name, suggested, extra = {}) => ({
+		kind: "import",
+		id: String(n),
+		label: name,
+		fields: {
+			status: "valid",
+			suggested,
+			duplicatePersonIds: null,
+			withinFileDuplicateOf: null,
+			problems: null,
+			...extra,
+		},
+	});
+	const preview = cardView(
+		"people.previewImport",
+		result(
+			"people.previewImport",
+			[
+				file,
+				valid(2, "Ada Park", "create_and_review", { duplicatePersonIds: P1 }),
+				{
+					kind: "import",
+					id: "3",
+					label: "Row 3",
+					fields: {
+						status: "invalid",
+						suggested: null,
+						duplicatePersonIds: null,
+						withinFileDuplicateOf: null,
+						problems: "name_required,invalid_email",
+					},
+				},
+				valid(4, "Ada Park", "skip", { withinFileDuplicateOf: "2" }),
+				{ kind: "person", id: P1, label: "Ada Parker", fields: { match: "exact" } },
+			],
+			{ total: 3, exclusions: ["contact values", "notes"] },
+		),
+		null,
+	);
+	assert.deepEqual([preview.title, preview.summary, preview.icon], ["Import preview", "3 rows", "file"]);
+	assert.deepEqual(
+		preview.rows.map((r) => [r.name, r.line, r.avatar, r.href, r.mark]),
+		[
+			["Your file", "2 valid rows · 1 invalid row · 1 possible duplicate", "file", null, null],
+			["Row 2", "Ada Park · Add, then review the possible duplicate", null, null, null],
+			["Row 3", "Name required · Email not valid", null, null, { kind: "status", text: "Invalid", warn: true }],
+			["Row 4", "Ada Park · Same as row 2 · Skip suggested", null, null, null],
+			["Ada Parker", null, "person", `/people/${P1}`, { kind: "match", exact: true }],
+		],
+	);
+
+	const receipt = cardView(
+		"people.getImportReceipt",
+		result(
+			"people.getImportReceipt",
+			[
+				{ kind: "file", id: H, label: "partial", fields: { created: "1", skipped: "1", failed: "1", remaining: "0" } },
+				{ kind: "import", id: "2", label: "created", fields: { status: "created", personId: P1, reason: null } },
+				{ kind: "person", id: P1, label: "Imported person", fields: { row: "2" } },
+				{ kind: "import", id: "3", label: "skipped", fields: { status: "skipped", personId: null, reason: null } },
+				{ kind: "import", id: "4", label: "failed", fields: { status: "failed", personId: null, reason: "invalid" } },
+			],
+			{ total: 3 },
+		),
+		null,
+	);
+	assert.deepEqual([receipt.title, receipt.summary], ["Import results", "3 rows"]);
+	assert.deepEqual(
+		receipt.rows.map((r) => [r.name, r.line, r.href, r.mark]),
+		[
+			["Import partly complete", "1 added · 1 skipped · 1 failed", null, null],
+			["Row 2", null, `/people/${P1}`, { kind: "status", text: "Added", warn: false }],
+			["Row 3", null, null, { kind: "status", text: "Skipped", warn: false }],
+			["Row 4", "Not valid", null, { kind: "status", text: "Failed", warn: true }],
+		],
+	);
+	for (const view of [template, preview, receipt]) assert.doesNotMatch(view.summary, /person|people/);
+});
+
+test("INV-result-card-export: exportPeople is a count card: the export count, no rows and where the file is", () => {
+	const exported = (matched) =>
+		result(
+			"people.exportPeople",
+			[
+				{
+					kind: "file",
+					id: "export",
+					label: "people-2026-11-11.csv",
+					fields: {
+						matched: String(matched),
+						returned: String(matched),
+						completeness: "complete",
+						mediaType: "text/csv; charset=utf-8",
+					},
+				},
+			],
+			{ total: matched, exclusions: ["contact values", "notes", "csv bytes"] },
+		);
+	const view = cardView("people.exportPeople", exported(203), null);
+	assert.deepEqual(
+		[view.title, view.summary, view.icon, view.rows, view.facts],
+		["Directory export", "203 people", "file", [], ["Download the file from the People page."]],
+	);
+	assert.equal(cardView("people.exportPeople", exported(1), null).summary, "1 person");
 });

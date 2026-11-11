@@ -502,13 +502,7 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	const [f1, f2, evaluation] = await Promise.all(first.map((r) => task(r.taskId)));
 	assert.deepEqual(
 		[f1.title, f1.due, f1.assignees[0].accountId, f1.managed.kind, f2.assignees],
-		[
-			"Follow up with Alex Rivera",
-			{ kind: "local_date", date: "2026-10-15" },
-			member.id,
-			"first_vision_follow_up",
-			[],
-		],
+		["Follow up with Alex Rivera", { kind: "local_date", date: "2026-10-15" }, member.id, "first_vision_follow_up", []],
 	);
 	assert.deepEqual(
 		[evaluation.relation, evaluation.managed.kind],
@@ -773,7 +767,7 @@ test("INV-statements: page reads are one statement and generated work costs the 
 	};
 	// Each generated task is dated and assigned, so each one also gets its two reminders.
 	const [one, five] = [await batch(1), await batch(5)];
-	assert.ok(one > 0);
+	assert.equal(one, 8);
 	assert.equal(five, one);
 	assert.deepEqual(
 		await rows(
@@ -900,8 +894,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	const handTo = (duties, to) =>
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
 	const due = Date.now() + 4000;
-	const dated = (assigneeId, title) =>
-		create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
+	const dated = (assigneeId, title) => create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
 	// Retiring a person hands the duty to another member; leaving the core stages does the same.
 	const review = ok(await warnings(leaving.person));
@@ -973,8 +966,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	};
 	const [leaving, taking] = [await seated(), await seated()];
 	const due = Date.now() + 4000;
-	const dated = (title) =>
-		create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
+	const dated = (title) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
 	// Removing the seat hands one duty to another member and leaves the other needing an owner.
 	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });
@@ -1555,10 +1547,7 @@ test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as 
 	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0].n, before);
 	// A repeated ID collapses to one; more than ten distinct accounts are refused.
 	const t = await create(owner, { title: "Pair", assigneeIds: [member.id, admin2.id, member.id] });
-	assert.deepEqual(
-		t.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(t.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
 	refused(
 		await write(owner, "create", {
@@ -1640,10 +1629,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 		"access_denied",
 	);
 	const step = await subtask(member, shared, "Check the list");
-	assert.deepEqual(
-		step.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(step.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	// The next occurrence of a recurring task copies the set.
 	const weekly = await recurring({
 		title: "Weekly set-up",
@@ -1657,15 +1643,16 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 			input: { taskId: weekly.id },
 		}),
 	).successor;
-	assert.deepEqual(
-		next.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(next.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	// One of the assignees completes the shared task, once, and "My tasks" lists it for each of them.
 	const mine = async (who) =>
-		ok(await read(who, "list", { view: "my", search: "Shared duty", statuses: ["not_started", "in_progress", "blocked"] })).items.map(
-			(t) => t.id,
-		);
+		ok(
+			await read(who, "list", {
+				view: "my",
+				search: "Shared duty",
+				statuses: ["not_started", "in_progress", "blocked"],
+			}),
+		).items.map((t) => t.id);
 	assert.ok((await mine(member)).includes(shared.id));
 	assert.ok((await mine(admin2)).includes(shared.id));
 	assert.equal((await mine(stranger)).includes(shared.id), false);
@@ -1725,10 +1712,7 @@ test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminder
 			WHERE n.source_record_id=${t.id}`,
 	);
 	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, stale));
-	assert.deepEqual(
-		[...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))],
-		[admin2.id],
-	);
+	assert.deepEqual([...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))], [admin2.id]);
 	// Adding one plans theirs.
 	ok(
 		await write(owner, "edit", {

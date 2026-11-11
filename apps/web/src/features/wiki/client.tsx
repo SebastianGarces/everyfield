@@ -346,15 +346,12 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 	);
 }
 
-const EXCERPT_LIMIT = 500;
-
 function GuideBody({ result }: { result: GuideResult | null }) {
 	if (!result) return <p>Loading the guide.</p>;
 	if (result.status === "missing") return <p>No guide for this page.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
-	// The excerpt stops at 500 characters, so a cut section ends with an ellipsis.
-	const excerpt = result.excerpt.length >= EXCERPT_LIMIT ? `${result.excerpt.trimEnd()}…` : result.excerpt;
+	// The domain cut (sectionExcerpt) ends a mid-sentence cut with its own ellipsis, so the excerpt shows as it comes.
 	return (
 		<article className="flex flex-col gap-4">
 			<header>
@@ -364,7 +361,7 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 			<ArticleBody
 				size="sm"
 				contentType="safe_mdx"
-				body={excerpt}
+				body={result.excerpt}
 				className="[&>:first-child]:mt-0! [&>:last-child]:mb-0 [&_h2]:mt-5! [&_h2]:mb-1.5! [&_h2]:font-body! [&_h2]:text-[16px]! [&_h2]:font-semibold [&_h3]:mt-4! [&_h3]:mb-1! [&_h3]:font-body! [&_h3]:text-[15px]! [&_h3]:font-medium"
 			/>
 			<Link

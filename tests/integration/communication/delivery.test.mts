@@ -7,7 +7,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { GET, POST, resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
 
-let f, plant, other, owner;
+let f, plant, other, owner, member;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -29,6 +29,11 @@ const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const day = 86_400_000;
+// The schedule window is checked against the real clock (now to now + 30 days), so the scheduled instants are relative
+// to today, on the hour. A fixed date here stops being accepted once it passes.
+const onTheHour = (ms: number) => new Date(Math.ceil(ms / 3_600_000) * 3_600_000).toISOString();
+const AT = onTheHour(Date.now() + 7 * day);
+const LATER = onTheHour(Date.now() + 8 * day);
 
 async function person(name, fields = {}) {
 	const id = randomUUID();
@@ -125,6 +130,9 @@ before(async () => {
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
+	const seated = await f.account();
+	await f.seat(seated, plant, "member");
+	member = { ...seated, actor: await f.actor(seated.session) };
 });
 after(() => f?.close());
 
@@ -177,7 +185,7 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 		await write(owner, "scheduleReviewed", {
 			requestKey: key(),
 			expectedRevision: welcome.revision,
-			input: { communicationId: welcome.communicationId, scheduledAt: "2026-11-11T16:00:00.000Z" },
+			input: { communicationId: welcome.communicationId, scheduledAt: AT },
 		}),
 	);
 	assert.equal(accepted.scheduleSent, false);
@@ -203,7 +211,7 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 		await write(owner, "scheduleReviewed", {
 			requestKey: key(),
 			expectedRevision: staleDraft.revision,
-			input: { communicationId: staleDraft.communicationId, scheduledAt: "2026-11-11T16:00:00.000Z" },
+			input: { communicationId: staleDraft.communicationId, scheduledAt: AT },
 		}),
 	);
 	await f.admin.execute(sql`UPDATE person SET email = 'alex-stale@example.test' WHERE id = ${guest}`);
@@ -216,6 +224,52 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 	assert.equal(carrier.calls.send, 1);
 	const staleMail = await mailFor(staleDraft.communicationId);
 	assert.equal(staleMail.length, 0);
+});
+
+test("INV-access: a member cannot send or schedule a message", async () => {
+	const ready = await scheduled("Member", `member-${key().slice(0, 8)}@example.test`, AT);
+	const scheduledId = ready.saved.communicationId;
+	const scheduledRevision = ok(ready.accepted).revision;
+	const draft = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Not yet",
+				bodyHtml: "<p>Not yet.</p>",
+				audience: { ...emptyAudience, personIds: [ready.personId] },
+			},
+		}),
+	);
+	const stored = async (communicationId) => {
+		const prefix = "communication/" + communicationId + "/%";
+		const [row] = await rows(sql`SELECT c.state, c.revision::text AS revision,
+			(SELECT count(*)::int FROM mail WHERE logical_key LIKE ${prefix}) AS mail,
+			(SELECT count(DISTINCT mem.request_id)::int FROM mail m JOIN mail_request_member mem ON mem.mail_id = m.id
+				WHERE m.logical_key LIKE ${prefix}) AS requests,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id = c.id) AS audits
+			FROM communication c WHERE c.id = ${communicationId}::uuid`);
+		return row;
+	};
+	const before = { draft: await stored(draft.communicationId), ready: await stored(scheduledId) };
+	assert.deepEqual(
+		{ draft: before.draft.state, ready: before.ready.state, unsent: before.ready.requests },
+		{ draft: "draft", ready: "scheduled", unsent: 0 },
+	);
+	const carrier = port({});
+
+	refused(
+		await write(member, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: draft.revision,
+			input: { communicationId: draft.communicationId, scheduledAt: AT },
+		}),
+		"access_denied",
+	);
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "sendReviewed"), "access_denied");
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "handOffScheduled"), "access_denied");
+
+	assert.deepEqual({ draft: await stored(draft.communicationId), ready: await stored(scheduledId) }, before);
+	assert.deepEqual(carrier.calls, { send: 0, lookup: 0, cancel: 0, reschedule: 0 });
 });
 
 test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the answered recipient", async () => {
@@ -237,7 +291,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 		await write(owner, "scheduleReviewed", {
 			requestKey: key(),
 			expectedRevision: saved.revision,
-			input: { communicationId: saved.communicationId, scheduledAt: "2026-11-11T16:00:00.000Z" },
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
 	const carrier = port({
@@ -265,11 +319,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	assert.equal(stored.filter((row) => row.state === "accepted").length, 1);
 	assert.equal(stored[0].job_id, null);
 
-	const refusedPair = await scheduled(
-		"Refused",
-		`refused-${key().slice(0, 8)}@example.test`,
-		"2026-11-11T16:00:00.000Z",
-	);
+	const refusedPair = await scheduled("Refused", `refused-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(refusedPair.accepted.status, "ok", JSON.stringify(refusedPair.accepted));
 	const denyPort = port({
 		async send() {
@@ -294,11 +344,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	assert.equal(failed.status, "failed");
 	assert.equal(failed.communicationId, refusedPair.saved.communicationId);
 
-	const unknownPair = await scheduled(
-		"Unknown",
-		`unknown-${key().slice(0, 8)}@example.test`,
-		"2026-11-11T16:00:00.000Z",
-	);
+	const unknownPair = await scheduled("Unknown", `unknown-${key().slice(0, 8)}@example.test`, AT);
 	const lost = port({
 		async send() {
 			return { outcome: "unknown" };
@@ -317,7 +363,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 });
 
 test("AC:MAIL-LEDGER-001 a crashed send stays in flight and the next call looks up the same key", async () => {
-	const made = await scheduled("Crash", `crash-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Crash", `crash-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -348,7 +394,7 @@ test("AC:MAIL-LEDGER-001 a crashed send stays in flight and the next call looks 
 });
 
 test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a foreign person sends nothing", async () => {
-	const made = await scheduled("Window", `window-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Window", `window-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -402,7 +448,7 @@ test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a fore
 		await write(owner, "scheduleReviewed", {
 			requestKey: key(),
 			expectedRevision: mixed.revision,
-			input: { communicationId: mixed.communicationId, scheduledAt: "2026-11-11T16:00:00.000Z" },
+			input: { communicationId: mixed.communicationId, scheduledAt: AT },
 		}),
 	);
 	const denied = refused(await handoff(owner, mixed.communicationId, mixedSchedule.revision, carrier), "access_denied");
@@ -413,7 +459,7 @@ test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a fore
 });
 
 test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, and reschedule do not send a new message", async () => {
-	const made = await scheduled("Cancel", `cancel-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Cancel", `cancel-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -449,7 +495,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(cancelled.existingUrlMayWorkUntil, "2026-10-13T16:05:00.000Z");
 	assert.equal(carrier.calls.send, sends);
 
-	const sentOne = await scheduled("Sent", `sent-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const sentOne = await scheduled("Sent", `sent-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(sentOne.accepted.status, "ok");
 	ok(await handoff(owner, sentOne.saved.communicationId, sentOne.accepted.value.revision, carrier));
 	await f.admin.execute(sql`UPDATE mail SET state = 'sent', sent_at = clock_timestamp()
@@ -483,7 +529,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(sentReplace.replacementIntents, 0);
 	assert.equal(sentReplace.blindResends, 0);
 
-	const unknownOne = await scheduled("Hold", `hold-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const unknownOne = await scheduled("Hold", `hold-${key().slice(0, 8)}@example.test`, AT);
 	const unknownPort = port({
 		async send() {
 			return { outcome: "unknown" };
@@ -503,7 +549,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(unknownReplace.replacementAllowed, false);
 	assert.equal(unknownReplace.blindResends, 0);
 
-	const drop = await scheduled("Drop", `drop-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const drop = await scheduled("Drop", `drop-${key().slice(0, 8)}@example.test`, AT);
 	const confirmPort = port({
 		async send() {
 			return { outcome: "ids", ids: ["prov-drop"] };
@@ -540,7 +586,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(replaced.blindResends, 0);
 	assert.equal(confirmPort.calls.send, 1);
 
-	const move = await scheduled("Move", `move-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const move = await scheduled("Move", `move-${key().slice(0, 8)}@example.test`, AT);
 	const movePort = port({
 		async send() {
 			return { outcome: "ids", ids: ["prov-move"] };
@@ -558,15 +604,16 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			{
 				requestKey: key(),
 				expectedRevision: move.accepted.value.revision,
-				input: { communicationId: move.saved.communicationId, scheduledAt: "2026-11-12T16:00:00.000Z" },
+				input: { communicationId: move.saved.communicationId, scheduledAt: LATER },
 			},
 			movePort,
 		),
 	);
 	assert.equal(moved.body, "Welcome Alex.");
-	assert.equal(moved.rescheduleStatus, "unknown");
+	// The scheduled email still waits in Everyfield (T-241), so the time moves there and nothing is sent or asked.
+	assert.equal(moved.rescheduleStatus, "accepted");
 	assert.equal(moved.newCommunications, 0);
-	assert.equal(movePort.calls.send, 1);
+	assert.equal(movePort.calls.send, 0);
 	const [kept] = await rows(sql`SELECT body_html FROM communication WHERE id = ${move.saved.communicationId}`);
 	assert.equal(kept.body_html, "<p>Welcome Alex.</p>");
 	const afterCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
@@ -574,7 +621,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 });
 
 test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing", async () => {
-	const made = await scheduled("Callback", `callback-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Callback", `callback-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -609,6 +656,35 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal(bad.status, 401);
 	assert.equal((await bad.json()).code, "invalid_signature");
+	// An unsigned stream past 16 KB is refused at the limit: the route stops pulling and never buffers the rest.
+	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0].n;
+	const beforeAll = await allEvents();
+	const chunks = 64;
+	let pulled = 0;
+	let cancelled = false;
+	const stream = new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (pulled === chunks) return controller.close();
+			pulled++;
+			controller.enqueue(new Uint8Array(1024).fill(0x20));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+	const oversize = await POST(
+		new Request("https://example.test/api/webhooks/resend", {
+			method: "POST",
+			body: stream,
+			duplex: "half",
+			headers: { "svix-id": "oversize", "svix-timestamp": String(Math.floor(Date.now() / 1000)) },
+		} as RequestInit),
+	);
+	assert.equal(oversize.status, 413);
+	assert.equal((await oversize.json()).code, "invalid_input");
+	assert.ok(pulled < chunks, `pulled ${pulled} of ${chunks} chunks`);
+	assert.ok(cancelled);
+	assert.equal(await allEvents(), beforeAll);
 	const got = await GET();
 	assert.equal(got.status, 405);
 	assert.equal((await got.json()).code, "method_not_allowed");
@@ -643,7 +719,7 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	assert.equal(again.providerCalls, 0);
 	assert.equal(carrier.calls.send, 1);
 
-	const soft = await scheduled("Soft", `soft-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const soft = await scheduled("Soft", `soft-${key().slice(0, 8)}@example.test`, AT);
 	const softPort = port({
 		async send() {
 			return { outcome: "ids", ids: ["prov-soft"] };
@@ -664,7 +740,7 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 });
 
 test("AC:CASE-NTF-011 a person clears only their own suppressed address", async () => {
-	const made = await scheduled("Self", owner.email, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Self", owner.email, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -779,7 +855,7 @@ test("AC:CASE-NTF-013 AC:NOTIFY47-003 a password reset sends with category email
 });
 
 test("AC:AUDIT-007 AC:SCHEMA-013 runtime cannot change the audit log and mail states stay the stored names", async () => {
-	const made = await scheduled("Audit", `audit-${key().slice(0, 8)}@example.test`, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Audit", `audit-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -825,7 +901,7 @@ test("AC:AUDIT-007 AC:SCHEMA-013 runtime cannot change the audit log and mail st
 
 test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed email and a closed seat leave the sent mail alone", async () => {
 	const email = `frozen-${key().slice(0, 8)}@example.test`;
-	const made = await scheduled("Frozen", email, "2026-11-11T16:00:00.000Z");
+	const made = await scheduled("Frozen", email, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
@@ -865,7 +941,7 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 		await write(who, "scheduleReviewed", {
 			requestKey: key(),
 			expectedRevision: saved.revision,
-			input: { communicationId: saved.communicationId, scheduledAt: "2026-11-11T16:00:00.000Z" },
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
 	const seatPort = port({

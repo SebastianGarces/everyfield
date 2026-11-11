@@ -1,25 +1,19 @@
 import { run } from "node:test";
 import { spec } from "node:test/reporters";
-import { writeFileSync } from "node:fs";
+import { readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// With no arguments, CI's workflow job set. With file arguments (bin/dev check), exactly those files.
+// With no arguments, CI's tooling job set: every test in tests/workflow except the two CI runs as their own steps
+// (server-logs needs `next dev` and runs in the app job). With file arguments (bin/dev check), exactly those files.
+const OWN_STEP = new Set(["server-logs.test.mjs", "evry-evals-coverage.test.mjs"]);
+const workflowDir = fileURLToPath(new URL("../tests/workflow/", import.meta.url));
 const files = process.argv.slice(2).length
 	? process.argv.slice(2).map((file) => resolve(file))
-	: [
-			"stack.test.mjs",
-			"dev.test.mjs",
-			"role-prompts.test.mjs",
-			"preview-slots.test.mjs",
-			"preview-env.test.ts",
-			"publish.test.ts",
-			"setup-step.test.mjs",
-			"lint-rule-coverage.test.mjs",
-			"fast-check.test.mjs",
-			"check.test.ts",
-			"nightly.test.ts",
-		].map((name) => fileURLToPath(new URL(`../tests/workflow/${name}`, import.meta.url)));
+	: readdirSync(workflowDir)
+			.filter((name) => /\.test\.(mjs|ts)$/.test(name) && !OWN_STEP.has(name))
+			.sort()
+			.map((name) => resolve(workflowDir, name));
 const tests = [];
 const stream = run({ files });
 stream.on("test:pass", ({ name, file }) => tests.push({ name, file, status: "passed" }));

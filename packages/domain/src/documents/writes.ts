@@ -448,10 +448,9 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const bytes = decodeImport(input.bytes);
 			let read: c.DocNode;
 			try {
-				read = readImport(bytes, input.format);
+				read = readImport(input.bytes, input.format);
 			} catch (error) {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
@@ -484,7 +483,7 @@ const generatedWriter = {
 				scope,
 				"native_import",
 				input.format === "text" ? "text/plain" : MEDIA.docx,
-				bytes,
+				input.bytes,
 				`import:${scope.tenantId}:${input.requestKey}`,
 			);
 			const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
@@ -989,13 +988,6 @@ async function mutateOwned(
 		},
 		scope.tenantId,
 	);
-}
-
-function decodeImport(value: string) {
-	if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) rejectInput("bytes", "Bytes are not base64.");
-	const bytes = Buffer.from(value, "base64");
-	if (!bytes.length || bytes.length > 10 * 1024 * 1024) rejectInput("bytes", "The file must be 10 MiB or smaller.");
-	return bytes;
 }
 
 type Reply<T> = Promise<c.DocumentsReply<T>>;

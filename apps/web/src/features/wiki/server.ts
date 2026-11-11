@@ -1,6 +1,6 @@
 import { getViewer } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
-import type { WikiArticle } from "@everyfield/contracts/wiki";
+import { humanCredit, type WikiArticle } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { alias, and, eq, inArray } from "@everyfield/db/query";
 import { article_editor_state, article_revision, organization, reading } from "@everyfield/db/tables";
@@ -10,7 +10,6 @@ import "server-only";
 import {
 	type ArticleVersion,
 	articlePath,
-	humanCredit,
 	listed,
 	sourceInput,
 	sourceRows,
