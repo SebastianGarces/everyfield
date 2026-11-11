@@ -766,6 +766,52 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	refused(await read(admin, "listAttendance", { meetingId: v }), "unavailable");
 });
 
+test("com-28 AC:TARGET-MTG-016: no report counts a cancelled or a voided meeting", async () => {
+	const w = await f.workspace();
+	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
+	const a = await f.account();
+	await f.seat(a, w, "owner");
+	const admin = { ...a, actor: await f.actor(a.session) };
+	const [p1, p2, p3] = [
+		await person("Q1", "prospect", w),
+		await person("Q2", "prospect", w),
+		await person("Q3", "prospect", w),
+	];
+	const held = async (at: string, attendees: string[], score: number) => {
+		const id = await meeting("vision_meeting", at, w);
+		ok(await finalize(admin, id, attendees));
+		await f.admin.execute(sql`UPDATE meeting SET evaluation_scores=${sql.param(Array(8).fill(score))}::int[],
+			evaluated_on=local_date, evaluated_at=clock_timestamp(), evaluation_revision=1 WHERE id=${id}`);
+		return id;
+	};
+	const first = await held("2026-08-04T23:00:00Z", [p1], 3);
+	const cancelled = await held("2026-08-11T23:00:00Z", [p1, p2, p3], 1);
+	await f.admin.execute(sql`UPDATE meeting SET status='cancelled' WHERE id=${cancelled}`);
+	const voided = await held("2026-08-18T23:00:00Z", [p1, p2, p3], 1);
+	await f.admin.execute(sql`UPDATE meeting SET occurrence_voided_at=clock_timestamp() WHERE id=${voided}`);
+	const last = await held("2026-08-25T23:00:00Z", [p1, p2], 5);
+	const window = { from: "2026-08-01", to: "2026-08-31" };
+
+	const stats = ok(await read(admin, "summaryStats", window));
+	assert.deepEqual([stats.held, stats.finalized, stats.attendances], [2, 2, 3]);
+	assert.deepEqual(
+		ok(await read(admin, "attendanceTrend", window)).points.map((p) => p.meetingId),
+		[first, last],
+	);
+	assert.deepEqual(
+		ok(await read(admin, "evaluationTrend", window)).points.map((p) => p.meetingId),
+		[first, last],
+	);
+	// The previous meeting and the baseline skip the cancelled and the voided one.
+	const analytics = ok(await read(admin, "readAnalytics", { meetingId: last }));
+	assert.deepEqual(analytics.growth, { status: "known", difference: 1, percent: 100 });
+	assert.deepEqual(ok(await read(admin, "compareEvaluation", { meetingId: last })).baseline, {
+		status: "known",
+		value: 3,
+		count: 1,
+	});
+});
+
 test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeting and author", async () => {
 	const v = await meeting("vision_meeting", "2026-10-11T23:00:00Z");
 	const alex = await person("Alex"),

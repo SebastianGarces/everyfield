@@ -38,6 +38,12 @@ function gated<S extends z.ZodType, T>(
 const meeting = (plant: SQL, meetingId: string) =>
 	sql`m.plant_id = ${plant} AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL`;
 const here = sql`coalesce(m.actual_occurrence_at, m.starts_at)`;
+/**
+ * A meeting of alias `alias` that counts in reports: not deleted, its occurrence not voided and not cancelled. Every
+ * report read that counts meetings uses it; a read of attended Persons adds that the meeting is finalized.
+ */
+const counted = (alias: string) =>
+	sql.raw(`${alias}.retired_at IS NULL AND ${alias}.occurrence_voided_at IS NULL AND ${alias}.status <> 'cancelled'`);
 const at = (alias: string) => sql.raw(`coalesce(${alias}.actual_occurrence_at, ${alias}.starts_at)`);
 /** Attended Persons of meeting alias `m`, each once, with their finalized classification. */
 const tally = sql`(SELECT json_build_object('attended', count(DISTINCT g.person_id),
@@ -59,12 +65,12 @@ const counts = (t: z.infer<typeof tallyRow>) => ({
 /** Earlier evaluations of the same type: strictly before this meeting's instant, never itself, the 50 most recent. */
 const baselineSql = sql`(SELECT coalesce(json_agg(e.evaluation_scores), '[]') FROM (SELECT o.evaluation_scores
 	FROM meeting o WHERE o.plant_id = m.plant_id AND o.type = m.type AND o.evaluation_scores IS NOT NULL
-	AND o.retired_at IS NULL AND o.id <> m.id AND ${at("o")} < ${here}
+	AND ${counted("o")} AND o.id <> m.id AND ${at("o")} < ${here}
 	ORDER BY ${at("o")} DESC, o.id DESC LIMIT 50) e)`;
 /** The previous finalized meeting of the same type, by occurrence: its attended count, or null when none. */
 const previousSql = sql`(SELECT (SELECT count(DISTINCT g.person_id) FROM participation g WHERE g.meeting_id = o.id
 	AND g.presence = 'attended' AND g.removed_at IS NULL)::int FROM meeting o WHERE o.plant_id = m.plant_id
-	AND o.type = m.type AND o.finalized_at IS NOT NULL AND o.retired_at IS NULL AND o.occurrence_voided_at IS NULL
+	AND o.type = m.type AND o.finalized_at IS NOT NULL AND ${counted("o")}
 	AND o.id <> m.id AND (${at("o")}, o.id) < (${here}, m.id) ORDER BY ${at("o")} DESC, o.id DESC LIMIT 1)`;
 const progressSql = sql`(SELECT json_build_object(
 	'total', count(*) FILTER (WHERE b.kind = 'follow_up'),
@@ -141,9 +147,6 @@ const point = (p: z.infer<typeof pointRow>) => ({
 	localDate: p.local_date,
 });
 const pointColumns = sql`m.id, m.type, m.title, m.vision_number, ${here} AS occurred_at, m.local_date::text AS local_date`;
-/** Meetings that count in reports: finalized, not deleted, voided or cancelled. */
-const counted = sql`m.finalized_at IS NOT NULL AND m.retired_at IS NULL AND m.occurrence_voided_at IS NULL
-	AND m.status <> 'cancelled'`;
 
 export const attendanceReader = {
 	/**
@@ -312,7 +315,7 @@ export const attendanceReader = {
 			(plant, i) => sql`SELECT (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
 				(SELECT ${pointColumns}, m.evaluation_scores AS scores, m.evaluation_corrected_at IS NOT NULL AS corrected
 				FROM meeting m WHERE m.plant_id = ${plant} AND ${window(i)} AND m.evaluation_scores IS NOT NULL
-				AND m.retired_at IS NULL ORDER BY ${here} DESC, m.id DESC LIMIT ${i.limit}) x) AS points`,
+				AND ${counted("m")} ORDER BY ${here} DESC, m.id DESC LIMIT ${i.limit}) x) AS points`,
 			(row, i) =>
 				c.evaluationTrend.parse({
 					window: windowOf(i),
@@ -356,7 +359,7 @@ export const attendanceReader = {
 			raw,
 			(plant, i) => sql`SELECT (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
 				(SELECT ${pointColumns}, ${tally} AS tally, ${previousSql} AS previous FROM meeting m
-				WHERE m.plant_id = ${plant} AND ${window(i)} AND ${counted}
+				WHERE m.plant_id = ${plant} AND ${window(i)} AND m.finalized_at IS NOT NULL AND ${counted("m")}
 				ORDER BY ${here} DESC, m.id DESC LIMIT ${i.limit}) x) AS points`,
 			(row, i) =>
 				c.attendanceTrend.parse({
@@ -382,8 +385,7 @@ export const attendanceReader = {
 			c.reportRequest,
 			raw,
 			(plant, i) => sql`WITH w AS (SELECT m.* FROM meeting m WHERE m.plant_id = ${plant} AND ${window(i)}
-					AND m.retired_at IS NULL AND m.occurrence_voided_at IS NULL AND m.status <> 'cancelled'
-					AND ${here} <= clock_timestamp()),
+					AND ${counted("m")} AND ${here} <= clock_timestamp()),
 				a AS (SELECT g.person_id, g.classification FROM w m JOIN participation g ON g.meeting_id = m.id
 					WHERE m.finalized_at IS NOT NULL AND g.presence = 'attended' AND g.removed_at IS NULL)
 				SELECT (SELECT count(*)::int FROM w) AS held,
