@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { command, deny, next, parse, reply, type MeetingsContext, type Tx, type Writer } from "./core.ts";
+import { syncReminderJobs } from "./notifications.ts";
 import { servingPeople } from "./roster.ts";
 import { detail, facts, meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
@@ -65,9 +66,15 @@ async function lockMeeting(tx: Tx, w: Writer, meetingId: string, extra = sql`NUL
 function expected(m: MeetingRow, revision: string) {
 	if (m.revision !== revision) deny("conflict");
 }
-/** The meeting update for a changed row, fenced by the revision the command read. */
-function update(m: MeetingRow, set: SQLWrapper) {
-	return sql`UPDATE meeting SET ${set}, revision = revision + 1 WHERE id = ${m.id}::uuid AND revision = ${m.revision}::bigint`;
+/**
+ * The meeting update for a changed row, fenced by the revision the command read, with its notification jobs brought to
+ * the row after the change in the same write (syncReminderJobs).
+ */
+function update(before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper): SQLWrapper[] {
+	return [
+		sql`UPDATE meeting SET ${set}, revision = revision + 1 WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint`,
+		...syncReminderJobs(after, now),
+	];
 }
 /** The audit fields every meeting change shares; the caller names the action and kind. */
 const meetingChange = <T>(m: MeetingRow, value: T, before: MeetingRow) => ({
@@ -170,6 +177,7 @@ export const meetingsWriter = {
 						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p
 						UNION ALL SELECT ${w.plant.id}::uuid, ${id}::uuid, p, true, 'pending', 'absent'
 							FROM unnest(${sql.param(roster)}::uuid[]) p`);
+				audit.writes.push(...syncReminderJobs(m, f.now));
 				return {
 					value: result(m, "changed", audit.id),
 					subject: id,
@@ -194,7 +202,11 @@ export const meetingsWriter = {
 			const input = parse(c.editMeetingRequest, raw);
 			return command(tx, ctx, "meetings.edit", input, async (w, audit) => {
 				const p = input.input.patch;
-				const { m: before, extra } = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
+				const {
+					m: before,
+					extra,
+					now,
+				} = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
 				expected(before, input.expectedRevision);
 				const writes: SQLWrapper[] = [];
 				const place = p.venue ? location(w, p.venue, venueFacts.parse(extra), before, writes) : {};
@@ -218,8 +230,10 @@ export const meetingsWriter = {
 				if (!same) {
 					audit.writes.push(
 						...writes,
-						update(
+						...update(
 							before,
+							m,
+							now,
 							sql`title = ${m.title}, notes = ${m.notes}, venue_id = ${m.venue_id}::uuid, venue_name = ${m.venue_name},
 								venue_address = ${m.venue_address}, local_date = ${m.local_date}::date, local_time = ${m.local_time}::time,
 								starts_at = ${m.starts_at.toISOString()}::timestamptz`,
@@ -239,7 +253,7 @@ export const meetingsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.changeStatusRequest, raw);
 			return command(tx, ctx, "meetings.changeStatus", input, async (w, audit) => {
-				const { m: before } = await lockMeeting(tx, w, input.input.meetingId);
+				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
 				const to = input.input.to,
 					noop = before.status === to;
@@ -251,7 +265,7 @@ export const meetingsWriter = {
 				)
 					deny("status_transition");
 				const m = noop ? before : changed(before, { status: to });
-				if (!noop) audit.writes.push(update(before, sql`status = ${to}`));
+				if (!noop) audit.writes.push(...update(before, m, now, sql`status = ${to}`));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",
@@ -269,7 +283,7 @@ export const meetingsWriter = {
 				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
 				const m = changed(before, { retired_at: now });
-				audit.writes.push(update(before, sql`retired_at = ${now.toISOString()}::timestamptz`));
+				audit.writes.push(...update(before, m, now, sql`retired_at = ${now.toISOString()}::timestamptz`));
 				return {
 					...meetingChange(m, result(m, "changed", audit.id), before),
 					action: "meetings.changed",
@@ -294,7 +308,12 @@ export const meetingsWriter = {
 				const m = noop ? before : changed(before, { status: "completed", actual_occurrence_at: heldAt });
 				if (!noop)
 					audit.writes.push(
-						update(before, sql`status = 'completed', actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`),
+						...update(
+							before,
+							m,
+							now,
+							sql`status = 'completed', actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`,
+						),
 					);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
@@ -322,8 +341,10 @@ export const meetingsWriter = {
 					: { status: "planning" as const, actual_occurrence_at: null };
 				const m = changed(before, patch);
 				audit.writes.push(
-					update(
+					...update(
 						before,
+						m,
+						now,
 						sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
 					),
 				);
@@ -349,7 +370,7 @@ export const meetingsWriter = {
 				const m = noop ? before : changed(before, { occurrence_voided_at: voided ? now : null });
 				if (!noop)
 					audit.writes.push(
-						update(before, sql`occurrence_voided_at = ${voided ? now.toISOString() : null}::timestamptz`),
+						...update(before, m, now, sql`occurrence_voided_at = ${voided ? now.toISOString() : null}::timestamptz`),
 					);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
@@ -366,12 +387,12 @@ export const meetingsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.replaceAgendaRequest, raw);
 			return command(tx, ctx, "meetings.replaceAgenda", input, async (w, audit) => {
-				const { m: before } = await lockMeeting(tx, w, input.input.meetingId);
+				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
 				const sections = input.input.sections,
 					noop = JSON.stringify(sections) === JSON.stringify(before.agenda);
 				const m = noop ? before : changed(before, { agenda: sections });
-				if (!noop) audit.writes.push(update(before, sql`agenda = ${JSON.stringify(sections)}::jsonb`));
+				if (!noop) audit.writes.push(...update(before, m, now, sql`agenda = ${JSON.stringify(sections)}::jsonb`));
 				const answer = c.agendaResult.parse({
 					meetingId: m.id,
 					revision: m.revision,
@@ -398,7 +419,7 @@ export const meetingsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.populateKitRequest, raw);
 			return command(tx, ctx, "meetings.populateKit", input, async (w, audit) => {
-				const { m: before } = await lockMeeting(tx, w, input.input.meetingId);
+				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				if (before.type !== "vision_meeting") deny("wrong_meeting_type");
 				const noop = before.kit_version !== null;
 				if (!noop) expected(before, input.expectedRevision);
@@ -406,7 +427,7 @@ export const meetingsWriter = {
 					? before
 					: changed(before, { kit_version: c.visionKit.version, kit_total: c.visionKit.items.length, kit_checked: 0 });
 				if (!noop)
-					audit.writes.push(update(before, sql`kit_version = ${c.visionKit.version}::int`), seedKit(w.plant.id, m.id));
+					audit.writes.push(...update(before, m, now, sql`kit_version = ${c.visionKit.version}::int`), seedKit(w.plant.id, m.id));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",

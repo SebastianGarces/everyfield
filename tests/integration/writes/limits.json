@@ -1018,9 +1018,6 @@
 	"notifications.applyEmailOptOut": {
 		"limit": 1
 	},
-	"notifications.cancelForEntity": {
-		"limit": 4
-	},
 	"notifications.cancelTaskReminders": {
 		"limit": 5
 	},
@@ -1083,10 +1080,6 @@
 	},
 	"notifications.setPreferences": {
 		"limit": 5
-	},
-	"notifications.syncMeetingReminders": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 3 locked read, 5 write."
 	},
 	"notifications.syncTaskReminders": {
 		"limit": 2

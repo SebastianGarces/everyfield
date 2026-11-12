@@ -1500,6 +1500,7 @@
 			],
 			"job.kind": [
 				"mail",
+				"notification",
 				"digest",
 				"object_cleanup",
 				"lifecycle_purge",

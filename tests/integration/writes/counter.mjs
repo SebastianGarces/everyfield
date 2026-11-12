@@ -173,7 +173,7 @@ registerHooks({
 				edits = [];
 			const names = standalone[path.slice(root.length)] ?? [];
 			const localAliases = path.endsWith("/jobs/notifications.ts")
-				? { enqueueMany: "notifications.enqueueMany", cancelForEntity: "notifications.cancelForEntity" }
+				? { enqueueMany: "notifications.enqueueMany" }
 				: {};
 			function walk(n) {
 				if (ts.isReturnStatement(n) && n.expression) {
