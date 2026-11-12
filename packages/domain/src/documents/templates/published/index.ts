@@ -1,3 +1,4 @@
+import commitmentCardV1 from "./commitment-card.v1.json" with { type: "json" };
 import versions from "./versions.json" with { type: "json" };
 
 // Every published version of each built-in template (D-421): its version number and hash in versions.json, oldest
@@ -11,4 +12,6 @@ export type PublishedVersion = { version: number; hash: string };
 export const PUBLISHED: Readonly<Record<string, readonly PublishedVersion[]>> = versions;
 
 /** The body of each superseded version, by `<id>.v<version>`. A test keeps this list equal to the folder. */
-export const SUPERSEDED: Readonly<Record<string, unknown>> = {};
+export const SUPERSEDED: Readonly<Record<string, unknown>> = {
+	"commitment-card.v1": commitmentCardV1,
+};

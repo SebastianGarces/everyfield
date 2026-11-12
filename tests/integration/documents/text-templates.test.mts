@@ -142,7 +142,7 @@ describe("AC:DOC-011 text-document layout and fixed previews", () => {
 		// SHA-256 of each preview at RENDER_PROFILE.layout 4 (the hash-all fixture, all values filled). A change of bytes
 		// regenerates these from fixtures/hash-all.mts and bumps RENDER_PROFILE.layout.
 		const pinned: Record<string, string> = {
-			"commitment-card": "54a3680ba6822d7aa1363724374128a5dca0a552d4dca46116378d09eebac54a",
+			"commitment-card": "97a1714c88898f90acf8fc5b1c44ff102005aa659e0af09d0a650ec8364d803e",
 			"response-card": "886b00c9c4f76b3c5c248fdf1123a7a36b46c091e543b1cfda0a1724db53361e",
 			"guest-sign-in-sheet": "db61a4b28bdcf8b875d4b506c3ae2d7731fd7f4fc8ad34bc8e7d60ed5f86693f",
 			"vision-meeting-agenda": "6e02c8306f25274eb12d53517fb421cee2adc1c9dc7cab2f64d9aadae069e35d",

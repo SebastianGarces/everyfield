@@ -839,11 +839,14 @@ function printsAny(r: R, nodes: readonly BlockNode[]): boolean {
 
 /**
  * Header and footer content. The class's fixed parts (the legal notice) close the footer. A region that prints nothing
- * (its fields are empty) is left out with its dividers. A flowing page's footer sits under a rule, as a letterhead does,
- * unless its own content opens with a divider.
+ * (its fields are empty) is left out with its dividers, and so is a line in it that prints nothing. A flowing page's
+ * footer sits under a rule, as a letterhead does, unless its own content opens with a divider.
  */
 function region(r: R, which: "header" | "footer", reg: Region | null | undefined) {
-	const nodes = reg && printsAny(r, reg.content) ? reg.content : [];
+	const nodes =
+		reg && printsAny(r, reg.content)
+			? reg.content.filter((n) => !((n.type === "paragraph" || n.type === "heading") && !printsInline(r, n.content)))
+			: [];
 	const content = blocks(r, nodes, true);
 	const extra = which === "footer" ? notice(r) : null;
 	if (!content.length && !extra) return null;

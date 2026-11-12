@@ -430,6 +430,33 @@ test("AC:CASE-DOC-004 each checkbox on the card sits level with its GROW, PRAY o
 	);
 });
 
+test("AC:CASE-DOC-004 each card closes with the return line, under the contact line when there is one and with no gap when there is none", async () => {
+	// Maya, Nov 12 (T-205): the card names no title. With no planter-name field, the line is the hand-back form.
+	const RETURN = "Please hand this card back to the person who gave it to you.";
+	const [withContact] = await pdfPages((await renderDocPdf(await fork("commitment-card"))).bytes);
+	assert.equal(count(withContact!, RETURN), 4, "one return line on each of the four cards");
+	assert.equal(
+		count(withContact!, `${DATA.contact_line.replace(/\s+/g, " ")} ${RETURN}`),
+		4,
+		"the return line follows the contact line",
+	);
+	assert.ok(!/pastor/i.test(withContact!), "no hard-coded title");
+
+	// No contact line: the footer drops the empty line, so the card draws as if its footer had no contact line at all.
+	const blank = { ...DATA, contact_line: "" };
+	const card = docTemplateById("commitment-card")!;
+	const bare = await renderDocPdf(await forkTemplate(card, { data: blank }));
+	const [text] = await pdfPages(bare.bytes);
+	assert.equal(count(text!, RETURN), 4);
+	const without = structuredClone(card);
+	without.page.footer!.content = without.page.footer!.content.filter(
+		(n) => !(n.type === "paragraph" && n.content?.some((i) => i.type === "field")),
+	);
+	assert.equal(without.page.footer!.content.length, 2, "the rule and the return line");
+	const reference = await renderDocPdf(await forkTemplate(without, { data: blank }));
+	assert.deepEqual((await pageOps(bare.bytes)).ops, (await pageOps(reference.bytes)).ops);
+});
+
 test("AC:CASE-DOC-006 AC:CASE-DOC-013 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {
 	const sign = await renderDocPdf(await fork("guest-sign-in-sheet"));
 	assert.equal(sign.pages, 1);
