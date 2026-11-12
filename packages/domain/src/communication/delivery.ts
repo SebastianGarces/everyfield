@@ -1309,7 +1309,7 @@ export async function runDueScheduled(
 			gate: sql`NOT ${churchClosing(sql`${claimed.tenant_id}::uuid`)}`,
 			actorId: null,
 		};
-		const base: Member[] = claimed.members.map((row) => ({
+		const members: Member[] = claimed.members.map((row) => ({
 			id: row.id,
 			position: row.position,
 			state: row.state,
@@ -1319,33 +1319,21 @@ export async function runDueScheduled(
 			cancelRequested: false,
 			unsubscribed: row.unsubscribed,
 		}));
-		const opened = claimed.members
-			.filter((row) => row.state === "dispatched")
-			.map((row) => ({
-				id: row.id,
-				position: row.position,
-				message: openFrozen(ready.encryptionKey, claimed.tenant_id, row),
-			}));
-		// A recipient whose sealed email no longer opens is refused, never sent blank.
-		const updates: Update[] = opened
-			.filter((row) => !row.message)
-			.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
-		const messages = opened.filter((row) => row.message);
-		if (messages.length) {
-			let batch: DeliveryBatch;
-			try {
-				batch = await transport.send(
-					{ key: claimed.provider_key, messages: messages.map((row) => row.message!), scheduledAt: null },
-					signal(),
-				);
-			} catch {
-				batch = { outcome: "unknown" };
-			}
-			updates.push(...applyIds(batch, messages, "compressed"));
-		}
-		await record(db, who, claimed.communication_id, [
-			{ batch: { requestId: claimed.request_id, attemptId: claimed.attempt_id, members: base }, updates },
-		]);
+		// The claim leaves each recipient dispatched or refused, so the batch is sent, never looked up.
+		const batch: Batch = {
+			requestId: claimed.request_id,
+			attemptId: claimed.attempt_id,
+			providerKey: claimed.provider_key,
+			expired: false,
+			members,
+			messages: new Map(
+				claimed.members
+					.filter((row) => row.state === "dispatched")
+					.map((row) => [row.position, openFrozen(ready.encryptionKey, claimed.tenant_id, row)]),
+			),
+		};
+		const result = await handOffBatch(transport, batch);
+		await record(db, who, claimed.communication_id, [{ batch, updates: result?.updates ?? [] }]);
 	}
 	return handled;
 }

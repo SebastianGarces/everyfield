@@ -86,11 +86,7 @@ export type PageData = {
 	origin: string;
 };
 
-/** `details` is the refusal's own safe facts. */
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: string; details?: Readonly<Record<string, unknown>> }
-	| { status: "lost" };
+export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 /** What the person can do about a refusal. The code stays the server's word. */
 export function refusalText(code: string): string {
