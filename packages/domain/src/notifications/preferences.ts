@@ -153,7 +153,7 @@ export function preferenceUpsert(
 			CASE WHEN ${cadenceWrite} THEN i.cadence ELSE p.cadence END,
 			CASE WHEN ${cadenceWrite} THEN 0 ELSE p.weekday END,
 			CASE WHEN ${cadenceWrite} THEN 16 ELSE p.hour END,
-			COALESCE(p.unsubscribe_revision, 1)
+			COALESCE(p.unsubscribe_revision, 0)
 		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
 			AS i(category text, channel text, enabled boolean, cadence text)
 		LEFT JOIN notification_preference p

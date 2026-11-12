@@ -79,11 +79,11 @@ async function message(n: number, tag = "Batch") {
 type Sent = { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null };
 /**
  * A fake email service that keeps every call. `answer` decides each send by its 1-based call number; by default it
- * accepts every email with an id made from the key. Like the real one, a lookup of a key it accepted returns those ids.
+ * accepts every email with an id made from the key. Like the real one, a repeat of a key it accepted answers with
+ * those ids and sends nothing new.
  */
 function carrier(answer?: (call: number, batch: Sent) => DeliveryBatch | Promise<DeliveryBatch>) {
 	const sends: Sent[] = [];
-	const lookups: string[] = [];
 	const cancels: string[][] = [];
 	const reschedules: string[][] = [];
 	const accepted = new Map<string, DeliveryBatch>();
@@ -96,13 +96,11 @@ function carrier(answer?: (call: number, batch: Sent) => DeliveryBatch | Promise
 	} = {
 		async send(batch) {
 			sends.push(batch);
+			const earlier = accepted.get(batch.key);
+			if (earlier) return earlier;
 			const result = await (answer ? answer(sends.length, batch) : ids(batch));
 			if (result.outcome === "ids") accepted.set(batch.key, result);
 			return result;
-		},
-		async lookup(providerKey) {
-			lookups.push(providerKey);
-			return accepted.get(providerKey) ?? { outcome: "unknown" };
 		},
 		async cancel(providerIds) {
 			cancels.push([...providerIds]);
@@ -113,7 +111,7 @@ function carrier(answer?: (call: number, batch: Sent) => DeliveryBatch | Promise
 			return providerIds.map(() => ({ outcome: "done" }));
 		},
 	};
-	return { transport, sends, lookups, cancels, reschedules, ids };
+	return { transport, sends, cancels, reschedules, ids };
 }
 
 const request = (communicationId: string, revision: string) => ({
@@ -318,7 +316,7 @@ test("INV-message-batches: a lost second batch leaves only its 100 recipients un
 	}
 });
 
-test("INV-message-batches: a retry reuses every batch's stored key and frozen bytes: a stopped run resumes, an unknown batch is only looked up, an expired one never resent", async () => {
+test("INV-message-batches: a retry reuses every batch's stored key and frozen bytes: a stopped run resumes, an unknown batch is asked again under its key, an expired one never resent", async () => {
 	const m = await message(250, "Resume");
 	// The run stops after the first batch: the second call never answers, so nothing of this run is stored.
 	const stopped = carrier((call, batch) => (call === 1 ? stopped.ids(batch) : new Promise<DeliveryBatch>(() => {})));
@@ -345,23 +343,29 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 		frozen.map((batch) => [batch.id, batch.provider_key, batch.request_hash]),
 		"never regrouped, re-frozen or given a new key",
 	);
-	// Every batch is answered now: another retry sends nothing and asks nothing.
+	// Every batch is answered now: another retry makes no call.
 	const quiet = carrier();
 	ok(await sendNow(m, quiet.transport, "dispatchAttempt"));
-	assert.deepEqual([quiet.sends.length, quiet.lookups.length], [0, 0]);
+	assert.deepEqual(quiet.sends, []);
 
-	// A batch answered with unknown is reconciled by its own key, and the answered batches are not sent again.
+	// A batch answered with unknown is asked again with the same request under its own key, which the email service
+	// answers with its first result; the answered batches are not sent again.
 	const u = await message(250, "Reconcile");
 	const lossy = carrier((call, batch) => (call === 2 ? { outcome: "unknown" } : lossy.ids(batch)));
 	ok(await sendNow(u, lossy.transport));
 	const uBatches = await batchesOf(u.id);
 	const reconcile = carrier();
 	const reconciled = ok(await sendNow(u, reconcile.transport, "reconcileProviderOutcome"));
-	assert.deepEqual(reconcile.sends, []);
-	assert.deepEqual(reconcile.lookups, [uBatches[1]!.provider_key]);
-	assert.equal(reconciled.unknownCount, 100);
+	assert.deepEqual(
+		reconcile.sends.map((call) => call.key),
+		[uBatches[1]!.provider_key],
+	);
+	assert.deepEqual(reconcile.sends[0]!.messages, lossy.sends[1]!.messages);
+	assert.equal(reconciled.providerCalls, 0);
+	assert.equal(reconciled.unknownCount, 0);
+	assert.equal(reconciled.acceptedCount, 250);
 
-	// Past the 23 h 55 min window from first handoff, a batch never answered is only looked up, never resent.
+	// Past the 23 h 55 min window from first handoff, a batch never answered is never sent again.
 	const late = await message(250, "Late");
 	const lateStop = carrier((call, batch) => (call === 1 ? lateStop.ids(batch) : new Promise<DeliveryBatch>(() => {})));
 	await stopAtSecondCall(late, lateStop);
@@ -372,10 +376,6 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 	const expired = carrier();
 	ok(await sendNow(late, expired.transport, "dispatchAttempt"));
 	assert.deepEqual(expired.sends, []);
-	assert.deepEqual(
-		expired.lookups,
-		(await batchesOf(late.id)).map((batch) => batch.provider_key),
-	);
 });
 
 /** Make `count` recipients of a batch held at the email service with the old send time, as before T-241. */
@@ -494,7 +494,7 @@ test("INV-message-batches: every delivery operation sends as many statements for
 			ok(await call(db));
 			counts[name] = counter.n;
 		};
-		// Send now with every batch answered unknown, then a retry and a reconcile that look each batch up.
+		// Send now with every batch answered unknown, then a retry and a reconcile that ask again for each batch.
 		const now = await message(n, "Census");
 		const lost = carrier(() => ({ outcome: "unknown" }));
 		const call = (op: string, m) => (db: Database) =>
@@ -502,7 +502,7 @@ test("INV-message-batches: every delivery operation sends as many statements for
 		await run("sendReviewed", call("sendReviewed", now));
 		await run("dispatchAttempt", call("dispatchAttempt", now));
 		await run("reconcileProviderOutcome", call("reconcileProviderOutcome", now));
-		assert.equal(lost.sends.length, Math.ceil(n / 100));
+		assert.equal(lost.sends.length, 3 * Math.ceil(n / 100));
 		// A scheduled handoff with one held recipient in the last batch, then a time change, a cancel and a replace.
 		const held = await message(n, "Held");
 		await run("handOffScheduled", call("handOffScheduled", held));

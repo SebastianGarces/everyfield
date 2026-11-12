@@ -24,7 +24,10 @@ import {
 	queuedMailTransport,
 } from "../../../apps/web/src/features/communication/mail.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
+import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
+import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
 import { runDueInvitationMail } from "../../../apps/web/src/server/invitations/index.ts";
+import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
@@ -519,7 +522,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 	assert.deepEqual(quiet.take(), []);
 });
 
-test("INV-email-safety: queued invitation mail captures a typed address, sends an approved one, and looks up no capture", async () => {
+test("INV-email-safety: queued invitation mail captures a typed address, sends an approved one, and answers a capture lookup from the outbox", async () => {
 	const resend = resendRecorder();
 	const typed = await queuedInvitation("real.invitee@example.com", PREVIEW, resend.fetch);
 	assert.equal(typed.state, "accepted");
@@ -537,7 +540,17 @@ test("INV-email-safety: queued invitation mail captures a typed address, sends a
 	assert.deepEqual(await outboxTo(), ["real.invitee@example.com"]);
 
 	const transport = queuedMailTransport(ready, resend.fetch, PREVIEW);
-	assert.deepEqual(await transport.lookup(typed.id, signal()), { kind: "unknown" });
+	assert.deepEqual(await transport.lookup(typed.id, signal()), { kind: "accepted", id: typed.id });
+	assert.deepEqual(resend.take(), [], "a capture id never asks Resend");
+	// A replay under the stored key answers with the first capture and writes no second email.
+	const { rows } = await (
+		await database()
+	).f.admin.execute(sql`SELECT r.provider_key AS key FROM mail m
+		JOIN mail_request_member mem ON mem.mail_id = m.id JOIN mail_request r ON r.id = mem.request_id
+		WHERE m.provider_message_id = ${typed.id}`);
+	const payload = { from: "invitations@resend.dev", ...message("real.invitee@example.com") };
+	assert.deepEqual(await transport.send(payload, rows[0].key, signal()), { kind: "accepted", id: typed.id });
+	assert.deepEqual(await outboxTo(), ["real.invitee@example.com"]);
 	assert.deepEqual(resend.take(), []);
 	assert.deepEqual(await transport.lookup(approved.id, signal()), { kind: "accepted", id: approved.id });
 	assert.equal(resend.take().length, 1, "a Resend id still asks Resend");
@@ -759,4 +772,66 @@ test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", 
 	);
 	assert.equal(holds(calls, "different@example.org"), false);
 	assert.equal((await outboxTo()).includes("different@example.org"), true);
+});
+
+test("AC:T151-1 a password-reset request reaches the capture outbox within one runner tick", async () => {
+	const { f } = await database();
+	const reader = await f.account();
+	const origin = "https://app.example.test";
+	await withProcessEnv(
+		{
+			IDENTITY_DATABASE_URL: String(f.runtimeUrl),
+			IDENTITY_AUTH_DATABASE_URL: String(f.runtimeUrl),
+			IDENTITY_ORIGIN: origin,
+			IDENTITY_SECRET: "s".repeat(32),
+			IDENTITY_MAIL_KEY: mailKeys.encryptionKey.toString("hex"),
+			IDENTITY_ADDRESS_KEY: mailKeys.addressKey.toString("hex"),
+			IDENTITY_MAIL_FROM: "security@resend.dev",
+		},
+		async () => {
+			// The identity service as the identity mount builds it: its mail goes to the mount's queue.
+			const delivery: (() => Promise<void>)[] = [];
+			const identity = createIdentityService({
+				db: f.db,
+				authDb: f.admin,
+				admissionDb: f.db,
+				origin,
+				secret: randomBytes(32).toString("hex"),
+				scheduleDelivery: (work) => delivery.push(work),
+				trustedIp: () => "127.0.0.1",
+				enqueueMail: identityMailEnqueue()!,
+				diagnostic: () => {},
+			});
+			const response = await identity.handle(
+				new Request(`${origin}/api/auth/request-password-reset`, {
+					method: "POST",
+					headers: { host: "app.example.test", origin, "content-type": "application/json" },
+					body: JSON.stringify({ email: reader.email }),
+				}),
+			);
+			assert.equal(response.status, 200);
+			for (const work of delivery) await work();
+			assert.deepEqual(await outboxTo(), [], "the request only queues the email");
+
+			// One tick, with the deployment's capture transport (no provider key) for the identity pass.
+			const cron = "cron-" + randomUUID();
+			const tick = await scheduledJobs({
+				secret: cron,
+				db: f.db,
+				storage: null,
+				cleanup: null,
+				reminders: null,
+				digests: null,
+				mail: null,
+				mountMail: { identity: identityMailPass(queuedMailTransport({ keys, apiKey: null })) },
+			})(new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }));
+			const body = await tick.json();
+			assert.deepEqual(body.steps["identity-mail"], { status: "ok", count: 1 });
+			const [entry, ...others] = await readOutbox();
+			assert.deepEqual(others, []);
+			assert.equal(entry.to, reader.email);
+			assert.equal(entry.subject, "Reset your password");
+			assert.match(entry.text, /https:\/\/app\.example\.test\/reset-password\?token=/);
+		},
+	);
 });
