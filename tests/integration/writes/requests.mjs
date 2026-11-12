@@ -19,11 +19,14 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { BODY_JSON_MAX } from "../../../packages/contracts/src/documents/body.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/native.ts";
+import { IMPORT_BYTES_MAX } from "../../../packages/contracts/src/documents/values.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
+import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -829,6 +832,120 @@ try {
 		[randomUUID(), recorded.value.candidate.revision, { action: "retract", personId: candidate.id }],
 	);
 	assert.equal(retracted.status, "ok", JSON.stringify(retracted));
+
+	// T-120, kept by T-237 and moved here from the browser suite by T-259: the host's two document limits
+	// (apps/web/next.config.ts), which only a running server shows. Setup requests: they carry no budget.
+	//  - A Word import of exactly IMPORT_BYTES_MAX passes the proxy (proxyClientMaxBodySize) and the import route whole and
+	//    lands as the document's first revision; a file one byte over gets the stated limit, not a dropped connection,
+	//    with a length header and without one (the route counts the bytes as they arrive, before it reads anything else).
+	//  - A written-document save and a Church Document save whose body JSON is near BODY_JSON_MAX (over 3 MB of UTF-8)
+	//    pass the server-action limit (serverActions.bodySizeLimit) and are stored whole.
+	async function documentHostLimits() {
+		/** A Word file of exactly `size` bytes: one paragraph of text and a picture part that pads it to that size. */
+		const wordFile = (size, line) => {
+			const xml = `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${wordParagraph(line)}</w:body></w:document>`;
+			const build = (padding) =>
+				storedZip([
+					{ name: "word/document.xml", data: xml },
+					{ name: "word/media/image1.png", data: randomBytes(padding) },
+				]);
+			const bytes = build(size - build(0).length);
+			assert.equal(bytes.length, size);
+			return bytes;
+		};
+		/** Posts the file to the import route as the editor does, signed in as the Owner. */
+		const importFile = async (body, title, extra = {}) => {
+			const query = new URLSearchParams({ title, format: "docx", expectedRevision: "0", requestKey: randomUUID() });
+			const r = await fetch(`${origin}/documents/written/import?${query}`, {
+				method: "POST",
+				headers: {
+					"content-type": "application/octet-stream",
+					cookie: owner.cookie,
+					origin,
+					"sec-fetch-site": "same-origin",
+				},
+				body,
+				...extra,
+			});
+			assert.equal(r.status, 200, `import ${title}: HTTP ${r.status}`);
+			return r.json();
+		};
+		const tooLarge = { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." };
+		// The route counts the bytes before anything reads the request: with an empty title too, the answer is the size
+		// limit. The domain refuses an oversized file as well, but it states the title's problem first.
+		const over = wordFile(IMPORT_BYTES_MAX + 1, "Just over");
+		assert.deepEqual(await importFile(over, ""), tooLarge, "a length header just over the limit");
+		const streamed = new ReadableStream({
+			start(controller) {
+				for (let at = 0; at < over.length; at += 1024 * 1024) controller.enqueue(over.subarray(at, at + 1024 * 1024));
+				controller.close();
+			},
+		});
+		assert.deepEqual(await importFile(streamed, "", { duplex: "half" }), tooLarge, "no length header");
+		const marker = `Exactly ten ${randomUUID()}`;
+		const exact = await importFile(wordFile(IMPORT_BYTES_MAX, marker), "Exactly the limit");
+		assert.equal(exact.status, "ok", JSON.stringify(exact));
+		assert.equal(exact.value.revision, "1");
+		assert.match(JSON.stringify(exact.value.body), new RegExp(marker));
+
+		/** The stored body of a document's latest revision, read again from the database. */
+		const storedBody = async (documentId) =>
+			JSON.parse(
+				(
+					await admin.execute(
+						sql`SELECT r.body FROM document d JOIN document_revision r ON r.id=d.current_revision_id WHERE d.id=${documentId}::uuid`,
+					)
+				).rows[0].body,
+			);
+		/** Paragraphs of "€" (3 UTF-8 bytes each, under the block text limit) to add `room` characters of JSON. */
+		const euros = (room) => {
+			const paragraph = { type: "paragraph", content: [{ type: "text", text: "€".repeat(19_000) }] };
+			return Array.from({ length: Math.floor(room / JSON.stringify(paragraph).length) }, () => paragraph);
+		};
+		const bytesOf = (value) => Buffer.byteLength(JSON.stringify(value));
+
+		const start = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Start." }] }] };
+		const writtenBody = { ...start, content: [...start.content, ...euros(BODY_JSON_MAX - 40_000)] };
+		const writtenLength = JSON.stringify(writtenBody).length;
+		assert.ok(writtenLength > 1_900_000 && writtenLength < BODY_JSON_MAX, `written body is ${writtenLength}`);
+		assert.ok(bytesOf(writtenBody) > 3_000_000, "the written save is over 3 MB on the wire");
+		const written = await act(
+			null,
+			"/documents/written/new",
+			"apps/web/src/features/documents/actions.ts",
+			"saveOwnedDocument",
+			[{ title: "Near the body limit", body: writtenBody, expectedRevision: "0" }],
+		);
+		assert.equal(written.status, "ok", JSON.stringify(written).slice(0, 500));
+		assert.equal(JSON.stringify(await storedBody(written.value.id)).length, writtenLength);
+
+		const church = await churchDocument("commitment-card");
+		const base = await storedBody(church);
+		// The saved document holds its page setup and exports beside the body, so the fill leaves room for them.
+		const churchBody = {
+			...base,
+			body: {
+				...base.body,
+				content: [...base.body.content, ...euros(BODY_JSON_MAX - 60_000 - JSON.stringify(base).length)],
+			},
+		};
+		const churchLength = JSON.stringify(churchBody).length;
+		assert.ok(churchLength > 1_900_000, `Church body is ${churchLength}`);
+		assert.ok(bytesOf(churchBody) > 3_000_000, "the Church save is over 3 MB on the wire");
+		const [{ revision: churchRevision }] = (
+			await admin.execute(sql`SELECT revision::text AS revision FROM document WHERE id=${church}::uuid`)
+		).rows;
+		const savedChurch = await act(
+			null,
+			`/documents/church/${church}`,
+			"apps/web/src/features/documents/church/actions.ts",
+			"saveChurchDocument",
+			[church, churchRevision, churchBody],
+		);
+		assert.equal(savedChurch.status, "saved", JSON.stringify(savedChurch).slice(0, 500));
+		assert.equal(JSON.stringify(await storedBody(church)).length, churchLength);
+	}
+	await documentHostLimits();
 
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 12; i++)
