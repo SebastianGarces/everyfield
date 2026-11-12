@@ -39,10 +39,13 @@ export function documentFonts() {
 	return loaded;
 }
 
-/** SHA-256 of each font file, for the render engine version. */
+let digests: { file: string; sha256: string }[] | undefined;
+
+/** SHA-256 of each font file, for the render engine version. Computed once per process, as the files are read once. */
 export function fontDigests() {
-	return documentFonts().map((font) => ({
+	digests ??= documentFonts().map((font) => ({
 		file: font.file,
 		sha256: createHash("sha256").update(font.src).digest("hex"),
 	}));
+	return digests;
 }

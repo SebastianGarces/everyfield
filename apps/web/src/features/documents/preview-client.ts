@@ -45,5 +45,32 @@ export async function postPreview(
 	}
 }
 
+// The renders of this visit, by render key (model.ts). A thumbnail and the preview of the same template and values
+// share one request. A failed render is not kept, and only the newest few are, so the bytes do not pile up.
+const renders = new Map<string, Promise<PreviewReply>>();
+const KEPT = 24;
+
+/** The preview for `key`, posted once: a later call with the same key gets the same reply. */
+export function sharedPreview(
+	key: string,
+	templateId: string,
+	format: Format,
+	overrides: Record<string, string>,
+): Promise<PreviewReply> {
+	let known = renders.get(key);
+	if (!known) {
+		known = postPreview(templateId, format, overrides);
+		renders.set(key, known);
+		for (const old of renders.keys()) {
+			if (renders.size <= KEPT) break;
+			renders.delete(old);
+		}
+		void known.then((reply) => {
+			if (reply.status !== "ok" || !reply.value.artifact) renders.delete(key);
+		});
+	}
+	return known;
+}
+
 /** The one line every render failure shows. */
 export const RENDER_FAILED = "This file did not render. Nothing was saved.";
