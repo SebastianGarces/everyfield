@@ -49,7 +49,7 @@ None of the 4 local costs is above 30 min per week.
 
 Every CI job pays the same per-job setup (runner start, checkout, Node, pnpm install, cache restore), about 26 s a job, and every cache it restores hits. By the owner's decision D-956 they get one grouped OPS task, not one task per job.
 
-- OPS task for per-job CI setup: the coordinator files it, because this seat cannot run `evf task new`. Its ask names the 7 CI jobs above, their per-week figures, their hit rates and this report. Task id: added by the coordinator.
+- OPS task for per-job CI setup: T-285 is filed with `evf task new`. Its ask names the 7 CI jobs above, their per-week figures, their hit rates and this report. It is held and owner-gated for sequencing, because it touches CI files and overlaps T-216 and T-254.
 - It duplicates no open task. T-216 (drop the second CI build) and T-254 (heavy db and census jobs only on some events) change which jobs run, not the setup each job pays.
 
 ## Limits on these numbers
