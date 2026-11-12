@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { taskReminderTimes, meetingReminderTimes, owedPeriod } from "../../../apps/web/src/server/jobs/calendar.ts";
+import { taskReminderTimes, owedPeriod } from "../../../apps/web/src/server/jobs/calendar.ts";
 test("INV-calendar: reminders use civil offsets and timed overdue uses elapsed hours", () => {
 	assert.deepEqual(taskReminderTimes({ kind: "date_only", date: "2026-03-08", zone: "America/Chicago" }), [
 		{ slot: "due", at: "2026-03-08T14:00:00.000Z" },
@@ -13,11 +13,6 @@ test("INV-calendar: reminders use civil offsets and timed overdue uses elapsed h
 	assert.deepEqual(taskReminderTimes({ kind: "timed", at: "2026-03-08T07:30:00Z" }), [
 		{ slot: "due", at: "2026-03-08T07:30:00.000Z" },
 		{ slot: "overdue", at: "2026-03-09T07:30:00.000Z" },
-	]);
-	assert.deepEqual(meetingReminderTimes("2026-03-09", "09:00:00", "America/Chicago"), [
-		{ slot: "day_7", at: "2026-03-02T15:00:00.000Z" },
-		{ slot: "day_3", at: "2026-03-06T15:00:00.000Z" },
-		{ slot: "day_1", at: "2026-03-08T14:00:00.000Z" },
 	]);
 	assert.deepEqual(taskReminderTimes({ kind: "undated" }), []);
 });

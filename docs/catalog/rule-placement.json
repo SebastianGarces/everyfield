@@ -4701,6 +4701,11 @@
       "requirement": "REQ-NTF-016",
       "operation": "communication.undoMessagesOptOut",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-006",
+      "operation": "meetings.planNotifications",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
     }
   ],
   "rule_additions": [
@@ -4733,6 +4738,12 @@
       "operation": "notifications.feed",
       "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state.",
       "reason": "T-260 (D-731 to D-733): feed entries link to their subject page, replacing D-684."
+    },
+    {
+      "requirement": "REQ-NTF-001",
+      "operation": "notifications.enqueue",
+      "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant.",
+      "reason": "T-229: notifications.cancelForEntity is removed; the rule still binds every notice the notification service writes, so it moves to notifications.enqueue."
     }
   ],
   "operation_additions": [
@@ -5072,6 +5083,14 @@
     {
       "id": "teams.correct",
       "reason": "WP-017, 2026-11-02 (spec Done criterion 12): a second path that changed a ministry's own details. Edit details (teams.edit) with an optional reason is the only action that changes a ministry's name, description, icon or state; REQ-TEAM-002 states the behavior and old Corrected history entries still read."
+    },
+    {
+      "id": "notifications.syncMeetingReminders",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
+    },
+    {
+      "id": "notifications.cancelForEntity",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
     }
   ]
 }

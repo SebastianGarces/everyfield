@@ -2367,7 +2367,6 @@
       "TARGET-TSK-018"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.syncTaskReminders",
       "tasks.applyManagedStatus",
       "tasks.ensureManagedTask",
@@ -3161,7 +3160,6 @@
       "WIKI52-002"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.enqueue"
     ],
     "work_packages": [
@@ -3323,8 +3321,8 @@
       "NOTIFY47-007"
     ],
     "operations": [
-      "notifications.meetingAudience",
-      "notifications.syncMeetingReminders"
+      "meetings.planNotifications",
+      "notifications.meetingAudience"
     ],
     "work_packages": [
       "WP-020",

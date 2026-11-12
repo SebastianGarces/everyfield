@@ -32,13 +32,6 @@ export function taskReminderTimes(
 		{ slot: "overdue" as const, at: automatic(`${addCivilDays(date, 1)}T09:00:00`, due.zone) },
 	];
 }
-export function meetingReminderTimes(date: string, time: string, zone: string) {
-	const day = localDate.parse(date);
-	return [7, 3, 1].map((offset) => ({
-		slot: `day_${offset}`,
-		at: automatic(`${addCivilDays(day, -offset)}T${time}`, zone),
-	}));
-}
 export function owedPeriod(
 	config: { zone: string; cadence: "daily" | "weekly"; weekday: number; hour: number; completedDaysOnly?: boolean },
 	asOf: string,

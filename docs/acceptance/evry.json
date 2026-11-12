@@ -4933,8 +4933,8 @@
       ],
       "operation_ids": [
         "church.digestSchedule.set",
+        "meetings.planNotifications",
         "notifications.applyEmailOptOut",
-        "notifications.cancelForEntity",
         "notifications.cancelTaskReminders",
         "notifications.claimDue",
         "notifications.describeEmailOptOut",
@@ -4964,7 +4964,6 @@
         "notifications.retryAssociationReceipt",
         "notifications.sendDiscoveryAssociationReceipt",
         "notifications.setPreferences",
-        "notifications.syncMeetingReminders",
         "notifications.syncTaskReminders",
         "notifications.undoEmailOptOut",
         "notifications.unreadCount"
@@ -5093,8 +5092,8 @@
         "arguments": {
           "operation_matrix": [
             "church.digestSchedule.set",
+            "meetings.planNotifications",
             "notifications.applyEmailOptOut",
-            "notifications.cancelForEntity",
             "notifications.cancelTaskReminders",
             "notifications.claimDue",
             "notifications.describeEmailOptOut",
@@ -5124,7 +5123,6 @@
             "notifications.retryAssociationReceipt",
             "notifications.sendDiscoveryAssociationReceipt",
             "notifications.setPreferences",
-            "notifications.syncMeetingReminders",
             "notifications.syncTaskReminders",
             "notifications.undoEmailOptOut",
             "notifications.unreadCount"
@@ -5191,8 +5189,8 @@
             "arguments": {
               "operation_matrix": [
                 "church.digestSchedule.set",
+                "meetings.planNotifications",
                 "notifications.applyEmailOptOut",
-                "notifications.cancelForEntity",
                 "notifications.cancelTaskReminders",
                 "notifications.claimDue",
                 "notifications.describeEmailOptOut",
@@ -5222,7 +5220,6 @@
                 "notifications.retryAssociationReceipt",
                 "notifications.sendDiscoveryAssociationReceipt",
                 "notifications.setPreferences",
-                "notifications.syncMeetingReminders",
                 "notifications.syncTaskReminders",
                 "notifications.undoEmailOptOut",
                 "notifications.unreadCount"
@@ -5269,8 +5266,8 @@
             "arguments": {
               "operation_matrix": [
                 "church.digestSchedule.set",
+                "meetings.planNotifications",
                 "notifications.applyEmailOptOut",
-                "notifications.cancelForEntity",
                 "notifications.cancelTaskReminders",
                 "notifications.claimDue",
                 "notifications.describeEmailOptOut",
@@ -5300,7 +5297,6 @@
                 "notifications.retryAssociationReceipt",
                 "notifications.sendDiscoveryAssociationReceipt",
                 "notifications.setPreferences",
-                "notifications.syncMeetingReminders",
                 "notifications.syncTaskReminders",
                 "notifications.undoEmailOptOut",
                 "notifications.unreadCount"
