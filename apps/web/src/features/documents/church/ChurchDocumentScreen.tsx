@@ -19,7 +19,7 @@ import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL, type FORMAT_LABEL } from "./labels.ts";
+import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
@@ -115,13 +115,13 @@ export function ChurchDocumentScreen({
 	const [exports, setExports] = useState(firstExports);
 	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
 	// spinner and a failure show beside the button that was clicked.
-	const [exporting, setExporting] = useState<{ at: number | null; format: keyof typeof FORMAT_LABEL } | null>(null);
+	const [exporting, setExporting] = useState<{ at: number | null; format: ExportFormat } | null>(null);
 	const [exportError, setExportError] = useState<{ at: number | null; message: string } | null>(null);
 	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
 	// reaches the same saved export instead of making a second one.
 	const keys = useRef(new Map<string, string>());
 
-	async function download(format: keyof typeof FORMAT_LABEL, at: number | null = null) {
+	async function download(format: ExportFormat, at: number | null = null) {
 		if (exporting) return;
 		const target = at === null ? revision : String(at);
 		const slot = `${target}:${format}`;

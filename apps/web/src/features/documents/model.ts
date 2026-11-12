@@ -1,11 +1,12 @@
-import type {
-	contextResult,
-	documentCategory,
-	documentFormat,
-	generatedDocument,
-	ownedDocument,
-	ownedListItem,
-	templateView,
+import {
+	MERGE_BYTES_MAX,
+	type contextResult,
+	type documentCategory,
+	type documentFormat,
+	type generatedDocument,
+	type ownedDocument,
+	type ownedListItem,
+	type templateView,
 } from "@everyfield/contracts/documents";
 import type { z } from "zod";
 
@@ -164,7 +165,15 @@ export function overridesOf(template: Template, drafts: Record<string, string>, 
 
 export function combinedTooLong(overrides: Record<string, string>) {
 	const bytes = Object.values(overrides).reduce((sum, value) => sum + new TextEncoder().encode(value).length, 0);
-	return bytes > 16 * 1024;
+	return bytes > MERGE_BYTES_MAX;
+}
+
+/** What the person reads when the merge fields together pass the byte cap. */
+export const MERGE_TOO_LONG = `Shorten the fields. Together they must stay under ${MERGE_BYTES_MAX / 1024} KB.`;
+
+/** The server refuses merge values over the byte cap at the path "overrides" (an unknown key is "overrides.<key>"). */
+export function mergeTooLong(code: string, path: string | undefined) {
+	return code === "invalid_input" && path === "overrides";
 }
 
 export function fileName(name: string, format: Format) {

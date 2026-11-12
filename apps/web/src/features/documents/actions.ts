@@ -19,12 +19,14 @@ import { documentActor } from "./server.ts";
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
+	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
 	| { status: "lost" };
 
 function refused(error: DocumentsError): DocumentOutcome<never> {
-	const problem = error.code === "invalid_input" ? error.details.issues[0]?.problem : undefined;
-	return problem ? { status: "refused", code: error.code, problem } : { status: "refused", code: error.code };
+	const issue = error.code === "invalid_input" ? error.details.issues[0] : undefined;
+	return issue
+		? { status: "refused", code: error.code, problem: issue.problem, path: issue.path }
+		: { status: "refused", code: error.code };
 }
 
 async function run<T>(

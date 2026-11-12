@@ -1,6 +1,6 @@
 "use client";
 
-import { attrIssue, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
+import { attrIssue, FORMAT_LIMITS, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useRef, useState } from "react";
@@ -77,7 +77,9 @@ function run(editor: Editor, make: (context: TableContext) => { table: TableNode
 	if (done) applyTable(editor, context, done.table, done.place);
 }
 
-/** The write-in row count: 0 to 200. A count outside it shows the format's message and is not applied. */
+const WRITE_IN = FORMAT_LIMITS.writeInRows;
+
+/** The write-in row count, in the format's range. A count outside it shows the format's message and is not applied. */
 function WriteInField({ editor, context }: { editor: Editor; context: TableContext }) {
 	const id = useId();
 	const [draft, setDraft] = useState<string | null>(null);
@@ -86,7 +88,7 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	const lastRow = !context.table.attrs.header && !context.table.content?.length && !context.table.attrs.source;
 	const issue = (text: string) =>
 		text.trim() === ""
-			? "Type a number from 0 to 200."
+			? `Type a number from ${WRITE_IN.min} to ${WRITE_IN.max}.`
 			: (attrIssue("table", "writeInRows", Number(text)) ?? (lastRow && Number(text) === 0 ? LAST_ROW : null));
 	// Undo or Redo can change the count under a typed draft: the field shows the stored count then.
 	const shown = draft !== null && (issue(draft) || Number(draft) === current) ? draft : String(current);
@@ -96,13 +98,13 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
 				Blank rows
 			</label>
-			<Tip text="How many blank rows to write in by hand, 0 to 200">
+			<Tip text={`How many blank rows to write in by hand, ${WRITE_IN.min} to ${WRITE_IN.max}`}>
 				<input
 					id={id}
 					type="number"
 					inputMode="numeric"
-					min={0}
-					max={200}
+					min={WRITE_IN.min}
+					max={WRITE_IN.max}
 					step={1}
 					value={shown}
 					aria-invalid={problem ? true : undefined}

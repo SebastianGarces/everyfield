@@ -5,7 +5,7 @@ import { MIME, fileName, type Format, type Resolved } from "./model.ts";
 
 export type PreviewReply =
 	| { status: "ok"; value: Resolved & { artifact: string | null } }
-	| { status: "refused"; code: string; problem?: string }
+	| { status: "refused"; code: string; problem?: string; path?: string }
 	| { status: "lost" };
 
 export function bytesOf(encoded: string) {

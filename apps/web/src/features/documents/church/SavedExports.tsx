@@ -6,7 +6,8 @@ import { Button, Card, ConfirmDialog, EmptyState } from "@everyfield/ui/controls
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { deleteSavedExport } from "./actions.ts";
-import { FORMAT_LABEL, savedAt as exportedAt } from "./labels.ts";
+import { FORMAT_LABEL } from "../model.ts";
+import { savedAt as exportedAt } from "./labels.ts";
 
 // The saved exports of one Church Document, newest first. Each row downloads the stored bytes of that export, which never
 // change after later edits, brand kit changes or renderer changes. Only an Owner or Admin sees Delete.

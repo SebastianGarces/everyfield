@@ -32,7 +32,7 @@ export async function documentActor(): Promise<RequestActor | null> {
 
 export type PreviewOutcome =
 	| { status: "ok"; value: Resolved & { artifact: string | null } }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
+	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
 	| { status: "lost" };
 
 /**
@@ -50,9 +50,9 @@ export async function readPreview(
 	try {
 		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides });
 		if (reply.status === "refused") {
-			const problem = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.problem : undefined;
-			return problem
-				? { status: "refused", code: reply.error.code, problem }
+			const issue = reply.error.code === "invalid_input" ? reply.error.details.issues[0] : undefined;
+			return issue
+				? { status: "refused", code: reply.error.code, problem: issue.problem, path: issue.path }
 				: { status: "refused", code: reply.error.code };
 		}
 		const value = reply.value;
