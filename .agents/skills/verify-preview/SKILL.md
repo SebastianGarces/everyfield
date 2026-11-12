@@ -23,13 +23,13 @@ Keep scripts, logs, screenshots and videos in `$E`, never in the repository.
 ## Browsers and processes
 
 The machine has little CPU and memory. Run one browser job at a time and close every browser you
-start (D35). These rules apply to every role that opens a browser.
+start. These rules apply to every role that opens a browser.
 
 - Scripted checks run through `bin/dev browser run [--timeout <s>] -- <command>`. It runs the
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
   times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-- Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
+- Interactive checks use agent-browser, never the Playwright MCP. Give each job its own
   session and a short idle timeout, and close it when you finish, also after a failure:
 
   ```bash
@@ -130,7 +130,7 @@ flow check on the branch.
 
 Measure end-to-end time for every changed read and write on the production preview, from the user
 action until its confirmed result. Simple actions must finish in under 1 second. Do not time a head
-that already has blocking behavior findings (C119). The quiet timing runner of D81 retired with evf v1,
+that already has blocking behavior findings. The quiet timing runner of D81 retired with evf v1,
 so say what else shared the machine and the database, and do not call a miss proven or a pass
 qualifying on one sample. Keep the measurements in `$E`. Record whether writes update the UI
 optimistically and roll back clearly on failure. Count requests for main actions and inspect them for needless
