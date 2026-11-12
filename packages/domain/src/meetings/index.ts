@@ -2,7 +2,13 @@ import "server-only";
 export { previewMeetingsWrite, withMeetingsWrite, type MeetingsContext } from "./core.ts";
 export { guestsWriter } from "./guests.ts";
 export { meetingsWriter } from "./meetings.ts";
-export { authorizeMeetingNotices, meetingNotice, planNotifications } from "./notifications.ts";
+export {
+	authorizeMeetingNotices,
+	mailGrantInput,
+	meetingMailGrants,
+	meetingNotice,
+	planNotifications,
+} from "./notifications.ts";
 export { meetingsReader } from "./queries.ts";
 export { rosterReader, rosterWriter } from "./roster.ts";
 export { answerRsvpToken, describeRsvpToken } from "./tokens.ts";

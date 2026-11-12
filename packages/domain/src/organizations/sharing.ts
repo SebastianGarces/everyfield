@@ -9,6 +9,7 @@ import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
+import { queueMilestoneJob } from "./notifications.ts";
 import {
 	active,
 	administrator,
@@ -194,7 +195,7 @@ const disclosureRow = z.object({
 	shared_findings: z.boolean().nullable(),
 });
 
-// Both privacy and settings use one locked revision update, audit and invalidation.
+// Both privacy and settings use one locked revision update, audit, invalidation and milestone job.
 // Caller has freshly checked the exact pair and both CAS revisions.
 export async function applySharingMutation(
 	tx: Transaction,
@@ -222,6 +223,9 @@ export async function applySharingMutation(
 	const next = String(BigInt(a.revision) + 1n);
 	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 	invalidate(tx, effects, c, pairOf(a), a.id, next);
+	// Sharing belongs to a plant's connection only: both callers checked the plant side.
+	if (a.plant_id)
+		c.writes.push(queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "sharing", revision: next }));
 	return {
 		changed: true,
 		events: [event],

@@ -19,7 +19,7 @@ The inventory below defines ordinary work and the logical identity that must not
 | Kind | Worker | Work and duplicate-prevention outcome |
 |---|---|---|
 | mail | The mail worker; the scheduled runner sends church invitation mail | Dispatch or reconcile one immutable reviewed mail intent. Preserve the original provider correlation and actual outcome across retries. |
-| notification | The notification worker, in the scheduled runner | Send each meeting's announcement and its 7, 3 and 1 day reminders once per slot. Meeting writes queue one job per slot and supersede a moved meeting's old slots; the worker reads the meeting's plan when the job is due and writes a planned slot's notices and email to its current recipients. A passed, suppressed or stale slot sends nothing, and a sent slot is never queued again. |
+| notification | The notification worker, in the scheduled runner | Send each meeting's announcement and its 7, 3 and 1 day reminders once per slot. Meeting writes queue one job per slot and supersede a moved meeting's old slots; the worker reads the meeting's plan when the job is due and writes a planned slot's notices and email to its current recipients. A passed, suppressed or stale slot sends nothing, and a sent slot is never queued again. Approving or ending a plant's connection, and changing what the plant shares, queue one job for the affiliation per occurrence, keyed by the revision that write produced; the worker tells the plant's current Owners and Admins, never the organization (D-795), while the occurrence still holds: an approval or sharing change while the connection is active, an end while it is ended (D-796). |
 | digest | The digest worker, after digest planning | Cover each owed recipient/category interval once in its confirmed zone. Advance coverage only when owed mail is saved; empty catch-up sends nothing. |
 | object_cleanup | The object cleanup worker | Finish or reconcile upload cleanup without deleting bytes concurrently finalized for authorized use. |
 | lifecycle_purge | The purge worker, on the cleanup login | Complete the exact eligible deletion request once its cancellation deadline passes. Interrupted cleanup stays hidden until coherent completion. |
@@ -29,7 +29,7 @@ The inventory below defines ordinary work and the logical identity that must not
 
 The scheduled runner runs each worker in its own step, so one step that fails leaves the others to run in the same tick, and its response reports each step's status.
 
-Relationship and sharing milestone notices are a later slice of the notification worker (D-761), and nothing writes launch milestones yet (D-762), so their Settings categories stay hidden. The assessment, reference generation, feedback publication and document render kinds were dropped because no worker claimed them (D-530); a kind returns with the worker that runs it.
+Nothing writes launch milestones yet (D-762), so their Settings category stays hidden. The assessment, reference generation, feedback publication and document render kinds were dropped because no worker claimed them (D-530); a kind returns with the worker that runs it.
 
 Authenticated mail callbacks retain and apply actual provider delivery evidence. Duplicate or out-of-order events never resend mail or rewind facts. Dispatch and reconciliation stay correlated with the original reviewed mail and its known outcome. Restricted backup, witness sync, copy expiry and restore are outside ordinary job dispatch and ordinary application secrets.
 

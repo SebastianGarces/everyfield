@@ -1,6 +1,5 @@
-// Settings > Notifications offers a choice only for a category something sends. Connection and sharing milestones are a
-// later slice (D-761) and nothing writes launch milestones yet (D-762), so those rows stay hidden even when the account
-// has stored choices for them. No browser needed.
+// Settings > Notifications offers a choice only for a category something sends. Nothing writes launch milestones yet
+// (D-762), so that row stays hidden even when the account has stored choices for it. No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
@@ -20,6 +19,8 @@ test("INV-notification-rows: only categories with a producer are offered, in mat
 			"meeting_reminder",
 			"planter_digest",
 			"oversight_digest",
+			"relationship_milestone",
+			"sharing_milestone",
 			"phase_milestone",
 			"wiki_upstream_review",
 			"scheduled_email_unsubscribe",
@@ -27,7 +28,7 @@ test("INV-notification-rows: only categories with a producer are offered, in mat
 	);
 });
 
-test("INV-notification-rows: a stored choice for a hidden category makes no row, and a sent one keeps its pairs", () => {
+test("INV-notification-rows: a stored choice for launch milestones makes no row, and a sent one keeps its pairs", () => {
 	const rows = preferenceRows([
 		{ category: "launch_milestone", channel: "email", enabled: true },
 		{ category: "relationship_milestone", channel: "in_app", enabled: true },
@@ -40,6 +41,8 @@ test("INV-notification-rows: a stored choice for a hidden category makes no row,
 		rows.map((row) => [row.category, row.inApp?.enabled, row.email?.enabled]),
 		[
 			["meeting_reminder", undefined, true],
+			["relationship_milestone", true, undefined],
+			["sharing_milestone", undefined, true],
 			["phase_milestone", true, undefined],
 			["wiki_upstream_review", false, undefined],
 		],
