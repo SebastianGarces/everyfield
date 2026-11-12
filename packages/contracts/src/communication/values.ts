@@ -2,8 +2,11 @@ import { z } from "zod";
 import { meetingTemplateTypes, templateCategories } from "./catalog.ts";
 
 export const communicationStates = ["draft", "reviewed", "scheduled"] as const;
-/** The most people one message reaches. One provider request holds at most this many emails (REQ-COM-005). */
-export const AUDIENCE_LIMIT = 100;
+/**
+ * The most emails one email-service call takes (REQ-COM-005). A Messages handoff freezes its audience in ordered batches
+ * of at most this many, each its own request under its own key; the Resend adapter's batch answer is held to it too.
+ */
+export const MAIL_BATCH_LIMIT = 100;
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
 
 /** A closed group token is a string. An unknown token matches nobody. */

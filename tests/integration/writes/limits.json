@@ -659,6 +659,10 @@
 	"meetings.addAttendeeNote": {
 		"limit": 2
 	},
+	"meetings.addGuests": {
+		"limit": 6,
+		"retry": 5
+	},
 	"meetings.attendanceSummary": {
 		"limit": 1
 	},

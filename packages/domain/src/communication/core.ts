@@ -49,7 +49,6 @@ const retry: Record<Code, string> = {
 	referenced: "never",
 	not_found: "never",
 	rsvp_needs_meeting: "never",
-	audience_too_large: "never",
 	cancel_unconfirmed: "never",
 };
 function refused(error: CommunicationRefusal): CommunicationReply<never> {
