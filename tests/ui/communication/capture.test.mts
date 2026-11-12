@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { captureAllowed, NO_ANSWER_FILE, record } from "../../../apps/web/src/features/communication/capture.ts";
+import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/features/communication/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/features/communication/mail.ts";
 
@@ -102,9 +102,9 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 test("INV-communication-outbox: the outbox lists newest first", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "outbox-test-"));
 	const message = { from: "f@x.test", to: "t@x.test", html: "h", text: "t" };
-	await record({ ...message, subject: "first" }, null, dir);
+	await capture({ ...message, subject: "first" }, null, "first", dir);
 	await new Promise((done) => setTimeout(done, 5));
-	await record({ ...message, subject: "second" }, null, dir);
+	await capture({ ...message, subject: "second" }, null, "second", dir);
 	assert.deepEqual(
 		(await readOutbox(dir)).map((e) => e.subject),
 		["second", "first"],

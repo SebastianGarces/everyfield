@@ -3,9 +3,21 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { spawn } from "node:child_process";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { join } from "node:path";
+import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { createNotificationProducer, issueMailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
+import { ok, seeds } from "../../support/fixture.mts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { createMailService, claimUnknownMail } from "../../../apps/web/src/server/jobs/mail.ts";
+import {
+	createMailService,
+	claimUnknownMail,
+	MAIL_PASSES,
+	runDueMail,
+} from "../../../apps/web/src/server/jobs/mail.ts";
+import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { protectedTemplate } from "../../../apps/web/src/server/jobs/templates.ts";
 import { claimDue, recoverLease } from "../../../apps/web/src/server/jobs/queue.ts";
@@ -79,7 +91,7 @@ const service = createMailService({
 async function enqueue(
 	purpose = "notification",
 	content = { subject: "Synthetic", text: "safe" },
-	logicalKey = randomUUID(),
+	logicalKey = `test/${randomUUID()}`,
 ) {
 	return transaction(runtime, (tx) =>
 		service.enqueue(tx, {
@@ -144,7 +156,7 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 	);
 	mode = "accepted";
 	const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0].at;
-	const [again] = await claimUnknownMail(runtime);
+	const [again] = await claimUnknownMail(runtime, ["test/"]);
 	assert.equal(again.id, claim.id);
 	assert.equal(
 		(
@@ -170,7 +182,7 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(expired)})`,
 	);
-	assert.deepEqual(await claimUnknownMail(runtime), []);
+	assert.deepEqual(await claimUnknownMail(runtime, ["test/"]), []);
 	const count = requests.length;
 	assert.deepEqual(await service.reconcileUnknownOutcome(expired), { kind: "unknown" });
 	assert.equal(requests.length, count);
@@ -217,7 +229,7 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 	);
 	mode = "accepted";
 	await db.execute(querySql`UPDATE job SET next_attempt_at=NULL WHERE subject_record_id=${querySql.param(id)}`);
-	const [claim] = await claimUnknownMail(runtime);
+	const [claim] = await claimUnknownMail(runtime, ["test/"]);
 	assert.equal(claim.subject_record_id, id);
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
 	assert.equal(effects.size, count);
@@ -422,5 +434,228 @@ test("INV-mail: hard bounce suppresses even security mail; soft bounce does not"
 	assert.equal(
 		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(next)}`)).rows[0].state,
 		"refused",
+	);
+});
+
+// T-151: every queued mail reaches the email service from the scheduled runner, and every unknown outcome settles.
+
+/** A mail service over a recording email service: it keeps each send's idempotency key and answers with `answer`. */
+function recorded(answer: () => { kind: "accepted"; id: string } | { kind: "unknown" }) {
+	const keys: string[] = [];
+	const svc = createMailService({
+		db: runtime,
+		encryptionKey: key,
+		addressKey: randomBytes(32),
+		from: "no-reply@example.test",
+		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
+		transport: {
+			async send(_payload, k) {
+				keys.push(k);
+				return answer();
+			},
+			async lookup() {
+				return { kind: "unknown" };
+			},
+		},
+	});
+	return { svc, keys };
+}
+/** One queued mail under `logicalKey`, due now, to an address no earlier test suppressed. */
+function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extra: Record<string, unknown> = {}) {
+	return transaction(runtime, (tx) =>
+		svc.enqueue(tx, {
+			owner: { kind: "plant", id: tenant },
+			purpose: "notification",
+			logicalKey,
+			recipient: account,
+			address: `queued-${randomUUID()}@example.test`,
+			content: { subject: "Queued", text: "safe" },
+			operation: null,
+			notice: null,
+			eligibleAt: new Date(Date.now() - 60_000).toISOString(),
+			...extra,
+		} as never),
+	);
+}
+const cron = "cron-" + randomUUID();
+/** One scheduled-runner tick with only these mail passes configured. */
+async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
+	const response = await scheduledJobs({
+		secret: cron,
+		db: runtime,
+		storage: null,
+		cleanup: null,
+		reminders: null,
+		digests: null,
+		mail: null,
+		mountMail,
+	})(new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }));
+	return (await response.json()) as { steps: Record<string, { status: string; count?: unknown }> };
+}
+const passOver =
+	(svc: ReturnType<typeof recorded>["svc"], prefixes: readonly string[]) => (limit: number, until: number) =>
+		runDueMail(runtime, svc, prefixes, limit, until);
+const row = async (query) => (await db.execute(query)).rows[0];
+
+test("AC:T151-2 every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
+	// Producers whose prefix is built at run time, by producer.
+	const listed = [
+		"password_reset/", // packages/domain/src/identity/service.ts: `${purpose}/${digest(token)}` and the outcome notice
+		"email_verification/", // packages/domain/src/identity/service.ts: `${purpose}/${digest(token)}`
+		"digest/", // apps/web/src/server/jobs/digest.ts: MAIL_KEY + the digest notice's key
+		"notice/", // apps/web/src/server/jobs/notifications.ts: "notice/" + the notice id (tasks, phases, meetings, milestones)
+	];
+	// Every literal prefix in a producer's mail intent: `logicalKey: "x/..."` or `logicalKey: \`x/...\``.
+	const root = new URL("../../../", import.meta.url).pathname;
+	const files = (dir: string): string[] =>
+		readdirSync(dir).flatMap((name) => {
+			const path = join(dir, name);
+			if (statSync(path).isDirectory()) return name === "node_modules" ? [] : files(path);
+			return /\.(ts|tsx)$/.test(name) && !/\.test\./.test(name) ? [path] : [];
+		});
+	const literal = new Set<string>();
+	for (const file of [...files(join(root, "apps/web/src")), ...files(join(root, "packages/domain/src"))])
+		for (const m of readFileSync(file, "utf8").matchAll(/logicalKey:\s*[`"']([a-z_-]+\/)/g)) literal.add(m[1]!);
+	// Messages email (communication/) is handed off by its own runner step and Messages screens, not a mail pass.
+	literal.delete("communication/");
+	const prefixes = [...new Set([...listed, ...literal])].sort();
+	assert.ok(prefixes.length >= 12, prefixes.join(" "));
+	for (const prefix of prefixes) {
+		const passes = Object.entries(MAIL_PASSES).filter(([, owned]) => (owned as readonly string[]).includes(prefix));
+		assert.equal(passes.length, 1, `${prefix} is claimed by ${passes.map(([name]) => name).join(", ") || "no pass"}`);
+	}
+	// And no pass claims a prefix nothing writes.
+	assert.deepEqual(Object.values(MAIL_PASSES).flat().sort(), prefixes);
+});
+
+test("AC:T151-3 a seeded backlog of dead links and past reminders sends none of it on the first tick; fresh mail still goes", async () => {
+	const { svc, keys } = recorded(() => ({ kind: "accepted", id: randomUUID() }));
+	const deadReset = await queue(svc, `password_reset/${randomUUID()}`, { purpose: "password_reset" });
+	const deadVerify = await queue(svc, `email_verification/${randomUUID()}`, { purpose: "email_verification" });
+	const resetOutcome = await queue(svc, `password_reset/outcome/${randomUUID()}`, { purpose: "password_reset" });
+	const freshReset = await queue(svc, `password_reset/${randomUUID()}`, { purpose: "password_reset" });
+	const notice = randomUUID(),
+		task = randomUUID();
+	await db.execute(querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date)
+		VALUES(${querySql.param(task)},${querySql.param(tenant)},'Call','general','medium','not_started',clock_timestamp(),
+		'date_only',(clock_timestamp()-interval '2 days')::date)`);
+	await db.execute(querySql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,
+		source_revision,title,eligible_at,created_at) VALUES(${querySql.param(notice)},${querySql.param(tenant)},${querySql.param(account)},
+		'task','task_due',${"task/task_due/" + randomUUID()},${querySql.param(task)},1,'Task due',
+		clock_timestamp()-interval '2 days',clock_timestamp())`);
+	const pastReminder = await queue(svc, `notice/${notice}`, { notice });
+	// The links were requested two hours ago (they work for one); the reminder's slot was two days ago.
+	await db.execute(querySql`UPDATE mail SET created_at=clock_timestamp()-interval '2 hours'
+		WHERE id=ANY(${querySql.param([deadReset, deadVerify, resetOutcome])}::uuid[])`);
+	await db.execute(querySql`UPDATE job SET eligible_at=clock_timestamp()-interval '2 days'
+		WHERE subject_record_id=${querySql.param(pastReminder)}`);
+
+	const { steps } = await tick({
+		identity: passOver(svc, MAIL_PASSES.identity),
+		notice: passOver(svc, MAIL_PASSES.notice),
+	});
+	assert.deepEqual(steps["mail-expiry"], { status: "ok", count: 3 });
+	assert.deepEqual(steps["identity-mail"], { status: "ok", count: 2 });
+	assert.deepEqual(steps["notice-mail"], { status: "ok", count: 0 });
+	assert.equal(keys.length, 2, "only the fresh link and the reset's outcome notice reached the email service");
+	const states = async (ids: string[]) =>
+		(
+			await db.execute(querySql`SELECT m.state, j.state AS job, j.error_code FROM mail m JOIN job j ON j.id=m.job_id
+				WHERE m.id=ANY(${querySql.param(ids)}::uuid[])`)
+		).rows;
+	for (const r of await states([deadReset, deadVerify, pastReminder]))
+		assert.deepEqual(r, { state: "cancelled", job: "cancelled", error_code: "stale" });
+	for (const r of await states([freshReset, resetOutcome])) assert.equal(r.state, "accepted");
+});
+
+test("AC:T151-4 an unknown handoff is replayed on the next tick under the same key, only inside the provider window", async () => {
+	let answer: { kind: "accepted"; id: string } | { kind: "unknown" } = { kind: "unknown" };
+	const { svc, keys } = recorded(() => answer);
+	const pass = { identity: passOver(svc, ["replay/"]) };
+	const id = await queue(svc, `replay/${randomUUID()}`);
+	assert.deepEqual((await tick(pass)).steps["identity-mail"], { status: "ok", count: 1 });
+	assert.equal(keys.length, 1);
+	assert.deepEqual(
+		await row(
+			querySql`SELECT m.state, j.state AS job FROM mail m JOIN job j ON j.id=m.job_id WHERE m.id=${querySql.param(id)}`,
+		),
+		{ state: "unknown", job: "reconcile" },
+	);
+	answer = { kind: "accepted", id: "replayed-" + randomUUID() };
+	assert.deepEqual((await tick(pass)).steps["identity-mail"], { status: "ok", count: 1 });
+	assert.equal(keys.length, 2);
+	assert.equal(keys[1], keys[0], "the replay carries the first handoff's idempotency key");
+	assert.deepEqual(
+		await row(querySql`SELECT m.state, m.provider_message_id AS provider, j.state AS job FROM mail m JOIN job j ON j.id=m.job_id
+			WHERE m.id=${querySql.param(id)}`),
+		{ state: "accepted", provider: answer.id, job: "succeeded" },
+	);
+
+	// Past the window (23 h 55 min from the first handoff) the mail is not replayed and its job is not left claimed.
+	answer = { kind: "unknown" };
+	const late = await queue(svc, `replay/${randomUUID()}`);
+	await tick(pass);
+	assert.equal(keys.length, 3);
+	await db.execute(querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '23 hours 56 minutes'
+		WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(late)})`);
+	answer = { kind: "accepted", id: "too-late-" + randomUUID() };
+	assert.deepEqual((await tick(pass)).steps["identity-mail"], { status: "ok", count: 0 });
+	assert.equal(keys.length, 3);
+	assert.deepEqual(
+		await row(querySql`SELECT m.state, j.state AS job, j.lease_owner FROM mail m JOIN job j ON j.id=m.job_id
+			WHERE m.id=${querySql.param(late)}`),
+		{ state: "unknown", job: "reconcile", lease_owner: null },
+	);
+});
+
+test("AC:T151-5 a stored callback whose email had no provider id yet is applied on the first tick after it gets one", async () => {
+	const providerId = "early-" + randomUUID();
+	assert.deepEqual(await receiveMailCallback(runtime, await callback(providerId, "delivered"), secret), {
+		stored: true,
+		result: "unmatched",
+	});
+	const { svc } = recorded(() => ({ kind: "accepted", id: providerId }));
+	const id = await queue(svc, `callback/${randomUUID()}`);
+	const { steps } = await tick({ identity: passOver(svc, ["callback/"]) });
+	assert.deepEqual(steps["identity-mail"], { status: "ok", count: 1 });
+	assert.deepEqual(steps["mail-callbacks"], { status: "ok", count: 1 });
+	assert.deepEqual(
+		await row(querySql`SELECT state, provider_message_id AS provider, delivered_at IS NOT NULL AS delivered FROM mail
+			WHERE id=${querySql.param(id)}`),
+		{ state: "sent", provider: providerId, delivered: true },
+	);
+});
+
+test("AC:T151-7 an Unsubscribe link minted before the account's first cadence save still unsubscribes after it", async () => {
+	const ring = { current: randomBytes(32), previous: [] };
+	const api = createNotificationProducer({ optOutKeys: ring });
+	const reader = await seeds(db).actor({ kind: "plant", id: tenant } as never, "admin");
+	// The digest email sent before any preference row exists carries revision 0 (mail.ts live()).
+	const token = issueMailOptOutToken(ring, {
+		accountId: reader.id,
+		category: "planter_digest",
+		unsubscribeRevision: "0",
+		iat: new Date().toISOString(),
+	});
+	const actor = await RequestActor.resolve(runtime, sessionId.parse(reader.session));
+	const before = ok(await api.getPreferences(runtime, actor, {}));
+	ok(
+		await api.setDigestCadence(runtime, actor, {
+			requestKey: randomUUID(),
+			expectedRevision: before.revision,
+			input: { plantId: tenant, cadence: "weekly" },
+		}),
+	);
+	const saved = await row(querySql`SELECT unsubscribe_revision::text AS rev, enabled FROM notification_preference
+		WHERE account_id=${querySql.param(reader.id)} AND category='planter_digest' AND channel='email'`);
+	assert.deepEqual(saved, { rev: "0", enabled: true });
+	const out = ok(await api.applyEmailOptOut(runtime, { token }));
+	assert.equal(out.changed, true);
+	assert.equal(
+		(
+			await row(querySql`SELECT enabled FROM notification_preference
+				WHERE account_id=${querySql.param(reader.id)} AND category='planter_digest' AND channel='email'`)
+		).enabled,
+		false,
 	);
 });

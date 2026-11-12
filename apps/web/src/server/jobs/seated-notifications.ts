@@ -3,19 +3,20 @@ import { reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
 import type { mailEnv } from "../mail-env.ts";
-import { createMailService, queueOnlyTransport, type AuthorizeMail, type MailUnsubscribe } from "./mail.ts";
+import { createMailService, type AuthorizeMail, type MailTransport, type MailUnsubscribe } from "./mail.ts";
 import { createNotificationService } from "./notifications.ts";
 
-// The mail and notification services the server mounts share. Mail is queued only: until mail sending exists, every
-// mount uses a transport that refuses each send as retryable, so the mail waits in the queue. Notices reach a recipient
-// only while they hold an accepted seat in the church, at that seat's address.
+// The mail and notification services the server mounts share. A request or worker that writes notices queues their
+// mail with a service that has no transport; the scheduled runner's pass for that mail sends it through the email
+// service. Notices reach a recipient only while they hold an accepted seat in the church, at that seat's address.
 
-/** A mail service whose transport refuses every send, so it queues mail and sends none. */
-export function queuedMailService(config: {
+/** A mount's mail service: without `transport` it only queues mail; the runner's pass gives it the email service. */
+export function mountMailService(config: {
 	db: Database;
 	env: z.infer<z.ZodObject<typeof mailEnv>>;
 	authorize: AuthorizeMail;
 	unsubscribe?: MailUnsubscribe;
+	transport?: MailTransport;
 }) {
 	return createMailService({
 		db: config.db,
@@ -24,7 +25,7 @@ export function queuedMailService(config: {
 		from: config.env.IDENTITY_MAIL_FROM,
 		authorize: config.authorize,
 		...(config.unsubscribe !== undefined ? { unsubscribe: config.unsubscribe } : {}),
-		transport: queueOnlyTransport,
+		transport: config.transport,
 	});
 }
 

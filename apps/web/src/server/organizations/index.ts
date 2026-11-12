@@ -17,7 +17,7 @@ import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
-import { createMailService, queueOnlyTransport, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { getViewer } from "../request-context";
 
 // The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
@@ -37,13 +37,10 @@ export type Mount = NonNullable<ReturnType<typeof current>>;
 /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
-/** Organization mail keys: a relationship invitation to the typed address. */
-const ORGANIZATION_MAIL = ["relationship/"];
-
 /** The day an invitation stops working, as the mail prints it: a long date in UTC, labelled UTC. */
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
-function organizationMail(v: z.infer<typeof env>, transport: MailTransport) {
+function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
@@ -65,13 +62,13 @@ export function organizationMailPass(transport: MailTransport): MailPass | null 
 	if (!v.success) return null;
 	const db = database(v.data.IDENTITY_DATABASE_URL),
 		mail = organizationMail(v.data, transport);
-	return (limit, until) => runDueMail(db, mail, ORGANIZATION_MAIL, limit, until);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.organization, limit, until);
 }
 
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const mail = organizationMail(v, queueOnlyTransport);
+	const mail = organizationMail(v);
 	// Each effect is one or more rows the command runs inside its single write statement (D70).
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {

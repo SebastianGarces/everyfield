@@ -58,16 +58,15 @@ async function scheduled(name, email, at, extraIds = []) {
 	return { personId, saved, accepted, email };
 }
 function port(behavior) {
-	const calls = { send: 0, lookup: 0, cancel: 0, reschedule: 0 };
+	const calls = { send: 0, cancel: 0, reschedule: 0 };
+	const keys: string[] = [];
 	return {
 		calls,
+		keys,
 		async send(batch) {
 			calls.send += 1;
+			keys.push(batch.key);
 			return behavior.send(batch, calls);
-		},
-		async lookup(providerKey) {
-			calls.lookup += 1;
-			return behavior.lookup(providerKey, calls);
 		},
 		async cancel(ids) {
 			calls.cancel += 1;
@@ -187,9 +186,6 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 		async send() {
 			return { outcome: "ids", ids: ["prov-welcome"] };
 		},
-		async lookup() {
-			return { outcome: "ids", ids: ["prov-welcome"] };
-		},
 	});
 	const sent = ok(await handoff(owner, welcome.communicationId, accepted.revision, carrier));
 	assert.equal(sent.providerCalls, 1);
@@ -262,7 +258,7 @@ test("INV-access: a member cannot send or schedule a message", async () => {
 	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "handOffScheduled"), "access_denied");
 
 	assert.deepEqual({ draft: await stored(draft.communicationId), ready: await stored(scheduledId) }, before);
-	assert.deepEqual(carrier.calls, { send: 0, lookup: 0, cancel: 0, reschedule: 0 });
+	assert.deepEqual(carrier.calls, { send: 0, cancel: 0, reschedule: 0 });
 });
 
 test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the answered recipient", async () => {
@@ -287,12 +283,11 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
+	// The second call re-sends the 99 unanswered emails under the same key: a different request body, which the email
+	// service answers with no ids (a 409).
 	const carrier = port({
-		async send() {
-			return { outcome: "ids", ids: ["prov-0"] };
-		},
-		async lookup() {
-			return { outcome: "ids", ids: ["prov-0"] };
+		async send(_batch, calls) {
+			return calls.send === 1 ? { outcome: "ids", ids: ["prov-0"] } : { outcome: "unknown" };
 		},
 	});
 	const first = ok(await handoff(owner, saved.communicationId, accepted.revision, carrier, "sendReviewed"));
@@ -303,7 +298,8 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	assert.equal(first.replayedWithNewKeys, 0);
 	assert.equal(first.status, "partial");
 	const again = ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
-	assert.equal(carrier.calls.send, 1);
+	assert.equal(carrier.calls.send, 2);
+	assert.equal(carrier.keys[1], carrier.keys[0]);
 	assert.equal(again.providerCalls, 0);
 	assert.equal(again.unknownCount, 99);
 	assert.deepEqual(again.confirmedRecipientIds, [sorted[0]]);
@@ -317,9 +313,6 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	const denyPort = port({
 		async send() {
 			return { outcome: "refused" };
-		},
-		async lookup() {
-			return { outcome: "unknown" };
 		},
 	});
 	const failed = ok(
@@ -342,9 +335,6 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 		async send() {
 			return { outcome: "unknown" };
 		},
-		async lookup() {
-			return { outcome: "unknown" };
-		},
 	});
 	const uncertain = ok(
 		await handoff(owner, unknownPair.saved.communicationId, unknownPair.accepted.value.revision, lost, "sendReviewed"),
@@ -355,15 +345,15 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	assert.equal(uncertain.unknownCount, 1);
 });
 
-test("AC:MAIL-LEDGER-001 a send whose call throws is unknown and the next call looks up the same key", async () => {
+test("AC:MAIL-LEDGER-001 a send whose call throws is unknown, and Check result re-sends the same key and settles it", async () => {
 	const made = await scheduled("Crash", `crash-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
+	// The first call reaches the email service but its answer is lost; the email service answers the same key's
+	// repeat with the first result, as Resend's idempotency does.
 	const carrier = port({
-		async send() {
-			throw new Error("provider down");
-		},
-		async lookup() {
-			return { outcome: "unknown" };
+		async send(_batch, calls) {
+			if (calls.send === 1) throw new Error("provider down");
+			return { outcome: "ids", ids: ["prov-crash"] };
 		},
 	});
 	const first = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
@@ -373,28 +363,30 @@ test("AC:MAIL-LEDGER-001 a send whose call throws is unknown and the next call l
 	const mid = await mailFor(made.saved.communicationId);
 	assert.equal(mid.length, 1);
 	assert.equal(new Set(mid.map((row) => row.provider_key)).size, 1);
-	// The email service may hold it (T-228): the recipient is unknown, so the next call looks it up instead of sending.
+	// The email service may hold it (T-228): the recipient is unknown until a check.
 	assert.equal(mid[0].outcome, "unknown");
 	assert.equal(mid[0].state, "unknown");
 	const second = ok(
 		await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier, "reconcileProviderOutcome"),
 	);
-	assert.equal(carrier.calls.send, 1);
-	assert.equal(carrier.calls.lookup, 1);
+	// Check result asked with the same stored request and key: no new handoff and no second email.
+	assert.equal(carrier.calls.send, 2);
+	assert.deepEqual(carrier.keys, [mid[0].provider_key, mid[0].provider_key]);
 	assert.equal(second.providerCalls, 0);
 	assert.equal(second.replayedWithNewKeys, 0);
+	assert.equal(second.acceptedCount, 1);
 	const after = await mailFor(made.saved.communicationId);
 	assert.equal(after.length, 1);
+	assert.equal(after[0].state, "accepted");
+	assert.equal(after[0].provider_message_id, "prov-crash");
+	assert.equal(after[0].outcome, "accepted");
 });
 
-test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a foreign person sends nothing", async () => {
+test("AC:MAIL-KEYWINDOW-001 a check inside the provider window re-sends the same key, after it nothing; a foreign person sends nothing", async () => {
 	const made = await scheduled("Window", `window-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
-			return { outcome: "unknown" };
-		},
-		async lookup() {
 			return { outcome: "unknown" };
 		},
 	});
@@ -424,8 +416,9 @@ test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a fore
 			new Date(before.first_dispatched_at).toISOString(),
 		);
 	}
-	assert.equal(carrier.calls.send, 1);
-	assert.equal(carrier.calls.lookup, 2);
+	// 23 h 50 min: the check re-sends under the first key. 23 h 56 min: past the window, no call at all.
+	assert.equal(carrier.calls.send, 2);
+	assert.equal(carrier.keys[1], carrier.keys[0]);
 	const local = await person("Local", { email: `local-${key().slice(0, 8)}@example.test` });
 	const outsider = await person("Outsider", { email: `out-${key().slice(0, 8)}@example.test`, plant: other.id });
 	const mixed = ok(
@@ -449,7 +442,7 @@ test("AC:MAIL-KEYWINDOW-001 replay after the provider window looks up and a fore
 	assert.deepEqual(denied.details, {});
 	assert.equal(Object.hasOwn(denied.details, "foreignManifest"), false);
 	assert.equal((await mailFor(mixed.communicationId)).length, 0);
-	assert.equal(carrier.calls.send, 1);
+	assert.equal(carrier.calls.send, 2);
 });
 
 test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, and reschedule do not send a new message", async () => {
@@ -457,9 +450,6 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
-			return { outcome: "ids", ids: ["prov-cancel"] };
-		},
-		async lookup() {
 			return { outcome: "ids", ids: ["prov-cancel"] };
 		},
 		cancel() {
@@ -528,9 +518,6 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 		async send() {
 			return { outcome: "unknown" };
 		},
-		async lookup() {
-			return { outcome: "unknown" };
-		},
 	});
 	ok(await handoff(owner, unknownOne.saved.communicationId, unknownOne.accepted.value.revision, unknownPort));
 	const unknownReplace = ok(
@@ -546,9 +533,6 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	const drop = await scheduled("Drop", `drop-${key().slice(0, 8)}@example.test`, AT);
 	const confirmPort = port({
 		async send() {
-			return { outcome: "ids", ids: ["prov-drop"] };
-		},
-		async lookup() {
 			return { outcome: "ids", ids: ["prov-drop"] };
 		},
 		cancel() {
@@ -585,9 +569,6 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 		async send() {
 			return { outcome: "ids", ids: ["prov-move"] };
 		},
-		async lookup() {
-			return { outcome: "ids", ids: ["prov-move"] };
-		},
 	});
 	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort, "handOffScheduled"));
 	const beforeCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
@@ -619,9 +600,6 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
-			return { outcome: "ids", ids: ["prov-callback"] };
-		},
-		async lookup() {
 			return { outcome: "ids", ids: ["prov-callback"] };
 		},
 	});
@@ -709,6 +687,22 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.notEqual(mail.state, "accepted");
 	assert.ok(mail.delivered_at);
+	// AC:T151-6 A correctly signed event of a type this app does not handle is acknowledged, so the email service stops
+	// retrying it, and changes nothing. The same body with a bad signature is still refused.
+	const delayed = await resendWebhook(signed("prov-callback", "delivery_delayed"), () => f.db, secret);
+	assert.equal(delayed.status, 200);
+	assert.deepEqual(await delayed.json(), { stored: false, result: "ignored" });
+	const forged = await resendWebhook(
+		signed("prov-callback", "delivery_delayed"),
+		() => f.db,
+		"whsec_" + randomBytes(32).toString("base64"),
+	);
+	assert.equal(forged.status, 401);
+	assert.equal(await events(), 2);
+	assert.deepEqual(
+		await rows(sql`SELECT state, delivered_at, accepted_at FROM mail WHERE provider_message_id = 'prov-callback'`),
+		[mail],
+	);
 	const again = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
 	assert.equal(again.providerCalls, 0);
 	assert.equal(carrier.calls.send, 1);
@@ -717,9 +711,6 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	const softPort = port({
 		async send() {
 			return { outcome: "ids", ids: ["prov-soft"] };
-		},
-		async lookup() {
-			return { outcome: "unknown" };
 		},
 	});
 	ok(await handoff(owner, soft.saved.communicationId, soft.accepted.value.revision, softPort));
@@ -738,9 +729,6 @@ test("AC:CASE-NTF-011 a person clears only their own suppressed address", async 
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
 		async send() {
-			return { outcome: "ids", ids: ["prov-self"] };
-		},
-		async lookup() {
 			return { outcome: "ids", ids: ["prov-self"] };
 		},
 	});
@@ -803,9 +791,6 @@ test("AC:CASE-NTF-013 AC:NOTIFY47-003 a password reset sends with category email
 		async send() {
 			return { outcome: "unknown" };
 		},
-		async lookup() {
-			return { outcome: "unknown" };
-		},
 	});
 	const seen = [];
 	const methods = ["log", "info", "warn", "error", "debug"];
@@ -855,9 +840,6 @@ test("AC:AUDIT-007 AC:SCHEMA-013 runtime cannot change the audit log and mail st
 		async send() {
 			return { outcome: "ids", ids: ["prov-audit"] };
 		},
-		async lookup() {
-			return { outcome: "unknown" };
-		},
 	});
 	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
 	const delivered = await resendWebhook(signed("prov-audit", "delivered"), () => f.db, secret);
@@ -901,9 +883,6 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 		async send() {
 			return { outcome: "ids", ids: ["prov-frozen"] };
 		},
-		async lookup() {
-			return { outcome: "ids", ids: ["prov-frozen"] };
-		},
 	});
 	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
 	const [before] = await rows(
@@ -942,9 +921,6 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 		async send() {
 			return { outcome: "ids", ids: ["prov-seat"] };
 		},
-		async lookup() {
-			return { outcome: "ids", ids: ["prov-seat"] };
-		},
 	});
 	const done = ok(await handoff(who, saved.communicationId, accepted.revision, seatPort));
 	assert.equal(done.status, "accepted");
@@ -961,7 +937,6 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 	assert.equal(blocked.error.code, "access_denied");
 	assert.equal(await count(), 1);
 	assert.equal(seatPort.calls.send, 1);
-	assert.equal(seatPort.calls.lookup, 0);
 });
 
 test("INV-plain-text: the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
@@ -992,9 +967,6 @@ test("INV-plain-text: the text part reads like the message: Tom & Ann, never &am
 			texts.push(...batch.messages.map((message) => message.text));
 			return { outcome: "ids", ids: batch.messages.map(() => "prov-tom-text") };
 		},
-		async lookup() {
-			return { outcome: "unknown" };
-		},
 	});
 	ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
 	assert.equal(texts.length, 1);
@@ -1015,9 +987,6 @@ test("AC:DEL58-006 a plant pending deletion hands off, replaces and cancels noth
 	const id = made.saved.communicationId;
 	const carrier = port({
 		async send() {
-			return { outcome: "ids", ids: ["prov-witness"] };
-		},
-		async lookup() {
 			return { outcome: "ids", ids: ["prov-witness"] };
 		},
 	});

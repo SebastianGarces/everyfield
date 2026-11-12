@@ -7,7 +7,7 @@ import { z } from "zod";
 import { database } from "../../server/database.ts";
 import {
 	createMailService,
-	queueOnlyTransport,
+	MAIL_PASSES,
 	runDueMail,
 	type MailPass,
 	type MailTransport,
@@ -26,13 +26,11 @@ const env = z.object({
 	...mailEnv,
 });
 
-/** Settings mail keys: an email-change confirmation link, a security notice and a workspace deletion notice. */
-const SETTINGS_MAIL = ["email-change/", "security/", "workspace-deletion/"];
 /** A workspace deletion notice's key: its kind and request. The recipient account is its tenant. */
 const WORKSPACE_NOTICE = /^workspace-deletion\/(requested|cancelled)\/([0-9a-f-]{36})$/;
 const noticeHolder = z.object({ id: z.uuid(), email: z.string() });
 
-function settingsMailService(v: z.infer<typeof env>, transport: MailTransport) {
+function settingsMailService(v: z.infer<typeof env>, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	const addressHash = (address: string) =>
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
@@ -106,7 +104,7 @@ export function settingsMail():
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return null;
 	const origin = parsed.data.IDENTITY_ORIGIN;
-	const mail = settingsMailService(parsed.data, queueOnlyTransport);
+	const mail = settingsMailService(parsed.data);
 	return {
 		deliverVerification: async (tx, i, writes) => {
 			const url = `${origin}/confirm-email?token=${encodeURIComponent(i.token)}`;
@@ -183,5 +181,5 @@ export function settingsMailPass(transport: MailTransport): MailPass | null {
 	if (!parsed.success) return null;
 	const db = database(parsed.data.IDENTITY_DATABASE_URL),
 		mail = settingsMailService(parsed.data, transport);
-	return (limit, until) => runDueMail(db, mail, SETTINGS_MAIL, limit, until);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.settings, limit, until);
 }

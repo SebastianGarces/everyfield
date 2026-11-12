@@ -8,7 +8,7 @@ import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
-import { createMailService, queueOnlyTransport, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 
 // Explicit credentials and keys are required. Never fall back to the operator DATABASE_URL.
 const env = z.object({
@@ -19,14 +19,11 @@ const env = z.object({
 	...mailEnv,
 });
 
-/** Identity mail keys: a password-reset link and an email-verification link, each to the account's own contact. */
-const IDENTITY_MAIL = ["password_reset/", "email_verification/"];
-
 /**
  * The identity mount's mail service. Its rule holds at enqueue and again just before the handoff: a reset or
  * verification link goes only to its own account, at the address that account's contact has now.
  */
-function identityMail(v: z.infer<typeof env>, transport: MailTransport) {
+function identityMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
@@ -59,7 +56,7 @@ function identityMail(v: z.infer<typeof env>, transport: MailTransport) {
 
 /** The identity service's `enqueueMail`: the mail it asks for, queued under the mount's own rule. */
 function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"] {
-	const mail = identityMail(v, queueOnlyTransport);
+	const mail = identityMail(v);
 	return (tx, m) =>
 		mail.enqueue(tx, {
 			owner: { kind: "account", id: m.accountId },
@@ -89,7 +86,7 @@ export function identityMailPass(transport: MailTransport): MailPass | null {
 	if (!parsed.success) return null;
 	const db = database(parsed.data.IDENTITY_DATABASE_URL),
 		mail = identityMail(parsed.data, transport);
-	return (limit, until) => runDueMail(db, mail, IDENTITY_MAIL, limit, until);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.identity, limit, until);
 }
 
 let service: ReturnType<typeof createIdentityService> | undefined;
