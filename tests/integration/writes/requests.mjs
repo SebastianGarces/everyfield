@@ -626,6 +626,33 @@ try {
 		{ title: "A task" },
 	]);
 	assert.equal(tasked.status, "ok");
+	// Follow-up outcomes, each from the page that saves it: the call page records one, the person page corrects it. The
+	// answer updates the screen, so neither request renders its page again (T-234).
+	const followups = "apps/web/src/features/followups/actions.ts";
+	const [{ revision: followUpRevision }] = (
+		await admin.execute(sql`SELECT revision::text AS revision FROM task WHERE id=${followUpId}`)
+	).rows;
+	const tried = await act("POST followups.recordOutcome", `/follow-ups/${followUpId}`, followups, "recordOutcome", [
+		randomUUID(),
+		{
+			target: { kind: "task", taskId: followUpId, expectedRevision: followUpRevision },
+			outcome: "attempted_no_contact",
+			channel: "phone",
+			notes: null,
+			completeTask: false,
+		},
+	]);
+	assert.equal(tried.status, "ok", JSON.stringify(tried));
+	const corrected = await act("POST followups.correctOutcome", `/people/${maria.id}`, followups, "correctOutcome", [
+		randomUUID(),
+		tried.value.record.revision,
+		{
+			outcomeId: tried.value.record.id,
+			correction: { kind: "replace", outcome: "contacted", occurredAt: tried.value.record.occurredAt },
+			reason: "She answered on the second ring",
+		},
+	]);
+	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
 		randomUUID(),
 		{ displayName: "Reachable guest", email: "guest@example.com" },
