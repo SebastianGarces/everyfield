@@ -319,7 +319,8 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 
 /**
  * The bytes of one current account photo version, or null. Its own account and the people who hold a live seat in a
- * workspace where it holds one may read it (readAvatar); every other request gets the same null as a missing photo.
+ * workspace where it holds one, or that oversees or is overseen by such a workspace through a current link, may read
+ * it (readAvatar); every other request gets the same null as a missing photo.
  */
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();

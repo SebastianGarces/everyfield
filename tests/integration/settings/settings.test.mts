@@ -880,6 +880,66 @@ test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load eac
 	assert.equal(await read(member, memberPhoto), "bytes");
 });
 
+test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant load each other's photos while the link is current", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		staff = await seat(f.p, "member"),
+		church = await organization(),
+		director = await actor(),
+		outsider = await organization();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: director.id, organization_id: church.o.id, role: "member", accepted_at: new Date() });
+	const [link] = await admin
+		.insert(t.affiliation)
+		.values({
+			plant_id: f.p.id,
+			organization_id: church.o.id,
+			accepted_at: new Date(),
+			share_people: false,
+			share_meetings: false,
+			share_tasks: false,
+			share_ministry_teams: false,
+			share_wiki: false,
+			share_activity: false,
+			shared_findings: false,
+		})
+		.returning();
+	const planter = await setPhoto(storage, f.a),
+		staffPhoto = await setPhoto(storage, staff),
+		directorPhoto = await setPhoto(storage, director);
+	const read = (who, photo) => photoRead(storage, who, photo);
+
+	// The church's directors load the planter's and plant staff's photos, and the plant's people load theirs.
+	for (const who of [church.a, director]) {
+		assert.equal(await read(who, planter), "bytes");
+		assert.equal(await read(who, staffPhoto), "bytes");
+	}
+	assert.equal(await read(staff, directorPhoto), "bytes");
+	assert.equal(await read(f.a, directorPhoto), "bytes");
+	// An organization with no link to the plant gets the refusal both ways.
+	assert.equal(await read(outsider.a, planter), "refused");
+	assert.equal(await read(outsider.a, directorPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, outsider.a)), "refused");
+
+	// A director whose seat ended is refused at once, both ways; so is the plant's photo of a staff seat that ended.
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${director.id} AND organization_id=${church.o.id}`,
+	);
+	assert.equal(await read(director, planter), "refused");
+	assert.equal(await read(staff, directorPhoto), "refused");
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${staff.id} AND plant_id=${f.p.id}`,
+	);
+	assert.equal(await read(church.a, staffPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, church.a)), "refused");
+
+	// Once the link ends, the church's remaining director no longer loads the planter's photo.
+	assert.equal(await read(church.a, planter), "bytes");
+	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link.id}`);
+	assert.equal(await read(church.a, planter), "refused");
+});
+
 test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
 	const storage = photoStorage();
 	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.

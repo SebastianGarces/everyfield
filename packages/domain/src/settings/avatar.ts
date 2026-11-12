@@ -14,7 +14,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { seatHeld, writeVisibility } from "../access/session.ts";
-import { hiding, workspaceAvatar } from "./photo-visibility.ts";
+import { hiding, oversightAvatar, workspaceAvatar } from "./photo-visibility.ts";
 import { executeWrites } from "../operations/writes.ts";
 import {
 	appendEvent,
@@ -174,8 +174,10 @@ function uploadAuthorization(ctx: SettingsContext): ResourceAuthorizer {
 }
 /**
  * The read rule of an account photo (REQ-IDN-006), as one condition on the version: the session is live and is the
- * context's own account, which is active and not hidden, and the version is the account's current photo as its own account sees it, or as the people
- * of a workspace where the viewer holds a live, unhidden seat see it (workspaceAvatar). Lock-free (C27).
+ * context's own account, which is active and not hidden, and the version is the account's current photo as its own
+ * account sees it, or as the people of a workspace where the viewer holds a live, unhidden seat see it: the account
+ * holds a seat there too (workspaceAvatar) or in a workspace that a current plant affiliation links to it
+ * (oversightAvatar). Lock-free (C27).
  */
 function avatarReadable(ctx: SettingsContext, account: string, version: string) {
 	if (ctx.selected.kind !== "account") return sql<boolean>`false`;
@@ -186,7 +188,8 @@ function avatarReadable(ctx: SettingsContext, account: string, version: string) 
 			(av_i.account_id=${account}::uuid AND EXISTS(SELECT FROM account av_x WHERE av_x.id=av_i.account_id AND av_x.avatar_object_id=${version}::uuid))
 			OR EXISTS(SELECT FROM seat av_v WHERE av_v.account_id=av_i.account_id AND ${seatHeld("av_v")}
 				AND NOT ${hiding("av_vw", sql`av_vw.seat_id=av_v.id`)}
-				AND ${workspaceAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`)}=${version}::uuid)
+				AND (${workspaceAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`)}=${version}::uuid
+					OR ${oversightAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`, sql`${version}::uuid`)}))
 		))`;
 }
 /** The byte read's authorizer: the requested account's own photo file, readable by this viewer now. */

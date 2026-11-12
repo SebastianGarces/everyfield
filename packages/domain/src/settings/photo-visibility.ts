@@ -20,3 +20,18 @@ export function workspaceAvatar(account: SQLWrapper, workspace: SQLWrapper) {
 			AND NOT ${hiding("av_w", sql`(av_w.seat_id=av_s.id OR (av_w.kind='account' AND av_w.opaque_subject_id=av_a.id) OR (av_w.kind='plant' AND av_w.opaque_subject_id=${workspace}))`)}
 		LIMIT 1)`;
 }
+/**
+ * Whether one workspace (a plant or organization id) sees the account's current photo through oversight: a current
+ * plant affiliation links that workspace to another where the account holds a live seat, so a sending church's or
+ * network's seat holders see the planter and plant staff, and the plant's seat holders see the directors (Nora, Nov 12:
+ * the photo shows where the name already shows). No lifecycle witness hides the affiliation or its plant, and
+ * workspaceAvatar applies its own account and seat checks on the other side. Lock-free, so a seat or link that ends
+ * stops the next read at once.
+ */
+export function oversightAvatar(account: SQLWrapper, workspace: SQLWrapper, version: SQLWrapper) {
+	return sql<boolean>`EXISTS(SELECT FROM affiliation av_f
+		WHERE av_f.plant_id IS NOT NULL AND ${workspace} IN (av_f.plant_id, av_f.organization_id)
+			AND av_f.ended_at IS NULL AND av_f.accepted_at <= clock_timestamp()
+			AND NOT ${hiding("av_fw", sql`(av_fw.affiliation_id=av_f.id OR (av_fw.kind='plant' AND av_fw.opaque_subject_id=av_f.plant_id))`)}
+			AND ${workspaceAvatar(account, sql`(CASE WHEN av_f.plant_id=${workspace} THEN av_f.organization_id ELSE av_f.plant_id END)`)}=${version})`;
+}
