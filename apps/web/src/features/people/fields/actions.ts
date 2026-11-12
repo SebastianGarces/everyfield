@@ -168,7 +168,6 @@ export async function removeSkill(
 
 // Households (REQ-PPL-009).
 
-/** A membership change: the household as it is now for this person, the Person as saved and the receipt. */
 /**
  * A membership change: the household as it is now for this person, and the receipt. `person` is the Person as saved,
  * read in the same transaction, only after leaving; otherwise the answer's member row already carries this person's
@@ -189,7 +188,7 @@ export async function findHouseholds(search: string, page = 1): Promise<Outcome<
 	);
 }
 
-/** The person's household as it is now: the address-copy preview reads it fresh, and a refused household change too. */
+/** The person's household as it is now: the household card reads it again after a household change is refused. */
 export async function readHousehold(personId: string): Promise<Outcome<HouseholdResult>> {
 	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.getHousehold(tx, ctx, request)), (r) => r),

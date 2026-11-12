@@ -87,10 +87,6 @@ export function ResidencyDisclosure({
 }
 
 /**
- * A resident's own consent for one residency link (REQ-MUL-003). Each switch stops or starts one category at once;
- * leaving ends the link. A stale screen is refused, never applied over a newer choice.
- */
-/**
  * The current consent and the link's own revision. Every change must carry both: the link revision on the command
  * and the consent revision inside it (REQ-MUL-003). The contract read returns only the consent revision, so the
  * caller supplies the link revision (ruling D16).
@@ -102,6 +98,10 @@ export type SaveResidency = (
 	command: ReturnType<typeof setResidencySharingRequest.parse>,
 ) => Promise<ResidencyRow | null>;
 
+/**
+ * A resident's own consent for one residency link (REQ-MUL-003). Each switch stops or starts one category at once;
+ * leaving ends the link. A stale screen is refused, never applied over a newer choice.
+ */
 export function ResidencySharing({
 	linkId,
 	organizationName,
