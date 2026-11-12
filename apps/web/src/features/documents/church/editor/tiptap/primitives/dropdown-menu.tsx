@@ -1,5 +1,6 @@
 import * as React from "react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import { usePortalContainer } from "@everyfield/ui/controls";
 import { cn } from "../tiptap-utils.ts";
 import { MENU } from "../styles.ts";
 
@@ -8,7 +9,9 @@ function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrim
 }
 
 function DropdownMenuPortal({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-	return <DropdownMenuPrimitive.Portal {...props} />;
+	// Everyfield change: portal into the product root, not <body>, so the product font, tokens and focus ring apply.
+	const container = usePortalContainer();
+	return <DropdownMenuPrimitive.Portal container={container} {...props} />;
 }
 
 const DropdownMenuTrigger = React.forwardRef<
@@ -24,12 +27,22 @@ const DropdownMenuContent = React.forwardRef<
 	React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
 		portal?: boolean;
 	}
->(({ className, sideOffset = 4, portal = false, ...props }, ref) => {
+>(({ className, sideOffset = 4, portal = false, onEscapeKeyDown, ...props }, ref) => {
+	// Everyfield change: Escape returns focus to the menu's button, as the menu button pattern asks. Choosing an item
+	// still leaves focus where the item's action put it (the document), as Tiptap does.
+	const escaped = React.useRef(false);
 	const content = (
 		<DropdownMenuPrimitive.Content
 			ref={ref}
 			sideOffset={sideOffset}
-			onCloseAutoFocus={(e) => e.preventDefault()}
+			onEscapeKeyDown={(e) => {
+				escaped.current = true;
+				onEscapeKeyDown?.(e);
+			}}
+			onCloseAutoFocus={(e) => {
+				if (!escaped.current) e.preventDefault();
+				escaped.current = false;
+			}}
 			className={cn(MENU, className)}
 			{...props}
 		/>

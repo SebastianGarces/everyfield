@@ -43,8 +43,12 @@ interface MenuNavigationOptions<T> {
 /**
  * Hook that implements keyboard navigation for dropdown menus and command palettes.
  *
- * Handles arrow keys, tab, home/end, enter for selection, and escape to close.
+ * Handles arrow keys, home/end, enter for selection, and escape to close.
  * Works with both Tiptap editors and regular DOM elements.
+ *
+ * Everyfield change: Tab is not handled, so it moves focus out as the browser does (no keyboard trap). Enter and
+ * Escape are handled only when `onSelect` or `onClose` is given; otherwise the focused element gets them, so a
+ * toolbar button activates natively, once.
  *
  * @param options - Configuration options for the menu navigation
  * @returns Object containing the selected index and a setter function
@@ -106,16 +110,6 @@ export function useMenuNavigation<T>({
 					return true;
 				}
 
-				case "Tab": {
-					event.preventDefault();
-					if (event.shiftKey) {
-						movePrev();
-					} else {
-						moveNext();
-					}
-					return true;
-				}
-
 				case "Home": {
 					event.preventDefault();
 					setSelectedIndex(0);
@@ -129,17 +123,18 @@ export function useMenuNavigation<T>({
 				}
 
 				case "Enter": {
-					if (event.isComposing) return false;
+					if (event.isComposing || !onSelect) return false;
 					event.preventDefault();
 					if (selectedIndex !== -1 && items[selectedIndex]) {
-						onSelect?.(items[selectedIndex]);
+						onSelect(items[selectedIndex]);
 					}
 					return true;
 				}
 
 				case "Escape": {
+					if (!onClose) return false;
 					event.preventDefault();
-					onClose?.();
+					onClose();
 					return true;
 				}
 

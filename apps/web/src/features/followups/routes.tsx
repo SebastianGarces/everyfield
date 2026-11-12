@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { Fresh } from "../tasks/fresh.tsx";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
 import { outcomeOf, type Outcome } from "./model.ts";
@@ -140,7 +141,11 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 				</StatePanel>
 			</Blocked>
 		);
-	return <FollowUpsScreen data={loaded.value} filter={filter} />;
+	return (
+		<Fresh loading={<FollowUpsLoading />}>
+			<FollowUpsScreen data={loaded.value} filter={filter} />
+		</Fresh>
+	);
 }
 
 /** The first paint while /tasks/follow-ups loads: the coverage list's shape, under its own status text. */
