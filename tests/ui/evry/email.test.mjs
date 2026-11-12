@@ -308,7 +308,11 @@ for (const [engine, launcher] of ENGINES) {
 				text,
 				/Everyfield keeps this email until Fri, 9:00 AM C[SD]T, then hands it to the email service\. Anyone who unsubscribes before then doesn't get it\./,
 			);
-			assert.doesNotMatch(text, /email service accepted|Accepted|Refused|Unknown/, "the email service was not asked yet");
+			assert.doesNotMatch(
+				text,
+				/email service accepted|Accepted|Refused|Unknown/,
+				"the email service was not asked yet",
+			);
 			assert.doesNotMatch(text, /delivered/i, "the card never says delivered");
 			assert.equal(message.state, "scheduled");
 			assert.equal(await d.requests(message.id), 1, "one frozen send request");
