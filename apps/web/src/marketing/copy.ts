@@ -163,6 +163,3 @@ export const COPY = {
 export type Copy = typeof COPY;
 
 export type LegalCopy = z.infer<typeof legalPage>;
-export type FieldCopy = z.infer<typeof fieldCopy>;
-export type AccessCopy = z.infer<typeof accessPage>;
-export type Outcome = z.infer<typeof outcome>;
