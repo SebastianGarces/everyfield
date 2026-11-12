@@ -381,7 +381,7 @@ export function WikiSourceBar({
 						<Icon icon={ArrowDown01Icon} size={16} className="text-text-3" />
 					</button>
 				</MenuTrigger>
-				<MenuContent className="w-[380px] max-w-[calc(100vw-24px)]">
+				<MenuContent className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[380px] max-w-[calc(100vw-24px)] overflow-y-auto">
 					<MenuLabel className="text-sm font-semibold text-ink">Read this article from</MenuLabel>
 					<DropdownMenu.RadioGroup value={currentId} onValueChange={onChoose}>
 						{sources.map((s) => (

@@ -767,7 +767,10 @@ export function SourceBar({
 			}))}
 			currentId={currentId}
 			preferredId={preferredId}
-			onChoose={(id) => router.push(hrefFor(id))}
+			onChoose={(id) => {
+				setSaid(null);
+				router.push(hrefFor(id));
+			}}
 			prefer={
 				current && next && !saving && !loading
 					? { name: current.name, onSelect: () => void prefer(current.name, next) }
