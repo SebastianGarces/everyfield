@@ -863,7 +863,7 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	);
 });
 
-test("AC:S2-11 the session account is the actor", async () => {
+test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 	refused(
 		await run(trainingWriter.createProgram, {
 			requestKey: key(),
@@ -936,7 +936,7 @@ test("AC:S2-11 the session account is the actor", async () => {
 	}
 });
 
-test("a ministry's own programs are listed with its roster even when the church has more than 100", async () => {
+test("AC:TARGET-TEAM-008 a ministry's own programs are listed with its roster even when the church has more than 100", async () => {
 	const own = await makeTeam("Zion choir");
 	const other = await makeTeam("Aardvark crew");
 	const mine = await program("Zion choir basics", { teamId: own.id, required: true });
@@ -982,7 +982,7 @@ test("a ministry's own programs are listed with its roster even when the church 
 	}
 });
 
-test("two admins saving one required list: the second is refused and a lost reply replays", async () => {
+test("AC:TARGET-TEAM-016 two admins saving one required list: the second is refused and a lost reply replays", async () => {
 	const team = await makeTeam("Roster race");
 	const alex = await person("Alex Race");
 	const casey = await person("Casey Race");
@@ -1026,7 +1026,7 @@ test("two admins saving one required list: the second is refused and a lost repl
 	assert.equal(await rev("training_program", item.id), programRevision);
 });
 
-test("a credit sent from a dialog opened before Correct program is refused", async () => {
+test("AC:TARGET-TEAM-009 a credit sent from a dialog opened before Correct program is refused", async () => {
 	const team = await makeTeam("Revision team");
 	const alex = await person("Alex Revision");
 	const item = await program("Revision course", { teamId: team.id });
@@ -1088,7 +1088,7 @@ test("a credit sent from a dialog opened before Correct program is refused", asy
 	assert.equal(await credits(), before + 1);
 });
 
-test("REQ-IDN-005 an unknown or another church's program or team is unavailable to every training write", async () => {
+test("AC:REQ-IDN-005 an unknown or another church's program or team is unavailable to every training write", async () => {
 	const alex = await person("Alex Unknown");
 	const foreignTeam = await makeTeam("Foreign training team", 3);
 	const foreign = await program("Foreign course", { teamId: foreignTeam.id, who: 3 });

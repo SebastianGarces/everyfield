@@ -112,7 +112,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:CASE-NTF-016 T-241 Done 1-3: Ana unsubscribes after the email is scheduled; at the send time she gets nothing, everyone else does, and staff see her skipped before and after", async () => {
+test("AC:CASE-NTF-016 Ana unsubscribes after the email is scheduled; at the send time she gets nothing, everyone else does, and staff see her skipped before and after", async () => {
 	const ana = await person(churchA, "Ana");
 	const ben = await person(churchA, "Ben");
 	const cy = await person(churchA, "Cy");
@@ -164,7 +164,7 @@ test("AC:CASE-NTF-016 T-241 Done 1-3: Ana unsubscribes after the email is schedu
 	);
 });
 
-test("AC:CASE-NTF-016 T-241 Done 1: an email the email service already held before this change is cancelled there for Ana, retried until the email service answers", async () => {
+test("AC:CASE-NTF-016 an email the email service already held before this change is cancelled there for Ana, retried until the email service answers", async () => {
 	const ana = await person(churchA, "Ana");
 	const ben = await person(churchA, "Ben");
 	const resend = resendRecorder(PRODUCTION);
@@ -208,7 +208,7 @@ test("AC:CASE-NTF-016 T-241 Done 1: an email the email service already held befo
 	);
 });
 
-test("AC:CASE-NTF-016 T-241 Done 4: when the only recipient unsubscribes the email does not go out, and staff see why, not an error or a cancel", async () => {
+test("AC:CASE-NTF-016 when the only recipient unsubscribes the email does not go out, and staff see why, not an error or a cancel", async () => {
 	const ana = await person(churchA, "Ana");
 	const resend = resendRecorder(PRODUCTION);
 	const message = await schedule(ownerA, [ana], resend);
@@ -231,7 +231,7 @@ test("AC:CASE-NTF-016 T-241 Done 4: when the only recipient unsubscribes the ema
 	assert.equal(statusOf(view, ana), "unsubscribed");
 });
 
-test("AC:CASE-NTF-016 T-241 Done 5: Ana's opt-out from church A leaves church B's scheduled email to her, and church B sees no opt-out", async () => {
+test("AC:CASE-NTF-016 Ana's opt-out from church A leaves church B's scheduled email to her, and church B sees no opt-out", async () => {
 	const shared = `ana-${key().slice(0, 8)}@example.test`;
 	const inA = await person(churchA, "Ana", shared);
 	const inB = await person(churchB, "Ana", shared);
@@ -255,7 +255,7 @@ test("AC:CASE-NTF-016 T-241 Done 5: Ana's opt-out from church A leaves church B'
 	assert.equal(personB.emailOptOutAt, null);
 });
 
-test("AC:CASE-NTF-016 T-241 Done 6: after Ana unsubscribes, compose shows her as unsubscribed with the date, the count leaves her out, and forcing her in sends her nothing", async () => {
+test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed with the date, the count leaves her out, and forcing her in sends her nothing", async () => {
 	const ana = await person(churchA, "Anabel");
 	const ben = await person(churchA, "Benno");
 	const done = await unsubscribe(ownerA, ana);
@@ -295,7 +295,7 @@ test("AC:CASE-NTF-016 T-241 Done 6: after Ana unsubscribes, compose shows her as
 	assert.equal(ok(await read(ownerA, "listForPerson", { personId: ana.id })).emailOptOutAt, at);
 });
 
-test("AC:CASE-NTF-016 T-241 Done 7: Ana unsubscribes one minute before the send while the email service refuses every cancel; she still gets nothing, and her undo does not bring it back", async () => {
+test("AC:CASE-NTF-016 Ana unsubscribes one minute before the send while the email service refuses every cancel; she still gets nothing, and her undo does not bring it back", async () => {
 	const ana = await person(churchA, "Ana");
 	const ben = await person(churchA, "Ben");
 	const resend = resendRecorder(PRODUCTION);
@@ -334,7 +334,7 @@ test("AC:CASE-NTF-016 T-241 Done 7: Ana unsubscribes one minute before the send 
 	);
 });
 
-test("AC:CASE-NTF-016 T-241 the runner checks the opt-out itself at the send time, including a person merged into the recipient", async () => {
+test("AC:CASE-NTF-016 the runner checks the opt-out itself at the send time, including a person merged into the recipient", async () => {
 	const ana = await person(churchA, "Ana");
 	const old = await person(churchA, "Ana old");
 	const ben = await person(churchA, "Ben");
@@ -352,7 +352,7 @@ test("AC:CASE-NTF-016 T-241 the runner checks the opt-out itself at the send tim
 	assert.equal(statusOf(await shown(ownerA, message.id), ana), "unsubscribed");
 });
 
-test("AC:CASE-NTF-016 T-241 the every-minute cron call hands a due scheduled email off and skips the person who unsubscribed", async () => {
+test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off and skips the person who unsubscribed", async () => {
 	const { scheduledJobs, scheduledMessages } = await import("../../../apps/web/src/server/jobs/scheduled.ts");
 	const ana = await person(churchA, "Ana");
 	const ben = await person(churchA, "Ben");

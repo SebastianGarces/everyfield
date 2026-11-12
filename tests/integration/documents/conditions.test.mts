@@ -68,7 +68,7 @@ const issues = (value: unknown) => {
 	return parsed.success ? [] : parsed.error.issues.map((i) => i.message);
 };
 
-test("T-20 criterion 1: the format accepts a valid condition in the body, a column and a box", () => {
+test("INV-doc-conditions: the format accepts a valid condition in the body, a column and a box", () => {
 	const valid = doc([
 		cond({ field: "pastor", test: "has-value" }),
 		cond({ field: "not_shown", test: "more-than", value: 0 }),
@@ -83,7 +83,7 @@ test("T-20 criterion 1: the format accepts a valid condition in the body, a colu
 	assert.deepEqual(issues(valid), []);
 });
 
-test("T-20 criterion 1: the format refuses each ill-formed or misplaced condition with its own message", () => {
+test("INV-doc-conditions: the format refuses each ill-formed or misplaced condition with its own message", () => {
 	const valid = { field: "pastor", test: "has-value" } as const;
 	const cases: [string, unknown, string][] = [
 		[
@@ -225,7 +225,7 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 	}
 });
 
-test("T-20 criterion 1: a document with no condition keeps its stored form, and every template prints the same", async () => {
+test("INV-doc-conditions: a document with no condition keeps its stored form, and every template prints the same", async () => {
 	for (const template of DOC_TEMPLATES) {
 		const fork = await forkTemplate(template, { data: { church_name: "Harbor City Church" } });
 		const before = structuredClone(fork);
@@ -317,7 +317,7 @@ const CASES: { name: string; condition: IfNode["attrs"]; data: Record<string, un
 	},
 ];
 
-test("T-20 criterion 4: the editor's prints-now state matches the PDF in every case", async () => {
+test("INV-doc-conditions: the editor's prints-now state matches the PDF in every case", async () => {
 	for (const c of CASES) {
 		const d = doc([text("BEFORE"), cond(c.condition), text("AFTER")], c.data);
 		assert.deepEqual(issues(d), [], c.name);
@@ -340,7 +340,7 @@ test("T-20 criterion 4: the editor's prints-now state matches the PDF in every c
 /** Enough text to fill most of a page, so a left-out block moves the page break. */
 const filler = Array.from({ length: 24 }, (_, i) => text(`Filler line ${i + 1} of the document body.`));
 
-test("T-20 criteria 6 and 7: a false condition prints exactly as the document without it, page breaks included", async () => {
+test("INV-doc-conditions: a false condition prints exactly as the document without it, page breaks included", async () => {
 	const tall = Array.from({ length: 8 }, (_, i) => text(`Conditional line ${i + 1}`));
 	const rest = [{ type: "pageBreak" } as BlockNode, text("Last page")];
 	const without = doc([...filler, text("Next block"), ...rest]);
@@ -397,7 +397,7 @@ test("T-20 criteria 6 and 7: a false condition prints exactly as the document wi
 	assert.ok(!wordText(xml).includes("Boxed note") && !wordText(xml).includes("CONDITIONAL LINE"));
 });
 
-test("T-20 criterion 6: tiled card sheets follow the same rule", async () => {
+test("INV-doc-conditions: tiled card sheets follow the same rule", async () => {
 	const page = {
 		size: "letter" as const,
 		orientation: "portrait" as const,
@@ -447,7 +447,7 @@ function agenda(people: number) {
 	return { withNote: doc(body(true), data), without: doc(body(false), data) };
 }
 
-test("T-20 criterion 8: the agenda overflow note prints with 151 people on a 150 cap, and not with 150", async () => {
+test("AC:DOC-002 AC:DOC-007 the agenda overflow note prints with 151 people on a 150 cap, and not with 150", async () => {
 	const over = agenda(151).withNote;
 	assert.deepEqual(issues(over), []);
 	assert.ok((await pdfText(over)).includes(NOTE), "the PDF prints the note");

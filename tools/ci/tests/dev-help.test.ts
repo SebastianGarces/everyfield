@@ -27,6 +27,6 @@ function listed(text: string, label: string): string[] {
 		.map((name) => name.trim());
 }
 
-test("bin/dev help lists every check in CHECKS and nothing else", () => {
+test("INV-dev-help: bin/dev help lists every check in CHECKS and nothing else", () => {
 	assert.deepEqual(listed(help(), "checks").sort(), Object.keys(CHECKS).sort());
 });

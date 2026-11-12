@@ -154,7 +154,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("WP-037/api generated files and owned documents", { concurrency: 1 }, () => {
+describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned documents", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-003 AC:CASE-DOC-015 AC:PROVIDER48-002 AC:PROVIDER48-003 AC:TEN-004 saved renders match the preview and keep a private key", async () => {
 		const owner = await authority(0);
 		const loaded = await library();
@@ -397,7 +397,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
 	});
 
-	test("T-124 generate with a meeting stores the bytes its preview showed: the meeting's date and its rows", async () => {
+	test("AC:CASE-DOC-002 generate with a meeting stores the bytes its preview showed: the meeting's date and its rows", async () => {
 		const owner = await authority(0);
 		const meeting = randomUUID();
 		await admin.execute(
@@ -786,7 +786,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		refusedPrivate(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: randomUUID() }), "unavailable");
 	});
 
-	test("AC:CASE-DOC-016 T-117 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
+	test("AC:CASE-DOC-016 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
 		const owner = await authority(2);
 		const bytes = lyingZip(10, 100 * 1024 * 1024);
 		// Every inflate the import runs is watched for how much output it may make.
@@ -1158,7 +1158,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: first.id })).body, body);
 	});
 
-	test("AC:CASE-DOC-016 T-99 a Word file keeps its headings, lists and links as native nodes", async () => {
+	test("AC:CASE-DOC-016 a Word file keeps its headings, lists and links as native nodes", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
 		const text = (value, href) => ({

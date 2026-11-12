@@ -78,8 +78,8 @@ async function withVersion(next) {
 	};
 }
 
-describe("T-19 compare a document with its template (no database)", () => {
-	test("criterion 3: a fresh fork of each built-in template, saved through the editor, has no differences", async () => {
+describe("INV-template-compare: compare a document with its template (no database)", () => {
+	test("INV-template-compare: a fresh fork of each built-in template, saved through the editor, has no differences", async () => {
 		for (const template of DOC_TEMPLATES) {
 			const fork = await forkTemplate(template, { data: { church_name: "Harvest Point" } });
 			assert.deepEqual(compareWithTemplate(fork, template), [], `${template.id} as forked`);
@@ -87,7 +87,7 @@ describe("T-19 compare a document with its template (no database)", () => {
 		}
 	});
 
-	test("criterion 2: the title, the header and the footer are listed too", async () => {
+	test("INV-template-compare: the title, the header and the footer are listed too", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);
 		edited.title = "Our Conflict Policy";
@@ -100,12 +100,12 @@ describe("T-19 compare a document with its template (no database)", () => {
 		]);
 	});
 
-	test("criterion 4: a merge field that differs only by its frozen value is not a difference", async () => {
+	test("INV-template-compare: a merge field that differs only by its frozen value is not a difference", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Somewhere Else", church_legal_name: "Else, Inc." } });
 		assert.deepEqual(compareWithTemplate(fork, v1), []);
 	});
 
-	test("criterion 3: a block that spells out its default attributes equals one that leaves them out", async () => {
+	test("INV-template-compare: a block that spells out its default attributes equals one that leaves them out", async () => {
 		// The editor writes the defaults once a person picks a style and picks the default back (Lead, then Body).
 		const fork = await forkTemplate(v1);
 		const at = fork.body.content.findIndex((block) => block.type === "paragraph" && !block.attrs);
@@ -114,7 +114,7 @@ describe("T-19 compare a document with its template (no database)", () => {
 		assert.deepEqual(compareWithTemplate(fork, v1), []);
 	});
 
-	test("criterion 5: accepting one difference applies only it; accept all gives the template's body", async () => {
+	test("INV-template-compare: accepting one difference applies only it; accept all gives the template's body", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);
 		edited.body.content[2] = { ...edited.body.content[2], content: [{ type: "text", text: "Our Policy" }] };
@@ -223,8 +223,8 @@ after(async () => {
 	await database.close();
 });
 
-describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () => {
-	test("criterion 3: a fresh document matches its template and lists nothing", async () => {
+describe("INV-template-compare: compare and accept on a Church Document", { concurrency: 1 }, () => {
+	test("INV-template-compare: a fresh document matches its template and lists nothing", async () => {
 		const doc = await create(ADMIN, "guest-sign-in-sheet");
 		assert.equal(await templateStatus(doc.body), "current");
 		const found = ok(await compare(ADMIN, doc.id));
@@ -233,7 +233,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(found.revision, "1");
 	});
 
-	test("criteria 5, 6, 7, 9, 14: accepting some changes of a version 2 writes one revision with the exact body and origin", async () => {
+	test("INV-template-compare: accepting some changes of a version 2 writes one revision with the exact body and origin", async () => {
 		const v2 = versionTwo();
 		const templates = await withVersion(v2);
 		const doc = await create(OWNER, POLICY);
@@ -337,7 +337,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(again.differences[0].document.content[0].text, r2.body.body.content[3].content[0].text);
 	});
 
-	test("criterion 9: a church with no value for a new field prints the template's fallback", async () => {
+	test("INV-template-compare: a church with no value for a new field prints the template's fallback", async () => {
 		const v2 = versionTwo();
 		const templates = await withVersion(v2);
 		const doc = await create(OTHER, POLICY);
@@ -362,7 +362,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.ok((await pdfText(await file(OTHER, doc.id, "pdf"))).includes("Questions go to our pastor."));
 	});
 
-	test("criterion 10: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
+	test("INV-template-compare: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const emptied = structuredClone(doc.body);
 		emptied.body = { type: "doc" };
@@ -390,7 +390,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.ok(docxText(await file(ADMIN, doc.id, "docx")).includes(LEGAL_NOTICE));
 	});
 
-	test("criterion 11: an accept from a compare that a later save made stale is a conflict and writes nothing", async () => {
+	test("INV-template-compare: an accept from a compare that a later save made stale is a conflict and writes nothing", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const edited = structuredClone(doc.body);
 		edited.body.content.splice(5, 1);
@@ -426,7 +426,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		]);
 	});
 
-	test("criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with", async () => {
+	test("INV-template-compare: a Member is refused; a blank document and a gone template have nothing to compare with", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const found = ok(await compare(ADMIN, doc.id));
 		refused(await compare(MEMBER, doc.id), "access_denied");

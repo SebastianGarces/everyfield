@@ -983,7 +983,7 @@ const accepting = () =>
 		},
 	});
 
-test("a 101-recipient schedule is refused with the cap and changes nothing; exactly 100 schedules and hands off", async () => {
+test("INV-audience-cap: a 101-recipient schedule is refused with the cap and changes nothing; exactly 100 schedules and hands off", async () => {
 	const ids = await crowd(101, "Cap");
 	const saved = ok(
 		await write(owner, "saveDraft", {
@@ -1042,7 +1042,7 @@ test("a 101-recipient schedule is refused with the cap and changes nothing; exac
 	assert.equal((await state()).mails, 100);
 });
 
-test("the handoff refuses an audience that grew past the cap after scheduling, before the provider", async () => {
+test("INV-audience-cap: the handoff refuses an audience that grew past the cap after scheduling, before the provider", async () => {
 	const ids = await crowd(100, "Grew");
 	const saved = ok(
 		await write(owner, "saveDraft", {
@@ -1068,7 +1068,7 @@ test("the handoff refuses an audience that grew past the cap after scheduling, b
 	assert.equal((await mailFor(saved.communicationId)).length, 0);
 });
 
-test("the Who step counts what the cap counts: an unsubscribed person over the line is named and refused", async () => {
+test("INV-audience-cap: the Who step counts what the cap counts: an unsubscribed person over the line is named and refused", async () => {
 	const ids = await crowd(101, "Optout");
 	await f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant.id}, ${ids[0]})`);
 	const over = ok(
@@ -1094,7 +1094,7 @@ test("the Who step counts what the cap counts: an unsubscribed person over the l
 	assert.deepEqual(error.details, { limit: 100, recipients: over.cappedRecipients });
 });
 
-test("the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
+test("INV-plain-text: the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
 	const tom = await person("Tom", { email: "tom-text@example.test" });
 	const saved = ok(
 		await write(owner, "saveDraft", {
@@ -1139,7 +1139,7 @@ test("the text part reads like the message: Tom & Ann, never &amp;, and each mai
 	);
 });
 
-test("T-159 C13: a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
+test("AC:DEL58-006 a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
 	const made = await scheduled("Wren", "wren-witness@example.test", AT);
 	const revision = ok(made.accepted).revision;
 	const id = made.saved.communicationId;

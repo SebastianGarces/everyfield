@@ -132,7 +132,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-249-focus Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
+test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-PR249 Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
 	const alex = await person("Alex Rivera");
 	const warnings = async () =>
 		ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
@@ -511,7 +511,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
 });
 
-test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 RT-2 design B: the browser puts the document straight into the bucket; the save checks the file and attaches it to the card through the shared write with one audit row", async () => {
+test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the browser puts the document straight into the bucket; the save checks the file and attaches it to the card through the shared write with one audit row", async () => {
 	const storage = privateStorage();
 	const sam = await person("Sam Direct"),
 		witness = await person("Jordan Witness", "leader"),
@@ -979,7 +979,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 	assert.deepEqual(await backfill(admin, [commitmentCacheBackfill(2)], schema), []);
 });
 
-test("C88 RT-2: a save that meets a held lock waits the established way and sees what the holder committed", async () => {
+test("INV-concurrency: a save that meets a held lock waits the established way and sees what the holder committed", async () => {
 	const storage = privateStorage();
 	const lee = await person("Lee Concurrent", "attendee");
 	const signed = ok(

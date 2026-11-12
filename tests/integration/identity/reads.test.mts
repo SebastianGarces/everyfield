@@ -158,7 +158,7 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	);
 });
 
-test("RT-1: one lock-free statement reads the request session, its user and the viewer; a revoked session reads nothing", async () => {
+test("INV-reads: one lock-free statement reads the request session, its user and the viewer; a revoked session reads nothing", async () => {
 	const s = await f.setup();
 	const [{ token }] = (await f.admin.execute(sql`SELECT token FROM auth_session WHERE id=${s.sender.session}`)).rows;
 	const request = await count(() => readRequestViewer(f.db, token));
@@ -174,7 +174,7 @@ test("RT-1: one lock-free statement reads the request session, its user and the 
 	assert.equal(await readRequestViewer(f.db, token), null);
 });
 
-test("BUG-RT1-cookie: only Better Auth's exact signed session cookie yields a token; malformed values are refused, never thrown", () => {
+test("BUG-d77ac46e4: only Better Auth's exact signed session cookie yields a token; malformed values are refused, never thrown", () => {
 	const secret = "s".repeat(32),
 		token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
 	const signature = createHmac("sha256", secret).update(token).digest("base64");

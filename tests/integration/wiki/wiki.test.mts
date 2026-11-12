@@ -439,7 +439,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("wiki api", { concurrency: 1 }, () => {
+describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 	test(
 		ac([
 			"CASE-WIKI-001",
@@ -518,17 +518,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac([
-			"CASE-WIKI-002",
-			"CASE-WIKI-008",
-			"WR-038",
-			"WR-039",
-			"WR-040",
-			"WR-041",
-			"WR-054",
-			"WR-064",
-			"WIKI-PREV-NEXT",
-		]) + " navigation, guide and excerpts keep the global citation and add no reading",
+		ac(["CASE-WIKI-002", "CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041", "WR-054", "WR-064"]) +
+			" navigation, guide and excerpts keep the global citation and add no reading",
 		async () => {
 			// One section's articles, stored out of order, come back by phase, position, then title.
 			const ordered = randomUUID();
@@ -659,16 +650,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac([
-			"CASE-WIKI-004",
-			"DISC-READER-003",
-			"WIKI49-001",
-			"WIKI49-002",
-			"WIKI49-003",
-			"WR-023",
-			"WR-025",
-			"WIKI-ARTICLE-LAYOUT",
-		]) + " progress completes above 0.80, keeps credit, and labels a later meaningful revision",
+		ac(["CASE-WIKI-004", "DISC-READER-003", "WIKI49-001", "WIKI49-002", "WIKI49-003", "WR-023", "WR-025"]) +
+			" progress completes above 0.80, keeps credit, and labels a later meaningful revision",
 		async () => {
 			const phaseBefore = await count(sql`SELECT phase AS n FROM plant WHERE id=${P}`);
 			const held = ok(
@@ -794,8 +777,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-005", "WIKI-BOOKMARK"]) +
-			" bookmark replay and a false write stay one row and hide a departed source",
+		ac(["CASE-WIKI-005"]) + " bookmark replay and a false write stay one row and hide a departed source",
 		async () => {
 			const firstKey = key();
 			const falseKey = key();
@@ -1064,7 +1046,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
-	test("WP-034/ui: PDF and print export render diagrams as text and code fences verbatim in Courier", async () => {
+	test("AC:CASE-WIKI-007 PDF and print export render diagrams as text and code fences verbatim in Courier", async () => {
 		const id = randomUUID();
 		await item(id, "article", "diagram-export", GLOBAL);
 		const longCode = `  ${"x".repeat(100)}`;
@@ -1265,7 +1247,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 		assert.equal(table.rows[0].name, null);
 	});
 
-	test("T-159 C13: own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes", async () => {
+	test("AC:CASE-WIKI-006 own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes", async () => {
 		const voter = await enroll("member", { kind: "plant", id: P });
 		const reader = await actor(voter);
 		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
@@ -1571,7 +1553,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
-	test("organization draft edit and hide keep every prior revision", async () => {
+	test("AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision", async () => {
 		const piece = await globalPiece("wp035/draft/" + randomUUID(), [{ text: "Global guidance." }]);
 		const editor = await enroll("admin", { kind: "organization", id: S3 });
 		const added = ok(
@@ -1723,7 +1705,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 
 // WP-034: church and network versions, the order prompt's data, the updated label and the Guide. Fresh plants, so no
 // stored order from the tests above applies. Runs last: it adds global articles to the active release.
-describe("wiki versions and the Guide", { concurrency: 1 }, () => {
+describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () => {
 	const C1 = randomUUID();
 	const C2 = randomUUID();
 	const M1 = randomUUID();
@@ -2084,7 +2066,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 			refused(await api.contextGuide(db, stale, { route: "/tasks" }), "access_denied");
 		},
 	);
-	test("WP-034/api criteria 1, 3 and 9: on the seeded text each Guide is the clean cut, and referenceExcerpt returns the same cut", async () => {
+	test("AC:CASE-WIKI-008 on the seeded text each Guide is the clean cut, and referenceExcerpt returns the same cut", async () => {
 		const reader = await actor(people.outsider);
 		for (const entry of GUIDE_ROUTES) {
 			const found = await admin.execute(
@@ -2115,7 +2097,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		assert.match(intelligence.body, /^## How to Navigate the Playbook\n\nThe Launch Playbook is organized into phases/);
 	});
 
-	test("T-156: an org-edited article exports, prints and searches as its visible text, never its JSON", async () => {
+	test("AC:CASE-WIKI-001 AC:CASE-WIKI-003 AC:CASE-WIKI-007 an org-edited article exports, prints and searches as its visible text, never its JSON", async () => {
 		const editor = await enroll("admin", { kind: "organization", id: C1 });
 		const reader = await actor(r1.member);
 		const said = id();
@@ -2183,7 +2165,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		assert.ok(html.includes("<footer></footer>"));
 	});
 
-	test("T-156: the export footer shows a human credit and never a source path or digest", async () => {
+	test("AC:CASE-WIKI-007 the export footer shows a human credit and never a source path or digest", async () => {
 		const reader = await actor(r1.member);
 		const credited = async (credit) => {
 			const article = id();
@@ -2210,7 +2192,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 		}
 	});
 
-	test("BUG-wiki-search-hits WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
+	test("BUG-63e46c879 AC:CASE-WIKI-003 search snippets are plain whole words with each match in <b>", async () => {
 		const reader = await actor(people.outsider);
 		const marked = id();
 		const markdown = [

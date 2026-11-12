@@ -6,17 +6,17 @@ import { statusMoves, untilText } from "../../../apps/web/src/features/meetings/
 
 const chicago = (localDate) => ({ localDate, zone: "America/Chicago" });
 
-test("BUG-T159: a meeting 13 h ahead on the same local day reads today", () => {
+test("BUG-58bc5acb8: a meeting 13 h ahead on the same local day reads today", () => {
 	// 08:00 in Chicago (CDT, UTC-5); the meeting is at 21:00 that evening.
 	assert.equal(untilText(chicago("2026-10-06"), "2026-10-06T13:00:00.000Z"), "today");
 });
 
-test("BUG-T159: a meeting 13 h ahead on the next local day reads tomorrow", () => {
+test("BUG-58bc5acb8: a meeting 13 h ahead on the next local day reads tomorrow", () => {
 	// 18:00 in Chicago; the meeting is at 07:00 the next morning.
 	assert.equal(untilText(chicago("2026-10-07"), "2026-10-06T23:00:00.000Z"), "tomorrow");
 });
 
-test("BUG-T159: the day boundary is the meeting's zone, not UTC", () => {
+test("BUG-58bc5acb8: the day boundary is the meeting's zone, not UTC", () => {
 	// 03:30 UTC on Oct 7 is still 22:30 on Oct 6 in Chicago, so an Oct 6 meeting is today and an Oct 7 one tomorrow.
 	const now = "2026-10-07T03:30:00.000Z";
 	assert.equal(untilText(chicago("2026-10-06"), now), "today");
@@ -27,7 +27,7 @@ test("BUG-T159: the day boundary is the meeting's zone, not UTC", () => {
 	assert.equal(untilText(chicago("2026-10-27"), now), "in 3 weeks");
 });
 
-test("BUG-T159: a completed practice offers no Start the meeting; a scheduled practice still does", () => {
+test("BUG-58bc5acb8: a completed practice offers no Start the meeting; a scheduled practice still does", () => {
 	assert.deepEqual(statusMoves("prelaunch_practice", "completed"), []);
 	assert.equal(statusMoves("prelaunch_practice", "planning").includes("in_progress"), true);
 	assert.equal(statusMoves("prelaunch_practice", "ready").includes("in_progress"), true);

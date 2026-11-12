@@ -161,7 +161,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		/notification_source_stale/,
 	);
 });
-test("NTF-005: a task's due reminder reads 'Task due: …' and its overdue reminder 'Task overdue: …'", async () => {
+test("AC:NTF-005 a task's due reminder reads 'Task due: …' and its overdue reminder 'Task overdue: …'", async () => {
 	const id = randomUUID();
 	const due = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
 	await db.execute(

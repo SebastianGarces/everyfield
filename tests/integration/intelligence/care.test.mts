@@ -118,7 +118,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:B03-021 criterion 1: with no confirmed personal zone, reads and saves ask for it and insert nothing", async () => {
+test("AC:B03-021 with no confirmed personal zone, reads and saves ask for it and insert nothing", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	// The church is in UTC and the account has none: neither UTC, the church zone nor a device zone stands in.
@@ -135,7 +135,7 @@ test("AC:B03-021 criterion 1: with no confirmed personal zone, reads and saves a
 	assert.equal(read.week.startsOn, "2026-10-12");
 });
 
-test("AC:B03-020 criterion 3: the week starts on the Monday of the author's own zone and keeps its id and ordinal", async () => {
+test("AC:B03-020 the week starts on the Monday of the author's own zone and keeps its id and ordinal", async () => {
 	now = "2026-10-11T23:30:00.000Z";
 	const w = await f.workspace();
 	const cases = [
@@ -165,7 +165,7 @@ test("AC:B03-020 criterion 3: the week starts on the Monday of the author's own 
 	}
 });
 
-test("AC:B03-024 AC:PI-CARE-001 criterion 2: a save changes this week only, a same answer adds nothing and a key replays", async () => {
+test("AC:B03-024 AC:PI-CARE-001 a save changes this week only, a same answer adds nothing and a key replays", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -205,7 +205,7 @@ test("AC:B03-024 AC:PI-CARE-001 criterion 2: a save changes this week only, a sa
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 3, revision: "3" });
 });
 
-test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 criterion 4: a zone change keeps the open week until the first future Monday of the new zone", async () => {
+test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week until the first future Monday of the new zone", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -249,7 +249,7 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 criterion 4: a zone change keeps the 
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 2, revisions: 2, revision: "4" });
 });
 
-test("AC:B03-023 criterion 4: a save and a zone change on one calendar give one accepted change and one conflict", async () => {
+test("AC:B03-023 a save and a zone change on one calendar give one accepted change and one conflict", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	// The zone change after a save it did not see is refused whole: the account keeps its zone.
@@ -282,7 +282,7 @@ test("AC:B03-023 criterion 4: a save and a zone change on one calendar give one 
 	}
 });
 
-test("AC:B03-019 AC:B03-013 AC:B03-017 criterion 4: a church timezone change never rekeys personal weeks", async () => {
+test("AC:B03-019 AC:B03-013 AC:B03-017 a church timezone change never rekeys personal weeks", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w, "owner", "Pacific/Auckland");
@@ -309,7 +309,7 @@ test("AC:B03-019 AC:B03-013 AC:B03-017 criterion 4: a church timezone change nev
 	assert.deepEqual(await nextAt(a), { at: "2026-10-18T11:00:00Z", zone: "Pacific/Auckland" });
 });
 
-test("AC:B03-026 AC:GAP-PI-041 criterion 5: a correction keeps the week, its zone and author and the earlier answer", async () => {
+test("AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author and the earlier answer", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	const audits = async () => (await one(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${w.id}`)).n;
@@ -362,7 +362,7 @@ test("AC:B03-026 AC:GAP-PI-041 criterion 5: a correction keeps the week, its zon
 	);
 });
 
-test("AC:B03-035 criterion 6: the strip shows the latest twelve weeks, the thirteenth is on page two, unanswered weeks stay", async () => {
+test("AC:B03-035 the strip shows the latest twelve weeks, the thirteenth is on page two, unanswered weeks stay", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	const mondays = Array.from({ length: 13 }, (_, i) =>
@@ -401,7 +401,7 @@ test("AC:B03-035 criterion 6: the strip shows the latest twelve weeks, the thirt
 	);
 });
 
-test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 criterion 7: only the author reads or corrects a check-in", async () => {
+test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only the author reads or corrects a check-in", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w, "admin", "America/Chicago");
@@ -456,7 +456,7 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 crite
 	refusedBare(await save(b, STRAINED, "1"), "access_denied");
 });
 
-test("AC:ROLE43-011 AC:SCHEMA-007 criterion 8: merges, relinks and role edits leave every check-in with its author", async () => {
+test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every check-in with its author", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w, "admin");
@@ -522,7 +522,7 @@ const sideEffects = (w) =>
 		(SELECT revision::text FROM plant WHERE id=${w.id}) plant_revision,
 		(SELECT material_revision::text FROM plant WHERE id=${w.id}) material_revision`);
 
-test("AC:B03-034 AC:TARGET-IDN-033 criterion 9: three hard weeks in a row are shown back and nothing else happens", async () => {
+test("AC:B03-034 AC:TARGET-IDN-033 three hard weeks in a row are shown back and nothing else happens", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	const start = await sideEffects(w);
@@ -544,7 +544,7 @@ test("AC:B03-034 AC:TARGET-IDN-033 criterion 9: three hard weeks in a row are sh
 	assert.deepEqual(await sideEffects(w), start);
 });
 
-test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 criterion 10: the canary and every private field stay in the private tables", async () => {
+test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 the canary and every private field stay in the private tables", async () => {
 	const w = await f.workspace();
 	const a = await seated(w, "owner");
 	const logged = [];
@@ -608,7 +608,7 @@ async function overdue(requester, subject) {
 	return { subject, requestId, revision: "1" };
 }
 
-test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 criterion 11: deletion hides the author's check-ins at once and the purge removes them", async () => {
+test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's check-ins at once and the purge removes them", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const owner = await seated(w, "owner");

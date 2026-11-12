@@ -28,7 +28,7 @@ const outcome = (p) =>
 		(error) => ({ error }),
 	);
 
-test("BUG-124: People membership read takes no account write lock", async () => {
+test("BUG-PR124: People membership read takes no account write lock", async () => {
 	const s = await f.setup();
 	await f.admin.transaction(async (tx) => {
 		await tx.select().from(t.account).where(eq(t.account.id, s.sender.id)).for("share");
@@ -49,7 +49,7 @@ test("BUG-124: People membership read takes no account write lock", async () => 
 	});
 });
 
-test("BUG-124: a held account write returns a retryable refusal and the read resumes", async () => {
+test("BUG-PR124: a held account write returns a retryable refusal and the read resumes", async () => {
 	const s = await f.setup();
 	await f.admin.transaction(async (tx) => {
 		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, s.sender.id));
@@ -62,7 +62,7 @@ test("BUG-124: a held account write returns a retryable refusal and the read res
 	assert.equal((await f.seats.readCurrentMembership(s.sender.session)).status, "active");
 });
 
-test("BUG-127: resend during a 250-duty removal completes or safely retries", async () => {
+test("BUG-PR127: resend during a 250-duty removal completes or safely retries", async () => {
 	const s = await f.setup(),
 		invitation = await f.invitation(s);
 	const accepted = await f.invitations.accept(s.recipient.session, invitation.claim);
@@ -138,7 +138,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	assert.equal(n, 250);
 });
 
-test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
+test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
 	const s = await f.setup(),
 		native = f.native(),
 		email = key() + "@example.test";
@@ -182,7 +182,7 @@ test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the sa
 	assert.equal((await resumed.json()).status, "active");
 });
 
-test("BUG-127: statement timeout rolls back every handoff and permits exact retry", async () => {
+test("BUG-PR127: statement timeout rolls back every handoff and permits exact retry", async () => {
 	const s = await f.setup(),
 		invitation = await f.invitation(s),
 		accepted = await f.invitations.accept(s.recipient.session, invitation.claim),
