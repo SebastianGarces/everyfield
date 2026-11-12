@@ -117,6 +117,25 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	redirect("/documents/church?deleted=1");
 }
 
+/**
+ * Archives a Church Document after the person confirmed, then returns to the library without it. Its page, revisions
+ * and saved exports stay readable and downloadable; an Owner or Admin can still delete it later.
+ */
+export async function archiveChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.archiveChurch(db, actor, { documentId, expectedRevision });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "archive_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+	revalidatePath("/documents/church");
+	redirect("/documents/church?archived=1");
+}
+
 export type TemplateSaveResult =
 	{ status: "saved"; template: ChurchTemplateSummary } | { status: "refused"; message: string } | { status: "lost" };
 
