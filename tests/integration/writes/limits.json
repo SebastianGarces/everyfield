@@ -66,7 +66,7 @@
 		"limit": 2
 	},
 	"GET /people": {
-		"limit": 5
+		"limit": 6
 	},
 	"GET /people (member)": {
 		"limit": 5
@@ -75,7 +75,7 @@
 		"limit": 7
 	},
 	"GET /people?view=pipeline": {
-		"limit": 6
+		"limit": 7
 	},
 	"GET /settings": {
 		"limit": 2
