@@ -2,10 +2,10 @@ import { z } from "zod";
 import { instant, localDate } from "../common/time.ts";
 import { defineSafeError, eventId, personId, recordId, revision, safeError, sameOwner } from "../common/values.ts";
 import { organizationOwner, plantOwner, sharingCategory, sharingChoices } from "../organizations/subjects.ts";
+import { phaseNumber as phase } from "../phases/index.ts";
 import { foundationReading, ownDiscoveryReading } from "./reading.ts";
 import { documentCarryForwardProposal, journeyAnswer, launchAnswer } from "./requests.ts";
 
-const phase = z.int().min(0).max(6);
 export const creationEntry = z.strictObject({
 	kind: z.literal("church_creation"),
 	eventId,

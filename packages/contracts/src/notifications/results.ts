@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { safeError } from "../common/values.ts";
+import { safeError, type Reply } from "../common/values.ts";
 import { instant, timeZone } from "../common/time.ts";
 import { notificationSettings } from "../settings/values.ts";
 import { digestCadence, digestPeriod, notificationCategory, optOutPurpose } from "./values.ts";
 
 export const notificationError = safeError;
 export type NotificationError = z.infer<typeof notificationError>;
-export type NotificationReply<T> = { status: "ok"; value: T } | { status: "refused"; error: NotificationError };
+export type NotificationReply<T> = Reply<T, NotificationError>;
 
 /**
  * The record a feed entry is about, when its category has a page for it (D-731, D-733). The web maps it to that page;

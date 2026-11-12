@@ -172,10 +172,6 @@ export const restoreSuppressionResult = z.strictObject({
 	suppressionClears: z.number().int().nonnegative(),
 	newSends: z.literal(0),
 });
-export const retryResult = z.strictObject({
-	blindResends: z.literal(0),
-	retried: z.number().int().nonnegative(),
-});
 
 /**
  * The state history shows for a message. `scheduled`: at least one recipient waits for the send time, in Everyfield

@@ -3,6 +3,7 @@ import { localDate } from "../common/time.ts";
 import { recordId, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { organizationOwner, sharingChoices } from "../organizations/subjects.ts";
+import { phaseNumber } from "../phases/index.ts";
 
 const name = z.string().trim().min(1).max(200);
 const localityPart = z.string().trim().max(200).nullable().optional();
@@ -74,7 +75,7 @@ export const answerLeadRequest = commandEnvelope(
 	]),
 );
 export const journeyAnswer = z.discriminatedUnion("answer", [
-	z.strictObject({ answer: z.literal("existing"), phase: z.int().min(0).max(6) }),
+	z.strictObject({ answer: z.literal("existing"), phase: phaseNumber }),
 	z.strictObject({ answer: z.literal("unsure") }),
 	z.strictObject({ answer: z.literal("discerning") }),
 	z.strictObject({ answer: z.literal("skip") }),

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { instant, localDate, timeZone } from "../common/time.ts";
-import { accountId, correlationId, operationId, personId, recordId, revision } from "../common/values.ts";
+import { accountId, defineSafeError, operationId, personId, recordId, revision, type Reply } from "../common/values.ts";
 import {
 	agendaSection,
 	cardResponse,
@@ -18,38 +18,32 @@ import {
 import { personPhoto } from "../people/results.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(
-	code: C,
-	details: D,
-	retry: "never" | "refresh" | "same_request",
-) =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 const occurrence = z.strictObject({ instant, offsetSeconds: z.int() });
 /** Every refusal a meetings operation can return. Missing, foreign and inaccessible records share "unavailable". */
 export const meetingsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unavailable", {}, "never"),
-	error(
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError(
 		"invalid_subject",
 		{ personIds: z.array(personId).max(500).optional(), accountId: accountId.optional() },
 		"never",
 	),
-	error("conflict", {}, "refresh"),
+	defineSafeError("conflict", {}, "refresh"),
 	// The chosen follow-up owner is not a current eligible follow-up owner (REQ-TSK-012).
-	error("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
-	error("venue_archived", {}, "never"),
+	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
+	defineSafeError("venue_archived", {}, "never"),
 	// A team meeting's ministry is archived or not in this church.
-	error("team_unavailable", {}, "never"),
-	error("wrong_meeting_type", {}, "never"),
-	error("status_transition", {}, "never"),
-	error("nonexistent_local_time", {}, "never"),
-	error("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
-	error("token_closed", {}, "never"),
+	defineSafeError("team_unavailable", {}, "never"),
+	defineSafeError("wrong_meeting_type", {}, "never"),
+	defineSafeError("status_transition", {}, "never"),
+	defineSafeError("nonexistent_local_time", {}, "never"),
+	defineSafeError("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
+	defineSafeError("token_closed", {}, "never"),
 	// A required write failed in the database; nothing of the command was kept, and the same request may be retried.
-	error("required_write_failed", {}, "same_request"),
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);
 export type MeetingsError = z.infer<typeof meetingsError>;
-export type MeetingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: MeetingsError };
+export type MeetingsReply<T> = Reply<T, MeetingsError>;
 
 const receipt = { receiptId: operationId, outcome: z.enum(["changed", "noop"]) };
 const copiedVenue = z.strictObject({ id: venueId.nullable(), name: z.string(), address: z.string() });

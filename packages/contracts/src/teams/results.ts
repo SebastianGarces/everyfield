@@ -1,31 +1,25 @@
 import { z } from "zod";
 import { localDate } from "../common/time.ts";
-import { correlationId, operationId, personId, recordId, revision } from "../common/values.ts";
+import { defineSafeError, operationId, personId, recordId, revision, type Reply } from "../common/values.ts";
 import { TEMPLATE_VERSION, leaderSource, teamState } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(
-	code: C,
-	details: D,
-	retry: "never" | "refresh" | "same_request",
-) =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
 /** Every refusal a teams operation can return. Missing rows are "unavailable". */
 export const teamsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unsupported_filter", {}, "never"),
-	error("unavailable", {}, "never"),
-	error("access_denied", {}, "never"),
-	error("invalid_subject", {}, "never"),
-	error("conflict", {}, "refresh"),
-	error("occupied", { roleId: recordId.optional() }, "never"),
-	error("stale_template_version", {}, "never"),
-	error("stale_review", {}, "never"),
-	error("required_write_failed", {}, "same_request"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unsupported_filter", {}, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("invalid_subject", {}, "never"),
+	defineSafeError("conflict", {}, "refresh"),
+	defineSafeError("occupied", { roleId: recordId.optional() }, "never"),
+	defineSafeError("stale_template_version", {}, "never"),
+	defineSafeError("stale_review", {}, "never"),
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);
 export type TeamsError = z.infer<typeof teamsError>;
-export type TeamsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: TeamsError };
+export type TeamsReply<T> = Reply<T, TeamsError>;
 
 const outcome = z.enum(["changed", "noop"]);
 const receipt = { receiptId: operationId, outcome };
