@@ -25,13 +25,13 @@ const LIST: Record<OrderKind, { title: string; description: string; empty: strin
 		title: "Churches",
 		description: "Sending churches that share their Wiki with your church.",
 		empty:
-			"No sending church shares a Wiki with your church. Once Wiki is on for one in Sharing and privacy, it appears here.",
+			"No sending church shares a Wiki with your church yet. To read a church's Wiki here, turn on Wiki for that church in Sharing and privacy.",
 	},
 	networks: {
 		title: "Networks",
 		description: "Sending networks that share their Wiki with your church.",
 		empty:
-			"No sending network shares a Wiki with your church. Once Wiki is on for one in Sharing and privacy, it appears here.",
+			"No sending network shares a Wiki with your church yet. To read a network's Wiki here, turn on Wiki for that network in Sharing and privacy.",
 	},
 };
 
