@@ -34,6 +34,7 @@
       "owner": "Owner + operations",
       "closure": "Approve itemized tiers/usage/low-expected-high monthly envelope and recovery/operator costs before any subscription or usage commitment. No vendor/destination re-vote.",
       "status": "awaiting-concrete-approval",
+      "status_as_of": "2026-11-11",
       "work_packages": [
         "WP-003",
         "WP-050",
@@ -46,6 +47,7 @@
       "owner": "Owner",
       "closure": "One task filed with evf has run end to end through the evf v2 flow that evf.toml and docs/build-agent-workflow.md define: plan, implement, simplify, the repo's checks, a verifier review by a fresh session that did not write the change, a pull request whose required GitHub CI is green on the exact head, and landing by evf, with Sebastian's approval on any path in an evf.toml owner class. Preserve feedback routing and owner approval rules.",
       "status": "reconciled-independent-review",
+      "status_as_of": "2026-11-11",
       "source": {
         "repository": "https://github.com/SebastianGarces/everyfield",
         "ref": "refs/heads/main",
@@ -169,7 +171,7 @@
       "title": "Early access site go-live",
       "owner": "Owner and cross-model verifier",
       "closure": "WP-097 only: normal tests, cross-model review, reviewed access/privacy/terms copy and Sebastian approval of the Vercel preview before production. No signed evf proof. Owner ruling 2026-10-14; product workflow and before-customer-data gates remain separate. Use Vercel everyfield, new Neon everyfield-v3 and Resend; never v2 database values.",
-      "status": "owner-preview-approval-required",
+      "status": "closed until the build plan completes",
       "work_packages": [
         "WP-097"
       ],
@@ -279,7 +281,5 @@
       "recommendation": "Keep whole-organization deletion outside alpha until Sebastian approves its separate policy; do not infer it from individual Person removal.",
       "decision_before": "Any whole-organization deletion feature; outside alpha"
     }
-  ],
-  "implementation_tests_run": 0,
-  "provider_changes": 0
+  ]
 }
