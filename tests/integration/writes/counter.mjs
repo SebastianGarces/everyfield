@@ -50,7 +50,7 @@ const standalone = {
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
+	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport", "signPeopleImport"],
 	"/packages/domain/src/people/commitments/index.ts": [
 		"getCommitmentDownload",
 		"signCommitmentDocument",
