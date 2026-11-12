@@ -20,7 +20,7 @@ const items = [pair(1), pair(2), pair(3)];
 const shown = (s) => pairsShown(items, s).map((p) => p.person.id);
 const key = pairKey(items[1]);
 
-test("T-263 a saved dismiss keeps the row gone", () => {
+test("a saved dismiss keeps the row gone", () => {
 	const sent = pairSent(pairsAtStart, key);
 	assert.deepEqual(shown(sent), ["p1", "p3"], "the row leaves as soon as the action is sent");
 	const saved = pairAnswered(sent, key, "dismiss", { status: "ok", value: { outcome: "changed" } });
@@ -33,7 +33,7 @@ test("T-263 a saved dismiss keeps the row gone", () => {
 	]);
 });
 
-test("T-263 a refused dismiss puts the row back in its place and says nothing changed", () => {
+test("a refused dismiss puts the row back in its place and says nothing changed", () => {
 	const s = pairAnswered(pairSent(pairsAtStart, key), key, "dismiss", { status: "refused", code: "pair_unavailable" });
 	assert.deepEqual(shown(s), ["p1", "p2", "p3"]);
 	assert.equal(
@@ -48,7 +48,7 @@ test("T-263 a refused dismiss puts the row back in its place and says nothing ch
 	assert.deepEqual(pairSent(s, key).notices, {});
 });
 
-test("T-263 a lost answer puts the row back and says it may have saved", () => {
+test("a lost answer puts the row back and says it may have saved", () => {
 	const s = pairAnswered(pairSent(pairsAtStart, key), key, "restore", { status: "lost" });
 	assert.deepEqual(shown(s), ["p1", "p2", "p3"]);
 	assert.equal(s.notices[key], "We could not confirm the restore. It may have saved. Reload to check, or try again.");
@@ -58,7 +58,7 @@ test("T-263 a lost answer puts the row back and says it may have saved", () => {
 	);
 });
 
-test("T-263 two rows in flight settle on their own", () => {
+test("two rows in flight settle on their own", () => {
 	const both = pairSent(pairSent(pairsAtStart, pairKey(items[0])), key);
 	assert.deepEqual(shown(both), ["p3"]);
 	const one = pairAnswered(both, pairKey(items[0]), "dismiss", { status: "lost" });

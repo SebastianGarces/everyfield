@@ -44,7 +44,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:TARGET-IDN-006 T-274 Done 4-5: the photos of the asked people as they are now, by the People list rule", async () => {
+test("AC:TARGET-IDN-006: the photos of the asked people as they are now, by the People list rule", async () => {
 	const holder = await account(),
 		bare = await account();
 	const first = await setAvatar(holder);
@@ -64,7 +64,7 @@ test("AC:TARGET-IDN-006 T-274 Done 4-5: the photos of the asked people as they a
 	assert.deepEqual(await photos([h]), {});
 });
 
-test("AC:TARGET-IDN-006 T-274: a reader whose seat ended gets a refusal, and a request past one page is refused", async () => {
+test("AC:TARGET-IDN-006: a reader whose seat ended gets a refusal, and a request past one page is refused", async () => {
 	const leaving = await account();
 	const holder = await account();
 	await setAvatar(holder);

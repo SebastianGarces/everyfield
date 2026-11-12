@@ -12,7 +12,7 @@ const bytes = await readFile(new URL(`../../../${approvedWiki.payloadPath}`, imp
 const seed = JSON.parse(bytes.toString("utf8")) as { articles: { slug: string; status: string; content: string }[] };
 const HEADING = /^ {0,3}#{1,6}\s+(.*?)\s*$/;
 
-test("T-28 every Guide entry names a published article and one exact heading in the pinned living seed", () => {
+test("every Guide entry names a published article and one exact heading in the pinned living seed", () => {
 	assert.equal(hash(bytes), approvedWiki.payloadSha256, "the test reads the pinned seed bytes");
 	for (const entry of GUIDE_ROUTES) {
 		const matches = seed.articles.filter((article) => article.slug === entry.slug);

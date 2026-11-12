@@ -72,7 +72,7 @@ function summary(totals: typeof zero) {
 	return { tiles, groups, words };
 }
 
-test("AC:CASE-NTF-016 T-282: after the send, Not delivered leaves Ana out and a Skipped count of her own reads 1", () => {
+test("AC:CASE-NTF-016: after the send, Not delivered leaves Ana out and a Skipped count of her own reads 1", () => {
 	const { tiles, groups, words } = summary(anaSkipped);
 	assert.deepEqual(tiles, { Reachable: 2, Delivered: 0, Opened: 0, "Not delivered": 0 });
 	assert.deepEqual(groups["Not delivered"], { Bounced: 0, Failed: 0, Suppressed: 0, Unknown: 0 });
@@ -83,7 +83,7 @@ test("AC:CASE-NTF-016 T-282: after the send, Not delivered leaves Ana out and a 
 	assert.equal(words, "Accepted");
 });
 
-test("AC:CASE-NTF-016 T-282: a send with a bounce and a failure and no unsubscribes counts both as Not delivered and shows Skipped 0", () => {
+test("AC:CASE-NTF-016: a send with a bounce and a failure and no unsubscribes counts both as Not delivered and shows Skipped 0", () => {
 	const { tiles, groups } = summary({
 		...anaSkipped,
 		selected: 4,

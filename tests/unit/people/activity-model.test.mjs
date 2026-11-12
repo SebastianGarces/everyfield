@@ -20,7 +20,7 @@ const entry = (action) => ({
 	withPerson: { id: "7d2e4a1b-3c8f-4e5d-9a6b-2f3e4d5c6b72", displayName: "Iris Existing" },
 });
 
-test("T-269 a dismissal and its restore each name the other person in their own words", () => {
+test("a dismissal and its restore each name the other person in their own words", () => {
 	assert.deepEqual(describe(entry("duplicate_dismissed"), "You"), {
 		title: "Marked not a duplicate of Iris Existing",
 		icon: UserMultiple02Icon,

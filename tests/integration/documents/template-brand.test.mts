@@ -163,7 +163,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("T-190 library templates follow the church brand kit", { concurrency: 1 }, () => {
+describe("library templates follow the church brand kit", { concurrency: 1 }, () => {
 	test("with no brand kit the preview is the neutral render, says so, and Save for your church stores it", async () => {
 		for (const id of ["guest-sign-in-sheet", "commitment-card"]) {
 			const shown = await preview(id);

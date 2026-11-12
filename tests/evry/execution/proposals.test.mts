@@ -542,7 +542,7 @@ test("BUG-f52e88212: an effect that ends with an error Evry cannot classify stay
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.alexChen)).city], [1, "Joliet"]);
 });
 
-test("T-231 INV-budget: a conversation's page read brings every review card's current review, as readReview reads it, in its one statement", async () => {
+test("INV-budget: a conversation's page read brings every review card's current review, as readReview reads it, in its one statement", async () => {
 	const owner = await actor("owner");
 	const names = ["Wren Halloway", "Juno Pike", "Indigo Marsh"];
 	const ids: Record<string, string> = {};

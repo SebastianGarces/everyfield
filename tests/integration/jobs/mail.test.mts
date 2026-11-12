@@ -497,7 +497,7 @@ const passOver =
 		runDueMail(runtime, svc, prefixes, limit, until);
 const row = async (query) => (await db.execute(query)).rows[0];
 
-test("AC:T151-2 every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
+test("every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
 	// Producers whose prefix is built at run time, by producer.
 	const listed = [
 		"password_reset/", // packages/domain/src/identity/service.ts: `${purpose}/${digest(token)}` and the outcome notice
@@ -528,7 +528,7 @@ test("AC:T151-2 every logical-key prefix a mail producer writes is claimed by ex
 	assert.deepEqual(Object.values(MAIL_PASSES).flat().sort(), prefixes);
 });
 
-test("AC:T151-3 a seeded backlog of dead links and past reminders sends none of it on the first tick; fresh mail still goes", async () => {
+test("a seeded backlog of dead links and past reminders sends none of it on the first tick; fresh mail still goes", async () => {
 	const { svc, keys } = recorded(() => ({ kind: "accepted", id: randomUUID() }));
 	const deadReset = await queue(svc, `password_reset/${randomUUID()}`, { purpose: "password_reset" });
 	const deadVerify = await queue(svc, `email_verification/${randomUUID()}`, { purpose: "email_verification" });
@@ -568,7 +568,7 @@ test("AC:T151-3 a seeded backlog of dead links and past reminders sends none of 
 	for (const r of await states([freshReset, resetOutcome])) assert.equal(r.state, "accepted");
 });
 
-test("AC:T151-4 an unknown handoff is replayed on the next tick under the same key, only inside the provider window", async () => {
+test("an unknown handoff is replayed on the next tick under the same key, only inside the provider window", async () => {
 	let answer: { kind: "accepted"; id: string } | { kind: "unknown" } = { kind: "unknown" };
 	const { svc, keys } = recorded(() => answer);
 	const pass = { identity: passOver(svc, ["replay/"]) };
@@ -608,7 +608,7 @@ test("AC:T151-4 an unknown handoff is replayed on the next tick under the same k
 	);
 });
 
-test("AC:T151-5 a stored callback whose email had no provider id yet is applied on the first tick after it gets one", async () => {
+test("a stored callback whose email had no provider id yet is applied on the first tick after it gets one", async () => {
 	const providerId = "early-" + randomUUID();
 	assert.deepEqual(await receiveMailCallback(runtime, await callback(providerId, "delivered"), secret), {
 		stored: true,
@@ -626,7 +626,7 @@ test("AC:T151-5 a stored callback whose email had no provider id yet is applied 
 	);
 });
 
-test("AC:T151-7 an Unsubscribe link minted before the account's first cadence save still unsubscribes after it", async () => {
+test("an Unsubscribe link minted before the account's first cadence save still unsubscribes after it", async () => {
 	const ring = { current: randomBytes(32), previous: [] };
 	const api = createNotificationProducer({ optOutKeys: ring });
 	const reader = await seeds(db).actor({ kind: "plant", id: tenant } as never, "admin");

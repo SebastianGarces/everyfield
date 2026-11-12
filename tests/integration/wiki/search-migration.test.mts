@@ -83,7 +83,7 @@ async function vectors(db: Database) {
 	return (await db.execute(sql`SELECT id::text, search_vector::text AS vector FROM article_revision ORDER BY id`)).rows;
 }
 
-test("T-275 a plain-text organization body migrates through wiki search and is found by its words", async () => {
+test("a plain-text organization body migrates through wiki search and is found by its words", async () => {
 	await migrate(admin, schema, await folder(before));
 	await writeRevisions(admin);
 
@@ -126,7 +126,7 @@ const server = Number(
 	((await admin.execute(sql`SELECT current_setting('server_version_num') AS v`)).rows[0] as { v: string }).v,
 );
 test(
-	"T-275 a database that applied the first version of the migration migrates to head with the same vectors",
+	"a database that applied the first version of the migration migrates to head with the same vectors",
 	// The first version's backfill fails on any table with revisions (pending record-binding events block its ALTER),
 	// so a database applied it with none and wrote them later, through its SQL function, which PostgreSQL 18 cannot run
 	// on a plain-text body.

@@ -141,7 +141,7 @@ const resolvedFor = async (id: string, pastor: string | null) => {
 	return { template, resolved };
 };
 
-test("T-205 the library preview of each twinned template is the everyfield.doc/1 render of its file", async () => {
+test("the library preview of each twinned template is the everyfield.doc/1 render of its file", async () => {
 	for (const id of TWINNED) {
 		const { template, resolved } = await resolvedFor(id, "Pastor Ada");
 		const format = template.formats[0]!;
@@ -191,7 +191,7 @@ const headingTexts = (nodes: readonly BlockNode[] | undefined): string[] =>
 		return [];
 	});
 
-test("T-205 the library facts of each twinned template are read from its file", async () => {
+test("the library facts of each twinned template are read from its file", async () => {
 	const { templates } = await library();
 	for (const id of TWINNED) {
 		const file = docTemplateById(id)!;
@@ -231,7 +231,7 @@ test("T-205 the library facts of each twinned template are read from its file", 
 	}
 });
 
-test("T-205 every merge field the library offers for a twinned template prints its value", async () => {
+test("every merge field the library offers for a twinned template prints its value", async () => {
 	// A template file prints only the merge values it declares, so the library offers no input that a render drops.
 	const { templates } = await library();
 	for (const id of TWINNED.filter((id) => docTemplateById(id)!.exports[0] === "pdf")) {
