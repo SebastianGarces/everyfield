@@ -14,12 +14,19 @@ import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, type ViewMutationRecord } from "@tiptap/pm/view";
-import { FORMAT_KEY, type DocBrand, type EveryfieldDoc, type FieldDecl } from "@everyfield/contracts/documents";
+import {
+	FORMAT_KEY,
+	plainTable,
+	type DocBrand,
+	type EveryfieldDoc,
+	type FieldDecl,
+} from "@everyfield/contracts/documents";
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
 import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, insideColumn, regionAt } from "./blocks.ts";
 import { ConditionRules, EfIf } from "./condition-extension.ts";
 import { docDecorations } from "./doc-decorations.ts";
+import { nodeFromTable, tableOf } from "./table-actions.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
@@ -857,9 +864,40 @@ export function editorExtensions(assets: Assets | null = null) {
 }
 
 /**
- * The plain document set (D-208): the same nodes and marks the Church Document editor uses for prose, and nothing a
- * template brings (no page header or footer, page setup, merge fields, slots, images, tables, layout blocks or tag).
- * Content the schema does not know, such as a pasted table, is dropped, so the editor JSON is always a native body.
+ * A paste into a plain document: every table it brings is reduced to the plain set (T-100 criterion 5, `plainTable`),
+ * so a budget table or a table with a header color or write-in rows copied from a Church Document lands as a plain
+ * table that keeps what each cell showed. The schema has already dropped what it does not know, such as a tag.
+ */
+export function plainPastedSlice(slice: Slice): Slice {
+	let changed = false;
+	const strip = (fragment: Fragment): Fragment => {
+		const nodes: PMNode[] = [];
+		fragment.forEach((child) => {
+			if (child.type.name === "table") {
+				changed = true;
+				nodes.push(nodeFromTable(child.type.schema, plainTable(tableOf(child))));
+			} else nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
+		});
+		return Fragment.fromArray(nodes);
+	};
+	const content = strip(slice.content);
+	if (!changed) return slice;
+	const max = Slice.maxOpen(content);
+	return new Slice(content, Math.min(slice.openStart, max.openStart), Math.min(slice.openEnd, max.openEnd));
+}
+
+const PlainPaste = Extension.create({
+	name: "plainPaste",
+	addProseMirrorPlugins: () => [
+		new Plugin({ key: new PluginKey("efPlainPaste"), props: { transformPasted: (slice) => plainPastedSlice(slice) } }),
+	],
+});
+
+/**
+ * The plain document set (D-208): the same nodes and marks the Church Document editor uses for prose, and T-16's table
+ * in its plain form (T-100), with nothing a template brings (no page header or footer, page setup, merge fields,
+ * slots, images, layout blocks or tag). Content the schema does not know is dropped, and a pasted table is reduced to
+ * the plain set, so the editor JSON is always a native body.
  */
 export function nativeExtensions() {
 	return [
@@ -872,6 +910,10 @@ export function nativeExtensions() {
 		EfListItem,
 		EfQuote,
 		EfDivider.extend({ addAttributes: () => ({}) }),
+		EfTable,
+		EfRow,
+		EfCell,
+		EfValueCell,
 		HardBreak,
 		Bold,
 		Italic,
@@ -879,5 +921,8 @@ export function nativeExtensions() {
 		EfLink,
 		UndoRedo,
 		Placeholders,
+		PlainPaste,
+		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
+		TableRules,
 	];
 }

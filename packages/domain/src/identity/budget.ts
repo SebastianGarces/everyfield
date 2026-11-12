@@ -7,27 +7,31 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { refuse } from "./invitation-core.ts";
 
+type IdentityRefusalCode =
+	| "invalid_input"
+	| "invalid_credentials"
+	| "invalid_proof"
+	| "unauthenticated"
+	| "unavailable"
+	| "admission_unavailable"
+	| "rate_limited"
+	| "origin_denied"
+	| "idempotency_conflict";
 export class IdentityRefusal extends Error {
-	constructor(
-		readonly code:
-			| "invalid_input"
-			| "invalid_credentials"
-			| "invalid_proof"
-			| "unauthenticated"
-			| "unavailable"
-			| "admission_unavailable"
-			| "rate_limited"
-			| "origin_denied"
-			| "idempotency_conflict",
-		readonly status: number,
-	) {
+	readonly code: IdentityRefusalCode;
+	readonly status: number;
+	constructor(code: IdentityRefusalCode, status: number) {
 		super(code);
+		this.code = code;
+		this.status = status;
 	}
 }
 /** A budget refusal. It names the window the attempt hit, so the reply can say when the same request may pass. */
 export class RateLimited extends IdentityRefusal {
-	constructor(readonly windowMinutes: number) {
+	readonly windowMinutes: number;
+	constructor(windowMinutes: number) {
 		super("rate_limited", 429);
+		this.windowMinutes = windowMinutes;
 	}
 }
 /** The transaction's statement and lock timeouts, for the select list of its first statement. */

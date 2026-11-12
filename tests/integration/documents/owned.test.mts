@@ -4,7 +4,12 @@ import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/d
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
-import { nativeFromText, nativeText, readNative } from "../../../packages/contracts/src/documents/native.ts";
+import {
+	nativeBody,
+	nativeFromText,
+	nativeText,
+	readNative,
+} from "../../../packages/contracts/src/documents/native.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -13,7 +18,7 @@ import { syncBuiltinESMExports } from "node:module";
 import zlib from "node:zlib";
 
 const database = await fixture({ prefix: "wp037", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
@@ -1379,15 +1384,14 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		])
 			refusedPrivate(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
 
-		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
-		const textBox = (inner) =>
-			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
+		// Criterion 6: text boxes stay paragraphs in reading order and the drawing's fallback copy is not repeated; a table
+		// is a native table (T-111), its cells one line of plain text.
 		const mixed = ok(
 			await importWord(
 				W.word(
 					W.styled("Heading1", "Plan") +
 						`<w:tbl><w:tr><w:tc>${W.styled("Heading1", "Cell heading")}</w:tc><w:tc>${W.numbered("1", "Cell item")}</w:tc></w:tr></w:tbl>` +
-						W.p(["Before box ", textBox(W.p("Inside box")), "after box"]) +
+						W.p(["Before box ", W.textBox(W.p("Inside box")), "after box"]) +
 						W.p() +
 						W.p("Tom &amp; Ann &lt;3") +
 						W.p() +
@@ -1400,8 +1404,26 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			type: "doc",
 			content: [
 				heading(1, text("Plan")),
-				para(text("Cell heading")),
-				para(text("Cell item")),
+				{
+					type: "table",
+					attrs: {
+						columns: [
+							{ id: "c1", label: "Column 1", type: "text", width: 0 },
+							{ id: "c2", label: "Column 2", type: "text", width: 0 },
+						],
+						style: "grid",
+						header: false,
+					},
+					content: [
+						{
+							type: "row",
+							content: [
+								{ type: "cell", content: [text("Cell heading")] },
+								{ type: "cell", content: [text("Cell item")] },
+							],
+						},
+					],
+				},
 				para(text("Before box ")),
 				para(text("Inside box")),
 				para(text("after box")),
@@ -1411,7 +1433,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		});
 		assert.equal(
 			nativeText(mixed.body),
-			"Plan\nCell heading\nCell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
+			"Plan\nCell heading | Cell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
 		);
 
 		// Criterion 7: one structured revision and one audit row; the same key replays it; a body past a format limit
@@ -1478,5 +1500,371 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			),
 			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },
 		);
+	});
+
+	test("AC:CASE-DOC-016 INV-documents T-100: plain tables save at the boundary, read back, feed core values and survive Use for this church", async () => {
+		const owner = await authority(2);
+		const member = await authority(1);
+		const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
+		const cell = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
+		const column = (id, label, type) => ({ id, label, type, width: 0 });
+		const grid = {
+			type: "table",
+			attrs: {
+				style: "grid",
+				header: true,
+				zebra: true,
+				columns: [
+					column("item", "Item", "text"),
+					column("count", "Count", "number"),
+					column("cost", "Cost", "money"),
+					column("done", "Done", "check"),
+					column("n", "No.", "index"),
+				],
+			},
+			content: [
+				{
+					type: "row",
+					content: [
+						cell(text("Chairs", [{ type: "link", attrs: { href: "https://example.org" } }, { type: "bold" }])),
+						{ type: "cell", attrs: { value: 1200 } },
+						{ type: "cell", attrs: { value: 3000.5 } },
+						{ type: "cell", attrs: { checked: true } },
+						cell(),
+					],
+				},
+				{ type: "row", content: [cell(text("Tables", [{ type: "italic" }])), cell(), cell(), cell(), cell()] },
+			],
+		};
+		const checklist = {
+			type: "table",
+			attrs: {
+				style: "rows",
+				header: false,
+				columns: [{ id: "done", label: "Done", type: "check", width: 18 }, column("commitment", "Commitment", "text")],
+			},
+			content: [
+				{ type: "row", content: [cell(), cell(text("Pray"))] },
+				{ type: "row", content: [{ type: "cell", attrs: { checked: true } }, cell(text("Invite"))] },
+			],
+		};
+		const body = { type: "doc", content: [para(text("Setup plan")), grid, para(text("Then")), checklist] };
+		const revisions = () => countOf("document_revision", `WHERE tenant_id = '${P}'`);
+		const audits = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action LIKE 'documents.%'`);
+
+		// Criterion 7: the plain table set saves as the stored body node and reads back the same, for a Member too.
+		const saved = ok(await documentsWriter.saveNative(db, owner, { title: "Setup", body, expectedRevision: "0" }));
+		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
+		assert.deepEqual(ok(await documentsWriter.read(db, owner, { documentId: saved.id })).body, body);
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
+
+		// Each part a plain table refuses: nothing is written, on a new document or a save of this one.
+		const changed = (change) => {
+			const next = structuredClone(body);
+			change(next.content[1]);
+			return next;
+		};
+		const firstCell = (t) => t.content[0].content[0];
+		const refusals = {
+			"a budget table": changed((t) => (t.attrs.style = "ledger")),
+			"a formula column": changed(
+				(t) => (t.attrs.columns[1] = { ...t.attrs.columns[1], type: "formula", formula: "cost" }),
+			),
+			"a header color": changed((t) => (t.attrs.headerFill = "primary")),
+			"write-in rows": changed((t) => (t.attrs.writeInRows = 3)),
+			"a list field": changed((t) => (t.attrs.source = "people")),
+			"a group row": changed((t) => (t.content[0].attrs = { role: "group" })),
+			"a total row": changed((t) => (t.content[1].attrs = { role: "total" })),
+			"a tag in a cell": changed((t) => (firstCell(t).content = [text("Chairs", [{ type: "tag" }])])),
+			"a field in a cell": changed((t) => (firstCell(t).content = [{ type: "field", attrs: { key: "church_name" } }])),
+			"an image in a cell": changed((t) => (firstCell(t).content = [{ type: "image", attrs: { source: "logo" } }])),
+		};
+		const [beforeRevisions, beforeAudits] = [await revisions(), await audits()];
+		for (const bad of Object.values(refusals)) {
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, { title: "Bad", body: bad, expectedRevision: "0" }),
+				"invalid_input",
+			);
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, {
+					title: "Setup",
+					body: bad,
+					documentId: saved.id,
+					expectedRevision: saved.revision,
+				}),
+				"invalid_input",
+			);
+		}
+		assert.equal(await revisions(), beforeRevisions);
+		assert.equal(await audits(), beforeAudits);
+		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
+
+		// Criterion 9: the evidence writes each table as its lines, header labels first, in reading order with the prose.
+		ok(
+			await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }),
+		);
+		const evidence = ok(await documentsWriter.readCoreValuesEvidence(db, member, {}));
+		assert.equal(evidence.documentId, saved.id);
+		assert.equal(
+			evidence.text,
+			[
+				"Setup plan",
+				"Item | Count | Cost | Done | No.",
+				"Chairs | 1,200 | $3,000.50 | [x] | 1",
+				"Tables |  |  | [ ] | 2",
+				"Then",
+				"[ ] | Pray",
+				"[x] | Invite",
+			].join("\n"),
+		);
+
+		// A body whose only content is an empty table, or a table of empty cells, never qualifies: no save, no core values.
+		const emptyRows = { type: "row", content: grid.attrs.columns.map(() => cell()) };
+		const emptyBodies = [
+			{ type: "doc", content: [{ ...grid, content: [] }] },
+			{ type: "doc", content: [para(), { ...grid, content: [emptyRows, emptyRows] }] },
+		];
+		for (const empty of emptyBodies)
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, { title: "Empty", body: empty, expectedRevision: "0" }),
+				"invalid_input",
+			);
+		const shell = ok(
+			await documentsWriter.saveNative(db, owner, { title: "Shell", body: doc("temp"), expectedRevision: "0" }),
+		);
+		const shellRevision = randomUUID();
+		const shellBody = JSON.stringify(emptyBodies[1]);
+		await admin.execute(sql`
+			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, recorded_at)
+			VALUES (${shellRevision}::uuid, ${P}::uuid, ${shell.id}::uuid, 2, ${shellBody}, ${sha(shellBody)}, clock_timestamp())
+		`);
+		await admin.execute(
+			sql`UPDATE document SET current_revision_id = ${shellRevision}::uuid WHERE id = ${shell.id}::uuid`,
+		);
+		refusedPrivate(
+			await documentsWriter.designateCoreValues(db, owner, { documentId: shell.id, expectedRevision: shell.revision }),
+			"unavailable",
+		);
+
+		// Criterion 10: Use for this church copies the tables intact, and a later table edit of the original leaves the copy.
+		await endSeat(actors[2].id);
+		const source = ok(
+			await documentsWriter.saveNative(db, await authority(2), { title: "Setup tables", body, expectedRevision: "0" }),
+		);
+		await restoreSeat(actors[2].id);
+		const copy = ok(
+			await documentsWriter.useForChurch(db, await authority(2), {
+				documentId: source.id,
+				revisionId: source.revisionId,
+				requestKey: randomUUID(),
+			}),
+		);
+		assert.deepEqual(copy.body, body);
+		await endSeat(actors[2].id);
+		const edited = changed((t) => (t.content[0].content[2] = { type: "cell", attrs: { value: 10 } }));
+		ok(
+			await documentsWriter.saveNative(db, await authority(2), {
+				title: "Setup tables",
+				body: edited,
+				documentId: source.id,
+				expectedRevision: source.revision,
+			}),
+		);
+		assert.deepEqual(JSON.parse((await currentOf(source.id)).body), edited);
+		await restoreSeat(actors[2].id);
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: copy.id })).body, body);
+	});
+	test("AC:CASE-DOC-016 T-111: a Word table imports as a native table of text columns", async () => {
+		const member = await authority(1);
+		const text = (value, href) => ({
+			type: "text",
+			text: value,
+			...(href ? { marks: [{ type: "link", attrs: { href } }] } : {}),
+		});
+		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
+		const cellOf = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
+		/** A typed row: a string is a cell of that text, an array a cell of those nodes, "" an empty cell. */
+		const typed = (...cells) => ({
+			type: "row",
+			content: cells.map((value) => (Array.isArray(value) ? cellOf(...value) : value ? cellOf(text(value)) : cellOf())),
+		});
+		const columns = (labels) => labels.map((label, i) => ({ id: `c${i + 1}`, label, type: "text", width: 0 }));
+		const numberedLabels = (n) => Array.from({ length: n }, (_, i) => `Column ${i + 1}`);
+		const tableOf = (labels, header, rows) => ({
+			type: "table",
+			attrs: { columns: columns(labels), style: "grid", header },
+			...(rows.length ? { content: rows } : {}),
+		});
+		const importWord = async (who, bytes) =>
+			documentsWriter.importTextOrWord(
+				db,
+				who,
+				{ title: "Word table", format: "docx", bytes, expectedRevision: "0", requestKey: randomUUID() },
+				storage,
+			);
+		/** The saved body of an import, checked equal to the result and to what nativeBody accepts. */
+		const stored = async (result) => {
+			const value = ok(result);
+			const body = JSON.parse((await currentOf(value.id)).body);
+			assert.deepEqual(value.body, body);
+			assert.equal(nativeBody.safeParse(body).success, true);
+			return body;
+		};
+		const admin2 = await authority(2);
+		const imported = async (body, parts) => stored(await importWord(admin2, W.word(body, parts)));
+		const { table, row, headerRow, cell } = W;
+
+		// Criterion 1: prose, a 3-column table with a header row, prose; in a church plant seat and in account context.
+		const roster = W.table(
+			[
+				headerRow([cell("Name"), cell("Role"), cell("Day")]),
+				row([cell("Ada"), cell("Pastor"), cell("Sunday")]),
+				row([cell("Ben"), cell("Music"), cell("Friday")]),
+			],
+			'<w:tblLook w:firstRow="1"/>',
+		);
+		const rosterBody = {
+			type: "doc",
+			content: [
+				para(text("Our team")),
+				tableOf(["Name", "Role", "Day"], true, [typed("Ada", "Pastor", "Sunday"), typed("Ben", "Music", "Friday")]),
+				para(text("Thank you")),
+			],
+		};
+		const rosterFile = W.word(W.p("Our team") + roster + W.p("Thank you"));
+		const plantResult = await importWord(admin2, rosterFile);
+		assert.deepEqual(await stored(plantResult), rosterBody);
+		const inPlant = ok(plantResult);
+		assert.equal(inPlant.tenantId, P);
+		const accountResult = await importWord(await authority(4), rosterFile);
+		assert.deepEqual(await stored(accountResult), rosterBody);
+		assert.equal(ok(accountResult).tenantId, actors[4].id);
+
+		// Criterion 6: a Member reads the imported table, and core values write it as T-100 ruling (d).
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: inPlant.id })).body, rosterBody);
+		ok(
+			await documentsWriter.designateCoreValues(db, admin2, {
+				documentId: inPlant.id,
+				expectedRevision: inPlant.revision,
+			}),
+		);
+		assert.equal(
+			ok(await documentsWriter.readCoreValuesEvidence(db, member, {})).text,
+			"Our team\nName | Role | Day\nAda | Pastor | Sunday\nBen | Music | Friday\nThank you",
+		);
+
+		// Criterion 2: Word's header row, by its on/off values; the table style's first-row flag alone is not one.
+		const twoRows = (first, props = "") =>
+			W.p("Prose") + table([first([cell("Item"), cell("Count")]), row([cell("Chairs"), cell("40")])], props);
+		const withHeader = {
+			type: "doc",
+			content: [para(text("Prose")), tableOf(["Item", "Count"], true, [typed("Chairs", "40")])],
+		};
+		const noHeader = {
+			type: "doc",
+			content: [
+				para(text("Prose")),
+				tableOf(numberedLabels(2), false, [typed("Item", "Count"), typed("Chairs", "40")]),
+			],
+		};
+		for (const value of [undefined, "1", "true", "on"])
+			assert.deepEqual(await imported(twoRows((cells) => headerRow(cells, value))), withHeader, String(value));
+		for (const value of ["0", "false", "off"])
+			assert.deepEqual(await imported(twoRows((cells) => headerRow(cells, value))), noHeader, value);
+		assert.deepEqual(await imported(twoRows(row)), noHeader);
+		assert.deepEqual(await imported(twoRows(row, '<w:tblLook w:val="04A0" w:firstRow="1"/>')), noHeader);
+		const long = "L".repeat(81);
+		assert.deepEqual(
+			await imported(table([headerRow([cell(long), cell("Count")]), row([cell("Chairs"), cell("40")])])),
+			{ type: "doc", content: [tableOf(numberedLabels(2), false, [typed(long, "Count"), typed("Chairs", "40")])] },
+		);
+		const fits = "F".repeat(80);
+		assert.deepEqual(
+			await imported(
+				table([
+					headerRow([cell(` ${fits} `), cell("Count")]),
+					headerRow([cell("Marked"), cell("again")]),
+					row([cell("Chairs"), cell("40")]),
+				]),
+			),
+			{ type: "doc", content: [tableOf([fits, "Count"], true, [typed("Marked", "again"), typed("Chairs", "40")])] },
+		);
+
+		// Criterion 3: each cell is one line; merges leave their spanned cells empty; a nested table joins its cell.
+		const cellParts = {
+			styles: W.styles(W.style("Heading1", "heading 1")),
+			numbering: W.numbering(["1", ["bullet"]]),
+			rels: W.rels(["rId1", "https://example.org/give"], ["rId3", "javascript:alert(1)"]),
+		};
+		assert.deepEqual(
+			await imported(
+				table([
+					headerRow([cell("Kind"), cell([W.p("Header "), W.p(["with ", W.link("rId1", "link")])]), cell("Third")]),
+					row([cell(["One", "", "Two"]), cell([W.numbered("1", "Bread"), W.numbered("1", "Milk")]), cell()]),
+					row([
+						cell(W.p(["Line one", W.br, "line two"])),
+						cell(W.p(["Name:", W.tab, "Ada"])),
+						cell(W.styled("Heading1", "Cell heading")),
+					]),
+					row([
+						cell(W.p(["Give ", W.link("rId1", "online"), " today"])),
+						cell(W.p(["Not ", W.link("rId3", "safe")])),
+						cell(W.p(["Trailing ", "  "])),
+					]),
+					row([cell("Wide", '<w:gridSpan w:val="2"/>'), cell("C")]),
+					row([cell("Tall", '<w:vMerge w:val="restart"/>'), cell("x"), cell("y")]),
+					row([cell("", "<w:vMerge/>"), cell("x2"), cell("y2")]),
+					row([cell(["Outer", table([row([cell("In 1"), cell(["In 2a", "In 2b"])])]), "after"]), cell("B")]),
+				]),
+				cellParts,
+			),
+			{
+				type: "doc",
+				content: [
+					tableOf(["Kind", "Header with link", "Third"], true, [
+						typed("One Two", "Bread Milk", ""),
+						typed("Line one line two", "Name: Ada", "Cell heading"),
+						typed([text("Give "), text("online", "https://example.org/give"), text(" today")], "Not safe", "Trailing"),
+						typed("Wide", "", "C"),
+						typed("Tall", "x", "y"),
+						typed("", "x2", "y2"),
+						typed("Outer In 1 In 2a In 2b after", "B", ""),
+					]),
+				],
+			},
+		);
+
+		// Criterion 4: past 16 columns the table stays paragraphs; past 1000 rows it continues; an empty table stays a
+		// table; a table in a text box stays paragraphs.
+		const wide = Array.from({ length: 17 }, (_, i) => `A${i + 1}`);
+		assert.deepEqual(await imported(W.p("Wide") + table([row(wide.map((value) => cell(value)))])), {
+			type: "doc",
+			content: [para(text("Wide")), ...wide.map((value) => para(text(value)))],
+		});
+		const merged = await imported(
+			W.p("Spans") + table([row([cell("Most", '<w:gridSpan w:val="16"/>'), cell("Past")])]),
+		);
+		assert.deepEqual(merged, { type: "doc", content: [para(text("Spans")), para(text("Most")), para(text("Past"))] });
+		const steps = Array.from({ length: 1001 }, (_, i) => `Step ${i + 1}`);
+		assert.deepEqual(await imported(table([headerRow([cell("Step")]), ...steps.map((value) => row([cell(value)]))])), {
+			type: "doc",
+			content: [
+				tableOf(
+					["Step"],
+					true,
+					steps.slice(0, 1000).map((value) => typed(value)),
+				),
+				tableOf(["Step"], true, [typed("Step 1001")]),
+			],
+		});
+		assert.deepEqual(await imported(W.p("Empty next") + table([row([cell(), cell()]), row([cell(), cell()])])), {
+			type: "doc",
+			content: [para(text("Empty next")), tableOf(numberedLabels(2), false, [typed("", ""), typed("", "")])],
+		});
+		assert.deepEqual(await imported(W.p(["Box: ", W.textBox(table([row([cell("In box"), cell("too")])]))])), {
+			type: "doc",
+			content: [para(text("Box: ")), para(text("In box")), para(text("too"))],
+		});
 	});
 });

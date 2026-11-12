@@ -5,10 +5,32 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
-	acquireLock, createLog, createTransport, deliver, loadState, LOG_DIR, readWebhookConfig, runAllowed, saveState, STATE_DIR, WEBHOOK_SENDS_PER_HOUR,
-	type CommandName, type ExecResult, type Log, type Transport,
+	acquireLock,
+	createLog,
+	createTransport,
+	deliver,
+	loadState,
+	LOG_DIR,
+	readWebhookConfig,
+	runAllowed,
+	saveState,
+	STATE_DIR,
+	WEBHOOK_SENDS_PER_HOUR,
+	type CommandName,
+	type ExecResult,
+	type Log,
+	type Transport,
 } from "./io.mts";
-import { advance, buildPayload, buildTestPayload, markDelivered, normalize, parseCi, parseStatus, type Ci } from "./observe.mts";
+import {
+	advance,
+	buildPayload,
+	buildTestPayload,
+	markDelivered,
+	normalize,
+	parseCi,
+	parseStatus,
+	type Ci,
+} from "./observe.mts";
 
 export type Deps = {
 	now: () => number;
@@ -58,7 +80,11 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 		let ci: Ci | null = loaded.state?.snapshot.ci ?? null;
 		const gh = await deps.exec("gh-main-ci");
 		const ghRaw = gh.ok ? parseJson(gh.stdout) : undefined;
-		const parsedCi = !gh.ok ? gh : ghRaw === undefined ? { ok: false as const, code: "gh_invalid_json" } : parseCi(ghRaw);
+		const parsedCi = !gh.ok
+			? gh
+			: ghRaw === undefined
+				? { ok: false as const, code: "gh_invalid_json" }
+				: parseCi(ghRaw);
 		if (parsedCi.ok) ci = parsedCi.value;
 		else await deps.log(`ci_unavailable code=${parsedCi.code}`);
 
@@ -83,13 +109,19 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 			const keys = due.map((e) => e.key).join(",");
 			if (result.ok) {
 				state = markDelivered(state, due);
-				await deps.log(`wake ${mode} result=${result.result} events=${due.length} keys=${keys} snapshot=${fingerprint}`);
+				await deps.log(
+					`wake ${mode} result=${result.result} events=${due.length} keys=${keys} snapshot=${fingerprint}`,
+				);
 				outcome = "woke";
 			} else if (result.capped) {
-				await deps.log(`wake_capped transport=${mode} sends_last_hour=${result.sends.length} cap=${WEBHOOK_SENDS_PER_HOUR} pending=${due.length} keys=${keys}`);
+				await deps.log(
+					`wake_capped transport=${mode} sends_last_hour=${result.sends.length} cap=${WEBHOOK_SENDS_PER_HOUR} pending=${due.length} keys=${keys}`,
+				);
 				outcome = "wake_capped";
 			} else {
-				await deps.log(`wake_failed transport=${mode} tries=${result.tries} result=${result.result} pending=${due.length} keys=${keys}`);
+				await deps.log(
+					`wake_failed transport=${mode} tries=${result.tries} result=${result.result} pending=${due.length} keys=${keys}`,
+				);
 				outcome = "wake_failed";
 			}
 		}
@@ -101,7 +133,11 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 }
 
 /** One test payload, one try, no lock, no cap and no dedup state: it neither reads nor writes state.json. */
-export async function testWake(deps: { transport: Transport; log: Log; now: () => number }): Promise<{ ok: boolean; line: string }> {
+export async function testWake(deps: {
+	transport: Transport;
+	log: Log;
+	now: () => number;
+}): Promise<{ ok: boolean; line: string }> {
 	const result = await deliver(deps.transport, buildTestPayload(deps.now()), { tries: 1 });
 	const line = `test-wake transport=${deps.transport.mode} result=${result.result}`;
 	await deps.log(line);
@@ -146,7 +182,9 @@ async function main() {
 if (import.meta.main) {
 	main().catch(async (e) => {
 		// Never print raw errors: they can carry paths or command output.
-		await createLog(join(LOG_DIR, "watch.log"))(`internal_error name=${(e as Error)?.name ?? "unknown"}`).catch(() => undefined);
+		await createLog(join(LOG_DIR, "watch.log"))(`internal_error name=${(e as Error)?.name ?? "unknown"}`).catch(
+			() => undefined,
+		);
 		process.exitCode = 1;
 	});
 }

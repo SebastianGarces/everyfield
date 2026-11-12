@@ -4,13 +4,20 @@ import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/c
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NotAvailable } from "../../access/AccessStates";
+import { AFTER_SIGN_IN } from "../../identity/SignInScreen";
+import { ArchivedLibrary } from "./ArchivedLibrary.tsx";
 import { ChurchDocumentScreen } from "./ChurchDocumentScreen.tsx";
 import { ChurchLibrary } from "./ChurchLibrary.tsx";
-import { canManageChurch, loadChurchDocument, loadLibrary } from "./server.ts";
+import { canManageChurch, loadArchived, loadChurchDocument, loadLibrary } from "./server.ts";
 
 // The Church Documents routes. The files under apps/web/src/app/ only re-export these.
 
 export const churchLibraryMetadata: Metadata = { title: "Church documents", robots: { index: false, follow: false } };
+export const churchArchivedMetadata: Metadata = {
+	title: "Archived documents",
+	robots: { index: false, follow: false },
+};
 export const churchDocumentMetadata: Metadata = { title: "Church document", robots: { index: false, follow: false } };
 
 async function activeViewer(returnTo: string) {
@@ -35,8 +42,40 @@ export async function ChurchLibraryPage({
 			templates={loaded.value.templates}
 			churchTemplates={loaded.value.churchTemplates}
 			canManage={canManageChurch(authority)}
-			deleted={(await searchParams).deleted === "1"}
+			notice={noticeOf(await searchParams)}
 		/>
+	);
+}
+
+/** The one-line notice the library shows after a delete, an archive or a restore returned to it. */
+function noticeOf(params: Record<string, string | string[] | undefined>) {
+	if (params.restored === "1") return "restored" as const;
+	if (params.archived === "1") return "archived" as const;
+	if (params.deleted === "1") return "deleted" as const;
+	return null;
+}
+
+/**
+ * The church plant's archived Church Documents (T-284). Only an Owner or Admin opens it; a Member gets the same "not
+ * available" state as any page they cannot use.
+ */
+export async function ChurchArchivedPage() {
+	const authority = (await activeViewer("/documents/church/archived"))?.authority;
+	if (!authority) return <Unavailable />;
+	if (!canManageChurch(authority)) return <NotAvailablePage />;
+	const loaded = await loadArchived(authority);
+	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "refused") return <NotAvailablePage />;
+	return <ArchivedLibrary documents={loaded.value} />;
+}
+
+function NotAvailablePage() {
+	return (
+		<div className="py-12">
+			<Card className="mx-auto max-w-[560px]">
+				<NotAvailable scope="page" homeHref={AFTER_SIGN_IN} />
+			</Card>
+		</div>
 	);
 }
 
