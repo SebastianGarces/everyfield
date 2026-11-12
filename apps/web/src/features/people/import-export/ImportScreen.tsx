@@ -56,16 +56,13 @@ const post = (body: unknown): RequestInit => ({
 	headers: { "Content-Type": "application/json" },
 	body: JSON.stringify(body),
 });
-/**
- * Puts the file into the private bucket under a freshly signed upload: its id, or why not. 412 means this write-once
- * object is already there, so it counts as stored.
- */
+/** Puts the file into the private bucket under a freshly signed upload: its id, or why not. */
 async function stage(file: File): Promise<Answer<string>> {
 	const signed = await call<ImportUpload>("/api/people/import/upload", post({ byteLength: file.size }));
 	if (signed.status !== "ok") return signed;
 	try {
 		const res = await fetch(signed.value.url, { method: "PUT", headers: signed.value.headers, body: file });
-		return res.ok || res.status === 412 ? { status: "ok", value: signed.value.uploadId } : { status: "lost" };
+		return res.ok ? { status: "ok", value: signed.value.uploadId } : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
