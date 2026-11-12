@@ -161,6 +161,7 @@ try {
 	};
 	const policyDocument = await churchDocument("conflict-of-interest-policy");
 	// T-9: an archived Church Document. Its page opens read-only for every seat; an Owner's page reads it a second way.
+	// T-284: the archived list holds it.
 	const archivedDocument = await churchDocument("conflict-of-interest-policy");
 	{
 		const actor = await RequestActor.resolve(runtime, owner.sessionId);
@@ -480,6 +481,7 @@ try {
 		["GET /documents", "/documents", owner.cookie],
 		["GET /documents/church", "/documents/church", owner.cookie],
 		["GET /documents/church (member)", "/documents/church", member.cookie],
+		["GET /documents/church/archived", "/documents/church/archived", owner.cookie],
 		["GET /documents/church/[documentId]", `/documents/church/${policyDocument}`, owner.cookie],
 		["GET /documents/church/[documentId] (archived)", `/documents/church/${archivedDocument}`, owner.cookie],
 		["GET /documents/church/[documentId] (archived, member)", `/documents/church/${archivedDocument}`, member.cookie],
