@@ -45,6 +45,7 @@ const config: NextConfig = {
 		// JSON characters, at most 3 UTF-8 bytes each, plus the title and the action's request envelope (64 KiB). Next's
 		// default of 1 MB refused saves the editor allows. A file import is not an action: it posts raw bytes to its own
 		// route (/documents/written/import).
+		// It also covers a person photo, sent to its action as form data up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005, peo-51).
 		serverActions: { bodySizeLimit: 3 * BODY_JSON_MAX + 64 * 1024 },
 		// The proxy (src/proxy.ts) runs on /documents/* and buffers at most this much of a request body, cutting the rest.
 		// An import of IMPORT_BYTES_MAX passes whole, and a file just over it still reaches the import route, which
