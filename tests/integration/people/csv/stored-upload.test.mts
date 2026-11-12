@@ -8,10 +8,12 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { scheduledJobs } from "../../../../apps/web/src/server/jobs/scheduled.ts";
 import {
 	executeStoredImport,
 	peopleCsv as csv,
 	previewStoredImport,
+	retryStoredImport,
 	signPeopleImport,
 } from "../../../../packages/domain/src/people/index.ts";
 
@@ -23,9 +25,11 @@ const database = await testDatabase({ prefix: "t191" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 
-const plant = randomUUID();
-// 0: Owner, 1: Member.
-const actors = Array.from({ length: 2 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plant = randomUUID(),
+	otherPlant = randomUUID();
+// 0: Owner, 1: Member, 2: Owner of another church.
+const actors = Array.from({ length: 3 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plantOf = (who) => (who === 2 ? otherPlant : plant);
 const LIMIT = 10 * 1024 * 1024;
 const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result).slice(0, 500));
@@ -92,13 +96,13 @@ function privateStorage() {
 	return { bucket: "synthetic-only", client: signer, uploads, reads, deleted };
 }
 const storage = privateStorage();
-const keyOf = (uploadId) => `private/${plant}/${uploadId}`;
+const keyOf = (uploadId, church = plant) => `private/${church}/${uploadId}`;
 
 /** The browser's way in: sign for the file's length, then PUT it, which leaves the bytes under the signed key. */
 async function upload(text, who = 0) {
 	const file = bytes(text);
 	const signed = ok(await signPeopleImport(db, storage, await authority(who), { byteLength: file.length }));
-	storage.uploads.set(keyOf(signed.uploadId), { bytes: file, type: signed.headers["content-type"] });
+	storage.uploads.set(keyOf(signed.uploadId, plantOf(who)), { bytes: file, type: signed.headers["content-type"] });
 	return signed.uploadId;
 }
 const preview = async (uploadId, who = 0) => previewStoredImport(db, storage, await authority(who), { uploadId });
@@ -128,15 +132,17 @@ before(async () => {
 			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
 		);
 	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-	);
+	for (const church of [plant, otherPlant])
+		await admin.execute(
+			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(church)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
+		);
 	for (const [i, role] of [
 		[0, "owner"],
 		[1, "member"],
+		[2, "owner"],
 	])
 		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(role)},clock_timestamp()-interval '1 minute')`,
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plantOf(i))},${sql.param(role)},clock_timestamp()-interval '1 minute')`,
 		);
 });
 after(async () => {
@@ -270,43 +276,187 @@ test("AC:TARGET-PPL-018 BUG-PR198 the import saves exactly the previewed object:
 	assert.equal(await count("person"), people + 2);
 });
 
-test("AC:TARGET-PPL-018 INV-lost-reply a retry after the upload repeats the import under its key and creates nobody twice", async () => {
-	const fail = async (on) =>
-		admin.execute(
-			sql.raw(
-				on
-					? `CREATE FUNCTION ${schema}.fail_row() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF NEW.email='retry2@example.test' THEN RAISE EXCEPTION 'synthetic row failure'; END IF; RETURN NEW; END $$;
+// T-194 (people/peo-48, D-801 to D-803): a failed or partial import keeps its uploaded file for 7 days after it last
+// stopped with rows left, then the scheduled run deletes it. "Try N rows again" uses the kept copy; after the deletion,
+// the same file uploaded again finishes the remaining rows. Row 2 of each file fails in the database on the first run.
+const failRow = async (on) =>
+	admin.execute(
+		sql.raw(
+			on
+				? `CREATE FUNCTION ${schema}.fail_row() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.email LIKE '%2@example.test' THEN RAISE EXCEPTION 'synthetic row failure'; END IF; RETURN NEW; END $$;
  CREATE TRIGGER fail_row BEFORE INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.fail_row();`
-					: `DROP TRIGGER fail_row ON ${schema}.person; DROP FUNCTION ${schema}.fail_row()`,
-			),
-		);
-	const uploadId = await upload(fileOf("Retry", 3));
+				: `DROP TRIGGER fail_row ON ${schema}.person; DROP FUNCTION ${schema}.fail_row()`,
+		),
+	);
+/** A 3-row import whose row 2 failed: its file, upload, review, key and receipt. */
+async function partialImport(tag) {
+	const text = fileOf(tag, 3);
+	const uploadId = await upload(text);
 	const p = ok(await preview(uploadId));
-	const requestKey = randomUUID(),
-		people = await count("person");
-	await fail(true);
+	const requestKey = randomUUID();
+	await failRow(true);
 	try {
 		ok(await submit(uploadId, p, requestKey));
 		await runDueImports(db, 10);
 	} finally {
-		await fail(false);
+		await failRow(false);
 	}
-	const partial = ok(await receiptOf(requestKey));
-	assert.equal(partial.status, "partial");
-	assert.deepEqual(partial.remaining, [2]);
-	assert.equal(await count("person"), people + 2);
-	// The lost reply: the same request again ("Try 1 row again") reads the stored object and retries only row 2.
-	const again = ok(await submit(uploadId, p, requestKey));
-	assert.equal(again.importId, partial.importId);
+	const receipt = ok(await receiptOf(requestKey));
+	assert.equal(receipt.status, "partial");
+	assert.deepEqual(receipt.remaining, [2]);
+	assert.equal(receipt.fileKept, true);
+	return { text, uploadId, p, requestKey, receipt };
+}
+const kept = async (importId) =>
+	(await rows(sql`SELECT upload IS NOT NULL AS kept FROM person_import WHERE id=${sql.param(importId)}`))[0].kept;
+/** The import's job last stopped this long ago. */
+const stoppedAgo = (importId, interval) =>
+	admin.execute(sql`UPDATE job SET finished_at=clock_timestamp()-${interval}::interval
+ WHERE id=(SELECT job_id FROM person_import WHERE id=${sql.param(importId)})`);
+const cron = "synthetic-cron-secret";
+const tick = scheduledJobs({
+	secret: cron,
+	db,
+	storage: null,
+	cleanup: null,
+	reminders: null,
+	digests: null,
+	mail: null,
+});
+/** One scheduled run, as the platform's cron sends it: the number of kept files it deleted. */
+async function scheduledRun() {
+	const response = await tick(
+		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
+	);
+	const body = await response.json();
+	assert.equal(body.steps["people-import-files"].status, "ok", JSON.stringify(body));
+	return body.steps["people-import-files"].count;
+}
+/** The file's copy is deleted: 7 days pass and the scheduled run comes. */
+async function expireCopy(importId) {
+	await stoppedAgo(importId, "7 days");
+	await scheduledRun();
+	assert.equal(await kept(importId), false);
+}
+/** The staged upload's hour is over: the shared cleanup queued at its expiry removes the object and its row. */
+async function expireStaged(uploadId) {
+	await admin.execute(sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second'
+ WHERE kind='object_cleanup' AND subject_record_id=${sql.param(uploadId)}`);
+	await runDueObjectCleanup(db, storage, 100);
+	assert.equal(storage.uploads.has(keyOf(uploadId)), false);
+}
+/** Every row the import created maps to exactly one stored Person: the rows, in order. */
+async function oncePerRow(importId) {
+	const found = await rows(sql`SELECT (e.metadata->'import'->>'row')::int AS row, count(*)::int AS events,
+ count(DISTINCT e.subject_id)::int AS people, (SELECT count(*)::int FROM person p WHERE p.id=ANY(array_agg(e.subject_id))) AS stored
+ FROM audit_event e WHERE e.command_id=${sql.param(importId)} AND e.action='people.created' GROUP BY 1 ORDER BY 1`);
+	for (const r of found) assert.deepEqual([r.events, r.people, r.stored], [1, 1, 1], `row ${r.row}`);
+	return found.map((r) => r.row);
+}
+const retry = async (requestKey, uploadId, who = 0) =>
+	retryStoredImport(db, storage, await authority(who), uploadId ? { requestKey, uploadId } : { requestKey });
+const jobOf = async (importId) =>
+	(
+		await rows(sql`SELECT j.state,j.revision::int AS revision,pi.actor_id FROM job j JOIN person_import pi ON pi.job_id=j.id
+ WHERE pi.id=${sql.param(importId)}`)
+	)[0];
+
+test("AC:TARGET-PPL-018 T-194 a partial import keeps its file for 7 days from its last stop, then the scheduled run deletes it and the receipt stays", async () => {
+	const { requestKey, receipt } = await partialImport("Keep");
+	assert.equal(await kept(receipt.importId), true);
+	// 6 days 23 hours after it stopped, the copy is still kept.
+	await stoppedAgo(receipt.importId, "6 days 23 hours");
+	await scheduledRun();
+	assert.equal(await kept(receipt.importId), true);
+	assert.deepEqual(ok(await receiptOf(requestKey)), receipt);
+	// At 7 days the scheduled run deletes it. Which rows were created, skipped or failed, and why, is unchanged.
+	await stoppedAgo(receipt.importId, "7 days");
+	assert.ok((await scheduledRun()) >= 1);
+	assert.equal(await kept(receipt.importId), false);
+	assert.deepEqual(ok(await receiptOf(requestKey)), { ...receipt, fileKept: false });
+
+	// A complete import keeps no copy as soon as it finishes.
+	const uploadId = await upload(fileOf("Whole", 2));
+	const p = ok(await preview(uploadId));
+	const wholeKey = randomUUID();
+	ok(await submit(uploadId, p, wholeKey));
+	await runDueImports(db, 10);
+	const done = ok(await receiptOf(wholeKey));
+	assert.equal(done.status, "complete");
+	assert.equal(done.fileKept, false);
+	assert.equal(await kept(done.importId), false);
+});
+
+test("AC:TARGET-PPL-018 T-194 within 7 days Try N rows again writes only the remaining rows from the kept copy, after the staged upload expired", async () => {
+	const { uploadId, p, requestKey, receipt } = await partialImport("Again");
+	const people = await count("person");
+	// The 1-hour staged upload is gone; the kept copy is all the server has.
+	await expireStaged(uploadId);
+	refused(await submit(uploadId, p, requestKey), "file_changed");
+
+	// A Member, and another church's Owner naming this import, are refused; nothing is queued.
+	const before = await jobOf(receipt.importId);
+	refused(await retry(requestKey, undefined, 1));
+	refused(await retry(requestKey, undefined, 2));
+	assert.deepEqual(await jobOf(receipt.importId), before);
+
+	const again = ok(await retry(requestKey));
+	assert.equal(again.importId, receipt.importId);
+	assert.equal(again.status, "in_progress");
 	await runDueImports(db, 10);
 	const done = ok(await receiptOf(requestKey));
 	assert.equal(done.status, "complete");
-	assert.equal(await count("person"), people + 3);
-	// Repeating a finished import answers its receipt and creates nobody.
-	assert.deepEqual(ok(await submit(uploadId, p, requestKey)), done);
+	assert.equal(done.fileKept, false, "a complete import keeps no copy");
+	assert.equal(await count("person"), people + 1);
+	assert.deepEqual(await oncePerRow(receipt.importId), [1, 2, 3]);
+	assert.deepEqual(
+		done.rows.filter((r) => r.row !== 2),
+		receipt.rows.filter((r) => r.row !== 2),
+	);
+	// Pressing it again after the import completed answers the receipt and creates nobody.
+	assert.deepEqual(ok(await retry(requestKey)), done);
 	await runDueImports(db, 10);
-	assert.equal(await count("person"), people + 3);
+	assert.equal(await count("person"), people + 1);
+	assert.deepEqual(await oncePerRow(receipt.importId), [1, 2, 3]);
+});
+
+test("AC:TARGET-PPL-018 T-194 after the copy is deleted, only the same file uploaded again resumes the import, and nobody is created twice", async () => {
+	const { text, requestKey, receipt } = await partialImport("Later");
+	await expireCopy(receipt.importId);
+	const people = await count("person");
+	// The button has no copy to use now.
+	refused(await retry(requestKey), "import_file_expired");
+
+	// A different file is refused, and nothing is written: no person, no kept file, no queued job.
+	const before = await jobOf(receipt.importId);
+	for (const other of [fileOf("Other", 3), text.replace("Later3", "Later3x")])
+		refused(await retry(requestKey, await upload(other)), "import_file_mismatch");
+	assert.equal(await count("person"), people);
+	assert.equal(await kept(receipt.importId), false);
+	assert.deepEqual(await jobOf(receipt.importId), before);
+	assert.deepEqual(ok(await receiptOf(requestKey)), { ...receipt, fileKept: false });
+
+	// The same bytes from a Member, or from another church's Owner in their own church, are refused.
+	refused(await retry(requestKey, await upload(text), 1));
+	refused(await retry(requestKey, await upload(text, 2), 2));
+	assert.equal(await count("person"), people);
+	assert.deepEqual(await jobOf(receipt.importId), before);
+
+	// The same file again resumes the same import: only row 2 is written.
+	const again = ok(await retry(requestKey, await upload(text)));
+	assert.equal(again.importId, receipt.importId);
+	assert.equal(again.status, "in_progress");
+	await runDueImports(db, 10);
+	const done = ok(await receiptOf(requestKey));
+	assert.equal(done.status, "complete");
+	assert.deepEqual(done.counts, { created: 3, skipped: 0, failed: 0, remaining: 0 });
+	assert.equal(await count("person"), people + 1);
+	assert.deepEqual(await oncePerRow(receipt.importId), [1, 2, 3]);
+	// The same file once more after it completed creates nobody.
+	assert.deepEqual(ok(await retry(requestKey, await upload(text))), done);
+	await runDueImports(db, 10);
+	assert.equal(await count("person"), people + 1);
 });
 
 test("AC:TARGET-PPL-018 a failed or abandoned upload leaves no ready file: the shared cleanup removes the staged object and its row", async () => {

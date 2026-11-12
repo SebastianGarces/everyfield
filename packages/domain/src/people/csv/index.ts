@@ -185,8 +185,14 @@ function rowPersonId(importId: string, row: number): string {
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. */
+/**
+ * The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. fileDigest
+ * names the file's bytes, so a file uploaded again after the kept copy is deleted must be the same file (D-803); imports
+ * saved before it was recorded have none: while their kept copy lasts the button still retries from it, but once it is
+ * deleted no upload matches, and the remaining rows need a new import.
+ */
 const savedPlan = z.object({
+	fileDigest: z.string().optional(),
 	rows: z.int(),
 	skip: z.array(z.int()),
 	invalid: z.array(z.object({ row: z.int(), problems: z.array(c.rowProblem) })),
@@ -204,7 +210,7 @@ function planImport(
 	const valid = file.rows.filter((r) => r.status === "valid");
 	if (byRow.size !== choices.length || byRow.size !== valid.length || valid.some((r) => !byRow.has(r.row)))
 		deny("invalid_input");
-	const plan: Plan = { rows: file.rows.length, skip: [], invalid: [], create: [] };
+	const plan: Plan = { fileDigest: file.fileDigest, rows: file.rows.length, skip: [], invalid: [], create: [] };
 	for (const r of file.rows) {
 		if (r.status === "invalid") {
 			plan.invalid.push({ row: r.row, problems: r.problems });
@@ -230,8 +236,11 @@ const dropNulls = (_key: string, value: unknown) => (value === null ? undefined 
 
 type Created = Map<number, { personId: string; reviewWith: string | null }>;
 type Failed = Map<number, "row_write_failed">;
-/** Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. */
-function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean) {
+/**
+ * Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. `kept`:
+ * the import still holds its uploaded file.
+ */
+function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean, kept: boolean) {
 	const outcomes = new Map<number, unknown>();
 	for (const row of plan.skip) outcomes.set(row, { row, status: "skipped" });
 	for (const { row, problems } of plan.invalid)
@@ -250,6 +259,7 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Failed,
 	return c.importReceipt.parse({
 		importId,
 		status: running ? "in_progress" : remaining.length ? "partial" : "complete",
+		fileKept: kept,
 		rows: [...outcomes].sort(([a], [b]) => a - b).map(([, outcome]) => outcome),
 		remaining,
 		counts: {
@@ -262,17 +272,18 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Failed,
 }
 
 /**
- * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, the rows the job could
- * not write and the rows created so far, from their people.created audit rows.
+ * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, whether it still holds
+ * the uploaded file, the rows the job could not write and the rows created so far, from their people.created audit rows.
  */
 const importState = (importId: SQL) => sql`(SELECT jsonb_build_object('plan',sp.plan,
- 'running',sj.state IN ('ready','claimed','retry_wait'),'failed',sp.failed,
+ 'running',sj.state IN ('ready','claimed','retry_wait'),'kept',sp.upload IS NOT NULL,'failed',sp.failed,
  'created',coalesce((SELECT jsonb_agg(jsonb_build_object('row',(e.metadata->'import'->>'row')::int,'personId',e.subject_id,
   'reviewWith',e.metadata->'import'->'reviewWith')) FROM audit_event e WHERE e.command_id=si.id AND e.action='people.created'),'[]'::jsonb))
  FROM audit_event si JOIN person_import sp ON sp.id=si.id JOIN job sj ON sj.id=sp.job_id WHERE si.id=${importId})`;
 const savedState = z.object({
 	plan: z.unknown(),
 	running: z.boolean(),
+	kept: z.boolean(),
 	failed: z.array(z.object({ row: z.int(), reason: z.literal("row_write_failed") })),
 	created: z.array(z.object({ row: z.int(), personId: z.uuid(), reviewWith: z.uuid().nullable() })),
 });
@@ -283,14 +294,18 @@ function loadState(raw: unknown) {
 		created: new Map(state.created.map((r) => [r.row, { personId: r.personId, reviewWith: r.reviewWith }])) as Created,
 		failed: new Map(state.failed.map((f) => [f.row, f.reason])) as Failed,
 		running: state.running,
+		kept: state.kept,
 	};
 }
+/** The import's current receipt from its saved state. */
+const receiptOf = (importId: string, s: ReturnType<typeof loadState>) =>
+	receipt(importId, s.plan, s.created, s.failed, s.running, s.kept);
 
 /**
  * Save the reviewed rows and queue the job that writes them, and return at once. The bytes are read before any
  * database work. The save is a People write (D70): the gate holds the importer's Owner/Admin seat until COMMIT, and
- * the shared request key answers a repeat. Repeating the request returns the import's current receipt; after a
- * partial import it queues the job again for the remaining rows.
+ * the shared request key answers a repeat. Repeating the request returns the import's current receipt and queues
+ * nothing; "Try N rows again" is retryStoredImport.
  */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
 	const read = await readReply(async () => {
@@ -326,7 +341,7 @@ async function saveImport(
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("review_digest_conflict");
 	if (claim.kind === "unavailable") deny();
-	if (claim.kind === "replay") return resumeImport(tx, claim.id);
+	if (claim.kind === "replay") return receiptOf(claim.id, await stateOf(tx, sql`${claim.id}::uuid`));
 	const people = match.parse(
 		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
 	);
@@ -354,26 +369,80 @@ async function saveImport(
 		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
  VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
 	);
-	const answer = receipt(importId, plan, new Map(), new Map(), true);
+	const answer = receipt(importId, plan, new Map(), new Map(), true, true);
 	// The intent, the job and its payload in one statement with the audit row and its request key.
 	await finishAudit(tx, claim, identity, answer);
 	return answer;
 }
 
-/** A repeated import request: the import's current receipt, and a partial import queued again for its remaining rows. */
-async function resumeImport(tx: Tx, importId: string) {
-	const prior = loadState(
-		z
-			.object({ state: z.unknown() })
-			.parse((await tx.execute(sql`SELECT ${importState(sql`${importId}::uuid`)} AS state`)).rows[0]).state,
+/** The saved state of the import with this id, which the caller found in its own church. */
+async function stateOf(tx: Tx, importId: SQL) {
+	return loadState(
+		z.object({ state: z.unknown() }).parse((await tx.execute(sql`SELECT ${importState(importId)} AS state`)).rows[0])
+			.state,
 	);
-	const answer = receipt(importId, prior.plan, prior.created, prior.failed, prior.running);
+}
+
+/**
+ * "Try N rows again" for a partial import, named by its request key in the viewer's church (REQ-PPL-018). Without an
+ * upload the job reads the server's kept copy (D-802), so the 1-hour staged upload need not still exist. Once the copy
+ * is deleted, the person uploads the file again; the server reads the staged object and keeps it only when its bytes
+ * are the ones the import used (D-803). Either way the job writes only the remaining rows: each row's Person ID is fixed
+ * by the import, so a row an earlier run created is never created again.
+ */
+export async function retryStoredImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
+	const loaded = await readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const { requestKey, uploadId } = parse(c.retryImportRequest, raw);
+		return { requestKey, file: uploadId ? await storedFile(db, storage, ctx, uploadId) : null };
+	});
+	if (loaded.status !== "ok") return loaded;
+	const { requestKey, file } = loaded.value;
+	return withPeopleWrite(db, authority, (tx, ctx) => reply(tx, () => retryImport(tx, ctx, requestKey, file)));
+}
+
+async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: Uint8Array | null) {
+	const plant = plantId(ctx);
+	await declareWrite(tx, "established");
+	await lockOwner(tx, ctx);
+	// The account that retries becomes the importer: the job writes the remaining rows under its live seat.
+	const actorId = (await authorize(tx, ctx, true)).accountId;
+	const found = z.object({ id: z.uuid().nullable(), state: z.unknown() }).parse(
+		(
+			await tx.execute(sql`SELECT a.id, ${importState(sql`a.id`)} AS state FROM (SELECT 1) seed
+ LEFT JOIN audit_event a ON a.tenant_id=${plant}::uuid AND a.request_key=${requestKey} AND a.request_identity->>'operation'=${OPERATION}`)
+		).rows[0],
+	);
+	if (!found.id || !found.state) deny();
+	const prior = loadState(found.state);
+	const answer = receiptOf(found.id, prior);
 	if (answer.status !== "partial") return answer;
-	// Its last failures clear until the job reports again.
-	await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${importId}::uuid RETURNING job_id)
+	if (file && createHash("sha256").update(file).digest("hex") !== prior.plan.fileDigest) deny("import_file_mismatch");
+	const upload = file ? gzipSync(file).toString("base64") : null;
+	// Its last failures clear until the job reports again. Only a job that stopped is queued again, and only with a file.
+	const queued = await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb,
+  upload=coalesce(${upload}::text,upload),actor_id=${actorId}::uuid
+  WHERE id=${found.id}::uuid AND coalesce(${upload}::text,upload) IS NOT NULL RETURNING job_id)
  UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
-  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')`);
-	return receipt(importId, prior.plan, prior.created, new Map(), true);
+  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')
+ RETURNING job.id`);
+	if (!queued.rows.length) deny("import_file_expired");
+	return receipt(found.id, prior.plan, prior.created, new Map(), true, true);
+}
+
+/**
+ * The scheduled deletion of kept import files (D-801): a failed or partial import keeps its uploaded file for
+ * importFileKeptDays after its job last stopped, then loses it. The receipt is unchanged; a retry then needs the file
+ * uploaded again. At most 500 imports per run; locked ones wait for the next run. The number deleted.
+ */
+export async function deleteExpiredImportFiles(db: Database): Promise<number> {
+	const result = await db.execute(sql`UPDATE person_import SET upload=NULL WHERE id IN (
+ SELECT pi.id FROM person_import pi JOIN job j ON j.id=pi.job_id AND j.tenant_id=pi.tenant_id
+ WHERE pi.upload IS NOT NULL AND j.state NOT IN ('ready','claimed','retry_wait')
+  AND j.finished_at<=clock_timestamp()-make_interval(days=>${c.importFileKeptDays})
+ LIMIT 500 FOR UPDATE OF pi SKIP LOCKED) RETURNING id`);
+	return result.rows.length;
 }
 
 /** The importing account's current Owner/Admin seat in this church, for a worker that has no request session. */
@@ -689,8 +758,7 @@ export const peopleCsv = {
 				).rows[0],
 			);
 			if (!row.allowed || !row.id || !row.state) deny();
-			const saved = loadState(row.state);
-			return receipt(row.id, saved.plan, saved.created, saved.failed, saved.running);
+			return receiptOf(row.id, loadState(row.state));
 		});
 	},
 	/**

@@ -595,17 +595,26 @@ export function ImportStep({
 
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * The receipt. A partial import offers "Try N rows again" while the server keeps its file; once the file is deleted
+ * (7 days after the import stopped), the person uploads the same file again instead (`onRetry` with it).
+ */
 export function DoneStep({
 	heading,
 	receipt,
 	review,
+	working,
+	problem,
 	onRetry,
 	onStartOver,
 }: {
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	receipt: ImportReceipt;
 	review: Review | null;
-	onRetry: (() => void) | null;
+	/** A retry is on its way: the chosen file while it uploads, or true for the kept copy. */
+	working: File | boolean;
+	problem: Notice | null;
+	onRetry: (file?: File) => void;
 	onStartOver: () => void;
 }) {
 	const { counts } = receipt;
@@ -619,6 +628,8 @@ export function DoneStep({
 	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
 	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
+	const retry = partial && receipt.fileKept;
+	const reupload = partial && !receipt.fileKept;
 	const name = (row: number) => (review ? nameOf(review.preview, row) : null);
 	const flagged = receipt.rows.filter((r) => r.status === "created" && r.reviewWith !== null).length;
 
@@ -642,8 +653,10 @@ export function DoneStep({
 								: `${plural(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
-							{partial ? (
+							{retry ? (
 								"The other rows are saved. Try the rows that did not save again; nobody is added twice."
+							) : reupload ? (
+								`Upload the file again to finish the remaining ${plural(notSaved, "row")}.`
 							) : flagged ? (
 								<>
 									{flagged} to review in{" "}
@@ -658,25 +671,25 @@ export function DoneStep({
 						</p>
 					</div>
 				</div>
+				{problem ? <Problem notice={problem} /> : null}
 				<div className="flex flex-wrap gap-2">
-					{partial && onRetry ? (
-						<Button variant="primary" onClick={onRetry}>
+					{retry ? (
+						<Button variant="primary" loading={working !== false} onClick={() => onRetry()}>
 							Try {plural(notSaved, "row")} again
 						</Button>
+					) : reupload ? (
+						<ChooseAgain working={working} onFile={onRetry} />
 					) : null}
-					<IntentLink
-						href="/people"
-						className={buttonVariants({ variant: partial && onRetry ? "secondary" : "primary" })}
-					>
+					<IntentLink href="/people" className={buttonVariants({ variant: partial ? "secondary" : "primary" })}>
 						Go to People
 					</IntentLink>
 					<Button variant="ghost" onClick={onStartOver}>
 						Import another file
 					</Button>
 				</div>
-				{partial && !onRetry ? (
+				{reupload ? (
 					<p className="text-sm text-text-2 text-pretty">
-						To try them again, import the same file. People already added show as duplicates, so skip them.
+						Choose the same file you imported. Rows already added are never added twice.
 					</p>
 				) : null}
 			</Card>
@@ -703,6 +716,36 @@ export function DoneStep({
 				</Card>
 			) : null}
 		</div>
+	);
+}
+
+/** The file button of an expired partial import: the same file, uploaded again to finish its remaining rows. */
+function ChooseAgain({ working, onFile }: { working: File | boolean; onFile: (file: File) => void }) {
+	const busy = working !== false;
+	return (
+		<label
+			aria-busy={busy || undefined}
+			className={cn(
+				buttonVariants({ variant: "primary" }),
+				"focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
+				busy && "cursor-progress",
+			)}
+		>
+			<Icon icon={FileImportIcon} size={18} />
+			{working instanceof File ? `Checking ${working.name}…` : "Choose the file"}
+			<input
+				type="file"
+				accept=".csv,text/csv"
+				className="sr-only"
+				aria-label="Choose the file this import used"
+				disabled={busy}
+				onChange={(e) => {
+					const file = e.currentTarget.files?.[0];
+					e.currentTarget.value = "";
+					if (file) onFile(file);
+				}}
+			/>
+		</label>
 	);
 }
 

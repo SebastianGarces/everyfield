@@ -45,6 +45,7 @@ import {
 	readPersonPage,
 	readPersonPhoto,
 	recordCorrections,
+	retryStoredImport,
 	searchPeople,
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
@@ -712,6 +713,12 @@ function cases(who) {
 		ppl(
 			"peopleCsv.getImportReceipt",
 			() => reads((t, c) => peopleCsv.getImportReceipt(t, c, { requestKey: a.importKey })),
+			unavailable,
+		),
+		ppl(
+			"retryStoredImport",
+			// Church A's request key from church B names no import; church A's owner gets its complete receipt back.
+			() => retryStoredImport(f.db, storage, who.actor, { requestKey: a.importKey }),
 			unavailable,
 		),
 		ppl("peopleCsv.exportPeople", () => reads((t, c) => peopleCsv.exportPeople(t, c, {})), {

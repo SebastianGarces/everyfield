@@ -17,6 +17,7 @@ import {
 	peopleReader,
 	peopleWriter as people,
 	personFields as fields,
+	retryStoredImport,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 
@@ -217,12 +218,14 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	assert.deepEqual(first.counts, { created: 2, skipped: 0, failed: 1, remaining: 1 });
 	assert.equal(await count("person"), peopleBefore + 2);
 
-	// A changed review under the same key is refused; the same request retries only the unfinished row.
+	// A changed review under the same key is refused; the same request again only answers the receipt.
 	refused(
 		await submit(file, p, [{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey),
 		"review_digest_conflict",
 	);
-	const again = ok(await submit(file, p, choices, requestKey));
+	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), first);
+	// "Try 1 row again" from the server's kept copy retries only the unfinished row.
+	const again = ok(await retryStoredImport(db, null, await actor(), { requestKey }));
 	assert.equal(again.status, "in_progress");
 	assert.deepEqual(outcome(again), [
 		[1, "created"],

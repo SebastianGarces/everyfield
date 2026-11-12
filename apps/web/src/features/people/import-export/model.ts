@@ -222,3 +222,25 @@ export function importRefusal(code: string): Notice {
 			return { title: "The import did not start", text: "Check the file again, then import." };
 	}
 }
+
+/** What the Done screen says when "Try N rows again", or the file uploaded again for it, is refused. */
+export function retryRefusal(code: string): Notice {
+	switch (code) {
+		case "import_file_mismatch":
+		case "file_too_large":
+			return {
+				title: "This is not the file this import used",
+				text: "Choose the same CSV file you imported, without changes. Nothing was saved.",
+			};
+		case "import_file_expired":
+			return {
+				title: "Everyfield no longer keeps this file",
+				text: "Upload the file again to finish the remaining rows. Nobody is added twice.",
+			};
+		case "access_denied":
+		case "unavailable":
+			return importRefusal(code);
+		default:
+			return { title: "We could not try the rows again", text: "Nothing was saved. Try again in a moment." };
+	}
+}

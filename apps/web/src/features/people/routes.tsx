@@ -111,12 +111,19 @@ export async function PersonPage({
 			records={loaded.value.records}
 			ministries={loaded.value.ministries}
 			followUps={loaded.value.followUps}
-			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
-			photosEnabled={false}
+			// Photo uploads stay hidden until the photo UI task ships (T-196); stored photos still read through the photo route.
+			photosEnabled={photosUnderTest() && privateStorage() !== null}
 			documentsEnabled={privateStorage() !== null}
 		/>
 	);
 }
+
+/**
+ * The photo control for proving photo uploads in a browser before T-196 ships them: a development server started with
+ * EVERYFIELD_TEST_PERSON_PHOTOS=1 shows it. A production build inlines NODE_ENV as "production", so it never does.
+ */
+const photosUnderTest = () =>
+	process.env.NODE_ENV === "development" && process.env.EVERYFIELD_TEST_PERSON_PHOTOS === "1";
 
 function failed() {
 	return (
