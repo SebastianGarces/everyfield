@@ -329,7 +329,7 @@ test("AC:TARGET-TEAM-001 a ministry lists its meetings, upcoming first, then pas
 	assert.deepEqual(await list(empty.id, 1), []);
 });
 
-test("the ministries list carries each leader's name, and a stale write reads the revision alone", async () => {
+test("AC:TARGET-TEAM-001 the ministries list carries each leader's name, and a stale write reads the revision alone", async () => {
 	const led = await makeTeam("Greeting");
 	const unled = await makeTeam("Parking");
 	const role = await makeRole(led.id, "Greeting lead", { leadership: true });
@@ -505,7 +505,7 @@ test("AC:TARGET-TEAM-002 the old correction path is gone and Edit details change
 // T-45 (Nora QA 2026-11-04): a ministry's history shows its roles being added, edited, filled, refilled and retired.
 // The commands file those changes under the role or the person's time in it, so the read finds them there: events
 // written before the read changed appear too, and no stored audit row is rewritten.
-test("a ministry's history shows its own role changes, and no other ministry's or church's", async () => {
+test("AC:TARGET-TEAM-006 a ministry's history shows its own role changes, and no other ministry's or church's", async () => {
 	const team = await makeTeam("Role history");
 	const role = await makeRole(team.id, "Greeter");
 	const alex = await person("Alex Roles");
@@ -597,7 +597,7 @@ test("a ministry's history shows its own role changes, and no other ministry's o
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
 });
 
-test("training filed under a ministry never shows in that ministry's history", async () => {
+test("INV-team-history: training filed under a ministry never shows in that ministry's history", async () => {
 	const team = await makeTeam("Training history");
 	const role = await makeRole(team.id, "Usher");
 	const pat = await person("Pat Training", { stage: "launch_team" });
@@ -672,7 +672,7 @@ const lastEdit = async (roleId) =>
 		)
 	).rows[0];
 
-test("turning leadership off a role clears only the leader that role made, and the history names it", async () => {
+test("AC:TARGET-TEAM-004 turning leadership off a role clears only the leader that role made, and the history names it", async () => {
 	// Role-derived from this role: the leader steps down with the role.
 	const derived = await makeTeam("Derived leader");
 	const lead = await makeRole(derived.id, "Derived lead", { leadership: true });
@@ -716,7 +716,7 @@ test("turning leadership off a role clears only the leader that role made, and t
 	assert.deepEqual(await leaderOf(shared.id), kept);
 });
 
-test("turning leadership on a role fills an empty leader from its occupant and never replaces one", async () => {
+test("AC:TARGET-TEAM-004 turning leadership on a role fills an empty leader from its occupant and never replaces one", async () => {
 	// No leader and an occupant: the occupant becomes the role-derived leader, and the history names them.
 	const empty = await makeTeam("Promotes occupant");
 	const role = await makeRole(empty.id, "Coordinator");
@@ -798,7 +798,7 @@ test("turning leadership on a role fills an empty leader from its occupant and n
 	assert.deepEqual(await leaderOf(renamed.id), leaderless);
 });
 
-test("REQ-IDN-005 an unknown or another church's team, role or tenure is unavailable to the teams writer", async () => {
+test("AC:REQ-IDN-005 an unknown or another church's team, role or tenure is unavailable to the teams writer", async () => {
 	const foreignTeam = await makeTeam("Foreign ministry", 3);
 	const foreignRole = ok(
 		await run(

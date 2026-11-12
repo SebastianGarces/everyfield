@@ -39,7 +39,7 @@ const onWritten = (run) =>
 
 const note = (page, text) => page.getByRole("status").filter({ hasText: text });
 
-test("a 2 MB Word file imports into a new written document as its saved revision", async () => {
+test("AC:CASE-DOC-016 a 2 MB Word file imports into a new written document as its saved revision", async () => {
 	const marker = `Two megabytes ${randomUUID()}`;
 	const file = wordFile(2 * 1024 * 1024, [marker, "Our second paragraph."]);
 	assert.ok(file.length > 2_000_000, "the file is past the old 1 MB action cap");
@@ -66,7 +66,7 @@ test("a 2 MB Word file imports into a new written document as its saved revision
 	});
 });
 
-test("a .docx or .txt over the limit shows the stated limit, never a dropped connection", async () => {
+test("AC:CASE-DOC-016 a .docx or .txt over the limit shows the stated limit, never a dropped connection", async () => {
 	await onWritten(async (page) => {
 		for (const [name, mimeType] of [
 			["Too big.docx", DOCX],
@@ -99,7 +99,7 @@ async function post(bytes, title) {
 	return response.json();
 }
 
-test("the route refuses a file just over the limit with the stated limit, and imports one of exactly the limit", async () => {
+test("AC:CASE-DOC-016 the route refuses a file just over the limit with the stated limit, and imports one of exactly the limit", async () => {
 	const over = await post(wordFile(IMPORT_BYTES_MAX + 1, ["Just over"]), "Just over");
 	assert.deepEqual(over, { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." });
 	// Exactly 10 MiB passes the proxy's body buffer and the route whole, and lands as the document's first revision.

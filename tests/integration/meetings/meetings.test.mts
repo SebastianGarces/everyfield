@@ -746,7 +746,7 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	);
 });
 
-test("BUG-WP-020-guest-history: a Person created from a guest list or at the door opens with their history", async () => {
+test("BUG-ecafe8d01: a Person created from a guest list or at the door opens with their history", async () => {
 	const m = await schedule();
 	for (const op of [guests.createGuestContact, guests.createWalkInContact]) {
 		const made = ok(await run(op, { requestKey: key(), input: { meetingId: m.id, displayName: "Robin" } }));
@@ -890,7 +890,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:G
 	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
 });
 
-test("BUG-T155: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
+test("BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
 	const alex = await person("Alex Rivera");
 	for (const to of ["cancelled", "completed"]) {
 		const m = await schedule({ guests: [alex] });
@@ -1129,7 +1129,7 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 	for (const r of await reads13()) refused(r);
 });
 
-test("T-159: the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
+test("AC:TARGET-MTG-001 the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
 	// Plant Q, minutes from now, so no meeting another test schedules days ahead comes sooner.
 	const at = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
 	const insert = async (status, minutes) => {
@@ -1152,7 +1152,7 @@ test("T-159: the Next card's read skips a sooner cancelled or completed meeting 
 	assert.equal(unfiltered[0].status, "cancelled");
 });
 
-test("T-159 C13: a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
+test("AC:RECOVERY-DELETE-001 a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
 	const guest = await person("Wren", { plant: Q });
 	const m = await schedule({ guests: [guest] }, 3);
 	const token = await issueRsvpToken(admin, Q, m.id, guest);

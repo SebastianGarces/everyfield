@@ -39,7 +39,7 @@ const rev = (revision, kind, answers, recordedAt = "2026-09-24T15:00:00.000Z") =
 });
 const page = (weeks) => ({ zone: "America/Chicago", revision: "3", page: 1, pageCount: 1, weeks });
 
-test("INV-privacy: Evry is off on the private check-in page only (WP-039 criterion 10)", () => {
+test("INV-privacy: Evry is off on the private check-in page only", () => {
 	assert.equal(evryOff("/me/check-in"), true);
 	assert.equal(evryOff("/me/check-in/anything"), true);
 	assert.equal(evryOff("/me/check-inbox"), false);
@@ -47,7 +47,7 @@ test("INV-privacy: Evry is off on the private check-in page only (WP-039 criteri
 	assert.equal(evryOff("/people"), false);
 });
 
-test("INV-checkin: the strip shows a save at once, then the confirmed week; a refusal is explained (WP-039 criterion 12)", () => {
+test("INV-checkin: the strip shows a save at once, then the confirmed week; a refusal is explained", () => {
 	const open = week(2, "2026-10-12", null, [], true),
 		past = week(1, "2026-10-05", STEADY, [rev(1, "save", STEADY)]);
 	const before = page([open, past]);
@@ -64,14 +64,14 @@ test("INV-checkin: the strip shows a save at once, then the confirmed week; a re
 	assert.match(refusalText(null), /could not be reached/);
 });
 
-test("INV-checkin: the form needs all four answers and keeps a saved week's answers (WP-039 criterion 2)", () => {
+test("INV-checkin: the form needs all four answers and keeps a saved week's answers", () => {
 	assert.deepEqual(missingAreas({ answers: { spiritual: "steady" }, note: "" }), ["family", "financial", "pace"]);
 	assert.equal(complete({ answers: STEADY, note: "" }), true);
 	assert.deepEqual(draftOf(week(1, "2026-10-05", STRAINED)), { answers: STRAINED, note: "" });
 	assert.deepEqual(draftOf(week(1, "2026-10-05", null)), { answers: {}, note: "" });
 });
 
-test("INV-checkin: a corrected week says when and what changed; this week and skipped weeks say so (WP-039 criterion 5)", () => {
+test("INV-checkin: a corrected week says when and what changed; this week and skipped weeks say so", () => {
 	const corrected = week(1, "2026-09-21", STEADY, [rev(1, "save", STRAINED), rev(2, "correction", STEADY)]);
 	assert.deepEqual(weekNote(corrected, "America/Chicago"), {
 		text: "Corrected Sep 24 · Pace was Strained",
@@ -85,7 +85,7 @@ test("INV-checkin: a corrected week says when and what changed; this week and sk
 	assert.equal(weekNote(week(1, "2026-09-21", STEADY, [rev(1, "save", STEADY)]), "America/Chicago"), null);
 });
 
-test("BUG-T64: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
+test("BUG-58bc5acb8: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
 	const open = week(2, "2026-10-12", null, [], true);
 	assert.equal(submitLabel(open, false), "Save check-in");
 	// While the first save is in flight the strip shows the answer, but the server has no row yet.
@@ -99,7 +99,7 @@ test("BUG-T64: the button saves an unsaved week, changes a saved one and correct
 });
 
 // T-66: the zone step previews the week the check-in opens on: the Monday of the week that holds now in the chosen zone.
-test("BUG-T66: weekStartIn is the Monday of the week that holds the instant in the chosen zone", () => {
+test("BUG-58bc5acb8: weekStartIn is the Monday of the week that holds the instant in the chosen zone", () => {
 	// Sunday 23:30 in Chicago is already Monday in UTC and in Tokyo.
 	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "America/Chicago"), "2026-11-02");
 	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "UTC"), "2026-11-09");

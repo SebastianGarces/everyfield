@@ -132,7 +132,7 @@ after(async () => {
 	await new Promise((resolve) => server.close(resolve));
 	await teardown();
 });
-test("AC:OUTBOX-RESTORE-001 INV-mail: dropped acceptance replays only the identical request/key; expiry and unknown never mint another effect", async () => {
+test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical request/key; expiry and unknown never mint another effect", async () => {
 	mode = "lost";
 	const id = await enqueue();
 	const [claim] = await claimDue(runtime, ["mail"]);

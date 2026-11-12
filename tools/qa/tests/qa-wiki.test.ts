@@ -238,7 +238,7 @@ async function revisionHolds(b: Branch) {
 	assert.equal(article!.updatedLabel, true);
 }
 
-test("AC:OPS-127-1 the QA seed adds a sending church and network that share the Wiki with Harvest Point (QA)", async () => {
+test("INV-qa-seed: the QA seed adds a sending church and network that share the Wiki with Harvest Point (QA)", async () => {
 	const b = await fresh();
 	const plant = await plantId(b);
 	assert.deepEqual(
@@ -255,7 +255,7 @@ test("AC:OPS-127-1 the QA seed adds a sending church and network that share the 
 	);
 });
 
-test("AC:OPS-127-2 the seed gives article A a published church copy and network copy, each naming its source", async () => {
+test("INV-qa-seed: the seed gives article A a published church copy and network copy, each naming its source", async () => {
 	const b = await fresh();
 	const a = await articleId(b, b.a);
 	const copies = await b.query(
@@ -276,20 +276,20 @@ test("AC:OPS-127-2 the seed gives article A a published church copy and network 
 	assert.equal(firstLine(copies[1]!.body), "This is the network version from Harvest Network (QA).");
 });
 
-test("AC:OPS-127-3 the owner opens article A and the reader returns the church copy, with network and global alternates", async () => {
+test("INV-qa-seed: the owner opens article A and the reader returns the church copy, with network and global alternates", async () => {
 	const b = await fresh();
 	const { current } = await sourcesHold(b);
 	assert.equal(current.alternates[1]!.title, corpus.articles[0]!.title);
 });
 
-test("AC:OPS-127-4 with a source chosen, the reader returns the network copy or the global article", async () => {
+test("INV-qa-seed: with a source chosen, the reader returns the network copy or the global article", async () => {
 	const b = await fresh();
 	const { byGlobal } = await sourcesHold(b);
 	assert.equal(byGlobal.title, corpus.articles[0]!.title);
 	assert.equal(byGlobal.body, corpus.articles[0]!.content);
 });
 
-test("AC:OPS-127-5 the seed adds a second published, meaningful global revision of article B", async () => {
+test("INV-qa-seed: the seed adds a second published, meaningful global revision of article B", async () => {
 	const b = await fresh();
 	const id = await articleId(b, b.b);
 	const revisions = await b.query(
@@ -311,7 +311,7 @@ test("AC:OPS-127-5 the seed adds a second published, meaningful global revision 
 	assert.equal(one!.title, corpus.articles[1]!.title);
 });
 
-test("AC:OPS-127-6 the owner opens article B and sees revision 2, updated since the finished reading of revision 1", async () => {
+test("INV-qa-seed: the owner opens article B and sees revision 2, updated since the finished reading of revision 1", async () => {
 	const b = await fresh();
 	const id = await articleId(b, b.b);
 	const read = await b.query(
@@ -325,7 +325,7 @@ test("AC:OPS-127-6 the owner opens article B and sees revision 2, updated since 
 	await revisionHolds(b);
 });
 
-test("AC:OPS-127-7 on a branch of development the seed writes the same cases into the existing release", async () => {
+test("INV-qa-seed: on a branch of development the seed writes the same cases into the existing release", async () => {
 	const b = await development();
 	assert.match(b.first, /wiki copies.*wiki revision/);
 	assert.doesNotMatch(b.first, /, wiki\./);
@@ -357,7 +357,7 @@ test("AC:OPS-127-7 on a branch of development the seed writes the same cases int
 	);
 });
 
-test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new parts", async () => {
+test("INV-qa-seed: a second seed run writes nothing; the first run names the new parts", async () => {
 	for (const b of [await fresh(), await development()]) {
 		assert.match(
 			b.first,
@@ -391,7 +391,7 @@ test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new
 	assert.equal(String(repair.stdout).trim(), `QA seed wrote: affiliation with ${CHURCH}.`);
 });
 
-test("AC:OPS-127-9 the new organizations add no login, seat or outside address; the OPS-106 seed test passes", async () => {
+test("INV-qa-seed: the new organizations add no login, seat or outside address; the fresh-database seed test passes", async () => {
 	const b = await fresh();
 	// OPS-126 later gave the network and its own sending church one login each. Grace Fellowship (QA) still has none.
 	assert.deepEqual(
@@ -423,7 +423,7 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 		[
 			"--test",
 			"--test-reporter=spec",
-			"--test-name-pattern=OPS-106: the QA seed fills a fresh database",
+			"--test-name-pattern=INV-qa-seed: the QA seed fills a fresh database",
 			"tools/qa/tests/qa.test.ts",
 		],
 		{ cwd: source, encoding: "utf8", env: clean({}) },
@@ -432,7 +432,7 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 	assert.match(ops106.stdout, /ℹ pass 1\n/);
 });
 
-test("AC:OPS-127-10 the QA runbook names articles A and B, the church and the network, and what the owner sees", () => {
+test("INV-qa-runbook: the QA runbook names articles A and B, the church and the network, and what the owner sees", () => {
 	const runbook = readFileSync(join(source, "docs/runbooks/qa-preview.md"), "utf8");
 	// Development installs the approved Wiki seed, where position is sort_order. The seed's rule (first two published
 	// articles by position, then slug) picks these two there.
@@ -527,12 +527,12 @@ async function orderCaseHolds(b: Branch, title: string) {
 	);
 }
 
-test("T-51: article C has church versions from Grace Fellowship (QA) and Grace Church (QA), and needs an order", async () => {
+test("INV-qa-seed: article C has church versions from Grace Fellowship (QA) and Grace Church (QA), and needs an order", async () => {
 	await orderCaseHolds(await fresh(), corpus.articles[2]!.title);
 	await orderCaseHolds(await development(), "Dev training/overview r1");
 });
 
-test("T-51: the seed's own wiki has three articles, and a release with fewer than three stops the seed", async () => {
+test("INV-qa-seed: the seed's own wiki has three articles, and a release with fewer than three stops the seed", async () => {
 	const b = await fresh();
 	assert.deepEqual(
 		await b.query(

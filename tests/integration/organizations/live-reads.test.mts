@@ -44,7 +44,7 @@ async function answers(db, viewer, ids) {
 	};
 }
 
-test("C13 organization reads: a plant viewer whose seat ended reads no tenant data", async () => {
+test("AC:TARGET-IDN-029 organization reads: a plant viewer whose seat ended reads no tenant data", async () => {
 	const s = await f.setup(),
 		church = await f.workspace("sending_church");
 	await f.admin.update(t.plant).set({ timezone: "America/Chicago" }).where(eq(t.plant.id, s.w.id));
@@ -86,7 +86,7 @@ test("C13 organization reads: a plant viewer whose seat ended reads no tenant da
 	});
 });
 
-test("C13 organization reads: a resident whose session ended reads no residency link", async () => {
+test("AC:TARGET-IDN-029 organization reads: a resident whose session ended reads no residency link", async () => {
 	const s = await f.setup("sending_church"),
 		person = await f.resident(s.w),
 		i = await f.invitation(s, person);

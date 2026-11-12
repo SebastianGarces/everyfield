@@ -196,7 +196,7 @@ test("AC:INH-COMMUNICATION-05 a preview drops a missing email and a repeated add
 	assert.equal(after.attempts, before.attempts);
 });
 
-test("forking a source whose church fork is archived brings the fork back with its edits (D-449)", async () => {
+test("AC:CASE-COM-007 forking a source whose church fork is archived brings the fork back with its edits", async () => {
 	const sourceKey = "vision-meeting-reminder";
 	const fork = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
 	const edited = ok(
@@ -802,7 +802,7 @@ test("AC:CASE-COM-003 a read-only member seat and a forged actor with another us
 	assert.deepEqual(await snapshot(), before);
 });
 
-test("T-159: a draft update that leaves out the subject keeps the stored subject; null clears it", async () => {
+test("AC:CASE-COM-012 a draft update that leaves out the subject keeps the stored subject; null clears it", async () => {
 	const saved = ok(
 		await write(owner, "saveDraft", {
 			requestKey: key(),

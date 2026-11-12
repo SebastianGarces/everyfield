@@ -962,7 +962,7 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 	assert.equal(seatPort.calls.lookup, 0);
 });
 
-test("T-159 C13: a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
+test("AC:DEL58-006 a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
 	const made = await scheduled("Wren", "wren-witness@example.test", AT);
 	const revision = ok(made.accepted).revision;
 	const id = made.saved.communicationId;

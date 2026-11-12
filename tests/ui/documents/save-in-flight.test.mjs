@@ -94,7 +94,7 @@ async function saveTypeLeave(page, { first, later, exit, landed }) {
 	await page.waitForURL(landed, { timeout: 60_000 });
 }
 
-test("written document: Save and leave during a save in flight stores the text typed after it started", async () => {
+test("AC:CASE-DOC-016 written document: Save and leave during a save in flight stores the text typed after it started", async () => {
 	await onPage(async (page) => {
 		await page.goto(`${BASE}/documents/written/new`);
 		await hydrated(page);
@@ -120,7 +120,7 @@ test("written document: Save and leave during a save in flight stores the text t
 	});
 });
 
-test("Church Document: Save and leave during a save in flight stores the text typed after it started", async () => {
+test("AC:CASE-DOC-022 Church Document: Save and leave during a save in flight stores the text typed after it started", async () => {
 	await onPage(async (page) => {
 		await page.goto(`${BASE}/documents/church`);
 		await hydrated(page);
@@ -169,7 +169,7 @@ const fillTo = (page, target) =>
 		return size();
 	}, target);
 
-test("a written document and a Church Document near BODY_JSON_MAX save through the host", async () => {
+test("INV-body-limit: a written document and a Church Document near BODY_JSON_MAX save through the host", async () => {
 	await onPage(async (page) => {
 		await page.goto(`${BASE}/documents/written/new`);
 		await hydrated(page);

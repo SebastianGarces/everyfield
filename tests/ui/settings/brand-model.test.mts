@@ -177,7 +177,7 @@ test("AC:CASE-BRD-006 the full kit's email button is the primary color with whit
 	}
 });
 
-test("BUG-T123: on #767676 the preview sets the text the PDF prints: white, by the renderer's rule and ink", () => {
+test("BUG-58bc5acb8: on #767676 the preview sets the text the PDF prints: white, by the renderer's rule and ink", () => {
 	for (const fill of ["#767676", "#1F4E79", "#D4A017", "#FFF3B0", "#9CA3AF", "#E5E7EB"]) {
 		const palette = makePalette({ name: "church", primary: fill, accent: fill });
 		assert.equal(DOCUMENT_INK, palette.ink, "the preview's ink is the renderer's");

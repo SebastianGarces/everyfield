@@ -131,7 +131,7 @@ test("AC:TARGET-TSK-016 storage and render share one outside-link rule", () => {
 	assert.equal(normalizeDescription("[tasks](/tasks)"), "tasks");
 });
 
-test("AC:TARGET-TSK-016 the normalizer keeps HTML and text shaped like tags exactly as typed (D88)", () => {
+test("AC:TARGET-TSK-016 the normalizer keeps HTML and text shaped like tags exactly as typed", () => {
 	for (const typed of [
 		"a<b and c>d",
 		"Use `<div>` here",

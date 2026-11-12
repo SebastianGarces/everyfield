@@ -519,7 +519,7 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
 });
 
-test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
+test("BUG-f52e88212: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Chen's city to Joliet");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);

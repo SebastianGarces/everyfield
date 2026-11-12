@@ -23,7 +23,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:TARGET-TSK-002 criterion 1: each task keeps its single assignee after the migration, and an unassigned task gets none", async () => {
+test("AC:TARGET-TSK-002 each task keeps its single assignee after the migration, and an unassigned task gets none", async () => {
 	const names = (await migrationArtifact()).map(({ name }) => name);
 	const migration = names.find((name) => name.endsWith(NEW));
 	assert.ok(migration, "the task_assignees migration is registered");

@@ -275,7 +275,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	assert.equal(name.current.name, "Member Updated");
 });
 
-test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
+test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
 	let current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 20);
@@ -459,7 +459,7 @@ async function restricted(a, subject, status) {
 		})),
 	);
 }
-test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:WP010-KNOW-069 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
+test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:DEL58-004 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
 	const f = await plant(),
 		member = await seat(f.p, "member");
 	const ordinaryAdmin = await seat(f.p, "admin");
@@ -587,7 +587,7 @@ async function overdue(a, subject) {
 		cancelUntil: w.cancel_until.toISOString(),
 	};
 }
-test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
+test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
 	const f = await plant();
 	const subject = { kind: "account", id: f.a.id };
 	const p = await overdue(f.a, subject);
@@ -629,7 +629,7 @@ test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancella
 	assert.equal(church.name, "Harvest Point");
 });
 
-test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
+test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
 	const f = await plant(),
 		other = await plant();
 	const subject = { kind: "plant", id: f.p.id };
@@ -847,7 +847,7 @@ async function organization() {
 	await admin.insert(t.seat).values({ account_id: a.id, organization_id: id, role: "owner", accepted_at: new Date() });
 	return { o, a };
 }
-test("AC:CASE-NTF-004 WP-030 D-a: an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
+test("AC:CASE-NTF-004 an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
 	const { a } = await organization();
 	const current = ok(await section(a, { section: "notifications" }));
 	const oversight = (channel) =>
@@ -1109,7 +1109,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	}
 });
 
-test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
+test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
 	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
 	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
 	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
@@ -1240,7 +1240,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
-test("people/peo-31 an email change whose send throws is unknown and gives its try back", async () => {
+test("AC:TARGET-IDN-007 an email change whose send throws is unknown and gives its try back", async () => {
 	const a = await credentialActor();
 	trustedIps.set(a.session, "198.51.100.31");
 	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
@@ -1252,7 +1252,7 @@ test("people/peo-31 an email change whose send throws is unknown and gives its t
 	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
 });
 
-test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
+test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
 		subject = { kind: "account", id: f.a.id };

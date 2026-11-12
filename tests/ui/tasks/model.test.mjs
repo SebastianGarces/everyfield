@@ -42,7 +42,7 @@ import {
 
 const parse = (s) => parseQuery(new URLSearchParams(s));
 
-test("BUG-551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
+test("BUG-PR551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
 	// A loose uuid test accepts both; the contract's recordId refuses version nibble 0 and variant c.
 	for (const team of ["0b6c3f1e-2a7d-0c3b-9f5e-1d2c3b4a5f60", "0b6c3f1e-2a7d-4c3b-cf5e-1d2c3b4a5f60"]) {
 		const q = parse(`team=${team}&status=blocked&q=call&page=2`);
@@ -320,7 +320,7 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
 
-test("BUG-551 (messages/com-21): an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
+test("BUG-PR551 (messages/com-21): an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
 	const text = problemText("owner_ineligible", "Ana Lee");
 	assert.match(text, /^Ana Lee cannot own follow-ups now/);
 	assert.doesNotMatch(text, /Your seat/);
@@ -328,7 +328,7 @@ test("BUG-551 (messages/com-21): an owner_ineligible refusal names the assignee,
 	assert.match(problemText("access_denied"), /Your seat may have changed/);
 });
 
-test("BUG-551 (messages/com-21): an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
+test("BUG-PR551 (messages/com-21): an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
 	const refusal = {
 		status: "refused",
 		code: "owner_ineligible",
@@ -352,7 +352,7 @@ test("BUG-551 (messages/com-21): an owner_ineligible refusal forgets the cached 
 	assert.deepEqual(calls, [], "another refusal keeps the cached lists");
 });
 
-test("BUG-551 (messages/com-21): every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
+test("BUG-PR551 (messages/com-21): every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
 	const viewer = "acc-viewer";
 	// A new follow-up starts with the viewer, who is on no task yet.
 	assert.deepEqual(heldAssignees([viewer], { [viewer]: "Daniel Reyes" }, [], []), [

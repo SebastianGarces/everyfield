@@ -42,7 +42,7 @@ const SAVED = new Date("2026-11-01T12:00:00Z");
 const count = (text: string, part: string) => text.split(part).length - 1;
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
-test("WP-036 the nine template files load through the contract parser and a file that does not validate fails", () => {
+test("AC:CASE-DOC-022 the nine template files load through the contract parser and a file that does not validate fails", () => {
 	const files = readdirSync(folder)
 		.filter((name) => name.endsWith(".json"))
 		.sort();
@@ -80,7 +80,7 @@ test("WP-036 the nine template files load through the contract parser and a file
 	assert.throws(() => loadTemplate("first-year-budget", renamed), /holds the template "budget-worksheet"/);
 });
 
-test("WP-036 the conflict-of-interest policy prints its text, numbered headings, footer and adoption fields", async () => {
+test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered headings, footer and adoption fields", async () => {
 	const pdf = await renderDocPdf(await fork("conflict-of-interest-policy"));
 	assert.equal(pdf.pages, 2);
 	const pages = await pdfPages(pdf.bytes);
@@ -108,7 +108,7 @@ test("WP-036 the conflict-of-interest policy prints its text, numbered headings,
 	assert.equal(sha(again.bytes), sha(pdf.bytes), "a second render gives the same bytes");
 });
 
-test("T-56 each text template's Church Document prints the same pages as its template preview on Documents", async () => {
+test("AC:CASE-DOC-022 each text template's Church Document prints the same pages as its template preview on Documents", async () => {
 	// The Documents preview and "Save for your church" print the code template; "Create Church Document" forks the
 	// everyfield.doc/1 file. An unedited fork reads the same, page for page, with its fill-in fields.
 	const values = { church_name: "Harbor City Church", pastor_name: "Pastor Ada" };
@@ -129,7 +129,7 @@ test("T-56 each text template's Church Document prints the same pages as its tem
 	}
 });
 
-test("AC:DOC-LAYOUT-CARDS WP-036 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {
+test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {
 	const pdf = await renderDocPdf(await fork("commitment-card"));
 	assert.equal(pdf.pages, 1);
 	const [page] = await pdfPages(pdf.bytes);
@@ -218,7 +218,7 @@ async function strokedRects(bytes: Uint8Array) {
 	return out;
 }
 
-test("T-48 every box on the 4-per-sheet card sheet draws its whole border inside its own card", async () => {
+test("AC:CASE-DOC-004 every box on the 4-per-sheet card sheet draws its whole border inside its own card", async () => {
 	const pdf = await renderDocPdf(await fork("commitment-card"));
 	const boxes = await strokedRects(pdf.bytes);
 	const cards = [
@@ -251,7 +251,7 @@ test("T-48 every box on the 4-per-sheet card sheet draws its whole border inside
 	assert.deepEqual(clipped, [], "no border is cut by its card's clip");
 });
 
-test("WP-036 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {
+test("AC:CASE-DOC-006 AC:CASE-DOC-013 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {
 	const sign = await renderDocPdf(await fork("guest-sign-in-sheet"));
 	assert.equal(sign.pages, 1);
 	const [signText] = await pdfPages(sign.bytes);
@@ -281,7 +281,7 @@ test("WP-036 the guest sign-in sheet prints 18 write-in rows and the budget prin
 	);
 });
 
-test("WP-036 typed values print computed formula, subtotal and total cells", async () => {
+test("AC:CASE-DOC-013 typed values print computed formula, subtotal and total cells", async () => {
 	const doc = await fork("budget-worksheet");
 	const table = doc.body.content!.find((b) => b.type === "table")!;
 	assert.equal(table.type, "table");
@@ -484,7 +484,7 @@ function everyNode(): DocDocument {
 	return docDocument.parse(doc);
 }
 
-test("AC:DOC-LAYOUT-FILES AC:DOC-EDIT-FIELDS WP-036 every node, mark and page setup part of the design node table prints", async () => {
+test("AC:CASE-DOC-023 every node, mark and page setup part of the design node table prints", async () => {
 	const doc = everyNode();
 	const pdf = await renderDocPdf(doc);
 	const pages = await pdfPages(pdf.bytes);
@@ -567,7 +567,7 @@ test("AC:DOC-LAYOUT-FILES AC:DOC-EDIT-FIELDS WP-036 every node, mark and page se
 	);
 });
 
-test("WP-036 a header or footer can print on the first page only or on the later pages only", async () => {
+test("AC:CASE-DOC-023 a header or footer can print on the first page only or on the later pages only", async () => {
 	const doc = await fork("conflict-of-interest-policy");
 	doc.page.header = {
 		pages: "rest",
@@ -586,7 +586,7 @@ test("WP-036 a header or footer can print on the first page only or on the later
 	for (const page of pages) assert.ok(page.includes("Template, not legal advice"));
 });
 
-test("WP-036 criterion 6: a wiped fork of the policy still validates and prints the legal notice", async () => {
+test("AC:CASE-DOC-019-EDIT a wiped fork of the policy still validates and prints the legal notice", async () => {
 	const template: DocTemplate = docTemplateById("conflict-of-interest-policy")!;
 	const doc = await forkTemplate(template, { data: DATA });
 	doc.body = { type: "doc", content: [] };
@@ -603,7 +603,7 @@ test("WP-036 criterion 6: a wiped fork of the policy still validates and prints 
 	assert.deepEqual(await pdfPages(plain.bytes), [""]);
 });
 
-test("WP-036 New from template freezes each field from its source, else its fallback, and says which", async () => {
+test("AC:CASE-DOC-022 New from template freezes each field from its source, else its fallback, and says which", async () => {
 	const { frozenData, fieldValues } = await import("../../../packages/domain/src/documents/doc-values.ts");
 	const card = docTemplateById("commitment-card")!;
 	const policy = docTemplateById("conflict-of-interest-policy")!;

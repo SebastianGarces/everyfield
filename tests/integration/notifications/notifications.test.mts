@@ -558,7 +558,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	assert.equal(ok(await api.getPreferences(db, northReader, {})).oversightCadence, "daily");
 });
 
-test("AC:CASE-NTF-003 T-260 Done 4-8: each feed entry names its subject page's record, digests and phases name none, and the entries are the same", async () => {
+test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests and phases name none, and the entries are the same", async () => {
 	const church = await plant("Subjects");
 	const sam = await identity(church);
 	const work = await task(church.id);
@@ -735,7 +735,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	assert.equal(seen.recipientIds.includes(adminSeat.id), false);
 });
 
-test("T-159 C13: a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {
+test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {
 	const witness = async (kind, subject) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,

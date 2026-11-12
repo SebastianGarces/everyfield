@@ -625,7 +625,7 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 
 // S2 batch 2 F06: the modal never sends `evaluatedOn`, so the server's own default date must always be accepted.
 // Finalize has no date check, so a meeting dated after today in its timezone can be finalized and then evaluated.
-test("BUG-S2-F06 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
+test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
 	const all = (n) => ({
 		attendanceScore: n,
 		locationScore: n,
@@ -873,7 +873,7 @@ test("INV-attendance: guest list writes that change the attended set move its re
 	assert.deepEqual(await attended(), ["Alex"]);
 });
 
-test("BUG-T155: guest, walk-in, finalize and reconcile results carry the revisions they wrote, so the next save goes through", async () => {
+test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the revisions they wrote, so the next save goes through", async () => {
 	const m = await meeting();
 	const [alex, casey, dana, newcomer] = [
 		await person("Alex"),
@@ -1402,7 +1402,7 @@ test("INV-planning: the locked fact read of a settle plans below the JIT thresho
 
 // D-562 (REQ-MTG-010): the current leader of a team meeting's ministry finalizes and corrects that meeting's attendance,
 // as Owners and Admins do. Any other Member is refused.
-test("T-159 AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle attendance; another Member cannot", async () => {
+test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle attendance; another Member cannot", async () => {
 	const seated = async (role) => {
 		const a = await f.account();
 		await f.seat(a, plant, role);

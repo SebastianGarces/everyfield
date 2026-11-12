@@ -135,7 +135,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:CASE-NTF-016 T-242 Done 1-2: Ana unsubscribes and Sam, who scheduled the email, has one new notice in the bell and the feed as the answer returns", async () => {
+test("AC:CASE-NTF-016 Ana unsubscribes and Sam, who scheduled the email, has one new notice in the bell and the feed as the answer returns", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana Ruiz");
@@ -165,7 +165,7 @@ test("AC:CASE-NTF-016 T-242 Done 1-2: Ana unsubscribes and Sam, who scheduled th
 	assert.deepEqual(newest.subject, { kind: "communication", id: email.id });
 });
 
-test("AC:CASE-NTF-016 T-242 Done 2: a refused opt-out, from a forged or tampered token, writes no notice", async () => {
+test("AC:CASE-NTF-016 a refused opt-out, from a forged or tampered token, writes no notice", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");
@@ -189,7 +189,7 @@ test("AC:CASE-NTF-016 T-242 Done 2: a refused opt-out, from a forged or tampered
 	);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 3: when Ana was the only recipient the notice says the email will not go out, as its Not sent: unsubscribed state says", async () => {
+test("AC:CASE-NTF-016 when Ana was the only recipient the notice says the email will not go out, as its Not sent: unsubscribed state says", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana Ruiz");
@@ -208,7 +208,7 @@ test("AC:CASE-NTF-016 T-242 Done 3: when Ana was the only recipient the notice s
 	assert.equal(hubLabel[state], "Not sent: unsubscribed", "the email itself reads the same");
 });
 
-test("AC:CASE-NTF-016 T-242 Done 3: an email whose other recipient already unsubscribed counts as all-unsubscribed", async () => {
+test("AC:CASE-NTF-016 an email whose other recipient already unsubscribed counts as all-unsubscribed", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");
@@ -220,7 +220,7 @@ test("AC:CASE-NTF-016 T-242 Done 3: an email whose other recipient already unsub
 	assert.deepEqual(titles, ["Not sent: Ana unsubscribed", "Ben unsubscribed from a scheduled email"]);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 4: Ana is on Sam's and Lee's scheduled emails; each scheduler gets one notice, for their own email only", async () => {
+test("AC:CASE-NTF-016 Ana is on Sam's and Lee's scheduled emails; each scheduler gets one notice, for their own email only", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const lee = await staff(w, "admin");
@@ -247,7 +247,7 @@ test("AC:CASE-NTF-016 T-242 Done 4: Ana is on Sam's and Lee's scheduled emails; 
 	);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 5: a second click, a retried one-click POST, and an undo then a new unsubscribe still leave one notice per email", async () => {
+test("AC:CASE-NTF-016 a second click, a retried one-click POST, and an undo then a new unsubscribe still leave one notice per email", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");
@@ -266,7 +266,7 @@ test("AC:CASE-NTF-016 T-242 Done 5: a second click, a retried one-click POST, an
 	assert.equal((await ours(sam)).length, 2);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 6: Ana's opt-out from church A tells no one in church B, and church A's notice never shows in a church B seat", async () => {
+test("AC:CASE-NTF-016 Ana's opt-out from church A tells no one in church B, and church A's notice never shows in a church B seat", async () => {
 	const a = await church();
 	const b = await church();
 	const sam = await staff(a);
@@ -299,7 +299,7 @@ test("AC:CASE-NTF-016 T-242 Done 6: Ana's opt-out from church A tells no one in 
 	assert.deepEqual(await ours(bea), []);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 7: no notice when Ana is on no waiting scheduled email", async () => {
+test("AC:CASE-NTF-016 no notice when Ana is on no waiting scheduled email", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");
@@ -333,7 +333,7 @@ test("AC:CASE-NTF-016 T-242 Done 7: no notice when Ana is on no waiting schedule
 	assert.deepEqual(await ours(sam), []);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 8: Sam's seat in the church has ended, so Sam sees nothing and nobody gets the notice instead", async () => {
+test("AC:CASE-NTF-016 Sam's seat in the church has ended, so Sam sees nothing and nobody gets the notice instead", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const lee = await staff(w, "admin");
@@ -348,7 +348,7 @@ test("AC:CASE-NTF-016 T-242 Done 8: Sam's seat in the church has ended, so Sam s
 	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM notice WHERE tenant_id = ${w.id}::uuid`))[0].n, 0);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 9: the category is in-app only and on by default; turning it off hides these notices and on shows them again", async () => {
+test("AC:CASE-NTF-016 the category is in-app only and on by default; turning it off hides these notices and on shows them again", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const prefs = ok(await notifications.getPreferences(f.db, sam.actor));
@@ -396,7 +396,7 @@ test("AC:CASE-NTF-016 T-242 Done 9: the category is in-app only and on by defaul
 	assert.equal(await bell(sam), bellBefore + 1);
 });
 
-test("AC:CASE-NTF-016 T-242 Done 10: filtering the feed by the category shows only these notices", async () => {
+test("AC:CASE-NTF-016 filtering the feed by the category shows only these notices", async () => {
 	const w = await church();
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");

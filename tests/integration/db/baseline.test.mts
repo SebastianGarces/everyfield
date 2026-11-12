@@ -93,7 +93,7 @@ before(async () => {
 });
 after(database.close);
 
-test("BUG-176 RT-2: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
+test("BUG-96eb2fd80: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
 	// The worker's parser import is held open while the mocked clock runs 3.5 s, longer than the 3-second parse limit,
 	// as on a loaded runner or a cold start. Each worker's import says when it is loading and waits for the test's go.
 	const parser = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
@@ -148,7 +148,7 @@ test("INV-storage: only a Vercel production deployment may use the production bu
 	assert.equal(bucket({}), null);
 });
 
-test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
+test("BUG-PR112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
 	const directory = await mkdtemp(tmpdir() + "/evf-drop-column-");
 	const migrations = pathToFileURL(directory + "/");
 	const fresh = "drop_fresh_" + randomUUID().replaceAll("-", "");
@@ -394,7 +394,7 @@ test("INV-backfill (C102): db:migrate's backfills run once each; a failure recor
 		await admin.execute(querySql`DELETE FROM schema_backfill WHERE name LIKE 'probe_%'`);
 	}
 });
-test("AC:C0-PERSON-001 AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
+test("AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
 	const x = await person(p);
 	assert.deepEqual(
 		(await admin.execute(querySql`SELECT kind,tenant_id FROM record WHERE id=${querySql.param(x)}`)).rows,
@@ -509,7 +509,7 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 		1,
 	);
 });
-test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
+test("AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
 	const x = await doc(p);
 	await assert.rejects(
 		runtime.transaction(async (tx) => {
