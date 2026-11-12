@@ -172,12 +172,12 @@ export function MailChanges({ review }: { review: Review }) {
 export const MAIL_CONSEQUENCE: Record<string, string> = {
 	"communication.saveDraft": "The draft is saved in Messages. Nothing is sent.",
 	"communication.scheduleReviewed":
-		"The email service holds the email until this time. It says Scheduled only after the email service accepts it.",
+		"Everyfield keeps the email until this time, then hands it to the email service. Anyone who unsubscribes before then doesn't get it.",
 	"communication.rescheduleReviewed":
-		"Recipients and content stay the same. The new time shows only after the email service confirms it.",
-	"communication.cancelScheduledReviewed": "It says Cancelled only after the email service confirms every cancel.",
+		"Recipients and content stay the same. The new time shows only once it is confirmed for every recipient.",
+	"communication.cancelScheduledReviewed": "It says Cancelled only once every recipient's send is confirmed cancelled.",
 	"communication.replaceScheduledReviewed":
-		"The old send is cancelled first. The new one is scheduled at the same time only after the email service confirms every cancel. If any cancel is not confirmed or already sent, nothing new is scheduled.",
+		"The old send is cancelled first. The new one is scheduled at the same time only after every cancel is confirmed. If any cancel is not confirmed or already sent, nothing new is scheduled.",
 };
 
 function Tally({ items }: { items: [string, number][] }) {
@@ -268,7 +268,7 @@ export function MailResult({ review }: { review: Review }) {
 						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
 					</p>
 				) : report.confirmation === "none" ? (
-					<p>The email service holds no recipient of this message, so no time changed.</p>
+					<p>No recipient of this message is still waiting to send, so no time changed.</p>
 				) : (
 					<p>
 						The email service did not confirm the new time for {report.open} {noun(report.open)}. They may still hold

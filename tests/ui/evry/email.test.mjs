@@ -476,7 +476,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.match(text, /interest meeting on Sunday at 4 pm/);
 			assert.match(text, /Body after\s*We moved to 5 pm/);
 			assert.match(text, /cancelled first/);
-			assert.match(text, /only after the email service confirms every cancel/);
+			assert.match(text, /only after every cancel is confirmed/);
 			// The email service gives no answer to the cancel: nothing new is scheduled.
 			await silence(true);
 			try {
