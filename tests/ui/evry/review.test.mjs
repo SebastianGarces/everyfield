@@ -151,8 +151,6 @@ for (const [engine, launcher] of ENGINES)
 			{ width: 390, height: 844 },
 		));
 
-// A first approval with no later request, through the real routes: its own request starts the change. A replay of the
-// same approval afterwards returns the saved review and saves nothing again.
 for (const [engine, launcher] of ENGINES)
 	test(`T-231 INV-open-reviews: opening a conversation with review cards reads no review by id (${engine})`, () =>
 		withPage(
@@ -210,6 +208,8 @@ for (const [engine, launcher] of ENGINES)
 			{ width: 390, height: 844 },
 		));
 
+// A first approval with no later request, through the real routes: its own request starts the change. A replay of the
+// same approval afterwards returns the saved review and saves nothing again.
 test("AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once: a first approval saves its change without any other request; its replay saves nothing again", () =>
 	withPage(ENGINES[0][1], async (_page, context) => {
 		const people = fixture("people");

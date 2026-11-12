@@ -22,7 +22,7 @@ import {
 	type Proposal,
 } from "./review.ts";
 
-export { allowedWrites, proposalRow, REVIEWED_WRITES, type Proposal } from "./review.ts";
+export { allowedWrites, REVIEWED_WRITES, type Proposal } from "./review.ts";
 
 // Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
 // together, and zero changed rows means refused, changed or not found. A refusal reads the current review once more to
