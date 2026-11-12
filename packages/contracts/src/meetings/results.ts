@@ -15,6 +15,7 @@ import {
 	rsvpSource,
 	venueId,
 } from "./values.ts";
+import { personPhoto } from "../people/results.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
 const error = <C extends string, D extends z.ZodRawShape>(
@@ -130,6 +131,8 @@ export const guestList = z.strictObject({
 	guests: z.array(guest).max(1000),
 	/** Owners and Admins only: when a guest first opened an email of this meeting. Not an RSVP and not attendance. */
 	emailOpens: z.array(z.strictObject({ personId, openedAt: instant })).max(1000),
+	/** Each guest's photo as the People list shows it (REQ-PPL-005, REQ-IDN-006). A guest with none has no entry. */
+	photos: z.array(personPhoto).max(1000),
 });
 /**
  * What an update from the ministry would change on a team meeting's guest list: live people serving now who are not
