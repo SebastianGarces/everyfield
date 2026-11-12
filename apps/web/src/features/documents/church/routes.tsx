@@ -35,9 +35,16 @@ export async function ChurchLibraryPage({
 			templates={loaded.value.templates}
 			churchTemplates={loaded.value.churchTemplates}
 			canManage={canManageChurch(authority)}
-			deleted={(await searchParams).deleted === "1"}
+			notice={noticeOf(await searchParams)}
 		/>
 	);
+}
+
+/** The one-line notice the library shows after a delete or an archive returned to it. */
+function noticeOf(params: Record<string, string | string[] | undefined>) {
+	if (params.archived === "1") return "archived" as const;
+	if (params.deleted === "1") return "deleted" as const;
+	return null;
 }
 
 export async function ChurchDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {

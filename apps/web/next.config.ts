@@ -17,8 +17,9 @@ const config: NextConfig = {
 			"../../packages/domain/src/documents/fonts/*.ttf",
 		],
 	},
-	// `pnpm typecheck` checks every package before `pnpm build` in the CI app job, so the build skips
-	// its own second pass over the same types (T-43: a third of the build's time).
+	// The CI app job's `Types` step checks every package before `pnpm build`, with `pnpm typecheck` (bun check, T-110) and
+	// then `pnpm typecheck:tsc` (tsc, the backstop), so the build skips its own pass over the same types (T-43: a third
+	// of the build's time).
 	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
 	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and

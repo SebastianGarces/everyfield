@@ -390,11 +390,15 @@ export const CASES: Case[] = [
 ];
 
 /** Copy the tracked workspace into `to` and give each package a node_modules that points at the copies. */
-function copyWorkspace(root: string, to: string, dirs: string[]): void {
-	const listed = spawnSync("git", ["ls-files", "-z", "--", ...dirs, "tests/contracts", "tests/reference"], {
-		cwd: root,
-		encoding: "utf8",
-	});
+export function copyWorkspace(root: string, to: string, dirs: string[]): void {
+	const listed = spawnSync(
+		"git",
+		["ls-files", "-z", "--", ...dirs, "tests/contracts", "tests/reference", "tests/support"],
+		{
+			cwd: root,
+			encoding: "utf8",
+		},
+	);
 	if (listed.status !== 0) throw new Error(`git ls-files failed: ${listed.stderr}`);
 	// Packages import tracked data and modules from these directories, such as docs/reference/*.json.
 	const shared = spawnSync("git", ["ls-files", "-z", "--", "docs", "ops", "design"], { cwd: root, encoding: "utf8" });
@@ -435,8 +439,8 @@ function copyWorkspace(root: string, to: string, dirs: string[]): void {
 
 type Run = { outcome: Outcome; exit: number | null; diagnostics: Diagnostic[] };
 
-async function check(copy: string, dir: string, tool: "tsc" | "bun", bunScript: string): Promise<Run> {
-	const script = tool === "tsc" ? "node_modules/.bin/tsc --noEmit --pretty false" : bunScript;
+async function check(copy: string, dir: string, tool: "tsc" | "bun", scripts: Record<string, string>): Promise<Run> {
+	const script = tool === "tsc" ? `${scripts["typecheck:tsc"]} --pretty false` : scripts.typecheck!;
 	const run = await runScript(script, join(copy, dir), 900_000);
 	return { outcome: run.outcome, exit: run.code, diagnostics: parseDiagnostics(run.output) };
 }
@@ -476,9 +480,9 @@ export type CorpusReport = {
 };
 
 export async function runCorpus(root: string): Promise<CorpusReport> {
-	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:bun"]);
+	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:tsc"]);
 	const dirs = packages.map((p) => p.dir);
-	const bunScript = (dir: string) => packages.find((p) => p.dir === dir)!.scripts["typecheck:bun"];
+	const scriptsOf = (dir: string) => packages.find((p) => p.dir === dir)!.scripts;
 	const copy = mkdtempSync(join(tmpdir(), "typecheck-corpus-"));
 	try {
 		copyWorkspace(root, copy, dirs);
@@ -487,7 +491,7 @@ export async function runCorpus(root: string): Promise<CorpusReport> {
 
 		const baseline: CorpusReport["baseline"] = {};
 		for (const dir of dirs) {
-			const [tsc, bun] = [await check(copy, dir, "tsc", bunScript(dir)), await check(copy, dir, "bun", bunScript(dir))];
+			const [tsc, bun] = [await check(copy, dir, "tsc", scriptsOf(dir)), await check(copy, dir, "bun", scriptsOf(dir))];
 			baseline[dir] = {
 				tsc: tsc.diagnostics.length,
 				bun: bun.diagnostics.length,
@@ -501,7 +505,7 @@ export async function runCorpus(root: string): Promise<CorpusReport> {
 			const revert = apply(copy, c.files);
 			const result: CaseResult = { id: c.id, kind: c.kind, packages: [] };
 			for (const pkg of [...new Set(c.expect.map((e) => e.pkg))]) {
-				const bun = await check(copy, pkg, "bun", bunScript(pkg));
+				const bun = await check(copy, pkg, "bun", scriptsOf(pkg));
 				const keys = new Set(bun.diagnostics.map(diagnosticKey));
 				result.packages.push({
 					pkg,
@@ -522,8 +526,8 @@ export async function runCorpus(root: string): Promise<CorpusReport> {
 		for (const c of CASES) apply(copy, c.files);
 		const combined: CorpusReport["combined"] = {};
 		for (const dir of dirs) {
-			const tsc = await check(copy, dir, "tsc", bunScript(dir));
-			const bun = await check(copy, dir, "bun", bunScript(dir));
+			const tsc = await check(copy, dir, "tsc", scriptsOf(dir));
+			const bun = await check(copy, dir, "bun", scriptsOf(dir));
 			const has = (run: Run, e: Expect) => run.diagnostics.some((d) => diagnosticKey(d) === diagnosticKey(e));
 			combined[dir] = {
 				tsc: { exit: tsc.exit, outcome: tsc.outcome, errors: tsc.diagnostics.length },

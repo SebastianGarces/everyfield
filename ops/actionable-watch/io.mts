@@ -20,8 +20,18 @@ export const COMMANDS = {
 	"gh-main-ci": {
 		bin: "/opt/homebrew/bin/gh",
 		args: [
-			"run", "list", "--repo", "SebastianGarces/everyfield", "--branch", "main", "--workflow", "CI",
-			"--limit", "10", "--json", "headSha,status,conclusion,createdAt",
+			"run",
+			"list",
+			"--repo",
+			"SebastianGarces/everyfield",
+			"--branch",
+			"main",
+			"--workflow",
+			"CI",
+			"--limit",
+			"10",
+			"--json",
+			"headSha,status,conclusion,createdAt",
 		],
 	},
 } as const;
@@ -40,7 +50,10 @@ export async function runAllowed(
 	try {
 		await access(bin, constants.X_OK);
 	} catch (e) {
-		return { ok: false, code: `${prefix}_${(e as NodeJS.ErrnoException).code === "ENOENT" ? "missing" : "not_executable"}` };
+		return {
+			ok: false,
+			code: `${prefix}_${(e as NodeJS.ErrnoException).code === "ENOENT" ? "missing" : "not_executable"}`,
+		};
 	}
 	return new Promise((resolve) => {
 		execFile(
@@ -51,7 +64,12 @@ export async function runAllowed(
 				timeout: Math.min(opts.timeoutMs ?? COMMAND_TIMEOUT_MS, COMMAND_TIMEOUT_MS),
 				killSignal: "SIGKILL",
 				maxBuffer: 16 * 1024 * 1024,
-				env: { HOME: homedir(), PATH: "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin", GH_PROMPT_DISABLED: "1", NO_COLOR: "1" },
+				env: {
+					HOME: homedir(),
+					PATH: "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin",
+					GH_PROMPT_DISABLED: "1",
+					NO_COLOR: "1",
+				},
 			},
 			(err, stdout) => {
 				if (!err) return resolve({ ok: true, stdout });
@@ -66,7 +84,9 @@ export async function runAllowed(
 
 // ---- state ------------------------------------------------------------------------------------
 
-export async function loadState(path: string): Promise<{ state: State | null; code: "ok" | "state_missing" | "state_corrupt" }> {
+export async function loadState(
+	path: string,
+): Promise<{ state: State | null; code: "ok" | "state_missing" | "state_corrupt" }> {
 	let text: string;
 	try {
 		text = await readFile(path, "utf8");
@@ -120,7 +140,7 @@ export async function acquireLock(path: string, nowMs: number): Promise<{ releas
 		} catch (e) {
 			if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
 		}
-		const [pid, at] = (await readFile(path, "utf8").catch(() => "")).trim().split(" ").map(Number);
+		const [pid = NaN, at = NaN] = (await readFile(path, "utf8").catch(() => "")).trim().split(" ").map(Number);
 		const fresh = Number.isSafeInteger(pid) && pid > 0 && alive(pid) && nowMs - at < LOCK_STALE_MS;
 		if (fresh) return null;
 		await unlink(path).catch(() => undefined);
@@ -137,7 +157,10 @@ export type Log = (line: string) => Promise<void>;
 export function createLog(path: string, now: () => number = Date.now, maxBytes = LOG_MAX_BYTES): Log {
 	return async (line) => {
 		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-		const size = await stat(path).then((s) => s.size, () => 0);
+		const size = await stat(path).then(
+			(s) => s.size,
+			() => 0,
+		);
 		if (size > maxBytes) await rename(path, `${path}.1`);
 		await appendFile(path, `${new Date(now()).toISOString()} ${line}\n`, { mode: 0o600 });
 	};
@@ -165,12 +188,17 @@ export const WEBHOOK_CONFIG = join(STATE_DIR, "webhook.json");
 export type WebhookConfig = { url: URL; key: string };
 
 /** Read at send time only. Every refusal is a named code and happens before any request. */
-export async function readWebhookConfig(path: string): Promise<{ ok: true; config: WebhookConfig } | { ok: false; code: string }> {
+export async function readWebhookConfig(
+	path: string,
+): Promise<{ ok: true; config: WebhookConfig } | { ok: false; code: string }> {
 	let fh;
 	try {
 		fh = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
 	} catch (e) {
-		return { ok: false, code: (e as NodeJS.ErrnoException).code === "ENOENT" ? "webhook_config_missing" : "webhook_config_unreadable" };
+		return {
+			ok: false,
+			code: (e as NodeJS.ErrnoException).code === "ENOENT" ? "webhook_config_missing" : "webhook_config_unreadable",
+		};
 	}
 	let text: string;
 	try {
@@ -198,7 +226,10 @@ export async function readWebhookConfig(path: string): Promise<{ ok: true; confi
  * The one validator for a URL and key, shared by the send-time loader and the provisioning helper.
  * It returns only a named code: a URL parse error can carry the input, so it is never surfaced.
  */
-export function parseWebhookFields(url: unknown, key: unknown): { ok: true; config: WebhookConfig } | { ok: false; code: string } {
+export function parseWebhookFields(
+	url: unknown,
+	key: unknown,
+): { ok: true; config: WebhookConfig } | { ok: false; code: string } {
 	// A bearer key is visible ASCII with no spaces; anything else could split the header.
 	if (typeof url !== "string" || typeof key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(key)) {
 		return { ok: false, code: "webhook_config_invalid" };
@@ -221,7 +252,8 @@ export function classifySendError(e: unknown): SendResult & { ok: false } {
 	const code = String((e as NodeJS.ErrnoException)?.code ?? "");
 	if (DNS_ERRORS.has(code)) return { ok: false, result: "dns_error", retry: true };
 	if (CONNECT_ERRORS.has(code)) return { ok: false, result: "connect_error", retry: true };
-	if (code === "ABORT_ERR" || (e as Error)?.name === "AbortError") return { ok: false, result: "timeout", retry: false };
+	if (code === "ABORT_ERR" || (e as Error)?.name === "AbortError")
+		return { ok: false, result: "timeout", retry: false };
 	if (/^(ERR_TLS|ERR_SSL|CERT_|UNABLE_TO|DEPTH_ZERO|SELF_SIGNED|HOSTNAME_MISMATCH|ERR_TLS_CERT)/.test(code)) {
 		return { ok: false, result: "tls_error", retry: false };
 	}
@@ -244,13 +276,17 @@ function post(config: WebhookConfig, payload: Payload, signal: AbortSignal, ca?:
 	const req = webhookRequest(config, payload);
 	return new Promise((resolve) => {
 		try {
-			const r = httpsRequest(req.url, { method: req.method, headers: req.headers, signal, agent: false, ...(ca ? { ca } : {}) }, (res) => {
-				const status = res.statusCode ?? 0;
-				res.resume();
-				res.on("error", () => undefined);
-				if (status === 200) resolve({ ok: true, result: "http_200" });
-				else resolve({ ok: false, result: `http_${status}`, retry: status >= 500 && status <= 599 });
-			});
+			const r = httpsRequest(
+				req.url,
+				{ method: req.method, headers: req.headers, signal, agent: false, ...(ca ? { ca } : {}) },
+				(res) => {
+					const status = res.statusCode ?? 0;
+					res.resume();
+					res.on("error", () => undefined);
+					if (status === 200) resolve({ ok: true, result: "http_200" });
+					else resolve({ ok: false, result: `http_${status}`, retry: status >= 500 && status <= 599 });
+				},
+			);
 			r.on("error", (e) => resolve(classifySendError(e)));
 			r.end(req.body);
 		} catch (e) {
@@ -270,7 +306,10 @@ export function createTransport(
 			transport: {
 				mode: "dry-run",
 				capped: false,
-				send: async (payload) => (await log(`dry-run wake payload=${JSON.stringify(payload)}`), { ok: true, result: "logged" }),
+				send: async (payload) => (
+					await log(`dry-run wake payload=${JSON.stringify(payload)}`),
+					{ ok: true, result: "logged" }
+				),
 			},
 		};
 	}
@@ -346,7 +385,8 @@ export async function deliver(
 			clearTimeout(timer);
 		}
 		if (last.ok) return { ok: true, tries: i + 1, result: last.result, capped: false, sends };
-		if (!last.retry || i === maxTries - 1) return { ok: false, tries: i + 1, result: last.result, capped: false, sends };
+		if (!last.retry || i === maxTries - 1)
+			return { ok: false, tries: i + 1, result: last.result, capped: false, sends };
 		await sleep((opts.backoffMs ?? SEND_BACKOFF_MS) * 2 ** i);
 	}
 	return { ok: false, tries: maxTries, result: last.result, capped: false, sends };

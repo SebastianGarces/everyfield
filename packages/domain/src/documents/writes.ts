@@ -370,6 +370,7 @@ const generatedWriter = {
 	listChurch: churchWriter.listChurch,
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,
+	archiveChurch: churchWriter.archiveChurch,
 	saveChurchTemplate: churchWriter.saveTemplate,
 	updateChurchTemplate: churchWriter.updateTemplate,
 	editChurchTemplate: churchWriter.editTemplate,
