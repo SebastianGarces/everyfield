@@ -4,7 +4,6 @@ import {
 	command,
 	disclosureFor,
 	idsIn,
-	invitationFor,
 	namesFor,
 	pendingFor,
 	readHistory,
@@ -13,7 +12,6 @@ import {
 	residencyLinks,
 	residentOwner,
 	scopeOf,
-	subjectFacts,
 	viewerOf,
 	type Reply,
 } from "@/server/organizations";
@@ -23,7 +21,8 @@ import type { ResidencyRow } from "./Residency";
 // The browser's only door to the organization mount (WP-007/ui ruling D11): one typed server action per operation.
 // Each names its concrete adapter method, so the input and output types are the operation's own and the screens trust
 // the value. Every call reads the session and the current seat once; commands bind that actor to their transaction,
-// reads take no lock.
+// reads take no lock. A relationship invitation's proof never comes here: its read and its answer go through
+// POST /api/connections/invitation (invitation/handler.ts, the D54 clarification of 2026-11-10).
 
 const refused: Reply<never> = { status: "refused", code: "unavailable" };
 type Input<K extends keyof Ops> = Ops[K]["input"];
@@ -61,13 +60,6 @@ async function endAssociation(input: Input<"associations.end">) {
 	if (!w) return refused;
 	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
 		w.mount.adapter["associations.end"](tx, s, o, input),
-	);
-}
-export async function respondAssociationInvitation(input: Input<"associations.respondInvitation">) {
-	const w = await who();
-	if (!w) return refused;
-	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
-		w.mount.adapter["associations.respondInvitation"](tx, s, o, input),
 	);
 }
 /** Used only by saveSharing, which also answers with the sharing as saved. */
@@ -131,22 +123,6 @@ export async function loadDisclosure(pair: unknown) {
 	const w = await who();
 	if (!w) return null;
 	return disclosureFor(w.mount, w.authority, w.viewer, pair);
-}
-
-/** The request behind an emailed link, for a signed-in account. */
-export async function loadInvitation(invitationId: string, proof: string) {
-	const w = await viewerOf();
-	if (w.kind === "signed_out") return { kind: "signed_out" as const };
-	if (w.kind !== "viewer") return { kind: "unavailable" as const };
-	const invitation = await invitationFor(w.mount, w.authority, w.viewer, invitationId, proof);
-	if (!invitation) return { kind: "unavailable" as const };
-	const p = invitation.pair;
-	// The receiving organization answers: its own time zone dates the request's expiry.
-	const [names, facts] = await Promise.all([
-		namesFor(w.mount.db, w.viewer, [p.organization.id, p.kind === "discovery" ? p.accountId : p.subject.id]),
-		subjectFacts(w.mount.db, w.viewer),
-	]);
-	return { kind: "invitation" as const, invitation, names, zone: facts.zone };
 }
 
 /** One of this account's own residency links: the consent and the link revision a change must carry. One statement. */

@@ -4,7 +4,7 @@ import * as C from "@everyfield/contracts/organizations";
 import { Button, Card, Skeleton } from "@everyfield/ui/controls";
 import { useEffect, useMemo, useState } from "react";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
-import { loadInvitation } from "./actions";
+import { readRelationshipInvitation } from "./invitation/client.ts";
 import { InvitationResponse } from "./InvitationResponse";
 import type { Invitation } from "./port";
 import { createNames, realRun } from "./real";
@@ -20,7 +20,7 @@ const KEEP = "ef-relationship-proof";
 /**
  * /connections/respond?invitation=<id>#<proof>, the link in the emailed request (ruling D10). The proof lives only
  * in the fragment, so it never reaches a server log. The page reads it, removes it from the address bar and keeps it
- * in this tab only while the person signs in.
+ * in this tab only while the person signs in. It sends the proof only in the body of POST /api/connections/invitation.
  */
 export function RealRespond({ invitationId }: { invitationId: string | null }) {
 	const [state, setState] = useState<State>({ kind: "loading" });
@@ -34,7 +34,7 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 		let live = true;
 		// A link without its proof gets the same answer as any other unusable link.
 		const reply =
-			invitationId && proof ? loadInvitation(invitationId, proof) : Promise.resolve({ kind: "unavailable" } as const);
+			invitationId && proof ? readRelationshipInvitation(invitationId, proof) : Promise.resolve({ kind: "unavailable" } as const);
 		reply.then(
 			(r) => {
 				if (!live) return;
