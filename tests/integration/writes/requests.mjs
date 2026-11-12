@@ -265,6 +265,30 @@ try {
 	for (const m of [visionMeeting, boardMeeting]) await guest(m, maria.id);
 	for (const name of ["Ada", "Ben"]) await guest(visionMeeting, (await person(`${name} Guest`)).id);
 
+	// The Wiki (com-36): one global section and article in an active release, as the reference import stores them.
+	const GLOBAL = "00000000-0000-0000-0000-000000000000";
+	const hash = () => randomBytes(32).toString("hex");
+	const wikiSection = randomUUID(),
+		release = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${wikiSection},'section','framework/start',${GLOBAL})`,
+	);
+	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},${"release-" + release},'memory://census',${hash()},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${hash()},'v','profile',1,${GLOBAL},0)`);
+	const wikiArticle = async (slug, position) => {
+		const article = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article},'article',${slug},${GLOBAL})`,
+		);
+		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
+			VALUES(${randomUUID()},${article},${GLOBAL},${release},1,${"Article " + slug},${slug},${"About " + slug},${"Opening line.\n## Part\n> A quote\n\n1. First\n2. Second"},'safe_mdx',1,${position},${hash()},clock_timestamp(),true,1,${wikiSection},ARRAY[]::text[])`);
+		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+			VALUES(${randomUUID()},${article},${release},1,${"wiki/" + slug},${hash()},'Census credit')`);
+	};
+	await wikiArticle("census-lead", 1);
+	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+		VALUES(${randomUUID()},${release},1,clock_timestamp(),'census','census',0)`);
+
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl), keeps the objects a brand asset
 	// upload puts and records every call it gets. Signing an upload URL needs no other bucket call.
 	const bucketCalls = [];
@@ -366,8 +390,11 @@ try {
 		assert.equal(found.length, 1, `one server action ${file}#${name} in the build`);
 		return found[0][0];
 	};
-	const get = async (name, path, cookie, status = 200) => {
-		const r = await fetch(origin + path, { headers: { "x-evf-request": name, cookie }, redirect: "manual" });
+	const get = async (name, path, cookie, status = 200, headers = {}) => {
+		const r = await fetch(origin + path, {
+			headers: { ...headers, "x-evf-request": name, cookie },
+			redirect: "manual",
+		});
 		await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
 	};
@@ -400,6 +427,15 @@ try {
 		["GET /people/[personId]", `/people/${maria.id}`, owner.cookie],
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
+		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
+		// The badges and a bulk change's stale rows read only the rows on screen, by ID (com-36).
+		["GET /tasks/read?what=blocking", `/tasks/read?what=blocking&id=${followUpId}`, owner.cookie],
+		["GET /tasks/read?what=rows", `/tasks/read?what=rows&id=${followUpId}`, owner.cookie],
+		["GET /wiki", "/wiki", owner.cookie],
+		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
+		// A crawler gets the public preview: one read for the metadata and the body together.
+		["GET /wiki/[slug] (crawler)", "/wiki/census-lead", "", 200, { "user-agent": "Googlebot/2.1" }],
+		["GET /api/evry/open", "/api/evry/open", owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
 		["GET /documents/church", "/documents/church", owner.cookie],
 		["GET /documents/church (member)", "/documents/church", member.cookie],
@@ -477,8 +513,9 @@ try {
 	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="], "the first upload sign called the bucket");
 
 	// Warm every route once (module load, first connections), then read each page with little data.
-	for (const [, path, cookie] of pages) await fetch(origin + path, { headers: { cookie } }).then((r) => r.text());
-	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
+	for (const [, path, cookie, , headers] of pages)
+		await fetch(origin + path, { headers: { ...headers, cookie } }).then((r) => r.text());
+	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
 	// The resident's budget is the page with its residency card, not the refusal a seatless account without one gets.
 	const sharingPage = await fetch(origin + "/settings/sharing", { headers: { cookie: resident.cookie } }).then((r) =>
 		r.text(),
@@ -937,6 +974,10 @@ try {
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
 	await notices(80);
+	for (let i = 0; i < 12; i++) await wikiArticle(`census-grown-${i}`, i + 2);
+	await admin.execute(
+		sql`INSERT INTO conversation(tenant_id,account_id,context_kind,title) VALUES(${plant.id},${owner.accountId},'plant','Census')`,
+	);
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
 	// The ministry page lists its team meetings in one read: a dozen of them send the same statement count (WP-017).
@@ -999,7 +1040,16 @@ try {
 		writtenDocument.id,
 		writtenDocument.revision,
 	);
-	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
+	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
+	const composed = await act(
+		"POST communication.readMeetingContext",
+		"/communication",
+		"apps/web/src/features/communication/actions.ts",
+		"readMeetingContext",
+		[visionMeeting],
+	);
+	assert.equal(composed.status, "ok", JSON.stringify(composed));
+	assert.equal(composed.value.guests.length, 103);
 
 	server.kill("SIGTERM");
 	await exited;

@@ -5347,6 +5347,10 @@ export const audit_event = pgTable(
 		),
 		index("audit_subject_history").on(table.tenant_id, table.subject_id, table.occurred_at, table.id),
 		index("audit_command").on(table.command_id),
+		// The newest event of one action in one tenant: the Wiki's source order (wiki/corpus.ts).
+		index("audit_tenant_action_latest").on(table.tenant_id, table.action, table.occurred_at, table.id),
+		// One actor's events of one action in order: the Wiki feedback a reader gave (wiki/editorial.ts getMine).
+		index("audit_actor_action").on(table.actor_id, table.action, table.occurred_at, table.id),
 	],
 );
 /**
