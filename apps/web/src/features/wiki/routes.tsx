@@ -53,7 +53,7 @@ export async function WikiPage({
 	}
 	const query = await searchParams;
 	const source = parseSource(one(query.source));
-	const data = await loadWiki(slug, source, one(query.order) === "edit", editing);
+	const data = await loadWiki(slug, source, editing);
 	if (data === "signed-out") redirect(`/signin?returnTo=${encodeURIComponent(wikiReturn(path, source))}`);
 	if (data === "lost") {
 		return (

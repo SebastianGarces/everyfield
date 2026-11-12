@@ -134,7 +134,7 @@ the Wiki.
 - **Article C, "Acquiring Portable Church Equipment" (T-51, WP-034).** Grace Fellowship (QA) and Grace Church (QA)
   each published their own church version, and Harvest Point (QA) has chosen no order between them. Signed in as the
   Owner or the Admin, the article shows the "Order needed" callout "Choose which church version comes first" with a
-  "Choose the order" button. Until an order is chosen, everyone reads the global version. The Member sees no prompt.
+  "Choose the order" button, which opens Settings at Wiki sources over the article. Until an order is chosen, everyone reads the global version. The Member sees no prompt.
   The seed sets no order, so Nora can choose it herself. Each church version starts with "This is the church version
   from" and the church's name.
 

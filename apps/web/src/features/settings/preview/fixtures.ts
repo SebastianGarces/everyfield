@@ -3,6 +3,9 @@ import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
 import { createFixtureBrand, type BrandFault, type BrandOperation, type PreviewKit } from "../brand/fixtures";
 import type {
+	OrderRead,
+	OrderRow,
+	OrderSave,
 	DeletionPort,
 	DeletionStatus,
 	Relationship,
@@ -77,6 +80,8 @@ export type Operation =
 	| "requestWorkspaceDeletion"
 	| "getStatus"
 	| "cancel"
+	| "readWikiOrder"
+	| "saveWikiOrder"
 	| BrandOperation;
 export type Fault = SettingsError["code"] | BrandFault;
 
@@ -257,10 +262,26 @@ export type FixtureControls = {
 	onChange: (listener: () => void) => () => void;
 };
 
+/** The Wiki sources the preview plant reads: no order stored yet, an order stored, or no sharing affiliations. */
+export type WikiScenario = "unordered" | "ordered" | "empty";
+export function parseWikiScenario(value: string | null | undefined): WikiScenario {
+	return value === "ordered" || value === "empty" ? value : "unordered";
+}
+const WIKI_CHURCHES = [
+	{ id: SENDING.id, name: "Grace Fellowship" },
+	{ id: uuid(4, 2), name: "Redeemer Church Austin" },
+];
+const WIKI_NETWORKS = [{ id: NETWORK.id, name: "Austin Sending Network" }];
+
 /** A fixture port for one persona. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: PreviewPersona,
-	{ delay = 450, now = () => Date.now(), kit = "none" }: { delay?: number; now?: () => number; kit?: PreviewKit } = {},
+	{
+		delay = 450,
+		now = () => Date.now(),
+		kit = "none",
+		wiki = "unordered",
+	}: { delay?: number; now?: () => number; kit?: PreviewKit; wiki?: WikiScenario } = {},
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),
@@ -323,8 +344,41 @@ export function createFixturePort(
 			store.sections.set(other.section, { ...other, revision: row.revision });
 	};
 	const canAdminPlant = persona === "owner" || persona === "admin";
+	// The stored Wiki source order, as wiki.setSourceOrder keeps it: revision "0" until an order is saved.
+	let wikiOrder: { revision: string; churches: OrderRow[]; networks: OrderRow[] } =
+		wiki === "empty"
+			? { revision: "0", churches: [], networks: [] }
+			: wiki === "ordered"
+				? { revision: "3", churches: [...WIKI_CHURCHES].reverse(), networks: WIKI_NETWORKS }
+				: { revision: "0", churches: WIKI_CHURCHES, networks: WIKI_NETWORKS };
 
 	const port: SettingsPort = {
+		wiki: {
+			async read(): Promise<OrderRead> {
+				const fault = await tick("readWikiOrder");
+				if (fault) return { status: "lost" };
+				if (persona === "network") return { status: "denied" };
+				return canAdminPlant ? { status: "ok", ...wikiOrder } : { status: "denied" };
+			},
+			async save(_requestKey, expectedRevision, churches, networks): Promise<OrderSave> {
+				const fault = await tick("saveWikiOrder");
+				if (fault === "conflict") {
+					// Someone else saved another order first.
+					wikiOrder = { ...wikiOrder, revision: bump(wikiOrder.revision), churches: [...wikiOrder.churches].reverse() };
+					return { status: "conflict", revision: wikiOrder.revision };
+				}
+				if (fault) return { status: "lost" };
+				if (!canAdminPlant) return { status: "denied" };
+				if (expectedRevision !== wikiOrder.revision) return { status: "conflict", revision: wikiOrder.revision };
+				const pick = (rows: OrderRow[], ids: string[]) => ids.flatMap((id) => rows.filter((row) => row.id === id));
+				wikiOrder = {
+					revision: bump(wikiOrder.revision),
+					churches: pick(wikiOrder.churches, churches),
+					networks: pick(wikiOrder.networks, networks),
+				};
+				return { status: "ok", revision: wikiOrder.revision };
+			},
+		},
 		brand: createFixtureBrand({
 			kit,
 			churchName: "Harvest Point Church",

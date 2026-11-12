@@ -231,7 +231,6 @@ export type WikiPageData = {
 	recommended: Listed[];
 	article: ArticleView | null;
 	missing: boolean;
-	order: boolean;
 	feedback: { vote: "helpful" | "unhelpful" | null } | null;
 	editorName: string | null;
 	editing: boolean;
@@ -269,7 +268,6 @@ async function feedbackVote(
 export async function loadWiki(
 	slug: string,
 	source: SourceChoice,
-	order: boolean,
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
@@ -312,7 +310,6 @@ export async function loadWiki(
 				recommended: [],
 				article: null,
 				missing: true,
-				order,
 				feedback: null,
 				editorName: null,
 				editing,
@@ -346,7 +343,6 @@ export async function loadWiki(
 					recommended: [],
 					article: null,
 					missing: true,
-					order,
 					feedback: null,
 					editorName: null,
 					editing,
@@ -467,7 +463,6 @@ export async function loadWiki(
 			recommended: recommended && recommended.status === "ok" ? recommended.value.articles.slice(0, 4).map(listed) : [],
 			article,
 			missing: false,
-			order,
 			feedback,
 			editorName,
 			editing,

@@ -69,6 +69,7 @@ test("INV-brand-offered: Owner and Admin of a plant see Brand kit after Church p
 			"church",
 			"brand",
 			"notifications",
+			"wiki",
 			"account",
 		]);
 	const others = [
@@ -93,7 +94,15 @@ test("INV-settings-seats-link: a viewer with a workspace is offered Seats; an ac
 test("INV-settings-sharing-link: a plant viewer is offered Sharing after Notifications; nobody else is", () => {
 	const pages = ["seats", "sharing"] as const;
 	const owner = { context: "plant", accountId: "a", plant: PLANT, role: "owner" } as const;
-	assert.deepEqual(offeredSections(owner, pages), ["church", "brand", "seats", "notifications", "sharing", "account"]);
+	assert.deepEqual(offeredSections(owner, pages), [
+		"church",
+		"brand",
+		"seats",
+		"notifications",
+		"sharing",
+		"wiki",
+		"account",
+	]);
 	const member = { context: "plant", accountId: "a", plant: PLANT, role: "member" } as const;
 	assert.deepEqual(offeredSections(member, pages), ["seats", "notifications", "sharing", "account"]);
 	const organization = { context: "organization", accountId: "a", organization: ORG, role: "owner" } as const;

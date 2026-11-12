@@ -1,6 +1,7 @@
 import type * as B from "@everyfield/contracts/branding";
 import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
+import type { OrderRead, OrderSave } from "../wiki/actions";
 import type { z } from "zod";
 
 // The door from the settings screens to the server. Every type comes from the settings contract in
@@ -62,7 +63,8 @@ export type SuggestedColors = z.infer<typeof B.suggestedColors>;
 export type BrandView = { kit: BrandKit; churchName: string };
 
 /** A section the dialog can show. Seats come from WP-008/ui through the same frame. */
-export type SectionKey = "church" | "brand" | "organization" | "seats" | "notifications" | "sharing" | "account";
+export type SectionKey =
+	"church" | "brand" | "organization" | "seats" | "notifications" | "sharing" | "wiki" | "account";
 
 /**
  * Who is looking and in which context. The server decides authority again on every call; this only chooses which
@@ -94,6 +96,16 @@ export interface SettingsPort {
 	flows: FlowPort;
 	/** The church brand kit: read, save one patch, reset. */
 	brand: BrandPort;
+	/** The church's Wiki source order (wiki.setSourceOrder): which sending church and network it reads first. */
+	wiki: WikiOrderPort;
+}
+
+export type { OrderRead, OrderRow, OrderSave } from "../wiki/actions";
+
+/** The Wiki source order read and save, as the wiki server actions answer them. */
+export interface WikiOrderPort {
+	read(): Promise<OrderRead>;
+	save(requestKey: string, expectedRevision: string, churches: string[], networks: string[]): Promise<OrderSave>;
 }
 
 export interface BrandPort {

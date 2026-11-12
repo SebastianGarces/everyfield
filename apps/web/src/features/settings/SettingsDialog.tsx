@@ -2,6 +2,7 @@
 
 import {
 	Alert02Icon,
+	BookOpen01Icon,
 	Building03Icon,
 	ChurchIcon,
 	PaintBrush01Icon,
@@ -22,6 +23,7 @@ import { BrandSection } from "./brand/BrandSection";
 import { ChurchSection } from "./sections/ChurchSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { OrganizationSection } from "./sections/OrganizationSection";
+import { WikiSourcesSection } from "./sections/WikiSourcesSection";
 import type { DeletionStatus } from "./port";
 
 const ICON: Record<SectionKey, IconSvgElement> = {
@@ -31,6 +33,7 @@ const ICON: Record<SectionKey, IconSvgElement> = {
 	seats: UserMultipleIcon,
 	notifications: Notification01Icon,
 	sharing: ShieldUserIcon,
+	wiki: BookOpen01Icon,
 	account: UserIcon,
 };
 
@@ -41,6 +44,7 @@ const DESCRIPTION: Record<SectionKey, string> = {
 	seats: "People who can sign in to your church.",
 	notifications: "Your choices only. Other seats set their own.",
 	sharing: "Choose what connected organizations can see. Names and personal details are never shared.",
+	wiki: "Choose whose Wiki version your church reads first when more than one church or network wrote one.",
 	account: "Only you can change these.",
 };
 
@@ -251,7 +255,9 @@ export function SettingsDialog({
 											? "Only an Owner or Admin can change this profile. Ask one of them, or open your own settings."
 											: current === "brand"
 												? "Only an Owner or Admin of a church can change its brand kit. Ask one of them, or open your own settings."
-												: "This section is not part of your settings."}
+												: current === "wiki"
+													? "Only an Owner or Admin of a church sets the order of its Wiki sources. Ask one of them, or open your own settings."
+													: "This section is not part of your settings."}
 									</StatePanel>
 								</SectionBody>
 							)}
@@ -296,6 +302,8 @@ function SectionContent({
 			return <OrganizationSection />;
 		case "notifications":
 			return <NotificationsSection />;
+		case "wiki":
+			return <WikiSourcesSection />;
 		case "account":
 			return <AccountSection onDeletionRequested={onDeletionRequested} />;
 		case "seats":
@@ -397,8 +405,11 @@ export function SaveFooter({
 	saving,
 	onSave,
 	error,
+	label = "Save",
 }: {
 	section: SectionKey;
+	/** The Save button's words, such as "Save order". */
+	label?: string;
 	dirty: boolean;
 	saving: boolean;
 	onSave: () => void;
@@ -430,7 +441,7 @@ export function SaveFooter({
 					Cancel
 				</Button>
 				<Button variant="primary" onClick={onSave} loading={saving} disabled={!dirty && !saving}>
-					Save
+					{label}
 				</Button>
 			</div>
 		</div>

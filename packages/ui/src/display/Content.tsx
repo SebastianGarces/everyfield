@@ -334,7 +334,7 @@ export function WikiSourceBar({
 	currentId,
 	preferredId,
 	onChoose,
-	settingsHref,
+	onSettings,
 	admin,
 	adminLabel = "Network admin",
 	className,
@@ -343,7 +343,8 @@ export function WikiSourceBar({
 	currentId: string;
 	preferredId: string;
 	onChoose: (id: string) => void;
-	settingsHref?: string;
+	/** Opens the church's preferred-source setting; without it the menu offers no way there. */
+	onSettings?: () => void;
 	admin?: ReactNode;
 	adminLabel?: string;
 	className?: string;
@@ -400,14 +401,12 @@ export function WikiSourceBar({
 					<MenuLabel className="text-xs font-normal">
 						Choosing a source changes only what you read now. Your church&apos;s preferred source is set in Settings.
 					</MenuLabel>
-					{settingsHref ? (
-						<DropdownMenu.Item asChild>
-							<a
-								href={settingsHref}
-								className="flex h-[38px] items-center rounded-md px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
-							>
-								Change the preferred source
-							</a>
+					{onSettings ? (
+						<DropdownMenu.Item
+							onSelect={onSettings}
+							className="flex h-[38px] cursor-pointer items-center rounded-md px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
+						>
+							Change the preferred source
 						</DropdownMenu.Item>
 					) : null}
 				</MenuContent>
