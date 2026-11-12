@@ -11,42 +11,49 @@ interface ToolbarProps extends BaseProps {
 	variant?: "floating" | "fixed";
 }
 
+// Everyfield change: the toolbar is one Tab stop (WAI-ARIA toolbar pattern). Tab and Shift+Tab move in and out of it,
+// the arrow keys move between its enabled buttons from the one that has focus, and Enter or Space reaches the focused
+// button natively. Only the remembered button has tabindex 0; the list follows buttons that mount, unmount or turn
+// disabled.
+const ITEMS = 'button:not([disabled]), [role="button"]:not([disabled]), [tabindex]:not([disabled])';
+
 const useToolbarNavigation = (toolbarRef: React.RefObject<HTMLDivElement | null>) => {
 	const [items, setItems] = React.useState<HTMLElement[]>([]);
 
-	const collectItems = React.useCallback(() => {
-		if (!toolbarRef.current) return [];
-		return Array.from(
-			toolbarRef.current.querySelectorAll<HTMLElement>(
-				'button:not([disabled]), [role="button"]:not([disabled]), [tabindex="0"]:not([disabled])',
-			),
-		);
-	}, [toolbarRef]);
-
-	React.useEffect(() => {
-		const toolbar = toolbarRef.current;
-		if (!toolbar) return;
-
-		const updateItems = () => setItems(collectItems());
-
-		updateItems();
-		const observer = new MutationObserver(updateItems);
-		observer.observe(toolbar, { childList: true, subtree: true });
-
-		return () => observer.disconnect();
-	}, [collectItems, toolbarRef]);
-
-	const { selectedIndex } = useMenuNavigation<HTMLElement>({
+	const { selectedIndex, setSelectedIndex } = useMenuNavigation<HTMLElement>({
 		containerRef: toolbarRef,
 		items,
 		orientation: "horizontal",
-		onSelect: (el) => el.click(),
 		autoSelectFirstItem: false,
 	});
 
 	React.useEffect(() => {
 		const toolbar = toolbarRef.current;
 		if (!toolbar) return;
+
+		const updateItems = () => {
+			const next = Array.from(toolbar.querySelectorAll<HTMLElement>(ITEMS));
+			setItems(next);
+			const focused = next.indexOf(document.activeElement as HTMLElement);
+			if (focused !== -1) setSelectedIndex(focused);
+		};
+
+		updateItems();
+		const observer = new MutationObserver(updateItems);
+		observer.observe(toolbar, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled"] });
+
+		return () => observer.disconnect();
+	}, [toolbarRef, setSelectedIndex]);
+
+	React.useEffect(() => {
+		const toolbar = toolbarRef.current;
+		if (!toolbar) return;
+
+		// Arrow keys move from the button that has focus, however it got there (Tab, a click, a script).
+		const handleFocusIn = (e: FocusEvent) => {
+			const index = items.indexOf(e.target as HTMLElement);
+			if (index !== -1) setSelectedIndex(index);
+		};
 
 		const handleFocus = (e: FocusEvent) => {
 			const target = e.target as HTMLElement;
@@ -58,20 +65,29 @@ const useToolbarNavigation = (toolbarRef: React.RefObject<HTMLDivElement | null>
 			if (toolbar.contains(target)) target.removeAttribute("data-focus-visible");
 		};
 
+		toolbar.addEventListener("focusin", handleFocusIn);
 		toolbar.addEventListener("focus", handleFocus, true);
 		toolbar.addEventListener("blur", handleBlur, true);
 
 		return () => {
+			toolbar.removeEventListener("focusin", handleFocusIn);
 			toolbar.removeEventListener("focus", handleFocus, true);
 			toolbar.removeEventListener("blur", handleBlur, true);
 		};
-	}, [toolbarRef]);
+	}, [toolbarRef, items, setSelectedIndex]);
 
 	React.useEffect(() => {
-		if (selectedIndex !== undefined && items[selectedIndex]) {
-			items[selectedIndex].focus();
-		}
-	}, [selectedIndex, items]);
+		const toolbar = toolbarRef.current;
+		if (!toolbar || !items.length) return;
+		const current = selectedIndex !== undefined && items[selectedIndex] ? selectedIndex : 0;
+		items.forEach((item, index) => {
+			item.tabIndex = index === current ? 0 : -1;
+		});
+		// Move focus only while it is in the toolbar: a button that turns on or off while someone types in the
+		// document never takes the focus.
+		const item = items[current];
+		if (item && toolbar.contains(document.activeElement) && document.activeElement !== item) item.focus();
+	}, [selectedIndex, items, toolbarRef]);
 };
 
 export const Toolbar = React.forwardRef<HTMLDivElement, ToolbarProps>(

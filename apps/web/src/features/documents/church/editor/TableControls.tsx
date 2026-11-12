@@ -50,7 +50,7 @@ function Act({ label, reason, run }: { label: string; reason: string | null; run
 			aria-label={label}
 			tooltip={reason ? `${label}. ${reason}` : label}
 			disabled={reason !== null}
-			className="h-8 px-2.5 shadow-[0_0_0_1px_var(--ef-line)]"
+			className="h-8 min-w-9 justify-center gap-1.5 px-2.5 shadow-[0_0_0_1px_var(--ef-line)]"
 			onMouseDown={keepSelection}
 			onClick={run}
 		>
