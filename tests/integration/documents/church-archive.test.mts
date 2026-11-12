@@ -73,7 +73,9 @@ const stored = async () => {
 	const tenant = database.tenant.id;
 	const parts = await Promise.all([
 		rowsOf(sql`SELECT * FROM document WHERE tenant_id = ${tenant}::uuid ORDER BY id`),
-		rowsOf(sql`SELECT id, version_number, content_hash FROM document_revision WHERE tenant_id = ${tenant}::uuid ORDER BY id`),
+		rowsOf(
+			sql`SELECT id, version_number, content_hash FROM document_revision WHERE tenant_id = ${tenant}::uuid ORDER BY id`,
+		),
 		rowsOf(sql`SELECT id FROM generated_document WHERE tenant_id = ${tenant}::uuid ORDER BY id`),
 		rowsOf(sql`SELECT id FROM audit_event WHERE tenant_id = ${tenant}::uuid ORDER BY id`),
 	]);
@@ -86,9 +88,7 @@ const audits = async (id) =>
 	);
 
 const create = async (who, templateId = "conflict-of-interest-policy") =>
-	ok(
-		await documentsWriter.createFromTemplate(db, await authority(who), { templateId, requestKey: randomUUID() }),
-	);
+	ok(await documentsWriter.createFromTemplate(db, await authority(who), { templateId, requestKey: randomUUID() }));
 const save = async (doc, text) => {
 	const body = structuredClone(doc.body);
 	body.body.content.push({ type: "paragraph", content: [{ type: "text", text }] });
@@ -116,7 +116,8 @@ const exportDoc = async (who, documentId, revision, format = "pdf") =>
 const exportFile = async (who, documentId, exportId) =>
 	documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage);
 const listExports = async (who, documentId) => documentsWriter.listExports(db, await authority(who), { documentId });
-const listed = async (who) => ok(await documentsWriter.listChurch(db, await authority(who), {})).documents.map((d) => d.id);
+const listed = async (who) =>
+	ok(await documentsWriter.listChurch(db, await authority(who), {})).documents.map((d) => d.id);
 
 after(async () => {
 	await database.close();
@@ -172,7 +173,11 @@ describe("AC:DOC-022 archive a Church Document (T-9)", { concurrency: 1 }, () =>
 		const owner = await authority(OWNER);
 		refused(await documentsWriter.readChurchForEdit(db, owner, { documentId: doc.id }), "unavailable");
 		refused(
-			await documentsWriter.saveNative(db, owner, { documentId: doc.id, expectedRevision: doc.revision, body: doc.body }),
+			await documentsWriter.saveNative(db, owner, {
+				documentId: doc.id,
+				expectedRevision: doc.revision,
+				body: doc.body,
+			}),
 			"unavailable",
 		);
 		refused(
@@ -259,6 +264,12 @@ describe("AC:DOC-022 archive a Church Document (T-9)", { concurrency: 1 }, () =>
 		const first = {};
 		for (const saved of [pdf, word]) first[saved.id] = sha256(bytesFrom(ok(await exportFile(OWNER, doc.id, saved.id))));
 		ok(await archive(OWNER, doc.id, doc.revision));
+		const archivedState = await stored();
+		refused(
+			await documentsWriter.deleteExport(db, await authority(OWNER), { documentId: doc.id, exportId: pdf.id }),
+			"unavailable",
+		);
+		assert.equal(await stored(), archivedState, "an archived document's saved export is not deleted");
 		for (const who of SEATS) {
 			const list = ok(await listExports(who, doc.id));
 			assert.deepEqual(new Set(list.exports.map((e) => e.id)), new Set([pdf.id, word.id]), `seat ${who} lists both`);
@@ -274,6 +285,8 @@ describe("AC:DOC-022 archive a Church Document (T-9)", { concurrency: 1 }, () =>
 			const entry = history.entries.find((e) => e.id === saved.id);
 			assert.ok(entry, "the saved history lists it");
 			assert.equal(entry.source.documentId, doc.id);
+			const link = ok(await documentsWriter.download(db, await authority(MEMBER), { documentId: saved.id }, storage));
+			assert.ok(link.url, "its download from the saved history still signs");
 		}
 	});
 

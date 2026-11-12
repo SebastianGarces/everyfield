@@ -1035,7 +1035,8 @@ export const churchWriter = {
 
 	/**
 	 * An Owner or Admin deletes one saved export (D-79). One statement checks the seat, removes the record and writes one
-	 * audit row; its download stops working. A Member is refused before any statement.
+	 * audit row; its download stops working. A Member is refused before any statement. An archived document's saved
+	 * exports stay, so they are not deleted (T-9).
 	 */
 	async deleteExport(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -1048,6 +1049,8 @@ export const churchWriter = {
 					DELETE FROM generated_document gd USING gate
 					WHERE gate.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 						AND gd.source_document_id = ${input.documentId}::uuid
+						AND NOT EXISTS (SELECT FROM document d WHERE d.id = gd.source_document_id AND d.tenant_id = gd.tenant_id
+							AND d.church_archived_at IS NOT NULL)
 					RETURNING gd.id, gd.object_id
 				),
 				rel AS (

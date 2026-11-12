@@ -25,7 +25,7 @@ import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./ser
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
 // one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
 // nothing. Any seat downloads (D-80). An Owner or Admin can edit, archive and delete it, and delete a saved export (D-79).
-// An archived document is read-only for every seat: no editor, no branding switch and no Archive, while its revisions
+// An archived document is read-only for every seat: no editor, no branding switch, no Archive and no export delete, while its revisions
 // and saved exports stay readable and downloadable, and an Owner or Admin can still delete it (T-9).
 // The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
@@ -244,8 +244,8 @@ export function ChurchDocumentScreen({
 					role="status"
 					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					Archived by {doc.archived.by ?? "a former member"} on {savedAt(doc.archived.at)}. It is read-only; its revisions
-					and saved exports stay available.
+					Archived by {doc.archived.by ?? "a former member"} on {savedAt(doc.archived.at)}. It is read-only; its
+					revisions and saved exports stay available.
 				</p>
 			) : null}
 			{exportError?.at === null ? (
@@ -256,13 +256,15 @@ export function ChurchDocumentScreen({
 					{exportError.message}
 				</p>
 			) : null}
-			<ChurchBranding
-				documentId={doc.id}
-				stored={branded}
-				onSaved={setBranded}
-				access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
-				className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
-			/>
+			{doc.archived ? null : (
+				<ChurchBranding
+					documentId={doc.id}
+					stored={branded}
+					onSaved={setBranded}
+					access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
+					className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
+				/>
+			)}
 			{editable && brand && current.document ? (
 				<ChurchEditor
 					key={current.epoch}
@@ -322,7 +324,7 @@ export function ChurchDocumentScreen({
 			/>
 			<SavedExports
 				exports={exports}
-				canManage={canManage}
+				canManage={canManage && !doc.archived}
 				onDeleted={(id) => setExports((list) => list.filter((e) => e.id !== id))}
 			/>
 		</>

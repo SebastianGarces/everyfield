@@ -10306,6 +10306,10 @@
 				"archived_at": {
 					"note": ""
 				},
+				"church_archived_at": {
+					"note": "When an Owner or Admin archived a Church Document (T-9). archived_at marks it deleted, never archived (D-935)."
+				},
+				"church_archived_by": { "note": "The account that archived it; set with church_archived_at. Not a foreign key, like an audit actor." },
 				"copied_from_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},

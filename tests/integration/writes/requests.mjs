@@ -164,7 +164,10 @@ try {
 	const archivedDocument = await churchDocument("conflict-of-interest-policy");
 	{
 		const actor = await RequestActor.resolve(runtime, owner.sessionId);
-		const r = await documentsWriter.archiveChurch(runtime, actor, { documentId: archivedDocument, expectedRevision: "1" });
+		const r = await documentsWriter.archiveChurch(runtime, actor, {
+			documentId: archivedDocument,
+			expectedRevision: "1",
+		});
 		assert.equal(r.status, "ok", JSON.stringify(r));
 	}
 	// OPS-87: a plain native document of the church plant, saved through the producer the native page's Save calls.
