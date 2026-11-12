@@ -517,7 +517,7 @@
       "feature_ids": [
         "DOC-017"
       ],
-      "text": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. WP-036 renders the neutral theme and accepts a theme input; the church theme needs the WP-104 brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
+      "text": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. Library template previews and \"Save for your church\" (`documents.preview` and `documents.generate`) use the church theme when the church has a brand kit and the Everyfield-neutral theme when it has none. The preview says \"No brand kit yet. Your church name stands in for a logo.\" only when the church has no brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
       "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
       "operations": [
         "documents.preview",
