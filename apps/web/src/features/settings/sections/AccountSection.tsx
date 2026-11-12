@@ -82,7 +82,10 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				<SettingRow label="Photo" description="Only you can see your photo for now.">
+				<SettingRow
+					label="Photo"
+					description="Shown next to your name, to anyone who already sees your name in Everyfield."
+				>
 					<AvatarControl
 						port={port.flows.avatar}
 						account={account}
