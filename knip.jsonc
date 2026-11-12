@@ -41,7 +41,5 @@
 	"ignoreIssues": {
 		// rescheduleReviewed: planned operation communication.rescheduleReviewed. The server action exists; no screen calls it yet.
 		"apps/web/src/features/communication/actions.ts": ["exports"],
-		// Block: excluded path (document-templates owner class).
-		"packages/domain/src/documents/templates/text-content.ts": ["types"],
 	},
 }

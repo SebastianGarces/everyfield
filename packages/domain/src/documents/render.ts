@@ -1,17 +1,13 @@
 import { createHash } from "node:crypto";
-import { findTextRegions, renderDocumentWithLayout } from "@formepdf/core";
-import { PLACEHOLDER } from "./doc-values.ts";
+import { renderDocumentWithLayout } from "@formepdf/core";
 import { hash } from "../operations/canonical.ts";
 import type { AgendaMeeting } from "./agenda-meeting.ts";
-import type { CatalogTemplate } from "./catalog.ts";
 import { fontDigests } from "./fonts.ts";
-import type { ResolvedMerge } from "./merge.ts";
 import { finishForm } from "./pdf-post.ts";
 import { ContrastLog } from "./contrast.ts";
 import type { Ctx } from "./layouts/blocks.tsx";
-import { entryFor, contentSnapshot } from "./templates/registry.ts";
-import { NEUTRAL_THEME, makePalette, themeTokensDigest, type RenderClass, type RenderTheme } from "./theme.ts";
-import { buildBudget } from "./xlsx.ts";
+import { contentSnapshot } from "./templates/registry.ts";
+import { makePalette, themeTokensDigest, type RenderClass, type RenderTheme } from "./theme.ts";
 
 /**
  * Exact pins of the engine packages (see packages/domain/package.json) and a layout revision. A test compares the
@@ -20,7 +16,7 @@ import { buildBudget } from "./xlsx.ts";
 export const RENDER_PROFILE = {
 	engine: "forme",
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
-	layout: 3,
+	layout: 4,
 } as const;
 
 /** The largest file one render may give, in bytes. */
@@ -56,17 +52,7 @@ export function unsafe(value: string) {
 	return false;
 }
 
-const unsafeMeeting = (m: AgendaMeeting) =>
-	[
-		m.title,
-		m.date,
-		m.time,
-		m.place ?? "",
-		...m.sections.map((s) => s.title),
-		...m.attendees.flatMap((a) => [a.name, a.role ?? ""]),
-	].some(unsafe);
-
-function finish(bytes: Uint8Array) {
+export function finish(bytes: Uint8Array) {
 	if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();
 	return Buffer.from(bytes);
 }
@@ -79,12 +65,8 @@ export type PdfRender = {
 	fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[];
 };
 
-/**
- * Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). With `placeholders`, each
- * bracketed placeholder ([date], [number]) the PDF prints gets the placeholder highlight, found in the laid-out PDF
- * itself so it sits exactly under the printed text.
- */
-export async function renderPdfElement(element: unknown, { placeholders = false } = {}): Promise<PdfRender> {
+/** Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). */
+export async function renderPdfElement(element: unknown): Promise<PdfRender> {
 	const laid = await renderDocumentWithLayout(element as never);
 	const text = laid.layout.pages.map((page) => {
 		const lines: string[] = [];
@@ -95,10 +77,7 @@ export async function renderPdfElement(element: unknown, { placeholders = false 
 		for (const node of page.elements) walk(node as never);
 		return lines;
 	});
-	const highlights = placeholders
-		? await findTextRegions(laid.pdf, [{ pattern: PLACEHOLDER.source, pattern_type: "Regex" }])
-		: [];
-	const done = await finishForm(laid.pdf, highlights);
+	const done = await finishForm(laid.pdf);
 	return { bytes: finish(done.bytes), pages: laid.layout.pages.length, text, fields: done.fields };
 }
 
@@ -108,70 +87,8 @@ export function renderContext(
 	theme: RenderTheme,
 	documentClass: RenderClass,
 	meeting?: AgendaMeeting,
-	statement: string | null = null,
 ): Ctx {
-	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting, statement };
-}
-
-const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
-	const values: Record<string, string> = {};
-	for (const field of resolved.fields) if (field.value) values[field.key] = field.value;
-	return values;
-};
-
-/**
- * A template's PDF with its layout details. The theme is an input; the default is the Everyfield-neutral theme. The
- * network's statement of faith fills a template's `statement-of-faith` slot; null leaves the marked blank.
- */
-export async function renderTemplatePdf(
-	template: Pick<CatalogTemplate, "id">,
-	values: Record<string, string>,
-	theme?: RenderTheme,
-	meeting?: AgendaMeeting,
-	statement: string | null = null,
-) {
-	const entry = entryFor(template.id);
-	if (!entry || entry.format !== "pdf") throw new RenderFailed();
-	const church = values.church_name ?? "";
-	if (
-		Object.values(values).some(unsafe) ||
-		unsafe(church) ||
-		(meeting && unsafeMeeting(meeting)) ||
-		(statement !== null && unsafe(statement))
-	)
-		throw new RenderFailed();
-	const use = theme ?? NEUTRAL_THEME;
-	try {
-		return await renderPdfElement(
-			entry.build(renderContext(church, values, use, entry.documentClass, meeting, statement)),
-		);
-	} catch (error) {
-		if (error instanceof RenderFailed) throw error;
-		throw new RenderFailed(error);
-	}
-}
-
-/**
- * Null when a required field is missing. Bytes come only from the template registry, the resolved fields and the
- * network's statement of faith, read when the action runs (D-109, D-417).
- */
-export async function renderPreview(
-	template: CatalogTemplate,
-	format: "pdf" | "docx" | "xlsx",
-	resolved: Extract<ResolvedMerge, { ok: true }>,
-	theme?: RenderTheme,
-	meeting?: AgendaMeeting,
-	statement: string | null = null,
-) {
-	if (!resolved.complete) return null;
-	const entry = entryFor(template.id);
-	if (!entry || entry.format !== format) throw new RenderFailed();
-	const values = valuesOf(resolved);
-	if (Object.values(values).some(unsafe)) throw new RenderFailed();
-	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting, statement)).bytes;
-	const church = values.church_name ?? "";
-	const use = theme ?? NEUTRAL_THEME;
-	return finish(buildBudget(entry.budget, church, use));
+	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting };
 }
 
 export function digestOf(bytes: Buffer) {

@@ -4,9 +4,7 @@ import { agendaDocument } from "../layouts/agenda.tsx";
 import type { Ctx } from "../layouts/blocks.tsx";
 import { cardDocument } from "../layouts/card.tsx";
 import { checklistsDocument } from "../layouts/checklists.tsx";
-import { signInDocument, SIGN_IN_ROWS } from "../layouts/sign-in.tsx";
 import { CARD, LETTER } from "../layouts/shell.tsx";
-import { churchDocument } from "../layouts/church-doc.tsx";
 import type { RenderClass } from "../theme.ts";
 import {
 	ACTION_ROWS,
@@ -16,22 +14,27 @@ import {
 	VISION_AGENDA,
 	type AgendaSpec,
 } from "./agenda-content.ts";
-import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
+import { RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
-import { fillStatementBlocks } from "../network-statement.ts";
-import { CHURCH_TEMPLATES, churchTemplate, resolveBody } from "./church.ts";
-import { FOLLOW_UP_LETTER, LAUNCH_TEAM_COMMITMENT, MEMBER_EXPECTATIONS } from "./text-content.ts";
+import { DOC_TEMPLATES } from "../doc-templates.ts";
+
+// The library templates that have no everyfield.doc/1 file keep a code layout here (D-922). A library template with
+// a file, `templates/<id>.json`, renders from that file alone and has no entry here.
 
 type PageSize = { width: number; height: number };
-type Base = { id: string; documentClass: RenderClass; pageCount: number; outline: string[] };
-type PdfEntry = Base & {
-	format: "pdf";
-	pageSize: PageSize;
+/** What the library says about one template: its one format, class, page and outline, and the field names it holds. */
+export type LibraryFacts = {
+	format: "pdf" | "xlsx";
+	documentClass: RenderClass;
+	pageSize: PageSize | null;
+	pageCount: number;
+	outline: string[];
 	/** Field names a render with no merge values (except the church name) holds, in no set order. */
 	fields: string[];
-	build: (ctx: Ctx) => ReactElement;
 };
-type XlsxEntry = Base & { format: "xlsx"; pageSize: null; fields: []; budget: "first-year" | "worksheet" };
+type Base = LibraryFacts & { id: string };
+type PdfEntry = Base & { format: "pdf"; pageSize: PageSize; build: (ctx: Ctx) => ReactElement };
+type XlsxEntry = Base & { format: "xlsx"; pageSize: null; fields: [] };
 type RegistryEntry = PdfEntry | XlsxEntry;
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
@@ -68,68 +71,9 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 	build: (ctx) => agendaDocument(ctx, spec),
 });
 
-/**
- * A text-heavy template's preview. It renders the template's revision 1 through the Church Document render path, so the
- * preview and the export of an unedited revision 1 show the same page text and outline. The network's statement of
- * faith fills a `statement-of-faith` slot after the merge tokens resolve, so its text prints as the network wrote it.
- */
-const textEntry = (id: string, pageCount = 1): PdfEntry => {
-	const template = churchTemplate(id);
-	if (!template) throw new Error(`Template ${id} is not a Church Document template.`);
-	const letter = template.style === "letter";
-	return {
-		id,
-		format: "pdf",
-		documentClass: template.documentClass,
-		pageSize: LETTER,
-		pageCount,
-		outline: letter ? [template.title] : template.body.flatMap((b) => (b.kind === "heading" ? [b.text] : [])),
-		fields:
-			template.frame.kind === "letter"
-				? ["letter_date", "pastor_name"]
-				: template.frame.kind === "sign"
-					? template.frame.slots.map((s) => s.name)
-					: range(template.frame.signers).flatMap((n) =>
-							["name", "role", "signature", "date"].map((part) => `adopt_${n}_${part}`),
-						),
-		build: (ctx) =>
-			churchDocument(
-				ctx,
-				template,
-				fillStatementBlocks(
-					resolveBody(template.body, { church_name: ctx.church, pastor_name: ctx.values.pastor_name ?? null }),
-					ctx.statement ?? null,
-				),
-			),
-	};
-};
-
 export const REGISTRY: RegistryEntry[] = [
-	cardEntry("commitment-card", COMMITMENT_CARD),
 	cardEntry("response-card", RESPONSE_CARD),
-	{
-		id: "guest-sign-in-sheet",
-		format: "pdf",
-		documentClass: "operational",
-		pageSize: LETTER,
-		pageCount: 1,
-		outline: ["Guest sign-in"],
-		fields: [
-			"meeting_date",
-			"meeting_number",
-			...range(SIGN_IN_ROWS).flatMap((n) => [
-				`guest_${n}_name`,
-				`guest_${n}_email`,
-				`guest_${n}_phone`,
-				`guest_${n}_invited_by`,
-			]),
-		],
-		build: signInDocument,
-	},
 	agendaEntry("vision-meeting-agenda", VISION_AGENDA),
-	textEntry("member-expectations"),
-	textEntry("launch-team-commitment"),
-	textEntry("follow-up-letter"),
 	agendaEntry("board-meeting-agenda", BOARD_AGENDA),
 	{
 		id: "first-year-budget",
@@ -139,17 +83,6 @@ export const REGISTRY: RegistryEntry[] = [
 		pageCount: 2,
 		outline: ["Monthly budget", "Annual summary"],
 		fields: [],
-		budget: "first-year",
-	},
-	{
-		id: "budget-worksheet",
-		format: "xlsx",
-		documentClass: "operational",
-		pageSize: null,
-		pageCount: 1,
-		outline: ["Budget worksheet"],
-		fields: [],
-		budget: "worksheet",
 	},
 	{
 		id: "launch-sunday-checklists",
@@ -167,9 +100,6 @@ export const REGISTRY: RegistryEntry[] = [
 		],
 		build: checklistsDocument,
 	},
-	// Text templates authored in code (docs/catalog/document-templates.json `named`). They print a saved file too.
-	textEntry("bylaws", 2),
-	textEntry("prayer-letter"),
 ];
 export const entryFor = (id: string) => REGISTRY.find((entry) => entry.id === id);
 
@@ -185,7 +115,7 @@ export function contentSnapshot() {
 			outline,
 			fields,
 		})),
-		cards: [COMMITMENT_CARD, RESPONSE_CARD].map((c) => ({ ...c })),
+		cards: [RESPONSE_CARD].map((c) => ({ ...c })),
 		agendas: {
 			blankRunRows: BLANK_RUN_ROWS,
 			minAttendeeRows: MIN_ATTENDEE_ROWS,
@@ -194,7 +124,6 @@ export function contentSnapshot() {
 			specs: [VISION_AGENDA, BOARD_AGENDA].map((a) => ({ ...a, purpose: a.purpose("{church}") })),
 		},
 		checklists: CHECKLIST_TEAMS,
-		texts: [MEMBER_EXPECTATIONS, LAUNCH_TEAM_COMMITMENT, FOLLOW_UP_LETTER],
-		churchTemplates: CHURCH_TEMPLATES,
+		docTemplates: DOC_TEMPLATES,
 	};
 }
