@@ -7,6 +7,7 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	symlinkSync,
@@ -14,6 +15,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
+import { copyWorkspace } from "../typecheck-corpus.ts";
 
 const repo = resolve(import.meta.dirname, "../../..");
 const tool = join(repo, "tools/ci/typecheck.ts");
@@ -27,9 +29,9 @@ const PACKAGES = [
 	"packages/reference",
 	"packages/ui",
 ];
-const bunScript: string = JSON.parse(readFileSync(join(repo, "packages/ui/package.json"), "utf8")).scripts[
-	"typecheck:bun"
-];
+const scriptsOf = (dir: string): Record<string, string> =>
+	JSON.parse(readFileSync(join(repo, dir, "package.json"), "utf8")).scripts;
+const bunScript = scriptsOf("packages/ui").typecheck!;
 
 /** PATH without any directory that holds a `bun`, so only the pinned binary can run. */
 function pathWithoutBun(): string {
@@ -46,14 +48,15 @@ function pathWithoutBun(): string {
 		.join(delimiter);
 }
 
-type Fixture = { root: string; log: string; close: () => void };
+type Fixture = { root: string; state: string; close: () => void };
 
-/** A pnpm workspace whose packages have the given scripts and files. */
+/** A pnpm workspace whose packages have the given scripts and files, with an empty state directory beside it. */
 function workspace(
 	packages: Record<string, { scripts: Record<string, string>; files?: Record<string, string> }>,
 	rootScripts: Record<string, string> = {},
 ): Fixture {
-	const root = mkdtempSync(join(tmpdir(), "typecheck-shadow-"));
+	const root = mkdtempSync(join(tmpdir(), "typecheck-"));
+	const state = mkdtempSync(join(tmpdir(), "typecheck-state-"));
 	writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n  - packages/*\n");
 	writeFileSync(join(root, "package.json"), JSON.stringify({ name: "fixture", private: true, scripts: rootScripts }));
 	for (const [dir, { scripts, files }] of Object.entries(packages)) {
@@ -64,24 +67,23 @@ function workspace(
 			writeFileSync(join(root, dir, file), content);
 		}
 	}
-	const log = join(root, "..", `${root.split("/").pop()}.jsonl`);
 	return {
 		root,
-		log,
+		state,
 		close: () => {
 			rmSync(root, { recursive: true, force: true });
-			rmSync(log, { force: true });
+			rmSync(state, { recursive: true, force: true });
 		},
 	};
 }
 
-/** A real checkable package that the pinned bun can type check. */
-function checkable(root: string, files: Record<string, string>) {
+/** Make a fixture package checkable by the pinned bun. */
+function checkable(root: string, dir: string) {
 	symlinkSync(join(repo, "node_modules"), join(root, "node_modules"));
-	return {
-		"tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, noEmit: true, types: [] }, include: ["src"] }),
-		...files,
-	};
+	writeFileSync(
+		join(root, dir, "tsconfig.json"),
+		JSON.stringify({ compilerOptions: { strict: true, noEmit: true, types: [] }, include: ["src"] }),
+	);
 }
 
 function env(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
@@ -90,125 +92,77 @@ function env(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv 
 	return out;
 }
 
-function shadow(f: Fixture, extra: Record<string, string | undefined> = {}) {
-	const run = spawnSync(process.execPath, [tool], {
+/** `pnpm typecheck` in a fixture, with the state directory the retired shadow log would have used. */
+function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}) {
+	return spawnSync(process.execPath, [tool], {
 		cwd: f.root,
 		encoding: "utf8",
-		env: env({ CI: undefined, EVERYFIELD_TYPECHECK_LOG: f.log, ...extra }),
+		env: env({ CI: undefined, XDG_STATE_HOME: f.state, ...extra }),
 	});
-	const lines = run.stdout.split("\n").filter((l) => l.startsWith("typecheck-shadow "));
-	assert.equal(lines.length, 1, `one result line per run:\n${run.stdout}\n${run.stderr}`);
-	return { ...run, line: lines[0], result: JSON.parse(lines[0].slice("typecheck-shadow ".length)) };
 }
 
-const TSC_PASS = "exit 0";
-const TSC_FAIL = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 2";
-const BUN_SAME_EXIT_1 = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1";
-const BUN_SAME_EXIT_2 = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 2";
+const PASS = "exit 0";
 
-test("INV-typecheck: exit codes 1 and 2 both mean errors, and matching errors are no mismatch", (t) => {
-	for (const bun of [BUN_SAME_EXIT_1, BUN_SAME_EXIT_2]) {
+test("INV-typecheck: pnpm typecheck exits 1 when any package's bun check finds errors, crashes, times out or is missing", (t) => {
+	const cases: Array<[string, string, RegExp]> = [
+		["exits 1", "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1", /packages\/a: type errors/],
+		["exits 2", "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 2", /packages\/a: type errors/],
+		["crashes", "kill -SEGV $$", /packages\/a: crashed/],
+		["exits 3", "exit 3", /packages\/a: crashed \(exit 3\)/],
+		["times out", "sleep 30", /packages\/a: timed out/],
+		["is missing", "../../node_modules/.bin/no-such-bun check --no-script", /packages\/a: bun check is missing/],
+	];
+	for (const [name, script, why] of cases) {
 		const f = workspace({
-			"packages/a": { scripts: { typecheck: TSC_FAIL, "typecheck:bun": bun } },
-			"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
+			"packages/a": { scripts: { typecheck: script } },
+			"packages/b": { scripts: { typecheck: PASS } },
 		});
 		t.after(f.close);
-		const run = shadow(f);
-		assert.equal(run.status, 1, "pnpm -r fails when tsc fails");
-		assert.equal(run.result.mismatch, "no");
-		assert.deepEqual(
-			run.result.packages.map((p: { dir: string; bun: { outcome: string } }) => [p.dir, p.bun.outcome]),
-			[
-				["packages/a", "errors"],
-				["packages/b", "pass"],
-			],
-		);
-		assert.equal(run.result.tsc.errors, 1);
-		assert.equal(run.result.bun.errors, 1);
+		const started = Date.now();
+		const run = typecheck(f, { TYPECHECK_TIMEOUT_MS: "1000" });
+		assert.equal(run.status, 1, `bun ${name}: ${run.stdout}${run.stderr}`);
+		assert.match(run.stderr, why, name);
+		assert.match(run.stderr, /typecheck failed in 1 of 2 packages/);
+		if (script.includes("TS2322"))
+			assert.match(run.stdout, /^packages\/a typecheck: src\/a\.ts\(3,5\): error TS2322: Type mismatch\.$/m);
+		assert.ok(Date.now() - started < 20_000, "a hung bun check is stopped by the timeout");
 	}
+	const clean = workspace({
+		"packages/a": { scripts: { typecheck: PASS } },
+		"packages/b": { scripts: { typecheck: PASS } },
+	});
+	t.after(clean.close);
+	const run = typecheck(clean);
+	assert.equal(run.status, 0, run.stderr);
+	assert.match(run.stderr, /no type errors in 2 packages/);
 });
 
-test("INV-typecheck: a different error from bun check is a mismatch that lists each difference", (t) => {
+test("INV-typecheck: pnpm typecheck runs no tsc, prints no shadow line and writes no shadow log", (t) => {
 	const f = workspace({
-		"packages/a": {
-			scripts: {
-				typecheck: TSC_FAIL,
-				"typecheck:bun": "printf 'src/a.ts(4,5): error TS2322: Type mismatch.\\n'; exit 1",
-			},
-		},
-		"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
+		"packages/a": { scripts: { typecheck: PASS, "typecheck:tsc": "touch ../../tsc-ran; exit 1" } },
+		"packages/b": { scripts: { typecheck: PASS } },
 	});
 	t.after(f.close);
-	const run = shadow(f);
-	assert.equal(run.status, 1);
-	assert.equal(run.result.mismatch, "yes");
-	assert.deepEqual(run.result.packages[0].differences, [
-		{ file: "src/a.ts", line: 3, code: "TS2322", only: "tsc" },
-		{ file: "src/a.ts", line: 4, code: "TS2322", only: "bun" },
-	]);
-	assert.equal(run.result.packages[1].mismatch, "no");
+	const run = typecheck(f, { HOME: f.state });
+	assert.equal(run.status, 0, run.stderr);
+	assert.equal(existsSync(join(f.root, "tsc-ran")), false, "typecheck:tsc never ran");
+	assert.doesNotMatch(run.stdout + run.stderr, /shadow/);
+	assert.deepEqual(readdirSync(f.state), [], "nothing is written to the state directory");
 });
 
-test("INV-typecheck: the exit code is always tsc's when bun check errors, crashes, times out or is missing", (t) => {
-	const cases: Array<[string, string | undefined, string]> = [
-		["errors", "printf 'src/z.ts(1,1): error TS2307: Cannot find module.\\n'; exit 1", "errors"],
-		["crashes", "kill -SEGV $$", "crash"],
-		["exits 3", "exit 3", "crash"],
-		["times out", "sleep 30", "timeout"],
-		["is missing", "./node_modules/.bin/no-such-bun check --no-script", "missing"],
-		["has no script", undefined, "missing"],
-	];
-	for (const tsc of [TSC_PASS, TSC_FAIL])
-		for (const [name, bun, outcome] of cases) {
-			const scripts: Record<string, string> = { typecheck: tsc };
-			if (bun !== undefined) scripts["typecheck:bun"] = bun;
-			const f = workspace({
-				"packages/a": { scripts },
-				"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
-			});
-			t.after(f.close);
-			const started = Date.now();
-			const run = shadow(f, { TYPECHECK_BUN_TIMEOUT_MS: "1000" });
-			assert.equal(run.status, tsc === TSC_PASS ? 0 : 1, `bun ${name}: ${run.stderr}`);
-			assert.equal(run.result.tsc.exit, run.status);
-			assert.equal(run.result.packages[0].bun.outcome, outcome, `bun ${name}`);
-			assert.equal(run.result.bun.outcome, outcome);
-			assert.equal(run.result.mismatch, "yes", `bun ${name} is never a silent match`);
-			assert.ok(Date.now() - started < 20_000, "a hung bun check is stopped by the timeout");
-		}
-});
-
-test("INV-typecheck: each run appends its result line to the log outside CI and only prints it in CI", (t) => {
-	const f = workspace({
-		"packages/a": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
-		"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
-	});
-	t.after(f.close);
-	const first = shadow(f);
-	const second = shadow(f);
-	const logged = readFileSync(f.log, "utf8").trimEnd().split("\n");
-	assert.deepEqual(
-		logged,
-		[first.line, second.line].map((l) => l.slice("typecheck-shadow ".length)),
-	);
-	for (const field of ["commit", "dirty", "at"]) assert.ok(field in first.result, field);
-	assert.deepEqual(Object.keys(first.result.tsc), ["exit", "errors", "wall_ms"]);
-	assert.deepEqual(Object.keys(first.result.bun), ["exit", "outcome", "errors", "wall_ms"]);
-	assert.equal(first.result.mismatch, "no");
-	const inCi = shadow(f, { CI: "true" });
-	assert.equal(inCi.result.ci, true);
-	assert.equal(readFileSync(f.log, "utf8").trimEnd().split("\n").length, 2, "CI appends nothing");
-});
-
-test("INV-typecheck: every package runs the pinned bun 1.4.4 as check --no-script --no-pretty, never a global bun", (t) => {
+test("INV-typecheck: every package's typecheck runs the pinned bun 1.4.4, never a global bun, and typecheck:tsc keeps tsc", (t) => {
 	assert.equal(rootPkg.devDependencies.bun, "1.4.4");
+	assert.equal(rootPkg.scripts.typecheck, "node tools/ci/typecheck.ts");
+	assert.equal(rootPkg.scripts["typecheck:tsc"], "pnpm -r --if-present --no-bail typecheck:tsc");
 	for (const dir of PACKAGES) {
-		const scripts = JSON.parse(readFileSync(join(repo, dir, "package.json"), "utf8")).scripts;
-		// The shadow reads the tsconfig tsc reads: apps/web's typecheck-only one (T-258), else the package's own.
-		const project = / -p (\S+)/.exec(scripts.typecheck)?.[1];
-		const bun = `../../node_modules/.bin/bun check ${project ? `-p ${project} ` : ""}--no-script --no-pretty --all`;
-		assert.equal(scripts["typecheck:bun"], bun, dir);
+		const scripts = scriptsOf(dir);
+		// apps/web checks its typecheck-only tsconfig (T-258), the others their own.
+		const project = dir === "apps/web" ? " -p tsconfig.typecheck.json" : "";
+		assert.equal(scripts.typecheck, `../../node_modules/.bin/bun check${project} --no-script --no-pretty --all`, dir);
+		assert.equal(scripts["typecheck:tsc"], `../../node_modules/typescript-7/bin/tsc --noEmit${project}`, dir);
+		assert.equal("typecheck:bun" in scripts, false, dir);
 	}
+	assert.equal("typecheck:bun" in rootPkg.scripts, false);
 	// A global bun that records any call, ahead of everything else on a PATH that holds no other bun.
 	const fake = mkdtempSync(join(tmpdir(), "global-bun-"));
 	t.after(() => rmSync(fake, { recursive: true, force: true }));
@@ -226,7 +180,7 @@ test("INV-typecheck: every package runs the pinned bun 1.4.4 as check --no-scrip
 		env: env({ PATH: pathWithoutBun() }),
 	});
 	assert.equal(version.stdout.trim(), "1.4.4");
-	const run = spawnSync("pnpm", ["run", "typecheck:bun"], {
+	const run = spawnSync("pnpm", ["run", "typecheck"], {
 		cwd: join(repo, "packages/ui"),
 		encoding: "utf8",
 		env: env({ PATH }),
@@ -236,45 +190,41 @@ test("INV-typecheck: every package runs the pinned bun 1.4.4 as check --no-scrip
 	assert.equal(existsSync(marker), false, "the global bun never ran");
 });
 
-test("INV-typecheck: typecheck:bun at the root, in a package and in the shadow never starts a check script", (t) => {
+test("INV-typecheck: typecheck at the root and in a package never starts a check script", (t) => {
 	const f = workspace(
 		{
 			"packages/p": {
-				scripts: { check: "touch ../../package-check-ran", typecheck: TSC_PASS, "typecheck:bun": bunScript },
+				scripts: { check: "touch ../../package-check-ran", typecheck: bunScript },
 				files: { "src/a.ts": "export const a: number = 1;\n" },
 			},
-			"packages/q": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
+			"packages/q": { scripts: { typecheck: PASS } },
 		},
-		{ check: "touch root-check-ran", "typecheck:bun": rootPkg.scripts["typecheck:bun"] },
+		{ check: "touch root-check-ran", typecheck: `node ${tool}` },
 	);
 	t.after(f.close);
-	for (const [file, content] of Object.entries(checkable(f.root, {})))
-		writeFileSync(join(f.root, "packages/p", file), content);
+	checkable(f.root, "packages/p");
 	const markers = [join(f.root, "root-check-ran"), join(f.root, "package-check-ran")];
-	const atRoot = spawnSync("pnpm", ["run", "typecheck:bun"], { cwd: f.root, encoding: "utf8", env: env() });
+	const atRoot = spawnSync("pnpm", ["run", "typecheck"], { cwd: f.root, encoding: "utf8", env: env() });
 	assert.equal(atRoot.status, 0, atRoot.stdout + atRoot.stderr);
-	assert.match(atRoot.stdout, /No type errors/);
-	const inPackage = spawnSync("pnpm", ["run", "typecheck:bun"], {
+	assert.match(atRoot.stdout, /packages\/p typecheck: .*No type errors/);
+	const inPackage = spawnSync("pnpm", ["run", "typecheck"], {
 		cwd: join(f.root, "packages/p"),
 		encoding: "utf8",
 		env: env(),
 	});
 	assert.equal(inPackage.status, 0, inPackage.stdout + inPackage.stderr);
 	assert.match(inPackage.stdout + inPackage.stderr, /No type errors/);
-	const run = shadow(f);
-	assert.equal(run.result.packages[0].bun.outcome, "pass");
 	for (const marker of markers) assert.equal(existsSync(marker), false, `${marker} must not exist`);
 	// Without --no-script the same binary does start the package's check script, so the marker can appear.
 	spawnSync(join(repo, "node_modules/.bin/bun"), ["check"], { cwd: join(f.root, "packages/p"), env: env() });
-	assert.equal(existsSync(markers[1]), true, "control: bun check without --no-script runs the check script");
+	assert.equal(existsSync(markers[1]!), true, "control: bun check without --no-script runs the check script");
 });
 
 test("INV-typecheck: a package .env reaches no checker, child process or output", (t) => {
 	const sentinel = "t53-sentinel-4f1c9e";
 	const f = workspace({
-		// The tsc stand-in prints its whole environment, so a loaded .env would show in the output.
 		"packages/p": {
-			scripts: { typecheck: "env", "typecheck:bun": bunScript },
+			scripts: { typecheck: bunScript },
 			files: {
 				".env": `T53_SENTINEL=${sentinel}\nFORCE_COLOR=1\n`,
 				".env.local": `T53_SENTINEL=${sentinel}\nFORCE_COLOR=1\n`,
@@ -282,27 +232,21 @@ test("INV-typecheck: a package .env reaches no checker, child process or output"
 				"print.ts": "console.log(String(process.env.T53_SENTINEL));\n",
 			},
 		},
-		"packages/q": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
+		// A child that prints its whole environment, so a loaded .env would show in the output.
+		"packages/q": { scripts: { typecheck: "env" } },
 	});
 	t.after(f.close);
-	for (const [file, content] of Object.entries(checkable(f.root, {})))
-		writeFileSync(join(f.root, "packages/p", file), content);
+	checkable(f.root, "packages/p");
+	writeFileSync(join(f.root, "packages/q/.env"), `T53_SENTINEL=${sentinel}\n`);
 	const env0 = { T53_SENTINEL: undefined, FORCE_COLOR: undefined, NO_COLOR: undefined };
-	const run = shadow(f, env0);
-	const everything = run.stdout + run.stderr + readFileSync(f.log, "utf8");
-	assert.equal(everything.includes(sentinel), false, "the sentinel reaches no output or log");
-	assert.match(run.stdout, /packages\/p typecheck: PATH=/, "control: the stand-in did print its environment");
-	assert.equal(run.result.packages[0].bun.outcome, "errors");
-	const bun = spawnSync("pnpm", ["run", "typecheck:bun"], {
-		cwd: join(f.root, "packages/p"),
-		encoding: "utf8",
-		env: env(env0),
-	});
-	assert.equal(bun.status, 1);
-	assert.match(bun.stdout + bun.stderr, /src\/a\.ts\(1,14\): error TS2322/);
-	assert.equal((bun.stdout + bun.stderr).includes("\x1b["), false, "bun check did not take FORCE_COLOR from .env");
+	const run = typecheck(f, env0);
+	assert.equal(run.status, 1);
+	assert.equal((run.stdout + run.stderr).includes(sentinel), false, "the sentinel reaches no output");
+	assert.match(run.stdout, /packages\/q typecheck: PATH=/, "control: the child did print its environment");
+	assert.match(run.stdout, /packages\/p typecheck: src\/a\.ts\(1,14\): error TS2322/);
+	assert.equal(run.stdout.includes("\x1b["), false, "bun check did not take FORCE_COLOR from .env");
 	// Controls: the same FORCE_COLOR from the real environment does colour bun check, and bun's runtime does load .env.
-	const coloured = spawnSync("pnpm", ["run", "typecheck:bun"], {
+	const coloured = spawnSync("pnpm", ["run", "typecheck"], {
 		cwd: join(f.root, "packages/p"),
 		encoding: "utf8",
 		env: env({ ...env0, FORCE_COLOR: "1" }),
@@ -314,4 +258,35 @@ test("INV-typecheck: a package .env reaches no checker, child process or output"
 		env: env(env0),
 	});
 	assert.equal(runtime.stdout.trim(), sentinel);
+});
+
+test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm typecheck, and typecheck:tsc too", (t) => {
+	const copy = mkdtempSync(join(tmpdir(), "typecheck-seeded-"));
+	t.after(() => rmSync(copy, { recursive: true, force: true }));
+	const before = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout;
+	copyWorkspace(repo, copy, PACKAGES);
+	const run = () => spawnSync(process.execPath, [tool], { cwd: copy, encoding: "utf8", env: env({ CI: undefined }) });
+	const clean = run();
+	assert.equal(clean.status, 0, `control: the unseeded copy passes\n${clean.stdout}${clean.stderr}`);
+	const seeded = "src/__seeded__/t110.ts";
+	for (const dir of PACKAGES) {
+		const file = join(copy, dir, seeded);
+		mkdirSync(join(file, ".."), { recursive: true });
+		writeFileSync(file, 'export const seeded: number = "seeded";\n');
+		const failed = run();
+		assert.equal(failed.status, 1, `${dir}: ${failed.stdout}${failed.stderr}`);
+		assert.match(failed.stdout, new RegExp(`^${dir} typecheck: ${seeded}\\(1,14\\): error TS2322`, "m"), dir);
+		assert.match(failed.stderr, new RegExp(`typecheck failed in 1 of 7 packages:\\n  ${dir}: type errors`), dir);
+		rmSync(join(copy, dir, "src/__seeded__"), { recursive: true });
+	}
+	// The backstop: tsc fails a seeded copy as well.
+	writeFileSync(join(copy, "packages/ui", "src/t110-seeded.ts"), 'export const seeded: number = "seeded";\n');
+	const tsc = spawnSync("pnpm", ["run", "typecheck:tsc"], { cwd: copy, encoding: "utf8", env: env({ CI: undefined }) });
+	assert.notEqual(tsc.status, 0, tsc.stdout + tsc.stderr);
+	assert.match(tsc.stdout, /packages\/ui typecheck:tsc: src\/t110-seeded\.ts\(1,14\): error TS2322/);
+	assert.equal(
+		spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout,
+		before,
+		"tree unchanged",
+	);
 });

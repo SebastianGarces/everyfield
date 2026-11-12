@@ -297,8 +297,8 @@ async function typecheck(root: string, packages: Pkg[], changed: string[]): Prom
 	);
 	if (!owned.length) return skipped("typecheck", "No changed file is in a package with a typecheck script.");
 	const started = Date.now();
-	if (owned.some((pkg) => !existsSync(join(pkg.dir, "node_modules/.bin/tsc"))))
-		return missing("typecheck", "tsc", started);
+	// Every typecheck script runs the pinned bun check from the root's node_modules (T-110).
+	if (!existsSync(join(root, "node_modules/.bin/bun"))) return missing("typecheck", "bun", started);
 	// pnpm's `...[<ref>]` filter finds the repo by its .git folder, so it matches nothing in a git worktree. The
 	// changed packages are found above; `...<name>` adds their dependents.
 	const args = [...owned.flatMap((pkg) => ["--filter", `...${pkg.name}`]), "--no-bail", "--if-present", "typecheck"];
