@@ -141,7 +141,10 @@ test("T-207: the read and the answer send the proof only in the route's body, ne
 		sent.map((s) => s.url),
 		["/api/connections/invitation", "/api/connections/invitation"],
 	);
-	assert.ok(sent.every((s) => s.body.includes(PROOF)), "both requests carry the proof in the body");
+	assert.ok(
+		sent.every((s) => s.body.includes(PROOF)),
+		"both requests carry the proof in the body",
+	);
 	// The route handed the domain the proof it read from the body, and the answer's command unchanged.
 	assert.deepEqual(state.domain, [
 		["viewerOf"],
@@ -199,10 +202,18 @@ test("T-207: the route refuses other origins, other content types, oversize and 
 		["a lookalike Origin", () => post(good, { origin: `${ORIGIN}.evil.test` }), 403],
 		["a form post", () => post(good, { type: "application/x-www-form-urlencoded" }), 415],
 		["plain text", () => post(good, { type: "text/plain" }), 415],
-		["an oversize body", () => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof: "x".repeat(20000) })), 413],
+		[
+			"an oversize body",
+			() => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof: "x".repeat(20000) })),
+			413,
+		],
 		["not JSON", () => post("{op:read"), 400],
 		["an unknown op", () => post(JSON.stringify({ op: "accept_seat", command: {} })), 400],
-		["an extra field", () => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof: PROOF, sessionId: "s" })), 400],
+		[
+			"an extra field",
+			() => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof: PROOF, sessionId: "s" })),
+			400,
+		],
 		["a missing proof", () => post(JSON.stringify({ op: "read", invitationId: INVITATION })), 400],
 		["a non-string proof", () => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof: 1 })), 400],
 	];

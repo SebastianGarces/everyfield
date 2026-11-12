@@ -34,7 +34,9 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 		let live = true;
 		// A link without its proof gets the same answer as any other unusable link.
 		const reply =
-			invitationId && proof ? readRelationshipInvitation(invitationId, proof) : Promise.resolve({ kind: "unavailable" } as const);
+			invitationId && proof
+				? readRelationshipInvitation(invitationId, proof)
+				: Promise.resolve({ kind: "unavailable" } as const);
 		reply.then(
 			(r) => {
 				if (!live) return;
