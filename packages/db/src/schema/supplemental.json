@@ -2733,6 +2733,12 @@
 			"table_name": "reference_version"
 		},
 		{
+			"definition": "CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE ON <schema>.article_revision FOR EACH ROW EXECUTE FUNCTION article_revision_search_vector()",
+			"enabled": "O",
+			"name": "search_vector",
+			"table_name": "article_revision"
+		},
+		{
 			"definition": "CREATE TRIGGER undone_once BEFORE UPDATE ON <schema>.person_email_opt_out FOR EACH ROW WHEN ((old.undone_at IS NOT NULL)) EXECUTE FUNCTION freeze_fields('undone_at')",
 			"enabled": "O",
 			"name": "undone_once",
@@ -2765,6 +2771,11 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.article_revision_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'article_revision',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='article_revision' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "article_revision_bind_record"
+		},
+		{
+			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.article_revision_search_vector()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n  NEW.search_vector := setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A')\n    || setweight(to_tsvector('english', coalesce(NEW.excerpt, '')), 'B')\n    || setweight(to_tsvector('english', coalesce(wiki_search_words(NEW.content_type, NEW.body), '')), 'C');\n  RETURN NEW;\nEND $function$\n",
+			"name": "article_revision_search_vector"
 		},
 		{
 			"arguments": "",
@@ -3135,6 +3146,11 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.witness_clock()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF NEW.request_id IS NOT DISTINCT FROM OLD.request_id AND (\n    ROW(NEW.requested_at,NEW.cancel_until) IS DISTINCT FROM ROW(OLD.requested_at,OLD.cancel_until)\n    OR (OLD.live_purged_at IS NOT NULL AND NEW.live_purged_at IS DISTINCT FROM OLD.live_purged_at)\n    OR (OLD.copy_expires_at IS NOT NULL AND (NEW.copy_expires_at IS NULL OR NEW.copy_expires_at>OLD.copy_expires_at))\n  ) THEN RAISE EXCEPTION 'immutable_lifecycle_clock' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "witness_clock"
+		},
+		{
+			"arguments": "content_type text, body text",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.wiki_search_words(content_type text, body text)\n RETURNS text\n LANGUAGE sql\n STABLE PARALLEL SAFE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nSELECT CASE\n\tWHEN content_type = 'safe_nodes' AND pg_input_is_valid(body, 'jsonb') THEN (\n\t\tSELECT string_agg(t #>> '{}', E'\\n')\n\t\tFROM jsonb_path_query(body::jsonb, 'strict $.** ? (@.type() == \"object\").keyvalue() ? ((@.key == \"text\" || @.key == \"label\" || @.key == \"source\") && @.value.type() == \"string\").value', '{}', true) t\n\t)\n\tELSE body\nEND\n$function$\n",
+			"name": "wiki_search_words"
 		},
 		{
 			"arguments": "handle uuid, new_name text",
@@ -7851,7 +7867,21 @@
 			"grantee": "PUBLIC",
 			"is_grantable": false,
 			"kind": "function",
+			"object": "article_revision_search_vector()",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "PUBLIC",
+			"is_grantable": false,
+			"kind": "function",
 			"object": "private_due_weeks(zone text, next_at timestamp with time zone, ",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "PUBLIC",
+			"is_grantable": false,
+			"kind": "function",
+			"object": "wiki_search_words(content_type text, body text)",
 			"privilege_type": "EXECUTE"
 		}
 	],

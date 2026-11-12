@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 103,
-  "column_count": 1201,
+  "column_count": 1202,
   "foreign_key_count": 363,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -8962,6 +8962,12 @@
           "type": "text[]",
           "nullable": false,
           "default": "ARRAY[]::text[]"
+        },
+        {
+          "note": "Wiki search vector (title A, excerpt B, body words C), written by the search_vector trigger on every insert and update.",
+          "name": "search_vector",
+          "type": "tsvector",
+          "nullable": false
         }
       ],
       "primary_key": [

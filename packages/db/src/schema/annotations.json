@@ -9378,6 +9378,9 @@
 				},
 				"related_slugs": {
 					"note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids."
+				},
+				"search_vector": {
+					"note": "Wiki search vector (title A, excerpt B, body words C), written by the search_vector trigger on every insert and update."
 				}
 			},
 			"foreignKeys": {
