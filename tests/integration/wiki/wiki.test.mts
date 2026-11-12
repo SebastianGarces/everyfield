@@ -2263,6 +2263,45 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		assert.ok(html.includes("<footer></footer>"));
 	});
 
+	test("AC:CASE-WIKI-003 search finds an organization article by the word its last edit wrote, not the word it replaced", async () => {
+		const editor = await enroll("admin", { kind: "organization", id: C1 });
+		const reader = await actor(r1.member);
+		const article = id();
+		await globalArticle(article, "t233/edited", "Edited", "Global edited text");
+		const publish = async (text, expected) =>
+			assert.equal(
+				ok(
+					await api.publishOrganizationArticle(
+						db,
+						await actor(editor),
+						cmd(
+							{
+								articleId: article,
+								organizationId: C1,
+								body: editorDoc([{ type: "paragraph", children: words(text) }]),
+							},
+							expected,
+						),
+					),
+				).errorCode,
+				null,
+			);
+		const slugs = async (query) =>
+			(ok(await api.search(db, reader, { query })).results ?? [])
+				.map((found) => found.slug)
+				.filter((slug) => slug === "t233/edited");
+		await publish("Every guest meets a pelicanword greeter.", "0");
+		assert.deepEqual(await slugs("pelicanword"), ["t233/edited"]);
+		await publish("Every guest meets a heronword greeter.", "1");
+		const found = ok(await api.search(db, reader, { query: "heronword" })).results;
+		assert.deepEqual(
+			found.map((hit) => hit.slug),
+			["t233/edited"],
+		);
+		assert.match(found[0].snippet, /meets a <b>heronword<\/b> greeter/);
+		assert.deepEqual(await slugs("pelicanword"), []);
+	});
+
 	test("AC:CASE-WIKI-007 the export footer shows a human credit and never a source path or digest", async () => {
 		const reader = await actor(r1.member);
 		const credited = async (credit) => {

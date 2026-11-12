@@ -42,18 +42,18 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 		),
 	);
 	if (accepted.status !== "accepted") throw Error();
-	await S.call(
-		"privacy.setSharing",
-		pa,
-		S.command({
-			plant: p,
-			organization: o,
-			relationshipId: accepted.relationship.id,
-			category: "wiki",
-			enabled: false,
-			expectedConsentRevision: "1",
-		}),
-	);
+	const change = S.command({
+		plant: p,
+		organization: o,
+		relationshipId: accepted.relationship.id,
+		category: "wiki",
+		enabled: false,
+		expectedConsentRevision: "1",
+	});
+	await S.call("privacy.setSharing", pa, change);
+	// A replay and a change at a stale revision queue no second milestone job (T-267).
+	await S.call("privacy.setSharing", pa, change);
+	await assert.rejects(S.call("privacy.setSharing", pa, { ...change, requestKey: randomUUID() }), /stale_revision/);
 	await S.call(
 		"associations.end",
 		pa,
@@ -75,6 +75,14 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 	assert.equal(v.choices.wiki, false);
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "2");
+	// One milestone job per committed occurrence, keyed by the revision it wrote: approval, sharing change, end, rejoin.
+	const jobs = await S.db.execute(
+		sql`SELECT producer_key FROM job WHERE kind='notification' AND tenant_id=${sql.param(p.id)} AND subject_record_id=${sql.param(accepted.relationship.id)} ORDER BY source_revision`,
+	);
+	assert.deepEqual(
+		jobs.rows.map((r) => r.producer_key),
+		["affiliation/approved/1", "affiliation/sharing/2", "affiliation/ended/3", "affiliation/approved/4"],
+	);
 });
 test("AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
 	const n = await S.tenant("sending_network"),
@@ -238,6 +246,11 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 		(await S.db.execute(sql`SELECT material_revision FROM organization WHERE id=${sql.param(o.id)}`)).rows[0]
 			.material_revision,
 		"1",
+	);
+	assert.equal(
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM job WHERE subject_record_id=${sql.param(id)}`)).rows[0].n,
+		0,
+		"a rolled-back change queues no milestone job",
 	);
 });
 test("AC:ADR1-016 a sending church's page read gives each live network connection's pipeline choice, as readConsent does", async () => {

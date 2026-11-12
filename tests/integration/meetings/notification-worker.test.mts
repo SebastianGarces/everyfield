@@ -6,7 +6,6 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
-	authorizeMeetingNotices,
 	guestsWriter as guests,
 	meetingsReader as reads,
 	meetingsWriter as meetings,
@@ -14,7 +13,10 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationWorker } from "../../../apps/web/src/server/jobs/notification-worker.ts";
+import {
+	authorizeNotificationMail,
+	createNotificationWorker,
+} from "../../../apps/web/src/server/jobs/notification-worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 
 // The notification worker (T-229): meeting writes queue one `notification` job per slot, and the scheduled runner
@@ -86,7 +88,7 @@ async function advance(meetingId: string, at: string) {
 		WHERE kind='notification' AND subject_record_id=${meetingId} AND state='ready'
 		AND eligible_at<=${clock.at.toISOString()}::timestamptz`);
 }
-function service(authorize = authorizeMeetingNotices) {
+function service(authorize = authorizeNotificationMail) {
 	return createMailService({
 		db,
 		encryptionKey: randomBytes(32),
