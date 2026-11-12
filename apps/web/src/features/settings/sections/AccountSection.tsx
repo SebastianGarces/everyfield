@@ -95,11 +95,7 @@ function AccountForm({
 					/>
 				</SettingRow>
 				<SettingRow label="Name">
-					<Field
-						label={<span className="sr-only">Your name</span>}
-						error={showError ? nameError : undefined}
-						className="min-w-0 flex-1"
-					>
+					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
 						<Input
 							value={draft.name}
 							onChange={(e) => setDraft({ name: e.target.value })}
