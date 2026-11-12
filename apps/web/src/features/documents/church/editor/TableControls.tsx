@@ -39,7 +39,12 @@ import { Button } from "./tiptap/primitives/button.tsx";
 
 // The settings of the table the cursor is in: rows, columns, the kind of a column, blank write-in rows, the header color
 // and striped rows, and for a budget its line items, categories and signs. Every control has a name and a tooltip. A
-// control that cannot work is disabled and says why, in its tooltip and in the line under the controls.
+// control that cannot work is disabled and says why, in its tooltip and in the line under the controls. A plain
+// document (no palette) prints nothing, so it gets the same controls without blank rows and header color (T-100).
+
+/** What the editor says when a change would leave a table the format refuses. */
+export const TABLE_REFUSED =
+	"That change would break a table, so nothing changed. Select the whole table, or text in one cell.";
 
 /** A button that does one action to the table, or says why it cannot. */
 function Act({ label, reason, run }: { label: string; reason: string | null; run: () => void }) {
@@ -136,7 +141,14 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	);
 }
 
-export function TableControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
+export function TableControls({
+	editor,
+	palette,
+}: {
+	editor: Editor;
+	/** The Church Document's palette for the header color; null in a plain document. */
+	palette: DocBrand["palette"] | null;
+}) {
 	const context = useTableContext(editor);
 	const zebraId = useId();
 	if (!context) return null;
@@ -336,17 +348,19 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 				</Group>
 			) : null}
 			<Group label="Look">
-				{!ledger ? <WriteInField editor={editor} context={context} /> : null}
-				<Labeled label="Header color">
-					<Swatches
-						label="Header color"
-						value={(table.attrs.headerFill as Token | undefined) ?? "muted"}
-						palette={palette}
-						onChange={(fill) =>
-							run(editor, ({ table: t, at: place }) => ({ table: withAttrs(t, { headerFill: fill }), place }))
-						}
-					/>
-				</Labeled>
+				{!ledger && palette ? <WriteInField editor={editor} context={context} /> : null}
+				{palette ? (
+					<Labeled label="Header color">
+						<Swatches
+							label="Header color"
+							value={(table.attrs.headerFill as Token | undefined) ?? "muted"}
+							palette={palette}
+							onChange={(fill) =>
+								run(editor, ({ table: t, at: place }) => ({ table: withAttrs(t, { headerFill: fill }), place }))
+							}
+						/>
+					</Labeled>
+				) : null}
 				<Tip text="Shade every second row">
 					<label htmlFor={zebraId} className="flex cursor-pointer items-center gap-2 text-sm text-text-2">
 						<input

@@ -15,6 +15,10 @@
 		{
 			"version": 1,
 			"hash": "sha256:2a14651a927991bdebba88178587e54d329eadb460e55b604d489a6778793f6b"
+		},
+		{
+			"version": 2,
+			"hash": "sha256:3e92712b4324b78538dbe5166e61be5b4c0c84f9829eef0360b2f6ce44951f78"
 		}
 	],
 	"conflict-of-interest-policy": [

@@ -1,9 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID } from "node:crypto";
-import { createRequire } from "node:module";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
-const require = createRequire(new URL("../../../packages/domain/package.json", import.meta.url));
 
 export const id = randomUUID;
 export async function database() {

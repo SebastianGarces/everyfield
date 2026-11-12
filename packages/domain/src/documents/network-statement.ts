@@ -1,4 +1,4 @@
-import type { BlockNode, ChurchBlock, DocDocument, InlineNode, ParagraphNode } from "@everyfield/contracts/documents";
+import type { BlockNode, DocDocument, InlineNode, ParagraphNode } from "@everyfield/contracts/documents";
 import { sql } from "@everyfield/db/query";
 
 // DOC-020, CASE-DOC-020 `network-fills-slot`: a Church Document made from a template starts with the sending
@@ -19,21 +19,10 @@ export const networkStatementSql = (plantId: string) =>
 		ORDER BY a.accepted_at, a.id LIMIT 1`;
 
 /**
- * A template preview's body with every `statement-of-faith` slot holding the network's text, which the layout prints
- * one paragraph per blank-line-separated block. With no text the body is returned unchanged: the marked blank.
- */
-export function fillStatementBlocks(body: ChurchBlock[], statement: string | null): ChurchBlock[] {
-	if (statement === null) return body;
-	return body.map((block) =>
-		block.kind === "slot" && block.slotId === STATEMENT_OF_FAITH_KEY ? { ...block, text: statement } : block,
-	);
-}
-
-/**
  * The network's text as paragraphs: one per blank-line-separated block, a single line break kept as a break. The
  * organization write already turned CRLF into LF and trimmed it.
  */
-export function statementParagraphs(text: string): ParagraphNode[] {
+function statementParagraphs(text: string): ParagraphNode[] {
 	return text
 		.split(/\n[ \t]*\n/)
 		.map((block) => block.replace(/^\n+|\n+$/g, ""))

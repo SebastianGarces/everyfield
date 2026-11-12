@@ -266,9 +266,9 @@ test(
 	},
 );
 
-test("AC:CASE-DOC-023 the PDF paints a fill under each bracketed placeholder and the Word file shades its run", async () => {
+test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text and the Word file shades its run", async () => {
 	const doc = await fork("conflict-of-interest-policy");
-	// A placeholder in a field value prints highlighted too; text outside the brackets does not.
+	// A placeholder in a field value is found too; text outside the brackets is not.
 	doc.body.content.push({
 		type: "paragraph",
 		content: [{ type: "text", text: "Approved for [low amount] to [high amount], not [] or a [bracket" }],
@@ -277,12 +277,10 @@ test("AC:CASE-DOC-023 the PDF paints a fill under each bracketed placeholder and
 	const { findTextRegions } = await import("../../../packages/domain/node_modules/@formepdf/core/dist/index.js");
 	const found = await findTextRegions(pdf, [{ pattern: "\\[[^\\[\\]\\n]{1,60}\\]", pattern_type: "Regex" }]);
 	assert.equal(found.length, 4, "[number], [date], [low amount] and [high amount]");
-	// Each fill is an artifact rectangle in multiply blend, so the text above it keeps its own ink.
-	// Each fill is an artifact in the placeholder color (#FDF0A6), painted through a graphics state (the multiply blend).
+	// The highlight is an editing aid: the printed page carries no fill in the placeholder color and no multiply blend.
 	const ops = await pdfOperators(pdf);
-	const fills = ops.match(/\/Artifact BMC\nq\n\/GS-\d+ gs\n0\.992\d* 0\.941\d* 0\.650\d* rg/g) ?? [];
-	assert.equal(fills.length, 4, "one fill for each placeholder");
-	assert.match(ops, /\/BM \/Multiply/, "the fills multiply, so the text above keeps its ink");
+	assert.doesNotMatch(ops, /0\.992\d* 0\.941\d* 0\.650\d* rg/, "no fill in the placeholder color");
+	assert.doesNotMatch(ops, /\/BM \/Multiply/, "no highlight blend");
 	const xml = docxParts(await renderDocFile(doc, "docx", THEME, SAVED))["word/document.xml"];
 	const shaded = [
 		...xml.matchAll(

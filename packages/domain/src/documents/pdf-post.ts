@@ -1,17 +1,4 @@
-import {
-	BlendMode,
-	PDFArray,
-	PDFDict,
-	PDFDocument,
-	PDFName,
-	PDFNumber,
-	PDFOperator,
-	PDFOperatorNames,
-	PDFRef,
-	PDFString,
-	rgb,
-} from "pdf-lib";
-import { PLACEHOLDER_FILL } from "./doc-values.ts";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from "pdf-lib";
 
 /** Tooltip text for a field name. Names follow the layout files: `team_task_n`, `present_n` and plain keys. */
 const KNOWN: Record<string, string> = {
@@ -70,9 +57,8 @@ const isSignature = (name: string) => name === "signature" || name.endsWith("_si
  * name becomes a /Sig field, and the AcroForm gets a /DR font entry that points at the embedded DM Sans.
  * `updateMetadata: false` keeps the creation and modification dates out, so the bytes stay deterministic.
  */
-export async function finishForm(pdf: Uint8Array, highlights: readonly Highlight[] = []) {
+export async function finishForm(pdf: Uint8Array) {
 	const doc = await PDFDocument.load(pdf, { updateMetadata: false });
-	paintHighlights(doc, highlights);
 	const form = doc.getForm();
 	const fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[] = [];
 	for (const field of form.getFields()) {
@@ -103,37 +89,6 @@ export async function finishForm(pdf: Uint8Array, highlights: readonly Highlight
 		bytes: await doc.save({ useObjectStreams: false, addDefaultPage: false, updateFieldAppearances: false }),
 		fields,
 	};
-}
-
-/** A box to highlight: a 0-based page, then x and y from the top-left corner, in points. */
-export type Highlight = { page: number; x: number; y: number; width: number; height: number };
-
-/**
- * Forme 0.29 paints no background behind a text run, so a placeholder highlight is painted after layout: a fill over
- * each box in multiply blend, so the text under it stays as dark as it was and the paper turns the fill's color. Each
- * fill is marked as an artifact, so a screen reader and the tag tree skip it.
- */
-function paintHighlights(doc: PDFDocument, highlights: readonly Highlight[]) {
-	const pages = doc.getPages();
-	const [r, g, b] = [1, 3, 5].map((i) => parseInt(PLACEHOLDER_FILL.slice(i, i + 2), 16) / 255) as [
-		number,
-		number,
-		number,
-	];
-	for (const box of highlights) {
-		const page = pages[box.page];
-		if (!page) continue;
-		page.pushOperators(PDFOperator.of(PDFOperatorNames.BeginMarkedContent, [PDFName.of("Artifact")]));
-		page.drawRectangle({
-			x: box.x - 0.5,
-			y: page.getHeight() - box.y - box.height,
-			width: box.width,
-			height: box.height,
-			color: rgb(r, g, b),
-			blendMode: BlendMode.Multiply,
-		});
-		page.pushOperators(PDFOperator.of(PDFOperatorNames.EndMarkedContent));
-	}
 }
 
 /** The first embedded DM Sans font object in the page resources. */

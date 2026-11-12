@@ -12,7 +12,7 @@ import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-c
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "wp034", max: 6 });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other" })).id;
@@ -2125,7 +2125,8 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 				const route = entry.route.replace(/\[[^\]]+\]/, record);
 				const guide = await guideOf(r1.member, route);
 				if (entry.route === "/settings/brand") {
-					// The brand article is not in this release yet, as in the app's starter payload today.
+					// This synthetic release leaves the brand article out, so a mapped article missing from a release shows no
+					// guide. The real living seed has it: tests/reference/starter/living.db.mts resolves it after wiki:install.
 					assert.deepEqual([guide.found, guide.missing, guide.body], [false, true, null], route);
 					continue;
 				}

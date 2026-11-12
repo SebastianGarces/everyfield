@@ -48,6 +48,7 @@ export function checkCiTests(root: string): void {
 					filter = filterAt < 0 ? undefined : args.splice(filterAt, 2)[1];
 				const recursive = args.includes("-r") || args.includes("--recursive");
 				const script = args.filter((t) => !t.startsWith("-") && t !== "run")[0];
+				if (script === undefined) continue;
 				const axis = filter?.match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
 				if (axis) {
 					// A matrix over package names replaces `pnpm -r --if-present`: it must list every package with the script.
@@ -60,7 +61,7 @@ export function checkCiTests(root: string): void {
 						);
 				}
 				const targets = axis
-					? packages.filter((p) => matrix[axis].includes(p.name))
+					? packages.filter((p) => (matrix[axis] ?? []).includes(p.name))
 					: filter
 						? packages.filter((p) => p.name === filter)
 						: recursive
@@ -72,7 +73,7 @@ export function checkCiTests(root: string): void {
 					visited.add(key);
 					follow(target.scripts[script], target);
 				}
-			} else if (["node", "tsx"].includes(tokens[0]) && tokens.includes("--test")) {
+			} else if (["node", "tsx"].includes(tokens[0] ?? "") && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {
 					if (!/\.(?:test\.(?:mts|ts|mjs)|db\.mts)$/.test(token)) continue;
 					for (const file of globSync(token, { cwd: resolve(root, pkg.dir) })) {
@@ -105,19 +106,19 @@ export function checkCiTests(root: string): void {
 		for (const [, key, value] of (job.split(/^\s+matrix:\s*$/m)[1]?.split(/^    \S/m)[0] ?? "").matchAll(
 			/^\s+(?:-\s+)?([\w-]+):\s*["']?([^"'\s#]+)["']?\s*(?:#.*)?$/gm,
 		))
-			(matrix[key] ??= []).push(value);
+			(matrix[key!] ??= []).push(value!);
 		for (const step of job.split(/(?=^      - )/m).slice(1)) {
 			const dir = step.match(/^        working-directory:\s*(.+)$/m)?.[1] ?? defaultDir;
 			const pkg = packages.find((p) => p.dir === dir) ?? { dir, name: "", scripts: {} };
 			const lines = step.split("\n");
 			for (let i = 0; i < lines.length; i++) {
-				const match = lines[i].match(/^(\s*)(?:-\s*)?run:\s*(.*)$/);
+				const match = lines[i]!.match(/^(\s*)(?:-\s*)?run:\s*(.*)$/);
 				if (!match) continue;
-				let command = match[2];
+				let command = match[2]!;
 				if (/^[|>][-+]?\s*$/.test(command)) {
 					command = "";
-					while (i + 1 < lines.length && (!lines[i + 1].trim() || lines[i + 1].search(/\S/) > match[1].length))
-						command += lines[++i].trim() + "\n";
+					while (i + 1 < lines.length && (!lines[i + 1]!.trim() || lines[i + 1]!.search(/\S/) > match[1]!.length))
+						command += lines[++i]!.trim() + "\n";
 				}
 				follow(command, pkg, matrix);
 			}
@@ -130,11 +131,15 @@ export function checkCiTests(root: string): void {
 	// Browser suites, the tests/ui files that import tests/ui/setup.mjs, run nightly and in the verifier's preview.
 	const browserSuite = (file: string) =>
 		[...readFileSync(join(root, file), "utf8").matchAll(/\b(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)].some(
-			([, spec]) => relative(root, resolve(root, dirname(file), spec)) === "tests/ui/setup.mjs",
+			([, spec]) => relative(root, resolve(root, dirname(file), spec!)) === "tests/ui/setup.mjs",
 		);
 	const files = [
 		...globSync(
-			["tests/{integration,evry,reference,contracts}/**/*.{test,db}.mts", "packages/*/{src,test}/**/*.test.{ts,mts}"],
+			[
+				"tests/{integration,evry,reference,contracts}/**/*.{test,db}.mts",
+				"tests/unit/**/*.test.{mjs,mts}",
+				"packages/*/{src,test}/**/*.test.{ts,mts}",
+			],
 			{ cwd: root },
 		),
 		...globSync("tests/ui/**/*.test.{mjs,mts}", { cwd: root }).filter((file) => !browserSuite(file)),

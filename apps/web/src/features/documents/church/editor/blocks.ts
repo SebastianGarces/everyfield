@@ -5,7 +5,7 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 import type { Condition } from "./condition.ts";
 import { conditionIssue } from "./condition-extension.ts";
 import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
-import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
+import { newBudget, newChecklist, newGrid, newPlainChecklist, newPlainGrid } from "./table-ops.ts";
 import { BLOCK_NAME } from "../labels.ts";
 
 // Whole-block actions, each one transaction, so one Undo reverses it. Insert puts the new block after the block that
@@ -151,10 +151,11 @@ function build(schema: Schema, kind: InsertKind, alt = "", condition: Condition 
 		case "mark":
 		case "photo":
 			return type("image").create({ source: kind, ...IMAGE_SIZE[kind], ...(alt ? { alt } : {}) });
+		// A plain document's schema has no page header: its tables have typed rows and no header color (T-100).
 		case "table":
-			return nodeFromTable(schema, newGrid());
+			return nodeFromTable(schema, schema.nodes.pageHeader ? newGrid() : newPlainGrid());
 		case "checklist":
-			return nodeFromTable(schema, newChecklist());
+			return nodeFromTable(schema, schema.nodes.pageHeader ? newChecklist() : newPlainChecklist());
 		case "budget":
 			return nodeFromTable(schema, newBudget());
 		case "if":
@@ -197,8 +198,8 @@ function insertionPoint(state: EditorState, kind?: InsertKind): { pos: number; p
 
 /** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
 export function canInsert(state: EditorState, kind: InsertKind): boolean {
-	// A budget table sits in the body: the page header and footer print no Excel file.
-	if (kind === "budget" && regionAt(state)) return false;
+	// A budget table sits in the body: the page header and footer print no Excel file. A plain document has none.
+	if (kind === "budget" && (regionAt(state) || !state.schema.nodes.pageHeader)) return false;
 	if (kind === "slot" && hasSlot(state.doc)) return false;
 	// The format refuses columns anywhere under a column, a box or conditional text in a column included.
 	if (kind.startsWith("columns") && insideColumn(state)) return false;

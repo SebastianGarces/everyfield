@@ -672,7 +672,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE title LIKE 'Please re-enter%'`), 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='wiki.published'`), 0);
 	const typo = ok(await publish(typoId, "1"));
-	const meaningful = ok(await publish(updateId, "2"));
+	ok(await publish(updateId, "2"));
 	assert.deepEqual(typo.recipientIds, [editor.id]);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id=${network.id}`), 0);
 	assert.deepEqual(

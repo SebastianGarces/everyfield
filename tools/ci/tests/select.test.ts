@@ -32,7 +32,7 @@ const context: Context = {
 		{
 			dir: "apps/web",
 			name: "@everyfield/web",
-			scripts: { "test:unit": "node --test ../../tests/ui/tasks/model.test.mjs" },
+			scripts: { "test:unit": "node --test ../../tests/unit/tasks/model.test.mjs" },
 		},
 		{
 			dir: "packages/db",
@@ -197,6 +197,18 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 			},
 			tests: {},
 			filters: ["...@everyfield/db"],
+		}),
+	);
+	await t.test("INV-ci-select: a tests/unit test runs the checks of the package whose test:unit names it", () =>
+		assertSelected(selectChecks(["tests/unit/tasks/model.test.mjs"], map, context), {
+			checks: {
+				lint: "package test outside its package: tests/unit/tasks/model.test.mjs",
+				typecheck: "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"test:unit": "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"ci-coverage": "package test outside its package: tests/unit/tasks/model.test.mjs",
+			},
+			tests: {},
+			filters: ["...@everyfield/web"],
 		}),
 	);
 });

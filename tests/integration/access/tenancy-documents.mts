@@ -62,6 +62,9 @@ export async function seedDocuments(t) {
 		),
 	).id;
 	ok(await docs.deleteChurch(db, owner, { documentId: gone.id, expectedRevision: gone.revision }));
+	// T-284: an archived Church Document, which church A's archived list holds and church B's never does.
+	const shelved = ok(await docs.createFromTemplate(db, owner, { templateId: POLICY, requestKey: key() }));
+	ok(await docs.archiveChurch(db, owner, { documentId: shelved.id, expectedRevision: shelved.revision }));
 	ok(
 		await docs.saveChurchTemplate(db, owner, {
 			documentId: church.id,
@@ -166,6 +169,7 @@ export function documentsCases(t, who) {
 		w("history.list", () => docs["history.list"](db, who.actor, {}), { value: { entries: [] } }),
 		w("history.get", () => docs["history.get"](db, who.actor, { ...doc, revision: 1 }), gone(a.churchDoc)),
 		w("listChurch", () => docs.listChurch(db, who.actor, {}), { value: { documents: [], templates: [] } }),
+		w("listArchivedChurch", () => docs.listArchivedChurch(db, who.actor, {}), { value: { documents: [] } }),
 		w("listCopySources", () => docs.listCopySources(db, who.actor, {}), { value: { documents: [] } }),
 		w("listExports", () => docs.listExports(db, who.actor, doc), gone(a.churchDoc)),
 		w("listOwned", () => docs.listOwned(db, who.actor, {}), { value: { documents: [] } }),

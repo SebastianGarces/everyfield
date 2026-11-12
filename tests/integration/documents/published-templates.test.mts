@@ -19,10 +19,20 @@ const POLICY = "conflict-of-interest-policy";
 test("INV-template-changes: the store holds the current version of every built-in template, with its hash", async () => {
 	assert.deepEqual(await publishedProblems(DOC_TEMPLATES, PUBLISHED, SUPERSEDED), []);
 	assert.deepEqual(Object.keys(PUBLISHED).sort(), DOC_TEMPLATES.map((t) => t.id).sort());
-	// Today: version 1 of all nine, and no superseded body.
+	// Today: version 1 of eight, and version 2 of commitment-card (T-205: the card's return line), whose version 1
+	// body is kept.
 	assert.equal(DOC_TEMPLATES.length, 9);
-	for (const template of DOC_TEMPLATES)
-		assert.deepEqual(PUBLISHED[template.id], [{ version: 1, hash: await templateHash(template) }], template.id);
+	for (const template of DOC_TEMPLATES) {
+		const current = { version: template.version, hash: await templateHash(template) };
+		if (template.id !== "commitment-card") assert.deepEqual(PUBLISHED[template.id], [current], template.id);
+		else {
+			assert.equal(template.version, 2);
+			assert.deepEqual(PUBLISHED[template.id], [
+				{ version: 1, hash: await templateHash(SUPERSEDED["commitment-card.v1"] as typeof template) },
+				current,
+			]);
+		}
+	}
 	// The folder holds the store and one `<id>.v<n>.json` per entry of SUPERSEDED, nothing else.
 	const bodies = readdirSync(folder)
 		.filter((name) => name !== "index.ts" && name !== "versions.json")
@@ -47,7 +57,7 @@ test("INV-template-changes: an edit without a new version, a gap and a missing s
 	// The file's content changes, its version stays 1.
 	const edited = structuredClone(v1);
 	edited.title = "Conflict of Interest Policy (revised)";
-	assert.deepEqual(await publishedProblems([...others, edited], store, {}), [
+	assert.deepEqual(await publishedProblems([...others, edited], store, SUPERSEDED), [
 		`${POLICY}: the file changed but its version did not go up from 1`,
 	]);
 
@@ -61,13 +71,13 @@ test("INV-template-changes: an edit without a new version, a gap and a missing s
 			{ version: 2, hash: h2 },
 		],
 	};
-	assert.deepEqual(await publishedProblems([...others, v2], two, {}), [
+	assert.deepEqual(await publishedProblems([...others, v2], two, SUPERSEDED), [
 		`${POLICY}.v1: the superseded body is missing or does not validate`,
 	]);
 	// With it kept, the store agrees.
-	assert.deepEqual(await publishedProblems([...others, v2], two, { [`${POLICY}.v1`]: v1 }), []);
+	assert.deepEqual(await publishedProblems([...others, v2], two, { ...SUPERSEDED, [`${POLICY}.v1`]: v1 }), []);
 	// A kept body that is not the published version 1 fails.
-	assert.deepEqual(await publishedProblems([...others, v2], two, { [`${POLICY}.v1`]: { ...edited } }), [
+	assert.deepEqual(await publishedProblems([...others, v2], two, { ...SUPERSEDED, [`${POLICY}.v1`]: { ...edited } }), [
 		`${POLICY}.v1: the body's hash is not the one published`,
 	]);
 
@@ -80,11 +90,11 @@ test("INV-template-changes: an edit without a new version, a gap and a missing s
 			{ version: 3, hash: await templateHash(v3) },
 		],
 	};
-	assert.deepEqual(await publishedProblems([...others, v3], gap, { [`${POLICY}.v1`]: v1 }), [
+	assert.deepEqual(await publishedProblems([...others, v3], gap, { ...SUPERSEDED, [`${POLICY}.v1`]: v1 }), [
 		`${POLICY}: versions must run 1, 2, 3 with no gap`,
 	]);
 	// A new version the store does not list yet.
-	assert.deepEqual(await publishedProblems([...others, v2], store, {}), [
+	assert.deepEqual(await publishedProblems([...others, v2], store, SUPERSEDED), [
 		`${POLICY}: the file is version 2, the store ends at 1`,
 	]);
 });

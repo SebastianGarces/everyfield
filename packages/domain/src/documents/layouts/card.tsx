@@ -115,5 +115,5 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 			</Fixed>
 		</Page>
 	);
-	return Doc(ctx, `${spec.title}, ${ctx.church}`, spec.subject, page, CARD_MARGIN);
+	return Doc(ctx, `${spec.title}, ${ctx.church}`, spec.subject, page);
 }

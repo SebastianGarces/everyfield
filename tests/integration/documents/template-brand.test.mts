@@ -11,7 +11,8 @@ import { brandWriter, uploadBrandAsset } from "../../../packages/domain/src/bran
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
-import { digestOf, renderPreview } from "../../../packages/domain/src/documents/render.ts";
+import { renderPreview } from "../../../packages/domain/src/documents/library-render.ts";
+import { digestOf } from "../../../packages/domain/src/documents/render.ts";
 import { docxParts, pdfOperators, pdfPages } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";

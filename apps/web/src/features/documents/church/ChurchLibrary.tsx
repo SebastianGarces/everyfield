@@ -1,6 +1,13 @@
 "use client";
 
-import { Add01Icon, ArrowRight01Icon, Delete02Icon, File02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import {
+	Add01Icon,
+	Archive02Icon,
+	ArrowRight01Icon,
+	Delete02Icon,
+	File02Icon,
+	PencilEdit02Icon,
+} from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -21,6 +28,7 @@ import { Pagination, Tag } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import type { ChurchSummary, ChurchTemplateSummary } from "@everyfield/contracts/documents";
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { createChurchDocument, deleteChurchTemplate, type ChurchActionResult } from "./actions.ts";
 import { EditTemplateDialog, type TemplateDetails } from "./EditTemplate.tsx";
@@ -32,10 +40,17 @@ type Props = {
 	/** The church's own templates, saved from its documents. Empty for a Member. */
 	churchTemplates: ChurchTemplateSummary[];
 	canManage: boolean;
-	deleted: boolean;
+	/** The notice after a delete, an archive or a restore returned here. */
+	notice: "deleted" | "archived" | "restored" | null;
 };
 
-export function ChurchLibrary({ documents, templates, churchTemplates, canManage, deleted }: Props) {
+const NOTICE = {
+	deleted: "The document was deleted.",
+	archived: "The document was archived. Its revisions and saved exports stay available.",
+	restored: "The document was restored. It is back in the library and can be edited again.",
+};
+
+export function ChurchLibrary({ documents, templates, churchTemplates, canManage, notice }: Props) {
 	return (
 		<>
 			<PageHeader
@@ -43,14 +58,26 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 				breadcrumb={[{ label: "Documents", href: "/documents" }, { label: "Church documents" }]}
 				title="Church documents"
 				subtitle="Your church plant's own copies of Everyfield templates and of your church's templates. Each one previews as the real PDF and downloads as PDF and Word, and a budget as Excel too."
-				actions={canManage ? <TemplatePicker templates={templates} churchTemplates={churchTemplates} /> : null}
+				actions={
+					canManage ? (
+						<>
+							<Button asChild variant="secondary">
+								<Link href="/documents/church/archived">
+									<Icon icon={Archive02Icon} size={18} />
+									Archived documents
+								</Link>
+							</Button>
+							<TemplatePicker templates={templates} churchTemplates={churchTemplates} />
+						</>
+					) : null
+				}
 			/>
-			{deleted ? (
+			{notice ? (
 				<p
 					role="status"
 					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					The document was deleted.
+					{NOTICE[notice]}
 				</p>
 			) : null}
 			{documents.length === 0 ? (
