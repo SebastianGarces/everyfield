@@ -1,6 +1,5 @@
 import "server-only";
-import type { Diagram, HierarchyNode } from "@everyfield/contracts/wiki";
-import type { Block } from "./excerpt.ts";
+import type { Diagram, HierarchyNode, WikiBlock as Block } from "@everyfield/contracts/wiki";
 
 /** `credit` is a human credit (see `humanCredit`) or null, and never a source path or digest. */
 export type PdfRenderMeta = { filename: string; credit: string | null };
@@ -11,6 +10,8 @@ const BODY_LINES = 46;
 const TEXT_WIDTH = (468 * 1000) / 11;
 /** Courier at 10pt is 6pt a character, so 78 characters fill the 468pt text width. Code lines break there. */
 const CODE_WIDTH = 78;
+/** Four spaces of Helvetica at 11pt, in 1/1000 em: a quote's indent. */
+const QUOTE_INDENT = 4 * 278;
 
 export function escapeHtml(text: string): string {
 	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -143,52 +144,31 @@ function plainInline(text: string): string {
 type Shown =
 	| { kind: "heading"; level: number; text: string }
 	| { kind: "paragraph"; lines: string[] }
+	| { kind: "quote"; lines: string[] }
 	| { kind: "list"; ordered: boolean; items: string[] }
 	| { kind: "table"; rows: string[][] }
 	| { kind: "callout"; lines: string[] }
 	| { kind: "code"; text: string }
 	| { kind: "diagram"; diagram: Diagram };
 
-const LIST_MARKER = /^\s*(?:[-*+]|\d{1,9}[.)])\s+/;
-
-function cells(line: string): string[] {
-	return line
-		.split("|")
-		.map((cell) => cell.trim())
-		.filter((cell) => cell.length > 0 && !/^:?-+:?$/.test(cell));
-}
-
 /** The reader's blocks for export: blank lines, breaks and empty components drop out. */
 function shown(blocks: readonly Block[]): Shown[] {
 	const out: Shown[] = [];
+	const lines = (text: string) => text.split("\n").filter((line) => line.trim().length > 0);
 	for (const block of blocks) {
 		if (block.kind === "heading") out.push({ kind: "heading", level: block.level, text: block.text });
-		else if (block.kind === "paragraph")
-			out.push({ kind: "paragraph", lines: block.lines.map((line) => line.trim().replace(/^(>\s?)+/, "")) });
-		else if (block.kind === "list")
-			out.push({
-				kind: "list",
-				ordered: block.ordered,
-				items: block.items.map((item) =>
-					item
-						.map((line) => line.trim())
-						.join(" ")
-						.replace(LIST_MARKER, ""),
-				),
-			});
+		else if (block.kind === "paragraph") out.push({ kind: "paragraph", lines: block.paragraphs.flatMap(lines) });
+		else if (block.kind === "quote") out.push({ kind: "quote", lines: lines(block.text) });
+		else if (block.kind === "list") out.push({ kind: "list", ordered: block.ordered, items: block.items });
 		else if (block.kind === "table") {
-			const rows = block.lines.map(cells).filter((row) => row.length > 0);
-			if (rows.length) out.push({ kind: "table", rows });
-		} else if (block.kind === "fence") out.push(block.content);
-		else if (block.kind === "atomic") {
-			// A Callout prints its text. Any other component prints what it says without its tags.
-			const lines = block.lines
-				.map((line) => line.replace(/<\/?[A-Za-z][^>]*>/g, "").trim())
-				.filter((line) => line.length > 0);
-			if (!lines.length) continue;
-			if (/^\s*<Callout\b/.test(block.lines[0] ?? "")) out.push({ kind: "callout", lines });
-			else out.push({ kind: "paragraph", lines });
-		}
+			if (block.rows.length) out.push({ kind: "table", rows: block.rows });
+		} else if (block.kind === "callout") {
+			if (block.text) out.push({ kind: "callout", lines: lines(block.text) });
+		} else if (block.kind === "component") {
+			// Any other component prints what it says without its tags.
+			if (block.text) out.push({ kind: "paragraph", lines: lines(block.text) });
+		} else if (block.kind === "code") out.push({ kind: "code", text: block.text });
+		else if (block.kind === "diagram") out.push({ kind: "diagram", diagram: block.diagram });
 	}
 	return out;
 }
@@ -225,6 +205,10 @@ function visibleLines(title: string, blocks: readonly Block[], filename: string)
 	for (const block of shown(blocks)) {
 		if (block.kind === "heading") prose(block.text);
 		else if (block.kind === "paragraph" || block.kind === "callout") block.lines.forEach(prose);
+		// A quote is indented under the text around it.
+		else if (block.kind === "quote")
+			for (const line of block.lines)
+				lines.push(...wrapText(plainInline(line), TEXT_WIDTH - QUOTE_INDENT).map((part) => ({ text: `    ${part}` })));
 		else if (block.kind === "list")
 			block.items.forEach((item, index) => prose(block.ordered ? `${index + 1}. ${item}` : `• ${item}`));
 		else if (block.kind === "table") for (const row of block.rows) raw(row.map(plainInline).join(" | "));
@@ -310,6 +294,8 @@ function htmlBlock(block: Shown): string {
 		return `<h${level}>${text(block.text)}</h${level}>`;
 	}
 	if (block.kind === "paragraph") return block.lines.map((line) => `<p>${text(line)}</p>`).join("");
+	if (block.kind === "quote")
+		return `<blockquote>${block.lines.map((line) => `<p>${text(line)}</p>`).join("")}</blockquote>`;
 	if (block.kind === "callout") return `<aside>${block.lines.map((line) => `<p>${text(line)}</p>`).join("")}</aside>`;
 	if (block.kind === "list") {
 		const tag = block.ordered ? "ol" : "ul";
