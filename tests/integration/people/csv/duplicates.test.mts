@@ -112,7 +112,11 @@ test("AC:TARGET-PPL-016 T-263 a dismissed pair leaves the list for the Dismissed
 	assert.equal(shown.person.displayName, "Iris Imported");
 	assert.equal(shown.with.displayName, "Iris Existing");
 	assert.equal(shown.dismissedBy, "Ada Admin");
-	assert.ok(Math.abs(Date.parse(shown.dismissedAt) - Date.now()) < 60_000, shown.dismissedAt);
+	const [{ at }] = await rows(
+		sql`SELECT to_char(dismissed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM person_duplicate_dismissal
+ WHERE person_id=${sql.param(first.personId)}::uuid`,
+	);
+	assert.equal(shown.dismissedAt, at, "when it was dismissed");
 
 	assert.deepEqual(ok(await restore(first)), { outcome: "changed" });
 	assert.deepEqual(ours(await listed()), [first, second], "back in its import order");
