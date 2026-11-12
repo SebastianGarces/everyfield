@@ -36,8 +36,11 @@ import {
 	saveProgress,
 	saveSourceOrder,
 	searchWiki,
+	type ExportResult,
 	type GuideResult,
+	type OrderRead,
 	type OrderRow,
+	type OrderSave,
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
@@ -319,9 +322,12 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 	useEffect(() => {
 		if (!open) return;
 		let live = true;
-		void loadGuide(pathname).then((next) => {
-			if (live) setResult({ path: pathname, value: next });
-		});
+		// A rejected call (offline) shows the same text as a guide the server could not read.
+		void loadGuide(pathname)
+			.catch((): GuideResult => ({ status: "unavailable" }))
+			.then((next) => {
+				if (live) setResult({ path: pathname, value: next });
+			});
 		return () => {
 			live = false;
 		};
@@ -410,6 +416,11 @@ function scrollColumn(): HTMLElement | null {
 	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
 }
 
+/** Coarse progress steps: each quarter, past the 0.80 completion line, and the end of the article. */
+function progressStep(fraction: number): number {
+	return [0.25, 0.5, 0.75, 1].filter((step) => fraction >= step).length + (fraction > 0.8 ? 1 : 0);
+}
+
 /**
  * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
  * Mount it with the article id as key, so a new article starts from its own state.
@@ -418,9 +429,10 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 	const revision = useRef(props.readingRevision);
 	const chain = useRef<Promise<WriteResult | void>>(Promise.resolve());
 	const seen = useRef(Number(props.observedFraction) || 0);
+	// The furthest point already sent. Progress writes go out only at coarse steps and on leaving.
+	const sent = useRef(seen.current);
 	const viewKey = useRef(crypto.randomUUID());
-	// Strict mode runs this effect twice. The second view would reuse the request key
-	// after the revision moved, and the write gate would report a conflict.
+	// Strict mode runs this effect twice. Record one view per article.
 	const recorded = useRef<string | null>(null);
 	const bookmarkKey = useRef(crypto.randomUUID());
 	const [marked, setMarked] = useState(props.bookmarked);
@@ -438,7 +450,8 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			if (result.status === "ok") {
 				revision.current = result.revision;
 				setMarked(result.bookmarked);
-				setPercent(result.observedFraction);
+				// The label follows the reader between the coarse saves, so a saved result never lowers it.
+				setPercent(fractionText(Math.max(Number(result.observedFraction) || 0, seen.current)));
 				setDone(result.completed);
 				if (result.updated) setUpdated(true);
 				setNote("");
@@ -454,19 +467,22 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 		if (recorded.current !== props.articleId) {
 			recorded.current = props.articleId;
 			viewKey.current = crypto.randomUUID();
-			void enqueue((rev) =>
-				recordArticleView({
-					requestKey: viewKey.current,
-					expectedRevision: rev,
-					articleId: props.articleId,
-					plantId: props.plantId,
-				}),
+			void enqueue(() =>
+				recordArticleView({ requestKey: viewKey.current, articleId: props.articleId, plantId: props.plantId }),
 			);
 		}
 		const article = document.getElementById("wiki-article");
 		const column = scrollColumn();
 		if (!article) return;
 		let timer = 0;
+		const save = () => {
+			if (seen.current <= sent.current) return;
+			sent.current = seen.current;
+			const fraction = fractionText(seen.current);
+			void enqueue(() =>
+				saveProgress({ requestKey: crypto.randomUUID(), articleId: props.articleId, plantId: props.plantId }, fraction),
+			);
+		};
 		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
 		// article column's, or the window’s below 1280px, where the column does not scroll.
 		const measure = () => {
@@ -476,20 +492,11 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
 			const visible = Math.min(total, Math.max(0, edge - rect.top));
 			const next = Math.min(1, visible / total);
-			const finished = next >= 0.995 && seen.current < 1;
-			if (next <= seen.current + 0.01 && !finished) return;
-			seen.current = finished ? 1 : next;
-			void enqueue((rev) =>
-				saveProgress(
-					{
-						requestKey: crypto.randomUUID(),
-						expectedRevision: rev,
-						articleId: props.articleId,
-						plantId: props.plantId,
-					},
-					fractionText(seen.current),
-				),
-			);
+			const reached = next >= 0.995 ? 1 : next;
+			if (reached <= seen.current) return;
+			seen.current = reached;
+			setPercent(fractionText(reached));
+			if (progressStep(reached) > progressStep(sent.current)) save();
 		};
 		const onScroll = () => {
 			window.clearTimeout(timer);
@@ -499,12 +506,32 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 		const target: Element | Window = column ?? window;
 		target.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
+		// Leaving the page saves the furthest point read since the last step. A server action's fetch dies with the
+		// page, so this one is a keepalive request. Leaving the article inside the app saves through the action below.
+		const leave = () => {
+			if (seen.current <= sent.current) return;
+			sent.current = seen.current;
+			void fetch("/api/wiki/progress", {
+				method: "POST",
+				keepalive: true,
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					requestKey: crypto.randomUUID(),
+					articleId: props.articleId,
+					fraction: fractionText(seen.current),
+					...(props.plantId ? { plantId: props.plantId } : {}),
+				}),
+			}).catch(() => undefined);
+		};
+		window.addEventListener("pagehide", leave);
 		return () => {
 			target.removeEventListener("scroll", onScroll);
 			window.removeEventListener("resize", onScroll);
+			window.removeEventListener("pagehide", leave);
 			window.clearTimeout(timer);
+			save();
 		};
-		// Record the open once. Later scrolls use the revision that write returned.
+		// Record the open once per article.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [props.articleId]);
 
@@ -521,7 +548,8 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 	async function pdf() {
 		setBusy("pdf");
 		setFallback(null);
-		const result = await downloadPdf(props.articleId, props.source);
+		// A rejected call (offline) is a lost export: the buttons come back and the reader sees why.
+		const result = await downloadPdf(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
 		setBusy(null);
 		if (result.status === "pdf") {
 			saveFile(pdfFilename(props.slug), result.bytes);
@@ -539,7 +567,7 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 		setBusy("print");
 		const result = fallback
 			? { status: "print" as const, html: fallback, fallback: true }
-			: await printCopy(props.articleId, props.source);
+			: await printCopy(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
 		setBusy(null);
 		if (result.status === "print") {
 			if (!openPrint(result.html)) setNote("Allow pop-up windows to print this article.");
@@ -703,19 +731,21 @@ function SourceOrder({ open }: { open: boolean }) {
 		}
 		if (loaded.current) return;
 		loaded.current = true;
-		void readSourceOrder().then((result) => {
-			if (result.status !== "ok") {
-				setNote(
-					result.status === "denied"
-						? "Only an Owner or Admin can set this order."
-						: "The source order could not be loaded.",
-				);
-				return;
-			}
-			setChurches(result.churches);
-			setNetworks(result.networks);
-			setRevision(result.revision);
-		});
+		void readSourceOrder()
+			.catch((): OrderRead => ({ status: "lost" }))
+			.then((result) => {
+				if (result.status !== "ok") {
+					setNote(
+						result.status === "denied"
+							? "Only an Owner or Admin can set this order."
+							: "The source order could not be loaded.",
+					);
+					return;
+				}
+				setChurches(result.churches);
+				setNetworks(result.networks);
+				setRevision(result.revision);
+			});
 	}, [open]);
 
 	function close() {
@@ -744,7 +774,7 @@ function SourceOrder({ open }: { open: boolean }) {
 			revision,
 			churches.map((row) => row.id),
 			networks.map((row) => row.id),
-		);
+		).catch((): OrderSave => ({ status: "lost" }));
 		setPending(false);
 		if (result.status === "ok") {
 			router.refresh();

@@ -64,6 +64,8 @@ const actor = async (who) => {
 	return resolved;
 };
 const cmd = (input, expected = "0") => ({ requestKey: key(), expectedRevision: expected, input });
+// Progress and view writes carry no expected revision.
+const reading = (input) => ({ requestKey: key(), input });
 const current = async (who, articleId, sourceView) =>
 	ok(await api.getArticle(db, await actor(who), { articleId, ...(sourceView ? { source: sourceView } : {}) }));
 const ac = (ids) => ids.map((id) => "AC:" + id).join(" ");
@@ -658,7 +660,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.80", plantId: P }),
+					reading({ articleId: departed, fraction: "0.80", plantId: P }),
 				),
 			);
 			assert.equal(held.completed, false);
@@ -670,7 +672,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.30", plantId: P }, held.revision),
+					reading({ articleId: departed, fraction: "0.30", plantId: P }),
 				),
 			);
 			assert.equal(lower.completed, false);
@@ -680,7 +682,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, lower.revision),
+					reading({ articleId: departed, fraction: "0.800100", plantId: P }),
 				),
 			);
 			assert.equal(done.completed, true);
@@ -690,7 +692,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${people.owner.id} AND completed_at IS NOT NULL`,
 			);
 			const viewed = ok(
-				await api.recordView(db, await actor(people.owner), cmd({ articleId: departed, plantId: P }, done.revision)),
+				await api.recordView(db, await actor(people.owner), reading({ articleId: departed, plantId: P })),
 			);
 			assert.equal(viewed.completed, true);
 			assert.equal(
@@ -730,7 +732,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				parent: lead,
 			});
 			const opened = ok(
-				await api.updateProgress(db, await actor(people.owner), cmd({ articleId: guide, fraction: "0.91" })),
+				await api.updateProgress(db, await actor(people.owner), reading({ articleId: guide, fraction: "0.91" })),
 			);
 			assert.equal(opened.completed, true);
 			assert.equal(opened.meaningfulUpdateLabel, false);
@@ -1187,7 +1189,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			const phaseBefore = await count(sql`SELECT phase AS n FROM plant WHERE id=${P}`);
 			for (const articleId of discovery) {
 				const row = ok(
-					await api.updateProgress(db, await actor(people.lead), cmd({ articleId, fraction: "0.91", plantId: P })),
+					await api.updateProgress(db, await actor(people.lead), reading({ articleId, fraction: "0.91", plantId: P })),
 				);
 				assert.equal(row.completed, true);
 			}
@@ -1553,6 +1555,102 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
+	test("T-157: publish clears the draft pointer, so the editor reads what was published until a new draft", async () => {
+		const piece = await globalPiece("t157/publish/" + randomUUID(), [{ text: "Global guidance." }]);
+		const editor = await enroll("admin", { kind: "organization", id: S3 });
+		const at = { articleId: piece.article, organizationId: S3 };
+		const pointer = async () =>
+			(
+				await admin.execute(
+					sql`SELECT e.draft_revision_id, d.body AS draft, c.body AS current FROM article_editor_state e
+						LEFT JOIN article_revision d ON d.id = e.draft_revision_id
+						LEFT JOIN article_revision c ON c.id = e.current_revision_id
+						WHERE e.organization_id=${S3} AND e.article_id=${piece.article}`,
+				)
+			).rows[0];
+		// The editor's read in apps/web/src/features/wiki/server.ts: the draft read's body, else the stored draft,
+		// else the current revision.
+		const opens = async () => {
+			const draft = ok(await api.getOrganizationDraft(db, await actor(editor), at));
+			const stored = await pointer();
+			return { body: draft.body ?? stored.draft ?? stored.current, state: draft.state };
+		};
+		// Save draft A, edit the editor to B and publish B without saving it as a draft first.
+		ok(await api.addOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft A." })));
+		const published = ok(
+			await api.publishOrganizationArticle(
+				db,
+				await actor(editor),
+				cmd({ ...at, body: "Draft B.", cachePath: "wiki/t157" }, "1"),
+			),
+		);
+		assert.equal(published.errorCode, null);
+		assert.equal(published.state, "published");
+		assert.deepEqual(await opens(), { body: "Draft B.", state: "published" });
+		const stored = await pointer();
+		assert.equal(stored.draft_revision_id, null);
+		assert.equal(stored.current, "Draft B.");
+		assert.equal(
+			(await current(editor, piece.article, { kind: "organization", organizationId: S3 })).article.body,
+			"Draft B.",
+		);
+		// A draft saved after the publish is a real unpublished draft, and the editor shows it.
+		ok(await api.editOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft C." }, "2")));
+		assert.deepEqual(await opens(), { body: "Draft C.", state: "published" });
+		assert.equal((await pointer()).current, "Draft B.");
+	});
+
+	test("T-157: two tabs write progress and views from stale revisions without a conflict; bookmark still works", async () => {
+		const piece = await globalPiece("t157/tabs/" + randomUUID(), [{ text: "Global guidance." }]);
+		const reader = await enroll("member", { kind: "plant", id: P });
+		const write = async (call, input) => ok(await call(db, await actor(reader), reading(input)));
+		const article = { articleId: piece.article, plantId: P };
+		// Both tabs loaded the page before any reading row existed, so each holds revision "0".
+		const loaded = "0";
+		const results = [
+			await write(api.recordView, article),
+			await write(api.recordView, article),
+			await write(api.updateProgress, { ...article, fraction: "0.25" }),
+			await write(api.updateProgress, { ...article, fraction: "0.6" }),
+			await write(api.updateProgress, { ...article, fraction: "0.5" }),
+			await write(api.recordView, article),
+			await write(api.updateProgress, { ...article, fraction: "0.4" }),
+		];
+		for (const result of results) {
+			assert.equal(result.errorCode, null);
+			assert.equal(result.written, true);
+			// A reading row starts at revision 1 and only a bookmark moves it.
+			assert.equal(result.revision, "1");
+		}
+		assert.equal(results.at(-1).observedFraction, "0.6");
+		assert.equal(results.at(-1).completed, false);
+		const row = async () =>
+			(
+				await admin.execute(
+					sql`SELECT observed_fraction::text AS fraction, revision::text AS revision, bookmarked FROM reading
+						WHERE account_id=${reader.id} AND article_id=${piece.article}`,
+				)
+			).rows[0];
+		assert.deepEqual(await row(), { fraction: "0.6", revision: "1", bookmarked: false });
+		const marked = ok(
+			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: true }, loaded)),
+		);
+		assert.equal(marked.written, true);
+		assert.equal(marked.bookmarked, true);
+		assert.equal(marked.revision, "2");
+		// Progress after the bookmark keeps the bookmark and the revision, and completion keeps its rule.
+		const finished = await write(api.updateProgress, { ...article, fraction: "0.85" });
+		assert.equal(finished.completed, true);
+		assert.equal(finished.bookmarked, true);
+		assert.equal(finished.revision, "2");
+		// The bookmark keeps its revision check: the stale tab's toggle is a conflict.
+		refused(
+			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: false }, loaded)),
+			"conflict",
+		);
+		assert.deepEqual(await row(), { fraction: "0.85", revision: "2", bookmarked: true });
+	});
+
 	test("AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision", async () => {
 		const piece = await globalPiece("wp035/draft/" + randomUUID(), [{ text: "Global guidance." }]);
 		const editor = await enroll("admin", { kind: "organization", id: S3 });
@@ -1660,7 +1758,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		refused(await api.getArticle(db, forged, { articleId: lead }), "access_denied");
 		const audits = await count(sql`SELECT count(*)::int AS n FROM audit_event`);
 		const readings = await count(sql`SELECT count(*)::int AS n FROM reading`);
-		refused(await api.updateProgress(db, forged, cmd({ articleId: lead, fraction: "0.91" })), "unavailable");
+		refused(await api.updateProgress(db, forged, reading({ articleId: lead, fraction: "0.91" })), "unavailable");
 		assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event`), audits);
 		assert.equal(await count(sql`SELECT count(*)::int AS n FROM reading`), readings);
 	});
@@ -1858,7 +1956,7 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		async () => {
 			const reader = await actor(r1.owner);
 			const finished = ok(
-				await api.updateProgress(db, reader, cmd({ articleId: support, fraction: "0.95", plantId: R1 })),
+				await api.updateProgress(db, reader, reading({ articleId: support, fraction: "0.95", plantId: R1 })),
 			);
 			assert.equal(finished.completed, true);
 			ok(
@@ -1868,7 +1966,7 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 				await api.updateProgress(
 					db,
 					await actor(r1.owner),
-					cmd({ articleId: typoPiece, fraction: "0.95", plantId: R1 }),
+					reading({ articleId: typoPiece, fraction: "0.95", plantId: R1 }),
 				),
 			);
 			await revision({

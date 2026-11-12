@@ -46,7 +46,12 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
+import {
+	guestsWriter,
+	meetingsReader,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
@@ -807,4 +812,32 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 		}
 	}
 	assert.deepEqual(blind, [], "church A's own owner must see the seeded data, or the case proves nothing");
+});
+
+// T-232: Add guest's one write takes a meeting and People only from the writer's own church.
+test("INV-tenancy: meetings.addGuests refuses another church's meeting and adds no Person of another church", async () => {
+	const add = (input) =>
+		withMeetingsWrite(f.db, ownerB.actor, (tx, c) => guestsWriter.addGuests(tx, c, { requestKey: key(), input }));
+	const guests = (meetingId) =>
+		rows(sql`SELECT person_id, removed_at FROM participation WHERE meeting_id=${meetingId} ORDER BY person_id`);
+	const people = async () => (await rows(sql`SELECT count(*)::int AS n FROM person`))[0].n;
+	const aGuests = await guests(a.vision);
+	const before = await people();
+	// Church B's owner names church A's meeting, with church A's People and a new contact.
+	const onA = await add({ meetingId: a.vision, people: [a.avery, a.blair], contacts: [{ displayName: `${MARK} B` }] });
+	assert.deepEqual([onA.status, onA.status === "refused" && onA.error.code], ["refused", "unavailable"]);
+	// Church B's own meeting with only church A's People: none of them is a Person of church B.
+	const own = ok(
+		await withMeetingsWrite(f.db, ownerB.actor, (tx, c) =>
+			meetingsWriter.schedule(tx, c, {
+				requestKey: key(),
+				input: { type: "orientation", date: occurredOn, time: "18:00" },
+			}),
+		),
+	).meeting;
+	const onB = await add({ meetingId: own.id, people: [a.avery, a.blair] });
+	assert.deepEqual([onB.status, onB.status === "refused" && onB.error.code], ["refused", "invalid_subject"]);
+	assert.deepEqual(await guests(a.vision), aGuests);
+	assert.deepEqual(await guests(own.id), []);
+	assert.equal(await people(), before);
 });

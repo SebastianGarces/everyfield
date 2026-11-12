@@ -36,12 +36,29 @@ export function appendPerson(
 	writes: SQLWrapper[],
 	linkedAccountId: string | null = null,
 ) {
-	const row = newPerson(context, raw, linkedAccountId);
+	return appendPeople(tx, context, [newPerson(context, raw, linkedAccountId)], writes)[0]!;
+}
+/** New Person rows (newPerson) queued as one insert, with their pipeline columns' revision, however many there are. */
+export function appendPeople(
+	tx: Tx,
+	context: Pick<Context, "selected">,
+	rows: ReturnType<typeof newPerson>[],
+	writes: SQLWrapper[],
+) {
+	if (!rows.length) return rows;
 	writes.push(
-		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
+		tx
+			.insert(tables.person)
+			.values(rows.map((row) => ({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }))),
 	);
-	if (context.selected.kind === "plant") writes.push(columnsChanged(context.selected.id, [row.stage]));
-	return row;
+	if (context.selected.kind === "plant")
+		writes.push(
+			columnsChanged(
+				context.selected.id,
+				rows.map((row) => row.stage),
+			),
+		);
+	return rows;
 }
 /** A new live Person row with the People defaults. The CSV import passes a stable ID and creation time per row. */
 export function newPerson(
