@@ -420,6 +420,35 @@ try {
 		return JSON.parse(line.slice(2));
 	};
 
+	// The owner's Evry conversation, with review cards: opening it reads every card's review in the page read, so its
+	// count stays the same from 2 cards to 8 (T-231).
+	const census = (
+		await admin.execute(
+			sql`INSERT INTO conversation(tenant_id,account_id,context_kind,title) VALUES(${plant.id},${owner.accountId},'plant','Census') RETURNING id`,
+		)
+	).rows[0].id;
+	const reviewCard = async (city) => {
+		const review = {
+			target: { kind: "person", id: maria.id, label: "Maria Santos" },
+			changes: [{ field: "city", before: null, after: city }],
+		};
+		const proposal = (
+			await admin.execute(sql`INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,input,review,digest,state,expires_at)
+				VALUES(${plant.id},${owner.accountId},${census},'people.updatePerson',${JSON.stringify({ personId: maria.id, patch: { city } })}::jsonb,
+					${JSON.stringify(review)}::jsonb,${"0".repeat(64)},'pending',clock_timestamp()+interval '1 day') RETURNING id`)
+		).rows[0].id;
+		const result = { operation: "evry.prepareProposal", status: "available", rows: [], total: 0, page: 1, next: null };
+		await admin.execute(sql`WITH c AS (
+				UPDATE conversation SET last_sequence=last_sequence+1,updated_at=clock_timestamp() WHERE id=${census} RETURNING id,last_sequence
+			) INSERT INTO conversation_event(conversation_id,sequence,kind,body)
+			SELECT id,last_sequence,'tool_result',${JSON.stringify({ operation: "evry.prepareProposal", result: { ...result, completeness: "complete", exclusions: [], proposalId: proposal } })}::jsonb FROM c`);
+	};
+	const openReviews = async () => {
+		const read = await fetch(origin + "/api/evry/open", { headers: { cookie: owner.cookie } }).then((r) => r.json());
+		return Object.values(read.reviews).filter((r) => r?.status === "pending").length;
+	};
+	for (let i = 0; i < 2; i++) await reviewCard(`Census ${i}`);
+
 	const pages = [
 		["GET /people", "/people", owner.cookie],
 		["GET /people?view=pipeline", "/people?view=pipeline", owner.cookie],
@@ -436,6 +465,8 @@ try {
 		// A crawler gets the public preview: one read for the metadata and the body together.
 		["GET /wiki/[slug] (crawler)", "/wiki/census-lead", "", 200, { "user-agent": "Googlebot/2.1" }],
 		["GET /api/evry/open", "/api/evry/open", owner.cookie],
+		// Opening a conversation from History: the same page read, with every review card's review (T-231).
+		["GET /api/evry/conversations/[id]", `/api/evry/conversations/${census}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
 		["GET /documents/church", "/documents/church", owner.cookie],
 		["GET /documents/church (member)", "/documents/church", member.cookie],
@@ -975,9 +1006,9 @@ try {
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
 	await notices(80);
 	for (let i = 0; i < 12; i++) await wikiArticle(`census-grown-${i}`, i + 2);
-	await admin.execute(
-		sql`INSERT INTO conversation(tenant_id,account_id,context_kind,title) VALUES(${plant.id},${owner.accountId},'plant','Census')`,
-	);
+	assert.equal(await openReviews(), 2, "the open read brings both cards' reviews");
+	for (let i = 2; i < 8; i++) await reviewCard(`Census ${i}`);
+	assert.equal(await openReviews(), 8, "the open read brings every card's review");
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
 	// The ministry page lists its team meetings in one read: a dozen of them send the same statement count (WP-017).
