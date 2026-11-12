@@ -229,9 +229,6 @@
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
 	},
-	"accountPerson.ensureGuest": {
-		"limit": 5
-	},
 	"communication.archiveTemplate": {
 		"limit": 2
 	},
@@ -1378,9 +1375,6 @@
 		"limit": 16,
 		"retry": 4,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write."
-	},
-	"people/references.detachAccountPersonLinks": {
-		"limit": 4
 	},
 	"reference.exportApprovedWiki": {
 		"limit": 1
