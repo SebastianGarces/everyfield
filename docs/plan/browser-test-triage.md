@@ -35,7 +35,7 @@ the browser suite holding only the critical flows.
 | `tests/ui/communication/capture.test.mts` | node (web) | none | delete from browser suite | Capture outbox rules (AC:CASE-COM-003, COM-012) on a temp directory; unit test. |
 | `tests/ui/communication/route.test.mts` | node (web) | none | delete from browser suite | Messages URL parse and write-back; unit test. |
 | `tests/ui/documents/editor-schema.test.mts` | node (web) | none | delete from browser suite | Editor schema, licence and conditional-text rules; unit test. |
-| `tests/ui/documents/keyboard.test.mjs` | browser | none | delete | Toolbar keyboard and overlay checks (T-122). Not a critical flow, and it holds no domain behavior; test-standard proves other UI behavior broadly. Its header also names a `tests/ui/settings/seed.mts` that does not exist. |
+| `tests/ui/documents/keyboard.test.mjs` | browser | none | delete | Toolbar keyboard and overlay checks (T-122). Not a critical flow, and it holds no domain behavior; test-standard proves other UI behavior broadly. |
 | `tests/ui/documents/labels.test.mts` | node (web) | none | delete from browser suite | Block and paper label maps; unit test. |
 | `tests/ui/documents/merge-too-long.test.mts` | node (web) | none | delete from browser suite | Merge-size refusal text reads the domain refusal path; unit test. |
 | `tests/ui/documents/render-key.test.mts` | node (web) | none | delete from browser suite | Preview render-key and request dedupe; unit test. |
@@ -91,13 +91,7 @@ the browser suite holding only the critical flows.
 | `tests/ui/teams/model.test.mjs` | node (web) | none | delete from browser suite | Ministry edit and history rules; unit test. |
 
 Totals: 8 keep (3 browser tests, 5 helpers), 1 delete, 49 delete from browser suite (48 node tests and
-`render.tsconfig.json`). Every flow has one kept test file:
-
-| Flow | Kept test file | Kept helpers |
-|---|---|---|
-| sign-in | `tests/ui/identity/landing.test.mjs` | `identity/invitation-seed.mts`, `seed-env.mts`, `setup.mjs` |
-| meeting end to end | `tests/ui/meetings/attendance.test.mjs` | `meetings/seed.mts`, `people/seed.mts`, `seed-env.mts`, `setup.mjs` |
-| Evry review and approve | `tests/ui/evry/review.test.mjs` | `people/seed.mts`, `seed-env.mts`, `setup.mjs` |
+`render.tsconfig.json`). Each flow has one kept test file.
 
 ## Gaps
 
@@ -106,9 +100,6 @@ Totals: 8 keep (3 browser tests, 5 helpers), 1 delete, 49 delete from browser su
   creates and plans a meeting through to that point. No other browser file covers meetings, so the list keeps this
   file and names the gap instead of keeping an unrelated one. A later task can extend it to start from creating the
   meeting.
-- **Each kept file holds more than its flow.** `evry/review.test.mjs` ends with INV-approve-runs-once, which calls the
-  real routes with no page. `meetings/attendance.test.mjs` holds two T-155 regressions (BUG-ce8e6b7f7) on saves after
-  finalize. They can stay. A trim would move the route check to an integration test first.
 
 ## What the deletion task does
 
