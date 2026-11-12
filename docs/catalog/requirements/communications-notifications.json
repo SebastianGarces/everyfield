@@ -1120,8 +1120,7 @@
       "text": "Typed plant or exact organization anchor, recipient and paired entity identity; one live occurrence key, renewed occurrence after cancellation only when legitimate. Commit only currently eligible category/audience. No generic unchecked organization UUID.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
-        "notifications.enqueue",
-        "notifications.cancelForEntity"
+        "notifications.enqueue"
       ],
       "acceptance_ids": [
         "AC-NTF-001--NTF-001"
@@ -1136,7 +1135,7 @@
       "title": "Tenant/organization anchored enqueue and deduplicated delivery intent",
       "behavior_rules": [
         {
-          "operation": "notifications.cancelForEntity",
+          "operation": "notifications.enqueue",
           "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant."
         },
         {
@@ -1331,7 +1330,7 @@
       "text": "Scheduled meeting announcement to linked eligible core-group accounts; 7/3/1 day-offset reminders to eligible linked attendance/guest-list accounts plus creator. Edit cancels/rebuilds; canceled/completed/past meetings suppress obsolete reminders. CRM bulk guest invitations use Communication, not another address fallback.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
-        "notifications.syncMeetingReminders",
+        "meetings.planNotifications",
         "notifications.meetingAudience"
       ],
       "acceptance_ids": [
