@@ -145,9 +145,8 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 };
 
 /**
- * The categories something sends today. Connection and sharing milestones wait for a later slice (D-761) and nothing
- * writes launch milestones yet (D-762), so Settings does not offer a choice that nothing reads; their stored choices
- * are kept.
+ * The categories something sends today. Nothing writes launch milestones yet (D-762), so Settings does not offer a
+ * choice that nothing reads; its stored choices are kept.
  */
 const SENT: ReadonlySet<Category> = new Set([
 	"task_due",
@@ -156,6 +155,8 @@ const SENT: ReadonlySet<Category> = new Set([
 	"meeting_reminder",
 	"planter_digest",
 	"oversight_digest",
+	"relationship_milestone",
+	"sharing_milestone",
 	"phase_milestone",
 	"wiki_upstream_review",
 	"scheduled_email_unsubscribe",
