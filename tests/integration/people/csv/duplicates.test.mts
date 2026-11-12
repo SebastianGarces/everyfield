@@ -1,6 +1,7 @@
 // T-263 (D-789, D-790): "Not a duplicate" on a pair the CSV import flagged with "Add, review later". An Owner or Admin
 // dismisses it, it leaves the list and shows in the Dismissed view, each dismiss and restore writes one audit row, a
-// repeat writes nothing and a stale pair is refused with nothing written. Through the public operations, on a scratch
+// repeat writes nothing and a stale pair is refused with nothing written. T-268: the side-by-side review offers it for
+// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. Through the public operations, on a scratch
 // schema, the way the web mount runs them (withPeopleWrite with the request's resolved actor).
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
@@ -10,6 +11,7 @@ import { randomUUID } from "node:crypto";
 
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { readPair } from "../../../../apps/web/src/features/people/corrections/server.ts";
 import {
 	dismissDuplicatePair,
 	executeBulkImport,
@@ -230,4 +232,80 @@ test("AC:TARGET-PPL-016 INV-tenancy T-263 only the church's Owners and Admins di
 	refused(await restore(pair, 1));
 	assert.equal(await dismissals(pair), 1);
 	assert.deepEqual(mine([pair])(await dismissedList(0)), [pair]);
+});
+
+/** The review page's one read for the pair `person`, `with`, with `keep` staying when given. */
+const review = (person, other, keep = null) => read(0, (t, c) => readPair(t, c, { person, with: other, keep }));
+const listedOn = async (person, other, keep = null) => {
+	const view = await review(person, other, keep);
+	assert.equal(view.kind, "ready");
+	return view.listed;
+};
+
+test("AC:TARGET-PPL-016 T-268 the review of a listed pair names the imported person first in either order, and its dismiss writes what the list's does", async () => {
+	const [pair] = await flaggedPairs(["Rae"]);
+	const direction = { personId: pair.personId, withPersonId: pair.withPersonId };
+	assert.deepEqual(await listedOn(pair.personId, pair.withPersonId), direction);
+	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId), direction, "the address names them reversed");
+	// "Keep X instead" reads the review again with the other survivor; the pair is still listed the same way.
+	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId, pair.personId), direction);
+	assert.deepEqual(await listedOn(pair.personId, pair.withPersonId, pair.withPersonId), direction);
+
+	// The screen sends the listed direction, as the list's row does.
+	assert.deepEqual(ok(await dismiss(await listedOn(pair.withPersonId, pair.personId))), { outcome: "changed" });
+	assert.equal(await dismissals(pair), 1);
+	assert.deepEqual(await audits(pair), [
+		{
+			tenant_id: plants[0],
+			actor_id: actors[0].id,
+			action: "people.duplicate_dismissed",
+			kind: "hide",
+			subject_type: "person",
+			subject_id: pair.personId,
+			metadata: { withPersonId: pair.withPersonId },
+		},
+	]);
+	assert.deepEqual(mine([pair])(await listed()), []);
+	// Dismissed: the review no longer offers it, in either order.
+	assert.equal(await listedOn(pair.personId, pair.withPersonId), null);
+	assert.equal(await listedOn(pair.withPersonId, pair.personId), null);
+	// Restored: it is offered again.
+	ok(await restore(pair));
+	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId), direction);
+});
+
+test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss after one side merged is refused with nothing written", async () => {
+	// Two live people with the same email that no import flagged: a duplicate hint, not a listed pair.
+	const email = `sol-${randomUUID().slice(0, 8)}@example.test`;
+	const a = await person("Sol Hint", { email });
+	const b = await person("Sol Hint Too", { email });
+	assert.equal(await listedOn(a.id, b.id), null);
+	assert.equal(await listedOn(b.id, a.id), null);
+
+	// The review loaded with the pair listed; then someone merged one side.
+	const [pair] = await flaggedPairs(["Tam"]);
+	const loaded = await listedOn(pair.withPersonId, pair.personId);
+	const merge = ok(
+		await read(3, (t, c) =>
+			peopleMerge.getMergeReview(t, c, { sourceId: pair.personId, survivorId: pair.withPersonId }),
+		),
+	);
+	ok(
+		await write(3, (t, c) =>
+			peopleMerge.mergePeople(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					sourceId: pair.personId,
+					survivorId: pair.withPersonId,
+					reviewDigest: merge.reviewDigest,
+					fieldChoices: {},
+				},
+			}),
+		),
+	);
+	refused(await dismiss(loaded), "pair_unavailable");
+	assert.equal(await dismissals(pair), 0);
+	assert.deepEqual(await audits(pair), []);
+	// Reading again shows where they stand now: merged, with nothing to dismiss.
+	assert.equal((await review(pair.withPersonId, pair.personId)).kind, "merged");
 });

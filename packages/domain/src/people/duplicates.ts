@@ -172,6 +172,33 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 	});
 }
 
+const listedRow = z.object({
+	allowed: z.boolean(),
+	listed: z.object({ personId: z.uuid(), withPersonId: z.uuid() }).nullable(),
+});
+/**
+ * Whether `a` and `b` are a listed pair (one people.listDuplicatePairs shows) in either order, and in which direction:
+ * the imported person first, as the dismissal row and people.dismissDuplicatePair take it (D-789). Null when the import
+ * flagged neither order, either person is not live here, or the pair was dismissed. One statement, with the live Owner
+ * or Admin check inside it (C13). The duplicate review reads it in its own transaction.
+ */
+export async function listedDuplicatePair(tx: Tx, ctx: Context, pair: { a: string; b: string }) {
+	return readReply(async () => {
+		if (ctx.selected.kind !== "plant") deny();
+		const plant = ctx.selected.id;
+		const r = await tx.execute(sql`SELECT g.allowed,(SELECT jsonb_build_object('personId',p.id,'withPersonId',m.id)
+  FROM person p JOIN person m ON m.tenant_id=p.tenant_id AND m.state='live'
+  WHERE g.allowed AND p.tenant_id=${plant}::uuid AND p.state='live'
+   AND ((p.id=${pair.a}::uuid AND m.id=${pair.b}::uuid) OR (p.id=${pair.b}::uuid AND m.id=${pair.a}::uuid))
+   AND ${flagged} AND NOT ${dismissed}
+  ORDER BY p.created_at,p.id LIMIT 1) AS listed
+ FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
+		const row = listedRow.parse(r.rows[0]);
+		if (!row.allowed) deny();
+		return row.listed;
+	});
+}
+
 const dismissedRows = z.object({
 	allowed: z.boolean(),
 	zone: z.string().nullable(),

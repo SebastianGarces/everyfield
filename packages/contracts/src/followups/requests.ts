@@ -24,7 +24,8 @@ export const recordOutcomeRequest = z.strictObject({
 				z.strictObject({ kind: z.literal("person"), personId }),
 			]),
 			outcome,
-			// Omitted means now, except for contacted. The server refuses a future instant.
+			// Omitted means now, except for contacted. The server refuses an instant more than CLOCK_ALLOWANCE_MS (2 minutes)
+			// after its clock and stores its own clock for one within that allowance.
 			occurredAt: instant.optional(),
 			channel: channel.nullable().default(null),
 			notes: notes.nullable().default(null),

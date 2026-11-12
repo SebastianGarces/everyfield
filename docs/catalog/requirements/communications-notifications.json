@@ -1184,7 +1184,7 @@
       "feature_ids": [
         "NTF-003"
       ],
-      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. The bell and the feed page share one read state: an entry marked read in either, singly or by mark-all, shows read in the other at once without a reload, the unread counts agree, and opening the bell marks nothing (Audit #551). Read does not complete work. Empty differs from unavailable.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.feed",

@@ -10,7 +10,7 @@ const localDateOf = (at: Date, zone: TimeZone) =>
 
 /**
  * The next occurrence of a recurring task completed at `at` (REQ-TSK-007), or null when the series has stopped, already
- * has a successor, or the next date falls after the inclusive end date. The successor is due one interval after the
+ * has a successor in this series (an occurrence restarted from a stopped series may keep one in its old series), or the next date falls after the inclusive end date. The successor is due one interval after the
  * current due date, or after the completion date when undated, so a late completion may yield an overdue successor.
  * A rule time or a timed predecessor gives a timed successor, resolved automatically: earlier fold, forward over a gap.
  * The successor keeps the task's fields, keeps each assignee only while that account still holds a seat, and gets fresh

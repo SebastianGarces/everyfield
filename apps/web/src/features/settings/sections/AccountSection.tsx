@@ -82,7 +82,7 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				{/* Draft for Maya's approval (T-271): it states the photo read rule in avatar.ts. */}
+				{/* Draft for Maya's approval (T-271): it replaces her own-account-only line and states the read rule in avatar.ts. */}
 				<SettingRow label="Photo" description="Shown next to your name to people in your church.">
 					<AvatarControl
 						port={port.flows.avatar}
