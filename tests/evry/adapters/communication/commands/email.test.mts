@@ -2,7 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
-import { notificationCategory } from "../../../../../packages/contracts/src/settings/values.ts";
+import { runDueScheduled } from "../../../../../packages/domain/src/communication/delivery.ts";
 import { readFileSync } from "node:fs";
 import {
 	approveProposal,
@@ -135,20 +135,9 @@ function emailService() {
 	return { port, calls, answers };
 }
 
-/**
- * The state after a person turns off every email switch Settings shows an account: Settings shows no oversight digest
- * switch without an organization seat, and with one it is already off with no row. tests/integration/settings drives
- * the real Settings command to this same state. Returns how many it turned off.
- */
-async function turnOffEveryEmailSwitch(who: keyof typeof accounts) {
-	const categories = notificationCategory.options.filter(
-		(name) => name !== "wiki_upstream_review" && name !== "oversight_digest",
-	);
-	for (const category of categories)
-		await admin.execute(sql`INSERT INTO notification_preference(id,account_id,category,channel,enabled,unsubscribe_revision)
-			VALUES(${randomUUID()},${accounts[who]!.id},${category},'email',false,1)`);
-	return categories.length;
-}
+/** The person unsubscribed from this church's email (the Messages opt-out the handoff honors, D-284). */
+const unsubscribe = (person: string) =>
+	admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant}, ${person})`);
 
 before(async () => {
 	await setup();
@@ -164,11 +153,11 @@ before(async () => {
 		VALUES(${event},${"seed-" + event},${"seed-" + event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hashOf("casey.reed@example.test")},'hard_bounce',${event},clock_timestamp())`);
-	// Dana turned off every update email on her account.
+	// Dana unsubscribed from this church's email.
 	people.dana = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
 		VALUES(${people.dana},${plant},${plant},'Dana Off','dana.off@example.test','other',clock_timestamp(),'prospect','unknown','unknown',9,'live',${accounts.member.id})`);
-	await turnOffEveryEmailSwitch("member");
+	await unsubscribe(people.dana);
 	const [none] = (await admin.execute(sql`SELECT id FROM person WHERE plant_id=${plant} AND display_name='Member 001'`))
 		.rows as { id: string }[];
 	people.noAddress = none!.id;
@@ -242,12 +231,24 @@ async function savedDraft(who: EvryActor, mail: MailPort, subject = SUBJECT, bod
 	assert.equal(done.outcome, "completed");
 	return { id: done.review.receipt!.receiptId!, revision: done.review.receipt!.revision! };
 }
-/** A message scheduled through its reviews and handed to the email service. */
+const mailOf = (id: string) => `communication/${id}/%`;
+/**
+ * The email service holds the message's waiting recipients, as it does for a message scheduled before T-241 moved the
+ * handoff to the send time: a cancel or a time change then has to ask it, and can go unconfirmed.
+ */
+const heldByService = (id: string) =>
+	admin.execute(sql`UPDATE mail SET state='accepted',provider_message_id='re_'||id::text
+		WHERE logical_key LIKE ${mailOf(id)} AND state='scheduled'`);
+/**
+ * A message scheduled through its reviews. It waits in Everyfield for its send time; `held` (the default) then puts it
+ * with the email service, so the provider paths of a cancel, a time change and a replacement can be driven.
+ */
 async function scheduledMessage(
 	who: EvryActor,
 	service: ReturnType<typeof emailService>,
 	subject = SUBJECT,
 	sendAt = localAt(3),
+	held = true,
 ) {
 	const draft = await savedDraft(who, service.port, subject);
 	const t = await turn(who, service.port);
@@ -255,7 +256,16 @@ async function scheduledMessage(
 	assert.ok(proposal);
 	const done = await approve(who, proposal, service.port);
 	assert.equal(done.outcome, "completed");
+	if (held) await heldByService(draft.id);
 	return { id: draft.id, review: done.review };
+}
+/** Makes message `id` due and runs the minute runner once: it hands the message to the email service. */
+async function sendWhenDue(id: string, service: ReturnType<typeof emailService>) {
+	// The earliest due time, so the runner's one claim is this message.
+	await admin.execute(
+		sql`UPDATE mail SET scheduled_at='2000-01-01T00:00:00Z' WHERE logical_key LIKE ${mailOf(id)} AND state='scheduled'`,
+	);
+	return runDueScheduled(db, service.port.transport, service.port.keys, 1, Date.now() + 30_000);
 }
 
 /** A crash after the email service answered: the first step's saved mark stays, and no outcome was saved. */
@@ -328,7 +338,7 @@ test("AC:WP-028-3 a schedule review names who gets it, who is left out and why, 
 	assert.deepEqual(change(proposal, "recipients")!.after, [{ name: "Alex Chen" }, { name: "Alex Rivera" }]);
 	assert.deepEqual(change(proposal, "leftOut")!.after, [
 		{ name: "Casey Reed", reason: "blocked" },
-		{ name: "Dana Off", reason: "updates_off" },
+		{ name: "Dana Off", reason: "unsubscribed" },
 		{ name: "Member 001", reason: "no_address" },
 	]);
 	assert.match(String(change(proposal, "content")!.after), /Come to Sunday's interest meeting at 4 pm\./);
@@ -349,22 +359,17 @@ test("AC:WP-028-3 a schedule review names who gets it, who is left out and why, 
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
 });
 
-test("AC:WP-028-3 update emails count as off by the same rule Settings shows, and a review refuses what the handoff would", async () => {
+test("AC:WP-028-3 the review leaves out who the handoff refuses: an unsubscribe after one review shows on the next", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
-	// orgOwner's account has an organization seat, so Settings shows the oversight digest switch, off by default.
-	const orgPerson = randomUUID();
-	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
-		VALUES(${orgPerson},${plant},${plant},'Olive Org','olive.org@example.test','other',clock_timestamp(),'prospect','unknown','unknown',10,'live',${accounts.orgOwner.id})`);
-	// The owner's linked account never turned anything off: they are not left out.
-	const ownerPerson = randomUUID();
-	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
-		VALUES(${ownerPerson},${plant},${plant},'Owen Owner','owen.owner@example.test','other',clock_timestamp(),'prospect','unknown','unknown',11,'live',${accounts.owner.id})`);
+	const olive = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+		VALUES(${olive},${plant},${plant},'Olive Org','olive.org@example.test','other',clock_timestamp(),'prospect','unknown','unknown',10,'live')`);
 	const t = await turn(owner, service.port);
 	const proposed = await t.propose("communication.saveDraft", {
-		subject: "Settings rule",
+		subject: "Opt-out rule",
 		body: "Hello.",
-		audience: { groups: [], teamIds: [], personIds: [people.dana!, orgPerson, ownerPerson] },
+		audience: { groups: [], teamIds: [], personIds: [people.dana!, olive] },
 	});
 	const saved = await approve(owner, proposed!, service.port);
 	const id = saved.review.receipt!.receiptId!;
@@ -374,23 +379,24 @@ test("AC:WP-028-3 update emails count as off by the same rule Settings shows, an
 			sendAt: localAt(3),
 		});
 	const before = await review();
-	assert.deepEqual(change(before!, "leftOut")!.after, [{ name: "Dana Off", reason: "updates_off" }]);
-	assert.deepEqual(change(before!, "recipients")!.after, [{ name: "Olive Org" }, { name: "Owen Owner" }]);
-	assert.equal(await turnOffEveryEmailSwitch("orgOwner"), 9, "the oversight digest is already off by default");
+	assert.deepEqual(change(before!, "leftOut")!.after, [{ name: "Dana Off", reason: "unsubscribed" }]);
+	assert.deepEqual(change(before!, "recipients")!.after, [{ name: "Olive Org" }]);
+	await unsubscribe(olive);
 	const after = await review();
 	assert.deepEqual(change(after!, "leftOut")!.after, [
-		{ name: "Dana Off", reason: "updates_off" },
-		{ name: "Olive Org", reason: "updates_off" },
+		{ name: "Dana Off", reason: "unsubscribed" },
+		{ name: "Olive Org", reason: "unsubscribed" },
 	]);
+	assert.equal(after!.review.refusal, "Nobody in this audience can get this email.");
 
-	// Over the email service's batch limit: refused on the review, before Messages marks it scheduled.
+	// More people than one email service call takes: the handoff sends them in batches, so the review allows it.
 	const crowd = Array.from({ length: 101 }, () => randomUUID());
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		SELECT x::uuid,${plant},${plant},'Crowd '||x,x||'@example.test','other',clock_timestamp(),'prospect','unknown','unknown',12,'live'
 		FROM unnest(${sql.param(crowd)}::text[]) x`);
 	const big = await turn(owner, service.port);
 	const proposedBig = await big.propose("communication.saveDraft", {
-		subject: "Too many",
+		subject: "Many",
 		body: "Hello.",
 		audience: { groups: [], teamIds: [], personIds: crowd },
 	});
@@ -401,7 +407,7 @@ test("AC:WP-028-3 update emails count as off by the same rule Settings shows, an
 		communicationId: savedBig.review.receipt!.receiptId!,
 		sendAt: localAt(3),
 	});
-	assert.match(bigReview!.review.refusal!, /at most 100 people/);
+	assert.equal(bigReview!.review.refusal, undefined);
 	await admin.execute(sql`DELETE FROM person WHERE id = ANY(${sql.param(crowd)}::uuid[])`);
 });
 
@@ -427,40 +433,43 @@ test("AC:WP-028-4 a schedule that is not approved, or whose approval lapsed, run
 	assert.equal((await readReview(db, owner, proposal.id)).status, "expired");
 });
 
-test("AC:WP-028-5 approving a schedule makes one schedule request and reports counts without saying delivered", async () => {
+test("AC:WP-028-5 approving a schedule saves it scheduled, reports counts without saying delivered, and the email service gets it at its time", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const sendAt = localAt(3);
-	const { id, review } = await scheduledMessage(owner, service, "Scheduled once", sendAt);
-	assert.equal(service.calls.send.length, 1);
-	const call = service.calls.send[0]!;
-	assert.deepEqual([...call.to].sort(), ["alex.chen@example.test", "alex.rivera@example.test"]);
-	assert.equal(call.subject, "Scheduled once");
-	assert.equal(call.openTransactions, 0, "the email service is called outside any open transaction");
-	assert.match(call.text.join("\n"), /Hi Alex (Chen|Rivera),/);
+	const { id, review } = await scheduledMessage(owner, service, "Scheduled once", sendAt, false);
+	assert.equal(service.calls.send.length, 0, "the message waits in Everyfield until its send time (T-241)");
 	const [expected] = await rows(
 		sql`SELECT to_char((${sendAt}::timestamp AT TIME ZONE 'America/Chicago') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') at`,
 	);
-	assert.equal(call.scheduledAt, expected!.at);
 	assert.deepEqual(
 		{ ...review.receipt!.report, scheduledAt: undefined },
-		{ kind: "schedule", confirmation: "confirmed", accepted: 2, refused: 2, unknown: 0, scheduledAt: undefined },
+		// Casey's blocked address is refused; Dana unsubscribed, which Messages counts apart from refusals (D-284).
+		{ kind: "schedule", confirmation: "confirmed", accepted: 2, refused: 1, unknown: 0, scheduledAt: undefined },
 	);
 	assert.equal(review.receipt!.report!.scheduledAt, expected!.at);
 	assert.doesNotMatch(JSON.stringify(review.receipt), /delivered/i);
 	const [message] = await rows(sql`SELECT state FROM communication WHERE id=${id}`);
 	assert.equal(message!.state, "scheduled");
 	const states = await rows(
-		sql`SELECT m.state,count(*)::int n FROM mail m WHERE m.logical_key LIKE ${"communication/" + id + "/%"} GROUP BY 1`,
+		sql`SELECT m.state,count(*)::int n FROM mail m WHERE m.logical_key LIKE ${mailOf(id)} GROUP BY 1 ORDER BY 1`,
 	);
 	assert.deepEqual(states, [
-		{ state: "accepted", n: 2 },
 		{ state: "refused", n: 2 },
+		{ state: "scheduled", n: 2 },
 	]);
 	const found = await db.transaction((tx) =>
 		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }),
 	);
 	assert.equal(found.rows[0]!.fields.handedOff, true);
+	// At its send time the email service gets one request with the reviewed recipients and content.
+	assert.equal(await sendWhenDue(id, service), 1);
+	assert.equal(service.calls.send.length, 1);
+	const call = service.calls.send[0]!;
+	assert.deepEqual([...call.to].sort(), ["alex.chen@example.test", "alex.rivera@example.test"]);
+	assert.equal(call.subject, "Scheduled once");
+	assert.match(call.text.join("\n"), /Hi Alex (Chen|Rivera),/);
+	assert.equal(call.openTransactions, 0, "the email service is called outside any open transaction");
 });
 
 test("AC:WP-028-5 the email service gets only the people the review showed", async () => {
@@ -506,36 +515,43 @@ test("AC:WP-028-5 the email service gets only the people the review showed", asy
 	const blockedHash = hashOf("casey.reed@example.test");
 	await admin.execute(sql`UPDATE suppression SET cleared_at=clock_timestamp() WHERE address_hash=${blockedHash}`);
 	await approve(owner, review!, service.port);
+	assert.equal(await sendWhenDue(saved2.review.receipt!.receiptId!, service), 1);
 	await admin.execute(sql`UPDATE suppression SET cleared_at=NULL WHERE address_hash=${blockedHash}`);
 	assert.deepEqual(service.calls.send.at(-1)!.to, ["alex.rivera@example.test"]);
 	await stageOf(people.alexRivera!, "prospect");
 });
 
-test("AC:WP-028-5 a schedule with no answer says not confirmed, Check again asks the email service, and a refused one says so", async () => {
+test("AC:WP-028-6 AC:WP-028-7 a message still waiting in Everyfield moves and cancels at once, with no email service call", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
-	const draft = await savedDraft(owner, service.port, "Schedule unanswered");
-	const t = await turn(owner, service.port);
-	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) });
-	service.answers.send = "unknown";
-	const done = await approve(owner, proposal!, service.port);
-	service.answers.send = "ids";
-	assert.equal(done.review.receipt!.report!.confirmation, "not_confirmed");
-	const still = await checkProposal(db, owner, proposal!.id, service.port);
-	assert.equal(still.proposal.receipt!.report!.confirmation, "not_confirmed");
-	service.answers.lookup = "ids";
-	const checked = await checkProposal(db, owner, proposal!.id, service.port);
-	assert.equal(checked.proposal.receipt!.report!.confirmation, "confirmed");
-	assert.equal((checked.proposal.receipt!.report as { accepted: number }).accepted, 2);
-
-	const refused = await savedDraft(owner, service.port, "Schedule refused");
-	const t2 = await turn(owner, service.port);
-	const p2 = await t2.propose("communication.scheduleReviewed", { communicationId: refused.id, sendAt: localAt(3) });
-	service.answers.send = "refused";
-	const r2 = await approve(owner, p2!, service.port);
-	service.answers.send = "ids";
-	assert.equal(r2.review.outcome, "completed");
-	assert.equal(r2.review.receipt!.report!.confirmation, "refused");
+	const { id } = await scheduledMessage(owner, service, "Waiting then moved", localAt(3), false);
+	const move = await (
+		await turn(owner, service.port)
+	).propose("communication.rescheduleReviewed", { communicationId: id, sendAt: localAt(4) });
+	assert.ok(move);
+	const moved = await approve(owner, move, service.port);
+	assert.equal(moved.review.receipt!.report!.confirmation, "confirmed");
+	const at = (change(move, "sendAt")!.after as { at: string }).at;
+	assert.equal(
+		(await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${mailOf(id)} AND scheduled_at=${at}`))[0]!
+			.n,
+		2,
+	);
+	const cancel = await (
+		await turn(owner, service.port)
+	).propose("communication.cancelScheduledReviewed", { communicationId: id });
+	assert.ok(cancel);
+	const cancelled = await approve(owner, cancel, service.port);
+	assert.equal(cancelled.review.receipt!.report!.confirmation, "confirmed");
+	assert.equal(
+		(await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${mailOf(id)} AND state='cancelled'`))[0]!
+			.n,
+		2,
+	);
+	assert.deepEqual(
+		[service.calls.send.length, service.calls.reschedule.length, service.calls.cancel.length],
+		[0, 0, 0],
+	);
 });
 
 test("AC:WP-028-6 a time change shows old and new time and says Saturday only after the email service confirms", async () => {
@@ -587,16 +603,11 @@ test("AC:WP-028-6 a time change shows old and new time and says Saturday only af
 test("AC:WP-028-6 a schedule the email service did not answer refuses a time change on the review, and no time moves", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
-	const draft = await savedDraft(owner, service.port, "Unanswered then moved");
-	const t = await turn(owner, service.port);
-	const scheduled = await t.propose("communication.scheduleReviewed", {
-		communicationId: draft.id,
-		sendAt: localAt(3),
-	});
-	service.answers.send = "unknown";
-	const done = await approve(owner, scheduled!, service.port);
-	assert.equal(done.review.receipt!.report!.confirmation, "not_confirmed");
-	service.answers.send = "ids";
+	const draft = await scheduledMessage(owner, service, "Unanswered then moved");
+	// The email service never answered about any recipient it was handed.
+	await admin.execute(
+		sql`UPDATE mail SET state='unknown',provider_message_id=NULL WHERE logical_key LIKE ${mailOf(draft.id)} AND state='accepted'`,
+	);
 	const t2 = await turn(owner, service.port);
 	const move = await t2.propose("communication.rescheduleReviewed", { communicationId: draft.id, sendAt: localAt(5) });
 	assert.match(move!.review.refusal!, /has not answered about every recipient/);
@@ -681,7 +692,13 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	const report = done.review.receipt!.report!;
 	assert.equal(report.kind, "replace");
 	assert.equal(report.confirmation, "confirmed");
-	assert.equal(service.calls.send.length, sends + 1, "one new schedule request");
+	// The replacement waits in Everyfield like any schedule, and goes to the email service at its time.
+	const [replacement] = await rows(
+		sql`SELECT id,state FROM communication WHERE plant_id=${plant} AND body_text LIKE '%5 pm%' ORDER BY created_at DESC LIMIT 1`,
+	);
+	assert.equal(replacement!.state, "scheduled");
+	assert.equal(await sendWhenDue(replacement!.id, service), 1);
+	assert.equal(service.calls.send.length, sends + 1, "one new send request");
 	assert.deepEqual(service.calls.send.at(-1)!.to, ["alex.rivera@example.test"]);
 	assert.match(service.calls.send.at(-1)!.text[0]!, /5 pm/);
 	assert.equal(
@@ -711,7 +728,16 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 		["cancelled", "open"],
 		"the person whose send is cancelled is listed too: their email is gone with no replacement",
 	);
-	assert.equal(service.calls.send.length, sendsBefore, "no replacement was scheduled");
+	assert.equal(service.calls.send.length, sendsBefore);
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM communication WHERE plant_id=${plant} AND body_text LIKE '%Different text.%'`,
+			)
+		)[0]!.n,
+		0,
+		"no replacement was saved or scheduled",
+	);
 
 	// One recipient's email already went out: also no replacement.
 	service.answers.cancel = "done";
@@ -733,32 +759,7 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	service.answers.cancel = "done";
 });
 
-test("AC:WP-028-8 a replacement the email service does not answer is not called confirmed, and Check again asks it", async () => {
-	const owner = await actor("owner");
-	const service = emailService();
-	const { id } = await scheduledMessage(owner, service, "Replace unanswered");
-	const t = await turn(owner, service.port);
-	const proposal = await t.propose("communication.replaceScheduledReviewed", {
-		communicationId: id,
-		body: "New text.",
-	});
-	service.answers.send = "unknown";
-	const done = await approve(owner, proposal!, service.port);
-	service.answers.send = "ids";
-	const report = done.review.receipt!.report!;
-	assert.equal(report.kind, "replace");
-	assert.equal(report.confirmation, "not_confirmed", "the old send is cancelled and the new one has no answer");
-	assert.deepEqual(
-		{ accepted: (report as { accepted: number }).accepted, unknown: (report as { unknown: number }).unknown },
-		{ accepted: 0, unknown: 2 },
-	);
-	service.answers.lookup = "ids";
-	const checked = await checkProposal(db, owner, proposal!.id, service.port);
-	assert.equal(checked.proposal.receipt!.report!.confirmation, "confirmed");
-	assert.equal((checked.proposal.receipt!.report as { accepted: number }).accepted, 2);
-});
-
-test("AC:WP-028-8 a replacement the handoff would refuse is refused on the review, and a later refusal says the old send is cancelled", async () => {
+test("AC:WP-028-8 a replacement the handoff would refuse is refused on the review, and a changed audience stops before the cancel", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Replace nobody");
@@ -791,29 +792,6 @@ test("AC:WP-028-8 a replacement the handoff would refuse is refused on the revie
 	assert.equal(stale.review.outcome, "refused");
 	assert.equal(stale.review.receipt!.code, "stale_review");
 	assert.equal(service.calls.cancel.length, 0, "the old send was not cancelled");
-
-	// The email service refuses the new send after the old one is cancelled: the report says so.
-	const proposal = await t.propose("communication.replaceScheduledReviewed", {
-		communicationId: id,
-		body: "New text.",
-	});
-	service.answers.send = "refused";
-	const done = await approve(owner, proposal!, service.port);
-	service.answers.send = "ids";
-	assert.equal(done.review.outcome, "completed");
-	const report = done.review.receipt!.report as {
-		kind: string;
-		confirmation: string;
-		code: string;
-		people: { outcome: string }[];
-	};
-	assert.equal(report.kind, "replace_stopped");
-	assert.equal(report.confirmation, "refused");
-	assert.equal(report.code, "provider_refused");
-	assert.deepEqual(
-		report.people.map((p) => p.outcome),
-		["cancelled", "cancelled"],
-	);
 });
 
 /** Each change the criterion names, made by the native command Messages or the email service callback runs. */
@@ -1246,7 +1224,9 @@ test("AC:WP-028-13 each read and effect stays within its budget in limits.json a
 		assert.ok(counted(before) <= budget, `${proposal.operation} sent ${counted(before)} statements, budget ${budget}`);
 	};
 	await effect(sched, ["communication.scheduleReviewed", "communication.handOffScheduled"]);
-	assert.equal(service.calls.send.at(-1)!.openTransactions, 0);
+	// The send itself happens at the send time (AC:WP-028-5 checks its open transactions). From here the email service
+	// holds the message, so each later effect calls it.
+	await heldByService(draft.id);
 
 	const move = await review("communication.rescheduleReviewed", { communicationId: draft.id, sendAt: localAt(4) }, 1);
 	await effect(move, ["communication.rescheduleDispatched"]);
@@ -1265,8 +1245,8 @@ test("AC:WP-028-13 each read and effect stays within its budget in limits.json a
 		"communication.handOffScheduled",
 	]);
 	assert.equal(service.calls.cancel.at(-1)!.openTransactions, 0);
-	assert.equal(service.calls.send.at(-1)!.openTransactions, 0);
 	const replaced = (await readReview(db, owner, replace.id)).receipt!.receiptId!;
+	await heldByService(replaced);
 
 	const cancel = await review("communication.cancelScheduledReviewed", { communicationId: replaced }, 1);
 	await effect(cancel, ["communication.cancelScheduledReviewed"]);

@@ -32,8 +32,12 @@ const messageRow = z.object({
 
 const mailOf = (message: string) =>
 	`m.tenant_id=${message}.plant_id AND m.logical_key LIKE 'communication/'||${message}.id||'/%'`;
-/** Recipients the email service still holds for message `c`: a cancel or a time change has something to act on. */
-const holding = (message: string) => `${mailOf(message)} AND m.state IN ('accepted','unknown','dispatched')`;
+/**
+ * Recipients still to go out for message `c`, so a cancel or a time change has something to act on: waiting in Everyfield
+ * for the send time (`scheduled`, T-241), or held by the email service.
+ */
+const holding = (message: string) =>
+	`${mailOf(message)} AND m.state IN ('scheduled','accepted','unknown','dispatched')`;
 export const held = sql.raw(`(SELECT count(*)::int FROM mail m WHERE ${holding("c")})`);
 /** Of those, the recipients the email service never answered about: they have no email service id to move by. */
 export const unanswered = sql.raw(

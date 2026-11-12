@@ -358,6 +358,10 @@ async function seedHope(admin: Database) {
 			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
+	// One email draft in Messages, so the Communication read has a row to show.
+	await run(sql`INSERT INTO communication(id,plant_id,author_id,revision,state,subject,body_html,body_text,audience,created_at)
+		VALUES(${id(0xc01)},${PLANT},${ACCOUNT(1)},1,'draft','Launch team dinner','<p>Join us Friday.</p>','Join us Friday.',
+		'{"groups":["launch_team"],"teamIds":[],"personIds":[]}'::jsonb,'2026-11-06T16:00:00.000Z')`);
 }
 
 /** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */
