@@ -132,11 +132,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			return [
 				toolCall("peopleOrganization_read", { operation: "people.listHouseholds", input: { limit: pageSize(text) } }),
 			];
-		// "Any duplicates to review?": the import review pairs, when this actor is offered them (an Owner or Admin).
-		const peopleTool = options.tools?.find((t) => t.name === "people_read");
-		const pairs = peopleTool?.type === "function" && !!peopleTool.description?.includes("people.listDuplicatePairs");
-		if (pairs && /\bduplicates?\b/i.test(text))
-			return [toolCall("people_read", { operation: "people.listDuplicatePairs", input: {} })];
 		const name = change?.[1] ?? /\b(?:[Ff]ind|named|called|for)\s+([A-Z][\w'-]+)/.exec(text)?.[1];
 		if (name) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
 		if (/\b(?:people|everyone|members?)\b/i.test(text))
