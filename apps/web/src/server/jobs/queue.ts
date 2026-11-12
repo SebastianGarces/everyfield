@@ -164,13 +164,6 @@ export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean>
     AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner} AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint AND lease_until>clock_timestamp() FOR UPDATE`);
 	return r.rowCount === 1;
 }
-export async function extendLease(db: Database, claim: Claim, seconds: number): Promise<boolean> {
-	leaseDuration.parse(seconds);
-	const r = await db.execute(sql`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>${seconds}::int)
-    WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner}
-    AND state='claimed' AND lease_until>clock_timestamp() AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint`);
-	return r.rowCount === 1;
-}
 export type JobResult =
 	| { state: "succeeded" | "cancelled" | "superseded" | "failed" | "reconcile"; code?: string }
 	| { state: "retry_wait"; retryAfterSeconds?: number; code: string };

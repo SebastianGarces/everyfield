@@ -128,11 +128,6 @@ function addressHash(addressKey: Buffer, address: string) {
 export function addressAad(plantId: string, mailId: string) {
 	return `${plantId}/${mailId}/address`;
 }
-export function sealText(key: Uint8Array, value: string, aad: string) {
-	const buf = Buffer.from(key);
-	if (buf.length !== 32) throw new Error("mail_keys_required");
-	return seal(buf, value, aad);
-}
 export function openText(key: Uint8Array, sealed: string, aad: string): string | null {
 	try {
 		const buf = Buffer.from(key);
