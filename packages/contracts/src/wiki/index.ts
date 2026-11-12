@@ -61,7 +61,7 @@ const listFields = {
 	page: page.optional(),
 };
 export const listArticlesRequest = z.strictObject(listFields);
-export const getArticleRequest = z.strictObject({
+export const articleRequest = z.strictObject({
 	articleId: z.uuid(),
 	source: sourceView.optional(),
 });
@@ -72,8 +72,6 @@ export const searchRequest = z.strictObject({
 	source: sourceView.optional(),
 });
 export const navigationRequest = z.strictObject({ source: sourceView.optional() });
-export const neighborsRequest = getArticleRequest;
-export const tocRequest = getArticleRequest;
 export const contextGuideRequest = z.strictObject({
 	route: z.string().min(1).max(200),
 	source: sourceView.optional(),

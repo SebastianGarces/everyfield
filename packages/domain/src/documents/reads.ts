@@ -133,7 +133,7 @@ async function contextOf(
 	artifact: Artifact,
 ): Promise<z.infer<typeof c.previewResult>>;
 async function contextOf(db: Reader, authority: RequestActor, raw: unknown, artifact: Artifact | null) {
-	const input = parse(artifact ? c.previewRequest : c.resolveContextRequest, raw);
+	const input = parse(c.resolveContextRequest, raw);
 	const cleaned = cleanOverrides(input.overrides);
 	if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 	const viewer = plantViewer(authority);

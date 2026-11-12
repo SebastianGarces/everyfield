@@ -48,7 +48,6 @@ function oneSubject(
 		ctx.addIssue({ code: "custom", path: ["overrides"], message: "Too many merge fields." });
 }
 export const resolveContextRequest = z.strictObject(contextInput).superRefine(oneSubject);
-export const previewRequest = resolveContextRequest;
 export const generateRequest = z
 	.strictObject({ ...contextInput, requestKey: z.string().trim().min(1).max(80) })
 	.superRefine(oneSubject);
@@ -157,11 +156,10 @@ export const acceptTemplateRequest = z.strictObject({
 });
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
-export const archiveDocumentRequest = z.strictObject({
+export const documentRevisionRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
 });
-export const designateCoreValuesRequest = archiveDocumentRequest;
 /** The import route's input: the file's raw bytes, at most IMPORT_BYTES_MAX, and where they go. */
 export const importDocumentRequest = z.strictObject({
 	title: documentTitle,

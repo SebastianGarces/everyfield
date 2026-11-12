@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { recordId, requestKey, revision } from "../common/values.ts";
 import { instant } from "../common/time.ts";
-import { audienceInput, draftInput, mergeFields, templateDraft, templatePatch } from "./values.ts";
+import { audienceInput, draftInput, mergeFields, templateDraft } from "./values.ts";
 
 export const saveDraftRequest = z.strictObject({
 	requestKey,
@@ -26,7 +26,7 @@ export const forkTemplateRequest = z.strictObject({
 export const updateTemplateRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ templateId: recordId, patch: templatePatch }),
+	input: z.strictObject({ templateId: recordId, patch: templateDraft }),
 });
 export const templateIdRequest = z.strictObject({
 	requestKey,

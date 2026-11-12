@@ -423,7 +423,7 @@ const generatedWriter = {
 
 	async archive(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.archiveDocumentRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
@@ -435,7 +435,7 @@ const generatedWriter = {
 
 	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.designateCoreValuesRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");

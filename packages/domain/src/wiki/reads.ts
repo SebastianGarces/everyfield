@@ -1,13 +1,12 @@
 import {
+	articleRequest,
 	contextGuideRequest,
-	getArticleRequest,
 	guideResult,
 	humanCredit,
 	listArticlesRequest,
 	listResult,
 	navigationRequest,
 	navigationResult,
-	neighborsRequest,
 	neighborsResult,
 	previewResult,
 	publicPreviewRequest,
@@ -21,7 +20,6 @@ import {
 	searchRequest,
 	searchResult,
 	statsResult,
-	tocRequest,
 	tocResult,
 	wikiArticle,
 	wikiBlocks,
@@ -162,7 +160,7 @@ export function listArticles(
 }
 export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(getArticleRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -330,7 +328,7 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 }
 export function articleNeighbors(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(neighborsRequest, raw);
+		const input = parse(articleRequest, raw);
 		const access = accessFor(authority);
 		const result = await db.execute(sql`WITH ${corpusCtes(access, sourceOf(input.source))}
 			SELECT
@@ -363,7 +361,7 @@ export function articleNeighbors(db: Database, authority: RequestActor, raw: unk
 }
 export function tableOfContents(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(tocRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -672,7 +670,7 @@ function exportMeta(article: WikiArticle) {
 	};
 }
 async function visibleBody(db: Database, authority: RequestActor, raw: unknown) {
-	const input = parse(getArticleRequest, raw);
+	const input = parse(articleRequest, raw);
 	const page = await readPage(
 		db,
 		accessFor(authority),
