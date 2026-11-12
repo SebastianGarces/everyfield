@@ -434,14 +434,14 @@ async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: 
 /**
  * The scheduled deletion of kept import files (D-801): a failed or partial import keeps its uploaded file for
  * importFileKeptDays after its job last stopped, then loses it. The receipt is unchanged; a retry then needs the file
- * uploaded again. At most `limit` imports per run; locked ones wait for the next run. The number deleted.
+ * uploaded again. At most 500 imports per run; locked ones wait for the next run. The number deleted.
  */
-export async function deleteExpiredImportFiles(db: Database, limit = 500): Promise<number> {
+export async function deleteExpiredImportFiles(db: Database): Promise<number> {
 	const result = await db.execute(sql`UPDATE person_import SET upload=NULL WHERE id IN (
  SELECT pi.id FROM person_import pi JOIN job j ON j.id=pi.job_id AND j.tenant_id=pi.tenant_id
  WHERE pi.upload IS NOT NULL AND j.state NOT IN ('ready','claimed','retry_wait')
   AND j.finished_at<=clock_timestamp()-make_interval(days=>${c.importFileKeptDays})
- LIMIT ${limit} FOR UPDATE OF pi SKIP LOCKED) RETURNING id`);
+ LIMIT 500 FOR UPDATE OF pi SKIP LOCKED) RETURNING id`);
 	return result.rows.length;
 }
 
