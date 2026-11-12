@@ -4,7 +4,12 @@ import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/d
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
-import { nativeFromText, nativeText, readNative } from "../../../packages/contracts/src/documents/native.ts";
+import {
+	nativeBody,
+	nativeFromText,
+	nativeText,
+	readNative,
+} from "../../../packages/contracts/src/documents/native.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -1379,7 +1384,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		])
 			refusedPrivate(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
 
-		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
+		// Criterion 6: text boxes stay paragraphs in reading order and the drawing's fallback copy is not repeated; a table
+		// is a native table (T-111), its cells one line of plain text.
 		const textBox = (inner) =>
 			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
 		const mixed = ok(
@@ -1400,8 +1406,26 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			type: "doc",
 			content: [
 				heading(1, text("Plan")),
-				para(text("Cell heading")),
-				para(text("Cell item")),
+				{
+					type: "table",
+					attrs: {
+						columns: [
+							{ id: "c1", label: "Column 1", type: "text", width: 0 },
+							{ id: "c2", label: "Column 2", type: "text", width: 0 },
+						],
+						style: "grid",
+						header: false,
+					},
+					content: [
+						{
+							type: "row",
+							content: [
+								{ type: "cell", content: [text("Cell heading")] },
+								{ type: "cell", content: [text("Cell item")] },
+							],
+						},
+					],
+				},
 				para(text("Before box ")),
 				para(text("Inside box")),
 				para(text("after box")),
@@ -1411,7 +1435,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		});
 		assert.equal(
 			nativeText(mixed.body),
-			"Plan\nCell heading\nCell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
+			"Plan\nCell heading | Cell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
 		);
 
 		// Criterion 7: one structured revision and one audit row; the same key replays it; a body past a format limit
@@ -1652,5 +1676,199 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(JSON.parse((await currentOf(source.id)).body), edited);
 		await restoreSeat(actors[2].id);
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: copy.id })).body, body);
+	});
+	test("AC:CASE-DOC-016 T-111: a Word table imports as a native table of text columns", async () => {
+		const member = await authority(1);
+		const text = (value, href) => ({
+			type: "text",
+			text: value,
+			...(href ? { marks: [{ type: "link", attrs: { href } }] } : {}),
+		});
+		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
+		const cellOf = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
+		/** A typed row: a string is a cell of that text, an array a cell of those nodes, "" an empty cell. */
+		const typed = (...cells) => ({
+			type: "row",
+			content: cells.map((value) => (Array.isArray(value) ? cellOf(...value) : value ? cellOf(text(value)) : cellOf())),
+		});
+		const columns = (labels) => labels.map((label, i) => ({ id: `c${i + 1}`, label, type: "text", width: 0 }));
+		const numberedLabels = (n) => Array.from({ length: n }, (_, i) => `Column ${i + 1}`);
+		const tableOf = (labels, header, rows) => ({
+			type: "table",
+			attrs: { columns: columns(labels), style: "grid", header },
+			...(rows.length ? { content: rows } : {}),
+		});
+		const importWord = async (who, bytes) =>
+			documentsWriter.importTextOrWord(
+				db,
+				who,
+				{ title: "Word table", format: "docx", bytes, expectedRevision: "0", requestKey: randomUUID() },
+				storage,
+			);
+		/** The saved body of an import, checked equal to the result and to what nativeBody accepts. */
+		const stored = async (result) => {
+			const value = ok(result);
+			const body = JSON.parse((await currentOf(value.id)).body);
+			assert.deepEqual(value.body, body);
+			assert.equal(nativeBody.safeParse(body).success, true);
+			return body;
+		};
+		const admin2 = await authority(2);
+		const imported = async (body, parts) => stored(await importWord(admin2, W.word(body, parts)));
+		const { table, row, headerRow, cell } = W;
+
+		// Criterion 1: prose, a 3-column table with a header row, prose; in a church plant seat and in account context.
+		const roster = W.table(
+			[
+				headerRow([cell("Name"), cell("Role"), cell("Day")]),
+				row([cell("Ada"), cell("Pastor"), cell("Sunday")]),
+				row([cell("Ben"), cell("Music"), cell("Friday")]),
+			],
+			'<w:tblLook w:firstRow="1"/>',
+		);
+		const rosterBody = {
+			type: "doc",
+			content: [
+				para(text("Our team")),
+				tableOf(["Name", "Role", "Day"], true, [typed("Ada", "Pastor", "Sunday"), typed("Ben", "Music", "Friday")]),
+				para(text("Thank you")),
+			],
+		};
+		const rosterFile = W.word(W.p("Our team") + roster + W.p("Thank you"));
+		const plantResult = await importWord(admin2, rosterFile);
+		assert.deepEqual(await stored(plantResult), rosterBody);
+		const inPlant = ok(plantResult);
+		assert.equal(inPlant.tenantId, P);
+		const accountResult = await importWord(await authority(4), rosterFile);
+		assert.deepEqual(await stored(accountResult), rosterBody);
+		assert.equal(ok(accountResult).tenantId, actors[4].id);
+
+		// Criterion 6: a Member reads the imported table, and core values write it as T-100 ruling (d).
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: inPlant.id })).body, rosterBody);
+		ok(
+			await documentsWriter.designateCoreValues(db, admin2, {
+				documentId: inPlant.id,
+				expectedRevision: inPlant.revision,
+			}),
+		);
+		assert.equal(
+			ok(await documentsWriter.readCoreValuesEvidence(db, member, {})).text,
+			"Our team\nName | Role | Day\nAda | Pastor | Sunday\nBen | Music | Friday\nThank you",
+		);
+
+		// Criterion 2: Word's header row, by its on/off values; the table style's first-row flag alone is not one.
+		const twoRows = (first, props = "") =>
+			W.p("Prose") + table([first([cell("Item"), cell("Count")]), row([cell("Chairs"), cell("40")])], props);
+		const withHeader = {
+			type: "doc",
+			content: [para(text("Prose")), tableOf(["Item", "Count"], true, [typed("Chairs", "40")])],
+		};
+		const noHeader = {
+			type: "doc",
+			content: [
+				para(text("Prose")),
+				tableOf(numberedLabels(2), false, [typed("Item", "Count"), typed("Chairs", "40")]),
+			],
+		};
+		for (const value of [undefined, "1", "true", "on"])
+			assert.deepEqual(await imported(twoRows((cells) => headerRow(cells, value))), withHeader, String(value));
+		for (const value of ["0", "false", "off"])
+			assert.deepEqual(await imported(twoRows((cells) => headerRow(cells, value))), noHeader, value);
+		assert.deepEqual(await imported(twoRows(row)), noHeader);
+		assert.deepEqual(await imported(twoRows(row, '<w:tblLook w:val="04A0" w:firstRow="1"/>')), noHeader);
+		const long = "L".repeat(81);
+		assert.deepEqual(
+			await imported(table([headerRow([cell(long), cell("Count")]), row([cell("Chairs"), cell("40")])])),
+			{ type: "doc", content: [tableOf(numberedLabels(2), false, [typed(long, "Count"), typed("Chairs", "40")])] },
+		);
+		const fits = "F".repeat(80);
+		assert.deepEqual(
+			await imported(
+				table([
+					headerRow([cell(` ${fits} `), cell("Count")]),
+					headerRow([cell("Marked"), cell("again")]),
+					row([cell("Chairs"), cell("40")]),
+				]),
+			),
+			{ type: "doc", content: [tableOf([fits, "Count"], true, [typed("Marked", "again"), typed("Chairs", "40")])] },
+		);
+
+		// Criterion 3: each cell is one line; merges leave their spanned cells empty; a nested table joins its cell.
+		const cellParts = {
+			styles: W.styles(W.style("Heading1", "heading 1")),
+			numbering: W.numbering(["1", ["bullet"]]),
+			rels: W.rels(["rId1", "https://example.org/give"], ["rId3", "javascript:alert(1)"]),
+		};
+		assert.deepEqual(
+			await imported(
+				table([
+					headerRow([cell("Kind"), cell([W.p("Header "), W.p(["with ", W.link("rId1", "link")])]), cell("Third")]),
+					row([cell(["One", "", "Two"]), cell([W.numbered("1", "Bread"), W.numbered("1", "Milk")]), cell()]),
+					row([
+						cell(W.p(["Line one", W.br, "line two"])),
+						cell(W.p(["Name:", W.tab, "Ada"])),
+						cell(W.styled("Heading1", "Cell heading")),
+					]),
+					row([
+						cell(W.p(["Give ", W.link("rId1", "online"), " today"])),
+						cell(W.p(["Not ", W.link("rId3", "safe")])),
+						cell(W.p(["Trailing ", "  "])),
+					]),
+					row([cell("Wide", '<w:gridSpan w:val="2"/>'), cell("C")]),
+					row([cell("Tall", '<w:vMerge w:val="restart"/>'), cell("x"), cell("y")]),
+					row([cell("", "<w:vMerge/>"), cell("x2"), cell("y2")]),
+					row([cell(["Outer", table([row([cell("In 1"), cell(["In 2a", "In 2b"])])]), "after"]), cell("B")]),
+				]),
+				cellParts,
+			),
+			{
+				type: "doc",
+				content: [
+					tableOf(["Kind", "Header with link", "Third"], true, [
+						typed("One Two", "Bread Milk", ""),
+						typed("Line one line two", "Name: Ada", "Cell heading"),
+						typed([text("Give "), text("online", "https://example.org/give"), text(" today")], "Not safe", "Trailing"),
+						typed("Wide", "", "C"),
+						typed("Tall", "x", "y"),
+						typed("", "x2", "y2"),
+						typed("Outer In 1 In 2a In 2b after", "B", ""),
+					]),
+				],
+			},
+		);
+
+		// Criterion 4: past 16 columns the table stays paragraphs; past 1000 rows it continues; an empty table stays a
+		// table; a table in a text box stays paragraphs.
+		const wide = Array.from({ length: 17 }, (_, i) => `A${i + 1}`);
+		assert.deepEqual(await imported(W.p("Wide") + table([row(wide.map((value) => cell(value)))])), {
+			type: "doc",
+			content: [para(text("Wide")), ...wide.map((value) => para(text(value)))],
+		});
+		const merged = await imported(
+			W.p("Spans") + table([row([cell("Most", '<w:gridSpan w:val="16"/>'), cell("Past")])]),
+		);
+		assert.deepEqual(merged, { type: "doc", content: [para(text("Spans")), para(text("Most")), para(text("Past"))] });
+		const steps = Array.from({ length: 1001 }, (_, i) => `Step ${i + 1}`);
+		assert.deepEqual(await imported(table([headerRow([cell("Step")]), ...steps.map((value) => row([cell(value)]))])), {
+			type: "doc",
+			content: [
+				tableOf(
+					["Step"],
+					true,
+					steps.slice(0, 1000).map((value) => typed(value)),
+				),
+				tableOf(["Step"], true, [typed("Step 1001")]),
+			],
+		});
+		assert.deepEqual(await imported(W.p("Empty next") + table([row([cell(), cell()]), row([cell(), cell()])])), {
+			type: "doc",
+			content: [para(text("Empty next")), tableOf(numberedLabels(2), false, [typed("", ""), typed("", "")])],
+		});
+		const textBox = (inner) =>
+			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
+		assert.deepEqual(await imported(W.p(["Box: ", textBox(table([row([cell("In box"), cell("too")])]))])), {
+			type: "doc",
+			content: [para(text("Box: ")), para(text("In box")), para(text("too"))],
+		});
 	});
 });
