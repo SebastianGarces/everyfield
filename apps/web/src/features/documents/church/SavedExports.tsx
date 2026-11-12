@@ -42,8 +42,8 @@ export function SavedExports({
 			{exports.length === 0 ? (
 				<Card>
 					<EmptyState icon={FileLockedIcon} title="No saved exports yet" headingLevel="h3">
-						Download this document as PDF or Word and Everyfield saves that exact file here. It stays the same later, so
-						you can always get back the copy you shared.
+						Download this document as PDF, Word or, for a budget, Excel, and Everyfield saves that exact file here. It
+						stays the same later, so you can always get back the copy you shared.
 					</EmptyState>
 				</Card>
 			) : (

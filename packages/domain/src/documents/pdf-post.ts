@@ -35,8 +35,6 @@ const KNOWN: Record<string, string> = {
 	meeting_place: "Meeting place",
 	facilitator: "Facilitator",
 	pastor_name: "Pastor name",
-	agreement_signature: "Signature: sign here",
-	agreement_date: "Date signed",
 };
 const INDEXED: Record<string, string> = {
 	present: "Check if present: attendee",

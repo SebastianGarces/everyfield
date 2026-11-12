@@ -1,8 +1,8 @@
 import { exportsFor, type DocDocument } from "@everyfield/contracts/documents";
 import { blocksFromEditor, blocksToEditor } from "./table-json.ts";
 
-// Between the stored document and the editor. The editor holds the body as ProseMirror JSON and the page header and
-// footer as attributes of the root node (so Undo covers them). Nothing else changes: the prose JSON is the format.
+// Between the stored document and the editor. The editor holds the body as ProseMirror JSON, with the page header and
+// footer as its first and last child (so Undo covers them). Nothing else changes: the prose JSON is the format.
 
 type Json = Record<string, unknown>;
 

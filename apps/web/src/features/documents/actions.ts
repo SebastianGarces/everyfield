@@ -14,8 +14,10 @@ import {
 } from "./model.ts";
 import { documentActor } from "./server.ts";
 
-// Field fill for the open template. The actor is read again here. The browser cannot name a person, meeting, or
-// team. Preview bytes use their own route.
+// The Documents library and written-document actions: field fill and Save for your church for the open template, the
+// saved files and their downloads, and the account's written documents (load, save, archive, designate, copy to the
+// church). The actor is read again here. The browser cannot name a person, meeting, or team. Preview bytes use their
+// own route.
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }

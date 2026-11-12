@@ -246,7 +246,10 @@ function* chain(styles: Map<string, Style>, id: string | null) {
 	}
 }
 
-/** Word levels 1 to 9 by style name ("heading 2") or outline level (0 is level 1); 9 and up read as level 3. */
+/**
+ * Word levels 1 to 9 by style name ("heading 2") or outline level (0 is level 1). Levels 4 to 9 read as level 3; outline
+ * level 9 is Word's body text, not a heading.
+ */
 const capped = (level: number) => Math.min(level, 3) as 1 | 2 | 3;
 function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 	if (open.outline !== null) return open.outline <= 8 ? capped(open.outline + 1) : null;
