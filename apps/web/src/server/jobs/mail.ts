@@ -802,15 +802,14 @@ const stale = sql.raw(`((split_part(m.logical_key,'/',1) IN ('password_reset','e
     AND EXISTS(SELECT FROM notice n WHERE n.id=m.notice_id AND n.purpose IN ('task_due','meeting_reminder'))))`);
 
 /**
- * Cancels up to `limit` stale queued mail (see `stale`) that was never handed off, with its job, so the first tick after
+ * Cancels up to 500 stale queued mail (see `stale`) that was never handed off, with its job, so the first tick after
  * mail starts sending does not send a backlog of dead links and past reminders. One statement. Returns how many.
  */
-export async function expireStaleMail(db: Database, limit = 500): Promise<number> {
-	z.number().int().min(1).max(1000).parse(limit);
+export async function expireStaleMail(db: Database): Promise<number> {
 	const rows = await db.execute(sql`WITH due AS (
     SELECT j.id AS job_id,m.id AS mail_id FROM job j JOIN mail m ON m.id=j.subject_record_id
     WHERE j.kind='mail' AND j.state IN ('ready','retry_wait') AND m.state IN ('pending','refused') AND ${stale}
-    ORDER BY j.eligible_at,j.id FOR UPDATE OF j,m SKIP LOCKED LIMIT ${limit}
+    ORDER BY j.eligible_at,j.id FOR UPDATE OF j,m SKIP LOCKED LIMIT 500
    ), jobs AS (
     UPDATE job j SET state='cancelled',error_code='stale',next_attempt_at=NULL,finished_at=clock_timestamp(),revision=revision+1
     FROM due WHERE j.id=due.job_id RETURNING j.id

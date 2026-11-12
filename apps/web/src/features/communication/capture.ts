@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -56,33 +56,24 @@ export async function captureSilent(): Promise<boolean> {
 	);
 }
 
-export async function record(
-	message: Omit<Captured, "id" | "at" | "scheduledAt" | "cancelled">,
-	scheduledAt: string | null = null,
-	directory = outboxFolder(),
-): Promise<string> {
-	return (await capture(message, scheduledAt, null, directory)).id;
-}
-
 /**
  * Record one message as the provider would under an idempotency key: the same `key` always names the same capture, so
- * a replay of a send answers with the first capture's id and writes nothing (`fresh` false). Without a key every call
- * is a new capture.
+ * a replay of a send answers with the first capture's id and writes nothing (`fresh` false).
  */
 export async function capture(
 	message: Omit<Captured, "id" | "at" | "scheduledAt" | "cancelled">,
 	scheduledAt: string | null,
-	key: string | null,
+	key: string,
 	directory = outboxFolder(),
 ): Promise<{ id: string; fresh: boolean }> {
-	const id = `capture-${key === null ? randomUUID() : keyedId(key)}`;
+	const id = `capture-${keyedId(key)}`;
 	await mkdir(directory, { recursive: true });
 	const entry: Captured = { id, at: new Date().toISOString(), ...message, scheduledAt, cancelled: false };
 	try {
 		await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });
 		return { id, fresh: true };
 	} catch (error) {
-		if (key !== null && (error as NodeJS.ErrnoException).code === "EEXIST") return { id, fresh: false };
+		if ((error as NodeJS.ErrnoException).code === "EEXIST") return { id, fresh: false };
 		throw error;
 	}
 }

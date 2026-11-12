@@ -190,7 +190,7 @@ export function notificationsMount(db: Database | null): NotificationWorker | nu
  * advance (authorizePhaseNotices), a meeting notice or a milestone (authorizeNotificationMail). Each rule grants only
  * notices of its own purposes, so a mail passes under at most one.
  */
-export const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
+const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
 	const granted = new Set<string>();
 	for (const rule of [authorizeTaskReminders, authorizePhaseNotices, authorizeNotificationMail])
 		for (const id of await rule(tx, mail)) granted.add(id);
