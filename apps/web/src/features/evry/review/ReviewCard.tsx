@@ -486,8 +486,11 @@ export function ReviewCard({
 	const unknown = r.unknown && r.unknown.revision === review?.revision ? r.unknown.action : undefined;
 	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
-	// A change of view after the card loaded is announced once (the previous-value pattern, no effect).
-	const key = `${view}:${review?.revision ?? 0}`;
+	// An email card says only what the email service confirmed (model.ts mailHead).
+	const mailTitle = review ? mailHead(review, view) : null;
+	// A change of view after the card loaded is announced once (the previous-value pattern, no effect). An email card's
+	// head is part of the key: Check again turns "Cancel not confirmed" into "Cancelled" with no new view or revision.
+	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}`;
 	const [seen, setSeen] = useState(key);
 	const [announce, setAnnounce] = useState("");
 	if (seen !== key) {
@@ -507,8 +510,6 @@ export function ReviewCard({
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
-	// An email card says only what the email service confirmed (model.ts mailHead).
-	const mailTitle = review ? mailHead(review, view) : null;
 	// Only a confirmed result carries the tick: a saved outcome that says nothing happened carries the alert.
 	const icon = view === "completed" && mailTitle && mailTitle.tone !== "green" ? Alert02Icon : base.icon;
 	const h = mailTitle ? { ...base, ...mailTitle, icon } : base;

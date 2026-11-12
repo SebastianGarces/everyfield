@@ -264,7 +264,8 @@ export function MailResult({ review }: { review: Review }) {
 			lines =
 				report.confirmation === "confirmed" ? (
 					<p>
-						The email service confirmed {reportTime(report.scheduledAt, review)}. The earlier time is gone.
+						{/* Mail still waiting in Everyfield is confirmed with no email service call (D-927), so the line names no confirmer. */}
+						The new time is confirmed: {reportTime(report.scheduledAt, review)}. The earlier time is gone.
 						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
 					</p>
 				) : report.confirmation === "none" ? (

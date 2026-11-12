@@ -453,6 +453,8 @@ for (const [engine, launcher] of ENGINES) {
 				await done(panel, "Cancel not confirmed").getByRole("button", { name: "Check again" }).click();
 				await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
 				assert.equal(await headIcon(done(panel, "Cancelled")), tick);
+				// A screen reader hears the confirmed cancel too, not the stale "Cancel not confirmed".
+				assert.equal(await done(panel, "Cancelled").getByRole("status").innerText(), "Cancelled");
 			} finally {
 				await silence(false);
 			}
