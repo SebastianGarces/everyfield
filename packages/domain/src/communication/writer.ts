@@ -537,6 +537,8 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			const people = peopleRaw.people;
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
+			if (parts.people.length > c.AUDIENCE_LIMIT)
+				deny("audience_too_large", { limit: c.AUDIENCE_LIMIT, recipients: parts.people.length });
 			const digest = reviewedDigest(current.subject, current.body_html, parts.people, parts.emails);
 			const revision = bump(current.revision);
 			const scheduled = {

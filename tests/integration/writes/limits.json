@@ -256,9 +256,6 @@
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
 	},
-	"accountPerson.ensureGuest": {
-		"limit": 5
-	},
 	"communication.archiveTemplate": {
 		"limit": 2
 	},
@@ -1406,9 +1403,6 @@
 		"retry": 4,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write."
 	},
-	"people/references.detachAccountPersonLinks": {
-		"limit": 4
-	},
 	"reference.exportApprovedWiki": {
 		"limit": 1
 	},
@@ -1691,9 +1685,6 @@
 	"teams.listResponsibilities": {
 		"limit": 1
 	},
-	"teams.listTeamMeetings": {
-		"limit": 1
-	},
 	"teams.listTraining": {
 		"limit": 1
 	},
@@ -1716,9 +1707,6 @@
 	"teams.readStaffingFacts": {
 		"limit": 1
 	},
-	"teams.readTrainingHealth": {
-		"limit": 1
-	},
 	"teams.readTrainingHistory": {
 		"limit": 1
 	},
@@ -1729,10 +1717,6 @@
 		"limit": 7,
 		"retry": 5,
 		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
-	},
-	"teams.recordAttendance": {
-		"limit": 9,
-		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
 	},
 	"teams.restore": {
 		"limit": 6
@@ -1746,11 +1730,6 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
-	},
-	"teams.scheduleMeeting": {
-		"limit": 9,
-		"retry": 5,
-		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,

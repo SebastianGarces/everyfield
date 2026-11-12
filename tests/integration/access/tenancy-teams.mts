@@ -166,8 +166,5 @@ export function teamsCases(t, who) {
 		tr("readPersonTraining", { personId: a.avery }, denied),
 		tr("readTrainingHistory", { personId: a.avery }, denied),
 		tr("readStaffingFacts", ministry, denied),
-		tr("readTrainingHealth", ministry, denied),
-		// The meetings seed's team night belongs to the communication seed's team.
-		tr("listTeamMeetings", { teamId: a.team }, denied),
 	];
 }

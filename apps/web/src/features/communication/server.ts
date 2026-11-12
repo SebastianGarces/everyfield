@@ -35,7 +35,9 @@ export async function communicationViewer() {
 }
 
 const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
-	reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "refused", code: reply.error.code };
+	reply.status === "ok"
+		? { status: "ok", value: reply.value }
+		: { status: "refused", code: reply.error.code, details: reply.error.details };
 
 /** One read transaction. A database failure reads as lost, never as an empty list. */
 export async function read<T>(

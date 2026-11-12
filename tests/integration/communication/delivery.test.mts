@@ -962,6 +962,183 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 	assert.equal(seatPort.calls.lookup, 0);
 });
 
+/** `n` live people with an address each, in one statement. */
+async function crowd(n, tag) {
+	const found =
+		await rows(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at)
+		SELECT gen_random_uuid(), ${plant.id}, ${plant.id}, ${tag} || ' ' || i, ${tag} || '-' || i || '@crowd.test', 'other',
+			'prospect', 'unknown', 'unknown', 0, 'live', clock_timestamp()
+		FROM generate_series(1, ${n}::int) i
+		RETURNING id`);
+	return found.map((row) => row.id);
+}
+const accepting = () =>
+	port({
+		async send(batch) {
+			return { outcome: "ids", ids: batch.messages.map((_m, i) => `prov-${batch.key}-${i}`) };
+		},
+		async lookup() {
+			return { outcome: "unknown" };
+		},
+	});
+
+test("a 101-recipient schedule is refused with the cap and changes nothing; exactly 100 schedules and hands off", async () => {
+	const ids = await crowd(101, "Cap");
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Cap", bodyHtml: "<p>Hello all.</p>", audience: { ...emptyAudience, personIds: ids } },
+		}),
+	);
+	const state = async () =>
+		(
+			await rows(sql`SELECT c.state, c.revision::text AS revision, c.scheduled_at, c.review_digest,
+				(SELECT count(*)::int FROM audit_event a WHERE a.subject_id = c.id) AS audits,
+				(SELECT count(*)::int FROM mail m WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id) AS mails
+				FROM communication c WHERE c.id = ${saved.communicationId}`)
+		)[0];
+	const before = await state();
+	const error = refused(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+		"audience_too_large",
+	);
+	assert.deepEqual(error.details, { limit: 100, recipients: 101 });
+	assert.equal(error.retry, "never");
+	assert.deepEqual(await state(), before);
+	assert.equal(before.state, "draft");
+	assert.equal(before.mails, 0);
+	// Nothing is scheduled, so a handoff of that revision finds no scheduled message and calls no provider.
+	const carrier = accepting();
+	refused(await handoff(owner, saved.communicationId, saved.revision, carrier), "conflict");
+	assert.equal(carrier.calls.send, 0);
+
+	const hundred = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: {
+				communicationId: saved.communicationId,
+				subject: "Cap",
+				bodyHtml: "<p>Hello all.</p>",
+				audience: { ...emptyAudience, personIds: ids.slice(0, 100) },
+			},
+		}),
+	);
+	const accepted = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: hundred.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+	);
+	const sent = ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
+	assert.equal(carrier.calls.send, 1);
+	assert.equal(sent.acceptedCount, 100);
+	assert.equal((await state()).mails, 100);
+});
+
+test("the handoff refuses an audience that grew past the cap after scheduling, before the provider", async () => {
+	const ids = await crowd(100, "Grew");
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Grew", bodyHtml: "<p>Hello all.</p>", audience: { ...emptyAudience, personIds: ids } },
+		}),
+	);
+	const accepted = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+	);
+	const [late] = await crowd(1, "Late");
+	await f.admin
+		.execute(sql`UPDATE communication SET audience = jsonb_set(audience, '{personIds}', (audience->'personIds') || to_jsonb(${late}::text))
+		WHERE id = ${saved.communicationId}`);
+	const carrier = accepting();
+	const error = refused(await handoff(owner, saved.communicationId, accepted.revision, carrier), "audience_too_large");
+	assert.deepEqual(error.details, { limit: 100, recipients: 101 });
+	assert.equal(carrier.calls.send, 0);
+	assert.equal((await mailFor(saved.communicationId)).length, 0);
+});
+
+test("the Who step counts what the cap counts: an unsubscribed person over the line is named and refused", async () => {
+	const ids = await crowd(101, "Optout");
+	await f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant.id}, ${ids[0]})`);
+	const over = ok(
+		await f.db.transaction((tx) =>
+			communicationWriter.readAudience(tx, owner.actor, { ...emptyAudience, personIds: ids }),
+		),
+	);
+	assert.deepEqual([over.eligibleRecipients, over.cappedRecipients], [100, 101]);
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Optout", bodyHtml: "<p>Hello all.</p>", audience: { ...emptyAudience, personIds: ids } },
+		}),
+	);
+	const error = refused(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+		"audience_too_large",
+	);
+	assert.deepEqual(error.details, { limit: 100, recipients: over.cappedRecipients });
+});
+
+test("the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
+	const tom = await person("Tom", { email: "tom-text@example.test" });
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Dinner",
+				bodyHtml: "<p>Dinner with Tom &amp; Ann, 6 &lt; 7.</p>",
+				audience: { ...emptyAudience, personIds: [tom] },
+			},
+		}),
+	);
+	assert.equal(saved.bodyText, "Dinner with Tom & Ann, 6 < 7.");
+	const stored = (await rows(sql`SELECT body_text FROM communication WHERE id = ${saved.communicationId}`))[0];
+	assert.equal(stored.body_text, "Dinner with Tom & Ann, 6 < 7.");
+	const accepted = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+	);
+	const texts = [];
+	const carrier = port({
+		async send(batch) {
+			texts.push(...batch.messages.map((message) => message.text));
+			return { outcome: "ids", ids: batch.messages.map(() => "prov-tom-text") };
+		},
+		async lookup() {
+			return { outcome: "unknown" };
+		},
+	});
+	ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
+	assert.equal(texts.length, 1);
+	assert.ok(texts[0].includes("Dinner with Tom & Ann, 6 < 7."), texts[0]);
+	assert.equal(texts[0].includes("&amp;"), false, texts[0]);
+	const linked = await rows(
+		sql`SELECT communication_id FROM mail WHERE logical_key LIKE ${"communication/" + saved.communicationId + "/%"}`,
+	);
+	assert.deepEqual(
+		linked.map((row) => row.communication_id),
+		[saved.communicationId],
+	);
+});
+
 test("T-159 C13: a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
 	const made = await scheduled("Wren", "wren-witness@example.test", AT);
 	const revision = ok(made.accepted).revision;
