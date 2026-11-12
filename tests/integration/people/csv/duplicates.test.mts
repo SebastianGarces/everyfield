@@ -294,7 +294,12 @@ test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss afte
 		await write(3, (t, c) =>
 			peopleMerge.mergePeople(t, c, {
 				requestKey: randomUUID(),
-				input: { sourceId: pair.personId, survivorId: pair.withPersonId, reviewDigest: merge.reviewDigest, fieldChoices: {} },
+				input: {
+					sourceId: pair.personId,
+					survivorId: pair.withPersonId,
+					reviewDigest: merge.reviewDigest,
+					fieldChoices: {},
+				},
 			}),
 		),
 	);

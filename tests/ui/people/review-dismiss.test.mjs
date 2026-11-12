@@ -29,7 +29,10 @@ test("T-268 a saved dismiss returns to the list, also when another tab already d
 		assert.deepEqual(await reviewDismiss(send)(listed), { next: "list" });
 		assert.deepEqual(sent, [listed], "the listed direction, imported person first, once");
 	}
-	assert.equal(notDuplicateText("Iris Imported", "Iris Existing"), "Iris Imported and Iris Existing marked not a duplicate.");
+	assert.equal(
+		notDuplicateText("Iris Imported", "Iris Existing"),
+		"Iris Imported and Iris Existing marked not a duplicate.",
+	);
 });
 
 test("T-268 a lost answer is sent once more as it is; a second lost answer keeps the review and says it may have saved", async () => {
