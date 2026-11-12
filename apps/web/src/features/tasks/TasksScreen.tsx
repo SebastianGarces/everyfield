@@ -410,8 +410,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
 			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
-			// A status change moves a series' open occurrence; a successor (below) names the new one.
-			const occurrence = moved ? null : cur.occurrence;
+			// A status change moves a series' open occurrence; a successor (below) names the new one. A task that starts a
+			// new series (Make it repeat on a stopped one) leaves its old series' open occurrence behind.
+			const occurrence = moved || cur.task.recurrence?.seriesId !== task.recurrence?.seriesId ? null : cur.occurrence;
 			const history =
 				moved && cur.history.status === "ok" && cur.history.value.next === null
 					? {
@@ -525,9 +526,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 
 	/**
 	 * The next occurrence a completed recurring task created: it joins the list next to its predecessor when it matches
-	 * the query, the counts move, and the toast offers to open it.
+	 * the query, and the counts move. A single complete also toasts it (succeeded); a bulk one reports the whole set.
 	 */
-	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
 		if (matches(query, next, viewer.accountId) && !listed.current.some((r) => r.id === next.id)) {
 			setItems((rows) =>
 				rows.some((r) => r.id === pred.id)
@@ -550,6 +551,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				};
 				return { ...d, [pred.id]: { ...cur, occurrence: { status: "series", seriesId, open } } };
 			});
+	};
+	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+		addSuccessor(pred, next);
 		const when = dueText(next.due, year);
 		toast({
 			tone: "success",
@@ -809,6 +813,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					);
 					setCounts(nextCounts);
 					if (moved) setTotal((t) => Math.max(0, t - moved));
+					for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
 					// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
 					const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
 					if (kind === "complete" && changed.size)

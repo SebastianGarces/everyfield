@@ -1,7 +1,7 @@
 // Pure rules of the duplicate review, merge, Unmerge and record correction screens (WP-015/ui). No React and no server
 // code, so the rules run the same in the browser, on the server and in node tests.
 
-import type { Outcome } from "../../../components/save/model.ts";
+import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
 export const MERGE_FIELDS = [
@@ -254,6 +254,55 @@ export function pairNotice(action: PairAction, answer: Exclude<Outcome<unknown>,
 		? "Nothing changed. The pair was not marked. Try again."
 		: "Nothing changed. The pair was not restored. Try again.";
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// "Not a duplicate" on the side-by-side review of a listed pair (T-268). It dismisses the listed direction (the imported
+// person first, whichever order the address names them in), then the screen returns to the list. A refusal keeps the
+// reviewer on the review, which reads again to show where the people stand; a lost answer says it may have saved.
+
+export type ListedPair = { personId: string; withPersonId: string };
+/** What the review does after its dismiss: back to the list, or stay with a notice and maybe read the pair again. */
+export type ReviewDismissed = { next: "list" } | { next: "review"; reread: boolean; text: string };
+
+export function reviewDismissed(answer: Outcome<unknown>): ReviewDismissed {
+	if (answer.status === "ok") return { next: "list" };
+	if (answer.status === "lost")
+		return {
+			next: "review",
+			reread: false,
+			text: "We did not hear back from the server, so the pair may have been marked not a duplicate. Reload the page to see where it stands.",
+		};
+	if (answer.code === "pair_unavailable")
+		return {
+			next: "review",
+			reread: true,
+			text: "Nothing changed. One of them was merged or retired, or the pair is no longer on the list. The page now shows where they stand.",
+		};
+	return {
+		next: "review",
+		reread: true,
+		text: "Nothing changed. You cannot mark these people. Your seat may have changed; reload the page.",
+	};
+}
+
+/**
+ * One review's "Not a duplicate". The write sets a state, so a lost answer is sent once more as it is. While one is in
+ * flight another call sends nothing and answers null, so a double click dismisses once.
+ */
+export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unknown>>) {
+	let pending = false;
+	return async (listed: ListedPair): Promise<ReviewDismissed | null> => {
+		if (pending) return null;
+		pending = true;
+		try {
+			return reviewDismissed(await sendTwice(() => send(listed)));
+		} finally {
+			pending = false;
+		}
+	};
+}
+/** The list's confirmation after a dismiss from the review: both people, imported person first. */
+export const notDuplicateText = (person: string, other: string) => `${person} and ${other} marked not a duplicate.`;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Refusals in words. Each names a cause the person can act on.

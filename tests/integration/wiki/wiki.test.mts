@@ -2008,6 +2008,66 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		},
 	);
 
+	test(
+		ac(["CASE-WIKI-004", "WIKI49-002", "WR-023"]) +
+			" opening an updated article clears its Updated since you read it for that person only",
+		async () => {
+			const article = id();
+			const slug = "funding/reopened-guidance";
+			await globalArticle(article, slug, "Reopened guidance", "First text");
+			// Both people finish it and bookmark it; then a meaningful revision lands.
+			for (const who of [r1.owner, r1.member]) {
+				const done = ok(
+					await api.updateProgress(
+						db,
+						await actor(who),
+						reading({ articleId: article, fraction: "0.95", plantId: R1 }),
+					),
+				);
+				ok(await api.setBookmark(db, await actor(who), cmd({ articleId: article, desired: true }, done.revision)));
+			}
+			await revision({
+				id: id(),
+				article,
+				tenant: GLOBAL,
+				release,
+				number: 2,
+				title: "Reopened guidance",
+				slug,
+				body: "Second text",
+				meaningful: true,
+				sequence: 2,
+			});
+			const lists = async (who) => {
+				const recent = ok(await api.readingRecent(db, await actor(who), {}));
+				const marks = ok(await api.bookmarksList(db, await actor(who), {}));
+				return [recent, marks].map((l) => l.articles.find((a) => a.articleId === article)?.updatedLabel);
+			};
+			const stored = async (who) =>
+				(
+					await admin.execute(
+						sql`SELECT completed_at, completed_revision_id, completed_fraction::text, observed_fraction::text, bookmarked,
+							revision::text FROM reading WHERE account_id=${who.id} AND article_id=${article}`,
+					)
+				).rows[0];
+			assert.deepEqual(await lists(r1.owner), [true, true]);
+			assert.deepEqual(await lists(r1.member), [true, true]);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, true);
+
+			// The owner opens it: the badge is gone from their lists and the article, and nothing else on the reading moves.
+			const before = await stored(r1.owner);
+			const opened = ok(await api.recordView(db, await actor(r1.owner), reading({ articleId: article, plantId: R1 })));
+			assert.deepEqual([opened.meaningfulUpdateLabel, opened.completed, opened.bookmarked], [false, true, true]);
+			assert.deepEqual(await stored(r1.owner), before);
+			assert.deepEqual(await lists(r1.owner), [false, false]);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
+			// The member has not opened it since: they still see it.
+			assert.deepEqual(await lists(r1.member), [true, true]);
+			assert.equal((await current(r1.member, article)).article.updatedLabel, true);
+		},
+	);
+
 	test("AC:CASE-WIKI-008 the Guide registry holds Nora's 13 routes and matches whole addresses only", () => {
 		assert.deepEqual(
 			GUIDE_ROUTES.map((entry) => [entry.route, entry.slug, entry.heading]),

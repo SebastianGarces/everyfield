@@ -1,9 +1,11 @@
 "use client";
 
-import { UserMultiple02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon, UserMultiple02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	buttonVariants,
+	CalloutLabel,
+	CalloutText,
 	Card,
 	CardDescription,
 	CardHeader,
@@ -13,10 +15,11 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { dismissPair, restorePair, type PairChange } from "./actions.ts";
 import {
+	DISMISSED_HREF,
 	pairAnswered,
 	pairKey,
 	pairSent,
@@ -34,6 +37,32 @@ const send: Record<PairAction, (input: unknown) => Promise<Outcome<PairChange>>>
 	dismiss: dismissPair,
 	restore: restorePair,
 };
+
+// The confirmation a dismiss on the review screen leaves for the list it returns to (T-268). The list shows it once and
+// clears it, so a reload shows the list without it. Storage can be blocked; the list is right without the confirmation.
+const RETURNED = "everyfield.duplicates.returned";
+const confirmation = {
+	leave(text: string) {
+		try {
+			sessionStorage.setItem(RETURNED, text);
+		} catch {}
+	},
+	read() {
+		// The server render has no tab; the review returns to the list by a client navigation, which reads the tab.
+		if (typeof window === "undefined") return null;
+		try {
+			return sessionStorage.getItem(RETURNED);
+		} catch {
+			return null;
+		}
+	},
+	clear() {
+		try {
+			sessionStorage.removeItem(RETURNED);
+		} catch {}
+	},
+};
+export const leaveConfirmation = confirmation.leave;
 
 /**
  * One list's dismiss or restore (D-789). The row leaves at once; a refused or lost answer puts it back in its place with
@@ -64,10 +93,25 @@ function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
  */
 export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "dismiss");
+	const [returned] = useState(confirmation.read);
+	useEffect(() => confirmation.clear(), []);
 	const count = shown.length;
 	return (
 		<>
 			<Said text={said} />
+			{returned ? (
+				<Card variant="callout" tone="green" role="status" className="mb-5">
+					<CalloutLabel tone="green" icon={Tick02Icon}>
+						Marked not a duplicate
+					</CalloutLabel>
+					<CalloutText className="text-sm">
+						{returned}{" "}
+						<IntentLink href={DISMISSED_HREF} className="font-semibold text-ink underline underline-offset-2">
+							See dismissed pairs
+						</IntentLink>
+					</CalloutText>
+				</Card>
+			) : null}
 			{!count ? (
 				<Card>
 					<EmptyState

@@ -22,7 +22,8 @@ import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 // change and its audit row commit together; anything that changed since the review refuses instead of being
 // overwritten.
 
-const ownerOrAdmin = (actor: EvryActor) =>
+/** The Owner or Admin of the selected church: the actors who may change People, and review import duplicates. */
+export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 /** The live person in the actor's church, as `p`. */
 const target = (actor: EvryActor, personId: string) =>

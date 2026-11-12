@@ -2741,7 +2741,7 @@
     "id": "TSK-006",
     "title": "Task prerequisites and derived blocking",
     "module": "tasks",
-    "behavior": "Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
+    "behavior": "Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. The prerequisites are a set: saving the same tasks in another order is a no-op that keeps the task's revision, history and saved order (Audit #551). Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
     "spec_file": "docs/product/tasks.md#req-tsk-006",
     "requirement_ids": [
       "REQ-TSK-006"
@@ -2768,7 +2768,7 @@
     "id": "TSK-007",
     "title": "Recurring tasks and fresh successor checklists",
     "module": "tasks",
-    "behavior": "Daily/weekly/biweekly/monthly/quarterly/yearly rules keep their interval, inclusive end date and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completing a recurring task creates exactly one next task with a fresh checklist, history and reminders, even on retry; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
+    "behavior": "Daily/weekly/biweekly/monthly/quarterly/yearly rules keep their interval, inclusive end date and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completing a recurring task creates exactly one next task with a fresh checklist, history and reminders, even on retry; failure does not require user reopen/recomplete. Stop recurrence preserves history; an Owner or Admin may make any occurrence of a stopped series repeat again, which starts a new series with that occurrence as occurrence 1 and leaves the old series stopped with its other occurrences, so completing it adds exactly one next occurrence in the new series even when it already had one in the old (Audit #551); a bulk Complete names each next occurrence as a single Complete does; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
     "spec_file": "docs/product/tasks.md#req-tsk-007",
     "requirement_ids": [
       "REQ-TSK-007",
@@ -4101,7 +4101,7 @@
     "id": "NTF-003",
     "title": "In-app notification feed, unread filters, pagination and bell",
     "module": "notifications",
-    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. The bell and the feed page share one read state: an entry marked read in either, singly or by mark-all, shows read in the other at once without a reload, the unread counts agree, and opening the bell marks nothing (Audit #551). Read does not complete work. Empty differs from unavailable.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-001",
