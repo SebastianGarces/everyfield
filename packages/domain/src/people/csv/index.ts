@@ -340,7 +340,7 @@ async function saveImport(
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("review_digest_conflict");
 	if (claim.kind === "unavailable") deny();
-	if (claim.kind === "replay") return receiptOf(claim.id, await savedState(tx, sql`${claim.id}::uuid`));
+	if (claim.kind === "replay") return receiptOf(claim.id, await stateOf(tx, sql`${claim.id}::uuid`));
 	const people = match.parse(
 		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
 	);
@@ -375,7 +375,7 @@ async function saveImport(
 }
 
 /** The saved state of the import with this id, which the caller found in its own church. */
-async function savedState(tx: Tx, importId: SQL) {
+async function stateOf(tx: Tx, importId: SQL) {
 	return loadState(
 		z.object({ state: z.unknown() }).parse((await tx.execute(sql`SELECT ${importState(importId)} AS state`)).rows[0])
 			.state,
