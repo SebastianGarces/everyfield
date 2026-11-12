@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 export type { Starter } from "./starter-load.ts";
-export { loadStarter, referenceArtifactSha256 } from "./starter-load.ts";
+export { loadStarter } from "./starter-load.ts";
 
 export async function verifyCheckout(
 	root: URL,
