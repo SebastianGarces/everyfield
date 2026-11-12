@@ -24,16 +24,7 @@ import {
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-	createContext,
-	use,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	useTransition,
-	type ReactNode,
-} from "react";
+import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import {
 	downloadPdf,
 	loadGuide,
@@ -682,7 +673,8 @@ function openPrint(html: string): boolean {
 
 /** What the last "Set as preferred" said, on the article it was chosen from. */
 type Said = { path: string } & (
-	{ saved: { name: string; list: "churches" | "networks"; id: string } } | { refused: Exclude<OrderSave, { status: "ok" }> }
+	| { saved: { name: string; list: "churches" | "networks"; id: string } }
+	| { refused: Exclude<OrderSave, { status: "ok" }> }
 );
 
 function refusedText(reply: Exclude<OrderSave, { status: "ok" }>): string {
