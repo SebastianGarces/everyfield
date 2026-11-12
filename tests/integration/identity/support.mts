@@ -1,13 +1,11 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
-import { createRequire } from "node:module";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { testDatabase } from "../../support/test-database.mts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 
 export async function fixture() {
 	const t = await testDatabase({ prefix: "wp005", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 8 });

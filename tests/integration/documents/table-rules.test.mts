@@ -8,7 +8,6 @@ import {
 	computeTable,
 	exportsFor,
 	formatNumber,
-	everyfieldDoc,
 	parseAmount,
 	tableIssue,
 	type TableNode,

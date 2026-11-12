@@ -44,7 +44,8 @@ const copyDev = (dir) => {
 /**
  * A small workspace repo with the real bin/dev, scripts, hooks, root package.json and Prettier files, and three packages
  * that lint and typecheck like the real ones: `demo` lints from its folder, `rooted` lints from the root with --config
- * (as contracts and reference do), and `app` typechecks and depends on `demo`. node_modules link to this checkout's.
+ * (as contracts and reference do), and `app` typechecks and depends on `demo`. The root lint scripts run with the real
+ * .oxlintrc.json and its plugin. node_modules link to this checkout's.
  * main holds a committed file with format and lint errors; the test works on the task branch evf/t-1.
  */
 function fixture({ tools = true } = {}) {
@@ -71,8 +72,11 @@ function fixture({ tools = true } = {}) {
 		writeFileSync(join(dir, file), content);
 	};
 	copyDev(dir);
-	for (const file of ["package.json", ".prettierrc", ".prettierignore"])
+	for (const file of ["package.json", ".prettierrc", ".prettierignore", ".oxlintrc.json", "tools/.oxlintrc.json"]) {
+		mkdirSync(dirname(join(dir, file)), { recursive: true });
 		copyFileSync(join(repo, file), join(dir, file));
+	}
+	cpSync(join(repo, "scripts/lint"), join(dir, "scripts/lint"), { recursive: true });
 	cpSync(join(repo, "tools/git-hooks"), join(dir, "tools/git-hooks"), { recursive: true });
 	write(".gitignore", "node_modules\n");
 	write("pnpm-workspace.yaml", "packages:\n  - packages/*\n");
@@ -114,6 +118,9 @@ function fixture({ tools = true } = {}) {
 		symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
 		for (const pkg of ["demo", "app", "rooted"])
 			symlinkSync(join(repo, "packages/domain/node_modules"), join(dir, `packages/${pkg}/node_modules`));
+		// The root lint scripts run packages/evry's Oxlint.
+		mkdirSync(join(dir, "packages/evry"));
+		symlinkSync(join(repo, "packages/evry/node_modules"), join(dir, "packages/evry/node_modules"));
 	}
 
 	const git = (...args) => spawnSync("git", args, { cwd: dir, env, encoding: "utf8" });
@@ -188,6 +195,67 @@ test("fast-check fails a changed file's lint error with its package's config, fr
 	]);
 	assert.match(lint.detail, /packages\/demo\/src\/unused\.ts:1:7 'unused' is assigned a value but never used/);
 	assert.equal(step("format").status, "passed");
+});
+
+test("fast-check format-checks a changed file under ops/, as the root format:check globs do (T-176)", () => {
+	const fx = fixture();
+	fx.commit({
+		"ops/actionable-watch/bad.mts": "export const b = {x:1}\n",
+		"ops/actionable-watch/fine.mts": "export const fine = 1;\n",
+	});
+	const { status, step } = fx.check();
+	assert.equal(status, 1);
+	assert.deepEqual(step("format").files, ["ops/actionable-watch/bad.mts"]);
+	assert.equal(step("format").fix, "pnpm exec prettier --write ops/actionable-watch/bad.mts");
+});
+
+test("fast-check lints a changed file in tests/{integration,evry,ui,workflow} with the root lint:tests script and its test rules (T-176)", () => {
+	const fx = fixture();
+	const unused = "const unused = 1;\nexport {};\n";
+	fx.commit({
+		"tests/ui/bad.test.mjs": unused,
+		"tests/integration/bad.test.mts": unused,
+		// The test override: `any` and a rest sibling that drops a field are allowed here.
+		"tests/evry/loose.test.mts": "export const loose: any = 1;\nexport const { id: _id, ...rest } = { id: 1, a: 2 };\n",
+		"tests/workflow/fine.test.mjs": "export const fine = 1;\n",
+		// No root lint script names tests/support.
+		"tests/support/loose.mts": unused,
+	});
+	const { status, step } = fx.check();
+	assert.equal(status, 1);
+	const lint = step("lint");
+	assert.equal(lint.status, "failed");
+	assert.deepEqual(lint.files.sort(), ["tests/integration/bad.test.mts", "tests/ui/bad.test.mjs"]);
+	const [command, fixFiles] = lint.fix.split(" --fix ");
+	assert.equal(command, "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json", "the fix runs from the root");
+	assert.deepEqual(fixFiles.split(" ").sort(), lint.files);
+	assert.match(lint.detail, /tests\/ui\/bad\.test\.mjs:1:7 .*\(eslint\(no-unused-vars\)\)/);
+	assert.doesNotMatch(lint.detail, /tests\/evry|tests\/support/);
+});
+
+test("fast-check typechecks a changed tool file with the root typecheck:tools script, beside the package typecheck (T-176)", () => {
+	const fx = fixture();
+	fx.commit({
+		// A fixture tools config: the real one includes scripts the fixture does not copy.
+		"tsconfig.tools.json": `{
+	// Only the fixture's tool folder.
+	"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] },
+	"include": ["tools/qa/**/*.ts"]
+}
+`,
+		"tools/qa/wrong.ts": 'export const w: number = "s";\n',
+		"packages/demo/src/wrong.ts": 'export const w: number = "s";\n',
+	});
+	const { status, step } = fx.check();
+	assert.equal(status, 1);
+	const typecheck = step("typecheck");
+	assert.equal(typecheck.status, "failed");
+	assert.deepEqual(typecheck.files.sort(), ["packages/demo/src/wrong.ts", "tools/qa/wrong.ts"]);
+	assert.equal(typecheck.fix, "pnpm --filter ...@fx/demo --no-bail --if-present typecheck && pnpm run typecheck:tools");
+	assert.match(typecheck.detail, /tools\/qa\/wrong\.ts\(1,14\): error TS2322/);
+
+	fx.commit({ "tools/qa/wrong.ts": "export const w: number = 1;\n", "packages/demo/src/wrong.ts": "export {};\n" });
+	assert.equal(fx.check().step("typecheck").status, "passed");
 });
 
 test("fast-check runs both linters of an Oxlint-first lint script and reports what each one finds (T-43)", () => {

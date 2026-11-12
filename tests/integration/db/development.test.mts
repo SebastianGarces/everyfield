@@ -5,7 +5,9 @@ import { assertDevelopmentDatabase, developmentHosts } from "../../../packages/d
 const KEYS = ["NODE_ENV", "CI", "EARLY_ACCESS_TEST_DATABASE"] as const;
 const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
 afterEach(() => {
-	for (const k of KEYS) saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k]);
+	for (const k of KEYS)
+		if (saved[k] === undefined) delete process.env[k];
+		else process.env[k] = saved[k];
 });
 function env(values: Partial<Record<(typeof KEYS)[number], string>>) {
 	for (const k of KEYS) delete process.env[k];

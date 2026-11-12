@@ -35,7 +35,6 @@ const usage = {
 	outputTokens: { total: 1, text: 1, reasoning: 0 },
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const SENTENCES = ["There are 19 prospects in this church. ", "The list is complete and up to date."];
 const DELTAS = [
 	"There ",
 	"are ",
@@ -186,7 +185,9 @@ test("INV-statements: the stream route's access check is its first page, so an i
 	const c = await createConversation(db, owner, { requestKey: randomUUID() });
 	const first = await readConversation(db, owner, c.id);
 	let statements = 0;
-	const counted = { execute: (...args: unknown[]) => (statements++, (db.execute as Function)(...args)) } as typeof db;
+	const counted = {
+		execute: (...args: unknown[]) => (statements++, (db.execute as (...args: unknown[]) => unknown)(...args)),
+	} as typeof db;
 	const seen: Observed[] = [];
 	for await (const item of observeRun(counted, owner, c.id, 0, AbortSignal.timeout(5_000), { first })) seen.push(item);
 	assert.deepEqual(

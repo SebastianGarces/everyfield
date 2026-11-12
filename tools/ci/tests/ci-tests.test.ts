@@ -117,7 +117,7 @@ test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and mus
 		for (const [name, test] of [
 			["db", "db/baseline.test.mts"],
 			["domain", "writes/statements.test.mts"],
-		]) {
+		] as const) {
 			mkdirSync(join(f.root, `packages/${name}`), { recursive: true });
 			writeFileSync(
 				join(f.root, `packages/${name}/package.json`),

@@ -150,6 +150,53 @@ test("INV-typecheck: pnpm typecheck runs no tsc, prints no shadow line and write
 	assert.deepEqual(readdirSync(f.state), [], "nothing is written to the state directory");
 });
 
+test("INV-typecheck: a failing typecheck:tools fails the run after every package's bun check", (t) => {
+	const FAIL = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1";
+	const cases: Array<[string, string, number]> = [
+		[PASS, "exit 0", 0],
+		[PASS, "printf 'tools/qa/a.ts(1,1): error TS2322: Type mismatch.\\n'; exit 2", 2],
+		[FAIL, "exit 2", 1],
+		[FAIL, "exit 0", 1],
+	];
+	for (const [pkg, tools, status] of cases) {
+		const f = workspace(
+			{
+				"packages/a": { scripts: { typecheck: pkg } },
+				"packages/b": { scripts: { typecheck: PASS } },
+			},
+			{ "typecheck:tools": tools },
+		);
+		t.after(f.close);
+		const run = typecheck(f);
+		assert.equal(run.status, status, `${pkg} / ${tools}: ${run.stderr}`);
+		if (status === 2) assert.match(run.stderr, /typecheck:tools failed/);
+	}
+});
+
+test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch", () => {
+	assert.equal(rootPkg.scripts["typecheck:tools"], "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json");
+	const listed = spawnSync(
+		join(repo, "node_modules/typescript-7/bin/tsc"),
+		["-p", "tsconfig.tools.json", "--listFilesOnly"],
+		{
+			cwd: repo,
+			encoding: "utf8",
+		},
+	);
+	assert.equal(listed.status, 0, listed.stderr);
+	const files = listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	for (const file of [
+		"scripts/fast-check.ts",
+		"tools/ci/typecheck.ts",
+		"tools/ci/tests/typecheck.test.ts",
+		"tools/qa/qa.ts",
+		"tools/qa/tests/qa.test.ts",
+		"ops/actionable-watch/run.mts",
+		"ops/actionable-watch/test/run.test.mts",
+	])
+		assert.ok(files.includes(file), `${file} is in the tools program`);
+});
+
 test("INV-typecheck: every package's typecheck runs the pinned bun 1.4.4, never a global bun, and typecheck:tsc keeps tsc", (t) => {
 	assert.equal(rootPkg.devDependencies.bun, "1.4.4");
 	assert.equal(rootPkg.scripts.typecheck, "node tools/ci/typecheck.ts");
@@ -265,6 +312,10 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 	t.after(() => rmSync(copy, { recursive: true, force: true }));
 	const before = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout;
 	copyWorkspace(repo, copy, PACKAGES);
+	// The copy holds the packages only, so the tools step (tested above) has nothing to check here.
+	const copyPkg = JSON.parse(readFileSync(join(copy, "package.json"), "utf8"));
+	delete copyPkg.scripts["typecheck:tools"];
+	writeFileSync(join(copy, "package.json"), JSON.stringify(copyPkg));
 	const run = () => spawnSync(process.execPath, [tool], { cwd: copy, encoding: "utf8" });
 	const clean = run();
 	assert.equal(clean.status, 0, `control: the unseeded copy passes\n${clean.stdout}${clean.stderr}`);
