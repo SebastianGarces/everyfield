@@ -13,6 +13,7 @@ import { applyMessagesOptOut, undoMessagesOptOut } from "../../../packages/domai
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
+import { ok } from "../../support/fixture.mts";
 
 let f, churchA, churchB, ownerA, ownerB;
 const ring = { current: randomBytes(32), previous: [] };
@@ -27,10 +28,6 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const DAY = 86_400_000;
 const key = () => randomUUID();
 const now = () => new Date();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function person(church, name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {

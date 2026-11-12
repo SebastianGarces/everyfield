@@ -5,6 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
 const keys = {
@@ -12,15 +13,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
 };
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
@@ -66,12 +58,13 @@ async function mail(communicationId, personId, address, patch = {}) {
 	const sealed = sealText(keys.encryptionKey, address, addressAad(tenant, id));
 	const addressHash = mailAddressHash(keys.addressKey, address);
 	const hours = patch.sentHours ?? null;
+	const created = patch.createdHours ?? null;
 	await f.admin
 		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at, delivered_at, opened_at, clicked_at, accepted_at)
 		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${`communication/${communicationId}/${personId}`},
 			'payload', 'audience', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, ${patch.state ?? "sent"}, ${addressHash},
-			clock_timestamp(),
+			clock_timestamp() - make_interval(hours => coalesce(${created}::int, 0)),
 			CASE WHEN ${hours}::int IS NULL THEN NULL ELSE clock_timestamp() - make_interval(hours => ${hours}::int) END,
 			CASE WHEN ${Boolean(patch.delivered)} THEN clock_timestamp() - make_interval(hours => coalesce(${hours}::int, 0)) END,
 			CASE WHEN ${Boolean(patch.opened)} THEN clock_timestamp() END,
@@ -573,10 +566,10 @@ test("T-159: meeting tracking lists a person emailed by two of the meeting's mes
 	const meet = await meeting("Tracked twice");
 	const invite = await message({ meeting: meet, subject: "Invitation" });
 	const reminder = await message({ meeting: meet, subject: "Reminder" });
-	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30 });
-	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, delivered: true });
-	await f.admin.execute(sql`SELECT pg_sleep(0.01)`);
-	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, delivered: true });
+	// The reminder's mail is the later one by its own created_at, set in the row.
+	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30, createdHours: 30 });
+	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, createdHours: 30, delivered: true });
+	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, createdHours: 2, delivered: true });
 	const tracked = ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
 	const ids = tracked.items.map((row) => row.personId);
 	assert.deepEqual(ids.sort(), [once, twice].sort());

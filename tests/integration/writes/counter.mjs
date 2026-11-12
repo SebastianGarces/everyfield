@@ -78,6 +78,8 @@ export async function measure(name, body, options = {}) {
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
+		// Exempt from the no-wall-clock rule (test-standard): the sample's `ms` reports real time, which is its job; nothing
+		// asserts on it.
 		const started = performance.now();
 		let status = "threw";
 		try {

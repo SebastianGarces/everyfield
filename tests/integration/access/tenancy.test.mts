@@ -48,6 +48,7 @@ import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
@@ -165,10 +166,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;

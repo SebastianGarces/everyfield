@@ -6,6 +6,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { attendanceReader, meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { ok } from "../../support/fixture.mts";
 
 // REQ-COM-010 (WP-028): the meeting guest list shows when a guest opened the meeting's email, in its own place. An
 // open is an email-service notice: it changes no RSVP, attendance or count, and no open claims nothing.
@@ -18,10 +19,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const secret = "whsec_" + randomBytes(32).toString("base64");
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function person(name) {

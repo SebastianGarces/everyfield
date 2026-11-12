@@ -84,7 +84,7 @@ test("T-20 criterion 1: the format accepts a valid condition in the body, a colu
 });
 
 test("T-20 criterion 1: the format refuses each ill-formed or misplaced condition with its own message", () => {
-	const ok = { field: "pastor", test: "has-value" } as const;
+	const valid = { field: "pastor", test: "has-value" } as const;
 	const cases: [string, unknown, string][] = [
 		[
 			"an undeclared field",
@@ -116,21 +116,21 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 			doc([cond({ field: "shown", test: "is-empty", value: 2 })]),
 			'body.content[0] (if): only a more-than condition has a value; this condition tests "is-empty"',
 		],
-		["an empty condition", doc([cond(ok, [])]), "body.content[0] (if): conditional text holds at least one block"],
+		["an empty condition", doc([cond(valid, [])]), "body.content[0] (if): conditional text holds at least one block"],
 		[
 			"a nested condition",
-			doc([cond(ok, [cond(ok)])]),
+			doc([cond(valid, [cond(valid)])]),
 			"body.content[0].content[0] (if): conditional text cannot hold another conditional text",
 		],
 		[
 			"a nested condition in a box",
-			doc([cond(ok, [{ type: "box", content: [cond(ok)] }])]),
+			doc([cond(valid, [{ type: "box", content: [cond(valid)] }])]),
 			"body.content[0].content[0].content[0] (if): conditional text cannot hold another conditional text",
 		],
 		[
 			"a budget table inside",
 			doc([
-				cond(ok, [
+				cond(valid, [
 					{
 						type: "table",
 						attrs: { style: "ledger", columns: [{ id: "item", label: "Item", type: "text", width: 0 }] },
@@ -141,22 +141,22 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 		],
 		[
 			"a slot inside",
-			doc([cond(ok, [{ type: "slot" }])]),
+			doc([cond(valid, [{ type: "slot" }])]),
 			"body.content[0].content[0] (slot): a section slot cannot sit inside conditional text",
 		],
 		[
 			"in a quote",
-			doc([{ type: "quote", content: [cond(ok) as never] }]),
+			doc([{ type: "quote", content: [cond(valid) as never] }]),
 			"body.content[0].content[0] (if): conditional text can sit only in the body, a column or a box, not in a quote",
 		],
 		[
 			"in a list",
-			doc([{ type: "bulletList", content: [{ type: "listItem", content: [cond(ok) as never] }] }]),
+			doc([{ type: "bulletList", content: [{ type: "listItem", content: [cond(valid) as never] }] }]),
 			"body.content[0].content[0].content[0] (if): conditional text can sit only in the body, a column or a box, not in a listItem",
 		],
 		[
 			"in a slot",
-			doc([{ type: "slot", content: [cond(ok) as never] }]),
+			doc([{ type: "slot", content: [cond(valid) as never] }]),
 			"body.content[0].content[0] (if): conditional text can sit only in the body, a column or a box, not in a slot",
 		],
 		[
@@ -165,7 +165,7 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 				{
 					type: "table",
 					attrs: { columns: [{ id: "a", label: "A", type: "text", width: 0 }] },
-					content: [{ type: "row", content: [{ type: "cell", content: [cond(ok) as never] }] }],
+					content: [{ type: "row", content: [{ type: "cell", content: [cond(valid) as never] }] }],
 				},
 			]),
 			"(if): conditional text can sit only in the body, a column or a box, not in a cell",
@@ -180,7 +180,7 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 						size: "letter",
 						orientation: "portrait",
 						margin: { top: 54, right: 54, bottom: 54, left: 54 },
-						header: { pages: "all", content: [cond(ok)] },
+						header: { pages: "all", content: [cond(valid)] },
 					},
 				},
 			),
@@ -198,7 +198,7 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 						margin: { top: 54, right: 54, bottom: 54, left: 54 },
 						footer: {
 							pages: "all",
-							content: [{ type: "columns", content: [{ type: "column", content: [cond(ok)] }, { type: "column" }] }],
+							content: [{ type: "columns", content: [{ type: "column", content: [cond(valid)] }, { type: "column" }] }],
 						},
 					},
 				},
@@ -210,7 +210,7 @@ test("T-20 criterion 1: the format refuses each ill-formed or misplaced conditio
 			doc([
 				{
 					type: "columns",
-					content: [{ type: "column", content: [cond(ok, [{ type: "pageBreak" }])] }, { type: "column" }],
+					content: [{ type: "column", content: [cond(valid, [{ type: "pageBreak" }])] }, { type: "column" }],
 				},
 			]),
 			"body.content[0].content[0].content[0].content[0] (pageBreak): a pageBreak node cannot sit inside this container",
