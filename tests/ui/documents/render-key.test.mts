@@ -63,7 +63,14 @@ test("a thumbnail and the preview of the same template and values post one previ
 	const original = globalThis.fetch;
 	globalThis.fetch = (async (_url: string, init: RequestInit) => {
 		posts.push(JSON.parse(String(init.body)));
-		const value = { templateId: "vision-card", format: "pdf", fields: [], missing: [], complete: true, artifact: "JVBE" };
+		const value = {
+			templateId: "vision-card",
+			format: "pdf",
+			fields: [],
+			missing: [],
+			complete: true,
+			artifact: "JVBE",
+		};
 		return new Response(JSON.stringify({ status: "ok", value }));
 	}) as typeof fetch;
 	try {
