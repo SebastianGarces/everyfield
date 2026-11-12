@@ -6,8 +6,9 @@ import { parseArgs } from "node:util";
 import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./typecheck.ts";
 
 /**
- * Time TypeScript 7 (the `typecheck` scripts' tsc), TypeScript 6 (each package's own `typescript`, which lint, Next and
- * the reference build still need) and bun check on each typecheck package (T-53, T-252).
+ * Time bun check (the `typecheck` scripts), TypeScript 7 (the `typecheck:tsc` scripts) and TypeScript 6 (each package's
+ * own `typescript`, which lint, Next and the reference build still need) on each typecheck package (T-53, T-252, T-110).
+ * Each tool runs with the arguments of its package script, so apps/web reads tsconfig.typecheck.json.
  * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
  * Each run records the 1-minute load average before it starts, wall time, CPU time (user + system, children
  * included) and peak resident memory, from /usr/bin/time. ts6 and ts7 run with --incremental false, so every run
@@ -30,16 +31,20 @@ export type Measurement = {
 	errors: number;
 };
 
+/** A package script's arguments after its binary. The typecheck scripts are plain space-separated commands. */
+const argsOf = (script: string): string[] => script.trim().split(/\s+/).slice(1);
+
 function commands(root: string, dir: string): Record<Tool, string[]> {
+	const pkg = typecheckPackages(root).find((p) => p.dir === dir);
+	const [bunScript, tscScript] = [pkg?.scripts.typecheck, pkg?.scripts["typecheck:tsc"]];
+	if (!bunScript || !tscScript) throw new Error(`${dir} has no typecheck and typecheck:tsc scripts`);
 	const ts6 = join(root, dir, "node_modules/typescript/bin/tsc");
 	const ts7 = join(root, "node_modules/typescript-7/bin/tsc");
+	// The real binary behind the pinned shim, so its own start-up is what is timed.
 	const bun = join(realpathSync(join(root, "node_modules/bun")), "bin/bun.exe");
 	for (const bin of [ts6, ts7, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
-	return {
-		ts6: [ts6, "--noEmit", "--pretty", "false", "--incremental", "false"],
-		ts7: [ts7, "--noEmit", "--pretty", "false", "--incremental", "false"],
-		bun: [bun, "check", "--no-script", "--no-pretty", "--all"],
-	};
+	const tsc = [...argsOf(tscScript), "--pretty", "false", "--incremental", "false"];
+	return { ts6: [ts6, ...tsc], ts7: [ts7, ...tsc], bun: [bun, ...argsOf(bunScript)] };
 }
 
 /** Parse /usr/bin/time's report: BSD `-l` gives bytes, GNU `-v` gives kilobytes. */
@@ -177,7 +182,7 @@ if (import.meta.main) {
 	const packages = values.package?.length
 		? values.package
 		: typecheckPackages(root)
-				.filter((p) => p.scripts["typecheck:bun"])
+				.filter((p) => p.scripts["typecheck:tsc"])
 				.map((p) => p.dir);
 	const { rows, markdown } = await compare(root, packages, Number(values.runs));
 	process.stdout.write(markdown);

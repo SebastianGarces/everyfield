@@ -1,14 +1,14 @@
-import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, globSync, mkdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { spawn } from "node:child_process";
+import { globSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 /**
- * `pnpm typecheck`: tsc (TypeScript 7 since T-252) in every package, then the root `typecheck:tools` script over the
- * tool folders (tsconfig.tools.json, T-176), and `bun check` beside the packages as a shadow (T-53).
- * tsc alone decides the exit code. The shadow prints one `typecheck-shadow {json}` line per run and,
- * outside CI, appends it to a log outside the repository, so that the data can later decide whether
- * `bun check` may replace tsc.
+ * `pnpm typecheck`: each package's `typecheck` script, which runs the pinned `bun check` (T-110, D-961, on the T-109
+ * shadow data). It prints every package's diagnostics and exits 1 when any package has type errors, or its bun check
+ * is missing, crashes or times out. `pnpm typecheck:tsc` runs each package's `typecheck:tsc` (TypeScript 7), which
+ * GitHub CI's `Types` step keeps as the backstop. After the packages, `pnpm typecheck` runs the root `typecheck:tools`
+ * script over the tool folders (tsconfig.tools.json, T-176), and the run fails if either fails. The helpers below also
+ * serve typecheck-compare.ts and typecheck-corpus.ts.
  */
 
 export type Diagnostic = { file: string; line: number; code: string };
@@ -116,148 +116,6 @@ export function runScript(script: string, cwd: string, timeoutMs: number): Promi
 	});
 }
 
-const WORST: Outcome[] = ["pass", "errors", "crash", "timeout", "missing"];
-
-type PackageResult = {
-	dir: string;
-	tsc: { outcome: "pass" | "errors" | "unknown"; errors: number };
-	bun: { outcome: Outcome; exit: number | null; errors: number; wall_ms: number };
-	mismatch: "yes" | "no";
-	differences_total: number;
-	differences: Array<Diagnostic & { only: "tsc" | "bun" }>;
-};
-
-export type ShadowResult = {
-	v: 1;
-	at: string;
-	commit: string | null;
-	dirty: boolean | null;
-	ci: boolean;
-	tsc: { exit: number; errors: number; wall_ms: number };
-	bun: { exit: number | null; outcome: Outcome; errors: number; wall_ms: number };
-	mismatch: "yes" | "no";
-	packages: PackageResult[];
-	shadow_error?: string;
-};
-
-/** Split pnpm's prefixed `pnpm -r` output into each package's tsc output and status. */
-function tscByPackage(
-	output: string,
-	dirs: string[],
-): Map<string, { text: string; status: "pass" | "errors" | "unknown" }> {
-	const result = new Map(dirs.map((dir) => [dir, { text: "", status: "unknown" as "pass" | "errors" | "unknown" }]));
-	for (const line of output.replace(ANSI, "").split(/\r?\n/)) {
-		for (const dir of dirs) {
-			const prefix = `${dir} typecheck: `;
-			if (!line.startsWith(prefix)) continue;
-			const rest = line.slice(prefix.length);
-			const entry = result.get(dir)!;
-			if (rest === "Done") entry.status = "pass";
-			else if (rest === "Failed") entry.status = "errors";
-			else entry.text += rest + "\n";
-		}
-	}
-	return result;
-}
-
-/** Compare one package's tsc and bun results. A bun run that gave no verdict counts as a mismatch. */
-export function comparePackage(
-	dir: string,
-	tsc: { text: string; status: "pass" | "errors" | "unknown" },
-	bun: ScriptRun | undefined,
-): PackageResult {
-	const tscDiagnostics = parseDiagnostics(tsc.text);
-	const bunDiagnostics = bun ? parseDiagnostics(bun.output) : [];
-	const differences = diffDiagnostics(tscDiagnostics, bunDiagnostics);
-	const bunOutcome: Outcome = bun?.outcome ?? "missing";
-	const mismatch =
-		tsc.status === "unknown" ||
-		!(bunOutcome === "pass" || bunOutcome === "errors") ||
-		tsc.status !== bunOutcome ||
-		differences.length > 0 ||
-		(tsc.status === "errors" && tscDiagnostics.length === 0);
-	return {
-		dir,
-		tsc: { outcome: tsc.status, errors: tscDiagnostics.length },
-		bun: { outcome: bunOutcome, exit: bun?.code ?? null, errors: bunDiagnostics.length, wall_ms: bun?.wallMs ?? 0 },
-		mismatch: mismatch ? "yes" : "no",
-		differences_total: differences.length,
-		differences: differences.slice(0, 20),
-	};
-}
-
-function git(root: string, args: string[]): string | null {
-	const run = spawnSync("git", args, { cwd: root, encoding: "utf8" });
-	return run.status === 0 ? run.stdout.trim() : null;
-}
-
-/** The shadow log, outside the repository. `EVERYFIELD_TYPECHECK_LOG` overrides it. */
-export function shadowLogPath(): string {
-	if (process.env.EVERYFIELD_TYPECHECK_LOG) return resolve(process.env.EVERYFIELD_TYPECHECK_LOG);
-	const state = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state");
-	return join(state, "everyfield", "typecheck-shadow.jsonl");
-}
-
-async function shadow(root: string, tscOutput: string, tscExit: number, tscWallMs: number): Promise<ShadowResult> {
-	const packages = typecheckPackages(root);
-	const timeoutMs = Number(process.env.TYPECHECK_BUN_TIMEOUT_MS) || 120_000;
-	const tsc = tscByPackage(
-		tscOutput,
-		packages.map((p) => p.dir),
-	);
-	const results: PackageResult[] = [];
-	for (const pkg of packages) {
-		const script = pkg.scripts["typecheck:bun"];
-		const bun = script === undefined ? undefined : await runScript(script, join(root, pkg.dir), timeoutMs);
-		results.push(comparePackage(pkg.dir, tsc.get(pkg.dir)!, bun));
-	}
-	const worst = results.reduce<Outcome>(
-		(acc, r) => (WORST.indexOf(r.bun.outcome) > WORST.indexOf(acc) ? r.bun.outcome : acc),
-		"pass",
-	);
-	const head = git(root, ["rev-parse", "HEAD"]);
-	const status = head === null ? null : git(root, ["status", "--porcelain", "--untracked-files=no"]);
-	return {
-		v: 1,
-		at: new Date().toISOString(),
-		commit: head,
-		dirty: status === null ? null : status.length > 0,
-		ci: Boolean(process.env.CI),
-		tsc: { exit: tscExit, errors: results.reduce((n, r) => n + r.tsc.errors, 0), wall_ms: tscWallMs },
-		bun: {
-			exit: results.find((r) => r.bun.outcome === worst)?.bun.exit ?? 0,
-			outcome: worst,
-			errors: results.reduce((n, r) => n + r.bun.errors, 0),
-			wall_ms: results.reduce((n, r) => n + r.bun.wall_ms, 0),
-		},
-		mismatch: results.some((r) => r.mismatch === "yes") ? "yes" : "no",
-		packages: results,
-	};
-}
-
-function record(result: ShadowResult): void {
-	const line = `typecheck-shadow ${JSON.stringify(result)}`;
-	console.log(line);
-	const verdict =
-		result.mismatch === "no"
-			? `bun check matched tsc in ${result.packages.length} packages`
-			: `bun check differed from tsc in ${result.packages
-					.filter((p) => p.mismatch === "yes")
-					.map((p) => `${p.dir} (bun ${p.bun.outcome}, ${p.differences_total} differences)`)
-					.join(", ")}${result.shadow_error ? ` (${result.shadow_error})` : ""}`;
-	console.error(
-		`typecheck-shadow: ${verdict}. tsc ${(result.tsc.wall_ms / 1000).toFixed(1)} s, bun check ${(result.bun.wall_ms / 1000).toFixed(1)} s. tsc alone sets the exit code.`,
-	);
-	if (result.ci) return;
-	const log = shadowLogPath();
-	try {
-		mkdirSync(dirname(log), { recursive: true });
-		appendFileSync(log, `${JSON.stringify(result)}\n`);
-	} catch (error) {
-		console.error(`typecheck-shadow: could not append to ${log}: ${String(error)}`);
-	}
-}
-
 /** The root `typecheck:tools` script, streamed to this process. Resolves to its exit code, or 0 when there is none. */
 function typecheckTools(root: string): Promise<number> {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
@@ -275,52 +133,32 @@ function typecheckTools(root: string): Promise<number> {
 	});
 }
 
-/** Run tsc through pnpm as before, then the tools config, then the shadow, which compares bun with the packages only.
- * Resolves to tsc's exit code, whatever the shadow does: the packages' when they fail, else the tools config's. */
+/** Run every package's `typecheck` script in turn and resolve to the exit code: 0 only when every package passed. */
 export async function typecheck(root: string): Promise<number> {
-	const started = performance.now();
-	let output = "";
-	const packagesExit = await new Promise<number>((done) => {
-		const child = spawn("pnpm", ["-r", "--if-present", "--no-bail", "typecheck"], {
-			cwd: root,
-			stdio: ["inherit", "pipe", "pipe"],
-		});
-		child.stdout.on("data", (chunk: Buffer) => {
-			output += chunk;
-			process.stdout.write(chunk);
-		});
-		child.stderr.on("data", (chunk: Buffer) => process.stderr.write(chunk));
-		child.on("error", (error) => {
-			console.error(`typecheck: could not start pnpm: ${String(error)}`);
-			done(1);
-		});
-		child.on("close", (code) => done(code ?? 1));
-	});
-	const tscWallMs = Math.round(performance.now() - started);
+	const packages = typecheckPackages(root);
+	if (!packages.length) {
+		console.error("typecheck: no package has a typecheck script.");
+		return 1;
+	}
+	const timeoutMs = Number(process.env.TYPECHECK_TIMEOUT_MS) || 120_000;
+	const failed: string[] = [];
+	for (const pkg of packages) {
+		const run = await runScript(pkg.scripts.typecheck!, join(root, pkg.dir), timeoutMs);
+		for (const line of run.output.trimEnd().split(/\r?\n/)) if (line) console.log(`${pkg.dir} typecheck: ${line}`);
+		if (run.outcome === "pass") continue;
+		const why = {
+			errors: "type errors",
+			crash: `crashed (exit ${run.code})`,
+			timeout: `timed out after ${timeoutMs} ms`,
+			missing: "bun check is missing; run pnpm install",
+		}[run.outcome];
+		failed.push(`${pkg.dir}: ${why}`);
+	}
+	if (failed.length)
+		console.error(`typecheck failed in ${failed.length} of ${packages.length} packages:\n  ${failed.join("\n  ")}`);
+	else console.error(`typecheck: bun check found no type errors in ${packages.length} packages.`);
 	const toolsExit = await typecheckTools(root);
-	let result: ShadowResult;
-	try {
-		result = await shadow(root, output, packagesExit, tscWallMs);
-	} catch (error) {
-		result = {
-			v: 1,
-			at: new Date().toISOString(),
-			commit: null,
-			dirty: null,
-			ci: Boolean(process.env.CI),
-			tsc: { exit: packagesExit, errors: parseDiagnostics(output).length, wall_ms: tscWallMs },
-			bun: { exit: null, outcome: "crash", errors: 0, wall_ms: 0 },
-			mismatch: "yes",
-			packages: [],
-			shadow_error: String(error),
-		};
-	}
-	try {
-		record(result);
-	} catch (error) {
-		console.error(`typecheck-shadow: could not record the result: ${String(error)}`);
-	}
-	return packagesExit || toolsExit;
+	return failed.length ? 1 : toolsExit;
 }
 
 if (import.meta.main) process.exitCode = await typecheck(process.cwd());
