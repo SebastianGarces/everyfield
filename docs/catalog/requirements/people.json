@@ -739,7 +739,9 @@
       "spec": "docs/product/people.md#req-ppl-016",
       "operations": [
         "people.checkForDuplicates",
-        "people.listDuplicatePairs"
+        "people.listDuplicatePairs",
+        "people.dismissDuplicatePair",
+        "people.restoreDuplicatePair"
       ],
       "acceptance_ids": [
         "AC-PPL-016--PPL-016"

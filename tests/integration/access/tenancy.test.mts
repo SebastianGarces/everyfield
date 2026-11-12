@@ -25,10 +25,12 @@ import {
 	assessments,
 	checkForDuplicates,
 	commitments,
+	dismissDuplicatePair,
 	executeBulkImport,
 	getAccountLink,
 	getCommitmentDownload,
 	interviews,
+	listDismissedDuplicatePairs,
 	listDuplicatePairs,
 	peopleCsv,
 	peopleMerge,
@@ -47,7 +49,12 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
+import {
+	guestsWriter,
+	meetingsReader,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
@@ -67,7 +74,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
 
 const WRITE_VERBS = new Set(
-	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dispatch
+	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
 	edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign unmerge update upload use with withdraw`.split(/\s+/),
@@ -333,9 +340,11 @@ async function seedChurchA() {
 	);
 	a.merge = (await rows(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0].id;
 
-	// Row 2 repeats row 1 and is added to review later, so church A has a pair for people.listDuplicatePairs.
+	// Rows 2 and 3 repeat row 1 and are added to review later, so church A has a pair for people.listDuplicatePairs and,
+	// once row 3's pair is marked not a duplicate, one for people.listDismissedDuplicatePairs.
 	const file = new TextEncoder().encode(
-		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n`,
+		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n` +
+			`${MARK}-Third,alpha-tenancy-import@example.test\r\n`,
 	);
 	const preview = ok(
 		await f.db.transaction((t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
@@ -349,10 +358,18 @@ async function seedChurchA() {
 			reviewDigest: preview.reviewDigest,
 			choices: preview.rows
 				.filter((r) => r.status === "valid")
-				.map((r) => ({ row: r.row, choice: r.row === 2 ? "create_and_review" : "create" })),
+				.map((r) => ({ row: r.row, choice: r.row === 1 ? "create" : "create_and_review" })),
 		}),
 	);
 	await runDueImports(f.db, 10);
+	const pairs = ok(
+		await f.db.transaction((t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
+	).items.filter((p) => p.person.displayName === `${MARK}-Third`);
+	ok(
+		await people((t, c) =>
+			dismissDuplicatePair(t, c, { personId: pairs[0].person.id, withPersonId: pairs[0].with.id }),
+		),
+	);
 
 	// Teams come from their own area; rows here, as the communication suites seed them. This meeting row is the
 	// communication cases' own; the meetings cases read the meetings seed (tenancy-meetings.mts).
@@ -478,7 +495,6 @@ function cases(who) {
 			value: {
 				resolvedDistinctPeople: 0,
 				eligibleRecipients: 0,
-				cappedRecipients: 0,
 				missingEmailExclusions: [],
 				unsubscribedExclusions: [],
 				duplicateAddressesRemoved: 0,
@@ -550,6 +566,10 @@ function cases(who) {
 		),
 		ppl("listDuplicatePairs", () => reads((t, c) => listDuplicatePairs(t, c)), {
 			value: { items: [], completeness: "complete" },
+		}),
+		ppl("listDismissedDuplicatePairs", () => reads((t, c) => listDismissedDuplicatePairs(t, c)), {
+			// The church's own time zone is its only field: church B's, which is no church A value.
+			check: (value) => assert.deepEqual({ ...value, zone: "" }, { zone: "", items: [], completeness: "complete" }),
 		}),
 		ppl("searchPeople", () => reads((t, c) => searchPeople(t, c, MARK)), { value: [] }),
 		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
@@ -815,4 +835,32 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 		}
 	}
 	assert.deepEqual(blind, [], "church A's own owner must see the seeded data, or the case proves nothing");
+});
+
+// T-232: Add guest's one write takes a meeting and People only from the writer's own church.
+test("INV-tenancy: meetings.addGuests refuses another church's meeting and adds no Person of another church", async () => {
+	const add = (input) =>
+		withMeetingsWrite(f.db, ownerB.actor, (tx, c) => guestsWriter.addGuests(tx, c, { requestKey: key(), input }));
+	const guests = (meetingId) =>
+		rows(sql`SELECT person_id, removed_at FROM participation WHERE meeting_id=${meetingId} ORDER BY person_id`);
+	const people = async () => (await rows(sql`SELECT count(*)::int AS n FROM person`))[0].n;
+	const aGuests = await guests(a.vision);
+	const before = await people();
+	// Church B's owner names church A's meeting, with church A's People and a new contact.
+	const onA = await add({ meetingId: a.vision, people: [a.avery, a.blair], contacts: [{ displayName: `${MARK} B` }] });
+	assert.deepEqual([onA.status, onA.status === "refused" && onA.error.code], ["refused", "unavailable"]);
+	// Church B's own meeting with only church A's People: none of them is a Person of church B.
+	const own = ok(
+		await withMeetingsWrite(f.db, ownerB.actor, (tx, c) =>
+			meetingsWriter.schedule(tx, c, {
+				requestKey: key(),
+				input: { type: "orientation", date: occurredOn, time: "18:00" },
+			}),
+		),
+	).meeting;
+	const onB = await add({ meetingId: own.id, people: [a.avery, a.blair] });
+	assert.deepEqual([onB.status, onB.status === "refused" && onB.error.code], ["refused", "invalid_subject"]);
+	assert.deepEqual(await guests(a.vision), aGuests);
+	assert.deepEqual(await guests(own.id), []);
+	assert.equal(await people(), before);
 });

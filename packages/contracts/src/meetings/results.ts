@@ -153,6 +153,17 @@ export const rosterUpdateResult = z.strictObject({
 const attendanceRevision = revision;
 export const guestMutationResult = z.strictObject({ ...receipt, guest, attendanceRevision });
 export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean(), attendanceRevision });
+/**
+ * Everyone an Add guest submit put on the list, already listed ones included: the chosen People in the order sent,
+ * then the new contacts. notAdded names the chosen People who are no longer live in this church.
+ */
+export const addGuestsResult = z.strictObject({
+	...receipt,
+	meetingId,
+	guests: z.array(guest).max(150),
+	notAdded: z.array(personId).max(100),
+	attendanceRevision,
+});
 export const ownRsvp = z.strictObject({
 	meetingId,
 	guestId: recordId,

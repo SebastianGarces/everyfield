@@ -165,26 +165,16 @@ export async function meetingNotice(
 }
 
 /**
- * Which meeting notice mail may go out (NTF-006): the notice is the recipient's own meeting announcement or reminder,
- * its meeting is still at the revision it was written for, still scheduled and not started, and the recipient still
- * holds an accepted seat in the church. One statement, locking the notice, the meeting and the seat.
+ * Which meeting notice mail may go out (NTF-006), as a locking SELECT of mail ids over `input` (rows of id, recipient
+ * and notice, under the alias `i`): the notice is the recipient's own meeting announcement or reminder, its meeting is
+ * still at the revision it was written for, still scheduled and not started, and the recipient still holds an accepted
+ * seat in the church. It locks the notice, the meeting and the seat.
  */
-export async function authorizeMeetingNotices(
-	tx: Reader,
-	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
-): Promise<ReadonlySet<string>> {
-	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
-	const r =
-		await tx.execute(sql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)
+export function meetingMailGrants(input: SQLWrapper): SQLWrapper {
+	return sql`SELECT i.id FROM ${input}
 		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose IN ('meeting_invitation','meeting_reminder')
 		JOIN meeting m ON m.id=n.source_record_id AND m.plant_id=n.tenant_id AND m.revision=n.source_revision
 		JOIN seat s ON s.account_id=i.recipient AND s.plant_id=m.plant_id AND ${seatHeld("s")}
 		WHERE m.status IN ('planning','ready') AND m.retired_at IS NULL AND m.starts_at>clock_timestamp()
-		FOR SHARE OF n, m, s`);
-	return new Set(
-		z
-			.array(z.object({ id: z.uuid() }))
-			.parse(r.rows)
-			.map((row) => row.id),
-	);
+		FOR SHARE OF n, m, s`;
 }

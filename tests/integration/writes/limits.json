@@ -659,6 +659,10 @@
 	"meetings.addAttendeeNote": {
 		"limit": 2
 	},
+	"meetings.addGuests": {
+		"limit": 6,
+		"retry": 5
+	},
 	"meetings.attendanceSummary": {
 		"limit": 1
 	},
@@ -1401,6 +1405,12 @@
 	"people/csv/index.retryStoredImport": {
 		"limit": 6,
 		"retry": 5
+	},
+	"people/duplicates.dismissDuplicatePair": {
+		"limit": 3
+	},
+	"people/duplicates.restoreDuplicatePair": {
+		"limit": 3
 	},
 	"people/csv/index.signPeopleImport": {
 		"limit": 1

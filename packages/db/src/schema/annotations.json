@@ -2185,6 +2185,34 @@
 				"future_case_ids": ["SCHEMA-009", "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE"]
 			},
 			{
+				"table": "person_duplicate_dismissal",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
+				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+				"retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+				"privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+				"immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+				"future_case_ids": ["TARGET-PPL-018"]
+			},
+			{
+				"table": "person_duplicate_dismissal",
+				"columns": ["with_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
+				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+				"retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+				"privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+				"immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+				"future_case_ids": ["TARGET-PPL-018"]
+			},
+			{
 				"table": "person_email_opt_out",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
@@ -9378,6 +9406,9 @@
 				},
 				"related_slugs": {
 					"note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids."
+				},
+				"search_vector": {
+					"note": "Wiki search vector (title A, excerpt B, body words C), written by the search_vector trigger on every insert and update."
 				}
 			},
 			"foreignKeys": {
@@ -17158,6 +17189,73 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A proposal goes with its conversation, in the same tenant."
+					}
+				}
+			}
+		},
+		"person_duplicate_dismissal": {
+			"table": {
+				"name": "person_duplicate_dismissal",
+				"domain": "people",
+				"purpose": "One pair on the duplicates list an Owner or Admin marked \"Not a duplicate\" (D-789): the person a CSV import added with \"Add, review later\" and the person it may duplicate. The pair leaves the list while the row exists and shows in the Dismissed view; Restore deletes the row and the pair is listed again.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-030"],
+				"replaces": [],
+				"producer_work_packages": ["WP-015"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-015"],
+					"rule": "WP-015 People duplicates list records a dismissal from an Owner or Admin."
+				},
+				"feature_ids": ["PPL-018"],
+				"acceptance_ids": ["AC-PPL-018--PPL-018"],
+				"future_case_ids": [],
+				"scope": "tenant",
+				"invariants": [
+					"At most one dismissal per church and pair.",
+					"Only a pair an import flagged, with both people live, is dismissed.",
+					"Each dismiss and restore writes one audit row in the same statement; a repeat writes nothing."
+				],
+				"revision": "No revision column; a dismissal is one row, and Restore deletes it.",
+				"idempotency": "A second dismiss of a dismissed pair, or a restore of a listed pair, changes nothing and writes no audit row.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Dismissal identity."
+				},
+				"plant_id": {
+					"note": "The church whose duplicates list the pair is on."
+				},
+				"person_id": {
+					"note": "The person the import added with \"Add, review later\". Not moved by a merge."
+				},
+				"with_person_id": {
+					"note": "The person it may duplicate. Not moved by a merge."
+				},
+				"dismissed_at": {
+					"note": "When the pair was marked not a duplicate."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The dismissal goes with either Person in the church purge."
+					}
+				},
+				"with_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The dismissal goes with either Person in the church purge."
 					}
 				}
 			}

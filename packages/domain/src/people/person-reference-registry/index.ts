@@ -59,6 +59,9 @@ export const registry: readonly Registration[] = [
 	// A Messages opt-out stays on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays
 	// unsubscribed while merged and Unmerge needs no move (D-284).
 	r("email_opt_out", "person_email_opt_out", "person_id", "plant_id", "keep", "id", false),
+	// A pair marked not a duplicate stays on the pair it names: a merge takes it off both lists, Unmerge brings it back.
+	r("duplicate_dismissal", "person_duplicate_dismissal", "person_id", "plant_id", "keep", "id", false),
+	r("duplicate_dismissal", "person_duplicate_dismissal", "with_person_id", "plant_id", "keep", "id", false),
 	// Owned by later packages, which prove their own references after merge (WP-091 closes the set).
 	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
 	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "block"),
