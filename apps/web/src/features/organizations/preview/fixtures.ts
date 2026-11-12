@@ -341,7 +341,8 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const next = C.invitationResult.parse({
 					...original,
 					revision: String(Number(original.revision) + 1),
-					expiresAt: days(30),
+					// As the API does: a resend sends a fresh link and keeps the original expiry.
+					expiresAt: original.expiresAt,
 				});
 				pending = pending.map((i) => (i.invitationId === next.invitationId ? next : i));
 				return next;
