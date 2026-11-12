@@ -11,6 +11,7 @@ import {
 	trainingReader,
 	trainingWriter,
 } from "../../../../packages/domain/src/teams/index.ts";
+import { meetingsReader, meetingsWriter } from "../../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 
 const noReminders = async () => {
@@ -91,6 +92,19 @@ async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
 	);
 }
 const idsOf = (names, book) => names.map((name) => book[name]);
+/** A team meeting through the one meetings writer (T-201); its guest list is the ministry's people serving now. */
+const teamMeeting = (teamId, fields = {}, who = 0) =>
+	run(
+		meetingsWriter.schedule,
+		{ requestKey: key(), input: { type: "team_meeting", teamId, date: "2026-10-24", time: "09:00", ...fields } },
+		who,
+	);
+/** A held meeting: these people attended and it is completed. The attendance writer has its own tests. */
+async function held(meetingId, personIds) {
+	await admin.execute(sql`UPDATE participation SET presence='attended'
+		WHERE meeting_id=${meetingId} AND person_id = ANY(${sql.param(personIds)}::uuid[])`);
+	await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${meetingId}`);
+}
 
 before(async () => {
 	memberPerson = await person("Member leader", { account: actors[1].id });
@@ -228,7 +242,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 		worship.id,
 	);
 	const empty = await makeTeam("Empty applicability");
-	const health = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: empty.id }));
+	const health = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: empty.id }));
 	assert.equal(health.trainingRate, null);
 });
 
@@ -388,6 +402,7 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	const stranger = await person("Other leader", { account: otherMember.id });
 	await assign(await makeRole(hospitality.id, "Host"), hospitality.id, alex);
 	await assign(await makeRole(hospitality.id, "Host two"), hospitality.id, alex);
+	await assign(await makeRole(hospitality.id, "Greeter"), hospitality.id, casey);
 	ok(
 		await run(teamsWriter.appointLeader, {
 			requestKey: key(),
@@ -403,84 +418,32 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 		}),
 	);
 	const credits = await count(sql`SELECT count(*)::int AS n FROM training_credit`);
-	const jobs = await count(sql`SELECT count(*)::int AS n FROM job`);
-	const meeting = ok(
-		await run(
-			trainingWriter.scheduleMeeting,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("team", hospitality.id),
-				input: {
-					teamId: hospitality.id,
-					subtype: "training",
-					date: "2026-10-24",
-					time: "09:00",
-					guestIds: [alex, alex, casey],
-				},
-			},
-			1,
-		),
-	);
-	assert.deepEqual(meeting.guestIds, [alex, casey]);
+	// The ministry's own leader schedules its training session; the roster is copied once per person.
+	const meeting = ok(await teamMeeting(hospitality.id, { subtype: "training" }, 1)).meeting;
+	assert.equal(meeting.subtype, "training");
+	assert.equal(meeting.guestCount, 2);
+	const guests = await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`);
+	assert.equal(guests, 2);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit`), credits);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
-	ok(
-		await run(
-			trainingWriter.recordAttendance,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("meeting", meeting.meetingId),
-				input: { meetingId: meeting.meetingId, personIds: [alex, casey] },
-			},
-			1,
-		),
-	);
-	const health = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: hospitality.id }));
-	assert.equal(health.memberAttendance, 1);
+	// A later join does not change the saved guest list.
 	await assign(await makeRole(hospitality.id, "Later guest"), hospitality.id, jamie);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.meetingId}`), 2);
-	refused(
-		await run(
-			trainingWriter.scheduleMeeting,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("team", hospitality.id),
-				input: { teamId: hospitality.id, subtype: "training", date: "2026-10-25", time: "10:00", guestIds: [alex] },
-			},
-			actors.length - 1,
-		),
-		"access_denied",
-	);
-	const second = ok(
-		await run(
-			trainingWriter.scheduleMeeting,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("team", hospitality.id),
-				input: {
-					teamId: hospitality.id,
-					subtype: "training",
-					date: "2026-10-26",
-					time: "11:00",
-					guestIds: [casey, jamie],
-				},
-			},
-			1,
-		),
-	);
-	assert.deepEqual(second.guestIds, [casey, jamie]);
-	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.meetingId}`))
-		.rows[0];
-	assert.equal(stored.type, "team_meeting");
-	assert.equal(stored.subtype, "training");
-	assert.equal(stored.team_id, hospitality.id);
-	const listed = ok(await trainingReader.listTeamMeetings(db, await viewer(), { teamId: hospitality.id }));
-	assert.equal(listed.meetings.length, 2);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`), 2);
+	// Another ministry's leader schedules nothing here.
+	refused(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1));
+	const second = ok(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-26" }, 1)).meeting;
+	assert.equal(second.guestCount, 3);
+	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.id}`)).rows[0];
+	assert.deepEqual({ ...stored }, { type: "team_meeting", subtype: "training", team_id: hospitality.id });
+	// The global list and the ministry's list project the same meeting ids.
+	const listed = ok(await meetingsReader.list(db, await viewer(), { teamId: hospitality.id, window: "all" }));
+	assert.deepEqual(listed.items.map((m) => m.id).sort(), [meeting.id, second.id].sort());
+	const all = ok(await meetingsReader.list(db, await viewer(), { types: ["team_meeting"], window: "all" }));
+	assert.ok(all.items.some((m) => m.id === meeting.id && m.team?.id === hospitality.id));
 });
 
 test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its weights", async () => {
 	const bare = await makeTeam("Bare health");
-	const bareFacts = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: bare.id }));
+	const bareFacts = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: bare.id }));
 	assert.equal(bareFacts.composite, null);
 	assert.deepEqual(bareFacts.weights, [40, 35, 25]);
 	const team = await makeTeam("Staffed health");
@@ -499,34 +462,8 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 			input: { teamId: team.id, personId: leader },
 		}),
 	);
-	const meeting = ok(
-		await run(
-			trainingWriter.scheduleMeeting,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("team", team.id),
-				input: {
-					teamId: team.id,
-					subtype: "regular",
-					date: "2026-10-20",
-					time: "18:00",
-					guestIds: [alex, casey, jamie],
-				},
-			},
-			1,
-		),
-	);
-	ok(
-		await run(
-			trainingWriter.recordAttendance,
-			{
-				requestKey: key(),
-				expectedRevision: await rev("meeting", meeting.meetingId),
-				input: { meetingId: meeting.meetingId, personIds: [alex, casey, jamie] },
-			},
-			1,
-		),
-	);
+	const meeting = ok(await teamMeeting(team.id, { subtype: "regular", date: "2026-10-20", guests: [jamie] })).meeting;
+	await held(meeting.id, [alex, casey, jamie]);
 	ok(
 		await run(teamsWriter.endMembership, {
 			requestKey: key(),
@@ -554,7 +491,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 			input: { kind: "program", personId: alex, programId: course.id, earnedOn: "2026-10-03" },
 		}),
 	);
-	const covered = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: team.id }));
+	const covered = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id }));
 	assert.equal(covered.trainingRate, 0.5);
 	assert.deepEqual(covered.weights, [40, 35, 25]);
 	const history = ok(await trainingReader.readTrainingHistory(db, await viewer(), { personId: alex }));
@@ -564,21 +501,9 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	);
 	const quiet = await makeTeam("Measured zero");
 	await makeRole(quiet.id, "Open");
-	const quietMeeting = ok(
-		await run(trainingWriter.scheduleMeeting, {
-			requestKey: key(),
-			expectedRevision: await rev("team", quiet.id),
-			input: { teamId: quiet.id, subtype: "regular", date: "2026-10-21", time: "12:00", guestIds: [] },
-		}),
-	);
-	ok(
-		await run(trainingWriter.recordAttendance, {
-			requestKey: key(),
-			expectedRevision: await rev("meeting", quietMeeting.meetingId),
-			input: { meetingId: quietMeeting.meetingId, personIds: [] },
-		}),
-	);
-	const zero = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: quiet.id }));
+	const quietMeeting = ok(await teamMeeting(quiet.id, { subtype: "regular", date: "2026-10-21" })).meeting;
+	await held(quietMeeting.id, []);
+	const zero = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: quiet.id }));
 	assert.equal(zero.staffingRate, 0);
 	assert.equal(zero.attendanceRate, 0);
 	assert.equal(zero.trainingRate, null);
@@ -718,17 +643,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 				input: { teamId: led.id, personId: linked },
 			}),
 		);
-		refused(
-			await run(
-				trainingWriter.scheduleMeeting,
-				{
-					requestKey: key(),
-					expectedRevision: await rev("team", led.id),
-					input: { teamId: led.id, subtype: "training", date: "2026-10-27", time: "09:30", guestIds: [] },
-				},
-				1,
-			),
-		);
+		refused(await teamMeeting(led.id, { subtype: "training", date: "2026-10-27", time: "09:30" }, 1));
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id=${actors[1].id} AND plant_id=${P}`);
 	}
@@ -1231,13 +1146,7 @@ test("AC:REQ-IDN-005 an unknown or another church's program or team is unavailab
 				input: { name: "Probe", required: false, teamId },
 			}),
 		);
-		refused(
-			await run(trainingWriter.scheduleMeeting, {
-				requestKey: key(),
-				expectedRevision: teamId === archivedTeam.id ? await rev("team", teamId) : "1",
-				input: { teamId, subtype: "training", date: "2026-12-01", time: "18:00", guestIds: [] },
-			}),
-		);
+		refused(await teamMeeting(teamId, { subtype: "training", date: "2026-12-01", time: "18:00" }), "team_unavailable");
 	}
 	assert.equal(
 		await count(sql`SELECT count(*)::int AS n FROM training_program WHERE plant_id=${P} AND name='Probe'`),
