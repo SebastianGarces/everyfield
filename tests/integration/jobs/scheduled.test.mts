@@ -134,8 +134,8 @@ test("INV-budget: an idle scheduled run sends a fixed number of statements, and 
 	await run();
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	// closeLostJobs 2 (timeout, close); imports: recoverLease 2, claim 1; expired import files 1; effects claim 1;
-	// turns claim 1.
-	assert.equal(sent.length, 8, sent.join("\n---\n"));
+	// turns claim 1; mail-expiry 1 (stale ready mail); mail-callbacks 1 (stored callbacks whose mail has a provider id).
+	assert.equal(sent.length, 10, sent.join("\n---\n"));
 	// A job the runner finishes costs one round trip: the statement bound and the fenced finish in one message.
 	await ask(await actor("owner"), "Find Casey");
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);

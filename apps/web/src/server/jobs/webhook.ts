@@ -180,12 +180,16 @@ export async function replayStoredCallbacks(db: Database, limit = 100) {
 	let applied = 0;
 	for (const row of rows) {
 		try {
-			if ((await transaction(db, (tx) => apply(tx, z.uuid().parse(row.id)))) === "applied") applied++;
+			if ((await applyStoredCallback(db, z.uuid().parse(row.id))) === "applied") applied++;
 		} catch {
 			/* The durable pending receipt stays visible; another bad row cannot block the scan tail. */
 		}
 	}
 	return applied;
+}
+/** Applies one stored callback in its own transaction: the census measures each event, not the whole scan. */
+async function applyStoredCallback(db: Database, eventId: string) {
+	return transaction(db, (tx) => apply(tx, eventId));
 }
 export function mailCallbackHandler(db: Database, secret: string) {
 	return (request: Request) =>
