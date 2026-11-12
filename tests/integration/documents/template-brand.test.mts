@@ -83,7 +83,12 @@ async function attach(slot: "full_logo" | "cover_photo", mediaType: string, byte
 	const ticket = ok(await brandWriter.requestUpload(db, owner, { slot, mediaType, byteLength: bytes.length, altText }));
 	ok(await uploadBrandAsset(db, storage, owner, { uploadId: ticket.uploadId, bytes }));
 	revision = ok(
-		await brandWriter.finalizeUpload(db, owner, { uploadId: ticket.uploadId, slot, altText, expectedRevision: revision }),
+		await brandWriter.finalizeUpload(db, owner, {
+			uploadId: ticket.uploadId,
+			slot,
+			altText,
+			expectedRevision: revision,
+		}),
 	).revision;
 }
 async function saveKit(patch: Record<string, unknown>) {
