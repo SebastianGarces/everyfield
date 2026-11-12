@@ -317,14 +317,21 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 	}
 }
 
-/** The bytes of the viewer's own current photo version, or null. Only its own account may read it. */
+/**
+ * The bytes of one current account photo version, or null. Its own account and the people who hold a live seat in a
+ * workspace where it holds one, or that oversees or is overseen by such a workspace through a current link, may read
+ * it (readAvatar); every other request gets the same null as a missing photo.
+ */
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage || viewer.accountId !== accountId) return null;
-	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
+	if (!viewer || !ops?.storage) return null;
+	const context = {
+		session: viewer.authority.session,
+		selected: owner.parse({ kind: "account", id: viewer.accountId }),
+	};
 	try {
-		return await readAvatar(ops.db, ops.storage, context, versionId);
+		return await readAvatar(ops.db, ops.storage, context, { accountId, versionId });
 	} catch {
 		return null;
 	}
