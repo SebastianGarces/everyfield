@@ -27,6 +27,7 @@ const PERSON = "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60";
 const receipt = {
 	importId: "1c7d4f2a-3b8e-4d4c-8a6f-2e3d4c5b6a71",
 	status: "partial",
+	fileKept: true,
 	rows: [
 		{ row: 1, status: "created", personId: PERSON, reviewWith: null },
 		{ row: 2, status: "failed", reason: "invalid", problems: [{ code: "name_required", column: null }] },
@@ -65,6 +66,8 @@ test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did n
 				heading: { current: null },
 				receipt,
 				review: null,
+				working: false,
+				problem: null,
 				onRetry: () => {},
 				onStartOver: () => {},
 			}),
@@ -94,7 +97,7 @@ test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did n
 
 // T-193 (people/peo-24): a complete import with flagged rows says how many to review and links to Duplicates; one with
 // none keeps its plain line, and a partial import keeps its retry message.
-const done = (r: unknown) =>
+const done = (r: unknown, problem: unknown = null) =>
 	renderToStaticMarkup(
 		createElement(
 			AppRouterContext.Provider,
@@ -103,6 +106,8 @@ const done = (r: unknown) =>
 				heading: { current: null },
 				receipt: r,
 				review: null,
+				working: false,
+				problem,
 				onRetry: () => {},
 				onStartOver: () => {},
 			}),
@@ -111,6 +116,7 @@ const done = (r: unknown) =>
 const complete = (reviewWith: (string | null)[]) => ({
 	importId: receipt.importId,
 	status: "complete",
+	fileKept: false,
 	rows: reviewWith.map((w, i) => ({ row: i + 1, status: "created", personId: PERSON, reviewWith: w })),
 	remaining: [],
 	counts: { created: reviewWith.length, skipped: 0, failed: 0, remaining: 0 },
@@ -137,4 +143,33 @@ test("T-193 (people/peo-24): the Done screen says how many to review in Duplicat
 	assert.match(partial, /The other rows are saved\. Try the rows that did not save again; nobody is added twice\./);
 	assert.doesNotMatch(partial, /to review|with a note/);
 	for (const page of [none, text(one), three, partial]) assert.doesNotMatch(page, /with a note/);
+});
+
+// T-194 (people/peo-48): a partial import offers "Try N rows again" while the server keeps its file. Once the file is
+// deleted, it says to upload the file again and offers the file chooser instead; a refused file shows why there.
+const partialDone = (fileKept: boolean, problem: unknown = null) => done({ ...receipt, fileKept }, problem);
+
+test("T-194 (people/peo-48): the expired Done screen says to upload the file again and offers the file, not the button", () => {
+	const kept = text(partialDone(true));
+	assert.match(kept, /Try 3 rows again/);
+	assert.doesNotMatch(kept, /Upload the file again/);
+
+	const html = partialDone(false);
+	const expired = text(html);
+	assert.match(
+		expired,
+		/1 person added\. 3 rows did not save\. Upload the file again to finish the remaining 3 rows\./,
+	);
+	assert.doesNotMatch(expired, /Try 3 rows again/);
+	assert.match(html, /<input[^>]*type="file"[^>]*aria-label="Choose the file this import used"/);
+	assert.match(expired, /Choose the file/);
+
+	const refused = text(
+		partialDone(false, {
+			title: "This is not the file this import used",
+			text: "Choose the same CSV file you imported, without changes. Nothing was saved.",
+		}),
+	);
+	assert.match(refused, /This is not the file this import used/);
+	assert.match(refused, /Upload the file again to finish the remaining 3 rows\./);
 });

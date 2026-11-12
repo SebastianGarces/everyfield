@@ -14,6 +14,7 @@ import {
 	UNCONFIRMED,
 	plural,
 	RECONNECTING,
+	retryRefusal,
 	suggestedChoices,
 	type ImportReceipt,
 	type ImportUpload,
@@ -32,7 +33,23 @@ type State =
 	| { step: "upload"; checking: File | null; error: Notice | null }
 	| { step: "review"; review: Review; refusal: Notice | null }
 	| { step: "import"; review: Review | null; key: string; receipt: ImportReceipt | null; trouble: Notice | null }
-	| { step: "done"; review: Review | null; key: string; receipt: ImportReceipt };
+	| {
+			step: "done";
+			review: Review | null;
+			key: string;
+			receipt: ImportReceipt;
+			working: File | boolean;
+			problem: Notice | null;
+	  };
+type Done = Extract<State, { step: "done" }>;
+const done = (review: Review | null, key: string, receipt: ImportReceipt, problem: Notice | null = null): Done => ({
+	step: "done",
+	review,
+	key,
+	receipt,
+	working: false,
+	problem,
+});
 
 /** What the page found for ?import= when it loaded. */
 export type Initial =
@@ -77,7 +94,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 	const [state, setState] = useState<State>(() => {
 		if (initial.kind === "receipt")
 			return finished(initial.receipt)
-				? { step: "done", review: null, key: initial.key, receipt: initial.receipt }
+				? done(null, initial.key, initial.receipt)
 				: { step: "import", review: null, key: initial.key, receipt: initial.receipt, trouble: null };
 		if (initial.kind === "lost")
 			return { step: "import", review: null, key: initial.key, receipt: null, trouble: LOST_CHECK };
@@ -127,7 +144,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		});
 	};
 
-	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply or a partial import. */
+	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply. */
 	const send = async (review: Review, key: string) => {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await call<ImportReceipt>(
@@ -156,11 +173,31 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 	};
 
 	const settle = (review: Review | null, key: string, receipt: ImportReceipt) =>
-		setState(
-			finished(receipt)
-				? { step: "done", review, key, receipt }
-				: { step: "import", review, key, receipt, trouble: null },
-		);
+		setState(finished(receipt) ? done(review, key, receipt) : { step: "import", review, key, receipt, trouble: null });
+
+	/**
+	 * "Try N rows again": from the server's kept copy, or with `picked`, the same file uploaded again once the copy is
+	 * deleted. A refusal reads the receipt again, so the screen shows whether the copy is still kept.
+	 */
+	const retry = async (s: Done, picked?: File) => {
+		const refuse = async (code: string) => {
+			const fresh = await readReceipt(s.key);
+			setState(done(s.review, s.key, fresh.status === "ok" ? fresh.value : s.receipt, retryRefusal(code)));
+		};
+		if (picked && picked.size > MAX_BYTES) return refuse("file_too_large");
+		setState({ ...s, working: picked ?? true, problem: null });
+		let uploadId: string | undefined;
+		if (picked) {
+			const staged = await stage(new File([await picked.arrayBuffer()], picked.name, { type: "text/csv" }));
+			if (staged.status !== "ok")
+				return setState({ ...s, problem: retryRefusal(staged.status === "lost" ? "lost" : staged.code) });
+			uploadId = staged.value;
+		}
+		const got = await call<ImportReceipt>("/api/people/import/retry", post({ requestKey: s.key, uploadId }));
+		if (got.status === "ok") return settle(s.review, s.key, got.value);
+		if (got.status === "lost") return confirm(s.review, s.key);
+		return refuse(got.code);
+	};
 
 	// While the job runs, read its receipt about once a second. A failed read waits longer, then tries again.
 	const running = state.step === "import" && state.receipt !== null ? state : null;
@@ -264,7 +301,9 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 					heading={heading}
 					receipt={state.receipt}
 					review={state.review}
-					onRetry={state.review ? () => send(state.review!, state.key) : null}
+					working={state.working}
+					problem={state.problem}
+					onRetry={(file) => void retry(state, file)}
 					onStartOver={startOver}
 				/>
 			)}
@@ -273,5 +312,5 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 }
 
 function next(s: Extract<State, { step: "import" }>, receipt: ImportReceipt): State {
-	return finished(receipt) ? { step: "done", review: s.review, key: s.key, receipt } : { ...s, receipt, trouble: null };
+	return finished(receipt) ? done(s.review, s.key, receipt) : { ...s, receipt, trouble: null };
 }
