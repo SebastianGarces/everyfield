@@ -4,7 +4,8 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 /**
- * `pnpm typecheck`: tsc (TypeScript 7 since T-252) in every package, and `bun check` beside it as a shadow (T-53).
+ * `pnpm typecheck`: tsc (TypeScript 7 since T-252) in every package, then the root `typecheck:tools` script over the
+ * tool folders (tsconfig.tools.json, T-176), and `bun check` beside the packages as a shadow (T-53).
  * tsc alone decides the exit code. The shadow prints one `typecheck-shadow {json}` line per run and,
  * outside CI, appends it to a log outside the repository, so that the data can later decide whether
  * `bun check` may replace tsc.
@@ -34,10 +35,10 @@ export function parseDiagnostics(text: string): Diagnostic[] {
 	for (const raw of text.split(/\r?\n/)) {
 		const line = raw.replace(ANSI, "");
 		const located = line.match(LOCATED);
-		if (located) found.push({ file: located[1], line: Number(located[2]), code: located[3] });
+		if (located) found.push({ file: located[1]!, line: Number(located[2]), code: located[3]! });
 		else {
 			const global = line.match(GLOBAL);
-			if (global) found.push({ file: "", line: 0, code: global[1] });
+			if (global) found.push({ file: "", line: 0, code: global[1]! });
 		}
 	}
 	return found;
@@ -257,11 +258,29 @@ function record(result: ShadowResult): void {
 	}
 }
 
-/** Run tsc through pnpm as before, then the shadow. Resolves to tsc's exit code, whatever the shadow does. */
+/** The root `typecheck:tools` script, streamed to this process. Resolves to its exit code, or 0 when there is none. */
+function typecheckTools(root: string): Promise<number> {
+	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
+	if (typeof script !== "string") return Promise.resolve(0);
+	return new Promise<number>((done) => {
+		const child = spawn("sh", ["-c", script], { cwd: root, stdio: ["ignore", "inherit", "inherit"] });
+		child.on("error", (error) => {
+			console.error(`typecheck: could not start typecheck:tools: ${String(error)}`);
+			done(1);
+		});
+		child.on("close", (code) => {
+			if (code !== 0) console.error(`typecheck:tools failed (exit ${code ?? "signal"}).`);
+			done(code ?? 1);
+		});
+	});
+}
+
+/** Run tsc through pnpm as before, then the tools config, then the shadow, which compares bun with the packages only.
+ * Resolves to tsc's exit code, whatever the shadow does: the packages' when they fail, else the tools config's. */
 export async function typecheck(root: string): Promise<number> {
 	const started = performance.now();
 	let output = "";
-	const tscExit = await new Promise<number>((done) => {
+	const packagesExit = await new Promise<number>((done) => {
 		const child = spawn("pnpm", ["-r", "--if-present", "--no-bail", "typecheck"], {
 			cwd: root,
 			stdio: ["inherit", "pipe", "pipe"],
@@ -278,9 +297,10 @@ export async function typecheck(root: string): Promise<number> {
 		child.on("close", (code) => done(code ?? 1));
 	});
 	const tscWallMs = Math.round(performance.now() - started);
+	const toolsExit = await typecheckTools(root);
 	let result: ShadowResult;
 	try {
-		result = await shadow(root, output, tscExit, tscWallMs);
+		result = await shadow(root, output, packagesExit, tscWallMs);
 	} catch (error) {
 		result = {
 			v: 1,
@@ -288,7 +308,7 @@ export async function typecheck(root: string): Promise<number> {
 			commit: null,
 			dirty: null,
 			ci: Boolean(process.env.CI),
-			tsc: { exit: tscExit, errors: parseDiagnostics(output).length, wall_ms: tscWallMs },
+			tsc: { exit: packagesExit, errors: parseDiagnostics(output).length, wall_ms: tscWallMs },
 			bun: { exit: null, outcome: "crash", errors: 0, wall_ms: 0 },
 			mismatch: "yes",
 			packages: [],
@@ -300,7 +320,7 @@ export async function typecheck(root: string): Promise<number> {
 	} catch (error) {
 		console.error(`typecheck-shadow: could not record the result: ${String(error)}`);
 	}
-	return tscExit;
+	return packagesExit || toolsExit;
 }
 
 if (import.meta.main) process.exitCode = await typecheck(process.cwd());

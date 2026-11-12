@@ -67,7 +67,7 @@ test("INV-watch-run: a restart over the same state file and identical status doe
 	assert.equal(await pollOnce(restarted), "no_change");
 	assert.equal(h.sent.length, 1);
 	assert.deepEqual(
-		h.sent[0].events.map((e) => e.key),
+		h.sent[0]!.events.map((e) => e.key),
 		["decision:D-4"],
 	);
 });
@@ -176,10 +176,10 @@ test("INV-watch-run: sensitive status text never reaches the payload, log or sta
 	const secret = "nora@example.com https://u:pw@hook.example/abc sk-LIVEKEY raw transcript";
 	const leaky = (id: number) => {
 		const raw = running({ decisions: [{ id, task: 1, question: secret, context: secret }] });
-		raw.tasks[0].title = secret;
-		raw.tasks[0].label = secret;
-		raw.seats[0].activity = secret;
-		raw.seats[0].doing = secret;
+		raw.tasks[0]!.title = secret;
+		raw.tasks[0]!.label = secret;
+		raw.seats[0]!.activity = secret;
+		raw.seats[0]!.doing = secret;
 		for (const a of raw.agents) Object.assign(a, { wait: secret, title: secret });
 		return raw;
 	};
@@ -334,7 +334,7 @@ test("INV-watch-run: --test-wake sends one test payload and neither reads nor ch
 		});
 		assert.deepEqual(sent, { code: 0, stdout: "test-wake transport=webhook result=http_200\n", stderr: "" });
 		assert.equal(routine.seen.length, 1);
-		const body = JSON.parse(routine.seen[0].body);
+		const body = JSON.parse(routine.seen[0]!.body);
 		assert.equal(body.kind, "test");
 		assert.deepEqual(body.events, []);
 

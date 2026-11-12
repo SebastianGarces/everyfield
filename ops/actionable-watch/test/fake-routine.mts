@@ -71,7 +71,7 @@ export async function fakeRoutine(replies: Reply[] = [200]): Promise<FakeRoutine
 		req.on("data", (c) => (body += c));
 		req.on("end", () => {
 			seen.push({ method: req.method ?? "", path: req.url ?? "", headers: req.headers, body });
-			const reply = state.replies[Math.min(i++, state.replies.length - 1)];
+			const reply = state.replies[Math.min(i++, state.replies.length - 1)]!;
 			if (reply === "hang") return;
 			if (reply === "reset") return void req.socket.destroy();
 			res.writeHead(reply, { "content-type": "text/plain" }).end("ok");

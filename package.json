@@ -12,6 +12,7 @@
 		"lint": "pnpm -r --if-present lint && pnpm run lint:repo",
 		"lint:repo": "packages/evry/node_modules/.bin/oxlint -c tools/.oxlintrc.json --max-warnings=0 tools && node scripts/lint/check-repo-files.mjs",
 		"typecheck": "node tools/ci/typecheck.ts",
+		"typecheck:tools": "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json",
 		"typecheck:bun": "pnpm -r --if-present typecheck:bun",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",

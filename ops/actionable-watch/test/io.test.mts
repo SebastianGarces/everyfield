@@ -322,7 +322,7 @@ describe("INV-watch-io: webhook send", () => {
 			const d = await deliver(t.transport, wakePayload());
 			assert.deepEqual({ ok: d.ok, tries: d.tries, result: d.result }, { ok: true, tries: 1, result: "http_200" });
 			assert.equal(routine.seen.length, 1);
-			const [req] = routine.seen;
+			const req = routine.seen[0]!;
 			assert.equal(req.method, "POST");
 			assert.equal(req.path, "/routines/abc/trigger?x=1");
 			assert.equal(req.headers.authorization, "Bearer the-key");
@@ -464,7 +464,7 @@ describe("INV-watch-io: install docs", () => {
 		const run = await readFile(join(here, "run.mts"), "utf8");
 		const args = [
 			...plist
-				.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]
+				.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]!
 				.matchAll(/<string>(.*?)<\/string>/g),
 		].map((m) => m[1]);
 		assert.deepEqual(args.slice(2), ["--transport", "dry-run"], "ProgramArguments.3 is the transport");
@@ -492,9 +492,9 @@ describe("INV-watch-io: install docs", () => {
 			const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
 			await writeFile(copy, plist);
 			for (const [line, want] of [
-				[toWebhook, "webhook"],
-				[toDryRun, "dry-run"],
-			]) {
+				[toWebhook!, "webhook"],
+				[toDryRun!, "dry-run"],
+			] as const) {
 				await new Promise<void>((resolve, reject) =>
 					execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) =>
 						e ? reject(e) : resolve(),
@@ -503,7 +503,7 @@ describe("INV-watch-io: install docs", () => {
 				const now = await readFile(copy, "utf8");
 				const got = [
 					...now
-						.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]
+						.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]!
 						.matchAll(/<string>(.*?)<\/string>/g),
 				].map((m) => m[1]);
 				assert.deepEqual(got.slice(2), ["--transport", want], line);

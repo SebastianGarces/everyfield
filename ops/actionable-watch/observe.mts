@@ -212,7 +212,7 @@ export function parseCi(raw: unknown): Result<Ci | null> {
 	if (!parsed.ok) return { ok: false, code: "gh_bad_shape" };
 	const runs = parsed.value;
 	if (runs.length === 0) return { ok: true, value: null };
-	const sha = [...runs].sort((a, b) => b.at.localeCompare(a.at))[0].sha;
+	const sha = [...runs].sort((a, b) => b.at.localeCompare(a.at))[0]!.sha;
 	const forSha = runs.filter((r) => r.sha === sha);
 	const conclusion = forSha.some((r) => CI_FAILURES.has(r.conclusion))
 		? "failure"

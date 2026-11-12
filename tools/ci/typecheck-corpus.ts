@@ -478,7 +478,7 @@ export type CorpusReport = {
 export async function runCorpus(root: string): Promise<CorpusReport> {
 	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:bun"]);
 	const dirs = packages.map((p) => p.dir);
-	const bunScript = (dir: string) => packages.find((p) => p.dir === dir)!.scripts["typecheck:bun"];
+	const bunScript = (dir: string) => packages.find((p) => p.dir === dir)!.scripts["typecheck:bun"]!;
 	const copy = mkdtempSync(join(tmpdir(), "typecheck-corpus-"));
 	try {
 		copyWorkspace(root, copy, dirs);

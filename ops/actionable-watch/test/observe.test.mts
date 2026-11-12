@@ -94,7 +94,7 @@ describe("INV-watch-observe: normalisation", () => {
 	test("INV-watch-observe: a refusal never carries the offending value", () => {
 		const secret = "sk-SECRET nora@example.com";
 		const raw = running({ agents: [{ task: 1, run: 10, step: "implement", state: secret }] });
-		raw.agents[0].task = secret as never;
+		raw.agents[0]!.task = secret as never;
 		const r = parseStatus(raw);
 		assert.deepEqual(r, { ok: false, code: "evf_bad_shape", detail: "list=agents index=0 fields=task:string" });
 		assert.ok(!JSON.stringify(r).includes("SECRET"));

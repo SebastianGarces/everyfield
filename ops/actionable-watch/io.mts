@@ -140,7 +140,7 @@ export async function acquireLock(path: string, nowMs: number): Promise<{ releas
 		} catch (e) {
 			if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
 		}
-		const [pid, at] = (await readFile(path, "utf8").catch(() => "")).trim().split(" ").map(Number);
+		const [pid = NaN, at = NaN] = (await readFile(path, "utf8").catch(() => "")).trim().split(" ").map(Number);
 		const fresh = Number.isSafeInteger(pid) && pid > 0 && alive(pid) && nowMs - at < LOCK_STALE_MS;
 		if (fresh) return null;
 		await unlink(path).catch(() => undefined);
