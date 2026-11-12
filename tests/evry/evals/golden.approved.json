@@ -666,7 +666,7 @@
 			"area": "Communication",
 			"case_id": "COM-05",
 			"question": "schedule the newsletter for sunday 8am",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `communication.scheduleReviewed`",
 			"expected_answer": "Later: review with timezone",
 			"must_not": "Schedule without the church timezone"

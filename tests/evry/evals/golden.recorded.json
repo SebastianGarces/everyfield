@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-12T16:59:34.576Z",
+	"recordedAt": "2026-11-12T17:07:10.963Z",
 	"spend": {
-		"newCalls": 93,
-		"newMicroUsd": 60260,
-		"allCalls": 548,
-		"allMicroUsd": 294619
+		"newCalls": 3,
+		"newMicroUsd": 554,
+		"allCalls": 551,
+		"allMicroUsd": 295173
 	},
 	"calls": {
 		"00d038074aeb0bcd": {
@@ -19266,6 +19266,25 @@
 				"output": 141
 			}
 		},
+		"779ebae767f9dfd7": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It’s clear, brief, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It identifies that no matching newsletter was found and asks for its subject, but doesn’t mention that the church timezone is needed before scheduling.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_03e8c9a19222d099006af5f23bf16087d29dbc77b9e57feb75",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 283,
+				"output": 254
+			}
+		},
 		"7814d2654b71f8ed": {
 			"kind": "generate",
 			"content": [
@@ -27302,6 +27321,25 @@
 				"output": 164
 			}
 		},
+		"b16502c72c375dcc": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The wording is plain, brief, and polite.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It provides no email draft or eligible audience and exclusions, so the user cannot review the invitation as requested.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08fa945447157e63006af5f23b803887d2bcdf4512eed61758",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 309,
+				"output": 215
+			}
+		},
 		"b1fab562dd742e14": {
 			"kind": "generate",
 			"content": [
@@ -33672,6 +33710,25 @@
 			"usage": {
 				"input": 7804,
 				"output": 50
+			}
+		},
+		"dd3964bb6a7dff34": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"adequate\",\"reason\":\"The reply is clear and brief, though it feels more procedural than warm.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It assumes the request is about an email or event and doesn’t help move the launch date or record why it changed.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0446f9f782b52d55006af5f23ddc9c87d28482aeebaefa001f",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 329,
+				"output": 452
 			}
 		},
 		"dda28114f6697aec": {
