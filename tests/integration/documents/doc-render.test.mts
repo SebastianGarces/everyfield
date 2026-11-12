@@ -381,9 +381,15 @@ test("AC:CASE-DOC-004 every box on the 4-per-sheet card sheet draws its whole bo
 		// Name, Email or phone, Signature and Date, plus the three checkboxes (each drawn as an outer and inner square).
 		const fields = inCard.filter((b) => b.y1 - b.y0 >= 17 && b.x1 - b.x0 >= 90);
 		assert.equal(fields.length, 4, `card ${i + 1} draws its four field boxes`);
+		// A row of boxes shares one height: Date is as tall as Signature beside it, Name as Email or phone.
 		assert.ok(
-			fields.some((b) => b.x1 - b.x0 === 90 && b.y1 - b.y0 === 17),
-			`card ${i + 1} draws its Date box`,
+			fields.some((b) => b.x1 - b.x0 === 90 && Math.round(b.y1 - b.y0) === 24),
+			`card ${i + 1} draws its Date box at the Signature box's height`,
+		);
+		assert.deepEqual(
+			[...new Set(fields.map((b) => Math.round(b.y1 - b.y0)))].sort(),
+			[17, 24],
+			`card ${i + 1}: each row of boxes has one height`,
 		);
 		assert.equal(inCard.length, 10, `card ${i + 1} draws 4 field boxes and 3 double-square checkboxes`);
 		for (const b of inCard) {
@@ -396,6 +402,34 @@ test("AC:CASE-DOC-004 every box on the 4-per-sheet card sheet draws its whole bo
 		}
 	}
 	assert.deepEqual(clipped, [], "no border is cut by its card's clip");
+});
+
+test("AC:CASE-DOC-004 each checkbox on the card sits level with its GROW, PRAY or GIVE tile, in the middle of a two-line row", async () => {
+	const pdf = await renderDocPdf(await fork("commitment-card"));
+	const doc = await PDFDocument.load(pdf.bytes);
+	const contents = doc.getPage(0).node.Contents()!;
+	const streams = contents instanceof PDFArray ? contents.asArray().map((s) => doc.context.lookup(s)) : [contents];
+	const rects = streams
+		.flatMap((s) =>
+			Buffer.from(decodePDFRawStream(s as PDFRawStream).decode())
+				.toString("latin1")
+				.split("\n"),
+		)
+		.map((line) => line.trim().split(/\s+/))
+		.filter((t) => t[4] === "re")
+		.map((t) => t.slice(0, 4).map(Number) as [number, number, number, number]);
+	const middle = ([, y, , h]: [number, number, number, number]) => +(y + h / 2).toFixed(1);
+	// The top-left card (y above 396): its three tag tiles (42 x 14) and the outer squares of its checkboxes (12 x 12).
+	const top = (r: [number, number, number, number]) => r[0] < 306 && r[1] > 396;
+	const tiles = rects.filter((r) => top(r) && r[2] === 42 && Math.abs(r[3]) === 14).map(middle);
+	const boxes = rects.filter((r) => top(r) && r[2] === 12 && Math.abs(r[3]) === 12).map(middle);
+	assert.equal(tiles.length, 3, "three tag tiles");
+	assert.equal(boxes.length, 3, "three checkboxes");
+	assert.deepEqual(
+		boxes.map((y, i) => Math.abs(y - tiles[i]!) <= 0.5),
+		[true, true, true],
+		`checkbox middles ${boxes} match tile middles ${tiles}`,
+	);
 });
 
 test("AC:CASE-DOC-006 AC:CASE-DOC-013 the guest sign-in sheet prints 18 write-in rows and the budget prints its ledger with input boxes", async () => {

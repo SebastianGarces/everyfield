@@ -142,19 +142,19 @@ describe("AC:DOC-011 text-document layout and fixed previews", () => {
 		// SHA-256 of each preview at RENDER_PROFILE.layout 4 (the hash-all fixture, all values filled). A change of bytes
 		// regenerates these from fixtures/hash-all.mts and bumps RENDER_PROFILE.layout.
 		const pinned: Record<string, string> = {
-			"commitment-card": "1b41c76862d62fcb959ff1c723dd90f5458de198ca003b07e35c868d341b456e",
+			"commitment-card": "54a3680ba6822d7aa1363724374128a5dca0a552d4dca46116378d09eebac54a",
 			"response-card": "886b00c9c4f76b3c5c248fdf1123a7a36b46c091e543b1cfda0a1724db53361e",
-			"guest-sign-in-sheet": "cc51c11c7426ff45aec2553cb9739707ffbe42e2c0604395cf0966d1e58feb46",
+			"guest-sign-in-sheet": "db61a4b28bdcf8b875d4b506c3ae2d7731fd7f4fc8ad34bc8e7d60ed5f86693f",
 			"vision-meeting-agenda": "6e02c8306f25274eb12d53517fb421cee2adc1c9dc7cab2f64d9aadae069e35d",
-			"member-expectations": "5214099a73b7ca4a28c1dad04462957b04128d62299d6bc2b888564aec871ec4",
-			"launch-team-commitment": "63d8318d0f1681d3365824f2da93248f6c296ce068b6dc0a30c065c2ec81ff2e",
-			"follow-up-letter": "b2af923fae493e371b0ec9dc79e470021e1088d3fcf059a74574f411b4bcb10d",
+			"member-expectations": "bb6139a56ba3dde890bffca1bd0078e853892a956cbee2997219c71e28de5e38",
+			"launch-team-commitment": "4b4c5affe7012c6c153d5e8544eecb728d971559e98f0ff61005389e59553848",
+			"follow-up-letter": "c939cef33c4b21b4ba8ce3ed9d477d9f1836cac93f775eed219ca739252485ab",
 			"board-meeting-agenda": "d052c93f9127e1027c74aec9fb0a1809bf88d4145d0a7df1b49896f6edaa7648",
 			"first-year-budget": "c948ac590a75abe546383e68846b7e4f12b26ad1d64d0e66c7651dde40105c80",
 			"budget-worksheet": "357615ae52c07533192975325d8bc8eab096b69d04da00bb876ba5a7b900216b",
 			"launch-sunday-checklists": "4fd61da39007805617236b09bfc88424cd1446724d0c29cd590c7bba6397682f",
-			bylaws: "ed209c8f7b53f4aad6f6ec11337a9d7934b795dee70eebdeea922337273b47bc",
-			"prayer-letter": "e802e0cdddc730488ae5eedf537325f214b4d051033b8ff740d21e12dc150558",
+			bylaws: "f017ee3c9bd4cd9c9bfcd437566075aaae614cd4cef9e8fc51e5e5c586700a9b",
+			"prayer-letter": "eca5f9e4d272722793c23ec517c527cbe104815bfa6d8691b9814f7c1e9b3b61",
 		};
 		const loaded = await library();
 		for (const [id, hash] of Object.entries(pinned)) {

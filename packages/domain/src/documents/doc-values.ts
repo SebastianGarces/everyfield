@@ -173,8 +173,8 @@ export const SLOT_BLANK_NOTE =
 
 /**
  * A bracketed prompt such as [date], [number] or [low amount]: text in square brackets, 1 to 60 characters, on one line.
- * The highlight comes from the text itself, so the editor, the PDF and the Word file mark the same spans and nothing is
- * stored for it. The PDF hands `source` to Forme's Rust regex engine, which needs the inner `[` escaped.
+ * The highlight comes from the text itself, so the editor and the Word file mark the same spans and nothing is stored
+ * for it. The PDF prints the prompt as plain text: the highlight is an editing aid, not part of the printed page.
  */
 export const PLACEHOLDER = /\[[^\[\]\n]{1,60}\]/g;
 

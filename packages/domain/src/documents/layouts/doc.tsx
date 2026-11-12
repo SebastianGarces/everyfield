@@ -40,6 +40,10 @@ type R = Ctx & {
 	compact: boolean;
 	/** `_t1` to `_tN` on a tiled sheet, so each card's form fields have their own names. */
 	suffix: string;
+	/** The box height every write-in in one row of columns shares, so the row's boxes line up. */
+	fieldHeight?: number;
+	/** Where each table checkbox sits in its row: measured offsets, or `probe` to mark them for measuring. */
+	checks: CheckOffsets | "probe";
 	/** Shared by every place: form names in use and the heading numbers. */
 	run: { names: Set<string>; h2: number; h3: number; tables: number };
 };
@@ -133,6 +137,9 @@ function textStyle(r: R, base: Base, extra: Style = {}): Style {
 	};
 }
 
+/** The width of a tag tile, so the text after GROW, PRAY and GIVE starts at one place in each row. */
+const TAG_WIDTH = 42;
+
 /** A tag mark prints as a small caps label on an accent tile, like GROW, PRAY and GIVE on the card. */
 function tagTile(r: R, text: string, key: number) {
 	const { p } = r;
@@ -142,6 +149,8 @@ function tagTile(r: R, text: string, key: number) {
 			style={{
 				backgroundColor: p.accent,
 				paddingHorizontal: 4,
+				width: TAG_WIDTH,
+				flexShrink: 0,
 				height: 14,
 				alignItems: "center",
 				justifyContent: "center",
@@ -187,7 +196,7 @@ function line(r: R, content: readonly InlineNode[] | undefined, base: Base, extr
 		}
 	}
 	const tiles = groups.filter((g) => g.tag).length;
-	const textWidth = Math.max(40, width - tiles * 44);
+	const textWidth = Math.max(40, width - tiles * (TAG_WIDTH + SP[2]));
 	return (
 		<View style={{ flexDirection: "row", alignItems: "center" }}>
 			{groups.map((group, i) =>
@@ -214,13 +223,13 @@ const PARAGRAPH = {
 	kicker: { size: SIZE.xs, weight: 700, quiet: true, caps: true, lineHeight: 1.3, gap: SP[1] },
 } as const;
 
-function paragraph(r: R, node: ParagraphNode, key: number, gap = true) {
+function paragraph(r: R, node: ParagraphNode, key: number, gap = true, strong = false) {
 	const a = attrsOf(node);
 	const s = PARAGRAPH[a.style];
 	const ink = inkOn(r);
 	const base: Base = {
 		size: s.size,
-		weight: s.weight,
+		weight: strong ? 700 : s.weight,
 		color: s.quiet ? ink.quiet : ink.strong,
 		use: `${a.style} paragraph`,
 	};
@@ -397,6 +406,8 @@ function columns(r: R, node: ColumnsNode, key: number) {
 	const total = shares.reduce((s, w) => s + w, 0);
 	const free = r.width - a.gap * (cols.length - 1);
 	const widths = shares.map((w) => +((free * w) / total).toFixed(2));
+	const writeIns = cols.flatMap((col) => (col.content ?? []).filter((n) => n.type === "writeIn"));
+	const fieldHeight = writeIns.length > 1 ? Math.max(...writeIns.map(writeInHeight)) : undefined;
 	return (
 		<View
 			key={key}
@@ -411,7 +422,7 @@ function columns(r: R, node: ColumnsNode, key: number) {
 				const width = widths[i] ?? 0;
 				return (
 					<View key={i} style={{ width, marginRight: i < cols.length - 1 ? a.gap : 0, alignItems: alignOf(ca.align) }}>
-						{blocks({ ...r, width }, col.content ?? [], true)}
+						{blocks({ ...r, width, fieldHeight }, col.content ?? [], true)}
 					</View>
 				);
 			})}
@@ -469,10 +480,12 @@ function image(r: R, node: ImageNode, key: number) {
 	);
 }
 
+const writeInHeight = (node: WriteInNode) => (attrsOf(node).kind === "signature" ? 24 : 17);
+
 function writeIn(r: R, node: WriteInNode, key: number) {
 	const a = attrsOf(node);
 	const width = a.width > 0 ? Math.min(a.width, r.width) : r.width;
-	const height = a.kind === "signature" ? 24 : 17;
+	const height = r.fieldHeight ?? writeInHeight(node);
 	return (
 		<View key={key} style={{ marginBottom: space(r, SP[2]) }}>
 			{Field(r, a.label, width, height, { name: name(r, a.key), bg: r.bg })}
@@ -516,6 +529,29 @@ function slot(r: R, node: SlotNode, key: number) {
 }
 
 // ---------------------------------------------------------------- tables
+
+/**
+ * How far down its cell each table checkbox moves to sit in the middle of its row, by `<table>:<row>`. Forme 0.29 puts a
+ * cell's content at the cell's top whatever the style, so a measuring layout (`probe`) reads each row's height first.
+ */
+export type CheckOffsets = ReadonlyMap<string, number>;
+/** The bookmark a measuring layout puts on each table checkbox. It lays out as a mark with no height of its own. */
+export const CHECK_MARK = "everyfield-check:";
+/** The side of a table checkbox, in points. */
+export const CHECK_SIZE = 12;
+const checkKey = (r: R, row: number) => `${r.run.tables}:${row}`;
+
+/** True when the body holds a table with a checkbox column, so its rows need measuring. */
+export function hasCheckColumn(doc: EveryfieldDoc) {
+	const walk = (nodes: readonly BlockNode[] | undefined): boolean =>
+		(nodes ?? []).some(
+			(node) =>
+				(node.type === "table" && attrsOf(node).columns.some((c) => c.type === "check")) ||
+				(node.type === "columns" && node.content.some((col) => walk(col.content))) ||
+				(node.type === "box" && walk(node.content)),
+		);
+	return walk(doc.body.content);
+}
 
 type BuiltRow = { role: RowRole; cells: (CellNode | null)[] };
 
@@ -636,8 +672,14 @@ function table(r: R, node: TableNode, key: number) {
 								} else if (c.type === "check") {
 									if (isItem)
 										inner = (
-											<View style={{ alignItems: alignOf(align) }}>
-												{Box(cr, name(r, `row_${index}_${c.id}`), 12, "accent", cell?.attrs?.checked === true)}
+											<View
+												{...(r.checks === "probe" ? { bookmark: `${CHECK_MARK}${checkKey(r, ri)}` } : {})}
+												style={{
+													alignItems: alignOf(align),
+													marginTop: r.checks === "probe" ? 0 : (r.checks.get(checkKey(r, ri)) ?? 0),
+												}}
+											>
+												{Box(cr, name(r, `row_${index}_${c.id}`), CHECK_SIZE, "accent", cell?.attrs?.checked === true)}
 											</View>
 										);
 								} else if (c.type === "number" || c.type === "money") {
@@ -703,11 +745,31 @@ function block(r: R, node: BlockNode, key: number): ReactNode {
 	}
 }
 
+/**
+ * True at the name of a letter's sign-off: the body ends with a spacer, a body paragraph (the name) and a small one
+ * (the church). The name prints bold, as a signature line does.
+ */
+function signOff(nodes: readonly BlockNode[], i: number) {
+	const [gap, name, under] = [nodes[i - 1], nodes[i], nodes[i + 1]];
+	return (
+		i === nodes.length - 2 &&
+		gap?.type === "spacer" &&
+		name?.type === "paragraph" &&
+		attrsOf(name).style === "body" &&
+		under?.type === "paragraph" &&
+		attrsOf(under).style === "small"
+	);
+}
+
 /** A block list. A heading never ends a page: it travels with a short block that follows it. */
 function blocks(r: R, nodes: readonly BlockNode[], nested = false): ReactNode[] {
 	const out: ReactNode[] = [];
 	for (let i = 0; i < nodes.length; i++) {
 		const node = nodes[i]!;
+		if (!nested && node.type === "paragraph" && signOff(nodes, i)) {
+			out.push(paragraph(r, node, i, true, true));
+			continue;
+		}
 		const next = nodes[i + 1];
 		const keep =
 			!nested &&
@@ -745,13 +807,60 @@ function notice(r: R) {
 	);
 }
 
-/** Header and footer content. The class's fixed parts (the legal notice) close the footer. */
+/** True when inline content prints something: non-blank text, a filled field or a page number. */
+const printsInline = (r: R, content: readonly InlineNode[] | undefined) =>
+	(content ?? []).some((n) => n.type === "pageNumber" || inlineText(r, n).trim() !== "");
+
+/** True when blocks print something a reader sees. A divider or a spacer alone prints nothing. */
+function printsAny(r: R, nodes: readonly BlockNode[]): boolean {
+	return nodes.some((node) => {
+		switch (node.type) {
+			case "paragraph":
+			case "heading":
+				return printsInline(r, node.content);
+			case "divider":
+			case "spacer":
+			case "pageBreak":
+				return false;
+			case "bulletList":
+			case "orderedList":
+				return node.content.some((item) => printsAny(r, item.content));
+			case "quote":
+				return printsAny(r, node.content);
+			case "columns":
+				return node.content.some((col) => printsAny(r, col.content ?? []));
+			case "box":
+				return printsAny(r, node.content ?? []);
+			default:
+				return true;
+		}
+	});
+}
+
+/**
+ * Header and footer content. The class's fixed parts (the legal notice) close the footer. A region that prints nothing
+ * (its fields are empty) is left out with its dividers. A flowing page's footer sits under a rule, as a letterhead does,
+ * unless its own content opens with a divider.
+ */
 function region(r: R, which: "header" | "footer", reg: Region | null | undefined) {
-	const content = reg ? blocks(r, reg.content, true) : [];
+	const nodes = reg && printsAny(r, reg.content) ? reg.content : [];
+	const content = blocks(r, nodes, true);
 	const extra = which === "footer" ? notice(r) : null;
 	if (!content.length && !extra) return null;
+	const rule = which === "footer" && !r.doc.page.tile && nodes[0]?.type !== "divider";
 	return (
-		<View style={which === "header" ? { marginBottom: space(r, SP[2]) } : { marginTop: space(r, SP[2]) }}>
+		<View
+			style={
+				which === "header"
+					? { marginBottom: space(r, SP[2]) }
+					: {
+							marginTop: space(r, SP[2]),
+							...(rule
+								? { borderTopWidth: 1, borderColor: lineColor(r, "primary") ?? r.p.primary, paddingTop: SP[2] }
+								: {}),
+						}
+			}
+		>
 			{content}
 			{extra}
 		</View>
@@ -908,7 +1017,12 @@ export const needsSplit = (doc: EveryfieldDoc) =>
  * The Forme element for one document or template. `ctx.values` holds the field values (doc-values.ts). The class adds
  * its fixed parts: a formal/legal document prints "Template, not legal advice" on every page, even when wiped.
  */
-export function docElement(ctx: Ctx, doc: EveryfieldDoc, mode: FlowMode = { kind: "single" }) {
+export function docElement(
+	ctx: Ctx,
+	doc: EveryfieldDoc,
+	mode: FlowMode = { kind: "single" },
+	checks: CheckOffsets | "probe" = new Map(),
+) {
 	const size = pageBox(doc.page);
 	const box = tileBox(doc.page);
 	if (!size || !box) throw new Error("the page has no size");
@@ -920,6 +1034,7 @@ export function docElement(ctx: Ctx, doc: EveryfieldDoc, mode: FlowMode = { kind
 		bg: ctx.p.white,
 		compact: width < COMPACT_WIDTH,
 		suffix: "",
+		checks,
 		run: { names: new Set(), h2: 0, h3: 0, tables: 0 },
 	};
 	ctx.log.pair("page text", ctx.p.ink, ctx.p.white, MIN_BODY);
