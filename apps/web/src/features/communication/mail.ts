@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
 import { mailEnv } from "../../server/mail-env.ts";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
@@ -21,8 +22,9 @@ const env = z.object({
 	RESEND_API_KEY: z.string().trim().min(1).optional(),
 });
 
+// One answer per email of one batch call: the handoff never sends more than MAIL_BATCH_LIMIT in a call.
 const batchBody = z.object({
-	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(100),
+	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(MAIL_BATCH_LIMIT),
 });
 
 const refusedStatus = new Set([400, 401, 403, 422]);

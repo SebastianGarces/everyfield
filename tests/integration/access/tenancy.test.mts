@@ -494,7 +494,6 @@ function cases(who) {
 			value: {
 				resolvedDistinctPeople: 0,
 				eligibleRecipients: 0,
-				cappedRecipients: 0,
 				missingEmailExclusions: [],
 				unsubscribedExclusions: [],
 				duplicateAddressesRemoved: 0,
