@@ -1049,8 +1049,7 @@
 		"limit": 5
 	},
 	"notifications.enqueueMany": {
-		"limit": 6,
-		"reason": "The notification worker's eligibility reads each meeting recipient's seat and address (one locked read, T-229); the phase producer reads them in its move statement and sends 5. Its largest first run: 4 locked read, 2 write."
+		"limit": 6
 	},
 	"notifications.getPreferences": {
 		"limit": 1
