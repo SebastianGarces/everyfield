@@ -26,7 +26,7 @@ const noReminders = async () => {
 };
 
 const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "America/New_York" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 let queries = [];
 /** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
@@ -510,7 +510,7 @@ test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on 
 
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {
 	let p = await create("Lifecycle");
-	let result = ok(
+	const result = ok(
 		await tx((t) =>
 			write.changeStatus(
 				t,
@@ -1775,7 +1775,7 @@ test("AC:REQ-PPL-026 adult or child dated after the church's today is refused wi
 		);
 });
 
-test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async (t) => {
+test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async () => {
 	const names = {
 		eve: await create("Birthday Eve Sam", { birthDate: await daysFromBirthday(18, 1) }),
 		day: await create("Birthday Day Sam", { birthDate: await daysFromBirthday(18) }),

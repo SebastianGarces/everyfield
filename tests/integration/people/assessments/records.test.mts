@@ -41,7 +41,6 @@ const noReminders = async () => {
 const database = await fixture({ prefix: "wp014" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-let today;
 // A church-local date `n` days before today.
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
@@ -53,8 +52,9 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		database.actors.admin,
 	];
 // 0: plant A owner, 1: plant A member, 2: plant B admin, 3: plant A admin.
-today = (await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))
-	.rows[0].d;
+const today = (
+	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
+).rows[0].d;
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
 const tx = (body) => db.transaction(body);
 const key = () => randomUUID();
