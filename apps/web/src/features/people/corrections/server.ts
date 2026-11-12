@@ -6,6 +6,7 @@ import {
 	assessments,
 	commitments,
 	interviews,
+	listDismissedDuplicatePairs,
 	listDuplicatePairs,
 	peopleMerge,
 	peopleReader,
@@ -99,6 +100,9 @@ export type DuplicateHints = z.infer<typeof c.duplicateHints>;
 /** The pairs CSV imports flagged with "Add, review later" whose two people are both still live (REQ-PPL-018). */
 export type DuplicatePairs = z.infer<typeof c.duplicatePairs>;
 export const readPairs = (tx: Transaction, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
+/** The pairs marked "Not a duplicate" whose two people are both still live, for the Dismissed view (D-790). */
+export type DismissedPairs = z.infer<typeof c.dismissedDuplicatePairs>;
+export const readDismissedPairs = (tx: Transaction, ctx: PeopleContext) => listDismissedDuplicatePairs(tx, ctx);
 
 /** The Unmerge preview with both people's names, in one transaction. */
 export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {

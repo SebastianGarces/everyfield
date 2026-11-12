@@ -484,6 +484,54 @@
       ]
     },
     {
+      "table": "person_duplicate_dismissal",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
+      "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+      "retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+      "privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+      "immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+      "future_case_ids": [
+        "TARGET-PPL-018"
+      ]
+    },
+    {
+      "table": "person_duplicate_dismissal",
+      "columns": [
+        "with_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
+      "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+      "retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+      "privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+      "immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+      "future_case_ids": [
+        "TARGET-PPL-018"
+      ]
+    },
+    {
       "table": "person_email_opt_out",
       "columns": [
         "person_id",
