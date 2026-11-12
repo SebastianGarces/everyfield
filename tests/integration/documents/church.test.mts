@@ -2,12 +2,12 @@ import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { brandReader, brandWriter } from "../../../packages/domain/src/branding/index.ts";
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { forkTemplate, ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
+import { ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
 const database = await fixture({ prefix: "wp036c", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
@@ -30,7 +30,6 @@ const actors = [
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
 ];
-let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {

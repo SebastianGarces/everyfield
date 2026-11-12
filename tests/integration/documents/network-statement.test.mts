@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 const database = await testDatabase({ prefix: "t84" });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const seed = seeds(admin);
 

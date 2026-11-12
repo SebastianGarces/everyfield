@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
 const database = await fixture({ prefix: "wp104", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;

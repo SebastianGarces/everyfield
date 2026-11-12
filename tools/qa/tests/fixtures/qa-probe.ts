@@ -30,7 +30,7 @@ const identity = createIdentityService({
 	origin: ORIGIN,
 	secret: randomBytes(32).toString("hex"),
 	trustedIp: () => `127.0.126.${++ip}`,
-	enqueueMail: async () => {},
+	enqueueMail: async () => "",
 	diagnostic: () => {},
 });
 const host = new URL(ORIGIN).host;
@@ -151,9 +151,13 @@ try {
 				trends: bare(await care.readTrends(runtime, who.authority)),
 			},
 			people: {
-				list: bare(await runtime.transaction((tx) => peopleReader.listPeople(tx as never, plantCtx, { page: 1 }))),
+				list: bare(
+					await runtime.transaction((tx) => peopleReader.listPeople(tx as never, plantCtx, { page: 1 } as never)),
+				),
 				person: bare(
-					await runtime.transaction((tx) => peopleReader.getPerson(tx as never, plantCtx, { personId: danielPerson })),
+					await runtime.transaction((tx) =>
+						peopleReader.getPerson(tx as never, plantCtx, { personId: danielPerson } as never),
+					),
 				),
 				page: bare(await readPersonPage(runtime, plantCtx, { personId: danielPerson }, 10)),
 			},

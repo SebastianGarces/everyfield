@@ -20,7 +20,7 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 const database = await fixture({ prefix: "wp017m", max: 6 });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ timezone: "America/New_York" })).id;

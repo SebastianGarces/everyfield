@@ -28,7 +28,7 @@ const noReminders = async () => {
 };
 
 const database = await fixture({ prefix: "wp020", max: 6 });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 let queries = [];
 

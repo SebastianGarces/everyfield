@@ -157,6 +157,8 @@ export const acceptTemplateRequest = z.strictObject({
 });
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
+/** Archive a Church Document: it leaves the library and stays readable. The expected revision guards a stale page. */
+export const archiveChurchRequest = deleteChurchRequest;
 export const documentRevisionRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,

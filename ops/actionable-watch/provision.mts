@@ -16,13 +16,14 @@ export const PROMPT_GIVE_UP_S = 1800;
 const VALUE_MAX = 8192;
 
 export type Field = "url" | "key";
-export type PromptResult = { ok: true; value: string } | { ok: false; reason: "cancelled" | "timed_out" | "prompt_failed" };
+export type PromptResult =
+	{ ok: true; value: string } | { ok: false; reason: "cancelled" | "timed_out" | "prompt_failed" };
 export type Prompt = (field: Field) => Promise<PromptResult>;
 export type ProvisionState = "waiting" | "ok" | "cancelled" | "timed_out" | "invalid";
 export type ProvisionResult = { state: ProvisionState; code: string };
 
 const TEXT: Record<Field, string> = {
-	url: "everyfield actionable watcher (1 of 2)\n\nPaste the \"POST to\" URL from the routine everyfield-actionable-change-webhook's panel.\n\nIt is saved only to webhook.json on this Mac.",
+	url: 'everyfield actionable watcher (1 of 2)\n\nPaste the "POST to" URL from the routine everyfield-actionable-change-webhook\'s panel.\n\nIt is saved only to webhook.json on this Mac.',
 	key: "everyfield actionable watcher (2 of 2)\n\nPaste the sender key from the same routine panel.\n\nIt is saved only to webhook.json on this Mac.",
 };
 
@@ -50,10 +51,16 @@ export function osascriptPrompt(bin = OSASCRIPT): Prompt {
 			execFile(
 				bin,
 				["-e", promptScript(field)],
-				{ timeout: (PROMPT_GIVE_UP_S + 30) * 1000, killSignal: "SIGKILL", maxBuffer: VALUE_MAX, env: { PATH: "/usr/bin:/bin" } },
+				{
+					timeout: (PROMPT_GIVE_UP_S + 30) * 1000,
+					killSignal: "SIGKILL",
+					maxBuffer: VALUE_MAX,
+					env: { PATH: "/usr/bin:/bin" },
+				},
 				(err, stdout) => {
 					// Neither the error nor stderr is read: only the exit and the first byte decide.
-					if (err) return resolve({ ok: false, reason: (err as { killed?: boolean }).killed ? "timed_out" : "prompt_failed" });
+					if (err)
+						return resolve({ ok: false, reason: (err as { killed?: boolean }).killed ? "timed_out" : "prompt_failed" });
 					const out = stdout.endsWith("\n") ? stdout.slice(0, -1) : stdout;
 					if (out === "C") return resolve({ ok: false, reason: "cancelled" });
 					if (out === "T") return resolve({ ok: false, reason: "timed_out" });
@@ -104,7 +111,11 @@ const STATE_FOR: Record<Exclude<PromptResult, { ok: true }>["reason"], Provision
  * transport's own validator, writes webhook.json, re-reads it through the transport's loader and
  * writes the outcome. On cancel, timeout or invalid input it writes no config and leaves any existing one.
  */
-export async function provision(deps: { prompt: Prompt; stateDir: string; now?: () => number }): Promise<ProvisionResult> {
+export async function provision(deps: {
+	prompt: Prompt;
+	stateDir: string;
+	now?: () => number;
+}): Promise<ProvisionResult> {
 	const now = deps.now ?? Date.now;
 	const finish = async (r: ProvisionResult) => (await writeStatus(deps.stateDir, r, now), r);
 	await writeStatus(deps.stateDir, { state: "waiting", code: "none" }, now);
@@ -143,11 +154,15 @@ async function main() {
 	if (values.detach) {
 		// The child outlives this process and the seat's turn; it gets the same flags, never a value.
 		await writeStatus(stateDir, { state: "waiting", code: "none" });
-		const child = spawn(process.execPath, [import.meta.filename, "--state-dir", stateDir, "--osascript", values.osascript], {
-			detached: true,
-			stdio: "ignore",
-			env: { HOME: process.env.HOME ?? "", PATH: "/usr/bin:/bin" },
-		});
+		const child = spawn(
+			process.execPath,
+			[import.meta.filename, "--state-dir", stateDir, "--osascript", values.osascript],
+			{
+				detached: true,
+				stdio: "ignore",
+				env: { HOME: process.env.HOME ?? "", PATH: "/usr/bin:/bin" },
+			},
+		);
 		child.unref();
 		process.stdout.write(`pid=${child.pid} status=${statusPath(stateDir)}\n`);
 		return;

@@ -32,10 +32,16 @@ type Props = {
 	/** The church's own templates, saved from its documents. Empty for a Member. */
 	churchTemplates: ChurchTemplateSummary[];
 	canManage: boolean;
-	deleted: boolean;
+	/** The notice after a delete or an archive returned here. */
+	notice: "deleted" | "archived" | null;
 };
 
-export function ChurchLibrary({ documents, templates, churchTemplates, canManage, deleted }: Props) {
+const NOTICE = {
+	deleted: "The document was deleted.",
+	archived: "The document was archived. Its revisions and saved exports stay available.",
+};
+
+export function ChurchLibrary({ documents, templates, churchTemplates, canManage, notice }: Props) {
 	return (
 		<>
 			<PageHeader
@@ -45,12 +51,12 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 				subtitle="Your church plant's own copies of Everyfield templates and of your church's templates. Each one previews as the real PDF and downloads as PDF and Word, and a budget as Excel too."
 				actions={canManage ? <TemplatePicker templates={templates} churchTemplates={churchTemplates} /> : null}
 			/>
-			{deleted ? (
+			{notice ? (
 				<p
 					role="status"
 					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					The document was deleted.
+					{NOTICE[notice]}
 				</p>
 			) : null}
 			{documents.length === 0 ? (
