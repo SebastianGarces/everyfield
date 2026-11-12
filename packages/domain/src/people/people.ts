@@ -8,12 +8,10 @@ import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
 import { accountId, owner, recordId, revision } from "@everyfield/contracts/common";
 import {
-	authorize,
 	deny,
 	expected,
 	live,
 	hash,
-	lockOwner,
 	lockedWrite,
 	mutation,
 	parse,
@@ -801,44 +799,6 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			return c.accountPersonResolution.parse({
 				status: "linked",
 				personId: linked.id,
-			});
-		});
-	},
-	async ensureGuest(tx, ctx, raw) {
-		return reply(tx, async () => {
-			const input = parse(c.guestSelection, raw);
-			if (ctx.selected.kind !== "plant") deny();
-			await lockOwner(tx, ctx);
-			await authorize(tx, ctx, true);
-			let p: Person;
-			if (input.kind === "existing") p = await person(tx, ctx, input.personId, true);
-			else {
-				const created = await peopleWriter.createPerson(
-					tx,
-					ctx,
-					c.createPersonRequest.parse({
-						requestKey: randomUUID(),
-						input: {
-							displayName: input.displayName,
-							email: input.email,
-							phone: input.phone,
-						},
-					}),
-				);
-				if (created.status !== "ok") deny(created.error.code);
-				return c.lockedPersonReference.parse({
-					owner: ctx.selected,
-					personId: created.value.person.id,
-					revision: created.value.person.revision,
-					state: "live",
-				});
-			}
-			live(p);
-			return c.lockedPersonReference.parse({
-				owner: ctx.selected,
-				personId: p.id,
-				revision: p.revision,
-				state: "live",
 			});
 		});
 	},

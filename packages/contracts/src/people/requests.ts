@@ -48,11 +48,6 @@ export const updatePersonRequest = commandEnvelope(
 		}),
 	}),
 );
-// Same transaction caller owns Launch attendance. No name/email matching branch.
-export const guestSelection = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("existing"), personId }),
-	z.strictObject({ kind: z.literal("new"), displayName, email: contactFields.email, phone: contactFields.phone }),
-]);
 export const personRequest = z.strictObject({ personId });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
