@@ -453,7 +453,7 @@ async function xlsxBytes(kind: "first-year-budget" | "budget-worksheet") {
 	return bytes;
 }
 
-test("a template render that throws reaches the caller as render_failed with the error as its cause", async () => {
+test("BUG-PR551: a template render that throws reaches the caller as render_failed with the error as its cause", async () => {
 	// T-126: render.ts dropped the cause, so a failed library render logged "render_failed" with nothing behind it.
 	const boom = new Error("the theme could not be read");
 	const theme = new Proxy({} as typeof NEUTRAL_THEME, {

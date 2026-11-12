@@ -58,14 +58,14 @@ const buttons = [
 ] as const;
 
 for (const [label, button] of buttons) {
-	test(`T-126: an enabled ${label} button renders no data-disabled attribute`, () => {
+	test(`BUG-PR551: an enabled ${label} button renders no data-disabled attribute`, () => {
 		const tag = buttonTag(renderToStaticMarkup(button(editorWith({ imageSelected: false }))));
 		assert.match(tag, new RegExp(`aria-label="${label}"`));
 		assert.doesNotMatch(tag, /\sdisabled=/);
 		assert.doesNotMatch(tag, /data-disabled/);
 	});
 
-	test(`T-126: a disabled ${label} button renders data-disabled="true"`, () => {
+	test(`BUG-PR551: a disabled ${label} button renders data-disabled="true"`, () => {
 		const tag = buttonTag(renderToStaticMarkup(button(editorWith({ imageSelected: true }))));
 		assert.match(tag, new RegExp(`aria-label="${label}"`));
 		assert.match(tag, /\sdisabled=""/);
@@ -73,7 +73,7 @@ for (const [label, button] of buttons) {
 	});
 }
 
-test('T-126: Undo with nothing to undo renders data-disabled="true"', () => {
+test('BUG-PR551: Undo with nothing to undo renders data-disabled="true"', () => {
 	const tag = buttonTag(
 		renderToStaticMarkup(
 			createElement(UndoRedoButton, { editor: editorWith({ imageSelected: false }), action: "undo" }),
