@@ -1,5 +1,5 @@
 // Seeds the launch team for the Evry email tests (WP-028 slice 2), after the People seed: people with an address, one whose
-// address bounced and is blocked, one who turned off update emails, and one with no address. The People seed already holds
+// address bounced and is blocked, one who unsubscribed from the church's email, and one with no address. The People seed already holds
 // Rosa Bennett on the launch team.
 //
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/evry/seed.mts up
@@ -19,24 +19,18 @@ const LAUNCH_TEAM = [
 	["Dana Cole", "dana.cole@example.test"],
 	["Noah Quinn", null],
 ] as const;
-const CATEGORIES = [
-	"task_due",
-	"task_overdue",
-	"meeting_announcement",
-	"meeting_reminder",
-	"planter_digest",
-	"relationship_milestone",
-	"sharing_milestone",
-	"phase_milestone",
-	"launch_milestone",
-];
-
 async function up() {
 	const people = JSON.parse(readFileSync(fixturePath("people"), "utf8"));
 	const env = await openSeedEnvironment(people.origin);
 	const { admin } = env;
 	const ids: Record<string, string> = {};
 	// A repeated seed starts from its own people again.
+	await admin.execute(
+		sql`DELETE FROM person_email_opt_out WHERE person_id IN (SELECT id FROM person WHERE plant_id=${people.plant}::uuid AND display_name IN (${sql.join(
+			LAUNCH_TEAM.map(([name]) => sql`${name}`),
+			sql`, `,
+		)}))`,
+	);
 	await admin.execute(
 		sql`DELETE FROM person WHERE plant_id=${people.plant}::uuid AND display_name IN (${sql.join(
 			LAUNCH_TEAM.map(([name]) => sql`${name}`),
@@ -56,19 +50,10 @@ async function up() {
 	await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${createHmac("sha256", env.addressKey).update("priya.nair@example.test").digest("hex")},'hard_bounce',${event}::uuid,clock_timestamp())
 		ON CONFLICT (address_hash) DO NOTHING`);
-	// Dana has her own account and turned off every update email on it.
-	const user = randomUUID();
-	const account = randomUUID();
+	// Dana unsubscribed from this church's email (the Messages opt-out the handoff honors).
 	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${"dana.cole@example.test"},true,'Dana Cole')`,
+		sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${people.plant}::uuid,${ids["Dana Cole"]}::uuid)`,
 	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account}::uuid,${user},'active','planter')`,
-	);
-	await admin.execute(sql`UPDATE person SET linked_account_id=${account}::uuid WHERE id=${ids["Dana Cole"]}::uuid`);
-	for (const category of CATEGORIES)
-		await admin.execute(sql`INSERT INTO notification_preference(id,account_id,category,channel,enabled,unsubscribe_revision)
-			VALUES(${randomUUID()}::uuid,${account}::uuid,${category},'email',false,1)`);
 	const fixture = writeFixture("evry", env.schema, { people: ids });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));

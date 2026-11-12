@@ -5,7 +5,8 @@
 // Every test drives the Evry panel and approves the card the way a planter does, then checks the database and the capture.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -76,10 +77,6 @@ test.after(async () => {
 	await rm(join(outbox, "no-answer"), { force: true });
 });
 
-/** The capture file the email service recorded for a provider id. */
-async function captured(providerId) {
-	return JSON.parse(await readFile(join(outbox, `${providerId}.json`), "utf8"));
-}
 const silence = async (on) => {
 	await mkdir(outbox, { recursive: true });
 	if (on) await writeFile(join(outbox, "no-answer"), "");
@@ -134,8 +131,32 @@ async function messages(page) {
 const newestStatus = (text) => new RegExp(`${SUBJECT}\\n([^\\n]+)`).exec(text)?.[1];
 const done = (panel, heading) => panel.getByRole("region", { name: heading }).last();
 
-/** A saved draft, then scheduled for Friday at 9am: the state most criteria start from. Returns the message. */
-async function scheduledFriday(panel, d) {
+/**
+ * The email service holds message `id`'s waiting recipients, as it does for a message scheduled before T-241 moved the
+ * handoff to the send time: each gets a capture in the outbox and that capture's id, so a cancel or a time change asks
+ * the capture and can go unconfirmed while it is silent.
+ */
+async function heldByService(d, id) {
+	const waiting = await d.rows(
+		d.sql`SELECT m.id,to_char(m.scheduled_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at
+			FROM mail m WHERE m.tenant_id=${d.plant}::uuid AND m.logical_key LIKE ${"communication/" + id + "/%"} AND m.state='scheduled'`,
+	);
+	await mkdir(outbox, { recursive: true });
+	for (const row of waiting) {
+		const capture = `capture-${randomUUID()}`;
+		await writeFile(
+			join(outbox, `${capture}.json`),
+			JSON.stringify({ id: capture, at: new Date().toISOString(), scheduledAt: row.scheduled_at, cancelled: false }),
+		);
+		await d.rows(d.sql`UPDATE mail SET state='accepted',provider_message_id=${capture} WHERE id=${row.id}::uuid`);
+	}
+}
+
+/**
+ * A saved draft, then scheduled for Friday at 9am: the state most criteria start from. It waits in Everyfield for its
+ * send time; `held` (the default) then puts it with the email service. Returns the message.
+ */
+async function scheduledFriday(panel, d, held = true) {
 	const draft = await ask(
 		panel,
 		"Draft an email to the launch team inviting them to Sunday's interest meeting.",
@@ -146,7 +167,9 @@ async function scheduledFriday(panel, d) {
 	const schedule = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
 	await approve(schedule);
 	await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
-	return d.message();
+	const message = await d.message();
+	if (held) await heldByService(d, message.id);
+	return message;
 }
 
 for (const [engine, launcher] of ENGINES) {
@@ -219,7 +242,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.match(text, /Will get it\s*\(3\)/);
 			assert.match(text, /Left out\s*\(3\)/);
 			assert.match(text, /Priya Nair\s*Blocked after a bounce/);
-			assert.match(text, /Dana Cole\s*Turned off update emails/);
+			assert.match(text, /Dana Cole\s*Unsubscribed/);
 			assert.match(text, /Noah Quinn\s*No email address/);
 			assert.match(text, /Subject\s*Sunday's interest meeting/);
 			assert.match(text, /What each person sees\s*Hi (Lena Ortiz|Marcus Webb|Rosa Bennett),/);
@@ -276,22 +299,26 @@ for (const [engine, launcher] of ENGINES) {
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
-			const message = await scheduledFriday(panel, d);
+			const message = await scheduledFriday(panel, d, false);
 			const card = done(panel, /^Scheduled for Fri, 9:00 AM/);
 			const text = await card.innerText();
 			assert.match(text, /Accepted\s*3/);
-			assert.match(text, /Refused\s*2/);
+			// Priya's blocked address is refused; Dana unsubscribed, which Messages counts apart from refusals.
+			assert.match(text, /Refused\s*1/);
 			assert.match(text, /Unknown\s*0/);
 			assert.doesNotMatch(text, /delivered/i, "the card never says delivered");
 			assert.equal(message.state, "scheduled");
-			assert.equal(await d.requests(message.id), 1, "one schedule request");
+			assert.equal(await d.requests(message.id), 1, "one frozen send request");
 			const mail = await d.mail(message.id);
+			const waiting = mail.filter((m) => m.state === "scheduled");
 			assert.deepEqual(
-				mail.filter((m) => m.state === "accepted").map((m) => m.display_name),
+				waiting.map((m) => m.display_name),
 				["Lena Ortiz", "Marcus Webb", "Rosa Bennett"],
 			);
-			const first = await captured(mail.find((m) => m.provider_message_id).provider_message_id);
-			assert.equal(first.scheduledAt, message.scheduled_at, "the email service holds the reviewed time");
+			assert.ok(
+				waiting.every((m) => m.scheduled_at === message.scheduled_at && !m.provider_message_id),
+				"each recipient waits in Everyfield for the reviewed time; the email service gets it then (T-241)",
+			);
 			const body = await messages(page);
 			assert.match(body, /Sunday's interest meeting/);
 			assert.equal(newestStatus(body), "Scheduled");
@@ -376,17 +403,14 @@ for (const [engine, launcher] of ENGINES) {
 			await approve(draft);
 			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			const schedule = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
-			await silence(true);
-			let message;
-			let before;
-			try {
-				await approve(schedule);
-				await done(panel, /not confirmed/i).waitFor({ timeout: 90_000 });
-				message = await d.message();
-				before = message.scheduled_at;
-			} finally {
-				await silence(false);
-			}
+			await approve(schedule);
+			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
+			const message = await d.message();
+			const before = message.scheduled_at;
+			// The email service was handed every recipient and never answered about any of them.
+			await d.rows(
+				d.sql`UPDATE mail SET state='unknown' WHERE tenant_id=${d.plant}::uuid AND logical_key LIKE ${"communication/" + message.id + "/%"} AND state='scheduled'`,
+			);
 			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
 			assert.match(await card.innerText(), /has not answered about every recipient of this message/);
 			assert.equal(await card.getByRole("button", { name: "Approve" }).count(), 0, "nothing to approve");
