@@ -266,7 +266,7 @@ function ChurchForm({
 				<SettingRow label="Church digest" description="Open items sent to each seat that gets the digest.">
 					<DigestControl value={draft.digest} onChange={(digest) => set("digest", digest)} />
 				</SettingRow>
-				{port.flows.requestWorkspaceDeletion && canDeleteWorkspace(viewer) ? (
+				{canDeleteWorkspace(viewer) ? (
 					<SettingRow
 						label="Delete church workspace"
 						description="Only the Owner can do this. You have 30 days to cancel."

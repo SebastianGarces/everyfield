@@ -37,8 +37,8 @@ import type { SettingsViewer } from "./port";
 // actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
 // write binds that actor in its own transaction (withSettingsWrite) and the domain checks authority again. Changes
 // queue their jobs and mail in the same transaction; a worker acts on them. Email and password changes go through
-// Better Auth, outside any app transaction. Photo bytes need the private bucket (AWS_*); without it the
-// photo calls are refused and every other section still works.
+// Better Auth, outside any app transaction. Photo bytes go to the private bucket (privateStorage), as brand
+// assets do; a deployment without one refuses the photo calls and every other section still works.
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
@@ -330,24 +330,32 @@ export async function avatarBytes(accountId: string, versionId: string) {
 	}
 }
 
-// The restricted deletion page (REQ-IDN-032). After a personal deletion request every normal session ends. A fresh
-// proof of the original login opens a ten-minute restricted session for that exact request; its handle lives in an
-// HttpOnly cookie and permits only the request's status and its cancellation.
+// The restricted deletion pages (REQ-IDN-032). After a personal or church workspace deletion request every normal
+// session of the people it reaches ends. A fresh proof of the original login opens a ten-minute restricted session
+// for that exact request; its handle lives in an HttpOnly cookie and permits only the request's status and its
+// cancellation.
 const DELETION_COOKIE = "evf-deletion";
-const restrictedCookie = z.strictObject({ handle: sessionId, request: N.getAccountDeletionStatusRequest });
+const restrictedCookie = z.strictObject({
+	handle: sessionId,
+	request: z.union([N.getAccountDeletionStatusRequest, N.getWorkspaceDeletionStatusRequest]),
+});
 type Restricted = z.infer<typeof restrictedCookie>;
 
-/** Checks the original login's password and opens the restricted session for its current deletion request. */
-export async function openRestrictedDeletion(raw: unknown) {
+/**
+ * Checks the original login's password and opens the restricted session for its current deletion request: the
+ * account's own (`account`), or the latest church workspace request it made (`plant`).
+ */
+export async function openRestrictedDeletion(kind: "account" | "plant", raw: unknown) {
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const opened = await ops.credentials
-		.openAccountDeletion(raw, trustedIdentityIp(request, process.env.VERCEL === "1"))
-		.catch((error) => {
-			console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
-			return { status: "refused" as const, code: "unknown" as const };
-		});
+	const ip = trustedIdentityIp(request, process.env.VERCEL === "1");
+	const opened = await (
+		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
+	).catch((error) => {
+		console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
+		return { status: "refused" as const, code: "unknown" as const };
+	});
 	if (opened.status === "refused")
 		return refusal(
 			opened.code === "temporary" || opened.code === "unknown" || opened.code === "invalid_input"
@@ -356,10 +364,7 @@ export async function openRestrictedDeletion(raw: unknown) {
 		);
 	const value: Restricted = {
 		handle: opened.value.session.handle,
-		request: N.getAccountDeletionStatusRequest.parse({
-			subject: opened.value.subject,
-			requestId: opened.value.requestId,
-		}),
+		request: restrictedCookie.shape.request.parse({ subject: opened.value.subject, requestId: opened.value.requestId }),
 	};
 	(await cookies()).set({
 		name: DELETION_COOKIE,
@@ -370,48 +375,59 @@ export async function openRestrictedDeletion(raw: unknown) {
 		path: "/",
 		maxAge: 10 * 60,
 	});
-	return restrictedStatus();
+	return restrictedStatus(kind);
 }
 
-async function restricted(): Promise<Restricted | null> {
+/** The restricted session, when one is open for a request of this kind. */
+async function restricted(kind: "account" | "plant"): Promise<Restricted | null> {
 	const raw = (await cookies()).get(DELETION_COOKIE)?.value;
 	if (!raw) return null;
 	try {
-		return restrictedCookie.parse(JSON.parse(raw));
+		const session = restrictedCookie.parse(JSON.parse(raw));
+		return session.request.subject.kind === kind ? session : null;
 	} catch {
 		return null;
 	}
 }
 
 /** The exact request's status for the restricted session, or a refusal once the session expired. */
-export async function restrictedStatus() {
+export async function restrictedStatus(kind: "account" | "plant") {
 	const ops = settingsMount(),
-		session = await restricted();
+		session = await restricted(kind);
 	if (!ops || !session) return refusal("proof_invalid");
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
+	const { request } = session;
 	return logged("restricted_status_failed", () =>
-		ops.db.transaction((tx) => ops.deletion.getAccountDeletionStatus(tx, context, session.request)),
+		ops.db.transaction((tx) =>
+			kind === "account"
+				? ops.deletion.getAccountDeletionStatus(tx, context, N.getAccountDeletionStatusRequest.parse(request))
+				: ops.deletion.getWorkspaceDeletionStatus(tx, context, N.getWorkspaceDeletionStatusRequest.parse(request)),
+		),
 	);
 }
 
 /** Cancels the exact request strictly before its deadline. A cancelled request ends the restricted session. */
-export async function cancelRestrictedDeletion(expectedRevision: string) {
+export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
 	const ops = settingsMount(),
-		session = await restricted();
+		session = await restricted(kind);
 	if (!ops || !session) return refusal("proof_invalid");
-	const request = N.cancelAccountDeletionRequest.safeParse({
-		requestKey: randomUUID(),
-		expectedRevision,
-		input: session.request,
-	});
-	if (!request.success) return refusal("invalid_input");
+	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
-		ops.db.transaction((tx) => ops.deletion.cancelAccountDeletion(tx, context, request.data)),
+		ops.db.transaction((tx) => {
+			if (kind === "account") {
+				const v = N.cancelAccountDeletionRequest.safeParse(command);
+				return v.success ? ops.deletion.cancelAccountDeletion(tx, context, v.data) : refused("invalid_input");
+			}
+			const v = N.cancelWorkspaceDeletionRequest.safeParse(command);
+			return v.success ? ops.deletion.cancelWorkspaceDeletion(tx, context, v.data) : refused("invalid_input");
+		}),
 	);
 	if (reply.status === "ok" && reply.value.status === "cancelled") (await cookies()).delete(DELETION_COOKIE);
 	return reply;
 }
+
+const refused = async (code: keyof typeof RETRY) => refusal(code);
 
 /** A thrown error is logged and reads as unknown: the page then offers to load the latest status. */
 async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {

@@ -51,8 +51,14 @@ export function AvatarControl({
 		try {
 			const staged = await port.requestAvatarUpload({ mime: file.type as AvatarMime, byteLength: file.size });
 			if (staged.status === "refused") return fail(`Your photo did not upload. ${refusalOf(staged.error).message}`);
-			const sent = await port.uploadAvatarBytes(staged.value.uploadId, file);
-			if (sent.status === "refused") return fail(`Your photo did not upload. ${refusalOf(sent.error).message}`);
+			const target = { accountId: account.accountId, versionId: staged.value.uploadId };
+			const sent = await port.uploadAvatarBytes(target, file);
+			if (sent.status === "refused")
+				return fail(
+					sent.error.code === "invalid_input"
+						? "This file is not a JPG, PNG or WebP photo of up to 3 MB. Choose another photo."
+						: `Your photo did not upload. ${refusalOf(sent.error).message}`,
+				);
 			const input = { uploadId: staged.value.uploadId };
 			const saved = await saving.run(input, (requestKey) =>
 				port.finalizeAvatar({ requestKey, expectedRevision: account.revision, input }),
