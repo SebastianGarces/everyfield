@@ -168,10 +168,17 @@ async function stopAtSecondCall(m, fake: { transport: DeliveryTransport; sends: 
 	const run = sendNow(m, fake.transport).then((reply) => {
 		throw new Error(`the handoff finished without a second call: ${JSON.stringify(reply)}`);
 	});
-	for (let turn = 0; fake.sends.length < 2; turn += 1) {
-		if (turn > 10_000) throw new Error(`only ${fake.sends.length} provider call(s)`);
-		await Promise.race([run, new Promise((resolve) => setImmediate(resolve))]);
-	}
+	// Wait on the second call itself, not on a count of event-loop turns: freezing 250 rows can take longer than any
+	// fixed number of turns on a loaded runner.
+	const send = fake.transport.send.bind(fake.transport);
+	const second = new Promise<void>((resolve) => {
+		fake.transport.send = (batch) => {
+			const answer = send(batch);
+			if (fake.sends.length >= 2) resolve();
+			return answer;
+		};
+	});
+	await Promise.race([run, second]);
 }
 const states = (members: { state: string }[]) => [...new Set(members.map((row) => row.state))];
 
