@@ -67,7 +67,7 @@ export function Segmented<T extends string | number>({
 					tooltip={option.tooltip ?? option.label}
 					tabIndex={option.value === value ? 0 : -1}
 					data-active-state={option.value === value ? "on" : "off"}
-					className="h-8 min-w-8 px-2.5"
+					className="h-8 min-w-8 justify-center gap-1.5 px-2.5"
 					onMouseDown={keepSelection}
 					onKeyDown={(event) =>
 						rove(
@@ -114,7 +114,7 @@ export function Swatches({
 						tabIndex={on ? 0 : -1}
 						data-token={token}
 						data-active-state={on ? "on" : "off"}
-						className={cn("!size-8 !min-w-8 !rounded-full !p-0", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
+						className={cn("size-8 min-w-8 justify-center p-0 !rounded-full", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
 						onMouseDown={keepSelection}
 						onKeyDown={(event) => rove(event, index, TOKENS, onChange)}
 						onClick={() => onChange(token)}

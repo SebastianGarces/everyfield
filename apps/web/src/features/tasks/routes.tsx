@@ -5,6 +5,7 @@ import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls"
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
+import { Fresh } from "./fresh.tsx";
 import { loadTasksPage, taskViewer } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { params } from "../shared/search-params.ts";
@@ -43,11 +44,13 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 			</Blocked>
 		);
 	return (
-		<TasksScreen
-			loaded={loaded.value}
-			viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer())?.displayName ?? null }}
-			year={new Date().getUTCFullYear()}
-		/>
+		<Fresh loading={<TasksLoading />}>
+			<TasksScreen
+				loaded={loaded.value}
+				viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer())?.displayName ?? null }}
+				year={new Date().getUTCFullYear()}
+			/>
+		</Fresh>
 	);
 }
 
