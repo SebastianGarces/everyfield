@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-12T17:07:10.963Z",
+	"recordedAt": "2026-11-12T19:21:35.449Z",
 	"spend": {
-		"newCalls": 3,
-		"newMicroUsd": 554,
+		"newCalls": 2,
+		"newMicroUsd": 931,
 		"allCalls": 551,
-		"allMicroUsd": 295173
+		"allMicroUsd": 295162
 	},
 	"calls": {
 		"00d038074aeb0bcd": {
@@ -13261,25 +13261,6 @@
 			"usage": {
 				"input": 7744,
 				"output": 67
-			}
-		},
-		"5227d1c5c63d0d42": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The message is clear, brief, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It confirms the replacement text, explains that nothing has changed yet, and gives the next step to approve it in the app.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_06bb3070ea1e5ac7006af5f074aec887d2b5dfa6d58757d5fb",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 361,
-				"output": 125
 			}
 		},
 		"52ec3100c2c67b1b": {
@@ -28335,6 +28316,25 @@
 				"output": 81
 			}
 		},
+		"bb8d14f239bd1364": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact without unnecessary language.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It confirms the replacement is ready, identifies the scheduled email, and clearly explains that the change takes effect only after approval in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_06770b869e5ce9fd006af611be7e6487d2a6da60a247bc3ef0",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 318,
+				"output": 147
+			}
+		},
 		"bbb0133135a47b81": {
 			"kind": "generate",
 			"content": [
@@ -29221,88 +29221,6 @@
 			"usage": {
 				"input": 295,
 				"output": 146
-			}
-		},
-		"c5c61514d46798a1": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0af67421a6429417006af5f07148cc87d2a5f562387ed001ae",
-					"timestamp": "2026-11-12T16:59:29.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0af67421a6429417006af5f0725b6c87d2aa1bf729e683a1c5",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0af67421a6429417006af5f0725b6c87d2aa1bf729e683a1c5",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0af67421a6429417006af5f0725b6c87d2aa1bf729e683a1c5",
-					"delta": "The replacement is ready for your review and approval. It changes the body of the Friday volunteer email to:\n\n> Thanks for volunteering. We now start at 5pm sharp, so please arrive by 4:45.\n\nIt remains scheduled for Friday, November 13 at 9:00 a.m. Central time, with 2 recipients. Nothing has changed yet; approve the review card in the app to proceed."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0af67421a6429417006af5f0725b6c87d2aa1bf729e683a1c5",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0af67421a6429417006af5f0725b6c87d2aa1bf729e683a1c5",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 7984,
-							"noCache": 3,
-							"cacheRead": 7687,
-							"cacheWrite": 294
-						},
-						"outputTokens": {
-							"total": 88,
-							"text": 88,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 7984,
-							"input_tokens_details": {
-								"cache_write_tokens": 294,
-								"cached_tokens": 7687
-							},
-							"output_tokens": 88,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 8072
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0af67421a6429417006af5f07148cc87d2a5f562387ed001ae",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 7984,
-				"output": 88
 			}
 		},
 		"c60d1cc218dec2bd": {
@@ -38885,6 +38803,88 @@
 			"usage": {
 				"input": 8311,
 				"output": 607
+			}
+		},
+		"fd3be28c205c5fef": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_03c7d300103906c2006af611ba5bcc87d29702175e3fc0cb3d",
+					"timestamp": "2026-11-12T19:21:30.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_03c7d300103906c2006af611bb8ff887d288ec7ee5370780d8",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_03c7d300103906c2006af611bb8ff887d288ec7ee5370780d8",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_03c7d300103906c2006af611bb8ff887d288ec7ee5370780d8",
+					"delta": "The replacement is ready for your review. The Friday volunteer email is scheduled for Nov 13 at 9:00 a.m. Central and has 2 recipients. Nothing changes unless you approve the review card in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_03c7d300103906c2006af611bb8ff887d288ec7ee5370780d8",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_03c7d300103906c2006af611bb8ff887d288ec7ee5370780d8",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 7996,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 7993
+						},
+						"outputTokens": {
+							"total": 49,
+							"text": 49,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 7996,
+							"input_tokens_details": {
+								"cache_write_tokens": 7993,
+								"cached_tokens": 0
+							},
+							"output_tokens": 49,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 8045
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_03c7d300103906c2006af611ba5bcc87d29702175e3fc0cb3d",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 7996,
+				"output": 49
 			}
 		},
 		"fd73fc12779610e1": {
