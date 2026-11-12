@@ -252,8 +252,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}) as History;
 	}
 
+	// "refused" keeps the waiting request too, so its refused resend and withdraw can be seen.
 	let pending: Invitation[] =
-		scenario === "connected" && side === "subject"
+		(scenario === "connected" || scenario === "refused") && side === "subject"
 			? [
 					C.invitationResult.parse({
 						status: "pending",
