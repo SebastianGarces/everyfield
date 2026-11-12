@@ -51,7 +51,7 @@ import { SavedHistory } from "./saved.tsx";
 
 type PreviewState =
 	| { kind: "idle" }
-	| { kind: "pdf"; bytes: Uint8Array; key: string }
+	| { kind: "pdf"; bytes: Uint8Array; key: string; brandKit: boolean }
 	| { kind: "office" }
 	| { kind: "message"; text: string };
 
@@ -104,7 +104,9 @@ export function DocumentsScreen({
 	const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
 	// The church's values as this page load read them: every render key of the visit names them.
 	const [church] = useState(() => churchValues(context));
-	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string } | null>(null);
+	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string; brandKit: boolean } | null>(
+		null,
+	);
 	const [resolving, startResolve] = useTransition();
 	const [previewing, startPreview] = useTransition();
 	const [saving, startSave] = useTransition();
@@ -154,12 +156,12 @@ export function DocumentsScreen({
 		});
 	}, [visibleId, canPreview, resolvedFor, templates]);
 
-	function showBytes(nextFormat: Format, encoded: string, key: string) {
+	function showBytes(nextFormat: Format, encoded: string, key: string, brandKit: boolean) {
 		if (nextFormat !== "pdf") {
 			setPreview({ kind: "office" });
 			return;
 		}
-		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key });
+		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key, brandKit });
 	}
 
 	const overrides = selected ? overridesOf(selected, drafts, current) : {};
@@ -173,7 +175,7 @@ export function DocumentsScreen({
 	function runPreview(download: boolean) {
 		if (!selected || !activeFormat || !ready) return;
 		if (!download && artifact?.key === signature && artifact.format === activeFormat) {
-			showBytes(activeFormat, artifact.bytes, signature);
+			showBytes(activeFormat, artifact.bytes, signature, artifact.brandKit);
 			return;
 		}
 		const template = selected;
@@ -197,9 +199,10 @@ export function DocumentsScreen({
 				setPreview({ kind: "message", text: "This file did not render. Nothing was saved." });
 				return;
 			}
-			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact });
+			const brandKit = result.value.brandKit;
+			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact, brandKit });
 			if (download) downloadBytes(template.name, nextFormat, result.value.artifact);
-			else showBytes(nextFormat, result.value.artifact, signature);
+			else showBytes(nextFormat, result.value.artifact, signature, brandKit);
 		});
 	}
 
@@ -567,10 +570,10 @@ function TemplatePanel({
 							<Skeleton shape="block" className="absolute inset-0 rounded-none" />
 						</div>
 					) : null}
-					{preview.kind === "pdf" ? (
+					{preview.kind === "pdf" && (stale || !preview.brandKit) ? (
 						<p className="text-sm text-text-2">
 							{stale ? "The fields changed. Update the preview to see them. " : ""}
-							No brand kit yet. Your church name stands in for a logo.
+							{preview.brandKit ? "" : "No brand kit yet. Your church name stands in for a logo."}
 						</p>
 					) : null}
 				</div>

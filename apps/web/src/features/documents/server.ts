@@ -31,7 +31,7 @@ export async function documentActor(): Promise<RequestActor | null> {
 }
 
 export type PreviewOutcome =
-	| { status: "ok"; value: Resolved & { artifact: string | null } }
+	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
 	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
 	| { status: "lost" };
 
@@ -48,7 +48,7 @@ export async function readPreview(
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
 	try {
-		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides });
+		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
 		if (reply.status === "refused") {
 			const problem = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.problem : undefined;
 			return problem
@@ -67,6 +67,7 @@ export async function readPreview(
 				missing: value.missing,
 				complete: value.complete,
 				artifact,
+				brandKit: "brandKit" in value && value.brandKit === true,
 			},
 		};
 	} catch (error) {

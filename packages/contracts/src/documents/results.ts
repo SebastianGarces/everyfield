@@ -73,6 +73,8 @@ const contextValue = {
 export const contextResult = z.strictObject(contextValue);
 export const previewResult = z.strictObject({
 	...contextValue,
+	/** The church plant has a saved brand kit, so the render uses the church theme where the kit has a primary color. */
+	brandKit: z.boolean(),
 	artifact: z.string().min(1).nullable(),
 	digest: sha256.nullable(),
 	engineVersion: sha256.nullable(),

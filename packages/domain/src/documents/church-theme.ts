@@ -7,7 +7,14 @@ import { readBrandAsset } from "../branding/files.ts";
 import { resolveDocumentTheme } from "../branding/theme.ts";
 import type { DocBrand } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
-import { makePalette, NEUTRAL_THEME, type RenderClass, type RenderTheme, type ThemeImage } from "./theme.ts";
+import {
+	makePalette,
+	NEUTRAL_THEME,
+	type Letterhead,
+	type RenderClass,
+	type RenderTheme,
+	type ThemeImage,
+} from "./theme.ts";
 
 /** A theme for a render: what the PDF paints, what the DOCX names, and what the record keeps. */
 export type ExportTheme = {
@@ -134,5 +141,43 @@ export async function exportTheme(
 			accent: theme.colors.accent ?? theme.colors.primary,
 			images: own,
 		},
+	};
+}
+
+/**
+ * The theme a library template renders with (preview and "Save for your church"): the church theme when the plant has
+ * a brand kit with a primary color, else the Everyfield-neutral theme. `exportTheme` picks it with branding on. The
+ * template layouts take the full logo in their logo slot, the kit's letterhead and, on outward-facing cards, the cover
+ * photo and tagline. A brand asset that cannot be read leaves its slot to the church name in type.
+ */
+export async function templateTheme(
+	db: Database,
+	storage: PrivateStorage | null,
+	authority: RequestActor,
+	church: { name: string; kit: BrandKitData | null },
+	documentClass: RenderClass,
+): Promise<RenderTheme> {
+	const outward = documentClass === "outward-facing";
+	const images = new Set<ImageSource>(outward ? ["logo", "photo"] : ["logo"]);
+	const theme = await exportTheme(db, storage, authority, church, documentClass, true, images);
+	const kit = church.kit;
+	if (theme.kind !== "church" || !kit) return theme.render;
+	const { images: own, ...colors } = theme.render;
+	const letterhead = Object.fromEntries(
+		Object.entries({
+			legalName: kit.legalName,
+			address: kit.address,
+			ein: kit.ein,
+			phone: kit.phone,
+			email: kit.email,
+			web: kit.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+		}).filter(([, value]) => value),
+	) as Letterhead;
+	return {
+		...colors,
+		...(own?.logo ? { logo: own.logo } : {}),
+		...(outward && own?.photo ? { photo: own.photo } : {}),
+		...(outward && kit.tagline ? { tagline: kit.tagline } : {}),
+		...(Object.keys(letterhead).length ? { letterhead } : {}),
 	};
 }
