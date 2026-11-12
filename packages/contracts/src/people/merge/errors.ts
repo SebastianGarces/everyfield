@@ -21,6 +21,7 @@ export const referenceKind = z.enum([
 	"attestation",
 	"attestation_history",
 	"email_opt_out",
+	"duplicate_dismissal",
 	"contact_outcome",
 	"development_enrollment",
 	"invitation",

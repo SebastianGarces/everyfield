@@ -212,6 +212,13 @@
 	"POST tasks.createTask": {
 		"limit": 5
 	},
+	"POST followups.recordOutcome": {
+		"limit": 7,
+		"reason": "The session lookup, then the established followups.recordOutcome on a follow-up task (6), which locks the task as well as the person. The call page updates from the answer, so no page reads follow the write (T-234: 14 before). Its largest first run: 1 read, 2 transaction, 3 locked read, 1 write."
+	},
+	"POST followups.correctOutcome": {
+		"limit": 6
+	},
 	"POST tasks.importTemplate": {
 		"limit": 8,
 		"reason": "The session lookup, then BEGIN, the write gate, the importer's seat read, the tasks with their assignees and audit rows in one statement, and COMMIT. Every imported task is dated and assigned, so the shared reminder sync (notifications.syncTaskReminders) adds its 2 statements (F10) for the whole set, whatever its size."
@@ -1391,9 +1398,26 @@
 		"limit": 5,
 		"retry": 10
 	},
+	"people/core.withPeopleWrite:people/csv/index.retryStoredImport": {
+		"limit": 5,
+		"retry": 5
+	},
+	"people/csv/index.deleteExpiredImportFiles": {
+		"limit": 1
+	},
 	"people/csv/index.executeBulkImport": {
 		"limit": 5,
 		"retry": 10
+	},
+	"people/csv/index.retryStoredImport": {
+		"limit": 6,
+		"retry": 5
+	},
+	"people/duplicates.dismissDuplicatePair": {
+		"limit": 3
+	},
+	"people/duplicates.restoreDuplicatePair": {
+		"limit": 3
 	},
 	"people/csv/index.signPeopleImport": {
 		"limit": 1

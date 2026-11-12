@@ -41,6 +41,7 @@ const factories = {
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/people/duplicates.ts": ["dismissDuplicatePair", "restoreDuplicatePair"],
 	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
 	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
@@ -50,7 +51,12 @@ const standalone = {
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport", "signPeopleImport"],
+	"/packages/domain/src/people/csv/index.ts": [
+		"executeBulkImport",
+		"signPeopleImport",
+		"retryStoredImport",
+		"deleteExpiredImportFiles",
+	],
 	"/packages/domain/src/people/commitments/index.ts": [
 		"getCommitmentDownload",
 		"signCommitmentDocument",

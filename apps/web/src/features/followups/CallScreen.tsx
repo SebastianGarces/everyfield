@@ -15,6 +15,7 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
+import { outcomeSaved } from "../tasks/fresh.tsx";
 import { recordOutcome } from "./actions.ts";
 import { loadCall } from "./fetch.ts";
 import { OutcomeFields } from "./fields.tsx";
@@ -74,6 +75,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			what: "The outcome",
 			send: (key) => recordOutcome(key, input),
 			ok: (value) => {
+				outcomeSaved();
 				setSaved(value);
 				setDraft(emptyDraft());
 				setCall((c) => ({

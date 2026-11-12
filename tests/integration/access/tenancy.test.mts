@@ -25,10 +25,12 @@ import {
 	assessments,
 	checkForDuplicates,
 	commitments,
+	dismissDuplicatePair,
 	executeBulkImport,
 	getAccountLink,
 	getCommitmentDownload,
 	interviews,
+	listDismissedDuplicatePairs,
 	listDuplicatePairs,
 	peopleCsv,
 	peopleMerge,
@@ -42,6 +44,7 @@ import {
 	readPersonPage,
 	readPersonPhoto,
 	recordCorrections,
+	retryStoredImport,
 	searchPeople,
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
@@ -71,7 +74,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
 
 const WRITE_VERBS = new Set(
-	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dispatch
+	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
 	edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign unmerge update upload use with withdraw`.split(/\s+/),
@@ -337,9 +340,11 @@ async function seedChurchA() {
 	);
 	a.merge = (await rows(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0].id;
 
-	// Row 2 repeats row 1 and is added to review later, so church A has a pair for people.listDuplicatePairs.
+	// Rows 2 and 3 repeat row 1 and are added to review later, so church A has a pair for people.listDuplicatePairs and,
+	// once row 3's pair is marked not a duplicate, one for people.listDismissedDuplicatePairs.
 	const file = new TextEncoder().encode(
-		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n`,
+		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n` +
+			`${MARK}-Third,alpha-tenancy-import@example.test\r\n`,
 	);
 	const preview = ok(
 		await f.db.transaction((t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
@@ -353,10 +358,18 @@ async function seedChurchA() {
 			reviewDigest: preview.reviewDigest,
 			choices: preview.rows
 				.filter((r) => r.status === "valid")
-				.map((r) => ({ row: r.row, choice: r.row === 2 ? "create_and_review" : "create" })),
+				.map((r) => ({ row: r.row, choice: r.row === 1 ? "create" : "create_and_review" })),
 		}),
 	);
 	await runDueImports(f.db, 10);
+	const pairs = ok(
+		await f.db.transaction((t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
+	).items.filter((p) => p.person.displayName === `${MARK}-Third`);
+	ok(
+		await people((t, c) =>
+			dismissDuplicatePair(t, c, { personId: pairs[0].person.id, withPersonId: pairs[0].with.id }),
+		),
+	);
 
 	// Teams come from their own area; rows here, as the communication suites seed them. This meeting row is the
 	// communication cases' own; the meetings cases read the meetings seed (tenancy-meetings.mts).
@@ -554,6 +567,10 @@ function cases(who) {
 		ppl("listDuplicatePairs", () => reads((t, c) => listDuplicatePairs(t, c)), {
 			value: { items: [], completeness: "complete" },
 		}),
+		ppl("listDismissedDuplicatePairs", () => reads((t, c) => listDismissedDuplicatePairs(t, c)), {
+			// The church's own time zone is its only field: church B's, which is no church A value.
+			check: (value) => assert.deepEqual({ ...value, zone: "" }, { zone: "", items: [], completeness: "complete" }),
+		}),
 		ppl("searchPeople", () => reads((t, c) => searchPeople(t, c, MARK)), { value: [] }),
 		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
 			check: (value) => {
@@ -690,6 +707,12 @@ function cases(who) {
 		ppl(
 			"peopleCsv.getImportReceipt",
 			() => reads((t, c) => peopleCsv.getImportReceipt(t, c, { requestKey: a.importKey })),
+			unavailable,
+		),
+		ppl(
+			"retryStoredImport",
+			// Church A's request key from church B names no import; church A's owner gets its complete receipt back.
+			() => retryStoredImport(f.db, storage, who.actor, { requestKey: a.importKey }),
 			unavailable,
 		),
 		ppl("peopleCsv.exportPeople", () => reads((t, c) => peopleCsv.exportPeople(t, c, {})), {
