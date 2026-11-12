@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { revision } from "../common/values.ts";
-const digest = z.string().regex(/^[a-f0-9]{64}$/);
+import { revision, sha256Text as digest } from "../common/values.ts";
 const referenceId = z.uuid();
 export const profile = z.strictObject({
 	chunker: z.literal("fixed-codepoints-1200-v1"),

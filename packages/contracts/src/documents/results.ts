@@ -1,30 +1,28 @@
 import { z } from "zod";
-import { correlationId, recordId, tenantId } from "../common/values.ts";
+import { defineSafeError, recordId, sha256Text as sha256, tenantId, type Reply } from "../common/values.ts";
+import { phaseNumber } from "../phases/index.ts";
 import { docDocument, type DocDifference } from "./format/index.ts";
 import { nativeBody } from "./native.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
 /**
  * Refusals a document-template read can return. An unknown template is "unavailable". "deleted" goes only to a seat of
  * the church plant whose Church Document was deleted; anyone else gets "unavailable" for it, as for an unknown id.
  */
 export const documentsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unavailable", {}, "never"),
-	error("deleted", {}, "never"),
-	error("invalid_subject", {}, "never"),
-	error("render_failed", {}, "never"),
-	error("conflict", {}, "refresh"),
-	error("access_denied", {}, "never"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError("deleted", {}, "never"),
+	defineSafeError("invalid_subject", {}, "never"),
+	defineSafeError("render_failed", {}, "never"),
+	defineSafeError("conflict", {}, "refresh"),
+	defineSafeError("access_denied", {}, "never"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
-export type DocumentsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: DocumentsError };
+export type DocumentsReply<T> = Reply<T, DocumentsError>;
 
-const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const mergeField = z.strictObject({
 	key: z.string().min(1).max(80),
 	label: z.string().min(1).max(200),
@@ -36,7 +34,7 @@ export const templateView = z.strictObject({
 	name: z.string().min(1).max(200),
 	description: z.string().min(1).max(2000),
 	category: documentCategory,
-	phase: z.int().min(0).max(6).nullable(),
+	phase: phaseNumber.nullable(),
 	formats: z.array(documentFormat).min(1).max(3),
 	pageCount: z.int().min(1).max(20),
 	wikiSlug: z.string().min(1).max(200).nullable(),

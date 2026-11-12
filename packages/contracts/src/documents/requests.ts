@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
+import { phaseNumber } from "../phases/index.ts";
 import { docDocument } from "./format/index.ts";
 import { nativeBody } from "./native.ts";
 import {
@@ -16,14 +17,14 @@ const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERG
 
 export const listTemplatesRequest = z.strictObject({
 	category: documentCategory.optional(),
-	phase: z.int().min(0).max(6).optional(),
+	phase: phaseNumber.optional(),
 	format: documentFormat.optional(),
 });
 export const getTemplateRequest = z.strictObject({ templateId });
 export const contextualTemplatesRequest = z.strictObject({
 	wikiSlug: z.string().trim().min(1).max(200).optional(),
 	category: documentCategory.optional(),
-	phase: z.int().min(0).max(6).optional(),
+	phase: phaseNumber.optional(),
 	meetingId: recordId.optional(),
 	teamId: recordId.optional(),
 });

@@ -54,7 +54,5 @@ export const draftInput = z.strictObject({
 	templateId: z.uuid().nullable().optional(),
 	templateSource: z.string().trim().min(1).max(80).nullable().optional(),
 });
-export type DraftInput = z.infer<typeof draftInput>;
 
 export const mergeFields = z.record(z.string().regex(/^[a-z0-9_]+$/), z.string().max(500));
-export type MergeFields = z.infer<typeof mergeFields>;

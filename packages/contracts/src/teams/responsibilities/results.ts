@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { digest, operationId, recordId, revision } from "../../common/values.ts";
+import { digest, operationId, recordId, revision, sha256Text as catalogSha } from "../../common/values.ts";
 import { RESPONSIBILITY_PAGE } from "./catalog.ts";
 
 const outcome = z.enum(["changed", "noop"]);
@@ -24,7 +24,6 @@ export const responsibilityPage = z.strictObject({
 	page: z.int().min(1),
 	items: z.array(responsibilityItem).max(RESPONSIBILITY_PAGE),
 });
-const catalogSha = z.string().regex(/^[a-f0-9]{64}$/);
 const previewLine = z.strictObject({
 	key: z.string().min(1).max(80),
 	text: lineText,

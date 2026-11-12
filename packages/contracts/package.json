@@ -23,6 +23,7 @@
 		"./followups": "./src/followups/index.ts",
 		"./notifications": "./src/notifications/index.ts",
 		"./communication": "./src/communication/index.ts",
+		"./communication/values": "./src/communication/values.ts",
 		"./wiki": "./src/wiki/index.ts",
 		"./phases": "./src/phases/index.ts",
 		"./intelligence": "./src/intelligence/index.ts"

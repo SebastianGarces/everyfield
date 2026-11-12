@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountId, correlationId, recordId, requestKey, revision } from "../common/values.ts";
+import { accountId, defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
 import { instant } from "../common/time.ts";
 
 // The phases contract (WP-038, PHASE-001 to PHASE-008). A phase is an integer 0 to 6 and nothing else: z.int refuses
@@ -160,16 +160,14 @@ export const readiness = z.strictObject({
 });
 export type Readiness = z.infer<typeof readiness>;
 
-const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 /** Every refusal a phase operation returns. */
 export const phasesError = z.discriminatedUnion("code", [
-	error("invalid_input", {}, "never"),
-	error("invalid_reason", { problem: reasonProblem }, "never"),
-	error("access_denied", {}, "never"),
-	error("idempotency_conflict", {}, "never"),
-	error("already_declared", {}, "refresh"),
-	error("revision_conflict", { state: journeyState }, "refresh"),
+	defineSafeError("invalid_input", {}, "never"),
+	defineSafeError("invalid_reason", { problem: reasonProblem }, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("idempotency_conflict", {}, "never"),
+	defineSafeError("already_declared", {}, "refresh"),
+	defineSafeError("revision_conflict", { state: journeyState }, "refresh"),
 ]);
 export type PhasesError = z.infer<typeof phasesError>;
-export type PhasesReply<T> = { status: "ok"; value: T } | { status: "refused"; error: PhasesError };
+export type PhasesReply<T> = Reply<T, PhasesError>;

@@ -1,11 +1,13 @@
 // The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
-// type; the client's preview (preview.ts) imports the contract renderer, which runs the sanitizer in the browser.
+// type and `@everyfield/contracts/communication/values`, which loads no sanitizer; the client's preview (preview.ts)
+// imports the contract renderer, which runs the sanitizer in the browser.
 
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
+import { audienceGroups } from "@everyfield/contracts/communication/values";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
-export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
+export { audienceGroups };
 type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {

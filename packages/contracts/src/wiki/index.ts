@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { commandEnvelope } from "../common/writes.ts";
-import { requestKey, safeError } from "../common/values.ts";
+import { requestKey, safeError, type Reply } from "../common/values.ts";
+import { phaseNumber as phase } from "../phases/index.ts";
 
 export const wikiError = safeError;
 export type WikiError = z.infer<typeof wikiError>;
-export type WikiReply<T> = { status: "ok"; value: T } | { status: "refused"; error: WikiError };
+export type WikiReply<T> = Reply<T, WikiError>;
 
 export const sourceView = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("current") }),
@@ -14,7 +15,6 @@ export const sourceView = z.discriminatedUnion("kind", [
 export type SourceView = z.infer<typeof sourceView>;
 
 const page = z.number().int().min(1).max(1000);
-const phase = z.number().int().min(0).max(6);
 const fraction = z.string().regex(/^(?:0(?:\.\d{1,6})?|1(?:\.0{1,6})?)$/);
 
 export const wikiArticle = z.strictObject({
