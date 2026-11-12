@@ -182,10 +182,7 @@ test("INV-migration-artifacts: a committed retirement lets one migration drop ex
 		await assert.doesNotReject(checkMigrationArtifacts(url));
 
 		// Removing an action from the entry leaves an unlisted drop, which the superset rule refuses as before.
-		await writeFile(
-			directory + "/20261103000000_drop.sql",
-			actions("person.created", "security.bulk_export"),
-		);
+		await writeFile(directory + "/20261103000000_drop.sql", actions("person.created", "security.bulk_export"));
 		await writeFile(directory + "/20261105000000_later.sql", actions("person.created", "wiki.hidden"));
 		await retire("launch.corrected");
 		await assert.rejects(
@@ -200,8 +197,7 @@ test("INV-migration-artifacts: a committed retirement lets one migration drop ex
 		await assert.rejects(
 			checkMigrationArtifacts(url),
 			(error: Error) =>
-				error.message ===
-				"Retirement 20261103000000_drop.sql must name exactly the audit actions that migration drops",
+				error.message === "Retirement 20261103000000_drop.sql must name exactly the audit actions that migration drops",
 		);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
