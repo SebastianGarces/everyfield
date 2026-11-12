@@ -171,12 +171,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "commitment_fk_4",
-			"table_name": "commitment"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "communication_fk_0",
 			"table_name": "communication"
 		},
@@ -321,12 +315,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "digest_coverage_fk_2",
-			"table_name": "digest_coverage"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "discovery_fk_0",
 			"table_name": "discovery"
 		},
@@ -465,12 +453,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "launch_fk_2",
-			"table_name": "launch"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "launch_milestone_fk_0",
 			"table_name": "launch_milestone"
 		},
@@ -513,12 +495,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "lifecycle_witness_fk_5",
-			"table_name": "lifecycle_witness"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "mail_attempt_fk_0",
 			"table_name": "mail_attempt"
 		},
@@ -556,12 +532,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "mail_fk_5",
-			"table_name": "mail"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "mail_fk_6",
 			"table_name": "mail"
 		},
 		{
@@ -832,12 +802,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "phase_transition_fk_0",
-			"table_name": "phase_transition"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "phase_transition_fk_2",
 			"table_name": "phase_transition"
 		},
 		{
@@ -1131,18 +1095,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "task_fk_11",
-			"table_name": "task"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "task_fk_13",
-			"table_name": "task"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "task_fk_3",
 			"table_name": "task"
 		},
@@ -1343,12 +1295,6 @@
 			"initially_deferred": true,
 			"name": "development_stage_fk_1",
 			"table_name": "development_stage"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "digest_coverage_fk_3",
-			"table_name": "digest_coverage"
 		},
 		{
 			"deferrable": true,
@@ -1691,12 +1637,6 @@
 			"initially_deferred": true,
 			"name": "tag_fk_1",
 			"table_name": "tag"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "task_fk_12",
-			"table_name": "task"
 		},
 		{
 			"deferrable": true,

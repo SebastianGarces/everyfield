@@ -2180,7 +2180,7 @@
       "checkConstraints": {
         "audit_action": {
           "name": "audit_action",
-          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
+          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
         },
         "audit_kind": {
           "name": "audit_kind",
@@ -3097,12 +3097,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "corrected_commitment_id": {
-          "name": "corrected_commitment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "revision": {
           "name": "revision",
           "type": "bigint",
@@ -3190,27 +3184,6 @@
           "method": "btree",
           "with": {}
         },
-        "commitment_ref_4": {
-          "name": "commitment_ref_4",
-          "columns": [
-            {
-              "expression": "corrected_commitment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "commitment_object_uq": {
           "name": "commitment_object_uq",
           "columns": [
@@ -3282,21 +3255,6 @@
           "columnsTo": [
             "id",
             "tenant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "commitment_fk_4": {
-          "name": "commitment_fk_4",
-          "tableFrom": "commitment",
-          "tableTo": "commitment",
-          "columnsFrom": [
-            "corrected_commitment_id",
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "plant_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -5423,18 +5381,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "last_mail_id": {
-          "name": "last_mail_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_operation_id": {
-          "name": "last_operation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "revision": {
           "name": "revision",
           "type": "bigint",
@@ -5449,48 +5395,6 @@
           "columns": [
             {
               "expression": "recipient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "digest_coverage_ref_2": {
-          "name": "digest_coverage_ref_2",
-          "columns": [
-            {
-              "expression": "last_mail_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "digest_coverage_ref_3": {
-          "name": "digest_coverage_ref_3",
-          "columns": [
-            {
-              "expression": "last_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5525,36 +5429,6 @@
           ],
           "columnsTo": [
             "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "digest_coverage_fk_2": {
-          "name": "digest_coverage_fk_2",
-          "tableFrom": "digest_coverage",
-          "tableTo": "mail",
-          "columnsFrom": [
-            "last_mail_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "digest_coverage_fk_3": {
-          "name": "digest_coverage_fk_3",
-          "tableFrom": "digest_coverage",
-          "tableTo": "audit_event",
-          "columnsFrom": [
-            "last_operation_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -6613,12 +6487,6 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": true
-        },
-        "retention_until": {
-          "name": "retention_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "purge_requested_at": {
           "name": "purge_requested_at",
@@ -8515,26 +8383,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "outcome_notes": {
-          "name": "outcome_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "outcome_recorded_at": {
-          "name": "outcome_recorded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "reference_version_id": {
           "name": "reference_version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "summary_document_id": {
-          "name": "summary_document_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -8553,27 +8403,6 @@
           "columns": [
             {
               "expression": "reference_version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "launch_ref_2": {
-          "name": "launch_ref_2",
-          "columns": [
-            {
-              "expression": "summary_document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8608,21 +8437,6 @@
           ],
           "columnsTo": [
             "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "launch_fk_2": {
-          "name": "launch_fk_2",
-          "tableFrom": "launch",
-          "tableTo": "document",
-          "columnsFrom": [
-            "summary_document_id",
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -8682,12 +8496,6 @@
         "source_version_id": {
           "name": "source_version_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "seed_key": {
-          "name": "seed_key",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -8811,14 +8619,6 @@
             "id",
             "plant_id"
           ]
-        },
-        "launch_milestone_uq_1": {
-          "name": "launch_milestone_uq_1",
-          "nullsNotDistinct": false,
-          "columns": [
-            "plant_id",
-            "seed_key"
-          ]
         }
       },
       "policies": {},
@@ -8913,18 +8713,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "byte_manifest_hash": {
-          "name": "byte_manifest_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cancellation_manifest_hash": {
-          "name": "cancellation_manifest_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "cleanup_state": {
           "name": "cleanup_state",
           "type": "text",
@@ -8945,12 +8733,6 @@
         },
         "requester_opaque_id": {
           "name": "requester_opaque_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "counterparty_organization_id": {
-          "name": "counterparty_organization_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -9043,21 +8825,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_5": {
-          "name": "lifecycle_witness_ref_5",
-          "columns": [
-            {
-              "expression": "counterparty_organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -9119,19 +8886,6 @@
           "tableTo": "affiliation",
           "columnsFrom": [
             "affiliation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_5": {
-          "name": "lifecycle_witness_fk_5",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "counterparty_organization_id"
           ],
           "columnsTo": [
             "id"
@@ -9403,12 +9157,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "original_mail_id": {
-          "name": "original_mail_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "revision": {
           "name": "revision",
           "type": "bigint",
@@ -9541,27 +9289,6 @@
           "method": "btree",
           "with": {}
         },
-        "mail_ref_6": {
-          "name": "mail_ref_6",
-          "columns": [
-            {
-              "expression": "original_mail_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "mail_communication": {
           "name": "mail_communication",
           "columns": [
@@ -9678,21 +9405,6 @@
           "tableTo": "job",
           "columnsFrom": [
             "job_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "mail_fk_6": {
-          "name": "mail_fk_6",
-          "tableFrom": "mail",
-          "tableTo": "mail",
-          "columnsFrom": [
-            "original_mail_id",
             "tenant_id"
           ],
           "columnsTo": [
@@ -9859,21 +9571,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "retry_at": {
-          "name": "retry_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "retryable": {
           "name": "retryable",
           "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "provider_payload": {
-          "name": "provider_payload",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         }
@@ -11293,12 +10993,6 @@
         "schedule_date": {
           "name": "schedule_date",
           "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "schedule_time": {
-          "name": "schedule_time",
-          "type": "time",
           "primaryKey": false,
           "notNull": false
         },
@@ -14955,12 +14649,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "criterion_version_id": {
-          "name": "criterion_version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "offer_answer": {
           "name": "offer_answer",
           "type": "text",
@@ -14975,21 +14663,6 @@
         }
       },
       "indexes": {
-        "phase_transition_ref_2": {
-          "name": "phase_transition_ref_2",
-          "columns": [
-            {
-              "expression": "criterion_version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "phase_transition_uq_2": {
           "name": "phase_transition_uq_2",
           "columns": [
@@ -15043,19 +14716,6 @@
           "tableTo": "audit_event",
           "columnsFrom": [
             "operation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "phase_transition_fk_2": {
-          "name": "phase_transition_fk_2",
-          "tableFrom": "phase_transition",
-          "tableTo": "reference_version",
-          "columnsFrom": [
-            "criterion_version_id"
           ],
           "columnsTo": [
             "id"
@@ -17172,12 +16832,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "resume_position": {
-          "name": "resume_position",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "last_viewed_at": {
           "name": "last_viewed_at",
           "type": "timestamp with time zone",
@@ -18255,12 +17909,6 @@
         "source_revision_id": {
           "name": "source_revision_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "failure_code": {
-          "name": "failure_code",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -20110,30 +19758,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "source_template_id": {
-          "name": "source_template_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "import_operation_id": {
-          "name": "import_operation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "milestone_id": {
-          "name": "milestone_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "seed_key": {
-          "name": "seed_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "revision": {
           "name": "revision",
           "type": "bigint",
@@ -20185,57 +19809,6 @@
           "columns": [
             {
               "expression": "obligation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_11": {
-          "name": "task_ref_11",
-          "columns": [
-            {
-              "expression": "source_template_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_12": {
-          "name": "task_ref_12",
-          "columns": [
-            {
-              "expression": "import_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_13": {
-          "name": "task_ref_13",
-          "columns": [
-            {
-              "expression": "milestone_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -20468,28 +20041,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "task_uq_5": {
-          "name": "task_uq_5",
-          "columns": [
-            {
-              "expression": "milestone_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "seed_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "(seed_key IS NOT NULL)",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -20525,47 +20076,6 @@
           "tableTo": "obligation",
           "columnsFrom": [
             "obligation_id",
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "plant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "task_fk_11": {
-          "name": "task_fk_11",
-          "tableFrom": "task",
-          "tableTo": "reference_version",
-          "columnsFrom": [
-            "source_template_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "task_fk_12": {
-          "name": "task_fk_12",
-          "tableFrom": "task",
-          "tableTo": "audit_event",
-          "columnsFrom": [
-            "import_operation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "task_fk_13": {
-          "name": "task_fk_13",
-          "tableFrom": "task",
-          "tableTo": "launch_milestone",
-          "columnsFrom": [
-            "milestone_id",
             "plant_id"
           ],
           "columnsTo": [

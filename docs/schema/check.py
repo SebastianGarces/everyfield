@@ -230,7 +230,7 @@ def validate_catalog_sets(schema, operations):
     """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
-        ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|'))))|{'note_correction'},
+        ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|')))),
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
     }
     tables = {t['name']: t for t in schema['tables']}
