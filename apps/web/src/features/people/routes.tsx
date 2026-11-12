@@ -52,7 +52,8 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 
-	return <PeopleScreen loaded={await loadPeople(viewer, query)} canWrite={canWrite(viewer)} />;
+	const write = canWrite(viewer);
+	return <PeopleScreen loaded={await loadPeople(viewer, query, write)} canWrite={write} />;
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };

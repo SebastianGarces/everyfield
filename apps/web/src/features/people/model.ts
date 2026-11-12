@@ -194,6 +194,14 @@ export function isFiltered(q: PeopleQuery): boolean {
 		q.archived !== "exclude"
 	);
 }
+/**
+ * The People header's link to /people/duplicates (D-847): "3 to review in Duplicates", or "100+ …" when the pairs read
+ * stopped at its first 100 (D-846). Null, so no link, with nothing to review or when the read is not there.
+ */
+export function pairsToReview(pairs: { items: readonly unknown[]; completeness: "complete" | "partial" } | null) {
+	if (!pairs?.items.length) return null;
+	return `${pairs.items.length}${pairs.completeness === "partial" ? "+" : ""} to review in Duplicates`;
+}
 /** "Showing 25–48 of 214 people". */
 export function rangeText(q: PeopleQuery, shown: number, total: number | null): string {
 	const first = (q.page - 1) * PAGE_SIZE + 1;
