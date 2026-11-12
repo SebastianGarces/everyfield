@@ -654,6 +654,40 @@ test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its conte
 	);
 });
 
+test("AC:DEL58-005 T-195: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
+	// An account holds one open seat at a time (seat_uq_0), so the seats elsewhere belong to other accounts.
+	const f = await plant(),
+		other = await plant(),
+		network = await organization();
+	const member = await seat(f.p, "member"),
+		otherAdmin = await seat(other.p, "admin");
+	const p = await overdue(f.a, { kind: "plant", id: f.p.id });
+	const purge = createLifecycleCleanup(cleanupDb, {
+		authorize: async () => true,
+		removeOwnedResources: async () => true,
+	});
+	assert.equal((await purge({ subject: p.subject, requestId: p.requestId, revision: p.revision })).status, "purged");
+	for (const a of [f.a, member]) {
+		const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+		assert.equal(account.registration_state, "active");
+		const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
+		assert.deepEqual([user.name, user.email], ["Synthetic", a.user + "@example.test"]);
+	}
+	const open = await admin.execute(
+		sql`SELECT account_id, role FROM seat WHERE ended_at IS NULL AND account_id IN (${other.a.id}::uuid, ${otherAdmin.id}::uuid, ${network.a.id}::uuid) ORDER BY role`,
+	);
+	assert.deepEqual(
+		new Set(open.rows.map((r) => `${r.account_id}/${r.role}`)),
+		new Set([`${other.a.id}/owner`, `${otherAdmin.id}/admin`, `${network.a.id}/owner`]),
+	);
+	assert.equal(ok(await section(other.a, { section: "plant", plant: other.p })).values.profile.name, "Harvest Point");
+	assert.equal(
+		ok(await section(otherAdmin, { section: "plant", plant: other.p })).values.profile.name,
+		"Harvest Point",
+	);
+	ok(await section(network.a, { section: "organization", organization: network.o }));
+});
+
 test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private bytes, atomically changes the reference and denies old/foreign versions", async () => {
 	const a = await actor(),
 		foreign = await actor();
@@ -755,6 +789,107 @@ async function login(a) {
 	ingress.set(s.session.id, request);
 	return { ...a, session: s.session.id };
 }
+/** Fresh proof on the restricted workspace deletion page, as the web mount sends it. */
+const openWorkspace = (a, password = a.password) =>
+	producerDeps.credentials.openWorkspaceDeletion({ email: a.email, password }, null);
+const PROOF_REFUSED = { status: "refused", code: "proof_invalid" };
+async function credentialSeat(p, role) {
+	const a = await credentialActor();
+	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
+	return a;
+}
+test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	const member = await credentialSeat(f.p, "member"),
+		seatedAdmin = await credentialSeat(f.p, "admin");
+	const [church] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
+	const ask = (a) =>
+		call("requestWorkspaceDeletion", a, command({ plant: f.p, confirmed: true }, church.revision), f.p);
+	denied(await ask(member));
+	denied(await ask(seatedAdmin));
+	// Before any request, the Owner's own credentials open nothing.
+	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
+	const seatOf = async (a) => {
+		const context = (await viewerOf(a))?.authority.actor.context;
+		return context ? { kind: context.kind, owner: context.owner, role: context.role } : null;
+	};
+	const seats = { [owner.id]: "owner", [member.id]: "member", [seatedAdmin.id]: "admin" };
+	for (const a of [owner, member, seatedAdmin])
+		assert.deepEqual(await seatOf(a), { kind: "seat", owner: f.p, role: seats[a.id] });
+
+	const pending = ok(await ask(owner));
+	assert.equal(pending.status, "pending_deletion");
+	assert.deepEqual(pending.subject, { kind: "plant", id: f.p.id });
+	assert.equal(Date.parse(pending.cancelUntil) - Date.parse(pending.requestedAt), 30 * 86400_000);
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
+	assert.equal(w.cancel_until.toISOString(), pending.cancelUntil);
+	// Every seat's open session ended, and a new sign-in reaches no church.
+	for (const a of [owner, member, seatedAdmin]) assert.equal(await viewerOf(a), null);
+	assert.equal(await viewerOf(await login(member)), null);
+
+	// A wrong password, another seat's own credentials and an account with no request all get the same refusal.
+	assert.deepEqual(await openWorkspace(owner, "Wrong secret 1234!"), PROOF_REFUSED);
+	assert.deepEqual(await openWorkspace(member), PROOF_REFUSED);
+	assert.deepEqual(await openWorkspace(await credentialActor()), PROOF_REFUSED);
+	assert.deepEqual(
+		await producerDeps.credentials.openAccountDeletion({ email: owner.email, password: owner.password }, null),
+		PROOF_REFUSED,
+	);
+
+	const opened = await openWorkspace(owner);
+	assert.equal(opened.status, "ok");
+	assert.deepEqual(opened.value.subject, { kind: "plant", id: f.p.id });
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	assert.deepEqual(
+		ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request))),
+		pending,
+	);
+	const cancelled = ok(
+		await db.transaction((tx) =>
+			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, pending.revision)),
+		),
+	);
+	assert.equal(cancelled.status, "cancelled");
+	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
+	// A cancelled request opens no restricted session again.
+	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
+
+	// Signing in normally gives the Owner and the seats their church back.
+	for (const a of [owner, member, seatedAdmin])
+		assert.deepEqual(await seatOf(await login(a)), { kind: "seat", owner: f.p, role: seats[a.id] });
+	assert.equal(
+		ok(await section(await login(owner), { section: "plant", plant: f.p })).values.profile.name,
+		"Harvest Point",
+	);
+});
+
+test("AC:DEL58-007 T-195: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	// A request whose 30 days ended a day ago, with no purge run yet.
+	const p = await overdue(owner, { kind: "plant", id: f.p.id });
+	const opened = await openWorkspace(owner);
+	assert.equal(opened.status, "ok");
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const late = ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request)));
+	assert.deepEqual(late, p);
+	denied(
+		await db.transaction((tx) =>
+			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, late.revision)),
+		),
+		"deadline_passed",
+	);
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
+	assert.equal(w.state, "pending_deletion");
+});
+
 test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email proof is requester-bound, superseded, 24 hours, unique, and preserves account/Person identity", async () => {
 	const a = await credentialActor(),
 		b = await credentialActor();

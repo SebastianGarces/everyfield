@@ -11,13 +11,13 @@ import {
 	loadResidency,
 	loadSharing,
 	resendAssociationInvitation,
-	respondAssociationInvitation,
 	revokeAssociationInvitation,
 	savePipelineConsent,
 	saveResidencySharing,
 	saveSharing,
 } from "./actions";
 import type { ConnectionsData } from "./Connections";
+import { respondRelationshipInvitation } from "./invitation/client.ts";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { EndConnection } from "./EndDialog";
@@ -29,15 +29,17 @@ import type { ReadSharing, SaveSharing } from "./Sharing";
 
 // The real port (WP-007/ui ruling D11): one typed server action per operation. The server parses the browser's input
 // and answers with the contract value, which the screens trust. A server refusal becomes a Refusal; a lost reply stays
-// a thrown network error, so useIntent keeps the command frozen.
+// a thrown network error, so useIntent keeps the command frozen. The one exception is the answer to a relationship
+// request, which carries the emailed proof: it goes through POST /api/connections/invitation, never a server function
+// argument (rulings U1, D54).
 
-/** The operations the screens call; the contract's other operations have no screen and no action. */
+/** The operations the screens call; the contract's other operations have no screen and no door. */
 type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
 const ACTIONS: Actions = {
 	"associations.invite": inviteAssociation,
 	"associations.resendInvitation": resendAssociationInvitation,
 	"associations.revokeInvitation": revokeAssociationInvitation,
-	"associations.respondInvitation": respondAssociationInvitation,
+	"associations.respondInvitation": respondRelationshipInvitation,
 	"residency.leave": leaveResidency,
 };
 

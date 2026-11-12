@@ -4730,7 +4730,7 @@ export const task = pgTable(
 			.using("btree", table.series_id.asc().nullsLast(), table.occurrence_key.asc().nullsLast())
 			.where(sql`((series_id IS NOT NULL) AND (deleted_at IS NULL))`),
 		uniqueIndex("task_uq_2")
-			.using("btree", table.predecessor_id.asc().nullsLast())
+			.using("btree", table.series_id.asc().nullsLast(), table.predecessor_id.asc().nullsLast())
 			.where(sql`((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))`),
 		uniqueIndex("task_uq_3")
 			.using("btree", table.series_id.asc().nullsLast())
@@ -5222,7 +5222,8 @@ export const model_spend = pgTable(
 
 /**
  * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
- * write failed. The file is cleared when the import completes; the job's deletion removes the import.
+ * write failed. The file is cleared when the import completes, and 7 days after its job last stopped with rows left
+ * (T-194, by the scheduled run); the job's deletion removes the import.
  */
 export const person_import = pgTable(
 	"person_import",

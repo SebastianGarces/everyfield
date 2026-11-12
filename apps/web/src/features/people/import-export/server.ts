@@ -9,7 +9,13 @@ import {
 	type PeopleReply,
 } from "@everyfield/contracts/people";
 import { privateStorage } from "@everyfield/db/schema";
-import { executeStoredImport, peopleCsv, previewStoredImport, signPeopleImport } from "@everyfield/domain/people";
+import {
+	executeStoredImport,
+	peopleCsv,
+	previewStoredImport,
+	retryStoredImport,
+	signPeopleImport,
+} from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
 
@@ -159,7 +165,7 @@ export async function previewRoute(request: Request) {
 
 /**
  * POST /api/people/import: the same upload and the reviewed choices under one request key, as JSON. Repeating it
- * after a lost reply returns the saved receipt; after a partial import it retries the remaining rows.
+ * after a lost reply returns the saved receipt.
  */
 export async function importRoute(request: Request) {
 	const deps = await importDeps(request);
@@ -171,6 +177,24 @@ export async function importRoute(request: Request) {
 		return answer(reply);
 	} catch (error) {
 		console.error(JSON.stringify({ component: "people-import", outcome: "import_failed", error: String(error) }));
+		return lost();
+	}
+}
+
+/**
+ * POST /api/people/import/retry: `{ requestKey, uploadId? }`. "Try N rows again" for a partial import: from the server's
+ * kept copy, or, once that is deleted, from the same file uploaded again.
+ */
+export async function retryRoute(request: Request) {
+	const deps = await importDeps(request);
+	if (deps instanceof Response) return deps;
+	const input = await jsonBody(request);
+	try {
+		const reply = await retryStoredImport(deps.db, deps.storage, deps.v.authority, input);
+		if (reply.status === "ok") drainPeopleImports();
+		return answer(reply);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "people-import", outcome: "retry_failed", error: String(error) }));
 		return lost();
 	}
 }
