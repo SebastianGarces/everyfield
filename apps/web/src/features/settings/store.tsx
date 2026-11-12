@@ -5,7 +5,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, 
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
 import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { errorReference, errorText } from "./model";
-import type { Refusal } from "./save";
+import { OFFLINE_REFERENCE, type Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 
 // The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
@@ -94,7 +94,7 @@ export function SettingsProvider({
 					ok: false,
 					refusal: {
 						message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-						reference: "EF-OFFLINE",
+						reference: OFFLINE_REFERENCE,
 						code: "unknown",
 					},
 				};
@@ -118,7 +118,8 @@ export function SettingsProvider({
 		[],
 	);
 	const remember = useCallback(
-		(cacheKey: string, value: SectionResult) => setSections((all) => new Map(all).set(cacheKey, value)),
+		(cacheKey: string, value: SectionResult) =>
+			setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
 		[],
 	);
 	const value = useMemo(
@@ -150,6 +151,20 @@ export function SettingsProvider({
 	}, [anyDirty]);
 
 	return <Store value={value}>{children}</Store>;
+}
+
+/**
+ * Your account and your notification choices carry the account's one revision, so a save of either changes the
+ * revision the other must send next. A copy of the cache with the new revision on the other cached section, whose
+ * other fields stay as they were.
+ */
+function shareAccountRevision(all: Map<string, SectionResult>, value: SectionResult): Map<string, SectionResult> {
+	const next = new Map(all);
+	if (value.section !== "account" && value.section !== "notifications") return next;
+	for (const [key, cached] of all)
+		if ((cached.section === "account" || cached.section === "notifications") && cached.section !== value.section)
+			next.set(key, { ...cached, revision: value.revision });
+	return next;
 }
 
 function dirtyKeys(
@@ -262,11 +277,15 @@ export function useSection<S extends SectionResult["section"]>(
 		let live = true;
 		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
 		const seeded = attempt === 0 && seed && "request" in seed && cacheKeyOf(seed.request) === key ? seed.value : null;
-		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
-			if (!live) return;
-			if (reply.status === "ok") remember(key, reply.value);
-			else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
-		});
+		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then(
+			(reply) => {
+				if (!live) return;
+				if (reply.status === "ok") remember(key, reply.value);
+				else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
+			},
+			// The call itself failed (no connection): show the retry state instead of staying on the skeleton.
+			() => live && setFailure({ key, attempt, meta: "Everyfield could not be reached. Check your connection." }),
+		);
 		return () => {
 			live = false;
 		};

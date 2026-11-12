@@ -56,6 +56,12 @@ export const registry: readonly Registration[] = [
 	r("attestation", "attestation", "person_id", "plant_id", "move"),
 	// A revision stays on the Person it was written for (evidence, never moved).
 	r("attestation_history", "attestation_revision", "person_id", "plant_id", "keep", "id", false),
+	// A Messages opt-out stays on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays
+	// unsubscribed while merged and Unmerge needs no move (D-284).
+	r("email_opt_out", "person_email_opt_out", "person_id", "plant_id", "keep", "id", false),
+	// A pair marked not a duplicate stays on the pair it names: a merge takes it off both lists, Unmerge brings it back.
+	r("duplicate_dismissal", "person_duplicate_dismissal", "person_id", "plant_id", "keep", "id", false),
+	r("duplicate_dismissal", "person_duplicate_dismissal", "with_person_id", "plant_id", "keep", "id", false),
 	// Owned by later packages, which prove their own references after merge (WP-091 closes the set).
 	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
 	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "block"),
@@ -75,9 +81,9 @@ export const registry: readonly Registration[] = [
 	r("training_credit", "training_credit", "person_id", "plant_id", "keep", "id", false),
 ];
 /** The references that decide whether a reviewed state is still current: everything except kept lineage and evidence. */
-export const tracked = registry.filter((e) => e.treatment !== "keep");
+const tracked = registry.filter((e) => e.treatment !== "keep");
 
-export const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable() });
+const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable() });
 export type Reference = { kind: Kind; id: string; revision: string | null };
 const kindOf = new Map(tracked.map((e) => [`${e.table}.${e.column}`, e.kind]));
 

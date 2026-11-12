@@ -2,12 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "../../../packages/domain/node_modules/zod/index.js";
-import {
-	currentActor,
-	readPipelinePerson,
-	readOrganizationNotes,
-	readOwnResidency,
-} from "../../../packages/domain/src/access/index.ts";
+import { currentActor, readPipelinePerson, readOwnResidency } from "../../../packages/domain/src/access/index.ts";
 import { database, transaction, id, account, plant, organization, seat, person } from "./support.mts";
 let db;
 before(async () => {
@@ -30,7 +25,7 @@ const checkInput = (
 		? { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant }, expectedRevision }
 		: { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant } };
 
-test("AC:WP006-IDN-029 AC:C0-SCOPE-001 AC:WP006-API-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
+test("AC:TARGET-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
 	const a = await account(db.admin),
 		p = await plant(db.admin),
 		o = await organization(db.admin);
@@ -67,7 +62,7 @@ test("AC:WP006-IDN-029 AC:C0-SCOPE-001 AC:WP006-API-IDN-029 INV-tenancy: fresh s
 	assert.deepEqual(await transaction(db.runtime, (tx) => currentActor(tx, expired.session, own(expired))), unavailable);
 });
 
-test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization duties, protected native notes and no resident internal access", async () => {
+test("AC:ADR1-002 INV-pipeline: exact organization duties and no resident internal access", async () => {
 	const o = await organization(db.admin),
 		other = await organization(db.admin);
 	const admin = await account(db.admin),
@@ -103,10 +98,6 @@ test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization dut
 	await db.admin.execute(
 		querySql`INSERT INTO development_enrollment(id,organization_id,person_id,program_id,version_id,cohort_label,started_on,expected_end_on,status,current_stage_id,meeting_timezone,revision) VALUES(${id()},${o.id},${p},${program},${version},'Synthetic','2026-10-01','2027-10-01','active',${developmentStage},'UTC',1)`,
 	);
-	const note = id();
-	await db.admin.execute(
-		querySql`INSERT INTO person_note(id,tenant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${note},${o.id},${p},${admin.id},'PROTECTED-NOTE-CANARY',clock_timestamp(),clock_timestamp())`,
-	);
 	const read = (a, selected = o) =>
 		transaction(db.runtime, (tx) => readPipelinePerson(tx, a.session, selected, { personId: p }));
 	for (const [a, kind, notes] of [
@@ -120,18 +111,7 @@ test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization dut
 			personId: p,
 			duties: [{ kind, canReadStaffNotes: notes }],
 		});
-		const result = await transaction(db.runtime, (tx) => readOrganizationNotes(tx, a.session, o, { personId: p }));
-		if (notes) {
-			assert.equal(result.status, "allowed");
-			assert.equal(result.notes[0].body, "PROTECTED-NOTE-CANARY");
-			assert.deepEqual(result.notes[0].author, { kind: "account", accountId: admin.id });
-		} else assert.deepEqual(result, unavailable);
 	}
-	await db.admin.execute(querySql`UPDATE person_note SET author_id=NULL WHERE id=${note}`);
-	const retained = await transaction(db.runtime, (tx) => readOrganizationNotes(tx, admin.session, o, { personId: p }));
-	assert.equal(retained.status, "allowed");
-	assert.deepEqual(retained.notes[0].author, { kind: "removed" });
-	assert.equal(retained.notes[0].body, "PROTECTED-NOTE-CANARY");
 	for (const a of [resident, unrelated]) assert.deepEqual(await read(a), unavailable);
 	assert.deepEqual(await read(admin, other), unavailable);
 	assert.deepEqual(await read(admin, { ...o, organizationKind: "network" }), unavailable);
@@ -158,8 +138,4 @@ test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization dut
 	assert.equal(await transaction(db.runtime, (tx) => readOwnResidency(tx, resident.session, o, { personId: p })), null);
 	await db.admin.execute(querySql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${staffSeat}`);
 	assert.deepEqual(await read(staff), unavailable);
-	assert.deepEqual(
-		await transaction(db.runtime, (tx) => readOrganizationNotes(tx, staff.session, o, { personId: p })),
-		unavailable,
-	);
 });

@@ -1,10 +1,12 @@
-import type {
-	contextResult,
-	documentCategory,
-	documentFormat,
-	generatedDocument,
-	ownedDocument,
-	templateView,
+import {
+	MERGE_BYTES_MAX,
+	type contextResult,
+	type documentCategory,
+	type documentFormat,
+	type generatedDocument,
+	type ownedDocument,
+	type ownedListItem,
+	type templateView,
 } from "@everyfield/contracts/documents";
 import type { z } from "zod";
 
@@ -163,7 +165,15 @@ export function overridesOf(template: Template, drafts: Record<string, string>, 
 
 export function combinedTooLong(overrides: Record<string, string>) {
 	const bytes = Object.values(overrides).reduce((sum, value) => sum + new TextEncoder().encode(value).length, 0);
-	return bytes > 16 * 1024;
+	return bytes > MERGE_BYTES_MAX;
+}
+
+/** What the person reads when the merge fields together pass the byte cap. */
+export const MERGE_TOO_LONG = `Shorten the fields. Together they must stay under ${MERGE_BYTES_MAX / 1024} KB.`;
+
+/** The server refuses merge values over the byte cap at the path "overrides" (an unknown key is "overrides.<key>"). */
+export function mergeTooLong(code: string, path: string | undefined) {
+	return code === "invalid_input" && path === "overrides";
 }
 
 export function fileName(name: string, format: Format) {
@@ -181,7 +191,7 @@ export type SavedFile = Pick<
 >;
 
 /** One row of the written-documents list. The list links to the document's own page and carries no body. */
-export type OwnedView = Pick<z.infer<typeof ownedDocument>, "id" | "kind" | "title" | "archived">;
+export type OwnedView = Pick<z.infer<typeof ownedListItem>, "id" | "kind" | "title" | "archived">;
 /** A plain native document on its own page: the body node, its revision, and where it came from. */
 export type WrittenView = Pick<
 	z.infer<typeof ownedDocument>,
@@ -221,4 +231,33 @@ export function savedWhen(iso: string) {
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) return iso;
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+/**
+ * The church's own values a library render prints, by where each comes from, as the page's resolved fields name them.
+ * A typed override is not the church's value, and an absent field has none.
+ */
+export function churchValues(resolved: Resolved | null): Record<string, string> {
+	const values: Record<string, string> = {};
+	for (const field of resolved?.fields ?? [])
+		if (field.source !== "override" && field.source !== "absent" && field.value !== null)
+			values[field.source] = field.value;
+	return values;
+}
+
+const sorted = (record: Record<string, string>) => Object.entries(record).sort(([a], [b]) => (a < b ? -1 : 1));
+
+/**
+ * What one library render depends on: the template and the library version it belongs to, the format, the typed
+ * overrides and the church's own values. Equal keys mean equal bytes, so a thumbnail and the preview of the same
+ * template share one render, and a change to any of them makes a new one.
+ */
+export function renderKey(input: {
+	templateId: string;
+	version: string;
+	format: Format;
+	overrides: Record<string, string>;
+	church: Record<string, string>;
+}) {
+	return JSON.stringify([input.templateId, input.version, input.format, sorted(input.overrides), sorted(input.church)]);
 }

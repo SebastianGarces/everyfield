@@ -11,7 +11,7 @@ import type { SourceRow } from "../catalog/types.ts";
  */
 type Rule = ((id: SQL, plant: SQL) => SQL) | null;
 
-export const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
+const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// Unchanged: the person is live in this church.
 	person: (id, plant) =>
 		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND p.plant_id=${plant} AND p.state='live')`,

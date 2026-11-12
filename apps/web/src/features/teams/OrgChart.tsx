@@ -44,7 +44,7 @@ function Node({ node, current }: { node: ChartNode; current?: boolean }) {
 				node.archived && "border-dashed bg-surface-2",
 			)}
 		>
-			<TeamIcon team={{ icon: null, templateKey: node.templateKey }} size={36} />
+			<TeamIcon team={node} size={36} />
 			<span className="flex min-w-0 flex-col gap-1">
 				<span className="font-medium wrap-anywhere text-ink">{node.name}</span>
 				{node.archived ? (

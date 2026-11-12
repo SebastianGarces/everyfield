@@ -218,7 +218,6 @@ export function timezoneOperations(
 						operationId: c.id,
 						kind: "plant_timezone",
 					});
-					await effects.invalidate(s, { owner: v.input.plant, revision: next, operationId: c.id });
 					const event = await appendEvent(
 						s,
 						c,

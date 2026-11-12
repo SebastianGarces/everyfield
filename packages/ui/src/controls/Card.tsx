@@ -227,5 +227,3 @@ export function CalloutTitle({ className, ...props }: ComponentPropsWithRef<"p">
 export function CalloutText({ className, ...props }: ComponentPropsWithRef<"p">) {
 	return <p className={cn("mt-1.5 text-[15px] text-ink-2 text-pretty", className)} {...props} />;
 }
-
-export { TONE as toneClasses };

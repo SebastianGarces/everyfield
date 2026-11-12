@@ -12,7 +12,9 @@ import {
 	renewalLabel,
 	reaffirmed,
 	retracted,
+	signalInput,
 	stated,
+	statedAsOf,
 	withSignal,
 } from "../../../apps/web/src/features/intelligence/signals-model.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
@@ -36,14 +38,14 @@ const page = () => {
 	return { today: TODAY, signals, counts: countsOf(signals), candidates: [], people: [], history: [] };
 };
 
-test("the contract's seven definitions match docs/reference/manual-signals.ts in order", () => {
+test("INV-signals: the contract's seven definitions match docs/reference/manual-signals.ts in order", () => {
 	assert.deepEqual(
 		SIGNAL_DEFINITIONS.map((d) => [d.key, d.label, d.description, d.reaffirms]),
 		MANUAL_SIGNALS.map((d) => [d.key, d.label, d.description, d.reaffirms]),
 	);
 });
 
-test("renewal: three signals go stale after 30 days and keep their value; the others never expire", () => {
+test("INV-signals: three signals go stale after 30 days and keep their value; the others never expire", () => {
 	assert.deepEqual(renewalOf("prayer_rhythm_established", "answered", 30), { status: "current", daysLeft: 0 });
 	assert.deepEqual(renewalOf("prayer_rhythm_established", "answered", 31), { status: "needs_renewing" });
 	assert.deepEqual(renewalOf("financial_base_established", "answered", 100), { status: "does_not_expire" });
@@ -51,7 +53,7 @@ test("renewal: three signals go stale after 30 days and keep their value; the ot
 	assert.equal(renewalLabel({ status: "current", daysLeft: 18 }), "Current for 18 more days");
 });
 
-test("an answer shows at once, counts follow, and a refusal puts the row back", () => {
+test("INV-signals: an answer shows at once, counts follow, and a refusal puts the row back", () => {
 	const before = page();
 	const entry = before.signals.find((s) => s.key === "prayer_in_gatherings");
 	const optimistic = withSignal(
@@ -67,7 +69,7 @@ test("an answer shows at once, counts follow, and a refusal puts the row back", 
 	assert.deepEqual(withSignal(optimistic, entry).counts, before.counts);
 });
 
-test("a retraction reads Retracted and Unknown, never no; Still true moves only the age", () => {
+test("INV-signals: a retraction reads Retracted and Unknown, never no; Still true moves only the age", () => {
 	const answered = stated(
 		blank("core_group_giving"),
 		{ value: "not_yet", asOf: "2026-08-01", detail: "", reference: "" },
@@ -86,7 +88,7 @@ test("a retraction reads Retracted and Unknown, never no; Still true moves only 
 	assert.equal(actionLabel(answered), "Renew");
 });
 
-test("saving needs a choice; the same value is not a correction; candidate reasons name what is missing", () => {
+test("INV-signals: saving needs a choice; the same value is not a correction; candidate reasons name what is missing", () => {
 	const answered = stated(
 		blank("systems_tested"),
 		{ value: "yes", asOf: TODAY, detail: "", reference: "" },
@@ -104,4 +106,27 @@ test("saving needs a choice; the same value is not a correction; candidate reaso
 	]);
 	assert.match(refusalText({ code: "revision_conflict" }), /another window or by another admin/);
 	assert.match(refusalText(null), /still here/);
+});
+
+test("BUG-PR551 (signals/com-16): a cleared True as of date is left out of the request and the answer reads as of today", () => {
+	const draft = { value: "yes", asOf: "", detail: " Thursdays ", reference: "" };
+	const input = signalInput("prayer_rhythm_established", "yes", draft);
+	// As sent: no asOf key at all, so the server dates it today.
+	assert.deepEqual(JSON.parse(JSON.stringify(input)), {
+		key: "prayer_rhythm_established",
+		value: "yes",
+		detail: " Thursdays ",
+		reference: "",
+	});
+	assert.equal(statedAsOf(draft, TODAY), TODAY);
+	const shown = stated(
+		blank("prayer_rhythm_established"),
+		{ ...draft, asOf: statedAsOf(draft, TODAY) },
+		TODAY,
+		"Daniel Reyes",
+	);
+	assert.deepEqual([shown.asOf, shown.ageDays, shown.detail], [TODAY, 0, "Thursdays"]);
+	const dated = { ...draft, asOf: "2026-10-01" };
+	assert.equal(signalInput("prayer_rhythm_established", "yes", dated).asOf, "2026-10-01");
+	assert.equal(statedAsOf(dated, TODAY), "2026-10-01");
 });

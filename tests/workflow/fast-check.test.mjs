@@ -26,7 +26,14 @@ const temp = (prefix) => {
 	return dir;
 };
 
-const DEV = ["bin/dev", "scripts/dev.ts", "scripts/browser.ts", "scripts/fast-check.ts", "scripts/package.json"];
+const DEV = [
+	"bin/dev",
+	"bin/lib/node24.sh",
+	"scripts/dev.ts",
+	"scripts/browser.ts",
+	"scripts/fast-check.ts",
+	"scripts/package.json",
+];
 const copyDev = (dir) => {
 	for (const file of DEV) {
 		mkdirSync(dirname(join(dir, file)), { recursive: true });
@@ -108,7 +115,7 @@ function fixture({ tools = true } = {}) {
 	if (tools) {
 		symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
 		for (const pkg of ["demo", "app", "rooted"])
-			symlinkSync(join(repo, "packages/db/node_modules"), join(dir, `packages/${pkg}/node_modules`));
+			symlinkSync(join(repo, "packages/domain/node_modules"), join(dir, `packages/${pkg}/node_modules`));
 	}
 
 	const git = (...args) => spawnSync("git", args, { cwd: dir, env, encoding: "utf8" });
@@ -183,6 +190,46 @@ test("fast-check fails a changed file's lint error with its package's config, fr
 	]);
 	assert.match(lint.detail, /packages\/demo\/src\/unused\.ts:1:7 'unused' is assigned a value but never used/);
 	assert.equal(step("format").status, "passed");
+});
+
+test("fast-check runs both linters of an Oxlint-first lint script and reports what each one finds (T-43)", () => {
+	const fx = fixture();
+	fx.commit({
+		"packages/both/package.json":
+			JSON.stringify(
+				{
+					name: "@fx/both",
+					private: true,
+					type: "module",
+					scripts: { lint: "oxlint -c .oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 ." },
+				},
+				null,
+				"\t",
+			) + "\n",
+		"packages/both/.oxlintrc.json": JSON.stringify({
+			plugins: ["typescript"],
+			categories: { correctness: "off" },
+			rules: { "typescript/no-explicit-any": "error" },
+		}),
+		"packages/both/eslint.config.mjs": `import tseslint from "typescript-eslint";
+export default [{ files: ["**/*.ts"], ...tseslint.configs.base, rules: { "no-restricted-syntax": ["error", "DebuggerStatement"] } }];
+`,
+		"packages/both/src/any.ts": "export const loose: any = 1;\n",
+		"packages/both/src/debug.ts": "export function stop() {\n\tdebugger;\n}\n",
+		"packages/both/src/fine.ts": "export const fine = 1;\n",
+	});
+	symlinkSync(join(repo, "packages/domain/node_modules"), join(fx.dir, "packages/both/node_modules"));
+	const { status, step } = fx.check();
+	assert.equal(status, 1);
+	const lint = step("lint");
+	assert.equal(lint.status, "failed");
+	assert.deepEqual(lint.files.sort(), ["packages/both/src/any.ts", "packages/both/src/debug.ts"]);
+	assert.deepEqual(lint.fix.split(" && ").sort(), [
+		"pnpm --dir packages/both exec eslint --fix src/debug.ts",
+		"pnpm --dir packages/both exec oxlint -c .oxlintrc.json --fix src/any.ts",
+	]);
+	assert.match(lint.detail, /packages\/both\/src\/any\.ts:1:21 .*\(typescript\(no-explicit-any\)\)/);
+	assert.match(lint.detail, /packages\/both\/src\/debug\.ts:2:2 .*\(no-restricted-syntax\)/);
 });
 
 test("fast-check fails a type error in a changed package and in its dependents, names each file and prints the rerun command", () => {

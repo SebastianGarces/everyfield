@@ -92,7 +92,7 @@ function check(w, trail) {
 	assert.equal(isSaving(w.book, KEY), w.pending !== null, `one save in flight after: ${trail.join(" > ")}`);
 }
 
-test("BUG-114: saving an earlier edit keeps the typed-back value dirty", () => {
+test("BUG-PR114: saving an earlier edit keeps the typed-back value dirty", () => {
 	const w = world();
 	const trail = [];
 	const run = (name, ...args) => {

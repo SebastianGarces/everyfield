@@ -16,18 +16,22 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
+import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { generateDocument, resolveDocument } from "./actions.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
-import { RENDER_FAILED, bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
+import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview } from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
+	MERGE_TOO_LONG,
+	mergeTooLong,
 	SOURCE_LABEL,
 	categoryLabel,
 	choose,
+	churchValues,
 	combinedTooLong,
 	documentProblem,
 	draftsFrom,
@@ -36,6 +40,7 @@ import {
 	offeredFormat,
 	overridesOf,
 	phaseText,
+	renderKey,
 	type DocumentsQuery,
 	type Format,
 	type Resolved,
@@ -49,12 +54,14 @@ import { SavedHistory } from "./saved.tsx";
 
 type PreviewState =
 	| { kind: "idle" }
-	| { kind: "pdf"; bytes: Uint8Array; key: string }
+	| { kind: "pdf"; bytes: Uint8Array; key: string; brandKit: boolean }
 	| { kind: "office" }
 	| { kind: "message"; text: string };
 
 type Props = {
 	templates: Template[];
+	/** The library version: part of every render key, so a new library draws new thumbnails. */
+	version: string;
 	query: DocumentsQuery;
 	context: Resolved | null;
 	canPreview: boolean;
@@ -65,9 +72,8 @@ type Props = {
 	textTemplates: readonly string[];
 };
 
-function failureText(code: string, problem?: string) {
-	if (code === "invalid_input" && problem?.toLowerCase().includes("16"))
-		return "Shorten the fields. Together they must stay under 16 KB.";
+function failureText(code: string, path?: string) {
+	if (mergeTooLong(code, path)) return MERGE_TOO_LONG;
 	if (code === "unavailable")
 		return "Preview uses the church name, the pastor, and the launch date. This account has no current church seat.";
 	return RENDER_FAILED;
@@ -75,6 +81,7 @@ function failureText(code: string, problem?: string) {
 
 export function DocumentsScreen({
 	templates,
+	version,
 	query,
 	context,
 	canPreview,
@@ -97,7 +104,11 @@ export function DocumentsScreen({
 		return chosen ? offeredFormat(chosen, context?.format ?? query.format) : null;
 	});
 	const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
-	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string } | null>(null);
+	// The church's values as this page load read them: every render key of the visit names them.
+	const [church] = useState(() => churchValues(context));
+	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string; brandKit: boolean } | null>(
+		null,
+	);
 	const [resolving, startResolve] = useTransition();
 	const [previewing, startPreview] = useTransition();
 	const [saving, startSave] = useTransition();
@@ -135,7 +146,7 @@ export function DocumentsScreen({
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -147,12 +158,12 @@ export function DocumentsScreen({
 		});
 	}, [visibleId, canPreview, resolvedFor, templates]);
 
-	function showBytes(nextFormat: Format, encoded: string, key: string) {
+	function showBytes(nextFormat: Format, encoded: string, key: string, brandKit: boolean) {
 		if (nextFormat !== "pdf") {
 			setPreview({ kind: "office" });
 			return;
 		}
-		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key });
+		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key, brandKit });
 	}
 
 	const overrides = selected ? overridesOf(selected, drafts, current) : {};
@@ -166,19 +177,21 @@ export function DocumentsScreen({
 	function runPreview(download: boolean) {
 		if (!selected || !activeFormat || !ready) return;
 		if (!download && artifact?.key === signature && artifact.format === activeFormat) {
-			showBytes(activeFormat, artifact.bytes, signature);
+			showBytes(activeFormat, artifact.bytes, signature, artifact.brandKit);
 			return;
 		}
 		const template = selected;
 		const nextFormat = activeFormat;
+		// The same template, format and values as its thumbnail share the thumbnail's render.
+		const key = renderKey({ templateId: template.id, version, format: nextFormat, overrides, church });
 		startPreview(async () => {
-			const result = await postPreview(template.id, nextFormat, overrides);
+			const result = await sharedPreview(key, template.id, nextFormat, overrides);
 			if (result.status !== "ok") {
 				setPreview({
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -188,9 +201,10 @@ export function DocumentsScreen({
 				setPreview({ kind: "message", text: "This file did not render. Nothing was saved." });
 				return;
 			}
-			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact });
+			const brandKit = result.value.brandKit;
+			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact, brandKit });
 			if (download) downloadBytes(template.name, nextFormat, result.value.artifact);
-			else showBytes(nextFormat, result.value.artifact, signature);
+			else showBytes(nextFormat, result.value.artifact, signature, brandKit);
 		});
 	}
 
@@ -381,7 +395,17 @@ export function DocumentsScreen({
 											onClick={() => select(template.id)}
 											className="flex cursor-pointer flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
 										>
-											<Thumbnail template={template} enabled={canPreview} />
+											<Thumbnail
+												template={template}
+												renderKey={renderKey({
+													templateId: template.id,
+													version,
+													format: "pdf",
+													overrides: {},
+													church,
+												})}
+												enabled={canPreview}
+											/>
 											<span id={`template-${template.id}-name`} className="px-2 font-medium text-ink">
 												{template.name}
 											</span>
@@ -548,10 +572,10 @@ function TemplatePanel({
 							<Skeleton shape="block" className="absolute inset-0 rounded-none" />
 						</div>
 					) : null}
-					{preview.kind === "pdf" ? (
+					{preview.kind === "pdf" && (stale || !preview.brandKit) ? (
 						<p className="text-sm text-text-2">
 							{stale ? "The fields changed. Update the preview to see them. " : ""}
-							No brand kit yet. Your church name stands in for a logo.
+							{preview.brandKit ? "" : "No brand kit yet. Your church name stands in for a logo."}
 						</p>
 					) : null}
 				</div>
@@ -575,14 +599,18 @@ function TemplatePanel({
 							hint={shown ?? undefined}
 							error={invalid ? fieldError(field.key, field.label) : undefined}
 						>
-							<Input value={value} maxLength={2000} onChange={(event) => onDraft(field.key, event.target.value)} />
+							<Input
+								value={value}
+								maxLength={MERGE_VALUE_MAX}
+								onChange={(event) => onDraft(field.key, event.target.value)}
+							/>
 						</Field>
 					);
 				})}
 			</div>
 			{tooLong ? (
 				<p role="status" className="text-sm font-medium text-magenta-600">
-					Shorten the fields. Together they must stay under 16 KB.
+					{MERGE_TOO_LONG}
 				</p>
 			) : null}
 			{canPreview ? null : (

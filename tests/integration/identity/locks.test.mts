@@ -1,6 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture, key, noReminders } from "./invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, insertTasks } from "../task-assignees.mts";
@@ -26,18 +27,8 @@ const outcome = (p) =>
 		(value) => ({ value }),
 		(error) => ({ error }),
 	);
-async function waitingOn(pid) {
-	for (let n = 0; n < 100; n++) {
-		const r = await f.admin.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`,
-		);
-		if (r.rows[0].n > 0) return;
-		await new Promise((resolve) => setTimeout(resolve, 10));
-	}
-	assert.fail("Competing operation did not reach the held lock");
-}
 
-test("BUG-124: People membership read takes no account write lock", async () => {
+test("BUG-PR124: People membership read takes no account write lock", async () => {
 	const s = await f.setup();
 	await f.admin.transaction(async (tx) => {
 		await tx.select().from(t.account).where(eq(t.account.id, s.sender.id)).for("share");
@@ -58,7 +49,7 @@ test("BUG-124: People membership read takes no account write lock", async () => 
 	});
 });
 
-test("BUG-124: a held account write returns a retryable refusal and the read resumes", async () => {
+test("BUG-PR124: a held account write returns a retryable refusal and the read resumes", async () => {
 	const s = await f.setup();
 	await f.admin.transaction(async (tx) => {
 		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, s.sender.id));
@@ -71,7 +62,7 @@ test("BUG-124: a held account write returns a retryable refusal and the read res
 	assert.equal((await f.seats.readCurrentMembership(s.sender.session)).status, "active");
 });
 
-test("BUG-127: resend during a 250-duty removal completes or safely retries", async () => {
+test("BUG-PR127: resend during a 250-duty removal completes or safely retries", async () => {
 	const s = await f.setup(),
 		invitation = await f.invitation(s);
 	const accepted = await f.invitations.accept(s.recipient.session, invitation.claim);
@@ -83,7 +74,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	});
 	await f.admin
 		.update(t.invitation)
-		.set({ created_at: new Date(Date.now() - 120000) })
+		.set({ created_at: sql`clock_timestamp()-interval '120 seconds'` })
 		.where(eq(t.invitation.id, pending.invitation.invitationId));
 	const ids = Array.from({ length: 250 }, () => key());
 	await insertTasks(
@@ -121,7 +112,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
 			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
 			removal = outcome(f.seats.remove(authority, s.w, command, noReminders));
-			await waitingOn(r.rows[0].pid);
+			await waitingOnLock(f.admin, { blockedBy: r.rows[0].pid });
 			concurrent = outcome(f.invitations.resend(authority, resend));
 		});
 	} finally {
@@ -147,7 +138,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	assert.equal(n, 250);
 });
 
-test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
+test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
 	const s = await f.setup(),
 		native = f.native(),
 		email = key() + "@example.test";
@@ -191,22 +182,24 @@ test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the sa
 	assert.equal((await resumed.json()).status, "active");
 });
 
-test("BUG-127: statement timeout rolls back every handoff and permits exact retry", async () => {
+test("BUG-PR127: statement timeout rolls back every handoff and permits exact retry", async () => {
 	const s = await f.setup(),
 		invitation = await f.invitation(s),
 		accepted = await f.invitations.accept(s.recipient.session, invitation.claim),
 		duty = key();
-	await insertTasks(f.admin, [{
-		id: duty,
-		plant_id: s.w.id,
-		title: "Original duty",
-		category: "general",
-		priority: "medium",
-		status: "not_started",
-		created_at: new Date(),
-		assignee_id: s.recipient.id,
-		due_kind: "undated",
-	}]);
+	await insertTasks(f.admin, [
+		{
+			id: duty,
+			plant_id: s.w.id,
+			title: "Original duty",
+			category: "general",
+			priority: "medium",
+			status: "not_started",
+			created_at: new Date(),
+			assignee_id: s.recipient.id,
+			due_kind: "undated",
+		},
+	]);
 	const command = {
 		requestKey: key(),
 		expectedRevision: "1",
@@ -216,22 +209,32 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 			handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", recipientAccountId: s.sender.id }],
 		},
 	};
-	// A real Postgres statement deadline after the writes, not a fake thrown database error.
+	// A real Postgres statement cancel (57014, as a statement deadline raises) after the writes, not a fake thrown
+	// error: the receipt insert waits on a row this test holds, and the test cancels it once Postgres shows it waiting.
+	await f.admin.execute(sql`CREATE TABLE stall_gate(id int PRIMARY KEY)`);
+	await f.admin.execute(sql`INSERT INTO stall_gate VALUES(1)`);
 	await f.admin.execute(
-		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(11); RETURN NEW; END $$`,
+		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN PERFORM 1 FROM stall_gate FOR UPDATE; RETURN NEW; END $$`,
 	);
 	await f.admin.execute(
 		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
 	);
 	try {
-		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders), (error) => {
-			assert.equal(error.value?.code, "temporary");
+		await f.admin.transaction(async (gate) => {
+			const [{ pid }] = (await gate.execute(sql`SELECT pg_backend_pid() AS pid FROM stall_gate FOR UPDATE`)).rows;
+			const removal = outcome(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders));
+			await waitingOnLock(f.admin, { blockedBy: pid });
+			await gate.execute(
+				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
+			);
+			const { error } = await removal;
+			assert.equal(error?.value?.code, "temporary", String(error));
 			assert.equal(error.value.retry, "same_request");
-			return true;
 		});
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
+		await f.admin.execute(sql`DROP TABLE stall_gate`);
 	}
 	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
 	assert.deepEqual(await assigneesOf(f.admin, duty), [s.recipient.id]);
@@ -327,31 +330,23 @@ test("INV-identity: current actor preserves authority in one database round trip
 	});
 	for (const c of cases) {
 		await test.test(`INV-identity: ${c.name}`, async () => {
-			const times = [];
 			const trips = [];
 			for (let n = 0; n < 3; n++) {
 				await f.db.transaction(async (tx) => {
 					statements = [];
 					recording = true;
-					const start = performance.now();
 					let result;
 					try {
 						result = await currentActor(tx, sessionId.parse(c.account.session), owner.parse(c.selected));
 					} finally {
-						times.push(performance.now() - start);
 						recording = false;
 					}
 					assert.deepEqual(result, c.expected);
 					trips.push(statements.length);
 				});
 			}
-			test.diagnostic(
-				JSON.stringify({ actor: c.name, roundTrips: statements.length, milliseconds: times.map((n) => Math.round(n)) }),
-			);
-			assert.ok(
-				trips.every((n) => n <= 1),
-				`${c.name}: ${trips.join(", ")} round trips, expected one statement each`,
-			);
+			test.diagnostic(JSON.stringify({ actor: c.name, roundTrips: statements.length }));
+			assert.deepEqual(trips, [1, 1, 1], `${c.name}: ${trips.join(", ")} round trips, expected one statement each`);
 
 			if (!["foreign account", "seatless workspace"].includes(c.name)) {
 				const resolved = await f.db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(c.account.session)));
@@ -366,7 +361,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 	}
 });
 
-test("INV-request-page: revoked membership refuses writes from a stale viewer", async (test) => {
+test("INV-pages INV-request-page: a page past the end reads the last page; revoked membership refuses writes from a stale viewer", async (test) => {
 	const f = await fixture();
 	test.after(() => f.close());
 	const native = f.native();
@@ -425,6 +420,15 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 		ids.slice(0, 24),
 	);
 	assert.equal(list.data.page.total, 25);
+	// D67: a page number past the end reads the last page of the same filtered list, and names that page.
+	const beyond = await pageRead((tx, ctx) =>
+		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("q=Request+Person&page=9999"))),
+	);
+	assert.equal(beyond.data.kind, "list");
+	assert.deepEqual(
+		[beyond.query.page, beyond.query.search, beyond.data.page.items.map((p) => p.id), beyond.data.page.next],
+		[2, "Request Person", [ids[24]], null],
+	);
 	const person = await pageRead((tx, ctx) => readPersonPage(tx, ctx, ids[0]));
 	assert.equal(person.status, "ok");
 	assert.equal(person.value.found.person.displayName, "Request Person 00");

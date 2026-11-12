@@ -1,9 +1,8 @@
 // BUG-249 (F4b): RecordDialog alone sets the opening focus in its onOpenAutoFocus handler. A field with a bare autoFocus
 // inside its content takes the focus first and breaks the refusal focus, the Tab trap and the Escape return; #247's
-// meeting forms brought it back once. The web lint refuses it. This runs the real apps/web ESLint config on fixtures
-// and on every source file that renders RecordDialog.
+// meeting forms brought it back once. The web lint refuses it. This runs the real apps/web ESLint config on fixtures;
+// `pnpm lint` applies the same rule to every source file.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -29,7 +28,7 @@ async function refusals(body) {
 	return result.messages.filter((m) => m.ruleId === RULE).map((m) => m.line);
 }
 
-test("BUG-249: a bare autoFocus inside RecordDialog content fails the web lint", async () => {
+test("BUG-PR249: a bare autoFocus inside RecordDialog content fails the web lint", async () => {
 	const refused = {
 		bare: `<RecordDialog title="T" action="Save" onClose={() => {}} onSubmit={() => true}>
 			<Input autoFocus />
@@ -50,7 +49,7 @@ test("BUG-249: a bare autoFocus inside RecordDialog content fails the web lint",
 	}
 });
 
-test("BUG-249: state-driven autoFocus and autoFocus outside RecordDialog pass the web lint", async () => {
+test("BUG-PR249: state-driven autoFocus and autoFocus outside RecordDialog pass the web lint", async () => {
 	const allowed = {
 		switchedField: `<RecordDialog title="T" action="Save" onClose={() => {}} onSubmit={() => true}>
 			<Input autoFocus={switched} />
@@ -62,16 +61,4 @@ test("BUG-249: state-driven autoFocus and autoFocus outside RecordDialog pass th
 	for (const [name, body] of Object.entries(allowed)) {
 		assert.deepEqual(await refusals(body), [], `${name} must pass`);
 	}
-});
-
-test("BUG-249: no source file that renders RecordDialog sets a bare autoFocus in its content", async () => {
-	const files = execFileSync("git", ["grep", "-l", "<RecordDialog", "--", "src"], { cwd: web, encoding: "utf8" })
-		.trim()
-		.split("\n");
-	assert.ok(files.length >= 5, `found only ${files.length} RecordDialog files`);
-	const results = await eslint.lintFiles(files);
-	const found = results.flatMap((r) =>
-		r.messages.filter((m) => m.ruleId === RULE).map((m) => `${r.filePath}:${m.line}`),
-	);
-	assert.deepEqual(found, []);
 });

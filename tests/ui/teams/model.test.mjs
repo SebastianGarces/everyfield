@@ -2,7 +2,14 @@
 //   INV-reason-alone: a save with only a reason sends no request and says nothing was saved; no history row is written.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { diffLines, historyTitle, planTeamEdit, shownValue } from "../../../apps/web/src/features/teams/model.ts";
+import {
+	diffLines,
+	historyTitle,
+	iconKey,
+	planTeamEdit,
+	shownValue,
+} from "../../../apps/web/src/features/teams/model.ts";
+import { apply } from "../../../apps/web/src/features/teams/page-state.ts";
 
 const was = { name: "Hospitality", description: "Greeters", icon: "heart", state: "active" };
 const now = (extra = {}) => ({ ...was, reason: "", ...extra });
@@ -91,4 +98,14 @@ test("INV-history-same-value: a Created entry has no Description: None → None 
 		after: { name: "Welcome", description: "", state: "active", startedOn: null },
 	};
 	assert.deepEqual(diffLines(edited), [{ label: "Name", from: "Hospitality", to: "Welcome" }]);
+});
+
+test("BUG-PR551 (people/peo-43): a ministry's chosen icon reaches its chart node, and an edit of it shows there at once", () => {
+	const node = { id: "t1", name: "Worship", icon: null, templateKey: "worship", archived: false, leaderName: null };
+	const other = { ...node, id: "t2", name: "Prayer", templateKey: "prayer", parentId: null };
+	assert.equal(iconKey(node), "music");
+	const view = { team: { ...node, revision: "1" }, nodes: [{ ...node, parentId: null }, other] };
+	const edited = apply(view, { kind: "team", patch: { icon: "tools" } });
+	assert.equal(iconKey(edited.nodes[0]), "tools");
+	assert.deepEqual(edited.nodes[1], other);
 });

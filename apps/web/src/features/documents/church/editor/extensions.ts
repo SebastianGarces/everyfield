@@ -11,55 +11,29 @@ import Text from "@tiptap/extension-text";
 import Underline from "@tiptap/extension-underline";
 import { UndoRedo } from "@tiptap/extensions";
 import { closeHistory } from "@tiptap/pm/history";
-import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type ViewMutationRecord } from "@tiptap/pm/view";
-import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
+import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
+import { Decoration, type ViewMutationRecord } from "@tiptap/pm/view";
+import { FORMAT_KEY, type DocBrand, type EveryfieldDoc, type FieldDecl } from "@everyfield/contracts/documents";
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
-import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
+import { IMAGE_KINDS, insideColumn, regionAt } from "./blocks.ts";
+import { ConditionRules, EfIf } from "./condition-extension.ts";
+import { docDecorations } from "./doc-decorations.ts";
+import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
 // mapping layer for prose. An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a
-// document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot,
-// table and the inline field) load, show, move, delete and save unchanged.
+// document reads back exactly as it was stored. Every node of the format has its extension here, the inline field
+// and the table nodes (table-extension.ts) and conditional text (condition-extension.ts) included.
 
-type Kind = "string" | "number" | "boolean" | "json";
-type Attrs = Record<string, unknown>;
-
-/** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */
-function attr(name: string, kind: Kind = "string") {
-	const html = `data-ef-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
-	return {
-		default: undefined as unknown,
-		parseHTML: (el: HTMLElement) => {
-			const raw = el.getAttribute(html);
-			if (raw === null) return undefined;
-			if (kind === "number") return Number(raw);
-			if (kind === "boolean") return raw === "true";
-			if (kind === "json") return JSON.parse(raw) as unknown;
-			return raw;
-		},
-		renderHTML: (attrs: Attrs) => {
-			const value = attrs[name];
-			if (value === undefined) return {};
-			return {
-				[html]: kind === "json" || kind === "number" || kind === "boolean" ? JSON.stringify(value) : String(value),
-			};
-		},
-	};
-}
-const attrsOfSpec = (spec: Record<string, Kind>) =>
-	Object.fromEntries(Object.entries(spec).map(([name, kind]) => [name, attr(name, kind)]));
-
-const BLOCKS = "block colblock boxblock";
 /** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
 const REGION_BLOCKS = "(colblock | columns)*";
-const px = (pt: number) => `${((pt * 4) / 3).toFixed(2)}px`;
 
 // ---------------------------------------------------------------- prose
 
-export const EfDocument = Document.extend({
+const EfDocument = Document.extend({
 	// The header and the footer are the first and the last child of the document, so they edit on the paper page above
 	// and below the body, take the same text tools, and share one Undo history with the body and the page setup.
 	content: "pageHeader? block* pageFooter?",
@@ -98,10 +72,10 @@ function regionNode(name: "pageHeader" | "pageFooter") {
 		],
 	});
 }
-export const EfPageHeader = regionNode("pageHeader");
-export const EfPageFooter = regionNode("pageFooter");
+const EfPageHeader = regionNode("pageHeader");
+const EfPageFooter = regionNode("pageFooter");
 
-export const EfParagraph = Paragraph.extend({
+const EfParagraph = Paragraph.extend({
 	group: BLOCKS,
 	addAttributes() {
 		return attrsOfSpec({ align: "string", style: "string" });
@@ -109,7 +83,7 @@ export const EfParagraph = Paragraph.extend({
 });
 
 const HEADING_TAGS = ["h1", "h2", "h3"] as const;
-export const EfHeading = Node.create({
+const EfHeading = Node.create({
 	name: "heading",
 	group: BLOCKS,
 	content: "inline*",
@@ -142,15 +116,15 @@ export const EfHeading = Node.create({
 	},
 });
 
-export const EfBulletList = BulletList.extend({
+const EfBulletList = BulletList.extend({
 	group: `${BLOCKS} list`,
 	addAttributes: () => ({}),
 });
-export const EfOrderedList = OrderedList.extend({
+const EfOrderedList = OrderedList.extend({
 	group: `${BLOCKS} list`,
 	addAttributes: () => ({}),
 });
-export const EfListItem = ListItem.extend({
+const EfListItem = ListItem.extend({
 	// The format keeps lists flat: an item holds paragraphs only, so Tab has nothing to nest into.
 	content: "paragraph+",
 	addKeyboardShortcuts() {
@@ -160,7 +134,7 @@ export const EfListItem = ListItem.extend({
 		};
 	},
 });
-export const EfQuote = Blockquote.extend({
+const EfQuote = Blockquote.extend({
 	name: "quote",
 	group: BLOCKS,
 	content: "paragraph+",
@@ -169,7 +143,7 @@ export const EfQuote = Blockquote.extend({
 
 // ---------------------------------------------------------------- marks
 
-export const EfLink = Link.extend({
+const EfLink = Link.extend({
 	addAttributes() {
 		return {
 			href: {
@@ -191,7 +165,7 @@ export const EfLink = Link.extend({
 /** True when a link target starts the way the format requires. */
 export const isAllowedLink = (url: string) => /^(https?:\/\/|mailto:)/i.test(url.trim());
 
-export const EfTag = Mark.create({
+const EfTag = Mark.create({
 	name: "tag",
 	parseHTML: () => [{ tag: "span[data-ef-tag]" }],
 	renderHTML: ({ HTMLAttributes }) => ["span", mergeAttributes(HTMLAttributes, { "data-ef-tag": "" }), 0],
@@ -199,7 +173,7 @@ export const EfTag = Mark.create({
 
 // ---------------------------------------------------------------- simple blocks
 
-export const EfDivider = Node.create({
+const EfDivider = Node.create({
 	name: "divider",
 	group: BLOCKS,
 	addAttributes() {
@@ -217,7 +191,7 @@ export const EfDivider = Node.create({
 	],
 });
 
-export const EfSpacer = Node.create({
+const EfSpacer = Node.create({
 	name: "spacer",
 	group: BLOCKS,
 	addAttributes() {
@@ -234,7 +208,7 @@ export const EfSpacer = Node.create({
 	],
 });
 
-export const EfPageBreak = Node.create({
+const EfPageBreak = Node.create({
 	name: "pageBreak",
 	group: "block",
 	parseHTML: () => [{ tag: 'div[data-ef-node="pageBreak"]' }],
@@ -269,7 +243,7 @@ const isPlaceholder = (text: string) => new RegExp(`^${PLACEHOLDER.source}$`).te
  * A merge field: one unit that shows its value as the PDF prints it. The value comes from the root node, so a change of
  * value shows in every copy at once. The plugin below hands each field its value as a node decoration.
  */
-export const EfField = Node.create({
+const EfField = Node.create({
 	name: "field",
 	group: "inline",
 	inline: true,
@@ -311,26 +285,21 @@ export const EfField = Node.create({
 	},
 	addProseMirrorPlugins() {
 		return [
-			new Plugin({
-				key: new PluginKey("efFieldValues"),
-				props: {
-					decorations: (state) => {
-						const values = liveValues(state.doc);
-						const found: Decoration[] = [];
-						state.doc.descendants((node, pos) => {
-							if (node.type.name !== "field") return;
-							const value = values[String(node.attrs.key ?? "")] ?? "";
-							found.push(Decoration.node(pos, pos + node.nodeSize, {}, { fieldValue: value }));
-						});
-						return DecorationSet.create(state.doc, found);
-					},
-				},
+			docDecorations("efFieldValues", (doc) => {
+				const values = liveValues(doc);
+				const found: Decoration[] = [];
+				doc.descendants((node, pos) => {
+					if (node.type.name !== "field") return;
+					const value = values[String(node.attrs.key ?? "")] ?? "";
+					found.push(Decoration.node(pos, pos + node.nodeSize, {}, { fieldValue: value }));
+				});
+				return found;
 			}),
 		];
 	},
 });
 
-export const EfPageNumber = Node.create({
+const EfPageNumber = Node.create({
 	name: "pageNumber",
 	group: "inline",
 	inline: true,
@@ -346,112 +315,10 @@ export const EfPageNumber = Node.create({
 	],
 });
 
-// ---------------------------------------------------------------- later-slice blocks
-
-const KIND_LABEL: Record<string, (attrs: Attrs) => string> = {
-	columns: () => "Columns",
-	box: () => "Box",
-	image: (a) => `Image · ${String(a.source ?? "logo")}`,
-	writeIn: (a) => (a.kind === "signature" ? "Signature line" : a.kind === "date" ? "Date line" : "Write-in line"),
-	table: () => "Table",
-};
-export const blockLabel = (node: PMNode) => KIND_LABEL[node.type.name]?.(node.attrs) ?? node.type.name;
-
-function laterNode(
-	name: string,
-	options: {
-		group?: string;
-		content?: string;
-		attrs: Record<string, Kind>;
-		atom?: boolean;
-		leaf?: (node: PMNode) => string;
-	},
-) {
-	return Node.create({
-		name,
-		group: options.group,
-		content: options.content,
-		atom: options.atom ?? false,
-		isolating: true,
-		addAttributes: () => attrsOfSpec(options.attrs),
-		parseHTML: () => [{ tag: `div[data-ef-node="${name}"]` }],
-		renderHTML({ node, HTMLAttributes }) {
-			const attrs = mergeAttributes(HTMLAttributes, { "data-ef-node": name });
-			if (options.leaf) return ["div", attrs, options.leaf(node)];
-			return ["div", attrs, 0];
-		},
-		// A block with content is shown read-only: its kind as a label, and its content drawn by the same rules.
-		addNodeView: options.atom && options.content ? () => readOnlyView : undefined,
-	});
-}
-
-function readOnlyView({ node, editor }: { node: PMNode; editor: Editor }) {
-	const serializer = DOMSerializer.fromSchema(editor.schema);
-	const dom = document.createElement("div");
-	dom.className = "ef-block";
-	dom.setAttribute("data-ef-node", node.type.name);
-	dom.contentEditable = "false";
-	const draw = (current: PMNode) => {
-		dom.replaceChildren();
-		const label = document.createElement("span");
-		label.className = "ef-block-label";
-		label.textContent = blockLabel(current);
-		const body = document.createElement("div");
-		body.className = "ef-block-body";
-		// A table's header cells come from its column list, and its blank write-in rows from `writeInRows`.
-		if (current.type.name === "table") body.append(...tableExtras(current, "header"));
-		for (let i = 0; i < current.childCount; i++) body.append(serializer.serializeNode(current.child(i)));
-		if (current.type.name === "table") body.append(...tableExtras(current, "blank"));
-		dom.append(label, body);
-	};
-	draw(node);
-	return {
-		dom,
-		update(next: PMNode) {
-			if (next.type !== node.type) return false;
-			draw(next);
-			return true;
-		},
-		ignoreMutation: () => true,
-	};
-}
-
-function tableExtras(table: PMNode, part: "header" | "blank"): HTMLElement[] {
-	const columns = (table.attrs.columns as { label?: string }[] | undefined) ?? [];
-	const row = (cells: string[], header: boolean) => {
-		const dom = document.createElement("div");
-		dom.setAttribute("data-ef-node", "row");
-		if (header) dom.setAttribute("data-ef-header", "");
-		for (const text of cells) {
-			const cell = document.createElement("div");
-			cell.setAttribute("data-ef-node", "cell");
-			cell.textContent = text;
-			dom.append(cell);
-		}
-		return dom;
-	};
-	if (part === "header")
-		return table.attrs.header === false
-			? []
-			: [
-					row(
-						columns.map((c) => c.label ?? ""),
-						true,
-					),
-				];
-	const blank = typeof table.attrs.writeInRows === "number" ? table.attrs.writeInRows : 0;
-	return Array.from({ length: Math.min(blank, 8) }, () =>
-		row(
-			columns.map(() => ""),
-			false,
-		),
-	);
-}
-
 // ---------------------------------------------------------------- layout blocks
 
 /** Columns side by side. Each share of the free width is the column's `width`, as in the PDF (layouts/doc.tsx). */
-export const EfColumns = Node.create({
+const EfColumns = Node.create({
 	name: "columns",
 	group: "block boxblock",
 	content: "column{2,4}",
@@ -472,7 +339,7 @@ export const EfColumns = Node.create({
 		0,
 	],
 });
-export const EfColumn = Node.create({
+const EfColumn = Node.create({
 	name: "column",
 	content: "colblock*",
 	isolating: true,
@@ -492,7 +359,7 @@ export const EfColumn = Node.create({
 	],
 });
 /** A box with a fill and a border from the token list. Its padding and keep-together setting load and save as they are. */
-export const EfBox = Node.create({
+const EfBox = Node.create({
 	name: "box",
 	group: "block colblock",
 	content: "boxblock*",
@@ -518,7 +385,7 @@ export const EfBox = Node.create({
 
 type Assets = DocBrand["assets"];
 
-export const EfImage = Node.create<{ assets: Assets | null }>({
+const EfImage = Node.create<{ assets: Assets | null }>({
 	name: "image",
 	group: BLOCKS,
 	atom: true,
@@ -584,7 +451,7 @@ const WRITE_IN_KIND: Record<string, string> = { text: "Write-in line", signature
 export const writeInKindLabel = (kind: unknown) =>
 	WRITE_IN_KIND[typeof kind === "string" ? kind : "text"] ?? "Write-in line";
 
-export const EfWriteIn = Node.create({
+const EfWriteIn = Node.create({
 	name: "writeIn",
 	group: BLOCKS,
 	atom: true,
@@ -682,7 +549,7 @@ const SLOT_LABEL = "Statement of faith";
  * A doctrinal section: a labelled area the church fills with its own statement. It can be filled, deleted with the
  * block tools and added back from the Insert menu. Empty, it shows the same marked blank the PDF and the Word file print.
  */
-export const EfSlot = Node.create({
+const EfSlot = Node.create({
 	name: "slot",
 	group: BLOCKS,
 	content: "(paragraph | bulletList | orderedList)*",
@@ -745,25 +612,6 @@ function isBlankSlot(node: PMNode) {
 	return !field && node.textContent.trim() === "";
 }
 
-export const EfTable = laterNode("table", {
-	group: BLOCKS,
-	content: "row*",
-	attrs: {
-		columns: "json",
-		style: "string",
-		header: "boolean",
-		headerFill: "string",
-		zebra: "boolean",
-		writeInRows: "number",
-		rowHeight: "number",
-		source: "string",
-		sheet: "string",
-	},
-	atom: true,
-});
-export const EfRow = laterNode("row", { content: "cell+", attrs: { role: "string", sign: "string" } });
-export const EfCell = laterNode("cell", { content: "inline*", attrs: { value: "number", checked: "boolean" } });
-
 // ---------------------------------------------------------------- placeholders
 
 /** The placeholder spans of a document: each bracketed prompt such as [date] in its text, read from the text itself. */
@@ -776,34 +624,24 @@ function placeholderDecorations(doc: PMNode) {
 				Decoration.inline(pos + match.index, pos + match.index + match[0].length, { class: "ef-placeholder" }),
 			);
 	});
-	return DecorationSet.create(doc, found);
+	return found;
 }
 
 /**
  * Highlights every bracketed placeholder ([date], [number], [low amount]) as the PDF and the Word file do. Nothing is
  * stored: a new "[...]" lights up as it is typed and goes dark when a bracket is removed.
  */
-export const Placeholders = Extension.create({
+const Placeholders = Extension.create({
 	name: "placeholders",
 	addProseMirrorPlugins() {
-		const key = new PluginKey<DecorationSet>("efPlaceholders");
-		return [
-			new Plugin({
-				key,
-				state: {
-					init: (_config, state) => placeholderDecorations(state.doc),
-					apply: (tr, old) => (tr.docChanged ? placeholderDecorations(tr.doc) : old),
-				},
-				props: { decorations: (state) => key.getState(state) },
-			}),
-		];
+		return [docDecorations("efPlaceholders", placeholderDecorations)];
 	},
 });
 
 // ---------------------------------------------------------------- heading numbers
 
 /** The numbers the PDF prints before a numbered heading: "01" for a level 2, "1.1" for a level 3 (doc.tsx, heading). */
-export function headingNumbers(doc: PMNode) {
+function headingNumbers(doc: PMNode) {
 	const numbers = new Map<number, string>();
 	let h2 = 0;
 	let h3 = 0;
@@ -820,37 +658,31 @@ export function headingNumbers(doc: PMNode) {
 	return numbers;
 }
 
-const numberKey = new PluginKey("efHeadingNumbers");
-export const HeadingNumbers = Extension.create({
+const HeadingNumbers = Extension.create({
 	name: "headingNumbers",
 	addProseMirrorPlugins() {
 		return [
-			new Plugin({
-				key: numberKey,
-				props: {
-					decorations: (state) => {
-						const decorations: Decoration[] = [];
-						for (const [pos, text] of headingNumbers(state.doc)) {
-							decorations.push(
-								Decoration.widget(
-									pos + 1,
-									() => {
-										const span = document.createElement("span");
-										span.className = "ef-heading-number";
-										span.contentEditable = "false";
-										span.textContent = text;
-										return span;
-									},
-									{ side: -1, ignoreSelection: true, key: `n${pos}${text}` },
-								),
-							);
-							// The number sits in front of the text, so the heading itself also carries the numbered look.
-							const node = state.doc.nodeAt(pos);
-							if (node) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "ef-heading-numbered" }));
-						}
-						return DecorationSet.create(state.doc, decorations);
-					},
-				},
+			docDecorations("efHeadingNumbers", (doc) => {
+				const decorations: Decoration[] = [];
+				for (const [pos, text] of headingNumbers(doc)) {
+					decorations.push(
+						Decoration.widget(
+							pos + 1,
+							() => {
+								const span = document.createElement("span");
+								span.className = "ef-heading-number";
+								span.contentEditable = "false";
+								span.textContent = text;
+								return span;
+							},
+							{ side: -1, ignoreSelection: true, key: `n${pos}${text}` },
+						),
+					);
+					// The number sits in front of the text, so the heading itself also carries the numbered look.
+					const node = doc.nodeAt(pos);
+					if (node) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "ef-heading-numbered" }));
+				}
+				return decorations;
 			}),
 		];
 	},
@@ -858,13 +690,12 @@ export const HeadingNumbers = Extension.create({
 
 // ---------------------------------------------------------------- layout rules
 
-const KEY_FORMAT = /^[a-z][a-z0-9_]{0,59}$/;
 /** The key a write-in line has: the format's default is "name" when the file leaves it out. */
 const keyOf = (node: PMNode) => (typeof node.attrs.key === "string" ? node.attrs.key : "name");
 
 /** The first key from `base` that no other write-in line uses: "name", "name_2", "name_3". */
 function freeKey(base: string, taken: ReadonlySet<string>) {
-	const root = KEY_FORMAT.test(base) ? base : "line";
+	const root = FORMAT_KEY.test(base) ? base : "line";
 	if (!taken.has(root)) return root;
 	for (let n = 2; ; n++) {
 		const suffix = `_${n}`;
@@ -881,7 +712,7 @@ const CONTAINERS = ["column", "box", "pageHeader", "pageFooter", "slot"];
  * empty paragraph so the cursor has somewhere to go, and a page number pasted outside the header and the footer is
  * dropped (it can sit only there).
  */
-export const LayoutRules = Extension.create({
+const LayoutRules = Extension.create({
 	name: "layoutRules",
 	addProseMirrorPlugins() {
 		return [
@@ -923,23 +754,60 @@ export const LayoutRules = Extension.create({
 					return tr.docChanged ? tr : null;
 				},
 				props: {
-					transformPasted: (slice, view) => {
-						if (regionAt(view.state)) return slice;
-						const strip = (fragment: Fragment): Fragment => {
-							const nodes: PMNode[] = [];
-							fragment.forEach((child) => {
-								if (child.type.name === "pageNumber") return;
-								nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
-							});
-							return Fragment.fromArray(nodes);
-						};
-						return new Slice(strip(slice.content), slice.openStart, slice.openEnd);
-					},
+					transformPasted: (slice, view) => pastedSlice(slice, view.state),
 				},
 			}),
 		];
 	},
 });
+
+/**
+ * What a paste brings in. A page number outside the header and the footer is dropped. Under a column, a pasted columns
+ * node, or bare columns copied across, gives way to its columns' blocks in order, since the format refuses columns
+ * anywhere inside a column; the schema then drops what still cannot sit there.
+ */
+export function pastedSlice(slice: Slice, state: EditorState): Slice {
+	const dropNumbers = !regionAt(state);
+	const flatten = insideColumn(state);
+	if (!dropNumbers && !flatten) return slice;
+	const strip = (fragment: Fragment): Fragment => {
+		const nodes: PMNode[] = [];
+		fragment.forEach((child) => {
+			if (dropNumbers && child.type.name === "pageNumber") return;
+			if (flatten && (child.type.name === "columns" || child.type.name === "column")) {
+				strip(child.content).forEach((node) => nodes.push(node));
+				return;
+			}
+			nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
+		});
+		return Fragment.fromArray(nodes);
+	};
+	// An open side that ran through a flattened columns node loses its columns and column levels.
+	const open = (depth: number, edge: (node: Fragment) => PMNode | null) => {
+		let removed = 0;
+		let fragment: Fragment = slice.content;
+		for (let d = 0; d < depth; d++) {
+			const node = edge(fragment);
+			if (!node) break;
+			if (flatten && (node.type.name === "columns" || node.type.name === "column")) removed++;
+			fragment = node.content;
+		}
+		return depth - removed;
+	};
+	const content = strip(slice.content);
+	const max = Slice.maxOpen(content);
+	return new Slice(
+		content,
+		Math.min(
+			open(slice.openStart, (f) => f.firstChild),
+			max.openStart,
+		),
+		Math.min(
+			open(slice.openEnd, (f) => f.lastChild),
+			max.openEnd,
+		),
+	);
+}
 
 // ---------------------------------------------------------------- the set
 
@@ -965,9 +833,11 @@ export function editorExtensions(assets: Assets | null = null) {
 		EfImage.configure({ assets }),
 		EfWriteIn,
 		EfSlot,
+		EfIf,
 		EfTable,
 		EfRow,
 		EfCell,
+		EfValueCell,
 		HardBreak,
 		EfField,
 		EfPageNumber,
@@ -980,6 +850,9 @@ export function editorExtensions(assets: Assets | null = null) {
 		HeadingNumbers,
 		Placeholders,
 		LayoutRules,
+		ConditionRules,
+		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
+		TableRules,
 	];
 }
 

@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
-import { liveRead } from "../access/session.ts";
+import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
+import { optedOutAtSql } from "./opt-out.ts";
 import {
 	administers,
 	command,
@@ -21,42 +22,6 @@ const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
 const STAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
 
-type Reader = { session: string; accountId: string; plantId: string; seatId: string; role: Command["actor"]["role"] };
-
-function accessOf(authority: RequestActor) {
-	const reader = readerOf(authority);
-	return {
-		reader,
-		access: { session: reader.session, owner: reader.owner, seatId: reader.seatId, role: reader.role },
-	};
-}
-function sessionActor(reader: Reader, admin: boolean) {
-	return sql`EXISTS (SELECT 1 FROM live_session(${reader.session}::uuid) i
-		JOIN account a ON a.id = i.account_id AND a.id = ${reader.accountId}::uuid AND a.auth_user_id IS NOT NULL
-		JOIN seat st ON st.account_id = a.id AND st.id = ${reader.seatId}::uuid AND st.plant_id = ${reader.plantId}::uuid
-			AND st.ended_at IS NULL AND st.accepted_at <= clock_timestamp() AND st.role = ${reader.role}
-			AND (${admin}::boolean = false OR st.role <> 'member')
-		WHERE i.registration_state = 'active' AND i.expires_at > clock_timestamp())`;
-}
-function allowed(
-	access: { session: string; owner: ReturnType<typeof readerOf>["owner"]; seatId: string; role: Reader["role"] },
-	reader: Reader,
-	admin: boolean,
-) {
-	return sql`${liveRead(access, admin)} AND ${sessionActor(reader, admin)}`;
-}
-function actorBound(actor: Command["actor"], session: string) {
-	return sessionActor(
-		{ session, accountId: actor.accountId, plantId: actor.plantId, seatId: actor.seatId, role: actor.role },
-		false,
-	);
-}
-function writeBound(actor: Command["actor"], session: string) {
-	return sessionActor(
-		{ session, accountId: actor.accountId, plantId: actor.plantId, seatId: actor.seatId, role: actor.role },
-		true,
-	);
-}
 function requireAllowed(value: boolean) {
 	if (value !== true) deny("access_denied");
 }
@@ -105,11 +70,13 @@ function stamp(column: SQL) {
 	return sql`to_char(${column} AT TIME ZONE 'UTC', ${STAMP})`;
 }
 function mailOn(plantId: string) {
-	return sql`m.tenant_id = ${plantId}::uuid AND m.purpose = 'communication' AND m.logical_key LIKE 'communication/' || c.id::text || '/%'`;
+	return sql`m.tenant_id = ${plantId}::uuid AND m.communication_id = c.id`;
 }
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
+ * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
+ * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
+ * unsubscribed from this church's email, so nothing goes out. A
  * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
  * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
  * done only when no accepted recipient is left open.
@@ -121,9 +88,11 @@ function hubState(plantId: string) {
 		WHEN c.state = 'draft' THEN 'draft'
 		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
 		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
+		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS DISTINCT FROM 'unsubscribed'`)} THEN 'unsubscribed'
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
 		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
@@ -146,6 +115,7 @@ function reachableSql(plantId: string) {
 	return sql`(SELECT count(*)::int FROM mail m
 		JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
+			AND m.refusal IS NULL
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
 /** A held (scheduled) recipient is not sent when the email service accepts it, only when it goes out. */
@@ -261,11 +231,11 @@ async function readPage(
 	found: SQL,
 	extra: SQL,
 ) {
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT ${found} AS found,
 					CASE WHEN ${found} THEN jsonb_build_object(
 						'asOf', ${stamp(sql`clock_timestamp()`)},
@@ -281,7 +251,7 @@ async function readPage(
 
 export async function listHistory(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.historyQuery, request ?? {});
-	const { reader } = accessOf(authority);
+	const reader = readerOf(authority);
 	const meetingId = uuidOrNull(input.meetingId);
 	const personId = uuidOrNull(input.personId);
 	const page = await readPage(
@@ -302,7 +272,7 @@ export async function listHistory(tx: Tx, authority: RequestActor, request: unkn
 
 export async function listForMeeting(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.meetingHistoryRequest, request);
-	const plantId = accessOf(authority).reader.plantId;
+	const plantId = readerOf(authority).plantId;
 	const page = await readPage(
 		tx,
 		authority,
@@ -327,13 +297,13 @@ const contactRow = z.object({
 
 export async function listForPerson(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.personHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const limit = limitOf(input.limit);
 	const cursor = decodeCursor(input.cursor);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM person parent WHERE parent.id = ${input.personId}::uuid AND parent.tenant_id = ${reader.plantId}::uuid) AS found,
 					CASE WHEN EXISTS (SELECT 1 FROM person parent WHERE parent.id = ${input.personId}::uuid AND parent.tenant_id = ${reader.plantId}::uuid)
@@ -349,6 +319,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 							cursor.epoch,
 							cursor.id,
 						)},
+						'emailOptOutAt', CASE WHEN ${reader.role} <> 'member' THEN ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`${input.personId}::uuid`)} END,
 						'lastConfirmedContactAt', (
 							SELECT ${stamp(sql`max(o.occurred_at)`)} FROM contact_outcome o
 							WHERE o.plant_id = ${reader.plantId}::uuid AND o.person_id = ${input.personId}::uuid
@@ -373,6 +344,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 			asOf: z.string(),
 			items: z.array(rawItem),
 			lastConfirmedContactAt: z.string().nullable(),
+			emailOptOutAt: z.string().nullable(),
 			contacts: z.array(contactRow),
 		})
 		.parse(asJson(raw.payload));
@@ -380,6 +352,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 		...pageValue(limit, payload),
 		personId: input.personId,
 		lastConfirmedContactAt: payload.lastConfirmedContactAt,
+		emailOptOutAt: payload.emailOptOutAt,
 		contacts: payload.contacts,
 	});
 }
@@ -397,6 +370,7 @@ const totalsShape = z.object({
 	bounced: z.number().int(),
 	failed: z.number().int(),
 	suppressed: z.number().int(),
+	unsubscribed: z.number().int(),
 	unknown: z.number().int(),
 	cancelled: z.number().int(),
 	cancelOpen: z.number().int(),
@@ -407,7 +381,7 @@ const totalsShape = z.object({
 
 export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.deliveryTotalsRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const on = mailOn(reader.plantId);
 	const word = sql`CASE
 		WHEN m.bounced_at IS NOT NULL OR m.state IN ('refused', 'failed', 'cancelled') THEN 'rejected'
@@ -417,48 +391,54 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'state', ${hubState(reader.plantId)},
-						'selected', GREATEST(
-							(SELECT count(*)::int FROM mail m WHERE ${on}),
-							jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))
-						),
-						'reachable', CASE WHEN (SELECT count(*) FROM mail m WHERE ${on}) > 0 THEN ${reachableSql(reader.plantId)}
+						'selected', GREATEST(t.total, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
+						'reachable', CASE WHEN t.total > 0 THEN ${reachableSql(reader.plantId)}
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 									AND jsonb_exists(c.audience->'personIds', p.id::text)) END,
-						'attempted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state NOT IN ('pending', 'scheduled')),
-						'accepted', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
-							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL)),
-						'sent', (SELECT count(*)::int FROM mail m WHERE ${on} AND (m.state = 'sent' OR m.sent_at IS NOT NULL)),
-						'delivered', ${deliveredSql(reader.plantId)},
-						'opened', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.opened_at IS NOT NULL),
-						'clicked', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.clicked_at IS NOT NULL),
-						'bounced', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.bounced_at IS NOT NULL),
-						'failed', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('refused', 'failed')),
-						'suppressed', (SELECT count(*)::int FROM mail m WHERE ${on} AND EXISTS (
-							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)),
-						'unknown', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('unknown', 'dispatched')
-							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL),
-						'cancelled', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state = 'cancelled'),
-						'cancelOpen', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.cancel_requested_at IS NOT NULL
-							AND m.state IN ('accepted', 'unknown', 'dispatched')),
+						'attempted', t.attempted, 'accepted', t.accepted, 'sent', t.sent, 'delivered', t.delivered,
+						'opened', t.opened, 'clicked', t.clicked, 'bounced', t.bounced, 'failed', t.failed,
+						'unsubscribed', t.unsubscribed, 'suppressed', t.suppressed, 'unknown', t.unknown,
+						'cancelled', t.cancelled, 'cancelOpen', t.cancel_open,
 						'asOf', ${stamp(sql`clock_timestamp()`)},
-						'outcomes', coalesce((
-							SELECT jsonb_agg(w.word ORDER BY w.ord)
-							FROM (
-								SELECT DISTINCT ${word} AS word,
-									CASE ${word} WHEN 'accepted' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END AS ord
-								FROM mail m WHERE ${on}
-							) w
-						), '[]'::jsonb),
-						'sentForAll', (SELECT count(*) FROM mail m WHERE ${on}) > 0
-							AND NOT EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state <> 'sent' AND m.delivered_at IS NULL)
+						'outcomes', (SELECT coalesce(jsonb_agg(o.word ORDER BY o.ord), '[]'::jsonb)
+							FROM (VALUES ('accepted', 1, t.word_accepted), ('unknown', 2, t.word_unknown), ('rejected', 3, t.word_rejected)) o(word, ord, n)
+							WHERE o.n > 0),
+						'sentForAll', t.total > 0 AND t.not_sent = 0
 					) END AS payload
 				FROM (SELECT 1) seed
-				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid`,
+				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
+				LEFT JOIN LATERAL (
+					SELECT count(*)::int AS total,
+						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
+						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
+						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
+							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
+						count(*) FILTER (WHERE m.state = 'sent' OR m.sent_at IS NOT NULL)::int AS sent,
+						count(*) FILTER (WHERE m.delivered_at IS NOT NULL)::int AS delivered,
+						count(*) FILTER (WHERE m.opened_at IS NOT NULL)::int AS opened,
+						count(*) FILTER (WHERE m.clicked_at IS NOT NULL)::int AS clicked,
+						count(*) FILTER (WHERE m.bounced_at IS NOT NULL)::int AS bounced,
+						count(*) FILTER (WHERE m.state IN ('refused', 'failed') AND m.refusal IS NULL)::int AS failed,
+						count(*) FILTER (WHERE m.refusal = 'unsubscribed')::int AS unsubscribed,
+						count(*) FILTER (WHERE EXISTS (
+							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))::int AS suppressed,
+						count(*) FILTER (WHERE m.state IN ('unknown', 'dispatched')
+							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL)::int AS unknown,
+						count(*) FILTER (WHERE m.state = 'cancelled')::int AS cancelled,
+						count(*) FILTER (WHERE m.cancel_requested_at IS NOT NULL
+							AND m.state IN ('accepted', 'unknown', 'dispatched'))::int AS cancel_open,
+						count(*) FILTER (WHERE m.state <> 'sent' AND m.delivered_at IS NULL)::int AS not_sent,
+						-- Outcomes: only what the email service answered, not a recipient still waiting, nor one skipped for an opt-out.
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'accepted')::int AS word_accepted,
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'unknown')::int AS word_unknown,
+						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'rejected')::int AS word_rejected
+					FROM mail m WHERE ${on}
+				) t ON c.id IS NOT NULL`,
 			),
 		),
 	) as { allowed: boolean; found: boolean | null; payload: unknown };
@@ -501,11 +481,11 @@ const detailShape = z.object({
 
 export async function getDetail(tx: Tx, authority: RequestActor, request: unknown, keys?: DeliveryKeys) {
 	const input = parse(c.recordRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'id', c.id, 'revision', c.revision::text, 'state', c.state, 'subject', c.subject,
@@ -517,14 +497,13 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 							SELECT jsonb_agg(jsonb_build_object(
 								'personId', m.recipient_person_id, 'mailId', m.id,
 								'sealedAddress', m.recipient_address_encrypted, 'currentEmail', p.email,
-								'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END,
+								'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END,
 								'sentAt', ${stamp(sql`m.sent_at`)}, 'deliveredAt', ${stamp(sql`m.delivered_at`)},
 								'openedAt', ${stamp(sql`m.opened_at`)}, 'clickedAt', ${stamp(sql`m.clicked_at`)}
 							) ORDER BY m.created_at, m.id)
 							FROM mail m
 							LEFT JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-							WHERE m.tenant_id = c.plant_id AND m.purpose = 'communication'
-								AND m.logical_key LIKE 'communication/' || c.id::text || '/%'
+							WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
 						), '[]'::jsonb)
 					) END AS payload
 				FROM (SELECT 1) seed
@@ -570,26 +549,25 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 
 export async function listHistoryRecipients(tx: Tx, authority: RequestActor, request: unknown, keys?: DeliveryKeys) {
 	const input = parse(c.recipientHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const limit = limitOf(input.limit);
 	const cursor = decodeCursor(input.cursor);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS found,
 					coalesce((
 						SELECT jsonb_agg(to_jsonb(s) ORDER BY s.epoch, s."mailId")
 						FROM (
 							SELECT m.recipient_person_id AS "personId", p.display_name AS name, m.id AS "mailId",
-								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END AS "deliveryStatus",
+								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS "deliveryStatus",
 								m.recipient_address_encrypted AS sealed,
 								extract(epoch FROM m.created_at)::text AS epoch
 							FROM mail m
 							LEFT JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-							WHERE m.tenant_id = ${reader.plantId}::uuid AND m.purpose = 'communication'
-								AND m.logical_key LIKE 'communication/' || ${input.communicationId}::text || '/%'
+							WHERE m.tenant_id = ${reader.plantId}::uuid AND m.communication_id = ${input.communicationId}::uuid
 								AND (${cursor.epoch}::text IS NULL OR m.created_at > to_timestamp(${cursor.epoch}::numeric)
 									OR (m.created_at = to_timestamp(${cursor.epoch}::numeric) AND m.id > ${cursor.id}::uuid))
 							ORDER BY m.created_at, m.id
@@ -632,23 +610,26 @@ export async function listHistoryRecipients(tx: Tx, authority: RequestActor, req
 
 export async function listMeetingTracking(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.meetingHistoryRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT
 					EXISTS (SELECT 1 FROM meeting parent WHERE parent.id = ${input.meetingId}::uuid AND parent.plant_id = ${reader.plantId}::uuid) AS found,
 					coalesce((
-						SELECT jsonb_agg(jsonb_build_object(
-							'personId', p.id, 'name', p.display_name,
-							'deliveryStatus', CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' ELSE m.state END
-						) ORDER BY p.display_name, p.id)
-						FROM communication c
-						JOIN mail m ON m.tenant_id = c.plant_id AND m.purpose = 'communication'
-							AND m.logical_key LIKE 'communication/' || c.id::text || '/%'
-						JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-						WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
+						SELECT jsonb_agg(jsonb_build_object('personId', t.id, 'name', t.display_name, 'deliveryStatus', t.status)
+							ORDER BY t.display_name, t.id)
+						FROM (
+							-- One row per person: a person emailed by several of the meeting's messages shows their latest mail.
+							SELECT DISTINCT ON (p.id) p.id, p.display_name,
+								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS status
+							FROM communication c
+							JOIN mail m ON m.tenant_id = c.plant_id AND m.communication_id = c.id
+							JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
+							WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
+							ORDER BY p.id, m.created_at DESC, m.id DESC
+						) t
 					), '[]'::jsonb) AS items`,
 			),
 		),
@@ -660,7 +641,7 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 
 export async function getExecutionResult(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.executionRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const bucket = sql`CASE
 		WHEN m.bounced_at IS NOT NULL OR m.state IN ('refused', 'failed', 'cancelled') THEN 'refused'
 		WHEN m.state IN ('unknown', 'dispatched', 'pending') AND m.accepted_at IS NULL AND m.sent_at IS NULL AND m.delivered_at IS NULL THEN 'unknown'
@@ -670,7 +651,7 @@ export async function getExecutionResult(tx: Tx, authority: RequestActor, reques
 	const raw = one(
 		await tx.execute(
 			whenLive(
-				allowed(access, reader, false),
+				communicationAccess(reader, reader.session, false),
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'accepted', (SELECT count(*)::int FROM mail m WHERE ${mailOn(reader.plantId)} AND ${bucket} = 'accepted'),
@@ -730,8 +711,7 @@ function resendDoc(plantId: string, communicationId: string, selection: string) 
 		),
 		'confirmed', EXISTS (
 			SELECT 1 FROM mail d
-			WHERE d.tenant_id = c.plant_id AND d.purpose = 'communication'
-				AND d.logical_key LIKE 'communication/' || c.id::text || '/%' AND d.delivered_at IS NOT NULL
+			WHERE d.tenant_id = c.plant_id AND d.communication_id = c.id AND d.delivered_at IS NOT NULL
 		),
 		'people', coalesce((
 			SELECT jsonb_agg(jsonb_build_object('id', picked.id, 'name', picked.name, 'eligible', picked.eligible)
@@ -740,8 +720,7 @@ function resendDoc(plantId: string, communicationId: string, selection: string) 
 				SELECT DISTINCT ON (p.id) p.id, p.display_name AS name, ${eligible} AS eligible
 				FROM mail m
 				JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
-				WHERE m.tenant_id = c.plant_id AND m.purpose = 'communication'
-					AND m.logical_key = 'communication/' || c.id::text || '/' || p.id::text
+				WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
 				ORDER BY p.id, m.created_at DESC
 			) picked
 		), '[]'::jsonb)
@@ -780,10 +759,10 @@ function namesOf(people: z.infer<typeof resendPerson>[], eligible: boolean) {
 
 export async function listResendCandidates(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.resendCandidatesRequest, request);
-	const { reader, access } = accessOf(authority);
+	const reader = readerOf(authority);
 	const loaded = await loadResend(
 		tx,
-		allowed(access, reader, true),
+		communicationAccess(reader, reader.session, true),
 		reader.plantId,
 		input.communicationId,
 		input.selection,
@@ -836,7 +815,7 @@ export async function executeResend(tx: Tx, context: CommunicationContext, raw: 
 		if (!administers(cmd.actor)) deny("access_denied");
 		const loaded = await loadResend(
 			tx,
-			writeBound(cmd.actor, context.session),
+			communicationAccess(cmd.actor, context.session, true),
 			cmd.actor.plantId,
 			input.input.communicationId,
 			input.input.selection,
@@ -853,7 +832,7 @@ export async function executeResend(tx: Tx, context: CommunicationContext, raw: 
 				SELECT ${id}::uuid, ${cmd.actor.plantId}::uuid, ${cmd.actor.accountId}::uuid, 1, 'reviewed', ${source.subject},
 					${source.body_html}, ${source.body_text}, ${`lineage:${source.id}`}, ${source.meeting_id}::uuid,
 					${JSON.stringify(audience)}::jsonb
-				WHERE ${writeBound(cmd.actor, context.session)}`,
+				WHERE ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
 		pushEvent(cmd, {
 			id: cmd.id,
@@ -893,7 +872,7 @@ export async function recordContactFromTask(tx: Tx, context: CommunicationContex
 		const rawRow = one(
 			await tx.execute(
 				whenLive(
-					actorBound(cmd.actor, context.session),
+					communicationAccess(cmd.actor, context.session, false),
 					sql`SELECT (t.id IS NOT NULL) AS found,
 						(t.id IS NOT NULL AND t.status = 'complete' AND t.person_id IS NOT NULL AND t.deleted_at IS NULL AND t.parent_id IS NULL) AS task_ok,
 						o.id AS outcome_id, o.outcome, o.revision::text AS revision,
@@ -969,7 +948,7 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 		const rawRow = one(
 			await tx.execute(
 				whenLive(
-					actorBound(cmd.actor, context.session),
+					communicationAccess(cmd.actor, context.session, false),
 					sql`SELECT o.id, o.revision::text AS revision, o.person_id, o.task_id, o.outcome,
 						${stamp(sql`o.occurred_at`)} AS occurred_at,
 						o.voided_at IS NOT NULL AS voided,
@@ -1014,18 +993,18 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 		cmd.writes.push(
 			sql`UPDATE contact_outcome SET voided_at = ${old.db_now}::timestamptz, revision = revision + 1
 				WHERE id = ${old.id}::uuid AND plant_id = ${plant}::uuid AND revision = ${old.revision}::bigint
-					AND ${actorBound(cmd.actor, context.session)}`,
+					AND ${communicationAccess(cmd.actor, context.session, false)}`,
 		);
 		cmd.writes.push(
 			sql`INSERT INTO contact_outcome (id, plant_id, person_id, task_id, outcome, occurred_at, recorded_at, supersedes_id, revision, completes_task)
 				SELECT ${nextId}::uuid, ${plant}::uuid, ${old.person_id}::uuid, ${old.task_id}::uuid, ${nextOutcome},
 					${occurred}::timestamptz, ${old.db_now}::timestamptz, ${old.id}::uuid, 1, false
-				WHERE ${occurred}::timestamptz <= ${old.db_now}::timestamptz AND ${actorBound(cmd.actor, context.session)}`,
+				WHERE ${occurred}::timestamptz <= ${old.db_now}::timestamptz AND ${communicationAccess(cmd.actor, context.session, false)}`,
 		);
 		if (old.outcome === "contacted" || nextOutcome === "contacted") {
 			cmd.writes.push(
 				sql`UPDATE plant SET material_revision = material_revision + 1
-					WHERE id = ${plant}::uuid AND ${actorBound(cmd.actor, context.session)}`,
+					WHERE id = ${plant}::uuid AND ${communicationAccess(cmd.actor, context.session, false)}`,
 			);
 		}
 		pushEvent(cmd, {

@@ -4,7 +4,7 @@ import { sectionResult, settingsError, type SettingsError } from "@everyfield/co
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
-import { and, eq, gt, inArray, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -25,20 +25,20 @@ import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { mailEnv } from "../../server/mail-env.ts";
 import { database } from "@/server/database";
-import { createMailService } from "@/server/jobs/mail";
 import { enqueueJob, queueJobs } from "@/server/jobs/queue";
-import { protectedTemplate } from "@/server/jobs/templates";
 import { current as organizationMount } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
+import { settingsMail } from "./mail";
 import type { SettingsViewer } from "./port";
 
 // The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
 // actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
 // write binds that actor in its own transaction (withSettingsWrite) and the domain checks authority again. Changes
 // queue their jobs and mail in the same transaction; a worker acts on them. Email and password changes go through
-// Better Auth, outside any app transaction. Photo bytes need the private bucket (AWS_*); without it the
-// photo calls are refused and every other section still works.
+// Better Auth, outside any app transaction. Photo bytes go to the private bucket (privateStorage), as brand
+// assets do; a deployment without one refuses the photo calls and every other section still works.
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
@@ -49,14 +49,13 @@ const env = z.object({
 	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
 	IDENTITY_SECRET: z.string().min(32),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const organizations = organizationMount();
-	if (!organizations) return null;
+	const mail = settingsMail();
+	if (!organizations || !mail) return null;
 	const db = organizations.db,
 		origin = v.IDENTITY_ORIGIN,
 		addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -64,6 +63,7 @@ function create(v: z.infer<typeof env>) {
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
 	const effects = {
 		// A plant's digest schedule or time zone changed: the digest job plans the next sends again.
+		// It stays (D-520): replan is a domain effect the settings producer calls, even though the planner rereads every minute.
 		replan: (tx: Transaction, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
 				tenant: i.owner.id,
@@ -73,63 +73,7 @@ function create(v: z.infer<typeof env>) {
 				revision: i.revision,
 				eligibleAt: new Date().toISOString(),
 			}),
-		// A material plant fact changed: assessments that read the old value are computed again.
-		invalidate: async (tx: Transaction, i: { owner: Owner; revision: string; operationId: string }) => {
-			await enqueueJob(tx, {
-				tenant: i.owner.id,
-				kind: "assessment",
-				subject: i.owner.id,
-				key: `settings/${i.operationId}`,
-				revision: i.revision,
-				eligibleAt: new Date().toISOString(),
-			});
-		},
 	};
-	const mail = createMailService({
-		db,
-		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
-		addressKey,
-		from: v.IDENTITY_MAIL_FROM,
-		// An email-change link goes only to the address of the account's live proof; a security notice only to its
-		// own account.
-		authorize: async (tx, list) => {
-			const proofs = await tx
-				.select({ account: t.identity_proof.account_id, address: t.identity_proof.proposed_email })
-				.from(t.identity_proof)
-				.where(
-					and(
-						inArray(
-							t.identity_proof.account_id,
-							list.map((m) => m.tenant),
-						),
-						eq(t.identity_proof.purpose, "email_change"),
-						isNull(t.identity_proof.superseded_at),
-						isNull(t.identity_proof.consumed_at),
-						gt(t.identity_proof.expires_at, sql`clock_timestamp()`),
-					),
-				);
-			return new Set(
-				list
-					.filter(
-						(m) =>
-							m.recipient === m.tenant &&
-							(m.purpose === "email_change"
-								? proofs.some((p) => p.account === m.tenant && p.address && addressHash(p.address) === m.addressHash)
-								: m.purpose === "notification" && m.logicalKey.startsWith("security/")),
-					)
-					.map((m) => m.id),
-			);
-		},
-		// This mount issues intents only. WP-031 owns dispatch; no real provider is configured here.
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
-	});
 	const sections = sectionOperations({
 		organizations: organizations.adapter,
 		organizationEffects: organizations.effects,
@@ -158,8 +102,11 @@ function create(v: z.infer<typeof env>) {
 				},
 			]),
 	});
-	// The purge job becomes eligible at the cancellation deadline.
+	// The purge job becomes eligible at the cancellation deadline. Each open seat's deletion notice commits with the
+	// witness change.
+	const { workspaceNotice, ...credentialMail } = mail;
 	const deletion = deletionOperations({
+		workspaceNotice,
 		queue: (tx, i) =>
 			queueJobs(tx, [
 				{
@@ -199,49 +146,7 @@ function create(v: z.infer<typeof env>) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
 		},
-		deliverVerification: async (tx, i, writes) => {
-			const url = `${origin}/confirm-email?token=${encodeURIComponent(i.token)}`;
-			await mail.append(
-				tx,
-				{
-					owner: { kind: "account", id: i.accountId },
-					purpose: "email_change",
-					logicalKey: `email-change/${randomUUID()}`,
-					recipient: i.accountId,
-					address: i.address,
-					content: protectedTemplate({ purpose: "email_change", url }, origin),
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				},
-				writes,
-			);
-		},
-		securityNotice: (tx, i, writes) =>
-			mail.append(
-				tx,
-				{
-					owner: { kind: "account", id: i.accountId },
-					purpose: "notification",
-					logicalKey: `security/${i.correlationId}`,
-					recipient: i.accountId,
-					address: i.address,
-					content:
-						i.action === "password_changed"
-							? {
-									subject: "Your Everyfield password changed",
-									text: "The password for your Everyfield account changed. Other devices were signed out.\n\nIf you did not change it, reset your password now.",
-								}
-							: {
-									subject: "Your Everyfield sign-in email changed",
-									text: "The email you use to sign in to Everyfield changed. This address no longer signs in.\n\nIf you did not change it, contact Everyfield support now.",
-								},
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				},
-				writes,
-			),
+		...credentialMail,
 	});
 	return {
 		db,
@@ -415,37 +320,52 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 	}
 }
 
-/** The bytes of the viewer's own current photo version, or null. Only its own account may read it. */
+/**
+ * The bytes of one current account photo version, or null. Its own account and the people who hold a live seat in a
+ * workspace where it holds one, or that oversees or is overseen by such a workspace through a current link, may read
+ * it (readAvatar); every other request gets the same null as a missing photo.
+ */
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage || viewer.accountId !== accountId) return null;
-	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
+	if (!viewer || !ops?.storage) return null;
+	const context = {
+		session: viewer.authority.session,
+		selected: owner.parse({ kind: "account", id: viewer.accountId }),
+	};
 	try {
-		return await readAvatar(ops.db, ops.storage, context, versionId);
+		return await readAvatar(ops.db, ops.storage, context, { accountId, versionId });
 	} catch {
 		return null;
 	}
 }
 
-// The restricted deletion page (REQ-IDN-032). After a personal deletion request every normal session ends. A fresh
-// proof of the original login opens a ten-minute restricted session for that exact request; its handle lives in an
-// HttpOnly cookie and permits only the request's status and its cancellation.
+// The restricted deletion pages (REQ-IDN-032). After a personal or church workspace deletion request every normal
+// session of the people it reaches ends. A fresh proof of the original login opens a ten-minute restricted session
+// for that exact request; its handle lives in an HttpOnly cookie and permits only the request's status and its
+// cancellation.
 const DELETION_COOKIE = "evf-deletion";
-const restrictedCookie = z.strictObject({ handle: sessionId, request: N.getAccountDeletionStatusRequest });
+const restrictedCookie = z.strictObject({
+	handle: sessionId,
+	request: z.union([N.getAccountDeletionStatusRequest, N.getWorkspaceDeletionStatusRequest]),
+});
 type Restricted = z.infer<typeof restrictedCookie>;
 
-/** Checks the original login's password and opens the restricted session for its current deletion request. */
-export async function openRestrictedDeletion(raw: unknown) {
+/**
+ * Checks the original login's password and opens the restricted session for its current deletion request: the
+ * account's own (`account`), or the latest church workspace request it made (`plant`).
+ */
+export async function openRestrictedDeletion(kind: "account" | "plant", raw: unknown) {
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const opened = await ops.credentials
-		.openAccountDeletion(raw, trustedIdentityIp(request, process.env.VERCEL === "1"))
-		.catch((error) => {
-			console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
-			return { status: "refused" as const, code: "unknown" as const };
-		});
+	const ip = trustedIdentityIp(request, process.env.VERCEL === "1");
+	const opened = await (
+		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
+	).catch((error) => {
+		console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
+		return { status: "refused" as const, code: "unknown" as const };
+	});
 	if (opened.status === "refused")
 		return refusal(
 			opened.code === "temporary" || opened.code === "unknown" || opened.code === "invalid_input"
@@ -454,10 +374,7 @@ export async function openRestrictedDeletion(raw: unknown) {
 		);
 	const value: Restricted = {
 		handle: opened.value.session.handle,
-		request: N.getAccountDeletionStatusRequest.parse({
-			subject: opened.value.subject,
-			requestId: opened.value.requestId,
-		}),
+		request: restrictedCookie.shape.request.parse({ subject: opened.value.subject, requestId: opened.value.requestId }),
 	};
 	(await cookies()).set({
 		name: DELETION_COOKIE,
@@ -468,48 +385,59 @@ export async function openRestrictedDeletion(raw: unknown) {
 		path: "/",
 		maxAge: 10 * 60,
 	});
-	return restrictedStatus();
+	return restrictedStatus(kind);
 }
 
-async function restricted(): Promise<Restricted | null> {
+/** The restricted session, when one is open for a request of this kind. */
+async function restricted(kind: "account" | "plant"): Promise<Restricted | null> {
 	const raw = (await cookies()).get(DELETION_COOKIE)?.value;
 	if (!raw) return null;
 	try {
-		return restrictedCookie.parse(JSON.parse(raw));
+		const session = restrictedCookie.parse(JSON.parse(raw));
+		return session.request.subject.kind === kind ? session : null;
 	} catch {
 		return null;
 	}
 }
 
 /** The exact request's status for the restricted session, or a refusal once the session expired. */
-export async function restrictedStatus() {
+export async function restrictedStatus(kind: "account" | "plant") {
 	const ops = settingsMount(),
-		session = await restricted();
+		session = await restricted(kind);
 	if (!ops || !session) return refusal("proof_invalid");
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
+	const { request } = session;
 	return logged("restricted_status_failed", () =>
-		ops.db.transaction((tx) => ops.deletion.getAccountDeletionStatus(tx, context, session.request)),
+		ops.db.transaction((tx) =>
+			kind === "account"
+				? ops.deletion.getAccountDeletionStatus(tx, context, N.getAccountDeletionStatusRequest.parse(request))
+				: ops.deletion.getWorkspaceDeletionStatus(tx, context, N.getWorkspaceDeletionStatusRequest.parse(request)),
+		),
 	);
 }
 
 /** Cancels the exact request strictly before its deadline. A cancelled request ends the restricted session. */
-export async function cancelRestrictedDeletion(expectedRevision: string) {
+export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
 	const ops = settingsMount(),
-		session = await restricted();
+		session = await restricted(kind);
 	if (!ops || !session) return refusal("proof_invalid");
-	const request = N.cancelAccountDeletionRequest.safeParse({
-		requestKey: randomUUID(),
-		expectedRevision,
-		input: session.request,
-	});
-	if (!request.success) return refusal("invalid_input");
+	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
-		ops.db.transaction((tx) => ops.deletion.cancelAccountDeletion(tx, context, request.data)),
+		ops.db.transaction((tx) => {
+			if (kind === "account") {
+				const v = N.cancelAccountDeletionRequest.safeParse(command);
+				return v.success ? ops.deletion.cancelAccountDeletion(tx, context, v.data) : refused("invalid_input");
+			}
+			const v = N.cancelWorkspaceDeletionRequest.safeParse(command);
+			return v.success ? ops.deletion.cancelWorkspaceDeletion(tx, context, v.data) : refused("invalid_input");
+		}),
 	);
 	if (reply.status === "ok" && reply.value.status === "cancelled") (await cookies()).delete(DELETION_COOKIE);
 	return reply;
 }
+
+const refused = async (code: keyof typeof RETRY) => refusal(code);
 
 /** A thrown error is logged and reads as unknown: the page then offers to load the latest status. */
 async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {

@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
-export type NavLink = { href: string; label: string; current: boolean };
+type NavLink = { href: string; label: string; current: boolean };
 type Which = "inflow" | "pill";
 
 type Props = {
@@ -77,9 +77,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 			open={open === which}
 			toggleRef={which === "pill" ? pillToggle : inflowToggle}
 			onToggle={() => setOpen((o) => (o === which ? null : which))}
-			onLinkClick={(e) => {
-				if ((e.target as Element).closest("a")) setOpen(null);
-			}}
+			onLinkClick={() => setOpen(null)}
 		/>
 	);
 
@@ -128,7 +126,7 @@ type BarProps = {
 	open: boolean;
 	toggleRef: RefObject<HTMLButtonElement | null>;
 	onToggle: () => void;
-	onLinkClick: (e: MouseEvent) => void;
+	onLinkClick: () => void;
 };
 
 const LINK =
@@ -157,14 +155,15 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 			<Link href="/" aria-label="Everyfield home" className="flex flex-none items-center no-underline">
 				{logo}
 			</Link>
-			<nav
-				id={menuId}
-				aria-label="Main"
-				onClick={onLinkClick}
-				className={cn("flex gap-1 type-md", open ? MENU[which] : "max-mk-nav:hidden")}
-			>
+			<nav id={menuId} aria-label="Main" className={cn("flex gap-1 type-md", open ? MENU[which] : "max-mk-nav:hidden")}>
 				{links.map((l) => (
-					<Link key={l.href} href={l.href} aria-current={l.current ? "page" : undefined} className={LINK}>
+					<Link
+						key={l.href}
+						href={l.href}
+						aria-current={l.current ? "page" : undefined}
+						onClick={onLinkClick}
+						className={LINK}
+					>
 						{l.label}
 					</Link>
 				))}
@@ -173,6 +172,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
+						onClick={onLinkClick}
 						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap bg-ink px-5 type-lg font-semibold text-cream no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
 					>
 						{cta.label}

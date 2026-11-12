@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { Owner, sessionId } from "../common/values.ts";
+import type { Owner, sessionId, Reply } from "../common/values.ts";
 import type { changePasswordRequest } from "../identity/requests.ts";
 import type { credentialOutcome } from "../identity/results.ts";
 import type * as native from "./native.ts";
@@ -7,9 +7,7 @@ import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
 export type SettingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
-export type NativeSettingsContext = Omit<SettingsContext, "purpose"> & {};
-export type SettingsWriteContext = SettingsContext;
-export type SettingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: result.SettingsError };
+export type SettingsReply<T> = Reply<T, result.SettingsError>;
 type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> = (
 	tx: Tx,
 	context: Context,
@@ -26,17 +24,17 @@ type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> =
 // and consent CAS, one history/audit/receipt/intents set, omitted fields preserved.
 // No-op/replay does not bump material revision; private care never enters settings.
 export interface SettingsProducer<Tx> {
-	saveSection: Operation<Tx, SettingsWriteContext, typeof request.saveSectionRequest, typeof result.savedSectionResult>;
-	saveChurch: Operation<Tx, SettingsWriteContext, typeof request.saveChurchRequest, typeof result.savedSectionResult>;
+	saveSection: Operation<Tx, SettingsContext, typeof request.saveSectionRequest, typeof result.savedSectionResult>;
+	saveChurch: Operation<Tx, SettingsContext, typeof request.saveChurchRequest, typeof result.savedSectionResult>;
 	updatePlantProfile: Operation<
 		Tx,
-		SettingsWriteContext,
+		SettingsContext,
 		typeof request.updatePlantProfileRequest,
 		typeof result.savedSectionResult
 	>;
 	setDigestSchedule: Operation<
 		Tx,
-		SettingsWriteContext,
+		SettingsContext,
 		typeof request.setDigestScheduleRequest,
 		typeof result.savedSectionResult
 	>;
@@ -48,7 +46,7 @@ export interface SettingsProducer<Tx> {
 	>;
 	setPlantTimezone: Operation<
 		Tx,
-		SettingsWriteContext,
+		SettingsContext,
 		typeof request.setPlantTimezoneRequest,
 		typeof result.plantTimezoneResult
 	>;
@@ -69,27 +67,22 @@ export interface SettingsProducer<Tx> {
 export interface NativeAccountProducer<Tx> {
 	requestAvatarUpload: Operation<
 		Tx,
-		NativeSettingsContext,
+		SettingsContext,
 		typeof request.requestAvatarUpload,
 		typeof result.avatarUploadResult
 	>;
-	finalizeAvatar: Operation<
-		Tx,
-		NativeSettingsContext,
-		typeof request.finalizeAvatarRequest,
-		typeof result.avatarResult
-	>;
-	removeAvatar: Operation<Tx, NativeSettingsContext, typeof request.removeAvatarRequest, typeof result.avatarResult>;
-	getAvatar: Operation<Tx, NativeSettingsContext, typeof request.getAvatarRequest, typeof result.avatarResult>;
+	finalizeAvatar: Operation<Tx, SettingsContext, typeof request.finalizeAvatarRequest, typeof result.avatarResult>;
+	removeAvatar: Operation<Tx, SettingsContext, typeof request.removeAvatarRequest, typeof result.avatarResult>;
+	getAvatar: Operation<Tx, SettingsContext, typeof request.getAvatarRequest, typeof result.avatarResult>;
 	previewPersonalTimezone: Operation<
 		Tx,
-		NativeSettingsContext,
+		SettingsContext,
 		typeof native.previewPersonalTimezoneRequest,
 		typeof native.personalTimezonePreview
 	>;
 	setPersonalTimezone: Operation<
 		Tx,
-		NativeSettingsContext,
+		SettingsContext,
 		typeof native.setPersonalTimezoneRequest,
 		typeof native.personalTimezoneResult
 	>;
@@ -119,13 +112,13 @@ export interface NativeAccountProducer<Tx> {
 export interface DeletionProducer<Tx> {
 	requestAccountDeletion: Operation<
 		Tx,
-		SettingsWriteContext,
+		SettingsContext,
 		typeof request.requestAccountDeletion,
 		typeof native.deletionStatus
 	>;
 	requestWorkspaceDeletion: Operation<
 		Tx,
-		NativeSettingsContext,
+		SettingsContext,
 		typeof request.requestWorkspaceDeletion,
 		typeof native.deletionStatus
 	>;
@@ -159,15 +152,15 @@ export interface DeletionProducer<Tx> {
 // short transactions it needs, and no app lock is held while Better Auth runs.
 export interface CredentialProducer {
 	requestEmailChange(
-		context: NativeSettingsContext,
+		context: SettingsContext,
 		input: z.infer<typeof native.requestEmailChange>,
 	): Promise<SettingsReply<{ status: "verification_requested" }>>;
 	confirmEmailChange(
-		context: NativeSettingsContext,
+		context: SettingsContext,
 		input: z.infer<typeof native.confirmEmailChange>,
 	): Promise<z.infer<typeof credentialOutcome>>;
 	changePassword(
-		context: NativeSettingsContext,
+		context: SettingsContext,
 		input: z.infer<typeof changePasswordRequest>,
 	): Promise<z.infer<typeof credentialOutcome>>;
 }

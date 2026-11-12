@@ -1,6 +1,9 @@
 import { dateText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/documents";
+import type { Database } from "@everyfield/db/client";
+import type { PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
+import type { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import {
 	accountOpen,
@@ -18,6 +21,9 @@ import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, type AgendaKind } from 
 import { readAgendaKind, type MeetingRead } from "./meeting-read.ts";
 import { cleanOverrides, resolveMerge, type ResolvedMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { templateTheme } from "./church-theme.ts";
+import { entryFor } from "./templates/registry.ts";
+import type { RenderTheme } from "./theme.ts";
 
 function pageOf(version: string, templates: CatalogTemplate[]) {
 	const views = templates.map(templateView);
@@ -99,10 +105,11 @@ export const documentsReader = {
 		});
 	},
 	async resolveContext(db: Reader, authority: RequestActor, raw: unknown) {
-		return settle(() => contextOf(db, authority, raw, false));
+		return settle(() => contextOf(db, authority, raw, null));
 	},
-	async preview(db: Reader, authority: RequestActor, raw: unknown) {
-		return settle(() => contextOf(db, authority, raw, true));
+	/** The brand kit's images come from private storage; without it the church theme renders with the name in type. */
+	async preview(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null = null) {
+		return settle(() => contextOf(db, authority, raw, { db, storage }));
 	},
 	async printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(() => printAgenda(db, authority, raw));
@@ -112,8 +119,21 @@ export const documentsReader = {
 const agendaTemplateKind = (id: string) =>
 	(Object.entries(AGENDA_TEMPLATE) as [AgendaKind, string][]).find(([, template]) => template === id)?.[0];
 
-async function contextOf(db: Reader, authority: RequestActor, raw: unknown, withArtifact: boolean) {
-	const input = parse(withArtifact ? c.previewRequest : c.resolveContextRequest, raw);
+type Artifact = { db: Database; storage: PrivateStorage | null };
+async function contextOf(
+	db: Reader,
+	authority: RequestActor,
+	raw: unknown,
+	artifact: null,
+): Promise<z.infer<typeof c.contextResult>>;
+async function contextOf(
+	db: Reader,
+	authority: RequestActor,
+	raw: unknown,
+	artifact: Artifact,
+): Promise<z.infer<typeof c.previewResult>>;
+async function contextOf(db: Reader, authority: RequestActor, raw: unknown, artifact: Artifact | null) {
+	const input = parse(c.resolveContextRequest, raw);
 	const cleaned = cleanOverrides(input.overrides);
 	if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 	const viewer = plantViewer(authority);
@@ -129,15 +149,12 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 	const template = loaded.templates.find((item) => item.id === input.templateId);
 	if (!template) deny();
 	if (!template.formats.includes(input.format)) rejectInput("format", "Format is not on this template.");
-	// An agenda prints only from a live meeting of its own kind. Any other meeting reads as no subject at all.
-	const agendaFor = agendaTemplateKind(template.id);
-	if (agendaFor && input.meetingId && (!row.meeting || agendaKindOf(row.meeting) !== agendaFor))
-		deny("invalid_subject");
-	const done = resolved(loaded, template, input.format, cleaned.values, viewer.plantId, row);
-	if (!withArtifact) return c.contextResult.parse(done.value);
-	const bytes = await rendered(template, input.format, done.merge, agendaFor ? row.meeting : null);
+	const done = forSubject(loaded, template, input.format, cleaned.values, viewer.plantId, row, input.meetingId);
+	if (!artifact) return c.contextResult.parse(done.value);
+	const bytes = await done.render(artifact.db, artifact.storage, authority);
 	return c.previewResult.parse({
 		...done.value,
+		brandKit: row.kit !== null,
 		artifact: bytes ? bytes.toString("base64") : null,
 		digest: bytes ? digestOf(bytes) : null,
 		engineVersion: bytes ? renderEngineVersion() : null,
@@ -146,6 +163,43 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 
 type Loaded = Awaited<ReturnType<typeof library>>;
 type OpenRead = Extract<PlantRead, { subjectOk: true }>;
+
+/**
+ * One template resolved for one subject, and its render: the merge values (a meeting's date fills meeting_date) and,
+ * for an agenda, the meeting's rows. The preview and generate both call this, so a generated file holds the bytes its
+ * preview showed for the same template, format, overrides and subject. An agenda prints only from a live meeting of its
+ * own kind; any other meeting reads as no subject at all. The render paints the plant's brand kit as it stands now
+ * (`templateTheme`), so both paths use the same theme for the same kit. With a kit, each image costs the preview
+ * readBrandAsset's 8 statements; with no kit the preview stays at its one read.
+ */
+export function forSubject(
+	loaded: Loaded,
+	template: CatalogTemplate,
+	format: "pdf" | "docx" | "xlsx",
+	overrides: Record<string, string>,
+	plantId: string,
+	row: OpenRead,
+	meetingId: string | undefined,
+) {
+	const agendaFor = agendaTemplateKind(template.id);
+	if (agendaFor && meetingId && (!row.meeting || agendaKindOf(row.meeting) !== agendaFor)) deny("invalid_subject");
+	const done = resolved(loaded, template, format, overrides, plantId, row);
+	return {
+		...done,
+		render: async (db: Database, storage: PrivateStorage | null, authority: RequestActor) => {
+			const entry = entryFor(template.id);
+			if (!entry) deny("render_failed");
+			const theme = await templateTheme(
+				db,
+				storage,
+				authority,
+				{ name: row.churchName ?? "", kit: row.kit },
+				entry.documentClass,
+			);
+			return rendered(template, format, done.merge, agendaFor ? row.meeting : null, row.statement, theme);
+		},
+	};
+}
 
 function resolved(
 	loaded: Loaded,
@@ -176,16 +230,21 @@ function resolved(
 	return { value, merge };
 }
 
-/** Bytes, or null when a required field is missing. A meeting's rows print only when `printFrom` is given. */
+/**
+ * Bytes, or null when a required field is missing. A meeting's rows print only when `printFrom` is given. The network's
+ * statement of faith fills a `statement-of-faith` slot. No theme renders the Everyfield-neutral theme.
+ */
 async function rendered(
 	template: CatalogTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	merge: Extract<ResolvedMerge, { ok: true }>,
 	printFrom: MeetingRead | null,
+	statement: string | null = null,
+	theme?: RenderTheme,
 ) {
 	try {
 		const meeting = printFrom ? agendaMeetingOf(printFrom, new Date().getUTCFullYear()) : undefined;
-		return await renderPreview(template, format, merge, undefined, meeting);
+		return await renderPreview(template, format, merge, theme, meeting, statement);
 	} catch (error) {
 		if (error instanceof RenderFailed) deny("render_failed");
 		throw error;

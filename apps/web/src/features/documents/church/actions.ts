@@ -2,8 +2,8 @@
 
 import { requestDatabase } from "@/server/database";
 import {
-	saveChurchRequest,
 	type ChurchCompare,
+	type CompareView,
 	type ChurchTemplateSummary,
 	type DocDocument,
 } from "@everyfield/contracts/documents";
@@ -13,8 +13,10 @@ import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
 
-// New from template and Delete. The actor is read again here; the server refuses a Member, whatever the page showed.
-// A success moves to the next page on the server, so the library is fresh without a client refresh.
+// The Church Documents actions: create from a template, save, branding, delete, the church templates (save as,
+// list, update, rename, delete), deleting a saved export, and comparing with or accepting a template's changes. The
+// actor is read again here; the server refuses a Member, whatever the page showed. Create and delete move to the next
+// page on the server, so the library is fresh without a client refresh.
 
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
 
@@ -58,20 +60,17 @@ export async function saveChurchDocument(
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
-	const request = saveChurchRequest.safeParse({ documentId, expectedRevision, body });
-	if (!request.success) {
-		const first = request.error.issues[0]?.message ?? "";
-		return { status: "refused", code: "invalid_input", message: `The document is not valid: ${first}` };
-	}
 	try {
-		const reply = await documentsWriter.saveNative(db, actor, request.data);
+		// The writer parses the request, body included, once; a body it refuses names its first problem.
+		const reply = await documentsWriter.saveNative(db, actor, { documentId, expectedRevision, body });
 		if (reply.status !== "ok") {
-			const refused = refusedWith(reply.error.code);
-			return {
-				status: "refused",
-				code: reply.error.code,
-				message: refused.message,
-			};
+			if (reply.error.code === "invalid_input")
+				return {
+					status: "refused",
+					code: "invalid_input",
+					message: `The document is not valid: ${reply.error.details.issues[0]?.problem ?? ""}`,
+				};
+			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
 		}
 		return { status: "saved", revision: reply.value.revision };
 	} catch (error) {
@@ -294,13 +293,16 @@ export type AcceptResult =
 	| { status: "lost" };
 
 /**
- * Accepts the chosen differences (or all of them) as the next revision. The write checks the seat, the revision the
- * compare read and the template it compared with, so a Member, a stale compare or a newer template writes nothing.
+ * Accepts the chosen items of one list (or all of them) as the next revision. The write checks the seat, the revision
+ * the compare read, the template it compared with and the list's key, so a Member, a stale compare, a newer template or
+ * ids from the other list write nothing.
  */
 export async function acceptTemplateChanges(
 	documentId: string,
 	expectedRevision: string,
 	templateHash: string,
+	view: CompareView,
+	key: string,
 	accept: number[] | "all",
 ): Promise<AcceptResult> {
 	const actor = await documentActor();
@@ -311,6 +313,8 @@ export async function acceptTemplateChanges(
 			documentId,
 			expectedRevision,
 			templateHash,
+			view,
+			key,
 			accept,
 		});
 		if (reply.status !== "ok")

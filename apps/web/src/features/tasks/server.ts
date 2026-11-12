@@ -20,7 +20,7 @@ import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } fr
 // statement rechecks the live seat itself (C13), and every write rechecks authority inside its own statement (D70).
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
-export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
+const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
 /** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function taskViewer(): Promise<TaskViewer | null> {
@@ -38,7 +38,7 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 		: { status: "refused", code: reply.error.code, error: reply.error };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
-export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -128,7 +128,7 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
  * instead (D67). A task named in the address opens with its detail and history, two statements more.
  */
 export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: string | null) {
-	return read(viewer, async (tx) => {
+	return read(async (tx) => {
 		let list = await reader.list(tx, viewer, query);
 		if (list.status === "ok" && list.value.items.length === 0 && query.page > 1) {
 			query = { ...query, page: pageCount(list.value.total) };

@@ -16,21 +16,13 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/server/phases/notices.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-038: the journey a church plant declares and moves through. Every write runs through the phase writer the
 // /intelligence actions call, on its own schema of the development or CI database.
 
 let f, writer, onboarding;
 let faultyNotices = false;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const history = (who) => phaseReader.readHistory(f.db, who.actor);
@@ -336,8 +328,11 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 		[owner, 1, "Discernment is done", "forward", 0],
 	];
 	let revision = await revisionOf(plant);
+	const dbNow = async () => Date.parse((await one(sql`SELECT clock_timestamp()::text AS t`)).t);
 	for (const [who, to, reason, direction, from] of steps) {
+		const earliest = await dbNow();
 		const r = ok(await move(who, to, reason, revision));
+		const latest = await dbNow();
 		assert.equal(r.outcome, "moved");
 		assert.equal(r.state.phase, to);
 		assert.equal(BigInt(r.state.revision), BigInt(revision) + 1n);
@@ -354,7 +349,9 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 				occurredAt: null,
 			},
 		);
-		assert.ok(Math.abs(Date.parse(r.entry.occurredAt) - Date.now()) < 60_000);
+		// The move's time is the database's own, read back between two database clock reads around the call.
+		const at = Date.parse(r.entry.occurredAt);
+		assert.ok(at >= earliest && at <= latest, `${r.entry.occurredAt} outside the move`);
 		revision = r.state.revision;
 	}
 	const h = ok(await history(owner));
@@ -502,4 +499,19 @@ test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or cha
 	refused(await move(admin, 3, "After the seat ended", revision), "access_denied");
 	assert.deepEqual(await footprint(plant), before);
 	ok(await history(owner));
+});
+
+test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not accepted yet", async () => {
+	const { plant, owner } = await church("Accepted Later");
+	const linked = await connect(plant, "sending_church");
+	const advance = ok(await move(owner, 2, "Core group is forming", await revisionOf(plant)));
+	assert.ok(advance);
+	const mailRows = await rows(sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m
+		JOIN notice n ON n.id=m.notice_id JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`);
+	assert.equal(mailRows.length, 1);
+	const allowed = () => f.db.transaction((tx) => authorizePhaseNotices(tx, mailRows));
+	assert.equal((await allowed()).size, 1);
+	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day'
+		WHERE account_id=${linked.owner.id} AND organization_id=${linked.org.id}`);
+	assert.equal((await allowed()).size, 0, "the Owner's seat is not accepted yet");
 });

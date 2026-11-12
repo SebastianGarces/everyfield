@@ -10,7 +10,12 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev stack up [--mode development|production] [--project <path>]    waits for a free preview slot, then starts it
   dev stack status|check|down [--project <path>]
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
-  dev traces                               says what to read instead: no trace reader exists yet
+  dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
+        checks.json record outside the repo and prints its path
+        checks: lint, typecheck, test:unit, docs, ci-coverage, workflow, tools-ci, tools-qa, github-scripts, ops-watch
+        GitHub CI also runs: format:check, build then server-trace, test:logs, db, census, wiki
+  dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
+        time; skips when the machine is loaded or no preview slot is free
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
@@ -57,7 +62,7 @@ function stack(args: string[]): number {
 	if (!action || !["up", "status", "check", "down"].includes(action)) return usage();
 	if (action === "up") {
 		const options = [...rest],
-			project = take(options, "--project") ?? process.env.EVF_WORKTREE ?? root;
+			project = take(options, "--project") ?? root;
 		// A full preview pool makes the stack wait for a free slot (and free orphans first) instead of failing.
 		const slot = node(SLOTS, ["--project", project]);
 		if (slot.status !== 0) return slot.status ?? 1;
@@ -115,14 +120,15 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return stack(args);
 		case "logs":
 			return logs(args);
+		// Loaded on use: the other commands, and copies of bin/dev in tests, need none of the selection code.
+		case "check":
+			return (await import("./check.ts")).checkCommand(args, root);
+		case "nightly":
+			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
 		case "hooks":
 			return hooks(args);
-		case "traces":
-			throw new DevError(
-				"No trace reader exists yet: the observability package has not landed. Read bin/dev logs instead, and say so in your report.",
-			);
 		case "help":
 		case "--help":
 		case undefined:

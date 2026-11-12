@@ -2,10 +2,16 @@ import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, type Node as PMNode, type Schema } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
+import type { Condition } from "./condition.ts";
+import { conditionIssue } from "./condition-extension.ts";
+import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
+import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
+import { BLOCK_NAME } from "../labels.ts";
 
-// Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
-// selected block. Each one is one transaction, so one Undo reverses it. A block inside a list, quote, column or box
-// moves with its top-level parent.
+// Whole-block actions, each one transaction, so one Undo reverses it. Insert puts the new block after the block that
+// holds the selection, inside the innermost column, box, conditional text, header or footer (insertionPoint). Move up,
+// Move down and Delete act on the top-level block that holds the cursor or the selected block: a block inside a list,
+// quote, column or box moves with its top-level parent.
 
 type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
@@ -56,28 +62,36 @@ export type InsertKind =
 	| "logo"
 	| "mark"
 	| "photo"
+	| "table"
+	| "checklist"
+	| "budget"
+	| "if"
 	| "slot";
-type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "sections";
+type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "tables" | "conditions" | "sections";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
-	{ kind: "paragraph", label: "Paragraph", group: "text" },
+	{ kind: "paragraph", label: BLOCK_NAME.paragraph, group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
-	{ kind: "bulletList", label: "Bulleted list", group: "text" },
-	{ kind: "orderedList", label: "Numbered list", group: "text" },
-	{ kind: "quote", label: "Quote", group: "text" },
-	{ kind: "divider", label: "Divider", group: "rules" },
+	{ kind: "bulletList", label: BLOCK_NAME.bulletList, group: "text" },
+	{ kind: "orderedList", label: BLOCK_NAME.orderedList, group: "text" },
+	{ kind: "quote", label: BLOCK_NAME.quote, group: "text" },
+	{ kind: "divider", label: BLOCK_NAME.divider, group: "rules" },
 	{ kind: "accentBar", label: "Accent bar", group: "rules" },
-	{ kind: "spacer", label: "Spacer", group: "rules" },
-	{ kind: "pageBreak", label: "Page break", group: "rules" },
+	{ kind: "spacer", label: BLOCK_NAME.spacer, group: "rules" },
+	{ kind: "pageBreak", label: BLOCK_NAME.pageBreak, group: "rules" },
 	{ kind: "columns2", label: "2 columns", group: "layout" },
 	{ kind: "columns3", label: "3 columns", group: "layout" },
 	{ kind: "columns4", label: "4 columns", group: "layout" },
-	{ kind: "box", label: "Colored box", group: "layout" },
+	{ kind: "box", label: BLOCK_NAME.box, group: "layout" },
 	{ kind: "writeIn", label: "Write-in line", group: "lines" },
 	{ kind: "signature", label: "Signature line", group: "lines" },
 	{ kind: "dateLine", label: "Date line", group: "lines" },
 	{ kind: "logo", label: "Logo", group: "images" },
 	{ kind: "mark", label: "Mark", group: "images" },
 	{ kind: "photo", label: "Photo", group: "images" },
+	{ kind: "table", label: BLOCK_NAME.table, group: "tables" },
+	{ kind: "checklist", label: "Checklist rows", group: "tables" },
+	{ kind: "budget", label: "Budget table", group: "tables" },
+	{ kind: "if", label: "Conditional text", group: "conditions" },
 	{ kind: "slot", label: "Doctrinal section", group: "sections" },
 ];
 
@@ -92,7 +106,10 @@ const IMAGE_SIZE: Record<ImageKind, { width: number; height: number } | undefine
 	photo: { width: 360, height: 140 },
 };
 
-function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
+/** The condition a probe node carries, to ask the schema where conditional text may go. */
+const PROBE: Condition = { field: "field", test: "has-value" };
+
+function build(schema: Schema, kind: InsertKind, alt = "", condition: Condition = PROBE): PMNode {
 	const type = (name: string) => {
 		const found = schema.nodes[name];
 		if (!found) throw new Error(`the schema has no ${name}`);
@@ -134,20 +151,32 @@ function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
 		case "mark":
 		case "photo":
 			return type("image").create({ source: kind, ...IMAGE_SIZE[kind], ...(alt ? { alt } : {}) });
+		case "table":
+			return nodeFromTable(schema, newGrid());
+		case "checklist":
+			return nodeFromTable(schema, newChecklist());
+		case "budget":
+			return nodeFromTable(schema, newBudget());
+		case "if":
+			return type("if").create(condition, paragraph());
 		default:
 			return type(kind).create();
 	}
 }
 
-const CONTAINER_NAMES = new Set(["doc", "column", "box", "pageHeader", "pageFooter"]);
+const CONTAINER_NAMES = new Set(["doc", "column", "box", "pageHeader", "pageFooter", "if"]);
 
-/** Where Insert puts a block: after the block that holds the selection, inside the innermost column, box, header or footer. */
-function insertionPoint(state: EditorState): { pos: number; parent: PMNode; index: number } {
+/**
+ * Where Insert puts a block: after the block that holds the selection, inside the innermost column, box, conditional
+ * text, header or footer. New conditional text goes after the conditional text that holds the selection, not into it.
+ */
+function insertionPoint(state: EditorState, kind?: InsertKind): { pos: number; parent: PMNode; index: number } {
 	const { selection, doc } = state;
 	const $from = selection.$from;
 	for (let d = $from.depth; d >= 0; d--) {
 		const node = $from.node(d);
 		if (!CONTAINER_NAMES.has(node.type.name)) continue;
+		if (kind === "if" && node.type.name === "if") continue;
 		let pos: number;
 		if (selection instanceof NodeSelection && d === $from.depth) pos = selection.to;
 		else if ($from.depth > d) pos = $from.after(d + 1);
@@ -168,10 +197,60 @@ function insertionPoint(state: EditorState): { pos: number; parent: PMNode; inde
 
 /** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
 export function canInsert(state: EditorState, kind: InsertKind): boolean {
+	// A budget table sits in the body: the page header and footer print no Excel file.
+	if (kind === "budget" && regionAt(state)) return false;
 	if (kind === "slot" && hasSlot(state.doc)) return false;
-	const { parent, index } = insertionPoint(state);
-	const node = build(state.schema, kind);
-	return parent.canReplaceWith(index, index, node.type);
+	// The format refuses columns anywhere under a column, a box or conditional text in a column included.
+	if (kind.startsWith("columns") && insideColumn(state)) return false;
+	const type = state.schema.nodes[NODE_OF[kind]];
+	const { pos, parent, index } = insertionPoint(state, kind);
+	if (!type || !parent.canReplaceWith(index, index, type)) return false;
+	// Conditional text, or a block going into it: the format's rules for where it sits and what it holds.
+	if (kind === "if" || insideCondition(state))
+		return conditionIssue(state.tr.insert(pos, build(state.schema, kind)).doc) === null;
+	return true;
+}
+
+/** The node each Insert item adds: what the schema is asked about before anything is built. */
+const NODE_OF: Record<InsertKind, string> = {
+	paragraph: "paragraph",
+	heading: "heading",
+	bulletList: "bulletList",
+	orderedList: "orderedList",
+	quote: "quote",
+	divider: "divider",
+	accentBar: "divider",
+	spacer: "spacer",
+	pageBreak: "pageBreak",
+	columns2: "columns",
+	columns3: "columns",
+	columns4: "columns",
+	box: "box",
+	writeIn: "writeIn",
+	signature: "writeIn",
+	dateLine: "writeIn",
+	logo: "image",
+	mark: "image",
+	photo: "image",
+	table: "table",
+	checklist: "table",
+	budget: "table",
+	if: "if",
+	slot: "slot",
+};
+
+/** True when a column holds the selection, at any depth. */
+export function insideColumn(state: EditorState) {
+	const $from = state.selection.$from;
+	for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === "column") return true;
+	return state.selection instanceof NodeSelection && state.selection.node.type.name === "column";
+}
+
+/** True when the selection is inside conditional text. */
+function insideCondition(state: EditorState) {
+	const $from = state.selection.$from;
+	for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === "if") return true;
+	return state.selection instanceof NodeSelection && state.selection.node.type.name === "if";
 }
 
 /**
@@ -197,12 +276,17 @@ export function regionAt(state: EditorState): "pageHeader" | "pageFooter" | null
 	return null;
 }
 
-/** Adds a block after the current block. Text blocks take the cursor. `alt` is the asset's alternative text for an image. */
-export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean {
+const labelPlace = { row: null, col: 0 };
+
+/**
+ * Adds a block after the current block. Text blocks take the cursor. `alt` is the asset's alternative text for an image;
+ * `condition` is what new conditional text tests. Conditional text holds one empty paragraph, which takes the cursor.
+ */
+export function insertBlock(editor: Editor, kind: InsertKind, alt = "", condition?: Condition): boolean {
 	const { state } = editor;
-	if (!canInsert(state, kind)) return false;
-	const { pos: at, parent, index } = insertionPoint(state);
-	const node = build(state.schema, kind, alt);
+	if (!canInsert(state, kind) || (kind === "if" && !condition)) return false;
+	const { pos: at, parent, index } = insertionPoint(state, kind);
+	const node = build(state.schema, kind, alt, condition);
 	const tr = history(state.tr);
 	const textual = ["paragraph", "heading", "bulletList", "orderedList", "quote"].includes(node.type.name);
 	const next = parent.maybeChild(index);
@@ -217,9 +301,20 @@ export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean
 		tr.setSelection(
 			addParagraph || after < tr.doc.content.size ? Selection.near(near, 1) : NodeSelection.create(tr.doc, at),
 		);
+	} else if (node.type.name === "table") {
+		// The cursor goes into the first text cell; a table with no typed row yet takes its first header label below.
+		let firstText: number | null = null;
+		node.descendants((child, offset) => {
+			if (firstText === null && child.type.name === "cell") firstText = at + 1 + offset;
+			return firstText === null;
+		});
+		if (firstText !== null) tr.setSelection(TextSelection.create(tr.doc, firstText + 1));
+		else selectIn(tr, at, labelPlace);
 	} else tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1));
 	editor.view.dispatch(tr);
 	editor.view.focus();
+	if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === "table")
+		focusPlace(editor.view, at, labelPlace);
 	return true;
 }
 
@@ -282,6 +377,69 @@ export function deleteBlock(editor: Editor): boolean {
 	return true;
 }
 
+// ---------------------------------------------------------------- conditional text
+
+/** The block "Make conditional" wraps: the one that holds the selection in the innermost body, column or box. */
+function wrapTarget(state: EditorState): { from: number; node: PMNode } | null {
+	const { selection } = state;
+	const $from = selection.$from;
+	for (let d = $from.depth; d >= 0; d--) {
+		const name = $from.node(d).type.name;
+		if (name === "if" || name === "pageHeader" || name === "pageFooter") return null;
+		if (name !== "doc" && name !== "column" && name !== "box") continue;
+		if ($from.depth > d) return { from: $from.before(d + 1), node: $from.node(d + 1) };
+		if (selection instanceof NodeSelection) return { from: selection.from, node: selection.node };
+		return null;
+	}
+	return null;
+}
+
+/** The document with the current block wrapped in conditional text, or null when the format would refuse it there. */
+function wrapped(state: EditorState, condition: Condition) {
+	const target = wrapTarget(state);
+	const type = state.schema.nodes.if;
+	if (!target || !type) return null;
+	const node = type.create(condition, target.node);
+	const tr = state.tr.replaceWith(target.from, target.from + target.node.nodeSize, node);
+	return conditionIssue(tr.doc) === null ? { tr, target } : null;
+}
+
+/** True when the current block can become conditional text here. The header and the footer never offer it. */
+export const canWrap = (state: EditorState) => wrapped(state, PROBE) !== null;
+
+/** Wraps the current block in conditional text that tests `condition`. The cursor stays where it was, one level in. */
+export function wrapBlock(editor: Editor, condition: Condition): boolean {
+	const { state } = editor;
+	const done = wrapped(state, condition);
+	if (!done) return false;
+	const { tr, target } = done;
+	const { selection } = state;
+	const inside = selection.from >= target.from && selection.to <= target.from + target.node.nodeSize;
+	if (selection instanceof NodeSelection && inside) tr.setSelection(NodeSelection.create(tr.doc, selection.from + 1));
+	else if (inside) tr.setSelection(TextSelection.create(tr.doc, selection.from + 1, selection.to + 1));
+	else tr.setSelection(Selection.near(tr.doc.resolve(target.from + 2), 1));
+	editor.view.dispatch(history(tr));
+	editor.view.focus();
+	return true;
+}
+
+/** Removes the condition of the conditional text at `pos`: its blocks stay in place as plain blocks. */
+export function removeCondition(editor: Editor, pos: number): boolean {
+	const { state } = editor;
+	const node = state.doc.nodeAt(pos);
+	if (!node || node.type.name !== "if") return false;
+	const { selection } = state;
+	const end = pos + node.nodeSize;
+	const tr = history(state.tr).replaceWith(pos, end, node.content);
+	if (selection.from > pos && selection.to < end) {
+		if (selection instanceof NodeSelection) tr.setSelection(NodeSelection.create(tr.doc, selection.from - 1));
+		else tr.setSelection(TextSelection.create(tr.doc, selection.from - 1, selection.to - 1));
+	}
+	editor.view.dispatch(tr);
+	editor.view.focus();
+	return true;
+}
+
 /** Empties the body, the header and the footer in one step, so one Undo brings all three back. */
 export function deleteAllContent(editor: Editor): boolean {
 	const { state } = editor;
@@ -291,7 +449,7 @@ export function deleteAllContent(editor: Editor): boolean {
 
 // ---------------------------------------------------------------- text styles
 
-export type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
+type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
 export const TEXT_STYLES: { style: TextStyle; label: string }[] = [
 	{ style: "body", label: "Body" },
 	{ style: "lead", label: "Lead" },

@@ -20,6 +20,8 @@ export type Ctx = {
 	log: ContrastLog;
 	/** The meeting an agenda prints from. Absent: the agenda is the blank sheet. */
 	meeting?: AgendaMeeting;
+	/** The sending network's statement of faith a template preview prints in its `statement-of-faith` slot (D-417). */
+	statement?: string | null;
 };
 
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
@@ -281,12 +283,12 @@ export const Cellfield = (name: string, w: number, h = 16) => (
 );
 
 /** Checkbox: a drawn square in the accent line color (3:1 on white) with the Forme fillable checkbox on top. */
-export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = "accent") => {
+export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = "accent", checked = false) => {
 	const line = tone === "accent" && ctx.p.brand ? ctx.p.accentLine : ctx.p.ink;
 	ctx.log.pair(`checkbox outline (${tone}) vs page`, line, ctx.p.white, MIN_NONTEXT);
 	return (
 		<View style={{ width: size, height: size, borderWidth: 1.5, borderColor: line }}>
-			<Checkbox name={name} width={size - 3} height={size - 3} />
+			<Checkbox name={name} width={size - 3} height={size - 3} checked={checked} />
 		</View>
 	);
 };

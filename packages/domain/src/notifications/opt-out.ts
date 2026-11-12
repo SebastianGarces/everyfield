@@ -1,6 +1,6 @@
 import { notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
 import { emailOptOutResult, emailOptOutRequest, optOutPurpose } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationChannels } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
@@ -20,7 +20,7 @@ const payload = z.strictObject({
 type Payload = z.infer<typeof payload>;
 const DAY = 86_400_000;
 const HOUR = 60 * 60 * 1000;
-export const OPT_OUT_DISABLE_MS = 180 * DAY;
+const OPT_OUT_DISABLE_MS = 180 * DAY;
 export type OptOutKeyRing = { current: Buffer; previous?: readonly Buffer[] };
 
 function asRing(key: Buffer | OptOutKeyRing): OptOutKeyRing {
@@ -79,10 +79,30 @@ function seal(
 		exp,
 		unsubscribeRevision: input.unsubscribeRevision,
 	});
-	const nonce = iv(ring.current, claim);
-	const cipher = createCipheriv("aes-256-gcm", ring.current, nonce);
+	return sealClaim(ring.current, claim, iv(ring.current, claim));
+}
+
+/**
+ * One AES-256-GCM token over a JSON claim: nonce, tag, then ciphertext, in base64url. The Messages opt-out
+ * (communication/opt-out.ts) seals its own claims with this under its own subkey.
+ */
+export function sealClaim(key: Buffer, claim: string, nonce: Buffer): string {
+	const cipher = createCipheriv("aes-256-gcm", key, nonce);
 	const body = Buffer.concat([cipher.update(claim), cipher.final()]);
 	return Buffer.concat([nonce, cipher.getAuthTag(), body]).toString("base64url");
+}
+
+/** The JSON claim a token sealed under `key` holds, or null when it does not open: forged, tampered or another key. */
+export function openClaim(key: Buffer, token: string): unknown {
+	try {
+		const buf = Buffer.from(token, "base64url");
+		if (buf.length < 29 || key.length !== 32) return null;
+		const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
+		decipher.setAuthTag(buf.subarray(12, 28));
+		return JSON.parse(Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString());
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -100,17 +120,8 @@ export function parseKeyRing(raw: string | undefined): { current: Buffer; previo
 }
 
 function openWith(key: Buffer, token: string): Payload | null {
-	try {
-		const buf = Buffer.from(token, "base64url");
-		if (buf.length < 29 || key.length !== 32) return null;
-		const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
-		decipher.setAuthTag(buf.subarray(12, 28));
-		const json = Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString();
-		const parsed = payload.safeParse(JSON.parse(json));
-		return parsed.success ? parsed.data : null;
-	} catch {
-		return null;
-	}
+	const parsed = payload.safeParse(openClaim(key, token));
+	return parsed.success ? parsed.data : null;
 }
 
 function openToken(key: Buffer | OptOutKeyRing, token: string): Payload | null {
@@ -162,7 +173,7 @@ async function writeState(db: Database, claim: Payload) {
 			INSERT INTO notification_preference (account_id, category, channel, enabled, unsubscribe_revision)
 			SELECT account_id, ${claim.category}, 'email', ${enable},
 				CASE WHEN ${claim.purpose} = 'disable' THEN COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) + 1
-					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 1) END
+					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) END
 			FROM state
 			WHERE account_id IS NOT NULL AND rev = ${claim.unsubscribeRevision}
 				AND ((${claim.purpose} = 'disable' AND email_enabled IS TRUE) OR (${claim.purpose} = 'undo' AND email_enabled IS FALSE))
@@ -201,7 +212,7 @@ export function emailOptOut(
 			purpose === "describe" ? { token: parse(emailOptOutRequest, raw).token } : parse(emailOptOutRequest, raw);
 		const claim = openToken(key, input.token);
 		if (!claim || (purpose !== "describe" && claim.purpose !== purpose)) deny("access_denied");
-		if (claim.category === "wiki_upstream_review") deny("invalid_input");
+		if (!notificationChannels(claim.category).includes("email")) deny("invalid_input");
 		if (windowTooLong(claim)) deny("access_denied");
 		const expired = Date.parse(claim.exp) <= now().getTime();
 		const row = expired || purpose === "describe" ? await readState(db, claim) : await writeState(db, claim);

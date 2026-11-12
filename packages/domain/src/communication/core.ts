@@ -23,7 +23,7 @@ export type CommunicationContext = { session: RequestActor["session"]; selected:
 export type CommunicationReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.CommunicationError };
 type Code = c.CommunicationError["code"];
 
-export class CommunicationRefusal extends Error {
+class CommunicationRefusal extends Error {
 	readonly code: Code;
 	readonly details: Record<string, unknown>;
 	constructor(code: Code, details: Record<string, unknown> = {}) {
@@ -110,7 +110,7 @@ export function readerOf(authority: RequestActor): Viewer & { session: string; s
 		owner: actor.context.owner,
 	};
 }
-export async function writerOf(tx: Tx, context: CommunicationContext) {
+async function writerOf(tx: Tx, context: CommunicationContext) {
 	const bound = await lockedWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)
