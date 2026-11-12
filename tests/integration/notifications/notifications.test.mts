@@ -486,7 +486,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		VALUES(${church.id},${planter.id},'tasks.changed','edit','record',${church.id},jsonb_build_object('secret','PRIVATE-CARE-MARKER'))`);
 	await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,reason,metadata)
-		VALUES(${church.id},${planter.id},'note_correction','correct','record',${church.id},'PRIVATE-CARE-MARKER',jsonb_build_object('body','PRIVATE-CARE-MARKER'))`);
+		VALUES(${church.id},${planter.id},'people.corrected','correct','record',${church.id},'PRIVATE-CARE-MARKER',jsonb_build_object('body','PRIVATE-CARE-MARKER'))`);
 	const northReader = await actor(northOwner.session);
 	const preview = ok(
 		await api.readOversightDigest(db, northReader, {

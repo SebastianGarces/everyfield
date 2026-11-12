@@ -7,6 +7,8 @@
 //   INV-revision: an older revision never replaces a newer saved person.
 //   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the top (newest first),
 //     a known entry is replaced in place, and that holds while older pages are still unloaded.
+//   INV-pairs-count (D-846, D-847): the People header links to the pairs to review as "N to review in Duplicates",
+//     "100+ …" past the read's first 100, and shows nothing with no pair or no read (a Member's page).
 //   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
 //     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";
@@ -23,6 +25,7 @@ import {
 	rangeText,
 	columnCards,
 	withEntry,
+	pairsToReview,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -285,4 +288,17 @@ test('AC:TARGET-PPL-018 a repeat of a skipped row loses "Add, review later"; oth
 		],
 	);
 	assert.equal(all.get(2), "create_and_review", "the input map is not changed");
+});
+
+test("INV-pairs-count: the header link counts the listed pairs, says 100+ past 100 and hides at zero", () => {
+	const pairs = (n, completeness = "complete") => ({
+		items: Array.from({ length: n }, (_, i) => ({ i })),
+		completeness,
+	});
+	assert.equal(pairsToReview(pairs(1)), "1 to review in Duplicates");
+	assert.equal(pairsToReview(pairs(3)), "3 to review in Duplicates");
+	assert.equal(pairsToReview(pairs(100)), "100 to review in Duplicates");
+	assert.equal(pairsToReview(pairs(100, "partial")), "100+ to review in Duplicates");
+	assert.equal(pairsToReview(pairs(0)), null);
+	assert.equal(pairsToReview(null), null);
 });
