@@ -21,6 +21,9 @@ import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.t
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
+import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 const database = await testDatabase({
@@ -729,7 +732,7 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes });
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
-	assert.deepEqual(await readAvatar(db, storage, ctx(a), upload.uploadId), bytes);
+	assert.deepEqual(await readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }), bytes);
 	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
 	let entered, release;
 	const locked = new Promise((r) => (entered = r)),
@@ -743,7 +746,9 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	try {
 		// The read races Postgres lock state: it must finish before any session of the runtime role waits for a lock.
 		const done = new AbortController();
-		const read = readAvatar(db, storage, ctx(a), upload.uploadId).finally(() => done.abort());
+		const read = readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }).finally(() =>
+			done.abort(),
+		);
 		const waited = await waitingOnLock(db, { signal: done.signal });
 		assert.equal(waited, false, "photo read waited for the session lock");
 		assert.deepEqual(await read, bytes);
@@ -755,6 +760,292 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const clear = ok(await call("removeAvatar", a, command({}, "2")));
 	assert.deepEqual(clear, { status: "absent" });
 	denied(await call("getAvatar", a, { versionId: upload.uploadId }));
+});
+
+// T-271: the account photo read rule (REQ-IDN-006). Its own account, and the people who hold a live seat in a church or
+// organization where the account holds one, load its current version. Everyone else gets the same refusal as a
+// missing photo.
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
+/** A private bucket fake that keeps the bytes it was sent. */
+function photoStorage() {
+	const objects = new Map();
+	return {
+		bucket: "synthetic-only",
+		client: {
+			send: async (command) => {
+				const i = command.input;
+				switch (command.constructor.name) {
+					case "GetBucketAclCommand":
+						return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+					case "PutObjectCommand":
+						objects.set(i.Key, Buffer.from(i.Body));
+						return {};
+					case "GetObjectCommand": {
+						const body = objects.get(i.Key);
+						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+					}
+					default:
+						throw Error("unexpected provider operation");
+				}
+			},
+		},
+	};
+}
+/** The account uploads and finalizes a new photo, as Settings does; the version it becomes. */
+async function setPhoto(storage, a) {
+	const upload = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: PNG.length }));
+	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes: PNG });
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId }, row.revision)));
+	return { accountId: a.id, versionId: upload.uploadId };
+}
+/** What one account's session gets for one photo version: its bytes, or "refused" for every kind of refusal. */
+const photoRead = (storage, a, photo) =>
+	readAvatar(db, storage, ctx(a), photo).then(
+		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
+		(error) => (error.message === "unavailable" ? "refused" : error.message),
+	);
+/** A fresh normal session for an account whose sessions a deletion request ended. */
+async function newSession(a) {
+	const session = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	return { ...a, session };
+}
+
+test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load each other's current photo; nobody else does", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		member = await seat(f.p, "member"),
+		other = await plant(),
+		network = await organization(),
+		seatless = await actor();
+	const owner = await setPhoto(storage, f.a),
+		memberPhoto = await setPhoto(storage, member);
+	const read = (who, photo) => photoRead(storage, who, photo);
+
+	// Done 4: each seat holder loads the other's photo, and the account loads its own.
+	assert.equal(await read(member, owner), "bytes");
+	assert.equal(await read(f.a, memberPhoto), "bytes");
+	assert.equal(await read(f.a, owner), "bytes");
+	// Done 5: another church, an organization the person is not in, no seat at all.
+	for (const who of [other.a, network.a, seatless]) {
+		assert.equal(await read(who, owner), "refused");
+		assert.equal(await read(who, memberPhoto), "refused");
+	}
+	// The rule follows the shared workspace: a seat holder in the same organization loads that photo.
+	const peer = await actor();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: peer.id, organization_id: network.o.id, role: "member", accepted_at: new Date() });
+	const networkPhoto = await setPhoto(storage, network.a);
+	assert.equal(await read(peer, networkPhoto), "bytes");
+	assert.equal(await read(f.a, networkPhoto), "refused");
+	// The account and version must belong together: another account's id with this version is refused.
+	assert.equal(await read(member, { accountId: member.id, versionId: owner.versionId }), "refused");
+
+	// Done 6: no live session (unknown, expired) gets the refusal.
+	assert.equal(await read({ id: member.id, session: randomUUID() }, owner), "refused");
+	// A session counts only for its own account.
+	assert.equal(await read({ id: member.id, session: seatless.session }, owner), "refused");
+	const own = await setPhoto(storage, seatless);
+	assert.equal(await read(seatless, own), "bytes");
+	await admin.execute(
+		sql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${seatless.session}`,
+	);
+	assert.equal(await read(seatless, own), "refused");
+
+	// Done 8: a replaced version is refused to every viewer, the account itself included; only the current one loads.
+	const replaced = await setPhoto(storage, f.a);
+	assert.equal(await read(f.a, owner), "refused");
+	assert.equal(await read(member, owner), "refused");
+	assert.equal(await read(member, replaced), "bytes");
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, f.a.id));
+	ok(await call("removeAvatar", f.a, command({}, row.revision)));
+	assert.equal(await read(f.a, replaced), "refused");
+	assert.equal(await read(member, replaced), "refused");
+
+	// Done 7: after the seat ends, neither side loads the other's photo any more.
+	const current = await setPhoto(storage, f.a);
+	assert.equal(await read(member, current), "bytes");
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${member.id} AND plant_id=${f.p.id}`,
+	);
+	assert.equal(await read(member, current), "refused");
+	assert.equal(await read(f.a, memberPhoto), "refused");
+	assert.equal(await read(member, memberPhoto), "bytes");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant load each other's photos while the link is current", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		staff = await seat(f.p, "member"),
+		church = await organization(),
+		director = await actor(),
+		outsider = await organization();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: director.id, organization_id: church.o.id, role: "member", accepted_at: new Date() });
+	const [link] = await admin
+		.insert(t.affiliation)
+		.values({
+			plant_id: f.p.id,
+			organization_id: church.o.id,
+			accepted_at: new Date(),
+			share_people: false,
+			share_meetings: false,
+			share_tasks: false,
+			share_ministry_teams: false,
+			share_wiki: false,
+			share_activity: false,
+			shared_findings: false,
+		})
+		.returning();
+	const planter = await setPhoto(storage, f.a),
+		staffPhoto = await setPhoto(storage, staff),
+		directorPhoto = await setPhoto(storage, director);
+	const read = (who, photo) => photoRead(storage, who, photo);
+
+	// The church's directors load the planter's and plant staff's photos, and the plant's people load theirs.
+	for (const who of [church.a, director]) {
+		assert.equal(await read(who, planter), "bytes");
+		assert.equal(await read(who, staffPhoto), "bytes");
+	}
+	assert.equal(await read(staff, directorPhoto), "bytes");
+	assert.equal(await read(f.a, directorPhoto), "bytes");
+	// An organization with no link to the plant gets the refusal both ways.
+	assert.equal(await read(outsider.a, planter), "refused");
+	assert.equal(await read(outsider.a, directorPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, outsider.a)), "refused");
+
+	// A director whose seat ended is refused at once, both ways; so is the plant's photo of a staff seat that ended.
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${director.id} AND organization_id=${church.o.id}`,
+	);
+	assert.equal(await read(director, planter), "refused");
+	assert.equal(await read(staff, directorPhoto), "refused");
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${staff.id} AND plant_id=${f.p.id}`,
+	);
+	assert.equal(await read(church.a, staffPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, church.a)), "refused");
+
+	// Once the link ends, the church's remaining director no longer loads the planter's photo.
+	assert.equal(await read(church.a, planter), "bytes");
+	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link.id}`);
+	assert.equal(await read(church.a, planter), "refused");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
+	const storage = photoStorage();
+	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.
+	const f = await plant(),
+		leaving = await seat(f.p, "member");
+	const photo = await setPhoto(storage, leaving);
+	assert.equal(await photoRead(storage, f.a, photo), "bytes");
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, leaving.id));
+	ok(await call("requestAccountDeletion", leaving, command({ confirmed: true }, row.revision)));
+	assert.equal(await photoRead(storage, f.a, photo), "refused");
+	assert.equal(await photoRead(storage, await newSession(leaving), photo), "refused");
+
+	// Church workspace deletion: a fresh session of a seat holder there no longer loads the church's photos.
+	const church = await plant(),
+		member = await seat(church.p, "member");
+	const ownerPhoto = await setPhoto(storage, church.a);
+	const memberPhoto = await setPhoto(storage, member);
+	assert.equal(await photoRead(storage, member, ownerPhoto), "bytes");
+	const [plantRow] = await admin.select().from(t.plant).where(eq(t.plant.id, church.p.id));
+	ok(
+		await call(
+			"requestWorkspaceDeletion",
+			church.a,
+			command({ plant: church.p, confirmed: true }, plantRow.revision),
+			church.p,
+		),
+	);
+	const again = await newSession(member);
+	assert.equal(await photoRead(storage, again, ownerPhoto), "refused");
+	assert.equal(await photoRead(storage, await newSession(church.a), memberPhoto), "refused");
+	// The member's own photo is still theirs to load.
+	assert.equal(await photoRead(storage, again, memberPhoto), "bytes");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 2-3: the Seats roster and the People list name each visible photo by its account and version", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		member = await seat(f.p, "member"),
+		plain = await seat(f.p, "member"),
+		former = await seat(f.p, "member");
+	const ownerPhoto = await setPhoto(storage, f.a),
+		memberPhoto = await setPhoto(storage, member),
+		formerPhoto = await setPhoto(storage, former);
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
+
+	const roster = async (a) => {
+		const authority = (await readViewer(db, a.session)).authority;
+		const list = await createSeatService(db).list(authority, { workspace: f.p });
+		return Object.fromEntries(list.items.map((s) => [s.displayName + "/" + s.status, s.avatar]));
+	};
+	await admin.execute(
+		sql`UPDATE auth_user u SET name=n.name FROM (VALUES (${f.a.user}::uuid,'Owner'),(${member.user}::uuid,'Member'),(${plain.user}::uuid,'Plain'),(${former.user}::uuid,'Former')) n(id,name) WHERE u.id=n.id`,
+	);
+	const expected = {
+		"Owner/active": ownerPhoto,
+		"Member/active": memberPhoto,
+		"Plain/active": null,
+		"Former/removed": null,
+	};
+	assert.deepEqual(await roster(f.a), expected);
+	assert.deepEqual(await roster(member), expected);
+	// No storage key or bearer URL is in the roster.
+	assert.doesNotMatch(JSON.stringify(await roster(f.a)), /private\/|https?:/);
+	assert.equal(formerPhoto.accountId, former.id);
+
+	// People: a linked seat holder shows the account photo; a People photo wins; unlinked and former stay plain.
+	const person = async (name, linked) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at,linked_account_id)
+			VALUES(${id},${f.p.id},${f.p.id},${name},'other','prospect','unknown','unknown',0,'live',clock_timestamp(),${linked ?? null})`);
+		return id;
+	};
+	const linked = await person("Linked", member.id),
+		// The Owner's own Person, which creating the church linked to the Owner's account.
+		[{ id: both }] = await admin
+			.select({ id: t.person.id })
+			.from(t.person)
+			.where(and(eq(t.person.plant_id, f.p.id), eq(t.person.linked_account_id, f.a.id))),
+		unlinked = await person("Unlinked"),
+		leftChurch = await person("Left", former.id);
+	const crm = randomUUID();
+	await admin.insert(t.file_object).values({
+		id: crm,
+		tenant_id: f.p.id,
+		purpose: "person_photo",
+		opaque_key: `private/${f.p.id}/${randomUUID()}`,
+		media_type: "image/png",
+		max_bytes: "1",
+		byte_count: "1",
+		sha256: createHash("sha256").update("x").digest("hex"),
+		state: "ready",
+		upload_key: crm,
+		claim_generation: "0",
+	});
+	await admin.update(t.person).set({ photo_object_id: crm }).where(eq(t.person.id, both));
+	const authority = (await readViewer(db, plain.session)).authority;
+	const page = ok(
+		await db.transaction((tx) =>
+			peopleReader.listPeople(tx, new PeopleReadContext(authority), listPeopleRequest.parse({ page: 1, limit: 100 })),
+		),
+	);
+	const photos = Object.fromEntries(page.photos.map((p) => [p.personId, p.photo]));
+	assert.deepEqual(photos[linked], { kind: "account", ...memberPhoto });
+	assert.deepEqual(photos[both], { kind: "person", personId: both, versionId: crm });
+	assert.equal(photos[unlinked], undefined);
+	assert.equal(photos[leftChurch], undefined);
 });
 
 let signInAuth;

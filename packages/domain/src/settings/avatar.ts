@@ -13,7 +13,8 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveRead, writeVisibility } from "../access/session.ts";
+import { seatHeld, writeVisibility } from "../access/session.ts";
+import { hiding, oversightAvatar, workspaceAvatar } from "./photo-visibility.ts";
 import { executeWrites } from "../operations/writes.ts";
 import {
 	appendEvent,
@@ -156,33 +157,52 @@ export function avatarOperations(
 }
 /**
  * This context's own account, when the session is live, the account is fully registered and no lifecycle witness
- * hides it, in one statement. A read uses the lock-free live check (C27); the upload, a write, keeps the share locks of
- * access_session.
+ * hides it, in one statement. The upload is a write, so it keeps the share locks of access_session.
  */
-function liveSelf(ctx: SettingsContext, read: boolean) {
+function liveSelf(ctx: SettingsContext) {
 	if (ctx.selected.kind !== "account") return sql`false`;
 	const account = ctx.selected.id;
-	const live = read
-		? liveRead({ session: ctx.session, owner: ctx.selected })
-		: sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)}`;
-	return sql<boolean>`(${t.account.id}=${account}::uuid AND ${live})`;
+	return sql<boolean>`(${t.account.id}=${account}::uuid AND EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)})`;
 }
-function authorization(ctx: SettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
+/** The upload's authorizer: only the live account's own staged file. */
+function uploadAuthorization(ctx: SettingsContext): ResourceAuthorizer {
 	return async (tx, file, intent) => {
-		const [a] = await tx
-			.select({ id: t.account.id, avatar: t.account.avatar_object_id })
-			.from(t.account)
-			.where(liveSelf(ctx, !upload));
-		if (
-			!a ||
-			(!upload && file.id !== uploadId) ||
-			file.tenant_id !== a.id ||
-			file.purpose !== "avatar" ||
-			intent === "cleanup" ||
-			(!upload && a.avatar !== file.id)
-		)
-			return null;
+		const [a] = await tx.select({ id: t.account.id }).from(t.account).where(liveSelf(ctx));
+		if (!a || file.tenant_id !== a.id || file.purpose !== "avatar" || intent === "cleanup") return null;
 		return { kind: "account", actorId: a.id };
+	};
+}
+/**
+ * The read rule of an account photo (REQ-IDN-006), as one condition on the version: the session is live and is the
+ * context's own account, which is active and not hidden, and the version is the account's current photo as its own
+ * account sees it, or as the people of a workspace where the viewer holds a live, unhidden seat see it: the account
+ * holds a seat there too (workspaceAvatar) or in a workspace that a current plant affiliation links to it
+ * (oversightAvatar). Lock-free (C27).
+ */
+function avatarReadable(ctx: SettingsContext, account: string, version: string) {
+	if (ctx.selected.kind !== "account") return sql<boolean>`false`;
+	return sql<boolean>`EXISTS(SELECT FROM live_session(${ctx.session}::uuid) av_i WHERE av_i.account_id=${ctx.selected.id}::uuid
+		AND av_i.registration_state='active'
+		AND NOT ${hiding("av_h", sql`av_h.kind='account' AND av_h.opaque_subject_id=av_i.account_id`)}
+		AND (
+			(av_i.account_id=${account}::uuid AND EXISTS(SELECT FROM account av_x WHERE av_x.id=av_i.account_id AND av_x.avatar_object_id=${version}::uuid))
+			OR EXISTS(SELECT FROM seat av_v WHERE av_v.account_id=av_i.account_id AND ${seatHeld("av_v")}
+				AND NOT ${hiding("av_vw", sql`av_vw.seat_id=av_v.id`)}
+				AND (${workspaceAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`)}=${version}::uuid
+					OR ${oversightAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`, sql`${version}::uuid`)}))
+		))`;
+}
+/** The byte read's authorizer: the requested account's own photo file, readable by this viewer now. */
+function readAuthorization(ctx: SettingsContext, accountId: string, versionId: string): ResourceAuthorizer {
+	return async (tx, file, intent) => {
+		if (intent !== "read" || file.id !== versionId || file.tenant_id !== accountId || file.purpose !== "avatar")
+			return null;
+		const [r] = await tx
+			.execute<{ viewer: string | null }>(
+				sql`SELECT ${ctx.selected.id}::uuid AS viewer WHERE ${avatarReadable(ctx, accountId, versionId)}`,
+			)
+			.then((x) => x.rows);
+		return r?.viewer ? { kind: "account", actorId: r.viewer } : null;
 	};
 }
 /** The allowed type the bytes start with; the full check decodes them. */
@@ -214,12 +234,12 @@ export async function uploadAvatar(
 				eq(t.file_object.state, "pending"),
 				eq(t.file_object.media_type, mediaType),
 				eq(t.file_object.max_bytes, String(raw.bytes.length)),
-				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx, false)})`,
+				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx)})`,
 			),
 		)
 		.returning();
 	if (!file) deny();
-	return putPrivateObject(db, storage, authorization(ctx, id, true), {
+	return putPrivateObject(db, storage, uploadAuthorization(ctx), {
 		tenantId: file.tenant_id,
 		purpose: "avatar",
 		mediaType: file.media_type,
@@ -227,6 +247,16 @@ export async function uploadAvatar(
 		uploadKey: file.upload_key,
 	});
 }
-export async function readAvatar(db: Database, storage: PrivateStorage, ctx: SettingsContext, versionId: string) {
-	return readAuthorizedObject(db, storage, authorization(ctx, parse(z.uuid(), versionId), false), versionId);
+/**
+ * The bytes of one account photo version for the viewer whose own account context `ctx` is, or the storage layer's "unavailable" when the read rule
+ * refuses it, the version is not current or the file is missing: every refusal looks the same.
+ */
+export async function readAvatar(
+	db: Database,
+	storage: PrivateStorage,
+	ctx: SettingsContext,
+	raw: { accountId: string; versionId: string },
+) {
+	const v = parse(z.strictObject({ accountId: z.uuid(), versionId: z.uuid() }), raw);
+	return readAuthorizedObject(db, storage, readAuthorization(ctx, v.accountId, v.versionId), v.versionId);
 }

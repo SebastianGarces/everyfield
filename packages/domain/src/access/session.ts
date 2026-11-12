@@ -31,6 +31,7 @@ const sessionRow = z.strictObject({
 	hidden: z.array(z.object({ kind: z.string(), opaque_subject_id: z.uuid(), seat_id: z.uuid().nullable() })),
 	own_person: z.object({ id: z.uuid(), name: z.string() }).nullable(),
 	discovery: z.boolean(),
+	avatar: z.uuid().nullable(),
 });
 type SessionRow = z.infer<typeof sessionRow>;
 /** A pool or a transaction: the viewer read is one statement and needs no transaction. */
@@ -128,7 +129,8 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 			(SELECT jsonb_build_object('id',p.id,'name',p.display_name) FROM person p
 				WHERE selected.owner->>'kind'='plant' AND p.tenant_id=(selected.owner->>'id')::uuid
 					AND p.linked_account_id=i.account_id AND p.state='live' LIMIT 1) AS own_person,
-			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery
+			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery,
+			(SELECT a.avatar_object_id FROM account a WHERE a.id=i.account_id) AS avatar
 		FROM identity i CROSS JOIN selected
 	`);
 	return r.rows.length === 1 ? r.rows[0]! : null;
@@ -188,6 +190,8 @@ function viewerOf(row: SessionRow, session: z.infer<typeof sessionId>) {
 		authority: actor.status === "active" ? RequestActor.of(session, actor) : null,
 		person: row.own_person,
 		discovery: row.discovery,
+		/** The account's own current photo version, which its own account may always load. */
+		avatar: row.avatar,
 	};
 }
 
