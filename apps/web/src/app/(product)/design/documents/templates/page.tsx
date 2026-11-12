@@ -9,7 +9,7 @@ export const metadata = { title: "New from template" };
 export default function TemplatePickerPreviewPage() {
 	return (
 		<ShellPreview role="owner">
-			<ChurchLibrary documents={[]} templates={PREVIEW_TEMPLATES} churchTemplates={[]} canManage deleted={false} />
+			<ChurchLibrary documents={[]} templates={PREVIEW_TEMPLATES} churchTemplates={[]} canManage notice={null} />
 		</ShellPreview>
 	);
 }

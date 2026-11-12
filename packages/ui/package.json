@@ -17,8 +17,8 @@
 		"./display/preview": "./src/display/preview/DisplayPreview.tsx"
 	},
 	"scripts": {
-		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
-		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"typecheck": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"typecheck:tsc": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
 	},
 	"dependencies": {

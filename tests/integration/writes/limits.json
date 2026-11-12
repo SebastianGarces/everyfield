@@ -11,6 +11,12 @@
 	"GET /documents/church/[documentId]": {
 		"limit": 4
 	},
+	"GET /documents/church/[documentId] (archived)": {
+		"limit": 5
+	},
+	"GET /documents/church/[documentId] (archived, member)": {
+		"limit": 4
+	},
 	"GET /documents/church/[documentId]/file": {
 		"limit": 2
 	},
@@ -413,6 +419,9 @@
 		"limit": 3
 	},
 	"documents.archive": {
+		"limit": 1
+	},
+	"documents.archiveChurch": {
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
