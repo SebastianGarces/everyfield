@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
-import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
+import { sealAddress } from "./sealed-address.mts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
@@ -55,7 +56,7 @@ async function meeting(title, target = plant) {
 async function mail(communicationId, personId, address, patch = {}) {
 	const id = randomUUID();
 	const tenant = patch.plant ?? plant.id;
-	const sealed = sealText(keys.encryptionKey, address, addressAad(tenant, id));
+	const sealed = sealAddress(keys.encryptionKey, address, addressAad(tenant, id));
 	const addressHash = mailAddressHash(keys.addressKey, address);
 	const hours = patch.sentHours ?? null;
 	const created = patch.createdHours ?? null;

@@ -1,5 +1,5 @@
 import type { Database, Transaction } from "@everyfield/db/client";
-import { alias, and, asc, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { createHash } from "node:crypto";
 import "server-only";
@@ -159,29 +159,6 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	} catch {
 		return { stored: true, result: "pending" as const };
 	}
-}
-export async function replayStoredCallbacks(db: Database, limit = 100) {
-	z.number().int().min(1).max(100).parse(limit);
-	const rows = await db
-		.select({ id: provider_event_e.id })
-		.from(provider_event_e)
-		.where(
-			and(
-				isNull(provider_event_e.processed_at),
-				sql<unknown>`exists(SELECT (1)  FROM mail  AS m  WHERE (m .provider_message_id = e .message_id))`,
-			),
-		)
-		.orderBy(asc(provider_event_e.received_at), asc(provider_event_e.id))
-		.limit(limit);
-	let applied = 0;
-	for (const row of rows) {
-		try {
-			if ((await transaction(db, (tx) => apply(tx, z.uuid().parse(row.id)))) === "applied") applied++;
-		} catch {
-			/* The durable pending receipt stays visible; another bad row cannot block the scan tail. */
-		}
-	}
-	return applied;
 }
 export function mailCallbackHandler(db: Database, secret: string) {
 	return (request: Request) =>

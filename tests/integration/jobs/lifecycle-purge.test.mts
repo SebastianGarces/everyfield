@@ -4,7 +4,8 @@ import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createSettingsProducer, createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "../settings/settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
@@ -78,7 +79,7 @@ before(async () => {
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
 	});
-	api = createSettingsProducer({
+	api = settingsApi({
 		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
 		organizationEffects,
 		effects: { replan: async () => {} },
