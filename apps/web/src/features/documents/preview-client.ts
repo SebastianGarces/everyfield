@@ -27,7 +27,7 @@ export function downloadBytes(name: string, format: Format, encoded: string) {
 }
 
 /** One JSON post. The preview route skips the server-action flight, which was the slow part. */
-export async function postPreview(
+async function postPreview(
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,

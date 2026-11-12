@@ -159,7 +159,7 @@ const ROW_OUTCOME: Record<string, string> = {
 	remaining: "Not added yet",
 };
 
-export const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
 const num = (value: unknown) => (typeof value === "string" && value !== "" ? Number(value) : Number.NaN);
 const joined = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || null;
@@ -179,7 +179,7 @@ const day = (value: unknown) => {
 		: null;
 };
 
-export type RowMark =
+type RowMark =
 	| { kind: "stage"; stage: string }
 	| { kind: "match"; exact: boolean }
 	| { kind: "status"; text: string; warn: boolean }

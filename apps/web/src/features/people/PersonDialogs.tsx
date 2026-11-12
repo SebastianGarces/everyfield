@@ -60,9 +60,9 @@ const PROFILE = [
 ] as const;
 type ProfileKey = (typeof PROFILE)[number];
 type Profile = Record<ProfileKey, string>;
-export type ProfileDraft = { base: Profile; values: Profile };
+type ProfileDraft = { base: Profile; values: Profile };
 
-export function profileOf(p: PlantPerson): Profile {
+function profileOf(p: PlantPerson): Profile {
 	const out = {} as Profile;
 	for (const k of PROFILE) out[k] = (p[k] as string | null) ?? "";
 	return out;

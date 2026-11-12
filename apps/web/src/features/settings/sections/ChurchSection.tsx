@@ -46,7 +46,7 @@ type Errors = Partial<Record<keyof Form, string>>;
 
 const LIMIT = { name: 200, street: 500, city: 200, stateProvince: 200, country: 200, description: 5000 } as const;
 
-export function validate(form: Form): Errors {
+function validate(form: Form): Errors {
 	const errors: Errors = {};
 	if (!form.name.trim()) errors.name = "Enter your church's name.";
 	for (const key of Object.keys(LIMIT) as (keyof typeof LIMIT)[]) {

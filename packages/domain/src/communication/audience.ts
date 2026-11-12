@@ -109,10 +109,6 @@ export function summarizeAudience(raw: unknown) {
 	});
 }
 
-export function eligibleIds(raw: unknown): string[] {
-	return reviewedParts(raw).people;
-}
-
 /** Person ids and addresses a review freezes. Both lists are sorted the same way at schedule and at handoff. */
 export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {
 	const rows = z

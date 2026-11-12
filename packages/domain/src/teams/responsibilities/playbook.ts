@@ -52,7 +52,7 @@ export async function linesForTemplate(templateKey: string | null): Promise<Play
 	return playbookLines((await playbookTeam(referenceKey)).description);
 }
 
-export function catalogSha(): Promise<string> {
+function catalogSha(): Promise<string> {
 	return referenceArtifactSha256();
 }
 

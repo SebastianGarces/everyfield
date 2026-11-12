@@ -16,7 +16,7 @@ const MAX_CHIPS = 8;
 /** The day someone unsubscribed, in the reader's own format. */
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 /** Why an unsubscribed person is left out. Nobody on the church's staff can clear it (D-284). */
-export const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
 
 /** The whole-audience counts, debounced to one request per 300 ms pause. `ready` is false while a request is out. */
 export function useAudienceSummary(audience: Audience) {

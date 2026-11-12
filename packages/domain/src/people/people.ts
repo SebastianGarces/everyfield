@@ -132,7 +132,7 @@ async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: s
 	};
 }
 /** The person's open tasks, as subject or through their linked account, locked for a handoff. One statement. */
-export async function openDuties(tx: Tx, ctx: Context, p: Person) {
+async function openDuties(tx: Tx, ctx: Context, p: Person) {
 	if (ctx.selected.kind !== "plant") return [];
 	// Tasks store account assignees; Person subjects are separate references.
 	return lockTasks(tx, ctx.selected.id, openDutiesOf(p.id, p.linked_account_id));

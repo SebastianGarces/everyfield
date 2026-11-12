@@ -1,9 +1,9 @@
 import { StyleSheet, Text as FormeText, View as FormeView } from "@formepdf/react";
 import type { Style, TextProps, ViewProps } from "@formepdf/react";
 
-export type FormeStyleInput = Style | false | null | undefined | readonly FormeStyleInput[];
+type FormeStyleInput = Style | false | null | undefined | readonly FormeStyleInput[];
 
-export const mergeFormeStyles = (input: FormeStyleInput): Style | undefined => {
+const mergeFormeStyles = (input: FormeStyleInput): Style | undefined => {
 	if (!input) {
 		return undefined;
 	}

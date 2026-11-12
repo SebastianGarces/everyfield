@@ -14,7 +14,7 @@ import type { BrandKitData } from "@everyfield/contracts/branding";
 export type Reader = Pick<Database, "execute">;
 type Code = DocumentsError["code"];
 
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object = {}) {
@@ -87,7 +87,7 @@ export async function accountOpen(db: Reader, authority: RequestActor) {
 	return found.rows[0]?.access_live === true;
 }
 
-export type PlantFacts = { churchName: string | null; pastorName: string | null; launchDate: string | null };
+type PlantFacts = { churchName: string | null; pastorName: string | null; launchDate: string | null };
 export type PlantRead =
 	| { open: false }
 	| { open: true; subjectOk: false }

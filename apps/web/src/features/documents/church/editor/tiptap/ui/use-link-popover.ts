@@ -34,7 +34,7 @@ export interface LinkHandlerProps {
 /**
  * Checks if a link can be set in the current editor state
  */
-export function canSetLink(editor: Editor | null): boolean {
+function canSetLink(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.can().setMark("link");
 }
@@ -42,7 +42,7 @@ export function canSetLink(editor: Editor | null): boolean {
 /**
  * Checks if a link is currently active in the editor
  */
-export function isLinkActive(editor: Editor | null): boolean {
+function isLinkActive(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.isActive("link");
 }
@@ -50,7 +50,7 @@ export function isLinkActive(editor: Editor | null): boolean {
 /**
  * Determines if the link button should be shown
  */
-export function shouldShowLinkButton(props: { editor: Editor | null }): boolean {
+function shouldShowLinkButton(props: { editor: Editor | null }): boolean {
 	const { editor } = props;
 
 	return isMarkInSchema("link", editor) && !!editor;
@@ -59,7 +59,7 @@ export function shouldShowLinkButton(props: { editor: Editor | null }): boolean 
 /**
  * Custom hook for handling link operations in a Tiptap editor
  */
-export function useLinkHandler(props: LinkHandlerProps) {
+function useLinkHandler(props: LinkHandlerProps) {
 	const { editor } = props;
 	const [url, setUrl] = React.useState<string | null>(null);
 
@@ -152,7 +152,7 @@ export function useLinkHandler(props: LinkHandlerProps) {
 /**
  * Custom hook for link popover state management
  */
-export function useLinkState(props: { editor: Editor | null }) {
+function useLinkState(props: { editor: Editor | null }) {
 	const { editor } = props;
 
 	const canSet = canSetLink(editor);

@@ -2,7 +2,7 @@ import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, 
 
 // Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
 
-export const SECTION_ORDER: readonly SectionKey[] = [
+const SECTION_ORDER: readonly SectionKey[] = [
 	"church",
 	"brand",
 	"organization",
@@ -23,13 +23,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
-export const DIALOG_SECTIONS = [
-	"church",
-	"brand",
-	"organization",
-	"notifications",
-	"account",
-] as const satisfies SectionKey[];
+const DIALOG_SECTIONS = ["church", "brand", "organization", "notifications", "account"] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
 
 export function dialogSection(value: string | undefined): DialogSection | null {
@@ -101,7 +95,7 @@ export function canDeleteWorkspace(viewer: SettingsViewer): boolean {
 	return viewer.context === "plant" && viewer.role === "owner";
 }
 
-export const ERROR_TEXT: Record<SettingsError["code"], string> = {
+const ERROR_TEXT: Record<SettingsError["code"], string> = {
 	invalid_input: "Some values are not valid. Check the fields marked in red.",
 	access_denied: "You no longer have access to this. Ask an Owner or Admin of your church.",
 	unavailable: "This is not available right now.",

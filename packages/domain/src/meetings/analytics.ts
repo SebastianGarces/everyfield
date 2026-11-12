@@ -106,7 +106,7 @@ const tenths = (scores: readonly number[]) => Math.round((scores.reduce((a, b) =
  * REQ-MTG-016: the baseline is the mean of the earlier meetings' rounded averages, rounded to one decimal; the delta is
  * the current rounded average minus that rounded baseline. No earlier evaluation leaves both unknown, never zero.
  */
-export function compare(meetingId: string, current: number[] | null, earlier: number[][], corrected: boolean) {
+function compare(meetingId: string, current: number[] | null, earlier: number[][], corrected: boolean) {
 	const now = current ? tenths(current) : null;
 	const base = earlier.length ? Math.round(earlier.map(tenths).reduce((a, b) => a + b, 0) / earlier.length) : null;
 	return c.evaluationComparison.parse({
@@ -118,7 +118,7 @@ export function compare(meetingId: string, current: number[] | null, earlier: nu
 	});
 }
 /** Growth over the previous meeting: unknown without one, unavailable (not infinite) after a meeting of zero. */
-export function growthOf(attended: number, previous: number | null) {
+function growthOf(attended: number, previous: number | null) {
 	if (previous === null) return { status: "unknown" as const };
 	if (previous === 0) return { status: "unavailable" as const, difference: attended };
 	return {

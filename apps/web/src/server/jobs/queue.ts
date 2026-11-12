@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { transaction } from "../platform/database.ts";
 
-export const jobKind = z.enum([
+const jobKind = z.enum([
 	"mail",
 	"notification",
 	"digest",

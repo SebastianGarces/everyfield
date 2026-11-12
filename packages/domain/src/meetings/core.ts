@@ -25,7 +25,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = MeetingsError["code"];
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object) {
@@ -187,7 +187,7 @@ export type Writer = {
 	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
 };
 /** The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. */
-export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
+async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
@@ -195,7 +195,6 @@ export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
-export { hash };
 type AuditInsert = typeof tables.audit_event.$inferInsert;
 export type Change<T> = {
 	value: T;
@@ -315,4 +314,3 @@ export async function command<T>(
 }
 /** Revisions cross the boundary as decimal strings. */
 export const next = (revision: string) => String(BigInt(revision) + 1n);
-export const uuid = (value: string) => sql`${sql.param(value)}::uuid`;

@@ -40,7 +40,7 @@ import {
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
-export type Draft = {
+type Draft = {
 	title: string;
 	description: string;
 	priority: Priority;
@@ -63,7 +63,7 @@ export type Commit = {
 	send: (key: string) => Promise<Outcome<Saved>>;
 	draft: Draft;
 };
-export type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
+type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
 
 function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {

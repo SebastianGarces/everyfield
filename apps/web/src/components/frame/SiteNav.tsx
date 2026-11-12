@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
-export type NavLink = { href: string; label: string; current: boolean };
+type NavLink = { href: string; label: string; current: boolean };
 type Which = "inflow" | "pill";
 
 type Props = {

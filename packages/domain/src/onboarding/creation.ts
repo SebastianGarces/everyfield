@@ -44,7 +44,7 @@ export interface OnboardingEffects {
 	): Promise<void>;
 }
 
-export const off = sharingChoices.parse({
+const off = sharingChoices.parse({
 	people: false,
 	meetings: false,
 	tasks: false,

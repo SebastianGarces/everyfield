@@ -1,7 +1,7 @@
 import { NodeSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 
-export const MAC_SYMBOLS: Record<string, string> = {
+const MAC_SYMBOLS: Record<string, string> = {
 	mod: "⌘",
 	command: "⌘",
 	meta: "⌘",
@@ -25,7 +25,7 @@ export function cn(...classes: (string | boolean | undefined | null)[]): string 
  * Determines if the current platform is macOS
  * @returns boolean indicating if the current platform is Mac
  */
-export function isMac(): boolean {
+function isMac(): boolean {
 	return typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac");
 }
 
@@ -36,7 +36,7 @@ export function isMac(): boolean {
  * @param capitalize - Whether to capitalize the key (default: true)
  * @returns Formatted shortcut key symbol
  */
-export const formatShortcutKey = (key: string, isMac: boolean, capitalize: boolean = true) => {
+const formatShortcutKey = (key: string, isMac: boolean, capitalize: boolean = true) => {
 	if (isMac) {
 		const lowerKey = key.toLowerCase();
 		return MAC_SYMBOLS[lowerKey] || (capitalize ? key.toUpperCase() : key);
@@ -123,7 +123,7 @@ type ProtocolConfig = Array<ProtocolOptions | string>;
 
 const ATTR_WHITESPACE = /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g;
 
-export function isAllowedUri(uri: string | undefined, protocols?: ProtocolConfig) {
+function isAllowedUri(uri: string | undefined, protocols?: ProtocolConfig) {
 	const allowedProtocols: string[] = ["http", "https", "ftp", "ftps", "mailto", "tel", "callto", "sms", "cid", "xmpp"];
 
 	if (protocols) {

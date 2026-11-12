@@ -4,7 +4,7 @@
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
-export const MERGE_FIELDS = [
+const MERGE_FIELDS = [
 	"displayName",
 	"firstName",
 	"lastName",
@@ -70,7 +70,7 @@ export type ReferenceKind =
 	| "training_credit";
 
 /** What each kind is called in a count: "2 notes". The singular is used for one. */
-export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
+const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	tag: ["tag", "tags"],
 	skill: ["skill", "skills"],
 	note: ["note", "notes"],
@@ -106,13 +106,13 @@ export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_
 /** A kind as a list heading: "Notes". */
 export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());
 /** "notes, tasks and emails": the plural names of `kinds`, for a sentence. */
-export const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
+const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
 export function listText(items: readonly string[]): string {
 	if (items.length <= 1) return items[0] ?? "";
 	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-export type Treatment = "move" | "deduplicate" | "keep" | "block";
+type Treatment = "move" | "deduplicate" | "keep" | "block";
 export type Reference = { kind: ReferenceKind; count: number; treatment: Treatment };
 /** The review's references split by what the merge does with them. */
 export function referenceGroups(refs: readonly Reference[]) {
@@ -366,7 +366,7 @@ export const RESULT_LABEL: Record<InterviewResult, string> = {
 };
 
 export type ScoreValue = { score: number; notes: string | null };
-export type RatingValue = { rating: Rating; notes: string | null };
+type RatingValue = { rating: Rating; notes: string | null };
 export type AssessmentValues = { occurredOn: string } & Record<Lens, ScoreValue>;
 export type InterviewValues = { occurredOn: string; result: InterviewResult; nextSteps: string | null } & Record<
 	Criterion,

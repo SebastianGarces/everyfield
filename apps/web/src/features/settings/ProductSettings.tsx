@@ -118,7 +118,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
  * The restricted deletion page for the request's subject (a church workspace or your account), with the deadline the
  * request returned when it is known to be pending. A reply that never arrived came from your account's dialog.
  */
-export function deletionPage(status: DeletionStatus | null): string {
+function deletionPage(status: DeletionStatus | null): string {
 	const page =
 		status && status.status !== "active" && status.subject.kind === "plant"
 			? "/workspace-deletion"

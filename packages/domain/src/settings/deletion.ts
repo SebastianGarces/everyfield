@@ -99,7 +99,7 @@ async function seated(
 		recipients: rows.map((r) => ({ accountId: r.account_id, address: r.email, timeZone: r.personal_timezone })),
 	};
 }
-export function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
+function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
 	if (w.kind !== "account" && w.kind !== "plant") deny();
 	if (w.state === "active") return { status: "active" };
 	return n.deletionStatus.parse({

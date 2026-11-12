@@ -164,7 +164,7 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 }
 
 /** Presence, classification and the attendance revision of every guest (up to the 500 a meeting can finalize). */
-export const readAttendance = (viewer: Viewer, meetingId: string) =>
+const readAttendance = (viewer: Viewer, meetingId: string) =>
 	read(viewer, (db, a) => attendanceReader.listAttendance(db, a, { meetingId, limit: 500 }));
 /** Attended, growth, the evaluation comparison and the generated work of one meeting. */
 export const readAnalytics = (viewer: Viewer, meetingId: string) =>
