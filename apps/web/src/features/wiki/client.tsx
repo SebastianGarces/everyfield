@@ -450,7 +450,8 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			if (result.status === "ok") {
 				revision.current = result.revision;
 				setMarked(result.bookmarked);
-				setPercent(result.observedFraction);
+				// The label follows the reader between the coarse saves, so a saved result never lowers it.
+				setPercent(fractionText(Math.max(Number(result.observedFraction) || 0, seen.current)));
 				setDone(result.completed);
 				if (result.updated) setUpdated(true);
 				setNote("");
@@ -494,6 +495,7 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			const reached = next >= 0.995 ? 1 : next;
 			if (reached <= seen.current) return;
 			seen.current = reached;
+			setPercent(fractionText(reached));
 			if (progressStep(reached) > progressStep(sent.current)) save();
 		};
 		const onScroll = () => {
