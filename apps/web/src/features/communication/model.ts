@@ -1,10 +1,7 @@
 // The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
 // type; the client's preview (preview.ts) imports the contract renderer, which runs the sanitizer in the browser.
 
-import type {
-	AUDIENCE_LIMIT as CONTRACT_AUDIENCE_LIMIT,
-	hubStates as contractHubStates,
-} from "@everyfield/contracts/communication";
+import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
@@ -73,8 +70,6 @@ export type Recipient = { id: string; displayName: string; email: string | null;
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
-	/** People with an address, unsubscribed included: what the 100-person cap counts. */
-	cappedRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
 	recipients: { id: string; displayName: string; email: string }[];
@@ -91,38 +86,15 @@ export type PageData = {
 	origin: string;
 };
 
-/** `details` is the refusal's own safe facts, such as the recipient cap and count of `audience_too_large`. */
+/** `details` is the refusal's own safe facts. */
 export type Outcome<T> =
 	| { status: "ok"; value: T }
 	| { status: "refused"; code: string; details?: Readonly<Record<string, unknown>> }
 	| { status: "lost" };
 
-/** The most people one message reaches. Schedule and Send now refuse a larger audience. The type pins the contract's value. */
-export const AUDIENCE_LIMIT: typeof CONTRACT_AUDIENCE_LIMIT = 100;
-
-/**
- * The Who step's cap line: the count the cap applies to, the cap, and what to do when the count is over it. Unsubscribed
- * people count against the cap, so the line names them when there are any.
- */
-export function capText(capped: number, unsubscribed: number): { text: string; over: boolean } {
-	const over = capped > AUDIENCE_LIMIT;
-	const count = `${capped} ${capped === 1 ? "person" : "people"}${unsubscribed ? `, including ${unsubscribed} unsubscribed` : ""}`;
-	return {
-		text: over
-			? `${count} · messages go to at most ${AUDIENCE_LIMIT}. Remove ${capped - AUDIENCE_LIMIT} to schedule or send it.`
-			: `${count} · messages go to at most ${AUDIENCE_LIMIT}`,
-		over,
-	};
-}
-
 /** What the person can do about a refusal. The code stays the server's word. */
-export function refusalText(code: string, details?: Readonly<Record<string, unknown>>): string {
+export function refusalText(code: string): string {
 	switch (code) {
-		case "audience_too_large": {
-			const count =
-				typeof details?.recipients === "number" ? `${details.recipients} people` : `more than ${AUDIENCE_LIMIT} people`;
-			return `This message is addressed to ${count}. Messages go to at most ${AUDIENCE_LIMIT} people, counting anyone who unsubscribed. Remove people in Who, then try again. Nothing was sent.`;
-		}
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
 		case "schedule_window_exceeded":
@@ -165,7 +137,7 @@ export function originLabel(template: Template): string {
 export function outcomeText<T>(result: Outcome<T>): string | null {
 	if (result.status === "ok") return null;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
-	return refusalText(result.code, result.details);
+	return refusalText(result.code);
 }
 
 export type DeliveryReport = {
