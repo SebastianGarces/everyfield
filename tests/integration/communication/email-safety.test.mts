@@ -774,7 +774,7 @@ test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", 
 	assert.equal((await outboxTo()).includes("different@example.org"), true);
 });
 
-test("AC:T151-1 a password-reset request reaches the capture outbox within one runner tick", async () => {
+test("a password-reset request reaches the capture outbox within one runner tick", async () => {
 	const { f } = await database();
 	const reader = await f.account();
 	const origin = "https://app.example.test";

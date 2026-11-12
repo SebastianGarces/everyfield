@@ -376,7 +376,7 @@ const storedOf = (doc: Doc) => {
 	return { ...json, content: blocksFromEditor(json.content ?? []) };
 };
 
-test("AC:CASE-DOC-016 T-100: a plain body with tables loads into the plain editor and reads back unchanged", () => {
+test("AC:CASE-DOC-016: a plain body with tables loads into the plain editor and reads back unchanged", () => {
 	const native = nativeSchema();
 	assert.equal(nativeBody.safeParse(plainWithTables).success, true);
 	const node = native.nodeFromJSON({ ...plainWithTables, content: blocksToEditor(plainWithTables.content) });
@@ -384,7 +384,7 @@ test("AC:CASE-DOC-016 T-100: a plain body with tables loads into the plain edito
 	assert.deepEqual(storedOf(node), plainWithTables);
 });
 
-test("AC:CASE-DOC-016 T-100: Insert in a plain document adds the plain table and checklist rows, and never a budget", () => {
+test("AC:CASE-DOC-016: Insert in a plain document adds the plain table and checklist rows, and never a budget", () => {
 	const native = nativeSchema();
 	const start = native.nodeFromJSON({
 		type: "doc",
@@ -418,7 +418,7 @@ test("AC:CASE-DOC-016 T-100: Insert in a plain document adds the plain table and
 	assert.deepEqual(inserted("checklist"), { ...checklist, content: [empty(2), empty(2), empty(2)] });
 });
 
-test("AC:CASE-DOC-016 T-100: a pasted budget, header color or write-in table is reduced to a native table", () => {
+test("AC:CASE-DOC-016: a pasted budget, header color or write-in table is reduced to a native table", () => {
 	const native = nativeSchema();
 	const tagged = { ...cell("Gifts"), content: [{ type: "text", text: "Gifts" }] };
 	const budget = newBudget();

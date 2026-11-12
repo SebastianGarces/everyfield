@@ -362,7 +362,7 @@ const jobOf = async (importId) =>
  WHERE pi.id=${sql.param(importId)}`)
 	)[0];
 
-test("AC:TARGET-PPL-018 T-194 a partial import keeps its file for 7 days from its last stop, then the scheduled run deletes it and the receipt stays", async () => {
+test("AC:TARGET-PPL-018 a partial import keeps its file for 7 days from its last stop, then the scheduled run deletes it and the receipt stays", async () => {
 	const { requestKey, receipt } = await partialImport("Keep");
 	assert.equal(await kept(receipt.importId), true);
 	// 6 days 23 hours after it stopped, the copy is still kept.
@@ -388,7 +388,7 @@ test("AC:TARGET-PPL-018 T-194 a partial import keeps its file for 7 days from it
 	assert.equal(await kept(done.importId), false);
 });
 
-test("AC:TARGET-PPL-018 T-194 within 7 days Try N rows again writes only the remaining rows from the kept copy, after the staged upload expired", async () => {
+test("AC:TARGET-PPL-018 within 7 days Try N rows again writes only the remaining rows from the kept copy, after the staged upload expired", async () => {
 	const { uploadId, p, requestKey, receipt } = await partialImport("Again");
 	const people = await count("person");
 	// The 1-hour staged upload is gone; the kept copy is all the server has.
@@ -421,7 +421,7 @@ test("AC:TARGET-PPL-018 T-194 within 7 days Try N rows again writes only the rem
 	assert.deepEqual(await oncePerRow(receipt.importId), [1, 2, 3]);
 });
 
-test("AC:TARGET-PPL-018 T-194 after the copy is deleted, only the same file uploaded again resumes the import, and nobody is created twice", async () => {
+test("AC:TARGET-PPL-018 after the copy is deleted, only the same file uploaded again resumes the import, and nobody is created twice", async () => {
 	const { text, requestKey, receipt } = await partialImport("Later");
 	await expireCopy(receipt.importId);
 	const people = await count("person");

@@ -662,7 +662,7 @@ test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its conte
 	);
 });
 
-test("AC:DEL58-005 T-195: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
+test("AC:DEL58-005: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
 	// An account holds one open seat at a time (seat_uq_0), so the seats elsewhere belong to other accounts.
 	const f = await plant(),
 		other = await plant(),
@@ -822,7 +822,7 @@ async function newSession(a) {
 	return { ...a, session };
 }
 
-test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load each other's current photo; nobody else does", async () => {
+test("AC:TARGET-IDN-006: seat holders in the same church load each other's current photo; nobody else does", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		member = await seat(f.p, "member"),
@@ -885,7 +885,7 @@ test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load eac
 	assert.equal(await read(member, memberPhoto), "bytes");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant load each other's photos while the link is current", async () => {
+test("AC:TARGET-IDN-006: an overseeing organization and its plant load each other's photos while the link is current", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		staff = await seat(f.p, "member"),
@@ -945,7 +945,7 @@ test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant 
 	assert.equal(await read(church.a, planter), "refused");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
+test("AC:TARGET-IDN-006: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
 	const storage = photoStorage();
 	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.
 	const f = await plant(),
@@ -979,7 +979,7 @@ test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace d
 	assert.equal(await photoRead(storage, again, memberPhoto), "bytes");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 2-3: the Seats roster and the People list name each visible photo by its account and version", async () => {
+test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible photo by its account and version", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		member = await seat(f.p, "member"),
@@ -1094,7 +1094,7 @@ async function credentialSeat(p, role) {
 	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
 	return a;
 }
-test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
+test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
 	const owner = await credentialActor();
 	const f = await plant(owner);
 	const member = await credentialSeat(f.p, "member"),
@@ -1163,7 +1163,7 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspa
 	);
 });
 
-test("AC:DEL58-007 T-195: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
+test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
 	const owner = await credentialActor();
 	const f = await plant(owner);
 	// A request whose 30 days ended a day ago, with no purge run yet.

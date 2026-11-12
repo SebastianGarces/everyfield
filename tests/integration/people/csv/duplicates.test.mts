@@ -105,7 +105,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:TARGET-PPL-016 T-263 a dismissed pair leaves the list for the Dismissed view, and Restore puts it back in its import order, each with its audit row", async () => {
+test("AC:TARGET-PPL-016 a dismissed pair leaves the list for the Dismissed view, and Restore puts it back in its import order, each with its audit row", async () => {
 	const [first, second] = await flaggedPairs(["Iris", "Jude"]);
 	const ours = mine([first, second]);
 	assert.deepEqual(ours(await listed()), [first, second]);
@@ -134,7 +134,7 @@ test("AC:TARGET-PPL-016 T-263 a dismissed pair leaves the list for the Dismissed
 	]);
 });
 
-test("AC:TARGET-PPL-016 T-263 a repeated dismiss or restore, or a double click, ends in the same state and writes once", async () => {
+test("AC:TARGET-PPL-016 a repeated dismiss or restore, or a double click, ends in the same state and writes once", async () => {
 	const [pair] = await flaggedPairs(["Kai"]);
 	assert.deepEqual(ok(await dismiss(pair)), { outcome: "changed" });
 	assert.deepEqual(ok(await dismiss(pair)), { outcome: "noop" });
@@ -156,7 +156,7 @@ test("AC:TARGET-PPL-016 T-263 a repeated dismiss or restore, or a double click, 
 	assert.equal((await audits(pair)).length, 3);
 });
 
-test("AC:TARGET-PPL-016 T-263 a merged, retired or never-flagged pair is refused with nothing written, and the Dismissed view shows only live pairs", async () => {
+test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with nothing written, and the Dismissed view shows only live pairs", async () => {
 	const [merged, retired, kept] = await flaggedPairs(["Lev", "Mae", "Ned"]);
 	const before = async () => [
 		(await rows(sql`SELECT count(*)::int n FROM person_duplicate_dismissal`))[0].n,
@@ -219,7 +219,7 @@ test("AC:TARGET-PPL-016 T-263 a merged, retired or never-flagged pair is refused
 	assert.deepEqual(ours(await listed()), []);
 });
 
-test("AC:TARGET-PPL-016 INV-tenancy T-263 only the church's Owners and Admins dismiss, restore or see dismissed pairs", async () => {
+test("AC:TARGET-PPL-016 INV-tenancy only the church's Owners and Admins dismiss, restore or see dismissed pairs", async () => {
 	const [pair] = await flaggedPairs(["Quin"]);
 	// A Member is refused by the domain write and read, not only by the page.
 	refused(await dismiss(pair, 1));
@@ -245,7 +245,7 @@ const listedOn = async (person, other, keep = null) => {
 	return view.listed;
 };
 
-test("AC:TARGET-PPL-016 T-268 the review of a listed pair names the imported person first in either order, and its dismiss writes what the list's does", async () => {
+test("AC:TARGET-PPL-016 the review of a listed pair names the imported person first in either order, and its dismiss writes what the list's does", async () => {
 	const [pair] = await flaggedPairs(["Rae"]);
 	const direction = { personId: pair.personId, withPersonId: pair.withPersonId };
 	assert.deepEqual(await listedOn(pair.personId, pair.withPersonId), direction);
@@ -277,7 +277,7 @@ test("AC:TARGET-PPL-016 T-268 the review of a listed pair names the imported per
 	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId), direction);
 });
 
-test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss after one side merged is refused with nothing written", async () => {
+test("AC:TARGET-PPL-016 a hint-only pair is not listed, and a dismiss after one side merged is refused with nothing written", async () => {
 	// Two live people with the same email that no import flagged: a duplicate hint, not a listed pair.
 	const email = `sol-${randomUUID().slice(0, 8)}@example.test`;
 	const a = await person("Sol Hint", { email });
@@ -313,7 +313,7 @@ test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss afte
 	assert.equal((await review(pair.withPersonId, pair.personId)).kind, "merged");
 });
 
-test("AC:TARGET-PPL-016 INV-tenancy T-265 the People page load counts the church's listed pairs for an Owner or Admin, one lower after a dismiss", async () => {
+test("AC:TARGET-PPL-016 INV-tenancy the People page load counts the church's listed pairs for an Owner or Admin, one lower after a dismiss", async () => {
 	const page = (who, pairs = true) =>
 		read(who, (t, c) => readPeoplePage(t, c, parseQuery(new URLSearchParams()), { pairs }));
 	const [one, two] = await flaggedPairs(["Quin", "Wes"]);
@@ -367,7 +367,7 @@ async function retire(personId) {
 	);
 }
 
-test("AC:TARGET-PPL-008 T-269 a dismiss and its restore show in both people's Activity, newest first, naming the other person", async () => {
+test("AC:TARGET-PPL-008 a dismiss and its restore show in both people's Activity, newest first, naming the other person", async () => {
 	const [pair] = await flaggedPairs(["Rue"]);
 	ok(await dismiss(pair, 0));
 	assert.deepEqual(ok(await dismiss(pair, 0)), { outcome: "noop" }, "a repeat writes nothing");
@@ -392,7 +392,7 @@ test("AC:TARGET-PPL-008 T-269 a dismiss and its restore show in both people's Ac
 	assert.deepEqual(items, ordered);
 });
 
-test("AC:TARGET-PPL-008 T-269 the entry names the other person as they are now: renamed, retired or merged away", async () => {
+test("AC:TARGET-PPL-008 the entry names the other person as they are now: renamed, retired or merged away", async () => {
 	const [renamed, merged] = await flaggedPairs(["Sol", "Tam"]);
 	ok(await dismiss(renamed));
 	ok(await dismiss(merged));
@@ -447,7 +447,7 @@ test("AC:TARGET-PPL-008 T-269 the entry names the other person as they are now: 
 	);
 });
 
-test("AC:TARGET-PPL-008 INV-tenancy T-269 the feed never shows or names another church's duplicate review", async () => {
+test("AC:TARGET-PPL-008 INV-tenancy the feed never shows or names another church's duplicate review", async () => {
 	const [pair] = await flaggedPairs(["Uma"]);
 	ok(await dismiss(pair));
 	const theirs = ok(

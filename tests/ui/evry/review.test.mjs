@@ -152,7 +152,7 @@ for (const [engine, launcher] of ENGINES)
 		));
 
 for (const [engine, launcher] of ENGINES)
-	test(`T-231 INV-open-reviews: opening a conversation with review cards reads no review by id (${engine})`, () =>
+	test(`INV-open-reviews: opening a conversation with review cards reads no review by id (${engine})`, () =>
 		withPage(
 			launcher,
 			async (page, context) => {
