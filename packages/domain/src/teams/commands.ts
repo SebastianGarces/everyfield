@@ -6,12 +6,10 @@ import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
 import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "./core.ts";
-import { insertVersionLines } from "./responsibilities/store.ts";
 import {
 	catalogRole,
 	catalogTeam,
 	offerRemains,
-	reviewDigest,
 	TEMPLATE_VERSION,
 	unknownSelection,
 } from "./templates.ts";
@@ -231,29 +229,6 @@ function stageMove(
 		cross,
 	};
 }
-function importMoves(
-	people: { id: string; stage: string | null; revision: string; pipelinePosition: string | null }[],
-	tenures: { personId: string; leadership: boolean }[],
-): StageMove[] {
-	const flags = new Map<string, { lead: boolean; member: boolean }>();
-	for (const row of tenures) {
-		const flag = flags.get(row.personId) ?? { lead: false, member: false };
-		if (row.leadership) flag.lead = true;
-		else flag.member = true;
-		flags.set(row.personId, flag);
-	}
-	const moves: StageMove[] = [];
-	for (const [personId, flag] of flags) {
-		const person = people.find((item) => item.id === personId);
-		if (!person) continue;
-		const leadership =
-			flag.lead && person.stage === "launch_team" ? true : flag.member && person.stage === "core_group" ? false : null;
-		if (leadership === null) continue;
-		const move = stageMove(personId, person.stage, person.revision, person.pipelinePosition, leadership);
-		if (move) moves.push(move);
-	}
-	return moves;
-}
 function queueStageMoves(audit: AuditWrite, plantId: string, actorId: string, moves: StageMove[], cause: string) {
 	if (!moves.length) return;
 	audit.writes
@@ -290,66 +265,32 @@ function queueStageMoves(audit: AuditWrite, plantId: string, actorId: string, mo
 
 const loadedShape = z.object({
 	phase: z.coerce.number().int(),
-	teams: z.array(z.object({ id, key: z.string(), name: z.string(), leader: id.nullable() })),
+	teams: z.array(z.object({ id, key: z.string() })),
 	teamIds: z.array(id),
-	roles: z.array(z.object({ id, teamId: id, key: z.string(), holder: id.nullable() })),
-	lines: z.array(z.object({ teamId: id, version: id, line: z.string() })),
-	people: z.array(
-		z.object({
-			id,
-			stage: z.string().nullable(),
-			revision: z.string(),
-			pipelinePosition: z.string().nullable(),
-		}),
-	),
+	roles: z.array(z.object({ teamId: id, key: z.string() })),
 });
-async function loadPlant(tx: Tx, plantId: string, personIds: string[]) {
-	const ids = personIds.length ? personIds : ["00000000-0000-0000-0000-000000000000"];
+async function loadPlant(tx: Tx, plantId: string) {
 	const row = await oneRow(
 		tx,
 		sql`WITH locked_plant AS (
 			SELECT phase::int AS phase FROM plant WHERE id = ${plantId}::uuid FOR UPDATE
 		), locked_teams AS (
-			SELECT id, template_key AS key, name, leader_person_id AS leader FROM team
-			WHERE plant_id = ${plantId}::uuid FOR UPDATE
+			SELECT id, template_key AS key FROM team WHERE plant_id = ${plantId}::uuid FOR UPDATE
 		), locked_roles AS (
-			SELECT r.id, r.team_id, r.template_key AS key,
-				(SELECT tn.person_id FROM team_tenure tn WHERE tn.role_id = r.id AND tn.ended_on IS NULL) AS holder
-			FROM team_role r WHERE r.plant_id = ${plantId}::uuid FOR UPDATE
-		), locked_people AS (
-			SELECT id, stage, revision::text AS revision, pipeline_position::text AS position
-			FROM person
-			WHERE tenant_id = ${plantId}::uuid AND ${personIds.length}::int > 0
-				AND id = ANY(${sql.param(ids)}::uuid[])
-			FOR UPDATE
+			SELECT team_id, template_key AS key FROM team_role WHERE plant_id = ${plantId}::uuid FOR UPDATE
 		)
 		SELECT (SELECT phase FROM locked_plant) AS phase,
-			coalesce((SELECT json_agg(json_build_object('id', id, 'key', key, 'name', name, 'leader', leader))
+			coalesce((SELECT json_agg(json_build_object('id', id, 'key', key))
 				FROM locked_teams WHERE key IS NOT NULL), '[]'::json) AS teams,
 			coalesce((SELECT json_agg(id) FROM locked_teams), '[]'::json) AS "teamIds",
-			coalesce((SELECT json_agg(json_build_object('id', id, 'teamId', team_id, 'key', key, 'holder', holder))
-				FROM locked_roles WHERE key IS NOT NULL), '[]'::json) AS roles,
-			coalesce((SELECT json_agg(json_build_object('teamId', team_id, 'version', source_version_id, 'line', source_line))
-				FROM responsibility WHERE plant_id = ${plantId}::uuid), '[]'::json) AS lines,
-			coalesce((SELECT json_agg(json_build_object(
-				'id', id, 'stage', stage, 'revision', revision, 'pipelinePosition', position))
-				FROM locked_people), '[]'::json) AS people`,
+			coalesce((SELECT json_agg(json_build_object('teamId', team_id, 'key', key))
+				FROM locked_roles WHERE key IS NOT NULL), '[]'::json) AS roles`,
 	);
 	return loadedShape.parse(row);
 }
-type Selection = {
-	teamKey: string;
-	roleKeys: string[];
-	label?: string;
-	personId?: string;
-	destinationTeamId?: string;
-};
-type Line = { teamId: string; sourceVersionId: string; sourceLine: string; text: string; selected: boolean };
-function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, selections: Selection[], lines: Line[]) {
-	if (lines.some((line) => !loaded.teamIds.includes(line.teamId))) deny("access_denied");
-	const teams: { id: string; key: string | null; name: string; leader: string | null }[] = loaded.teams.map((team) => ({
-		...team,
-	}));
+type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
+function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, selections: Selection[]) {
+	const teams = loaded.teams.map((team) => ({ ...team }));
 	const roles = loaded.roles.map((role) => ({ ...role }));
 	const teamInserts: { id: string; name: string; key: string; ord: number }[] = [];
 	const roleInserts: {
@@ -361,95 +302,45 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 		responsibility: string | null;
 		ord: number;
 	}[] = [];
-	const tenureInserts: { id: string; roleId: string; personId: string; leadership: boolean; teamId: string }[] = [];
-	const renames: { id: string; name: string }[] = [];
 	let ord = 1;
 	for (const selection of selections) {
 		const catalog = catalogTeam(selection.teamKey);
 		if (!catalog) deny("access_denied");
-		const destination = selection.destinationTeamId
-			? (teams.find((team) => team.id === selection.destinationTeamId) ??
-				(loaded.teamIds.includes(selection.destinationTeamId)
-					? { id: selection.destinationTeamId, key: null, name: "", leader: null }
-					: null))
-			: teams.find((team) => team.key === selection.teamKey);
-		if (selection.destinationTeamId && !loaded.teamIds.includes(selection.destinationTeamId) && !destination)
-			deny("access_denied");
-		let teamId = destination?.id;
+		if (selection.destinationTeamId && !loaded.teamIds.includes(selection.destinationTeamId)) deny("access_denied");
+		let teamId = selection.destinationTeamId ?? teams.find((team) => team.key === selection.teamKey)?.id;
 		if (!teamId) {
 			teamId = randomUUID();
-			const name = selection.label ?? catalog.name;
-			teamInserts.push({ id: teamId, name, key: selection.teamKey, ord: ord++ });
-			teams.push({ id: teamId, key: selection.teamKey, name, leader: null });
-		} else if (
-			selection.label &&
-			destination &&
-			destination.name !== selection.label &&
-			destination.key === selection.teamKey
-		) {
-			destination.name = selection.label;
-			renames.push({ id: teamId, name: selection.label });
+			teamInserts.push({ id: teamId, name: catalog.name, key: selection.teamKey, ord: ord++ });
+			teams.push({ id: teamId, key: selection.teamKey });
 		}
 		let roleOrd = 1;
 		for (const roleKey of selection.roleKeys) {
 			const spec = catalogRole(selection.teamKey, roleKey);
 			if (!spec) deny("access_denied");
-			let role = roles.find((item) => item.teamId === teamId && item.key === roleKey);
-			if (!role) {
-				const roleId = randomUUID();
-				roleInserts.push({
-					id: roleId,
-					teamId,
-					name: spec.name,
-					key: roleKey,
-					leadership: spec.leadership,
-					responsibility: spec.responsibilityKey,
-					ord: roleOrd++,
-				});
-				role = { id: roleId, teamId, key: roleKey, holder: null };
-				roles.push(role);
-			}
-			if (!selection.personId || role.holder) continue;
-			tenureInserts.push({
+			if (roles.some((item) => item.teamId === teamId && item.key === roleKey)) continue;
+			roleInserts.push({
 				id: randomUUID(),
-				roleId: role.id,
-				personId: selection.personId,
-				leadership: spec.leadership,
 				teamId,
+				name: spec.name,
+				key: roleKey,
+				leadership: spec.leadership,
+				responsibility: spec.responsibilityKey,
+				ord: roleOrd++,
 			});
-			role.holder = selection.personId;
+			roles.push({ teamId, key: roleKey });
 		}
 	}
-	const existingLines = new Set(loaded.lines.map((line) => `${line.teamId}:${line.version}:${line.line}`));
-	const responsibilities = lines.filter(
-		(line) => line.selected && !existingLines.has(`${line.teamId}:${line.sourceVersionId}:${line.sourceLine}`),
-	);
 	const present = roles
 		.filter((role) => teams.some((team) => team.id === role.teamId))
-		.map((role) => {
-			const team = teams.find((item) => item.id === role.teamId);
-			return { teamKey: team?.key ?? "", roleKey: role.key };
-		});
-	const leaderRows = new Map<string, { roleId: string; personId: string }>();
-	for (const row of tenureInserts.filter((item) => item.leadership)) {
-		const team = teams.find((item) => item.id === row.teamId);
-		if (team && !team.leader && !leaderRows.has(row.teamId))
-			leaderRows.set(row.teamId, { roleId: row.roleId, personId: row.personId });
-	}
-	const insertedTeams = new Set(teamInserts.map((row) => row.id));
+		.map((role) => ({ teamKey: teams.find((item) => item.id === role.teamId)?.key ?? "", roleKey: role.key }));
 	const writes: SQL[] = [];
 	if (teamInserts.length)
-		writes.push(sql`INSERT INTO team
-			(id, plant_id, name, template_key, state, sort_order, leader_person_id, leader_source, leader_role_id)
+		writes.push(sql`INSERT INTO team (id, plant_id, name, template_key, state, sort_order)
 			SELECT v.id, ${plantId}::uuid, v.name, v.key, 'forming',
-				(SELECT coalesce(max(sort_order), 0) FROM team WHERE plant_id = ${plantId}::uuid) + v.ord,
-				v.leader_person, v.leader_source, v.leader_role
+				(SELECT coalesce(max(sort_order), 0) FROM team WHERE plant_id = ${plantId}::uuid) + v.ord
 			FROM (VALUES ${tuples(
-				teamInserts.map((row) => {
-					const leader = leaderRows.get(row.id);
-					return sql`(${row.id}::uuid, ${row.name}, ${row.key}, ${row.ord}::int, ${leader?.personId ?? null}::uuid, ${leader ? "role_derived" : null}, ${leader?.roleId ?? null}::uuid)`;
-				}),
-			)}) AS v(id, name, key, ord, leader_person, leader_source, leader_role)
+				teamInserts.map((row) => sql`(${row.id}::uuid, ${row.name}, ${row.key}, ${row.ord}::int)`),
+			)}) AS v(id, name, key, ord)
 			ON CONFLICT (plant_id, template_key) WHERE template_key IS NOT NULL DO NOTHING`);
 	if (roleInserts.length)
 		writes.push(sql`INSERT INTO team_role
@@ -462,50 +353,26 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 				),
 			)}) AS v(id, team_id, name, leadership, ord, key, responsibility)
 			ON CONFLICT (team_id, template_key) WHERE template_key IS NOT NULL DO NOTHING`);
-	if (tenureInserts.length)
-		writes.push(sql`INSERT INTO team_tenure (id, plant_id, role_id, person_id, started_on)
-			SELECT v.id, ${plantId}::uuid, v.role_id, v.person_id, ${churchDate(plantId)}
-			FROM (VALUES ${tuples(
-				tenureInserts.map((row) => sql`(${row.id}::uuid, ${row.roleId}::uuid, ${row.personId}::uuid)`),
-			)}) AS v(id, role_id, person_id)`);
-	const moves = importMoves(loaded.people, tenureInserts);
-	const existingLeaders = [...leaderRows].filter(([teamId]) => !insertedTeams.has(teamId));
-	if (existingLeaders.length)
-		writes.push(sql`UPDATE team AS t SET leader_person_id = v.person_id, leader_source = 'role_derived',
-			leader_role_id = v.role_id, revision = t.revision + 1
-			FROM (VALUES ${tuples(
-				existingLeaders.map(([teamId, row]) => sql`(${teamId}::uuid, ${row.roleId}::uuid, ${row.personId}::uuid)`),
-			)}) AS v(team_id, role_id, person_id)
-			WHERE t.id = v.team_id AND t.plant_id = ${plantId}::uuid AND t.leader_person_id IS NULL`);
-	if (renames.length)
-		writes.push(sql`UPDATE team AS t SET name = v.name, revision = t.revision + 1
-			FROM (VALUES ${tuples(renames.map((row) => sql`(${row.id}::uuid, ${row.name})`))}) AS v(id, name)
-			WHERE t.id = v.id AND t.plant_id = ${plantId}::uuid AND t.name IS DISTINCT FROM v.name`);
-	const responsibilityInsert = insertVersionLines(plantId, responsibilities);
-	if (responsibilityInsert) writes.push(responsibilityInsert);
 	const first = selections[0];
-	const catalog = first ? catalogTeam(first.teamKey) : undefined;
-	const newTenantRows = teamInserts.length + roleInserts.length + tenureInserts.length + responsibilities.length;
+	const newTenantRows = teamInserts.length + roleInserts.length;
 	return {
 		writes,
-		moves,
-		changed: newTenantRows > 0 || renames.length > 0,
-		subject: teamInserts[0]?.id ?? roleInserts[0]?.id ?? renames[0]?.id ?? plantId,
+		changed: newTenantRows > 0,
+		subject: teamInserts[0]?.id ?? roleInserts[0]?.id ?? plantId,
 		subjectType: (teamInserts.length ? "team" : roleInserts.length ? "team_role" : "record") as
 			"team" | "team_role" | "record",
-		roles,
 		value: {
 			teamKeys: [...new Set(selections.map((selection) => selection.teamKey))],
 			roleKeys: selections.flatMap((selection) => selection.roleKeys),
 			newTenantRows,
 			newTeams: teamInserts.length,
 			newSelectedRoles: roleInserts.length,
-			createdResponsibilities: responsibilities.length,
-			importedRows: teamInserts.length + roleInserts.length,
+			createdResponsibilities: 0,
+			importedRows: newTenantRows,
 			newRows: newTenantRows,
 			importOfferAvailable: offerRemains(present),
 			stableKey: first?.teamKey ?? null,
-			label: first ? (first.label ?? catalog?.name ?? null) : null,
+			label: first ? (catalogTeam(first.teamKey)?.name ?? null) : null,
 			phase: loaded.phase,
 		},
 	};
@@ -1036,28 +903,10 @@ export const teamsWriter = {
 			const input = parse(c.initializeRequest, raw);
 			return command(tx, ctx, "teams.initialize", input, async (w, audit) => {
 				if (input.input.expectedVersion !== TEMPLATE_VERSION) deny("stale_template_version");
-				const lines = input.input.lines ?? [];
-				if (
-					reviewDigest({
-						expectedVersion: input.input.expectedVersion,
-						mode: input.input.mode,
-						selections: input.input.selections,
-						lines,
-					}) !== input.input.reviewDigest
-				)
-					deny("stale_review");
 				if (input.input.mode === "import" && unknownSelection(input.input.selections)) deny("access_denied");
-				const personIds =
-					input.input.mode === "import"
-						? [...new Set(input.input.selections.flatMap((item) => (item.personId ? [item.personId] : [])))]
-						: [];
-				const loaded = await loadPlant(tx, w.plant.id, personIds);
-				const planned =
-					input.input.mode === "import"
-						? planImport(w.plant.id, loaded, input.input.selections, lines)
-						: planImport(w.plant.id, loaded, [], []);
+				const loaded = await loadPlant(tx, w.plant.id);
+				const planned = planImport(w.plant.id, loaded, input.input.mode === "import" ? input.input.selections : []);
 				for (const query of planned.writes) audit.writes.push(query);
-				queueStageMoves(audit, w.plant.id, w.accountId, planned.moves, "team_membership");
 				return {
 					value: baseResult(audit.id, planned.changed ? "changed" : "noop", planned.value),
 					subject: planned.subject,
