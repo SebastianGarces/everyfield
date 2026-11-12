@@ -24,12 +24,14 @@ const LIST: Record<OrderKind, { title: string; description: string; empty: strin
 	churches: {
 		title: "Churches",
 		description: "Sending churches that share their Wiki with your church.",
-		empty: "No sending church shares a Wiki with your church.",
+		empty:
+			"No sending church shares a Wiki with your church. Once Wiki is on for one in Sharing and privacy, it appears here.",
 	},
 	networks: {
 		title: "Networks",
 		description: "Sending networks that share their Wiki with your church.",
-		empty: "No sending network shares a Wiki with your church.",
+		empty:
+			"No sending network shares a Wiki with your church. Once Wiki is on for one in Sharing and privacy, it appears here.",
 	},
 };
 
@@ -120,7 +122,8 @@ function OrderEditor({
 		const button = (step: number) =>
 			lists.current?.querySelector<HTMLButtonElement>(`[data-move="${target.id}"][data-step="${step}"]`);
 		const same = button(target.step);
-		(same && !same.disabled ? same : button(-target.step))?.focus();
+		const next = same && !same.disabled ? same : button(-target.step);
+		if (next) focusInBody(next);
 	}, [draft]);
 
 	const move = (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => {
@@ -141,6 +144,8 @@ function OrderEditor({
 			setView(savedView(view, sent, reply.revision));
 			setSaved(true);
 			setAnnouncement("");
+			// The confirmation is at the top of the section body; bring it into view (the body only, not the sheet).
+			lists.current?.closest("[role=region]")?.scrollTo({ top: 0 });
 			return { ok: true, server: sent };
 		});
 
@@ -171,8 +176,8 @@ function OrderEditor({
 								No order set yet
 							</CalloutLabel>
 							<CalloutText>
-								Until you save one, an article that more than one of these churches edited shows “Order needed”, and
-								people read the network or global version instead.
+								Until you save an order, articles that more than one sending church edited show “Order needed”, and
+								people read the network or global version.
 							</CalloutText>
 						</Card>
 					) : null}
@@ -182,6 +187,7 @@ function OrderEditor({
 								key={kind}
 								kind={kind}
 								rows={rowsInOrder(view[kind], draft[kind])}
+								marked={!(kind === "churches" && orderNeeded(view))}
 								disabled={saving}
 								onMove={move}
 							/>
@@ -221,14 +227,31 @@ function OrderEditor({
 	);
 }
 
+/**
+ * Focuses a control without letting the browser scroll the dialog sheet itself (on a phone that cut off the section
+ * nav and lifted the footer), then scrolls only the section body, if needed, to show it.
+ */
+function focusInBody(control: HTMLElement) {
+	control.focus({ preventScroll: true });
+	const body = control.closest<HTMLElement>("[role=region]");
+	if (!body) return;
+	const box = body.getBoundingClientRect();
+	const at = control.getBoundingClientRect();
+	if (at.top < box.top) body.scrollTop -= box.top - at.top + 8;
+	else if (at.bottom > box.bottom) body.scrollTop += at.bottom - box.bottom + 8;
+}
+
 function OrderList({
 	kind,
 	rows,
+	marked,
 	disabled,
 	onMove,
 }: {
 	kind: OrderKind;
 	rows: OrderRow[];
+	/** Whether the first entry is marked Preferred: not while competing church versions wait for a saved order. */
+	marked: boolean;
 	disabled: boolean;
 	onMove: (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => void;
 }) {
@@ -251,7 +274,7 @@ function OrderList({
 							</span>
 							<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
 								<span className="min-w-0 font-medium break-words text-ink">{row.name}</span>
-								{index === 0 ? (
+								{index === 0 && marked ? (
 									<StatusBadge status="positive" size="sm" fill="soft">
 										Preferred
 									</StatusBadge>
