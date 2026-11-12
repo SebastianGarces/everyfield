@@ -4713,6 +4713,16 @@
       "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
     },
     {
+      "requirement": "REQ-MTG-007",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
+    },
+    {
+      "requirement": "REQ-MTG-011",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
+    },
+    {
       "requirement": "REQ-NTF-006",
       "operation": "meetings.planNotifications",
       "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
@@ -5081,6 +5091,11 @@
       "id": "people.restoreDuplicatePair",
       "requirement": "REQ-PPL-016",
       "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "id": "meetings.addGuests",
+      "requirement": "REQ-MTG-007",
+      "reason": "T-232 (later slice 3 of T-161, audit finding messages/com-36): Add guest sends everyone chosen in one set-based write instead of one request per person (patterns.md Performance, D70). Owner/Admin only; Evry keeps its one-person meetings.inviteGuest and meetings.createGuestContact."
     }
   ],
   "shared_rewrites": {

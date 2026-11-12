@@ -56,7 +56,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 7 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 12 | 36 | 4 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 49 | 35 | 5 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 40 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
