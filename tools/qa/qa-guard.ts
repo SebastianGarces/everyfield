@@ -10,9 +10,7 @@ import { developmentHosts } from "../../packages/db/src/development.ts";
 const endpointOf = (host: string) => host.split(".")[0]!.replace(/-pooler$/, "");
 
 export const NEON_PROJECT = "cool-math-76767811";
-const devEndpoints = new Set([...developmentHosts].map(endpointOf));
-if (devEndpoints.size !== 1) throw Error("The development hosts must name one Neon endpoint.");
-export const DEV_ENDPOINT: string = [...devEndpoints][0]!;
+export const DEV_ENDPOINT = endpointOf([...developmentHosts][0]!);
 export const PROD_ENDPOINT = "ep-gentle-dust";
 
 /** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
