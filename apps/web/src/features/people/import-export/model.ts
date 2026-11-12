@@ -20,6 +20,7 @@ export type ValidRow = Extract<PreviewRow, { status: "valid" }>;
 export type Choice = z.infer<typeof csv.importChoice>;
 export type ImportReceipt = z.infer<typeof csv.importReceipt>;
 export type RowProblem = z.infer<typeof csv.rowProblem>;
+export type ImportUpload = z.infer<typeof csv.importUpload>;
 
 /** The file size limit the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
 export const MAX_BYTES = importLimits.bytes;
@@ -175,7 +176,8 @@ export function describeFilters(q: PeopleQuery): string[] {
 // The import screen's state pieces and the notices it shows.
 
 export type FailedRow = Extract<ImportReceipt["rows"][number], { status: "failed" }>;
-export type Review = { file: File; preview: Preview; choices: Map<number, Choice> };
+/** A checked file: its bytes in memory, the stored upload the server previewed, and the person's choices. */
+export type Review = { file: File; uploadId: string; preview: Preview; choices: Map<number, Choice> };
 export type Notice = { title: string; text: string };
 export const NOT_FOUND: Notice = {
 	title: "We found no import for this link",
