@@ -644,7 +644,8 @@
       "spec": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
       "operations": [
         "documents.createFromTemplate",
-        "documents.setBranding"
+        "documents.setBranding",
+        "documents.restoreChurch"
       ],
       "acceptance_ids": [
         "AC-DOC-022--DOC-022"

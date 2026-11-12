@@ -8,6 +8,9 @@
 	"GET /documents/church (member)": {
 		"limit": 2
 	},
+	"GET /documents/church/archived": {
+		"limit": 2
+	},
 	"GET /documents/church/[documentId]": {
 		"limit": 4
 	},
@@ -424,6 +427,9 @@
 	"documents.archiveChurch": {
 		"limit": 1
 	},
+	"documents.listArchivedChurch": {
+		"limit": 1
+	},
 	"documents.createFromTemplate": {
 		"limit": 4
 	},
@@ -481,6 +487,9 @@
 		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write."
 	},
 	"documents.resolveContext": {
+		"limit": 1
+	},
+	"documents.restoreChurch": {
 		"limit": 1
 	},
 	"documents.saveChurchTemplate": {

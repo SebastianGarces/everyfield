@@ -2,6 +2,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
 import {
+	type ArchivedChurchSummary,
 	type ChurchDocument,
 	type ChurchSummary,
 	type ChurchTemplateSummary,
@@ -72,6 +73,19 @@ export async function loadLibrary(
 				churchTemplates: reply.value.templates,
 			},
 		};
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		return { status: "failed" };
+	}
+}
+
+/** The church plant's archived Church Documents, newest archive first, for an Owner or Admin. One statement. */
+export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
+	const db = requestDatabase();
+	if (!db || !canManageChurch(authority)) return db ? { status: "refused" } : { status: "failed" };
+	try {
+		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
+		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
 	} catch (error) {
 		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
 		return { status: "failed" };
