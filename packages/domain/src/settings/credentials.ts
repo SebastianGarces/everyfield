@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, desc, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts/identity";
@@ -10,7 +10,6 @@ import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
-import { accountId } from "@everyfield/contracts/common";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
 import { issueRestrictedDeletionSession } from "./deletion.ts";
@@ -43,21 +42,24 @@ export interface CredentialConfig {
 		writes: SQLWrapper[],
 	): Promise<string>;
 }
+/** Fresh proof that opens the restricted deletion session for one current request. */
+type OpenDeletion = (
+	raw: unknown,
+	trustedIp: string | null,
+) => Promise<
+	| {
+			status: "ok";
+			value: {
+				session: Awaited<ReturnType<typeof issueRestrictedDeletionSession>>;
+				subject: z.infer<typeof n.deletionSubject>;
+				requestId: string;
+			};
+	  }
+	| { status: "refused"; code: Refusal["code"] }
+>;
 export function createAccountCredentials(config: CredentialConfig): CredentialProducer & {
-	openAccountDeletion(
-		raw: unknown,
-		trustedIp: string | null,
-	): Promise<
-		| {
-				status: "ok";
-				value: {
-					session: Awaited<ReturnType<typeof issueRestrictedDeletionSession>>;
-					subject: { kind: "account"; id: z.infer<typeof accountId> };
-					requestId: string;
-				};
-		  }
-		| { status: "refused"; code: Refusal["code"] }
-	>;
+	openAccountDeletion: OpenDeletion;
+	openWorkspaceDeletion: OpenDeletion;
 } {
 	const budget = attemptBudget(config.admissionDb, config.secret);
 	const auth = identityAuth({
@@ -159,6 +161,60 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				correlationId,
 				reporting: { status: "pending_investigation" },
 			});
+		}
+	}
+	/**
+	 * Fresh proof for the restricted deletion page: the original login and its current password, under the sign-in
+	 * failure budget. Better Auth checks the password; no session is created. For `account` the proof opens a
+	 * restricted session for the account's current deletion request; for `plant`, for the latest church workspace
+	 * deletion this account requested that is still pending or purging. No such request reads as a wrong password.
+	 */
+	async function openDeletion(kind: "account" | "plant", raw: unknown, trustedIp: string | null) {
+		try {
+			const v = n.openAccountDeletionRequest.parse(raw);
+			const reservation = await budget.reserve("login", v.email, trustedIp);
+			const context = await auth.$context;
+			const found = await context.internalAdapter.findUserByEmail(v.email, { includeAccounts: true });
+			const stored = found?.accounts.find((a) => a.providerId === "credential")?.password;
+			// An unknown login hashes too, so the answer takes the same time either way.
+			const valid = stored
+				? await context.password.verify({ hash: stored, password: v.password })
+				: !(await context.password.hash(v.password));
+			await budget.finish(reservation, valid);
+			if (!found || !valid) deny("proof_invalid");
+			const provenAt = new Date();
+			const opened = await config.db.transaction(async (tx) => {
+				const w = t.lifecycle_witness;
+				const [current] = await tx
+					.select({ account: t.account.id, subject: w.opaque_subject_id, requestId: w.request_id })
+					.from(t.account)
+					.innerJoin(
+						w,
+						kind === "account"
+							? and(eq(w.kind, "account"), eq(w.opaque_subject_id, t.account.id))
+							: and(
+									eq(w.kind, "plant"),
+									eq(w.requester_opaque_id, t.account.id),
+									inArray(w.state, ["pending_deletion", "purging"]),
+								),
+					)
+					.where(eq(t.account.auth_user_id, found.user.id))
+					.orderBy(desc(w.requested_at))
+					.limit(1);
+				if (!current?.requestId) deny("proof_invalid");
+				const subject = n.deletionSubject.parse({ kind, id: current.subject });
+				const session = await issueRestrictedDeletionSession(
+					tx,
+					{ subject, requestId: current.requestId },
+					async () => ({ accountId: current.account, provenAt }),
+				);
+				return { session, subject, requestId: current.requestId };
+			});
+			return { status: "ok" as const, value: opened };
+		} catch (e) {
+			if (e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError)
+				return { status: "refused" as const, code: e instanceof Refusal ? e.code : "proof_invalid" };
+			throw e;
 		}
 	}
 	return {
@@ -290,50 +346,8 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				});
 			}
 		},
-		/**
-		 * Fresh proof for the restricted deletion page: the original login and its current password, under the sign-in
-		 * failure budget. Better Auth checks the password; no session is created. The proof opens a restricted
-		 * session for the account's current deletion request only.
-		 */
-		openAccountDeletion: async (raw: unknown, trustedIp: string | null) => {
-			try {
-				const v = n.openAccountDeletionRequest.parse(raw);
-				const reservation = await budget.reserve("login", v.email, trustedIp);
-				const context = await auth.$context;
-				const found = await context.internalAdapter.findUserByEmail(v.email, { includeAccounts: true });
-				const stored = found?.accounts.find((a) => a.providerId === "credential")?.password;
-				// An unknown login hashes too, so the answer takes the same time either way.
-				const valid = stored
-					? await context.password.verify({ hash: stored, password: v.password })
-					: !(await context.password.hash(v.password));
-				await budget.finish(reservation, valid);
-				if (!found || !valid) deny("proof_invalid");
-				const provenAt = new Date();
-				const opened = await config.db.transaction(async (tx) => {
-					const [current] = await tx
-						.select({ account: t.account.id, requestId: t.lifecycle_witness.request_id })
-						.from(t.account)
-						.innerJoin(
-							t.lifecycle_witness,
-							and(eq(t.lifecycle_witness.kind, "account"), eq(t.lifecycle_witness.opaque_subject_id, t.account.id)),
-						)
-						.where(eq(t.account.auth_user_id, found.user.id));
-					if (!current?.requestId) deny("proof_invalid");
-					const subject = { kind: "account" as const, id: accountId.parse(current.account) };
-					const session = await issueRestrictedDeletionSession(
-						tx,
-						{ subject, requestId: current.requestId },
-						async () => ({ accountId: current.account, provenAt }),
-					);
-					return { session, subject, requestId: current.requestId };
-				});
-				return { status: "ok" as const, value: opened };
-			} catch (e) {
-				if (e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError)
-					return { status: "refused" as const, code: e instanceof Refusal ? e.code : "proof_invalid" };
-				throw e;
-			}
-		},
+		openAccountDeletion: (raw, trustedIp) => openDeletion("account", raw, trustedIp),
+		openWorkspaceDeletion: (raw, trustedIp) => openDeletion("plant", raw, trustedIp),
 	};
 }
 function isRefused(e: unknown) {
