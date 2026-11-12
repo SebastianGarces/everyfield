@@ -16,6 +16,7 @@ import {
 	ArticleColumns,
 	ArticleSession,
 	ArticleTools,
+	OrderSettingsButton,
 	ReadStatus,
 	SourceBar,
 	TocRail,
@@ -120,7 +121,7 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 }
 
 /** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
-function OrderPrompt({ slug, fallback }: { slug: string; fallback: ArticleVersion | null }) {
+function OrderPrompt({ fallback }: { fallback: ArticleVersion | null }) {
 	return (
 		<Card variant="callout" tone="amber" className="mb-6">
 			<CalloutLabel tone="amber" icon={SortingIcon}>
@@ -132,11 +133,7 @@ function OrderPrompt({ slug, fallback }: { slug: string; fallback: ArticleVersio
 				reads the {fallback?.kind === "network" ? "network version" : "global version"} below.
 			</CalloutText>
 			<div className="mt-4">
-				<Button asChild variant="secondary">
-					<Link href={`${articlePath(slug)}?order=edit`} scroll={false}>
-						Choose the order
-					</Link>
-				</Button>
+				<OrderSettingsButton>Choose the order</OrderSettingsButton>
 			</div>
 		</Card>
 	);
@@ -321,7 +318,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					</Card>
 				) : article?.article.body ? (
 					<>
-						{article.orderPrompt ? <OrderPrompt slug={article.article.slug} fallback={article.version} /> : null}
+						{article.orderPrompt ? <OrderPrompt fallback={article.version} /> : null}
 						<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 							<ArticleBody contentType={article.article.contentType} body={article.article.body} />
 							{data.feedback ? (

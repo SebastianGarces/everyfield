@@ -113,7 +113,7 @@ export function ContentSection({ index }: { index: number }) {
 				currentId={source}
 				preferredId="asn"
 				onChoose={setSource}
-				settingsHref="#settings-sharing"
+				onSettings={() => undefined}
 				admin={
 					<>
 						<Button variant="ghost" size="sm" icon={ViewOffIcon}>

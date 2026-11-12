@@ -9,6 +9,7 @@ const SECTION_ORDER: readonly SectionKey[] = [
 	"seats",
 	"notifications",
 	"sharing",
+	"wiki",
 	"account",
 ];
 
@@ -19,11 +20,19 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 	seats: "Seats and invitations",
 	notifications: "Notifications",
 	sharing: "Sharing and privacy",
+	wiki: "Wiki sources",
 	account: "Your account",
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
-const DIALOG_SECTIONS = ["church", "brand", "organization", "notifications", "account"] as const satisfies SectionKey[];
+const DIALOG_SECTIONS = [
+	"church",
+	"brand",
+	"organization",
+	"notifications",
+	"wiki",
+	"account",
+] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
 
 export function dialogSection(value: string | undefined): DialogSection | null {
@@ -37,7 +46,7 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
 /**
  * The sections this viewer is offered. The server checks authority again on every read and save; this only keeps a
  * section out of the nav when the viewer cannot use it. Church and organization profiles need an Owner or Admin of
- * that exact context, and so does the church brand kit; notifications and your account are always yours. Seats needs a
+ * that exact context, and so do the church brand kit and the church's Wiki source order; notifications and your account are always yours. Seats needs a
  * workspace: without one its page only says it is not available. `slots` names the sections this surface can show, as
  * a section or as a link to their own page, so firstSection never lands on one.
  */
@@ -47,6 +56,7 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 		switch (key) {
 			case "church":
 			case "brand":
+			case "wiki":
 				return viewer.context === "plant" && admin;
 			case "organization":
 				return viewer.context === "organization" && admin;
@@ -74,7 +84,7 @@ export function sectionAt(pathname: string, viewer: SettingsViewer | null): Dial
 
 /**
  * The settings-section read a dialog section makes for this viewer; null when the viewer has no such profile, and for
- * the brand kit, which has its own read (brand/).
+ * the brand kit and the Wiki source order, which have their own reads (brand/, port.wiki).
  */
 export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
 	switch (section) {
@@ -83,6 +93,7 @@ export function sectionRequest(viewer: SettingsViewer, section: DialogSection): 
 		case "organization":
 			return viewer.context === "organization" ? { section: "organization", organization: viewer.organization } : null;
 		case "brand":
+		case "wiki":
 			return null;
 		case "notifications":
 		case "account":
