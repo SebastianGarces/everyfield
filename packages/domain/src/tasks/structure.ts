@@ -183,7 +183,9 @@ export function structureWriter(reminders: TaskReminders) {
 		},
 		/**
 		 * Make a top-level task recurring, change its series rule, or stop it with a null rule (REQ-TSK-007). Stopping
-		 * keeps every occurrence and its history. A generated duty cannot recur. Owner/Admin.
+		 * keeps every occurrence and its history. A rule on any occurrence of a stopped series starts a new series from
+		 * that task as occurrence 1; the old series stays stopped with its other occurrences. A generated duty cannot
+		 * recur. Owner/Admin.
 		 */
 		async configureRecurrence(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {

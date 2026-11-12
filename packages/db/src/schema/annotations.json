@@ -6932,7 +6932,7 @@
 					"One parent level only, no self/cycle/nesting or converting a parent with children into a child.",
 					"Children have no due date, recurrence, managed obligation, contact hook or completion automation.",
 					"Parent completion is independent; parent soft deletion preserves child/history evidence.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists.",
 					"Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
@@ -7282,7 +7282,7 @@
 				"invariants": [
 					"Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
 					"Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists."
 				],
@@ -16503,7 +16503,7 @@
 					"Only same-plant top-level tasks; unique edges, no self edge or graph cycle.",
 					"New candidates are not deleted; existing deleted predecessor and its history survive.",
 					"Unfinished actionable prerequisite blocking is derived and separate from manual blocked state.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists.",
 					"Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",

@@ -521,7 +521,7 @@
       "invariants": [
         "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
         "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
-        "At most one open occurrence per series and one successor per predecessor.",
+        "At most one open occurrence per series and one successor per predecessor in each series.",
         "Completion, successor, reset children, history and reminder intent are atomic.",
         "Older occurrence cannot reopen when another open successor exists."
       ],
