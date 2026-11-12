@@ -36,6 +36,7 @@ import {
 	peopleViewer,
 	peopleWriter,
 	personFields,
+	previewStoredImport,
 	readColumnOrders,
 	readPersonPage,
 	readPersonPhoto,
@@ -647,6 +648,12 @@ function cases(who) {
 			() => getCommitmentDownload(f.db, storage, new PeopleReadContext(who.actor), { commitmentId: a.commitment }),
 			// The seed stores no signed document, so church A has no download either.
 			{ refused: "unavailable", control: null },
+		),
+		ppl(
+			"previewStoredImport",
+			() => previewStoredImport(f.db, storage, who.actor, { uploadId: key() }),
+			// An upload id names a staged file of the caller's own church only; the seed stages none.
+			{ refused: "file_changed", control: null },
 		),
 		ppl(
 			"peopleCsv.previewImport",
