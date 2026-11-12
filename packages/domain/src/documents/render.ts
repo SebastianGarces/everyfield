@@ -53,7 +53,7 @@ export function unsafe(value: string) {
 	return false;
 }
 
-function finish(bytes: Uint8Array) {
+export function finish(bytes: Uint8Array) {
 	if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();
 	return Buffer.from(bytes);
 }

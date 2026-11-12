@@ -6,13 +6,13 @@ import {
 	type DocTemplate,
 } from "@everyfield/contracts/documents";
 import type { AgendaMeeting } from "./agenda-meeting.ts";
-import type { CatalogTemplate } from "./catalog.ts";
+import type { CatalogTemplate, LibraryTemplate } from "./catalog.ts";
 import { renderDocPdf } from "./doc-render.ts";
 import { docTemplateById, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData } from "./doc-values.ts";
 import type { ResolvedMerge } from "./merge.ts";
 import { fillStatementSlots } from "./network-statement.ts";
-import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
+import { finish, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { entryFor, type LibraryFacts } from "./templates/registry.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
 import { buildFirstYearBudget, buildLedgerWorkbook } from "./xlsx.ts";
@@ -62,27 +62,15 @@ async function docFacts(template: DocTemplate): Promise<LibraryFacts> {
 	};
 }
 
-const facts = new Map<string, Promise<LibraryFacts>>();
-
 /**
- * What the library says about one template: from its file when it has one, else from its registry entry. A file's
- * facts are read from one render of it, once per process; a failed read is not kept.
+ * What the library says about one template: from its file when it has one, read from one render of it, else from its
+ * registry entry. `library()` reads it once per process.
  */
 export function libraryFacts(id: string): Promise<LibraryFacts> | undefined {
 	const template = docTemplateById(id);
-	if (!template) {
-		const entry = entryFor(id);
-		return entry && Promise.resolve(entry);
-	}
-	let found = facts.get(id);
-	if (!found) {
-		found = docFacts(template).catch((error: unknown) => {
-			facts.delete(id);
-			throw error;
-		});
-		facts.set(id, found);
-	}
-	return found;
+	if (template) return docFacts(template);
+	const entry = entryFor(id);
+	return entry && Promise.resolve(entry);
 }
 
 /**
@@ -160,17 +148,12 @@ const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
 	return values;
 };
 
-function sized(bytes: Uint8Array) {
-	if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();
-	return Buffer.from(bytes);
-}
-
 /**
  * Null when a required field is missing. Bytes come only from the template file or registry, the resolved fields and
  * the network's statement of faith, read when the action runs (D-109, D-417).
  */
 export async function renderPreview(
-	template: CatalogTemplate,
+	template: LibraryTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	resolved: Extract<ResolvedMerge, { ok: true }>,
 	theme: RenderTheme = NEUTRAL_THEME,
@@ -178,16 +161,15 @@ export async function renderPreview(
 	statement: string | null = null,
 ) {
 	if (!resolved.complete) return null;
-	const found = await libraryFacts(template.id);
-	if (!found || found.format !== format) throw new RenderFailed();
+	if (template.facts.format !== format) throw new RenderFailed();
 	const values = valuesOf(resolved);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
 	if (format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting, statement)).bytes;
 	const file = docTemplateById(template.id);
 	try {
-		if (!file) return sized(buildFirstYearBudget(values.church_name ?? "", theme));
+		if (!file) return finish(buildFirstYearBudget(values.church_name ?? "", theme));
 		const doc = await libraryDoc(file, values, theme, statement);
-		return sized(buildLedgerWorkbook(doc, fieldValues(doc), theme));
+		return finish(buildLedgerWorkbook(doc, fieldValues(doc), theme));
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed(error);

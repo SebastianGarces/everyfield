@@ -233,7 +233,7 @@ function resolved(
  * statement of faith fills a `statement-of-faith` slot. No theme renders the Everyfield-neutral theme.
  */
 async function rendered(
-	template: CatalogTemplate,
+	template: LibraryTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	merge: Extract<ResolvedMerge, { ok: true }>,
 	printFrom: MeetingRead | null,
