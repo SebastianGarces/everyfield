@@ -4,7 +4,7 @@ import { MIME, fileName, type Format, type Resolved } from "./model.ts";
 // download all use them, so the three agree by construction (DOC-002, DOC-003).
 
 export type PreviewReply =
-	| { status: "ok"; value: Resolved & { artifact: string | null } }
+	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
 	| { status: "refused"; code: string; problem?: string }
 	| { status: "lost" };
 
