@@ -132,7 +132,7 @@ const pdfLines = (pdf: Uint8Array) =>
 			.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g),
 	].map((m) => m[1]!.replace(/\\([()\\])/g, "$1"));
 
-test("com-28: one body reads as the same blocks in the reader, the PDF text and the print HTML", () => {
+test("INV-wiki-blocks: one body reads as the same blocks in the reader, the PDF text and the print HTML", () => {
 	const body = lines(
 		"## Welcome",
 		"Greet every guest.",

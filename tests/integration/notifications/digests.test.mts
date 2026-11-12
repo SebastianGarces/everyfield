@@ -183,7 +183,7 @@ async function dispatchAll() {
 	for (let claim = (await claimDue(runtime, ["mail"]))[0]; claim; claim = (await claimDue(runtime, ["mail"]))[0])
 		await mail.dispatch(claim);
 }
-test("com-28: the digest names an untitled meeting as the app does, for every meeting type", async () => {
+test("AC:CASE-NTF-007 the digest names an untitled meeting as the app does, for every meeting type", async () => {
 	const zone = "America/Chicago";
 	const plant = await church("Titles Church", zone, { weekday: 1, hour: 8 });
 	const who = await person("tia");

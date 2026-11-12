@@ -786,7 +786,7 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	refused(await read(admin, "listAttendance", { meetingId: v }), "unavailable");
 });
 
-test("com-28 AC:TARGET-MTG-016: no report counts a cancelled or a voided meeting", async () => {
+test("AC:TARGET-MTG-016 no report counts a cancelled or a voided meeting", async () => {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
 	const a = await f.account();
