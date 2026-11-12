@@ -89,7 +89,7 @@ const centre = (d) => {
 	return [p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length];
 };
 
-test("WP-097 Done 12: a follow bot's gaze follows the pointer on a spring and returns to rest", () => {
+test("INV-evry-follow: a follow bot's gaze follows the pointer on a spring and returns to rest", () => {
 	// A held circle (no morph, no idle act) of 40 px whose centre is at (20, 20).
 	const root = node();
 	let reads = 0;

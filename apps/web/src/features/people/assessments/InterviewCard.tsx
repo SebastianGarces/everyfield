@@ -333,7 +333,8 @@ function InterviewDialog({
 	const setCriterion = (k: CriterionKey, patch: Partial<Draft[CriterionKey]>) =>
 		setDraft((d) => ({ ...d, [k]: { ...d[k], ...patch } }));
 	const complete = draft.occurredOn !== "" && draft.result !== "" && CRITERIA.every((k) => draft[k].rating !== "");
-	const futureDate = editing.problem === "future_date";
+	// The refusal stays until the refused date changes, so the same date is not sent again.
+	const futureDate = editing.problem === "future_date" && draft.occurredOn === editing.draft.occurredOn;
 	return (
 		<RecordDialog
 			wait={wait}

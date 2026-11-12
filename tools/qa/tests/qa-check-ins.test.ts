@@ -94,7 +94,7 @@ async function allWeeks() {
 }
 const nonSteady = (level: string) => level === "strained" || level === "struggling";
 
-test("OPS-125: the QA owner has a confirmed zone and 13 answered past weeks before an open week OPS-125-1", async () => {
+test("INV-qa-seed: the QA owner has a confirmed zone and 13 answered past weeks before an open week", async () => {
 	const { query, firstSeed } = await seeded();
 	assert.match(firstSeed, /owner timezone, 13 check-in weeks\.$/);
 	assert.deepEqual(
@@ -126,7 +126,7 @@ test("OPS-125: the QA owner has a confirmed zone and 13 answered past weeks befo
 	);
 });
 
-test("OPS-125: the Pace run of 3 Strained or Struggling weeks ends last week, after a Steady week OPS-125-2", async () => {
+test("INV-qa-seed: the Pace run of 3 Strained or Struggling weeks ends last week, after a Steady week", async () => {
 	const { weeks } = await allWeeks();
 	const past = weeks.slice(1).reverse(); // oldest first
 	const pace = past.map((w) => w.answer!.answers.pace);
@@ -141,7 +141,7 @@ test("OPS-125: the Pace run of 3 Strained or Struggling weeks ends last week, af
 	}
 });
 
-test("OPS-125: each seeded week is a planter's own save, across two history pages of 12 OPS-125-3", async () => {
+test("INV-qa-seed: each seeded week is a planter's own save, across two history pages of 12", async () => {
 	const { first, second, weeks } = await allWeeks();
 	assert.equal(first.pageCount, 2);
 	assert.equal(first.weeks.length, 12);
@@ -166,7 +166,7 @@ test("OPS-125: each seeded week is a planter's own save, across two history page
 	assert.ok(past.filter((w) => w.answer!.note).length >= 2);
 });
 
-test("OPS-125: the owner corrects one seeded past week, and no other week changes OPS-125-4", async () => {
+test("INV-qa-seed: the owner corrects one seeded past week, and no other week changes", async () => {
 	const before = await allWeeks();
 	const target = before.weeks[5]!;
 	const answers = { spiritual: "struggling", family: "steady", financial: "steady", pace: "steady" };
@@ -197,7 +197,7 @@ test("OPS-125: the owner corrects one seeded past week, and no other week change
 	);
 });
 
-test("OPS-125: the QA admin and member get no check-in rows and no seeded zone OPS-125-5", async () => {
+test("INV-qa-seed: the QA admin and member get no check-in rows and no seeded zone", async () => {
 	const { query } = await seeded();
 	for (const email of ["delivered+qa-admin@resend.dev", "delivered+qa-member@resend.dev"]) {
 		const [row] = await query(
@@ -212,7 +212,7 @@ test("OPS-125: the QA admin and member get no check-in rows and no seeded zone O
 	}
 });
 
-test("OPS-125: a rerun writes nothing, and a branch without the history gets it once OPS-125-6", async () => {
+test("INV-qa-seed: a rerun writes nothing, and a branch without the history gets it once", async () => {
 	const { db, query } = await seeded();
 	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS };
 	const counts = async () =>
@@ -260,6 +260,6 @@ function checkNoToolingImports(repo: string) {
 	assert.deepEqual(importers, [], `app or package files import the QA tooling: ${importers.join(", ")}`);
 }
 
-test("OPS-125: nothing in the real worktree's apps or packages imports the tooling AC:OPS-125-2", () => {
+test("INV-qa-isolation: nothing in the real worktree's apps or packages imports the tooling", () => {
 	checkNoToolingImports(source);
 });

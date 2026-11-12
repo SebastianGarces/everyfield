@@ -109,6 +109,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			(SELECT count(DISTINCT team_id)::int FROM (
 				SELECT r2.team_id FROM team_tenure tn
 				JOIN team_role r2 ON r2.id = tn.role_id
+				JOIN team t2 ON t2.id = r2.team_id AND t2.plant_id = tn.plant_id AND t2.archived_at IS NULL
 				WHERE tn.person_id = ${person}::uuid AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id
 				UNION SELECT r.team_id
 			) counted) AS "teamCount"
@@ -665,6 +666,14 @@ export const teamsWriter = {
 						revision = revision + 1
 						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid
 							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
+					// Turning leadership on fills an empty leader from the occupant and never replaces one (D-561).
+					const promoted =
+						!before.leadership && after.leadership && before.leaderPersonId === null ? before.occupantPersonId : null;
+					if (promoted)
+						audit.writes.push(sql`UPDATE team SET leader_person_id = ${promoted}::uuid,
+						leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
+						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid AND leader_person_id IS NULL`);
+					const leader = promoted ? { leaderPersonId: promoted } : {};
 					return {
 						value: roleResult(
 							audit.id,
@@ -678,7 +687,7 @@ export const teamsWriter = {
 						kind: "edit",
 						outcome: noop ? "noop" : "changed",
 						before: { name: before.name, desiredSkills: before.desiredSkills, leadership: before.leadership },
-						after: { name: after.name, desiredSkills: after.desiredSkills, leadership: after.leadership },
+						after: { name: after.name, desiredSkills: after.desiredSkills, leadership: after.leadership, ...leader },
 						revision: { before: before.revision, after: noop ? before.revision : after.revision },
 					};
 				},

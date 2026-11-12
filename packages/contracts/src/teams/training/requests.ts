@@ -2,11 +2,10 @@ import { z } from "zod";
 import { localDate } from "../../common/time.ts";
 import { digest, personId, recordId, requestKey } from "../../common/values.ts";
 import { commandEnvelope } from "../../common/writes.ts";
-import { meetingSubtype, programName } from "./values.ts";
+import { programName } from "./values.ts";
 
 const days = z.int().min(0).max(20000);
 const people = z.array(personId).max(500);
-const clock = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/);
 
 export const createProgramRequest = z.strictObject({
 	requestKey,
@@ -56,25 +55,9 @@ export const revokeCompletionRequest = commandEnvelope(z.strictObject({ personId
 export const recompleteTrainingRequest = commandEnvelope(
 	z.strictObject({ personId, programId: recordId, earnedOn: localDate }),
 );
-export const scheduleTeamMeetingRequest = commandEnvelope(
-	z.strictObject({
-		teamId: recordId,
-		subtype: meetingSubtype,
-		date: localDate,
-		time: clock,
-		guestIds: z.array(personId).max(200),
-	}),
-);
-export const recordTeamAttendanceRequest = commandEnvelope(
-	z.strictObject({
-		meetingId: recordId,
-		personIds: z.array(personId).max(200),
-	}),
-);
-export const listTrainingRequest = z.strictObject({});
-export const trainingMatrixRequest = z.strictObject({});
+/** With a teamId, only that ministry's programs and the church-wide ones (no ministry) are read, before the cap. */
+export const listTrainingRequest = z.strictObject({ teamId: recordId.optional() });
+export const trainingMatrixRequest = z.strictObject({ teamId: recordId.optional() });
 export const personTrainingRequest = z.strictObject({ personId });
 export const trainingHistoryRequest = z.strictObject({ personId });
 export const staffingFactsRequest = z.strictObject({ teamId: recordId });
-export const trainingHealthRequest = z.strictObject({ teamId: recordId });
-export const listTeamMeetingsRequest = z.strictObject({ teamId: recordId });

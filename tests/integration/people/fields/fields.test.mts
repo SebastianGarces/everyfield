@@ -1,10 +1,9 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
@@ -25,39 +24,18 @@ const noReminders = async () => {
 };
 
 // Households, tags, skills and the person photo through their public operations on a scratch schema.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp012_" + randomUUID().replaceAll("-", ""),
-	role = "wp012_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await fixture({ prefix: "wp012" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 3 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plants = [database.tenant.id, (await database.plant()).id],
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+	];
 // 0: plant A owner, 1: plant A member, 2: plant B admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-};
 const tx = (body) => db.transaction(body);
 // A write as the web mount runs it: withPeopleWrite with the request's resolved actor (RT-3).
 const write = async (who, body) =>
@@ -95,50 +73,8 @@ async function retire(p) {
 }
 const revisionOf = async (id) => (await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0].r;
 
-before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
-		);
-});
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE plant-local tag names, nullable color, one link per pair and deletion with history", async () => {

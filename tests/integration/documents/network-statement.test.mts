@@ -7,42 +7,24 @@
 // Every case creates from the built-in Bylaws, whose "Statement of faith" slot carries the key (T-56, D-110). The key
 // test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
 // Every step runs through the real createFromTemplate, readChurch, history and export path.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
+import { ok, seeds } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { fillStatementSlots, statementParagraphs } from "../../../packages/domain/src/documents/network-statement.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import test, { after, before, describe } from "node:test";
+import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t84_" + randomUUID().replaceAll("-", "");
-const roleName = "t84_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await testDatabase({ prefix: "t84" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
+const seed = seeds(admin);
 
 class MemoryClient extends S3Client {
 	objects = new Map();
@@ -119,25 +101,8 @@ const PARAGRAPHS = [
 
 /** A plant with one Owner. Returns the plant id and a function giving that Owner's request authority. */
 async function plantWithOwner(name) {
-	const plant = randomUUID(),
-		account = randomUUID(),
-		user = randomUUID(),
-		session = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${account + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account},${user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${account},${plant},'owner',clock_timestamp())`,
-	);
+	const plant = (await seed.plant({ name })).id;
+	const { session } = await seed.actor({ kind: "plant", id: plant }, "owner");
 	const authority = async () => {
 		const actor = await RequestActor.resolve(db, session);
 		assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -146,11 +111,7 @@ async function plantWithOwner(name) {
 	return { plant, authority };
 }
 async function organization(kind, statement = null) {
-	const id = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO organization(id,kind,name,timezone,material_revision,statement_of_faith) VALUES(${id},${kind},'Synthetic network','UTC',1,${statement})`,
-	);
-	return id;
+	return (await seed.organization(kind, { name: "Synthetic network", statement_of_faith: statement })).id;
 }
 const setStatement = (id, statement) =>
 	admin.execute(sql`UPDATE organization SET statement_of_faith=${statement} WHERE id=${id}::uuid`);
@@ -164,10 +125,6 @@ async function affiliate(plant, org, acceptedAt = "2026-01-01T00:00:00Z") {
 
 // ---------------------------------------------------------------- the operations, as a user calls them
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
 const create = async (who, templateId = BYLAWS) =>
 	ok(
 		await documentsWriter.createFromTemplate(db, await who.authority(), {
@@ -232,44 +189,11 @@ async function assertMarkedBlank(who, doc) {
 	}
 }
 
-before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-});
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
-	test("statementParagraphs: one paragraph per blank-line-separated block, a single line break kept", () => {
-		assert.deepEqual(statementParagraphs(TEXT), PARAGRAPHS);
-		assert.deepEqual(statementParagraphs("One.\n\n\nTwo.\n \nThree."), [para("One."), para("Two."), para("Three.")]);
-	});
-
-	test("fillStatementSlots leaves a document unchanged with no statement", () => {
-		const doc = {
-			body: { type: "doc", content: [{ type: "slot", attrs: { key: "statement-of-faith" }, content: [] }] },
-		};
-		assert.equal(fillStatementSlots(doc, null), doc);
-	});
-
+describe("AC:DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-020 network-fills-slot: revision 1 holds the network's exact text under the label, in both exports", async () => {
 		const who = await plantWithOwner("Filled Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
@@ -287,7 +211,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertMarkedBlank(who, await create(who));
 	});
 
-	test("DOC-020: a network that has not written it, or cleared it, or an ended affiliation gives the marked blank", async () => {
+	test("AC:DOC-020 a network that has not written it, or cleared it, or an ended affiliation gives the marked blank", async () => {
 		const unset = await plantWithOwner("Unset Plant");
 		await affiliate(unset.plant, await organization("sending_network"));
 		await assertMarkedBlank(unset, await create(unset));
@@ -304,7 +228,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertMarkedBlank(ended, await create(ended));
 	});
 
-	test("DOC-020: the text is read at creation only; a later change reaches only a later document", async () => {
+	test("AC:DOC-020 the text is read at creation only; a later change reaches only a later document", async () => {
 		const who = await plantWithOwner("Changing Plant");
 		const network = await organization("sending_network", TEXT);
 		await affiliate(who.plant, network);
@@ -321,7 +245,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertNetworkText(who, second.id, [para("Our newer words.")]);
 	});
 
-	test("DOC-020, D-108: with two active networks, the earliest-accepted one with a statement fills the slot", async () => {
+	test("AC:DOC-020 with two active networks, the earliest-accepted one with a statement fills the slot", async () => {
 		const who = await plantWithOwner("Two Networks");
 		const earlier = await organization("sending_network");
 		const later = await organization("sending_network", "The later network's words.");
@@ -335,7 +259,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		assert.deepEqual(keyedSlot((await create(who)).body).content, [para("The earlier network's words.")]);
 	});
 
-	test("DOC-020, D-106: only a slot keyed statement-of-faith is filled; saveNative keeps the key", async () => {
+	test("AC:DOC-020 only a slot keyed statement-of-faith is filled; saveNative keeps the key", async () => {
 		const who = await plantWithOwner("Mixed Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
 		const doc = await create(who, MIXED);
@@ -415,7 +339,7 @@ function assertSectionBlank(text) {
 	assert.equal(text.includes("network's own"), false);
 }
 
-describe("DOC-020 network text in a Bylaws preview and a saved file", { concurrency: 1 }, () => {
+describe("AC:DOC-020 network text in a Bylaws preview and a saved file", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-020 network-fills-preview: preview and the saved file print the network's text in the section", async () => {
 		const who = await plantWithOwner("Preview Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
@@ -423,7 +347,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionHolds((await savedText(who)).text);
 	});
 
-	test("DOC-020: the preview's section text equals the PDF export of revision 1 of a document made from Bylaws", async () => {
+	test("AC:DOC-020 the preview's section text equals the PDF export of revision 1 of a document made from Bylaws", async () => {
 		const who = await plantWithOwner("Parity Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
 		const preview = sectionOf(await previewText(who));
@@ -438,7 +362,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionBlank((await savedText(who)).text);
 	});
 
-	test("DOC-020: an unset, a cleared or an ended network statement previews and saves the marked blank", async () => {
+	test("AC:DOC-020 an unset, a cleared or an ended network statement previews and saves the marked blank", async () => {
 		const unset = await plantWithOwner("Unset Preview Plant");
 		await affiliate(unset.plant, await organization("sending_network"));
 
@@ -457,7 +381,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		}
 	});
 
-	test("DOC-020, D-108: with two active networks, the earliest-accepted one with a statement fills preview and save", async () => {
+	test("AC:DOC-020 with two active networks, the earliest-accepted one with a statement fills preview and save", async () => {
 		const who = await plantWithOwner("Two Networks Preview");
 		const earlier = await organization("sending_network");
 		const later = await organization("sending_network", "The later network's words.");
@@ -474,7 +398,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionHolds((await savedText(who)).text, earlierOnly);
 	});
 
-	test("DOC-020, D-109, D-418: the text is read when the action runs; a replay on the same key returns the earlier file", async () => {
+	test("AC:DOC-020 the text is read when the action runs; a replay on the same key returns the earlier file", async () => {
 		const who = await plantWithOwner("Changing Preview Plant");
 		const network = await organization("sending_network", TEXT);
 		await affiliate(who.plant, network);

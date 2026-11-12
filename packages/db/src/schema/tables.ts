@@ -1833,13 +1833,9 @@ export const job = pgTable(
 				"mail",
 				"notification",
 				"digest",
-				"assessment",
-				"reference_generation",
-				"feedback_publication",
 				"object_cleanup",
 				"lifecycle_purge",
 				"assistant_turn",
-				"document_render",
 				"people_import",
 				"evry_effect",
 			],
@@ -1884,7 +1880,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text, 'evry_effect'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -1896,7 +1892,7 @@ export const job = pgTable(
 		check("job_ck_6", sql`((subject_record_id IS NOT NULL) OR (producer_key = 'sweep'::text))`),
 		check(
 			"job_ck_7",
-			sql`((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))`,
+			sql`((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))`,
 		),
 		index("job_ref_1").using("btree", table.subject_record_id.asc().nullsLast()),
 		uniqueIndex("job_uq_1")
@@ -2165,6 +2161,8 @@ export const mail = pgTable(
 		address_hash: text("address_hash"),
 		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
 		refusal: text("refusal", { enum: ["unsubscribed"] }),
+		/** The Messages message this recipient send belongs to; null for every other purpose. */
+		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
@@ -2206,6 +2204,13 @@ export const mail = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
+			name: "mail_fk_8",
+			columns: [table.communication_id, table.tenant_id],
+			foreignColumns: [communication.id, communication.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
 			name: "mail_fk_7",
 			columns: [table.id, table.tenant_id],
 			foreignColumns: [record.id, record.tenant_id],
@@ -2238,6 +2243,17 @@ export const mail = pgTable(
 		index("mail_ref_4").using("btree", table.notice_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_5").using("btree", table.job_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_6").using("btree", table.original_mail_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		index("mail_communication").using(
+			"btree",
+			table.tenant_id.asc().nullsLast(),
+			table.communication_id.asc().nullsLast(),
+		),
+		// The minute runner reads Messages email that waits for its send time, and held email it may have to cancel (T-241).
+		index("mail_waiting")
+			.using("btree", table.scheduled_at.asc().nullsLast())
+			.where(
+				sql`((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL))`,
+			),
 	],
 );
 export const mail_attempt = pgTable(
@@ -2484,10 +2500,21 @@ export const notice = pgTable(
 		tenant_id: uuid("tenant_id").notNull(),
 		recipient_id: uuid("recipient_id").notNull(),
 		category: text("category", {
-			enum: ["task", "meeting", "phase", "insight", "relationship", "reference_update", "digest", "launch"],
+			enum: [
+				"task",
+				"meeting",
+				"phase",
+				"insight",
+				"relationship",
+				"reference_update",
+				"digest",
+				"launch",
+				"communication",
+			],
 		}).notNull(),
 		purpose: text("purpose", {
 			enum: [
+				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
 				"meeting_evaluation",
@@ -2545,11 +2572,11 @@ export const notice = pgTable(
 		check("notice_ck_0", sql`(revision >= 1)`),
 		check(
 			"notice_ck_1",
-			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text]))`,
+			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text]))`,
 		),
 		check(
 			"notice_ck_2",
-			sql`(purpose = ANY (ARRAY['insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text]))`,
+			sql`(purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text]))`,
 		),
 		check("notice_ck_3", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("notice_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
@@ -2577,6 +2604,7 @@ export const notification_preference = pgTable(
 				"phase_milestone",
 				"launch_milestone",
 				"wiki_upstream_review",
+				"scheduled_email_unsubscribe",
 			],
 		}).notNull(),
 		channel: text("channel", { enum: ["email", "in_app"] }).notNull(),
@@ -2606,7 +2634,7 @@ export const notification_preference = pgTable(
 		check("notification_preference_ck_0", sql`(revision >= 1)`),
 		check(
 			"notification_preference_ck_1",
-			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review')`,
+			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe')`,
 		),
 		check("notification_preference_ck_2", sql`(channel = ANY (ARRAY['email'::text, 'in_app'::text]))`),
 		check("notification_preference_ck_3", sql`(cadence = ANY (ARRAY['daily'::text, 'weekly'::text]))`),
@@ -2614,7 +2642,7 @@ export const notification_preference = pgTable(
 		check("notification_preference_ck_5", sql`((hour IS NULL) OR ((hour >= 0) AND (hour <= 23)))`),
 		check(
 			"notification_preference_ck_6",
-			sql`((category <> 'wiki_upstream_review'::text) OR (channel = 'in_app'::text))`,
+			sql`((category <> ALL (ARRAY['wiki_upstream_review'::text, 'scheduled_email_unsubscribe'::text])) OR (channel = 'in_app'::text))`,
 		),
 	],
 );
@@ -5342,6 +5370,10 @@ export const audit_event = pgTable(
 		),
 		index("audit_subject_history").on(table.tenant_id, table.subject_id, table.occurred_at, table.id),
 		index("audit_command").on(table.command_id),
+		// The newest event of one action in one tenant: the Wiki's source order (wiki/corpus.ts).
+		index("audit_tenant_action_latest").on(table.tenant_id, table.action, table.occurred_at, table.id),
+		// One actor's events of one action in order: the Wiki feedback a reader gave (wiki/editorial.ts getMine).
+		index("audit_actor_action").on(table.actor_id, table.action, table.occurred_at, table.id),
 	],
 );
 /**

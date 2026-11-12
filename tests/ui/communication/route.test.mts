@@ -37,5 +37,10 @@ test("AC:CASE-COM-003 the meeting handoff address opens a new message on Write",
 });
 
 test("AC:CASE-COM-003 an unknown step falls back to Who", () => {
-	assert.equal((parseRoute({ compose: "new", step: "nope" }) as { step: string }).step, "who");
+	assert.deepEqual(parseRoute({ compose: "new", step: "nope" }), {
+		kind: "compose",
+		id: "new",
+		step: "who",
+		handoff: null,
+	});
 });

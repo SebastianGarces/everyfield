@@ -15,7 +15,7 @@ async function firstRead(text: string) {
 	return { tool: call.toolName, ...JSON.parse(call.input) };
 }
 
-test("the scripted model asks people.listPeople for the page size the words ask for", async () => {
+test("INV-scripted-model: the scripted model asks people.listPeople for the page size the words ask for", async () => {
 	const page = (input: unknown) => ({ tool: "people_read", operation: "people.listPeople", input });
 	assert.deepEqual(await firstRead("Which people should I call?"), page({ limit: 24 }));
 	assert.deepEqual(await firstRead("Show me all people"), page({ limit: 100 }));
@@ -25,7 +25,7 @@ test("the scripted model asks people.listPeople for the page size the words ask 
 	assert.deepEqual(await firstRead("List everyone"), page({ limit: 24 }));
 });
 
-test("the people words match whole words only", async () => {
+test("INV-scripted-model: the people words match whole words only", async () => {
 	const reply = await scriptedModel().doGenerate({
 		prompt: [{ role: "user", content: [{ type: "text", text: "Tell me about Peoplesoft" }] }],
 		tools: [{ type: "function", name: "people_read", inputSchema: {} }],

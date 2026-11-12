@@ -3,7 +3,7 @@
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.
 
-UI work runs in the implementer seat, which reads this file for UI work. Follow `implementor.md` for the
+UI tasks run in the `ui` seat, which reads this file and `implementor.md`. Follow `implementor.md` for the
 task loop; these rules add to it, including the proof the implementor records.
 Do not push: evf opens the PR (implementor step 6).
 

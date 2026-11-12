@@ -34,7 +34,7 @@ const budgetTemplate = () =>
 	structuredClone(docTemplateById("budget-worksheet")!.body.content!.find((n) => n.type === "table")) as TableNode;
 const roles = (t: TableNode) => (t.content ?? []).map((r) => r.attrs?.role ?? "item");
 
-test("formatNumber rounds money to cents, so 0.20 + 0.70 + 0.10 prints $1 and 100.50 keeps its cents", () => {
+test("INV-doc-table: formatNumber rounds money to cents, so 0.20 + 0.70 + 0.10 prints $1 and 100.50 keeps its cents", () => {
 	assert.equal(formatNumber(0.2 + 0.7 + 0.1, "money"), "$1");
 	assert.equal(formatNumber(0.2 + 0.7 + 0.1, "number"), "1");
 	assert.equal(formatNumber(100.5, "money"), "$100.50");
@@ -43,7 +43,7 @@ test("formatNumber rounds money to cents, so 0.20 + 0.70 + 0.10 prints $1 and 10
 	assert.equal(formatNumber(-0.001, "money"), "$0");
 });
 
-test("parseAmount reads $3,000, 3000.50 and -20, rounds money to cents, stores blank as null and refuses the rest", () => {
+test("INV-doc-table: parseAmount reads $3,000, 3000.50 and -20, rounds money to cents, stores blank as null and refuses the rest", () => {
 	for (const [text, kind, value] of [
 		["$3,000", "money", 3000],
 		["3000.50", "money", 3000.5],
@@ -58,12 +58,12 @@ test("parseAmount reads $3,000, 3000.50 and -20, rounds money to cents, stores b
 		assert.equal(parseAmount(text, "money").ok, false, text);
 });
 
-test("columnWidths shares the free width among the columns with width 0, as the PDF does", () => {
+test("INV-doc-table: columnWidths shares the free width among the columns with width 0, as the PDF does", () => {
 	assert.deepEqual(columnWidths([{ width: 100 }, { width: 0 }, { width: 0 }], 500), [100, 200, 200]);
 	assert.deepEqual(columnWidths([{ width: 0 }, { width: 0 }], 30), [24, 24]);
 });
 
-test("exports follow the body: Excel only with a budget table, and an unchanged list keeps its order", () => {
+test("AC:CASE-DOC-023 exports follow the body: Excel only with a budget table, and an unchanged list keeps its order", () => {
 	const withBudget = { type: "doc", content: [{ type: "table", attrs: { style: "ledger", columns: [] } }] } as never;
 	const without = { type: "doc", content: [{ type: "paragraph" }] } as never;
 	assert.deepEqual(exportsFor(["xlsx", "pdf", "docx"], withBudget), ["xlsx", "pdf", "docx"]);
@@ -72,13 +72,13 @@ test("exports follow the body: Excel only with a budget table, and an unchanged 
 	assert.deepEqual(exportsFor(["pdf", "docx"], without), ["pdf", "docx"]);
 });
 
-test("the format's own words refuse a blank row count outside 0 to 200", () => {
+test("INV-doc-table: the format's own words refuse a blank row count outside 0 to 200", () => {
 	assert.equal(attrIssue("table", "writeInRows", 250), "250 is outside 0 to 200");
 	assert.equal(attrIssue("table", "writeInRows", 2.5), "must be a whole number");
 	assert.equal(attrIssue("table", "writeInRows", 200), null);
 });
 
-test("every new table of Insert parses, and a column or row action leaves the table valid", () => {
+test("INV-doc-table: every new table of Insert parses, and a column or row action leaves the table valid", () => {
 	for (const make of [newGrid, newChecklist, newBudget]) assert.equal(tableIssue(make()), null);
 	let grid = newGrid();
 	for (let i = 0; i < 13; i++) grid = addColumn(grid, 0);
@@ -88,7 +88,7 @@ test("every new table of Insert parses, and a column or row action leaves the ta
 	assert.equal(tableIssue(removeColumn(grid, 3)), null);
 });
 
-test("a column kind change converts the cells: text that reads as a number, number to money and back, the rest clears", () => {
+test("INV-doc-table: a column kind change converts the cells: text that reads as a number, number to money and back, the rest clears", () => {
 	let t = addColumn(newGrid(), 3);
 	t = {
 		...t,
@@ -128,7 +128,7 @@ test("a column kind change converts the cells: text that reads as a number, numb
 	assert.equal(tableIssue(setKind(money, 0, "index")), null);
 });
 
-test("a column a formula reads, and a budget's last text column, cannot be removed or change kind", () => {
+test("INV-doc-table: a column a formula reads, and a budget's last text column, cannot be removed or change kind", () => {
 	const t = budgetTemplate();
 	const reads = availability(t, { row: 1, col: 1 });
 	assert.equal(reads.removeColumn, 'The "Annual" column reads this column.');
@@ -154,7 +154,7 @@ test("a column a formula reads, and a budget's last text column, cannot be remov
 	assert.match(availability(summed, { row: null, col: 0 }).addColumnRight ?? "", /adds up a range/);
 });
 
-test("a line item goes before its category total, a category before the grand total, and a sign is its own control", () => {
+test("INV-doc-table: a line item goes before its category total, a category before the grand total, and a sign is its own control", () => {
 	const t = budgetTemplate();
 	const other = (t.content ?? []).findIndex(
 		(r) => r.content[0]?.content?.[0] && (r.content[0].content[0] as { text: string }).text === "Other income",
@@ -178,7 +178,7 @@ test("a line item goes before its category total, a category before the grand to
 	assert.equal(categoryAt(single, 3), null, "the grand total belongs to no category");
 });
 
-test("the table view numbers rows and stripes as the PDF does: blank rows count on after the typed ones", () => {
+test("INV-doc-table: the table view numbers rows and stripes as the PDF does: blank rows count on after the typed ones", () => {
 	const t = newGrid();
 	t.attrs.zebra = true;
 	t.attrs.columns[0] = { id: "no", label: "No.", type: "index", width: 30 };
@@ -207,7 +207,7 @@ test("the table view numbers rows and stripes as the PDF does: blank rows count 
 	);
 });
 
-test("Remove row is off on the last row of a table with no header, and on a table's last blank row with no header", () => {
+test("INV-doc-table: Remove row is off on the last row of a table with no header, and on a table's last blank row with no header", () => {
 	const checklist = newChecklist();
 	assert.equal(availability(checklist, { row: 0, col: 1 }).removeRow, null);
 	const one = { ...checklist, content: checklist.content?.slice(0, 1) };
@@ -222,7 +222,7 @@ test("Remove row is off on the last row of a table with no header, and on a tabl
 	);
 });
 
-test("the format's table check refuses a total with no category, and takes a budget with no total", () => {
+test("INV-doc-table: the format's table check refuses a total with no category, and takes a budget with no total", () => {
 	const budget = newBudget();
 	assert.equal(tableIssue(budget), null);
 	const rows = budget.content ?? [];

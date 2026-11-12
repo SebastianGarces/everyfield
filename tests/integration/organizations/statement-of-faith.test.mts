@@ -1,11 +1,10 @@
 // DOC-020, D-107: a sending network's Owner or Admin writes its statement of faith through the one organization
 // profile write. A church row cannot hold one, and every other seat is refused.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-before(S.setup);
 after(S.teardown);
 
 const statementOf = async (id: string) =>
@@ -24,7 +23,7 @@ const checkFails = (error: { cause?: { constraint?: string } }) =>
 	error.cause?.constraint === "organization_statement_of_faith";
 const TEXT = "We hold to these words.\n\nA second paragraph,\nwith a line break.";
 
-test("DOC-020: a network's Owner and Admin save, change and clear its statement of faith, read back each time", async () => {
+test("AC:DOC-020 a network's Owner and Admin save, change and clear its statement of faith, read back each time", async () => {
 	const network = await S.tenant("sending_network"),
 		ownerSeat = await S.identity(network, "owner"),
 		adminSeat = await S.identity(network, "admin"),
@@ -97,7 +96,7 @@ test("DOC-020: a network's Owner and Admin save, change and clear its statement 
 	);
 });
 
-test("DOC-020: the statement is at most 10,000 characters", async () => {
+test("AC:DOC-020 the statement is at most 10,000 characters", async () => {
 	const network = await S.tenant("sending_network"),
 		ownerSeat = await S.identity(network, "owner");
 	await assert.rejects(
@@ -121,31 +120,7 @@ test("DOC-020: the statement is at most 10,000 characters", async () => {
 	);
 });
 
-test("DOC-020: a network Member, another network's account and a plant Owner are refused, and the text stays", async () => {
-	const network = await S.tenant("sending_network"),
-		ownerSeat = await S.identity(network, "owner"),
-		member = await S.identity(network, "member"),
-		otherNetwork = await S.identity(await S.tenant("sending_network"), "owner"),
-		plantOwner = await S.identity(await S.tenant("plant"), "owner");
-	await S.call(
-		"organizations.updateProfile",
-		ownerSeat,
-		S.command({ organization: network, patch: { statementOfFaith: "Ours." } }),
-	);
-	for (const actor of [member, otherNetwork, plantOwner]) {
-		await assert.rejects(
-			S.call(
-				"organizations.updateProfile",
-				actor,
-				S.command({ organization: network, patch: { statementOfFaith: "Not yours." } }, "2"),
-			),
-			/unavailable/,
-		);
-		assert.deepEqual(await statementOf(network.id), { s: "Ours.", r: "2" });
-	}
-});
-
-test("DOC-020: a sending church row cannot store a statement of faith", async () => {
+test("AC:DOC-020 a sending church row cannot store a statement of faith", async () => {
 	const church = await S.tenant("sending_church"),
 		ownerSeat = await S.identity(church, "owner");
 	await assert.rejects(

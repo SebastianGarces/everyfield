@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineSafeError, personId, requestKey } from "../../common/values.ts";
+import { instant } from "../../common/time.ts";
 import { listPeopleRequest } from "../requests.ts";
 
 // People CSV import (REQ-PPL-018) and export (REQ-PPL-019). The server reads the uploaded bytes itself; a client never
@@ -74,6 +75,27 @@ export const executeBulkImportRequest = z.strictObject({
 	choices: z.array(z.strictObject({ row: rowNumber, choice: importChoice })).max(importLimits.rows),
 });
 export const importReceiptRequest = z.strictObject({ requestKey });
+
+// The screen's way in (REQ-PPL-018 over the REQ-PPL-014 private-file flow): the browser puts the file once into the
+// private bucket with a signed PUT, and the preview and the import each read that stored object on the server.
+export const importUploadId = z.uuid();
+export const signImportUploadRequest = z.strictObject({ byteLength: z.int().min(1).max(importLimits.bytes) });
+export const importUpload = z.strictObject({
+	uploadId: importUploadId,
+	// The browser PUTs the file's exact bytes to this URL with exactly these headers; it works until expiresAt.
+	url: z.url(),
+	headers: z.strictObject({
+		"content-type": z.literal("text/csv"),
+		"if-none-match": z.literal("*"),
+		"cache-control": z.literal("private, no-store"),
+	}),
+	expiresAt: instant,
+});
+export const previewStoredImportRequest = z.strictObject({ uploadId: importUploadId });
+/** The reviewed import of a stored upload: the server reads the object and checks it is the previewed file. */
+export const executeStoredImportRequest = executeBulkImportRequest
+	.omit({ file: true })
+	.extend({ uploadId: importUploadId });
 
 /** A validation problem in one cell, or in the row's shape when column is null. */
 export const rowProblem = z.strictObject({

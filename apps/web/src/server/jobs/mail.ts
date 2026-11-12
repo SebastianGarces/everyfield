@@ -80,6 +80,18 @@ export interface MailTransport {
 	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
+/**
+ * The transport a mount queues through on the request side: it refuses every send, so a request that queues mail never
+ * waits on the email service. The scheduled runner sends the queued mail with a real transport.
+ */
+export const queueOnlyTransport: MailTransport = {
+	async send() {
+		return { kind: "refused", retryable: true };
+	},
+	async lookup() {
+		return { kind: "unknown" };
+	},
+};
 const stored = z.object({
 	id: z.uuid(),
 	tenant_id: z.uuid(),
@@ -100,7 +112,8 @@ const stored = z.object({
 });
 /**
  * Mail a reader may turn off (REQ-NTF-012): a notification email and the two digests. Security, invitation and receipt
- * mail never carries an Unsubscribe link. Messages to CRM people (`communication`) have no opt-out state yet.
+ * mail never carries an Unsubscribe link. Messages mail to CRM people (`communication`) is not listed here: it carries its own
+ * Unsubscribe link, built in `packages/domain/src/communication/delivery.ts`.
  */
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 /** The opt-out page's origin (scheme, host and port only) and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
@@ -784,6 +797,9 @@ async function claimDueMail(db: Database, prefixes: readonly string[]): Promise<
     FROM due WHERE j.id=due.id RETURNING j.*`);
 	return rows.rows.map((row) => claimSchema.parse(row))[0];
 }
+
+/** A scheduled-runner mail pass: sends at most `limit` due mail, starting none after `until`. Returns the claims. */
+export type MailPass = (limit: number, until: number) => Promise<number>;
 
 /** One bounded batch of a mount's due mail: claim, then dispatch each under the mount's own authorizer. Returns the claims. */
 export async function runDueMail(

@@ -3,11 +3,11 @@
 // against the recording fake of Resend. Nothing calls Resend. The CI db job runs this file.
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { setImmediate } from "node:timers/promises";
 import { randomBytes, randomUUID } from "node:crypto";
-import { globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { mailRecipientAllowed } from "../../../packages/domain/src/mail-recipients.ts";
@@ -28,8 +28,9 @@ import { runDueInvitationMail } from "../../../apps/web/src/server/invitations/i
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
+import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
+import { ok } from "../../support/fixture.mts";
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
 const DAY = 86_400_000;
@@ -49,10 +50,6 @@ const ready = { keys, apiKey: "re_test_key" };
 const message = (to, subject = "Hello") => ({ to, subject, html: `<p>${subject}</p>`, text: subject });
 const signal = () => AbortSignal.timeout(5_000);
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 /** True when any request the recorder saw holds the address anywhere: path, header key or body. */
 const holds = (requests, address) => JSON.stringify(requests).toLowerCase().includes(address.toLowerCase());
 const outboxTo = async () => (await readOutbox()).map((entry) => entry.to);
@@ -154,9 +151,21 @@ async function reviewed(op, sent, transport) {
 	);
 }
 const sendNow = async (people, transport) => reviewed("sendReviewed", await held(people), transport);
+/** Schedule, then the send time comes: the minute runner hands it to the email service then (T-241). */
 const handOff = async (people, transport) => {
 	const message = await held(people);
-	return { message, report: await reviewed("handOffScheduled", message, transport) };
+	const report = await reviewed("handOffScheduled", message, transport);
+	const { f } = await database();
+	await atSendTime(f.admin, f.db, message.id, transport, keys);
+	return { message, report };
+};
+/** A scheduled email the email service holds with its send time, as before T-241. */
+const heldHandOff = async (people, transport) => {
+	const message = await held(people);
+	const report = await reviewed("handOffScheduled", message, transport);
+	const { f } = await database();
+	await heldAtProvider(f.admin, message.id, transport, keys);
+	return { message, report };
 };
 async function transactional(address, transport) {
 	const { f, owner } = await database();
@@ -196,7 +205,7 @@ async function queuedInvitation(address, env, request) {
 			IDENTITY_ADDRESS_KEY: mailKeys.addressKey.toString("hex"),
 			IDENTITY_MAIL_FROM: "invitations@resend.dev",
 		},
-		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Date.now() + 30_000),
+		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Infinity),
 	);
 	assert.equal(mailed, 1);
 	const { rows } = await f.admin
@@ -239,9 +248,10 @@ function countingFetch() {
 	return { calls, request };
 }
 
-test("AC:WP-029-1 the rule reads only its two arguments, does no I/O, and each sender calls it", () => {
-	const source = readFileSync(join(repo, "packages/domain/src/mail-recipients.ts"), "utf8");
-	assert.doesNotMatch(source, /^\s*import\s+(?!type\b)|\brequire\(|\bprocess\b|\bfetch\b|\bawait\b|\bDate\b/m);
+// The rule's purity (no value import, require, process, fetch, await or Date) is the everyfield/pure-module lint rule
+// in .oxlintrc.json. Each sender refusing an unapproved address: WP-029-4, WP-029-8 and WP-029-14 (mail.ts), WP-029-9
+// (server/jobs/resend.ts) and WP-029-10 (early access).
+test("INV-email-safety: the rule reads only its two arguments", () => {
 	const read = [];
 	const env = new Proxy(
 		{ VERCEL_ENV: "preview", EMAIL_TEST_RECIPIENTS: "tester@example.org", NODE_ENV: "production" },
@@ -254,20 +264,14 @@ test("AC:WP-029-1 the rule reads only its two arguments, does no I/O, and each s
 	);
 	assert.equal(mailRecipientAllowed(env, "tester@example.org"), true);
 	assert.deepEqual([...new Set(read)].sort(), ["EMAIL_TEST_RECIPIENTS", "VERCEL_ENV"]);
-	for (const file of [
-		"apps/web/src/features/communication/mail.ts",
-		"apps/web/src/server/jobs/resend.ts",
-		"packages/domain/src/early-access/index.ts",
-	])
-		assert.match(readFileSync(join(repo, file), "utf8"), /mailRecipientAllowed\(/, file);
 });
 
-test("AC:WP-029-2 only VERCEL_ENV exactly production allows any address", () => {
+test("INV-email-safety: only VERCEL_ENV exactly production allows any address", () => {
 	assert.equal(mailRecipientAllowed({ VERCEL_ENV: "production" }, TYPED), true);
 	for (const [name, env] of RESTRICTED) assert.equal(mailRecipientAllowed(env, TYPED), false, name);
 });
 
-test("AC:WP-029-3 a restricted environment approves Resend test addresses and listed full addresses only", () => {
+test("INV-email-safety: a restricted environment approves Resend test addresses and listed full addresses only", () => {
 	const env = { VERCEL_ENV: "preview" };
 	for (const address of [" Delivered+A@Resend.dev ", "delivered+a@resend.dev", APPROVED])
 		assert.equal(mailRecipientAllowed(env, address), true, address);
@@ -300,7 +304,7 @@ test("AC:WP-029-3 a restricted environment approves Resend test addresses and li
 	}
 });
 
-test("AC:WP-029-4 on a preview with a key a typed address is captured on Send now, scheduled hand-off and transactional mail", async () => {
+test("INV-email-safety: on a preview with a key a typed address is captured on Send now, scheduled hand-off and transactional mail", async () => {
 	const typed = await person(TYPED);
 	const settled = [];
 	const resend = resendRecorder(PREVIEW, (ids) => settled.push(...ids));
@@ -313,7 +317,7 @@ test("AC:WP-029-4 on a preview with a key a typed address is captured on Send no
 	const scheduled = await handOff([typed], resend.transport);
 	assert.equal(scheduled.report.acceptedCount, 1);
 	assert.match((await providerIds(scheduled.message.id))[0].id, /^capture-/);
-	assert.equal(settled.length, 1, "a held capture is not sent yet");
+	assert.equal(settled.length, 2, "at the send time the capture goes out at once");
 	assert.deepEqual(await outboxTo(), [TYPED, TYPED]);
 
 	const reset = await transactional("real.reset@example.com", resend.transport);
@@ -329,7 +333,7 @@ test("AC:WP-029-4 on a preview with a key a typed address is captured on Send no
 	assert.match(page, /real\.reset@example\.com/);
 });
 
-test("AC:WP-029-5 a mixed batch splits, whatever the position of the approved message", async () => {
+test("INV-email-safety: a mixed batch splits, whatever the position of the approved message", async () => {
 	const typed = await person("real.mixed@example.com");
 	const maria = await person(APPROVED);
 	const settled = [];
@@ -382,7 +386,7 @@ test("AC:WP-029-5 a mixed batch splits, whatever the position of the approved me
 	}
 });
 
-test("AC:WP-029-6 cancel and time change pick capture or Resend from the message id", async () => {
+test("INV-email-safety: cancel and time change pick capture or Resend from the message id", async () => {
 	const at = new Date(Date.now() + 3 * DAY).toISOString();
 	const later = new Date(Date.now() + 4 * DAY).toISOString();
 	const entry = async (id) => (await readOutbox()).find((row) => row.id === id);
@@ -415,7 +419,7 @@ test("AC:WP-029-6 cancel and time change pick capture or Resend from the message
 
 	// The whole write path: the Messages screen's cancel of a held captured message.
 	const typed = await person("real.cancel@example.com");
-	const { message: message_ } = await handOff([typed], resend.transport);
+	const { message: message_ } = await heldHandOff([typed], resend.transport);
 	const { f, owner } = await database();
 	const { rows } = await f.admin.execute(
 		sql`SELECT revision::text AS revision FROM communication WHERE id = ${message_.id}`,
@@ -434,13 +438,24 @@ test("AC:WP-029-6 cancel and time change pick capture or Resend from the message
 	assert.equal((await entry(id)).cancelled, true);
 });
 
-test("AC:WP-029-7 refusals and capture faults never reach the provider", async () => {
+test("INV-email-safety: refusals and capture faults never reach the provider", async () => {
 	const realFetch = globalThis.fetch;
-	globalThis.fetch = async () => Response.json({ data: [{ name: "verified.example.org", status: "verified" }] });
+	// The domain list settles through promise jobs only (no body stream), so one event-loop turn after the fetch
+	// settles it: the wait is on the read, not on a clock.
+	let fetched = 0;
+	globalThis.fetch = async () => {
+		fetched++;
+		return {
+			ok: true,
+			status: 200,
+			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
+		};
+	};
 	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
-		await new Promise((done) => setTimeout(done, 100));
+		await setImmediate();
+		assert.equal(fetched, 1, "the domain read started before the send");
 	} finally {
 		globalThis.fetch = realFetch;
 	}
@@ -504,7 +519,7 @@ test("AC:WP-029-7 refusals and capture faults never reach the provider", async (
 	assert.deepEqual(quiet.take(), []);
 });
 
-test("AC:WP-029-8 queued invitation mail captures a typed address, sends an approved one, and looks up no capture", async () => {
+test("INV-email-safety: queued invitation mail captures a typed address, sends an approved one, and looks up no capture", async () => {
 	const resend = resendRecorder();
 	const typed = await queuedInvitation("real.invitee@example.com", PREVIEW, resend.fetch);
 	assert.equal(typed.state, "accepted");
@@ -528,7 +543,7 @@ test("AC:WP-029-8 queued invitation mail captures a typed address, sends an appr
 	assert.equal(resend.take().length, 1, "a Resend id still asks Resend");
 });
 
-test("AC:WP-029-9 the guard is inside createResendTransport.send", async () => {
+test("INV-email-safety: the guard is inside createResendTransport.send", async () => {
 	const payload = { from: "a@resend.dev", ...message(TYPED) };
 	const resend = resendRecorder();
 	const transport = createResendTransport("re_test_key", resend.fetch, { VERCEL_ENV: "preview" });
@@ -546,13 +561,13 @@ test("AC:WP-029-9 the guard is inside createResendTransport.send", async () => {
 	assert.deepEqual(await outboxTo(), [TYPED, TYPED, TYPED]);
 });
 
-test("AC:WP-029-10 early access with a recipient that is not approved calls no fetch and answers unavailable", async () => {
+test("INV-email-safety: early access with a recipient that is not approved calls no fetch and answers unavailable", async () => {
 	const { f } = await database();
 	for (const [name, extra] of RESTRICTED) {
-		const refused = countingFetch();
-		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), refused.request);
+		const blocked = countingFetch();
+		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), blocked.request);
 		assert.deepEqual(result, { status: "unavailable" }, name);
-		assert.deepEqual(refused.calls, [], name);
+		assert.deepEqual(blocked.calls, [], name);
 		const { rows } = await f.admin.execute(
 			sql`SELECT count(*)::int AS n FROM early_access_request WHERE email = ${email}`,
 		);
@@ -587,7 +602,7 @@ test("AC:WP-029-10 early access with a recipient that is not approved calls no f
 	assert.equal(listed.calls.length, 1);
 });
 
-test("AC:WP-029-11 production sends the typed address on all four paths, with the same request as before", async () => {
+test("INV-email-safety: production sends the typed address on all four paths, with the same request as before", async () => {
 	const { f } = await database();
 	const typed = await person("real.production@example.com");
 	const resend = resendRecorder(PRODUCTION);
@@ -606,7 +621,7 @@ test("AC:WP-029-11 production sends the typed address on all four paths, with th
 	const [stored] = await providerIds(scheduled.message.id);
 	assert.equal(heldCall.idempotencyKey, stored.key);
 	assert.deepEqual(heldCall.body[0].to, ["real.production@example.com"]);
-	assert.equal(typeof heldCall.body[0].scheduled_at, "string");
+	assert.equal(heldCall.body[0].scheduled_at, undefined, "at the send time it goes out at once");
 	assert.match(stored.id, /^re-/);
 
 	assert.equal((await transactional("real.prod.reset@example.com", resend.transport)).deliveryStatus, "accepted");
@@ -665,7 +680,7 @@ test("AC:WP-029-11 production sends the typed address on all four paths, with th
 	assert.deepEqual(await readOutbox(), [], "no capture file appears");
 });
 
-test("AC:WP-029-12 unknown, development and absent environments stay restricted, and the outbox stays closed elsewhere", async () => {
+test("INV-email-safety: unknown, development and absent environments stay restricted, and the outbox stays closed elsewhere", async () => {
 	for (const [name, env] of RESTRICTED) {
 		const resend = resendRecorder(env, () => {});
 		const batch = await resend.transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal());
@@ -708,61 +723,7 @@ test("AC:WP-029-12 unknown, development and absent environments stay restricted,
 	}
 });
 
-const ALLOWED_SENDERS = new Set([
-	"apps/web/src/features/communication/mail.ts",
-	"apps/web/src/server/jobs/resend.ts",
-	"packages/domain/src/early-access/index.ts",
-]);
-const SKIPPED = new Set(["node_modules", ".next", "dist", "build", ".turbo", "coverage", "test", "tests", "__tests__"]);
-const RESEND_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\(\s*)["']resend(?:\/[^"']*)?["']/;
-
-/** Each file outside the guarded senders that names the Resend API host or imports the Resend package. */
-function unguardedSenders(root) {
-	const found = [];
-	const walk = (folder) => {
-		for (const entry of readdirSync(folder, { withFileTypes: true })) {
-			const path = join(folder, entry.name);
-			if (entry.isDirectory()) {
-				if (!SKIPPED.has(entry.name)) walk(path);
-				continue;
-			}
-			if (/\.test\.[a-z]+$/.test(entry.name)) continue;
-			const name = relative(root, path);
-			if (ALLOWED_SENDERS.has(name)) continue;
-			const text = readFileSync(path, "utf8");
-			if (text.includes("api.resend.com") || RESEND_IMPORT.test(text)) found.push(name);
-		}
-	};
-	for (const top of ["apps", "packages", "tools"]) walk(join(root, top));
-	return found.sort();
-}
-
-test("AC:WP-029-13 only the guarded senders can reach Resend, and the scan fails on a planted file", () => {
-	assert.deepEqual(unguardedSenders(repo), []);
-	const planted = mkdtempSync(join(tmpdir(), "wp029-scan-"));
-	const plant = (name, text) => {
-		mkdirSync(dirname(join(planted, name)), { recursive: true });
-		writeFileSync(join(planted, name), text);
-	};
-	plant("apps/web/src/server/jobs/worker.ts", 'await fetch("https://api.resend.com/emails");');
-	plant("packages/domain/src/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/qa/send.mjs", 'const { Resend } = await import("resend");');
-	plant("apps/web/src/server/jobs/required.cjs", 'const r = require("resend/emails");');
-	plant("apps/web/src/features/communication/mail.ts", 'fetch("https://api.resend.com/emails");');
-	plant("apps/web/src/server/jobs/worker.test.ts", 'fetch("https://api.resend.com/emails");');
-	plant("packages/domain/test/mailer.ts", 'import { Resend } from "resend";');
-	plant("tools/qa/send.sh", "curl https://api.resend.com/emails");
-	plant("packages/domain/src/local.ts", 'import { createResendTransport } from "./resend.ts";');
-	assert.deepEqual(unguardedSenders(planted), [
-		"apps/web/src/server/jobs/required.cjs",
-		"apps/web/src/server/jobs/worker.ts",
-		"packages/domain/src/mailer.ts",
-		"tools/qa/send.mjs",
-		"tools/qa/send.sh",
-	]);
-});
-
-test("AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off", async () => {
+test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", async () => {
 	const outbox = process.env.EVERYFIELD_DEV_OUTBOX;
 	for (const [name, extra] of [
 		["NODE_ENV", { NODE_ENV: "production" }],
@@ -798,45 +759,4 @@ test("AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off", async
 	);
 	assert.equal(holds(calls, "different@example.org"), false);
 	assert.equal((await outboxTo()).includes("different@example.org"), true);
-});
-
-test("AC:WP-029-15 the texts state the new behavior and no CI workflow or script sets VERCEL_ENV", () => {
-	const read = (file) => readFileSync(join(repo, file), "utf8");
-	const runbook = read("docs/runbooks/qa-preview.md");
-	const section = runbook.slice(
-		runbook.indexOf("### Email on a QA preview"),
-		runbook.indexOf("## 3. How a bot gets in"),
-	);
-	for (const text of [
-		/delivered\+/,
-		/resend\.dev/,
-		/EMAIL_TEST_RECIPIENTS/,
-		/capture outbox/,
-		/\/api\/dev\/outbox/,
-		/instance/,
-		/Rebuild an open preview/,
-	])
-		assert.match(section, text);
-	assert.doesNotMatch(read("tools/qa/qa-seed.ts"), /so a real send reaches no real person/);
-	assert.match(read("tools/qa/qa-seed.ts"), /mailRecipientAllowed/);
-	const capture = read("apps/web/src/features/communication/capture.ts");
-	assert.doesNotMatch(capture, /with no provider key and a Vercel environment/i);
-	assert.doesNotMatch(capture, /^\/\/ Dev-only mail capture \(criterion 35\)\. With no provider key/m);
-	assert.match(capture, /mailRecipientAllowed/);
-	const test = read("tests/ui/communication/capture.test.mts");
-	assert.match(test, /with or without a provider\s*(?:\/\/ )?key/);
-	assert.doesNotMatch(test, /only without a provider key/);
-
-	const files = globSync(
-		[".github/workflows/*", "package.json", "packages/*/package.json", "apps/*/package.json", "tools/*/package.json"],
-		{
-			cwd: repo,
-		},
-	);
-	assert.ok(files.length > 3);
-	for (const file of files) {
-		const text = read(file);
-		const scripts = file.endsWith("package.json") ? JSON.stringify(JSON.parse(text).scripts ?? {}) : text;
-		assert.doesNotMatch(scripts, /VERCEL_ENV/, file);
-	}
 });

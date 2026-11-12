@@ -15,8 +15,9 @@ import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
 import { owedPeriod } from "./calendar.ts";
-import { createMailService, mailUnsubscribe, type AuthorizeMail } from "./mail.ts";
+import { mailUnsubscribe, type AuthorizeMail, type createMailService } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
+import { queuedMailService } from "./seated-notifications.ts";
 
 // The church digest (NTF-007) and the oversight digest (NTF-008), delivered by the scheduled runner. Each minute the
 // planner queues one `digest` job for every Owner or Admin whose period has ended; the worker then compiles that job's
@@ -281,23 +282,7 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 	if (!db || !v.success) return null;
 	mounted ??= createDigestWorker({
 		origin: v.data.IDENTITY_ORIGIN,
-		mail: createMailService({
-			db,
-			encryptionKey: Buffer.from(v.data.IDENTITY_MAIL_KEY, "hex"),
-			addressKey: Buffer.from(v.data.IDENTITY_ADDRESS_KEY, "hex"),
-			from: v.data.IDENTITY_MAIL_FROM,
-			authorize: authorizeDigestMail,
-			unsubscribe: mailUnsubscribe(),
-			// WP-031 owns dispatch; no real provider is configured here.
-			transport: {
-				async send() {
-					return { kind: "refused", retryable: true };
-				},
-				async lookup() {
-					return { kind: "unknown" };
-				},
-			},
-		}),
+		mail: queuedMailService({ db, env: v.data, authorize: authorizeDigestMail, unsubscribe: mailUnsubscribe() }),
 	});
 	return mounted;
 }

@@ -1,10 +1,8 @@
 import { readFileSync } from "node:fs";
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import {
 	responsibilityReader,
@@ -19,31 +17,20 @@ import {
 } from "../../../../packages/domain/src/teams/responsibilities/playbook.ts";
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
+import { fixture, ok, refused } from "../../../support/fixture.mts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw new Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp018_" + randomUUID().replaceAll("-", "");
-const roleName = "wp018_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const database = await fixture({ prefix: "wp018", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const releaseId = randomUUID();
 const itemIds = new Map();
 const freeze = JSON.parse(
@@ -51,14 +38,6 @@ const freeze = JSON.parse(
 );
 const referenceKeys = [...new Set(Object.values(REFERENCE_TEAM_KEY))];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -148,46 +127,6 @@ async function addVersion(referenceKey) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
 	const token = randomUUID().replaceAll("-", "");
 	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 		VALUES(${releaseId},${token},'memory',${token},'validated','0','none',1,${GLOBAL},0)`);
@@ -201,13 +140,7 @@ before(async () => {
 	}
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:B01-028 preview stores nothing and one selected line stays the only active line", async () => {
@@ -691,7 +624,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	);
 });
 
-test("REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
+test("AC:REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
 	const gone = (result) => refused(result, "unavailable");
 	const foreign = ok(await run(teamsWriter.create, { requestKey: key(), input: { name: "Foreign duties" } }, 3)).team;
 	// Another church's line, written directly: the writer is not under test for that church.
@@ -741,7 +674,7 @@ test("REQ-IDN-005 an unknown or another church's team or line is unavailable to 
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE text='Probe'`), 0);
 });
 
-test("a custom team and administration have no Playbook lines", async () => {
+test("AC:TARGET-TEAM-007 a custom team and administration have no Playbook lines", async () => {
 	for (const [name, templateKey] of [
 		["Office", "administration"],
 		["Custom", null],
@@ -767,7 +700,7 @@ test("a custom team and administration have no Playbook lines", async () => {
 	}
 });
 
-test("every WP-017 template key maps to a frozen catalog team or the no-lines key", async () => {
+test("AC:TARGET-TEAM-007 every template key maps to a frozen catalog team or the no-lines key", async () => {
 	const templateKeys = new Set(TEMPLATES.map((team) => team.key));
 	for (const key of Object.keys(REFERENCE_TEAM_KEY)) assert.equal(templateKeys.has(key), true);
 	for (const team of TEMPLATES) {

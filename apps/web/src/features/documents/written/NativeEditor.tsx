@@ -8,7 +8,7 @@ import {
 	Refresh01Icon,
 	StarIcon,
 } from "@hugeicons/core-free-icons";
-import { nativeText, type DocNode } from "@everyfield/contracts/documents";
+import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE, nativeText, type DocNode } from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -26,7 +26,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { archiveOwnedDocument, designateOwnedDocument, importOwnedDocument, saveOwnedDocument } from "../actions.ts";
+import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
@@ -39,6 +39,7 @@ import {
 } from "../church/editor/session.tsx";
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
+import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
 
 // A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools only: no
@@ -54,12 +55,20 @@ function fileFormat(file: File): "text" | "docx" | null {
 	return null;
 }
 
-async function encodeFile(file: File) {
-	const bytes = new Uint8Array(await file.arrayBuffer());
-	let binary = "";
-	for (let index = 0; index < bytes.length; index += 0x8000)
-		binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-	return btoa(binary);
+/** Sends the file's raw bytes to the import route (a server action caps its body far below the import limit). */
+async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
+	try {
+		const response = await fetch(`/documents/written/import?${new URLSearchParams(params)}`, {
+			method: "POST",
+			headers: { "content-type": "application/octet-stream" },
+			body: file,
+		});
+		if (!response.ok) return { status: "lost" };
+		return (await response.json()) as DocumentOutcome<WrittenView>;
+	} catch {
+		// A call that never reached the server, or an answer that is not the route's, reads as a lost answer.
+		return { status: "lost" };
+	}
 }
 
 type Saved = { id: string | null; revision: string; title: string; kind: WrittenView["kind"] };
@@ -104,7 +113,7 @@ export default function NativeEditor({
 	const [archiveOpen, setArchiveOpen] = useState(false);
 	const [textRevision, setTextRevision] = useState(doc?.textRevision ?? false);
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 	const discarding = useRef(false);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const importKey = useRef<string | null>(null);
@@ -135,8 +144,8 @@ export default function NativeEditor({
 		() =>
 			!discarding.current &&
 			!!editor &&
-			(inflight.current !== null || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
-		[editor, isSaved],
+			(saves.busy || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
+		[editor, isSaved, saves],
 	);
 	useEffect(() => {
 		if (!editor) return;
@@ -166,9 +175,9 @@ export default function NativeEditor({
 		window.history.replaceState(window.history.state, "", `/documents/written/${id}`);
 	};
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const current = editor.state.doc;
 		const body = clean(current.toJSON()) as DocNode;
 		const nextTitle = titleRef.current.trim();
@@ -181,7 +190,7 @@ export default function NativeEditor({
 		setPhase({ kind: "saving" });
 		setNote(null);
 		const base = savedRef.current;
-		const run = (async () => {
+		return saves.start(async () => {
 			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveOwnedDocument({
 				title: nextTitle,
@@ -210,12 +219,14 @@ export default function NativeEditor({
 			setTextRevision(false);
 			setPhase({ kind: "idle" });
 			return true;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor]);
+	}, [editor, saves]);
+
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -241,7 +252,7 @@ export default function NativeEditor({
 		const format = fileFormat(file);
 		if (!format) return setNote("Use a .txt or .docx file. Older .doc Word files are not accepted.");
 		if (file.size === 0) return setNote("The file is empty.");
-		if (file.size > 10 * 1024 * 1024) return setNote("The file must be 10 MB or smaller.");
+		if (file.size > IMPORT_BYTES_MAX) return setNote(IMPORT_TOO_LARGE);
 		const base = savedRef.current;
 		const nextTitle =
 			titleRef.current.trim() || file.name.replace(/\.(txt|docx)$/i, "").slice(0, 200) || "Imported document";
@@ -250,21 +261,13 @@ export default function NativeEditor({
 		setPhase({ kind: "saving" });
 		setNote(null);
 		void (async () => {
-			let bytes: string;
-			try {
-				bytes = await encodeFile(file);
-			} catch {
-				setPhase({ kind: "idle" });
-				return setNote("This file did not import. Try a .txt or .docx file.");
-			}
-			const result = await importOwnedDocument({
+			const result = await importWritten(file, {
 				title: nextTitle,
 				format,
-				bytes,
 				expectedRevision: base.revision,
 				requestKey: key,
 				...(base.id ? { documentId: base.id } : {}),
-			}).catch(() => ({ status: "lost" }) as const);
+			});
 			setPhase({ kind: "idle" });
 			if (result.status !== "ok") {
 				if (result.status === "refused") importKey.current = null;

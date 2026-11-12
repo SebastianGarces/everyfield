@@ -8,6 +8,7 @@ import {
 	pendingFor,
 	query,
 	readHistory,
+	readPipelineConsents,
 	readPlantSharing,
 	residencyLinks,
 	scopeOf,
@@ -37,32 +38,17 @@ export async function SharingPage() {
 	);
 	if (who.kind !== "viewer") return refused;
 	const { mount: m, viewer } = who;
-	// A seatless account without a Discovery profile has only its own residency links here.
-	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
-	// The first connections list renders with the page: history, waiting requests, what each connection sees and names.
-	const [history, pending, sharing] =
-		viewer.kind === "account"
-			? [null, [], {}]
-			: await Promise.all([
-					readHistory(m.db, who.authority, scopeOf(viewer)),
-					pendingFor(m.db, viewer),
-					readPlantSharing(m.db, who.authority),
-				]);
-	const active = history && history.status === "available" ? history.activeRelationships : [];
-	const networks =
-		viewer.kind === "sending_church"
-			? active.filter((r) => r.pair.kind === "sending_church" && r.pair.subject.id === viewer.selected.id)
-			: [];
-	const [facts, targets, residencies, names, aggregate] = await Promise.all([
-		subjectFacts(m.db, viewer),
+	// A seatless account without a Discovery profile sees only its residency cards: no connections list, no invitation
+	// that carries a revision and no dates.
+	const listed = viewer.kind !== "account";
+	// One round: every read but the names needs nothing from another. The names wait for the history and requests.
+	const [residencies, facts, targets, pipeline, aggregate, history, pending, sharing] = await Promise.all([
+		residencyLinks(m.db, viewer),
+		listed ? subjectFacts(m.db, viewer) : { revision: "0", zone: "UTC" },
 		// Every organization this viewer may ask; the list hides the ones it is connected with now, from its own history,
 		// so an organization appears again right after a Leave without another read.
 		viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
-		residencyLinks(m.db, viewer),
-		namesFor(m.db, viewer, [
-			...(history?.status === "available" ? idsIn(history) : []),
-			...pending.map((p) => p.pair.organization.id),
-		]),
+		readPipelineConsents(m.db, who.authority),
 		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
 			? query(m, who.authority, viewer.selected, (tx, s, o) =>
 					m.adapter["pipelineSharing.checkAggregateAccess"](
@@ -73,6 +59,15 @@ export async function SharingPage() {
 					),
 				)
 			: Promise.resolve(null),
+		// The first connections list renders with the page: history, waiting requests and what each connection sees.
+		listed ? readHistory(m.db, who.authority, scopeOf(viewer)) : null,
+		listed ? pendingFor(m.db, viewer) : [],
+		listed ? readPlantSharing(m.db, who.authority) : {},
+	]);
+	if (!listed && residencies.length === 0) return refused;
+	const names = await namesFor(m.db, viewer, [
+		...(history?.status === "available" ? idsIn(history) : []),
+		...pending.map((p) => p.pair.organization.id),
 	]);
 	const data: SharingPageData = {
 		kind: viewer.kind,
@@ -81,7 +76,7 @@ export async function SharingPage() {
 		revision: facts.revision,
 		names,
 		targets,
-		networks: networks.map((n) => ({ relationshipId: n.id, name: names[n.pair.organization.id] ?? "Network" })),
+		pipeline,
 		aggregate: aggregate?.status === "ok" ? aggregate.value : null,
 		residencies,
 		connections: history ? { history, pending, sharing } : null,

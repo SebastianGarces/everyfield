@@ -1,20 +1,18 @@
 import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
-import { instant, localDate, timeZone } from "../common/time.ts";
+import { instant, localDate } from "../common/time.ts";
 import { csvError } from "./csv/index.ts";
 import { mergeErrors } from "./merge/errors.ts";
 import {
 	contactFields,
 	plantOwner,
 	organizationOwner,
-	tenantOwner,
 	personLifecycle,
 	stage,
 	recruitmentSource,
 	adultClassification,
 	adultClassificationSource,
 	currentCommitment,
-	firstAcquisition,
 	noteBody,
 	pipelineColumn,
 } from "./values.ts";
@@ -130,10 +128,11 @@ export const noteMutationResult = z.strictObject({
 	receiptId: operationId,
 	noteId: recordId,
 	revision,
+	// The person's revision after the note change: a note moves the person revision on.
+	personRevision: revision,
 	outcome: z.enum(["changed", "noop"]),
 });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
-export const organizationPersonMutationResult = personMutationResult.extend({ person: organizationPerson });
 // A verified email may propose candidates but never selects a human identity.
 // This output belongs only to the owning authenticated provisioning workflow.
 export const accountPersonResolution = z.discriminatedUnion("status", [
@@ -144,12 +143,6 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("current_account"), accountId }),
 	z.strictObject({ kind: z.literal("former_account"), scopeLocalToken: z.string().min(1).max(200) }),
 ]);
-export const retainedPersonHistory = z.strictObject({
-	owner: tenantOwner,
-	personId,
-	receiptId: operationId,
-	attribution: actorAttribution,
-});
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
 	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: noteBody, editedAt: instant.nullable() }),
@@ -201,54 +194,6 @@ export const activitiesResult = z.strictObject({
 	next: z.int().min(2).nullable(),
 	completeness: z.enum(["complete", "partial"]),
 });
-// Eligibility snapshot for the People-owned projection. Consumers freeze both
-// asOf and sourceRevision and resolve canonical lineage before counting.
-export const commitmentObservation = z.strictObject({
-	owner: plantOwner,
-	personId,
-	asOf: instant,
-	zone: timeZone,
-	sourceRevision: revision,
-	lifecycle: personLifecycle,
-	classification: adultClassification,
-	current: currentCommitment,
-	firstAcquisition,
-});
-
-export const classificationMutationResult = z.strictObject({
-	receiptId: operationId,
-	outcome: z.enum(["changed", "noop"]),
-	observation: commitmentObservation,
-});
-const count = z.int().min(0);
-const transition = z
-	.strictObject({ from: stage, to: stage, distinctPeople: count })
-	.refine((v) => stage.options.indexOf(v.to) === stage.options.indexOf(v.from) + 1);
-export const conversion = z.discriminatedUnion("status", [
-	z.strictObject({ status: z.literal("unknown"), reason: z.enum(["cohort_unavailable", "empty_cohort"]) }),
-	z
-		.strictObject({ status: z.literal("known"), cohortPeople: z.int().positive(), cohortTransitionPeople: count })
-		.refine((v) => v.cohortTransitionPeople <= v.cohortPeople),
-]);
-export const pipelineMetricsResult = z
-	.strictObject({
-		owner: plantOwner,
-		asOf: instant,
-		zone: timeZone,
-		sourceRevision: revision,
-		from: localDate,
-		through: localDate,
-		unit: z.literal("distinct_canonical_people"),
-		currentStages: z
-			.array(z.strictObject({ stage, distinctPeople: count }))
-			.length(7)
-			.refine((v) => new Set(v.map((r) => r.stage)).size === 7),
-		transitions: z
-			.array(transition.safeExtend({ conversion }))
-			.max(6)
-			.refine((v) => new Set(v.map((r) => r.from)).size === v.length),
-	})
-	.refine((v) => v.from <= v.through);
 type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
@@ -268,6 +213,21 @@ export const peopleError = z.discriminatedUnion("code", [
 	...csvError,
 	...mergeErrors,
 ]);
+/**
+ * people.listDuplicatePairs: the pairs a CSV import added with "Add, review later" whose two people are both still
+ * live, oldest first. `person` is the imported person, `with` the person it may duplicate.
+ */
+export const duplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: z.strictObject({ id: personId, displayName: z.string() }),
+				with: z.strictObject({ id: personId, displayName: z.string() }),
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z

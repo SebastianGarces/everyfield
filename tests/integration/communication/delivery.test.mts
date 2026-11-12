@@ -6,8 +6,9 @@ import { fixture } from "../identity/invitations-support.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { GET, POST, resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
-let f, plant, other, owner;
+let f, plant, other, owner, member;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -16,15 +17,6 @@ const keys = {
 };
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
@@ -130,6 +122,9 @@ before(async () => {
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
+	const seated = await f.account();
+	await f.seat(seated, plant, "member");
+	member = { ...seated, actor: await f.actor(seated.session) };
 });
 after(() => f?.close());
 
@@ -223,6 +218,52 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 	assert.equal(staleMail.length, 0);
 });
 
+test("INV-access: a member cannot send or schedule a message", async () => {
+	const ready = await scheduled("Member", `member-${key().slice(0, 8)}@example.test`, AT);
+	const scheduledId = ready.saved.communicationId;
+	const scheduledRevision = ok(ready.accepted).revision;
+	const draft = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Not yet",
+				bodyHtml: "<p>Not yet.</p>",
+				audience: { ...emptyAudience, personIds: [ready.personId] },
+			},
+		}),
+	);
+	const stored = async (communicationId) => {
+		const prefix = "communication/" + communicationId + "/%";
+		const [row] = await rows(sql`SELECT c.state, c.revision::text AS revision,
+			(SELECT count(*)::int FROM mail WHERE logical_key LIKE ${prefix}) AS mail,
+			(SELECT count(DISTINCT mem.request_id)::int FROM mail m JOIN mail_request_member mem ON mem.mail_id = m.id
+				WHERE m.logical_key LIKE ${prefix}) AS requests,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id = c.id) AS audits
+			FROM communication c WHERE c.id = ${communicationId}::uuid`);
+		return row;
+	};
+	const before = { draft: await stored(draft.communicationId), ready: await stored(scheduledId) };
+	assert.deepEqual(
+		{ draft: before.draft.state, ready: before.ready.state, unsent: before.ready.requests },
+		{ draft: "draft", ready: "scheduled", unsent: 0 },
+	);
+	const carrier = port({});
+
+	refused(
+		await write(member, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: draft.revision,
+			input: { communicationId: draft.communicationId, scheduledAt: AT },
+		}),
+		"access_denied",
+	);
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "sendReviewed"), "access_denied");
+	refused(await handoff(member, scheduledId, scheduledRevision, carrier, "handOffScheduled"), "access_denied");
+
+	assert.deepEqual({ draft: await stored(draft.communicationId), ready: await stored(scheduledId) }, before);
+	assert.deepEqual(carrier.calls, { send: 0, lookup: 0, cancel: 0, reschedule: 0 });
+});
+
 test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the answered recipient", async () => {
 	const ids = [];
 	for (let n = 0; n < 100; n += 1)
@@ -313,7 +354,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	assert.equal(uncertain.unknownCount, 1);
 });
 
-test("AC:MAIL-LEDGER-001 a crashed send stays in flight and the next call looks up the same key", async () => {
+test("AC:MAIL-LEDGER-001 a send whose call throws is unknown and the next call looks up the same key", async () => {
 	const made = await scheduled("Crash", `crash-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
 	const carrier = port({
@@ -331,8 +372,9 @@ test("AC:MAIL-LEDGER-001 a crashed send stays in flight and the next call looks 
 	const mid = await mailFor(made.saved.communicationId);
 	assert.equal(mid.length, 1);
 	assert.equal(new Set(mid.map((row) => row.provider_key)).size, 1);
-	assert.equal(mid[0].outcome, "in_flight");
-	assert.equal(mid[0].state, "dispatched");
+	// The email service may hold it (T-228): the recipient is unknown, so the next call looks it up instead of sending.
+	assert.equal(mid[0].outcome, "unknown");
+	assert.equal(mid[0].state, "unknown");
 	const second = ok(
 		await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier, "reconcileProviderOutcome"),
 	);
@@ -561,9 +603,10 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 		),
 	);
 	assert.equal(moved.body, "Welcome Alex.");
-	assert.equal(moved.rescheduleStatus, "unknown");
+	// The scheduled email still waits in Everyfield (T-241), so the time moves there and nothing is sent or asked.
+	assert.equal(moved.rescheduleStatus, "accepted");
 	assert.equal(moved.newCommunications, 0);
-	assert.equal(movePort.calls.send, 1);
+	assert.equal(movePort.calls.send, 0);
 	const [kept] = await rows(sql`SELECT body_html FROM communication WHERE id = ${move.saved.communicationId}`);
 	assert.equal(kept.body_html, "<p>Welcome Alex.</p>");
 	const afterCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
@@ -606,6 +649,35 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal(bad.status, 401);
 	assert.equal((await bad.json()).code, "invalid_signature");
+	// An unsigned stream past 16 KB is refused at the limit: the route stops pulling and never buffers the rest.
+	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0].n;
+	const beforeAll = await allEvents();
+	const chunks = 64;
+	let pulled = 0;
+	let cancelled = false;
+	const stream = new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (pulled === chunks) return controller.close();
+			pulled++;
+			controller.enqueue(new Uint8Array(1024).fill(0x20));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+	const oversize = await POST(
+		new Request("https://example.test/api/webhooks/resend", {
+			method: "POST",
+			body: stream,
+			duplex: "half",
+			headers: { "svix-id": "oversize", "svix-timestamp": String(Math.floor(Date.now() / 1000)) },
+		} as RequestInit),
+	);
+	assert.equal(oversize.status, 413);
+	assert.equal((await oversize.json()).code, "invalid_input");
+	assert.ok(pulled < chunks, `pulled ${pulled} of ${chunks} chunks`);
+	assert.ok(cancelled);
+	assert.equal(await allEvents(), beforeAll);
 	const got = await GET();
 	assert.equal(got.status, 405);
 	assert.equal((await got.json()).code, "method_not_allowed");
@@ -889,4 +961,93 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 	assert.equal(await count(), 1);
 	assert.equal(seatPort.calls.send, 1);
 	assert.equal(seatPort.calls.lookup, 0);
+});
+
+test("INV-plain-text: the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {
+	const tom = await person("Tom", { email: "tom-text@example.test" });
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Dinner",
+				bodyHtml: "<p>Dinner with Tom &amp; Ann, 6 &lt; 7.</p>",
+				audience: { ...emptyAudience, personIds: [tom] },
+			},
+		}),
+	);
+	assert.equal(saved.bodyText, "Dinner with Tom & Ann, 6 < 7.");
+	const stored = (await rows(sql`SELECT body_text FROM communication WHERE id = ${saved.communicationId}`))[0];
+	assert.equal(stored.body_text, "Dinner with Tom & Ann, 6 < 7.");
+	const accepted = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, scheduledAt: AT },
+		}),
+	);
+	const texts = [];
+	const carrier = port({
+		async send(batch) {
+			texts.push(...batch.messages.map((message) => message.text));
+			return { outcome: "ids", ids: batch.messages.map(() => "prov-tom-text") };
+		},
+		async lookup() {
+			return { outcome: "unknown" };
+		},
+	});
+	ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
+	assert.equal(texts.length, 1);
+	assert.ok(texts[0].includes("Dinner with Tom & Ann, 6 < 7."), texts[0]);
+	assert.equal(texts[0].includes("&amp;"), false, texts[0]);
+	const linked = await rows(
+		sql`SELECT communication_id FROM mail WHERE logical_key LIKE ${"communication/" + saved.communicationId + "/%"}`,
+	);
+	assert.deepEqual(
+		linked.map((row) => row.communication_id),
+		[saved.communicationId],
+	);
+});
+
+test("AC:DEL58-006 a plant pending deletion hands off, replaces and cancels nothing, then sends once the witness is gone", async () => {
+	const made = await scheduled("Wren", "wren-witness@example.test", AT);
+	const revision = ok(made.accepted).revision;
+	const id = made.saved.communicationId;
+	const carrier = port({
+		async send() {
+			return { outcome: "ids", ids: ["prov-witness"] };
+		},
+		async lookup() {
+			return { outcome: "ids", ids: ["prov-witness"] };
+		},
+	});
+	const witness = randomUUID();
+	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant.id},${plant.id},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		refused(await handoff(owner, id, revision, carrier), "access_denied");
+		refused(
+			await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
+				requestKey: key(),
+				expectedRevision: revision,
+				input: { communicationId: id },
+			}),
+			"access_denied",
+		);
+		refused(
+			await communicationWriter.cancelScheduledReviewed(
+				f.db,
+				owner.actor,
+				{ requestKey: key(), expectedRevision: revision, input: { communicationId: id } },
+				carrier,
+			),
+			"access_denied",
+		);
+		assert.equal(carrier.calls.send, 0);
+		assert.equal((await mailFor(id)).length, 0);
+	} finally {
+		await f.admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	ok(await handoff(owner, id, revision, carrier));
+	assert.equal(carrier.calls.send, 1);
 });

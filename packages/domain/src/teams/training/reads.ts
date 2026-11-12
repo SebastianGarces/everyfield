@@ -66,10 +66,14 @@ function facts(plantId: string, teamId: string) {
 			WHERE a.plant_id = ${plantId}::uuid AND a.state = 'active') train`;
 }
 
+/** Without a ministry, every program; with one, that ministry's own and the church-wide ones (team_id null). */
+const ownOrChurchWide = (teamId: string | undefined) =>
+	teamId === undefined ? sql`true` : sql`(g.team_id = ${teamId}::uuid OR g.team_id IS NULL)`;
+
 export const trainingReader = {
 	async listTraining(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			parse(c.listTrainingRequest, raw);
+			const input = parse(c.listTrainingRequest, raw);
 			const found = await row(
 				db,
 				viewer,
@@ -83,7 +87,8 @@ export const trainingReader = {
 							JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 							WHERE a.program_id = g.id AND a.state = 'active' AND ${compatible}))
 						ORDER BY g.name, g.id)
-					FROM (SELECT * FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid ORDER BY g.name, g.id LIMIT 100) g),
+					FROM (SELECT * FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
+						ORDER BY g.name, g.id LIMIT 100) g),
 					'[]'::json) AS programs`,
 			);
 			return c.trainingList.parse({ programs: found.programs });
@@ -121,7 +126,7 @@ export const trainingReader = {
 	},
 	async readTrainingMatrix(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			parse(c.trainingMatrixRequest, raw);
+			const input = parse(c.trainingMatrixRequest, raw);
 			const found = await row(
 				db,
 				viewer,
@@ -129,7 +134,8 @@ export const trainingReader = {
 						SELECT json_agg(a.person_id ORDER BY a.person_id) FROM training_assignment a
 						JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 						WHERE a.program_id = g.id AND a.state = 'active'), '[]'::json)) ORDER BY g.name, g.id)
-					FROM (SELECT id, name FROM training_program WHERE plant_id = ${viewer.plantId}::uuid ORDER BY name, id LIMIT 100) g),
+					FROM (SELECT g.id, g.name FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
+						ORDER BY g.name, g.id LIMIT 100) g),
 					'[]'::json) AS programs`,
 			);
 			return c.trainingMatrix.parse({ programs: found.programs });
@@ -200,38 +206,16 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
-	readStaffingFacts: teamFactsRead(c.staffingFactsRequest),
-	readTrainingHealth: teamFactsRead(c.trainingHealthRequest),
-	async listTeamMeetings(db: Reader, authority: RequestActor, raw: unknown) {
+	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			const input = parse(c.listTeamMeetingsRequest, raw);
-			const found = await row(
-				db,
-				viewer,
-				sql`SELECT (SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS owner,
-					coalesce((SELECT json_agg(json_build_object('id', m.id, 'subtype', m.subtype, 'status', m.status,
-						'guestIds', coalesce((SELECT json_agg(pa.person_id ORDER BY pa.person_id)
-							FROM participation pa WHERE pa.meeting_id = m.id AND pa.removed_at IS NULL), '[]'::json))
-						ORDER BY m.starts_at, m.id)
-					FROM (SELECT id, subtype, status, starts_at FROM meeting
-						WHERE team_id = ${input.teamId}::uuid AND plant_id = ${viewer.plantId}::uuid AND type = 'team_meeting'
-						ORDER BY starts_at, id LIMIT 100) m), '[]'::json) AS meetings`,
-			);
-			owner(viewer.plantId, found.owner);
-			return c.teamMeetingList.parse({ teamId: input.teamId, meetings: found.meetings });
-		});
-	},
-};
-
-function teamFactsRead(request: typeof c.staffingFactsRequest | typeof c.trainingHealthRequest) {
-	return (db: Reader, authority: RequestActor, raw: unknown) =>
-		read(authority, async (viewer) => {
-			const input = parse(request, raw);
+			const input = parse(c.staffingFactsRequest, raw);
 			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
 			owner(viewer.plantId, found.owner);
 			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
 		});
-}
+	},
+};
+
 function picked(found: Record<string, unknown>) {
 	return {
 		filledSlots: found.filledSlots,

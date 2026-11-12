@@ -5,7 +5,6 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
-# Fix 8 installs its lint at this path and adds any required arguments here.
 TEXT_LINT = 'docs/check-text.py'
 CHECKS = [
     ('brand spelling', [TEXT_LINT, '--brand']),
@@ -30,29 +29,29 @@ CHECKS = [
     ('document template check self-test', ['-m', 'unittest', 'docs/catalog/test_check_document_templates.py']),
     ('design handoff', ['design/handoff/export.py', '--check']),
     ('feature review page', ['docs/check-feature-review.py', '--check']),
-    ('explorer inputs', ['docs/refresh-explorer-plan.py', '--check']),
     ('explorer generation', ['docs/render-build-explorer.py', '--check']),
     ('local links', ['docs/check-links.py']),
+    ('local links self-test', ['docs/check-links.py', '--self-test']),
+    ('pinned skills', ['docs/check-skills-lock.py']),
+    ('pinned skills self-test', ['docs/check-skills-lock.py', '--self-test']),
     ('Wiki seed', ['tools/wiki/seed.py', 'check', '--seed-dir', 'docs/reference/wiki',
                    '--playbook', 'docs/reference/playbook.md',
                    '--bootstrap', 'docs/reference/bootstrap/global-seed-payload.json']),
+    ('text lint', [TEXT_LINT]),
 ]
 
 
 def main():
-    checks = CHECKS + ([('text lint', [TEXT_LINT])] if (ROOT / TEXT_LINT).exists() else [])
     failures = []
-    for name, args in checks:
+    for name, args in CHECKS:
         print(f'Checking {name}...', flush=True)
         result = subprocess.run([sys.executable, *args], cwd=ROOT)
         if result.returncode:
             failures.append(name)
-    if not (ROOT / TEXT_LINT).exists():
-        print('Text lint awaits Fix 8; add it at ' + TEXT_LINT)
     if failures:
         print('FAIL: ' + ', '.join(failures))
         return 1
-    print('PASS: all available documentation checks. Scope is documentation/tooling only.')
+    print('PASS: all documentation checks. Scope is documentation/tooling only.')
     return 0
 
 

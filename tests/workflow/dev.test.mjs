@@ -43,13 +43,14 @@ test("BUG-ops8-browser-run: bin/dev browser run leaves no browser process or tem
 	writeFileSync(
 		check,
 		`import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const [mode, out] = process.argv.slice(2);
 const profile = mkdtempSync(join(tmpdir(), "playwright_chromiumdev_profile-"));
 const browser = spawn(${JSON.stringify(bin)}, ["-e", "setInterval(() => {}, 1000)", "--", "--headless"], { detached: true, stdio: "ignore" });
-await new Promise((r) => setTimeout(r, 300));
+await once(browser, "spawn");
 process.kill(browser.pid, 0);
 browser.unref();
 writeFileSync(out, JSON.stringify({ pid: browser.pid, profile }));
@@ -58,13 +59,16 @@ if (mode === "hang") setInterval(() => {}, 1000);
 `,
 	);
 	try {
-		for (const [mode, expected] of [
-			["pass", 0],
-			["throw", 1],
-			["hang", 124],
+		// T-262: a pass and a throw end on their own, so their bound only stops a broken run and a loaded machine meets it.
+		// The hang must outlast its 3 s bound, and before that only start Node, spawn and write one file: under six
+		// parallel full checks that took well under 1 s.
+		for (const [mode, expected, timeout] of [
+			["pass", 0, "120"],
+			["throw", 1, "120"],
+			["hang", 124, "3"],
 		]) {
 			const out = join(dir, `${mode}.json`);
-			const r = dev(["browser", "run", "--timeout", "3", "--", process.execPath, check, mode, out]);
+			const r = dev(["browser", "run", "--timeout", timeout, "--", process.execPath, check, mode, out]);
 			const { pid, profile } = JSON.parse(readFileSync(out, "utf8"));
 			const leaked = alive(pid);
 			if (leaked) process.kill(pid, "SIGKILL");

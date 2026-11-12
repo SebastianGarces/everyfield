@@ -78,7 +78,7 @@ test("AC:TARGET-MTG-011 case and diacritics are ignored, hyphens split name word
 	assert.deepEqual(await search("sam"), []);
 });
 
-test("AC:TARGET-MTG-011 apostrophes split name words in the name and the query (D-434), never the domain", async () => {
+test("AC:TARGET-MTG-011 apostrophes split name words in the name and the query, never the domain", async () => {
 	const both = ["Liam O'Brien", "Nora O\u2019Brien"];
 	assert.deepEqual(await search("brien"), both);
 	assert.deepEqual(await search("o'brien"), both);
@@ -111,9 +111,9 @@ test("INV-access the search keeps the live access check, returns at most 8 and s
 	assert.equal(phone, none);
 	// A member sees what main let a member see; a seat from another church is refused, not empty.
 	const outsider = await f.account();
-	const refused = await f.db.transaction((tx) =>
+	const outsiderSearch = await f.db.transaction((tx) =>
 		searchPeople(tx, { session: outsider.session, selected: { kind: "plant", id: plant.id } }, "s"),
 	);
-	assert.equal(refused.status, "refused");
+	assert.equal(outsiderSearch.status, "refused");
 	assert.deepEqual(await search("ros", member), ["Rosa Bennett"]);
 });
