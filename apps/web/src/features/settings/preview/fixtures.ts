@@ -515,9 +515,9 @@ export function createFixturePort(
 					S.requestAvatarUpload.parse(request);
 					return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
 				},
-				async uploadAvatarBytes(uploadId, file) {
+				async uploadAvatarBytes(target, file) {
 					await wait(300);
-					store.staged.set(uploadId, file);
+					store.staged.set(target.versionId, file);
 					return { status: "ok", value: null };
 				},
 				async finalizeAvatar(raw) {

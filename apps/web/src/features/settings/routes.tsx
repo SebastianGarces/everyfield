@@ -8,6 +8,7 @@ import { confirmEmailChange, getSection } from "./actions";
 import { getBrand } from "./brand/actions";
 import { ConfirmEmailScreen } from "./restricted/ConfirmEmailScreen";
 import { AccountDeletionScreen } from "./restricted/AccountDeletionScreen";
+import { WorkspaceDeletionScreen } from "./restricted/WorkspaceDeletionScreen";
 import { restrictedStatus } from "./server";
 import { dialogSection, offeredSections, sectionAt, sectionRequest } from "./model";
 import type { SectionSeed, SettingsViewer } from "./port";
@@ -65,7 +66,22 @@ export const accountDeletionMetadata: Metadata = {
  */
 export async function AccountDeletionPage({ searchParams }: { searchParams: Search }) {
 	const until = instant.safeParse(one((await searchParams).until));
-	return <AccountDeletionScreen initial={restrictedStatus()} requestedUntil={until.success ? until.data : null} />;
+	return (
+		<AccountDeletionScreen initial={restrictedStatus("account")} requestedUntil={until.success ? until.data : null} />
+	);
+}
+
+export const workspaceDeletionMetadata: Metadata = { ...accountDeletionMetadata, title: "Church workspace deletion" };
+
+/**
+ * The restricted page for a church workspace deletion (REQ-IDN-026, REQ-IDN-032), the same way: only the Owner who
+ * asked opens it, with a fresh email and password, and sees that request's status and cancel.
+ */
+export async function WorkspaceDeletionPage({ searchParams }: { searchParams: Search }) {
+	const until = instant.safeParse(one((await searchParams).until));
+	return (
+		<WorkspaceDeletionScreen initial={restrictedStatus("plant")} requestedUntil={until.success ? until.data : null} />
+	);
 }
 
 export const confirmEmailMetadata: Metadata = {

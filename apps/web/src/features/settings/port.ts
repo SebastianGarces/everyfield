@@ -115,11 +115,14 @@ export interface BrandPort {
 	assetSrc(fileId: string): string;
 }
 
-/** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */
+/** The photo flow of your own account (REQ-IDN-006). */
 export interface AvatarPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
-	/** Sends the bytes to the server-owned staging upload. The server verifies type and size again. */
-	uploadAvatarBytes(uploadId: string, file: Blob): Promise<Reply<null>>;
+	/**
+	 * Sends the bytes to the server-owned staging upload, whose id is the version it becomes. The server verifies type
+	 * and size again; a file it refuses is invalid_input.
+	 */
+	uploadAvatarBytes(target: AvatarReference, file: Blob): Promise<Reply<null>>;
 	finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	/** The authenticated delivery route for one avatar version (avatarRoute). Never a storage key or bearer URL. */
@@ -127,8 +130,7 @@ export interface AvatarPort {
 }
 
 export interface FlowPort {
-	/** Absent until a private bucket exists (Q2): Your account then shows no Photo row. */
-	avatar?: AvatarPort;
+	avatar: AvatarPort;
 
 	requestEmailChange(
 		request: z.input<typeof N.requestEmailChange>,
@@ -141,8 +143,8 @@ export interface FlowPort {
 	setPersonalTimezone(request: z.input<typeof N.setPersonalTimezoneRequest>): Promise<Reply<PersonalTimezoneResult>>;
 
 	requestAccountDeletion(request: z.input<typeof S.requestAccountDeletion>): Promise<Reply<DeletionStatus>>;
-	/** Absent until church workspace deletion has a server action: the Church section then leaves it out. */
-	requestWorkspaceDeletion?(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
+	/** The Owner only; the server refuses an Admin or Member. */
+	requestWorkspaceDeletion(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
 }
 
 /** The restricted deletion session (REQ-IDN-032): status and cancel for one exact request, nothing else. */

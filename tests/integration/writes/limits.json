@@ -1463,6 +1463,10 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write."
 	},
+	"settings.openWorkspaceDeletion": {
+		"limit": 11,
+		"reason": "The account open plus the workspace seat lock, which a workspace request takes before its witness (T-195). Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 4 write."
+	},
 	"settings.previewPersonalTimezone": {
 		"limit": 7,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
