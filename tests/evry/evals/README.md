@@ -1,9 +1,9 @@
 # Evry evals
 
 Recorded evals of Evry on the real model. Each `<name>.cases.json` holds labelled cases. Each `<name>.recorded.json`
-holds the real model's answers. CI replays the recordings: no paid call, no network, no API key. The golden suite also
-needs Postgres: it runs in `@everyfield/evry`'s `test:db`, which CI runs with its own Postgres service. The other three
-suites run in `test:unit`.
+holds the real model's answers. CI replays the recordings: no paid call, no network, no API key. The golden, household
+and follow-up suites also need Postgres: they run in `@everyfield/evry`'s `test:db`, which CI runs with its own
+Postgres service. The classify suite runs in `test:unit`.
 
 All four suites replay through `recorder("<name>")` in `golden-harness.mts`. Its `model()` is the replay model: it
 serves the recorded `doGenerate` and `doStream` calls and throws `MissingRecording` for a call the file does not hold.
@@ -17,6 +17,24 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
 | `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
 | `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
+
+## The household and follow-up suites
+
+Each asks its cases with Evry's real system prompt and read tools (`readTools` and `compileContext`), and every read
+the model calls runs the real adapter through `invokeRead` against its own small church, which `small-church.mts`
+seeds as real records into an isolated, migrated schema (`tests/support/test-database.mts`), as `golden-church.mts`
+seeds Hope Fellowship. The prompt's clock and every id the model sees are pinned, and one step's reads run in call
+order, so a replay sends exactly the recorded calls.
+
+- Households: one plant whose only household is "Okafor household" in North Ridgeville, OH, with James Okafor (Head)
+  and Ruth Allen (Spouse), read by a plant Owner.
+- Follow-ups: one plant with 5 live people. Daniel Reyes (the planter, an Owner) and Lena Park (an Admin) are linked to
+  their accounts, so the real row path marks each one's own row `you: true`; they are the strongest candidates (no
+  next step, the oldest activity, no open task). Maria Lopez, Tom Baker and Priya Shah are the others. Inactivity and
+  coverage come from seeded contact outcomes and task rows read by the real pipeline board, placed relative to the
+  database clock so they read the same on every day the suite runs.
+
+Each suite first reads its seed back through the real reads, then scores its cases.
 
 ## The golden set
 
@@ -49,12 +67,12 @@ the real board's comparison against the database clock, so each live person's la
 ### Run it
 
 ```sh
-pnpm --filter @everyfield/evry test:db            # the golden suite, replayed offline on Postgres
-pnpm --filter @everyfield/evry test:unit          # classify, households and follow-ups, replayed offline
+pnpm --filter @everyfield/evry test:db            # golden, households and follow-ups, replayed offline on Postgres
+pnpm --filter @everyfield/evry test:unit          # classify, replayed offline
 EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
 ```
 
-The golden suite needs a database `testDatabase` accepts: the shared development database, or a throwaway local
+The golden, household and follow-up suites need a database `testDatabase` accepts: the shared development database, or a throwaway local
 Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`, `CI=true`,
 `EARLY_ACCESS_TEST_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
 
@@ -84,8 +102,8 @@ target, the judge's grades and the recording keys. Keep reports outside the repo
 
 A changed prompt, catalog, tool schema, read result or case text changes the provider call. That call then has no
 recording, and the case fails until it is recorded again on the real `EVRY_MODEL`. A changed seed row a read returns
-does too. Each suite records its own file. The golden suite also needs the database variables above in the shell; they
-win over the env file's:
+does too. Each suite records its own file. The golden, household and follow-up suites also need the database variables
+above in the shell; they win over the env file's:
 
 ```sh
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
