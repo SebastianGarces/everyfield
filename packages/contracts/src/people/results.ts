@@ -44,10 +44,19 @@ export const personResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({ status: z.literal("available"), person: personProjection }),
 ]);
+/**
+ * The photo a list row shows: a live person's own People photo (REQ-PPL-005), else the photo of the account the person
+ * links to while that account holds a live seat in this church (REQ-IDN-006). Each names only its route's version.
+ */
+export const listPhoto = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
+	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
+]);
 export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
+		photos: z.array(z.strictObject({ personId, photo: listPhoto })).max(100),
 		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),

@@ -592,7 +592,7 @@ function cases(who) {
 			unavailable,
 		),
 		ppl("peopleReader.listPeople", () => reads((t, c) => peopleReader.listPeople(t, c, { search: MARK })), {
-			value: { owner: plantB, items: [], next: null, completeness: "complete", total: 0 },
+			value: { owner: plantB, items: [], photos: [], next: null, completeness: "complete", total: 0 },
 		}),
 		ppl(
 			"peopleReader.getActivities",

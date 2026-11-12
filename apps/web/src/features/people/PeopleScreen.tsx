@@ -12,6 +12,7 @@ import {
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { avatarRoute } from "@everyfield/contracts/settings";
 import {
 	Button,
 	buttonVariants,
@@ -54,6 +55,13 @@ import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
+/** A list row: the person and the photo it shows, when there is one (REQ-PPL-005, REQ-IDN-006). */
+type ListRow = PlantPerson & { photo?: string };
+/** The app's own route for a list photo's exact version. */
+const listPhotoSrc = (photo: z.infer<typeof people.listPhoto>) =>
+	photo.kind === "person"
+		? `/people/${photo.personId}/photo/${photo.versionId}`
+		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
 /** List and cards show the same loaded rows; the pipeline is its own load. */
 type Kind = "rows" | "pipeline";
 const kindOf = (view: ViewValue): Kind => (view === "pipeline" ? "pipeline" : "rows");
@@ -352,6 +360,8 @@ function Results({
 		);
 	if (data.kind === "pipeline") return <PipelineBoard query={query} pipeline={data.pipeline} canWrite={canWrite} />;
 	const page = data.page;
+	const photos = new Map(page.photos.map((p) => [p.personId, listPhotoSrc(p.photo)]));
+	const rows: ListRow[] = page.items.map((p) => ({ ...p, photo: photos.get(p.id) }));
 	const clear = (
 		<Button
 			variant="secondary"
@@ -375,12 +385,13 @@ function Results({
 	return (
 		<div className="flex flex-col gap-4">
 			{query.view === "card" ? (
-				page.items.length ? (
+				rows.length ? (
 					<ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5" aria-label="People">
-						{page.items.map((p) => (
+						{rows.map((p) => (
 							<li key={p.id}>
 								<PersonCard
 									name={p.displayName}
+									photo={p.photo}
 									href={`/people/${p.id}`}
 									linkAs={CardLink}
 									meta={p.email ?? p.phone ?? undefined}
@@ -398,7 +409,7 @@ function Results({
 				<DataTable
 					caption="People"
 					columns={COLUMNS}
-					state={{ status: "ready", data: page.items }}
+					state={{ status: "ready", data: rows }}
 					rowId={(p) => p.id}
 					rowLabel={(p) => p.displayName}
 					empty={{
@@ -459,13 +470,13 @@ export function PersonBadges({ person }: { person: PlantPerson }) {
 	);
 }
 
-const COLUMNS: Column<PlantPerson>[] = [
+const COLUMNS: Column<ListRow>[] = [
 	{
 		key: "person",
 		header: "Person",
 		cell: (p) => (
 			<div className="flex items-center gap-3">
-				<Avatar name={p.displayName} size="sm" decorative />
+				<Avatar name={p.displayName} src={p.photo} size="sm" decorative />
 				<div className="min-w-0">
 					<PersonLink href={`/people/${p.id}`} className="font-semibold text-ink hover:underline">
 						{p.displayName}

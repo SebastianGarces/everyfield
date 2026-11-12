@@ -75,7 +75,10 @@ export function settingsCases(t, who) {
 				// It returns the bytes or throws; a thrown "unavailable" is its refusal, read here as the test's reply shape.
 				run: async () => {
 					try {
-						return { status: "ok", value: await readAvatar(t.f.db, storage, own(who), a.avatar) };
+						return {
+							status: "ok",
+							value: await readAvatar(t.f.db, storage, own(who), { accountId: t.ownerA.id, versionId: a.avatar }),
+						};
 					} catch (error) {
 						assert.ok(error instanceof Error, String(error));
 						return { status: "refused", error: { code: error.message } };

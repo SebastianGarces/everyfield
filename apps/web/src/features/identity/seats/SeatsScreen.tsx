@@ -25,6 +25,7 @@ import {
 	PageHeader,
 	Select,
 } from "@everyfield/ui/controls";
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { Avatar, Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type FormEvent } from "react";
@@ -427,7 +428,13 @@ function RosterCard({
 							key={seat.seatId}
 							className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line py-3.5 first:border-t-0"
 						>
-							<Avatar name={seat.displayName} tone={seat.isSelf ? "green" : "blue"} size="sm" decorative />
+							<Avatar
+								name={seat.displayName}
+								src={seat.avatar ? avatarRoute(seat.avatar) : undefined}
+								tone={seat.isSelf ? "green" : "blue"}
+								size="sm"
+								decorative
+							/>
 							<div className="min-w-0 flex-1 basis-48">
 								<p className="font-semibold text-ink">
 									{seat.displayName}

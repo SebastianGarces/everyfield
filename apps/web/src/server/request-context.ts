@@ -3,6 +3,7 @@ import { readRequestViewer } from "@everyfield/domain/access";
 import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
+import { avatarReference } from "@everyfield/contracts/settings";
 import { requestDatabase } from "./database";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
@@ -34,6 +35,7 @@ export const getViewer = cache(async () => {
 		verified: false,
 		displayName: null,
 		email: null,
+		avatar: null,
 	} as const;
 	const auth = await requestAuth().$context;
 	const jar = await cookies();
@@ -66,7 +68,7 @@ export const getViewer = cache(async () => {
 	});
 	const { emailVerified: verified, name: displayName, email } = found.user;
 	if (identity.status !== "active")
-		return { ...identity, authority: null, people: null, discovery: false, verified, displayName, email };
+		return { ...identity, authority: null, people: null, discovery: false, verified, displayName, email, avatar: null };
 	return {
 		...identity,
 		displayName,
@@ -75,5 +77,6 @@ export const getViewer = cache(async () => {
 		people: v.authority ? peopleViewer(v.authority, v.person) : null,
 		discovery: v.authority?.actor.context.kind === "account" ? v.discovery : false,
 		verified,
+		avatar: v.avatar && avatarReference.parse({ accountId: v.accountId, versionId: v.avatar }),
 	};
 });

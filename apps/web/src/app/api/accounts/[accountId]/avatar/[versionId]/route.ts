@@ -1,8 +1,9 @@
 import { avatarBytes, storeAvatarBytes } from "@/features/settings/server";
 
-// One photo version of your own account (REQ-IDN-006, avatarRoute in the settings contract). PUT sends the bytes of
-// a staged upload; GET returns the current version. Both check the live session and that the account is the
-// viewer's own. No storage key or bearer URL leaves the server.
+// One photo version of an account (REQ-IDN-006, avatarRoute in the settings contract). PUT sends the bytes of a
+// staged upload to your own account. GET returns the current version to its own account and to the people who hold a
+// live seat in the same church or organization; anyone else gets the 404 of a missing photo. Both check the live
+// session. No storage key or bearer URL leaves the server.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

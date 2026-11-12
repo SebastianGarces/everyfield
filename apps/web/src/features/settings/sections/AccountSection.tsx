@@ -82,8 +82,8 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				{/* Placeholder until Maya's wording: today only the account itself can see its photo (T-195). */}
-				<SettingRow label="Photo" description="For now only you can see your photo, here in Settings.">
+				{/* Draft for Maya's approval (T-271): it states the photo read rule in avatar.ts. */}
+				<SettingRow label="Photo" description="Shown next to your name to people in your church.">
 					<AvatarControl
 						port={port.flows.avatar}
 						account={account}

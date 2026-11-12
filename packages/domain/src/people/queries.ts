@@ -24,6 +24,7 @@ import type { RequestActor } from "../access/session.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { columnStages, committedStagesSql, openDutiesOf } from "./pipeline.ts";
+import { workspaceAvatar } from "../settings/photo-visibility.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
 const obligation_o = alias(tables.obligation, "o");
@@ -102,7 +103,10 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	)[0]!;
 	if (!allowed) deny();
 	const result = await tx
-		.select(personColumns)
+		.select({
+			...personColumns,
+			account_avatar: workspaceAvatar(tables.person.linked_account_id, tables.person.plant_id).as("account_avatar"),
+		})
 		.from(tables.person)
 		.where(and(...filters))
 		.orderBy(
@@ -113,12 +117,29 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		.limit(input.limit + 1)
 		.offset((input.page - 1) * input.limit);
 
-	const rows = result.slice(0, input.limit).map((r) => personRow.parse(r));
-	const items = await projectPeople(tx, ctx, rows, gate),
-		more = result.length > input.limit;
+	const page = result.slice(0, input.limit);
+	const items = await projectPeople(
+		tx,
+		ctx,
+		page.map((r) => personRow.parse(r)),
+		gate,
+	);
+	const more = result.length > input.limit;
 	return c.peoplePage.parse({
 		owner: ctx.selected,
 		items,
+		// A live person's own People photo wins over the photo of the account it links to.
+		photos: page.flatMap((r) => {
+			const photo =
+				r.state !== "live"
+					? null
+					: r.photo_object_id
+						? { kind: "person" as const, personId: r.id, versionId: r.photo_object_id }
+						: r.account_avatar && r.linked_account_id
+							? { kind: "account" as const, accountId: r.linked_account_id, versionId: r.account_avatar }
+							: null;
+			return photo ? [{ personId: r.id, photo }] : [];
+		}),
 		total,
 		next: more ? input.page + 1 : null,
 		completeness: more ? "partial" : "complete",
