@@ -4,9 +4,20 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { personChanges } from "../people/core.ts";
-import { appendPerson } from "../people/people.ts";
+import { appendPeople, appendPerson, newPerson } from "../people/people.ts";
 import type { AuditWrite } from "../operations/writes.ts";
-import { command, deny, next, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
+import {
+	command,
+	delta,
+	deny,
+	next,
+	parse,
+	reply,
+	type Change,
+	type MeetingsContext,
+	type Tx,
+	type Writer,
+} from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
 /** One guest with the Person and inviter it names. Lists and every guest write read these columns. */
@@ -217,6 +228,140 @@ export const guestsWriter = {
 					before: g ? { removed: true } : null,
 					after: { personId, inviterPersonId, rsvp: "pending" },
 				});
+			});
+		});
+	},
+	/**
+	 * Everyone chosen in one Add guest submit, in one write whose statements do not grow with the list. Each Person keeps
+	 * inviteGuest's rules: a current guest is a no-op, a removed guest comes back with the presence they had, and a
+	 * Person no longer live in this church is not added and is named in notAdded. Each new contact is made as
+	 * createGuestContact makes one. A refusal for the meeting (no seat, retired, or an attended guest coming back after
+	 * finalization) adds nobody; so does a list where no chosen Person can be added.
+	 */
+	async addGuests(tx: Tx, ctx: MeetingsContext, raw: unknown) {
+		return reply(tx, async () => {
+			const input = parse(c.addGuestsRequest, raw);
+			return command(tx, ctx, "meetings.addGuests", input, async (w, audit) => {
+				const { meetingId, people, contacts } = input.input;
+				const ids = sql`${sql.param(people)}::uuid[]`;
+				const r = await tx.execute(sql`SELECT ${meetingColumns},
+						(SELECT coalesce(json_agg(row_to_json(x)), '[]') FROM (SELECT ${guestColumns}
+							WHERE g.meeting_id = m.id AND g.person_id = ANY(${ids}) FOR UPDATE OF g) x) AS guests,
+						(SELECT coalesce(json_object_agg(x.id, x.display_name), '{}') FROM (SELECT id, display_name FROM person
+							WHERE tenant_id = m.plant_id AND id = ANY(${ids}) AND state = 'live' FOR SHARE) x) AS live,
+						m.finalized_at IS NOT NULL AS finalized, m.attendance_revision::text AS attendance
+					FROM meeting m WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR SHARE OF m`);
+				const row = r.rows[0] as Record<string, unknown> | undefined;
+				if (!row) deny();
+				const m = meetingRow.parse(row);
+				const f = z
+					.object({
+						guests: z.array(guestRow),
+						live: z.record(z.string(), z.string()),
+						finalized: z.boolean(),
+						attendance: z.string(),
+					})
+					.parse(row);
+				const listed = new Map(f.guests.map((g) => [g.person_id, g]));
+				const current: GuestRow[] = [];
+				const restored: GuestRow[] = [];
+				const invited: GuestRow[] = [];
+				const notAdded: string[] = [];
+				for (const personId of people) {
+					const g = listed.get(personId);
+					const name = f.live[personId];
+					if (g && !g.removed_at) current.push(g);
+					else if (name === undefined) notAdded.push(personId);
+					else if (g)
+						restored.push({
+							...g,
+							revision: next(g.revision),
+							rsvp: "pending",
+							rsvp_source: null,
+							rsvp_at: null,
+							removed_at: null,
+							inviter_person_id: null,
+							inviter_name: null,
+							inviter_state: null,
+						});
+					else invited.push(newGuest(randomUUID(), personId, name, "absent"));
+				}
+				if (notAdded.length === people.length && !contacts.length) deny("invalid_subject");
+				const now = new Date();
+				const made = contacts.map((i) =>
+					newPerson(
+						ctx,
+						{
+							displayName: i.displayName,
+							email: i.email,
+							phone: i.phone,
+							country: i.country,
+							stage: "prospect",
+							source: "meeting_guest_list",
+							adultClassification: "unknown",
+						},
+						null,
+						randomUUID(),
+						now,
+					),
+				);
+				const fresh = made.map((p) => newGuest(randomUUID(), p.id, p.display_name, "absent"));
+				// A guest who comes back already marked present changes who attended (REQ-MTG-012): the revision moves once.
+				const attendanceRevision = restored.some((g) => g.presence === "attended")
+					? changeAttended(audit, m.id, f.finalized, f.attendance)
+					: f.attendance;
+				appendPeople(tx, ctx, made, audit.writes);
+				if (restored.length)
+					audit.writes.push(sql`UPDATE participation SET removed_at = NULL, rsvp = 'pending', rsvp_source = NULL,
+						rsvp_at = NULL, inviter_person_id = NULL, revision = revision + 1
+						WHERE id = ANY(${sql.param(restored.map((g) => g.id))}::uuid[]) AND removed_at IS NOT NULL`);
+				const inserted = [...invited, ...fresh];
+				if (inserted.length)
+					audit.writes
+						.push(sql`INSERT INTO participation (id, plant_id, meeting_id, person_id, roster_member, rsvp, presence)
+						SELECT v.id, ${w.plant.id}::uuid, ${m.id}::uuid, v.person_id, false, 'pending', v.presence
+						FROM unnest(${sql.param(inserted.map((g) => g.id))}::uuid[],
+							${sql.param(inserted.map((g) => g.person_id))}::uuid[],
+							${sql.param(inserted.map((g) => g.presence))}::text[]) AS v(id, person_id, presence)`);
+				// The new Person's own history starts as createGuestContact's does: one People create row each.
+				for (const [n, p] of made.entries())
+					audit.events.push({
+						id: randomUUID(),
+						tenant_id: w.plant.id,
+						actor_id: w.accountId,
+						subject_type: "person",
+						subject_id: p.id,
+						action: "people.created",
+						kind: "create",
+						before_revision: null,
+						after_revision: p.revision,
+						before_value: null,
+						after_value: delta(null, personChanges(undefined, p).after).after,
+						metadata: { meetingId: m.id, guestId: fresh[n]!.id, attended: false },
+					});
+				const byPerson = new Map([...current, ...restored, ...invited].map((g) => [g.person_id, g]));
+				const guests = [...people.flatMap((id) => byPerson.get(id) ?? []), ...fresh];
+				const changed = restored.length + inserted.length > 0;
+				const names = (rows: GuestRow[]) => rows.map((g) => g.person_id);
+				return {
+					value: c.addGuestsResult.parse({
+						receiptId: audit.id,
+						outcome: changed ? "changed" : "noop",
+						meetingId: m.id,
+						guests: guests.map(guest),
+						notAdded,
+						attendanceRevision,
+					}),
+					subject: m.id,
+					subjectType: "meeting",
+					meetingId: m.id,
+					action: "meetings.changed",
+					kind: "edit",
+					outcome: changed ? "changed" : "noop",
+					before: { guestsInvited: [], guestsRestored: [], contactsCreated: [] },
+					after: { guestsInvited: names(invited), guestsRestored: names(restored), contactsCreated: names(fresh) },
+					metadata: notAdded.length ? { notAdded } : {},
+				};
 			});
 		});
 	},
@@ -471,6 +616,28 @@ export const guestsWriter = {
 		});
 	},
 };
+
+/** A guest row that is new on this meeting's list: pending, with no inviter, card or open link. */
+const newGuest = (id: string, personId: string, name: string, presence: GuestRow["presence"]): GuestRow => ({
+	id,
+	revision: "1",
+	rsvp: "pending",
+	rsvp_source: null,
+	rsvp_at: null,
+	presence,
+	card_response: null,
+	card_notes: null,
+	card_occurred_at: null,
+	card_recorded_at: null,
+	removed_at: null,
+	rsvp_token_open: false,
+	inviter_person_id: null,
+	person_id: personId,
+	person_name: name,
+	person_state: "live",
+	inviter_name: null,
+	inviter_state: null,
+});
 
 /**
  * A new named contact and its guest row in one write (REQ-MTG-011): the People minimal create (prospect, from a meeting
