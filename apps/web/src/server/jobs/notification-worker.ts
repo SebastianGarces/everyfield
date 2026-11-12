@@ -152,7 +152,8 @@ export async function authorizeNotificationMail(
 	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
 ): Promise<ReadonlySet<string>> {
 	const input = mailGrantInput(mail);
-	const r = await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}), relationship AS (${relationshipMailGrants(input)})
+	const r =
+		await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}), relationship AS (${relationshipMailGrants(input)})
 		SELECT id FROM meeting UNION SELECT id FROM relationship`);
 	return new Set(
 		z

@@ -258,7 +258,8 @@ test("INV-notification-worker: a milestone is sent once when its job fails and r
 	assert.deepEqual(await notices(link.id), []);
 
 	// Due again: two workers run at once; the job is claimed by one and its notices are written once.
-	await S.db.execute(sql`UPDATE job SET next_attempt_at=clock_timestamp()-interval '1 second', eligible_at=clock_timestamp()-interval '1 second'
+	await S.db
+		.execute(sql`UPDATE job SET next_attempt_at=clock_timestamp()-interval '1 second', eligible_at=clock_timestamp()-interval '1 second'
 		WHERE kind='notification' AND subject_record_id=${sql.param(link.id)}`);
 	const [a, b] = [createNotificationWorker({ mail: service() }), createNotificationWorker({ mail: service() })];
 	const sent = await Promise.all([a.run(db, new Date().toISOString()), b.run(db, new Date().toISOString())]);

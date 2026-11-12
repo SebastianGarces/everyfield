@@ -225,7 +225,9 @@ export async function applySharingMutation(
 	invalidate(tx, effects, c, pairOf(a), a.id, next);
 	// Sharing belongs to a plant's connection only: both callers checked the plant side.
 	if (a.plant_id)
-		c.writes.push(queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "sharing", revision: next }));
+		c.writes.push(
+			queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "sharing", revision: next }),
+		);
 	return {
 		changed: true,
 		events: [event],
