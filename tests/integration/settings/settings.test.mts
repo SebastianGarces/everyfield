@@ -913,6 +913,15 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
 		"2",
 	);
+	// The committed change queued one milestone job for the plant (T-267); the refused, conflicting and faulted saves none.
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT tenant_id,producer_key,source_revision::text AS revision FROM job WHERE kind='notification' AND subject_record_id=${relationship.id}`,
+			)
+		).rows,
+		[{ tenant_id: f.p.id, producer_key: "affiliation/sharing/2", revision: "2" }],
+	);
 	const profile = ok(
 		await call(
 			"saveSection",

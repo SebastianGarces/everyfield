@@ -96,6 +96,10 @@ On 2026-10-21 the S1 coordinator ordered ships by hand (C45, C59, C61, C67), bec
 
 Load on the shared Mac reached 60 to 136 on 2026-10-22, and Portless answered 502 under that load. The S1 rulings C51 and C81 asked agents to check uptime and wait while the 1-minute load is above 24 (two per core on 12 cores). evf now enforces it: task start, verify and browser run wait while the load is above 2 × CPU cores, print one line per minute and stop after 30 minutes. An optional machine load setting in evf.config.json overrides the default in tools/evf/load.ts. An --ignore-load reason runs at once and evf logs it. Tests of Portless itself use their own state folder and never restart the shared service, because one restart at 02:04 UTC removed every live preview.
 
+## C88, 2026-10-22: one-statement path or established path
+
+A native write declares which way it runs (#230). It runs as one statement with no BEGIN or COMMIT ("single") only when every check it makes is on rows its final statement locks again, or on a database constraint. Every other write runs on the established path: BEGIN, the write gate, its locked reads, the write and COMMIT. That includes any write that depends on another row's value (a time zone, a setting, a parent's state), a count or limit, or uniqueness without a constraint, because a statement's snapshot predates its locks and a lock refreshes only the rows it locks. Every write is established unless it declares "single", and a write never returns from established to single. The write path type in packages/domain/src/operations/writes.ts holds the rule, and the Performance section of [Everyfield patterns](patterns.md) gives each path's statement budget.
+
 ## D81, 2026-10-23: timing sets run on a quiet local database (OPS-52)
 
 Timing misses on 2026-10-22 came from the shared development database itself: an independent SELECT 1 probe saw latency spikes up to 499 ms while the app waited (C113, C114), and verifiers waited hours for quiet load. Timing sets now run only through evf timing. It starts CI's Postgres image (pgvector 0.8.7, Postgres 17) in Docker on this machine, migrates it with the head's own migration command, gives the app its own least-privilege logins and fresh identity keys, and points a production preview of the exact head at it. Nothing else uses that database, and evf removes the preview and the database when the run ends; a database left by a crashed run is removed at the next start. The preview gets no dev env file, so a timed action cannot reach the shared database or a paid service. Each set seeds its own synthetic data. Behavior checks stay on the shared development database. A local database has no network distance to the app, as in production, where the app and its database share a region; the measured time is the app's own work. No paid service is used (R3-c).
@@ -131,6 +135,20 @@ Launch writes the resolved seat model and effort into the plugin agent file and 
 ## D86, 2026-11-04: the dead drive watcher schedules no new work (OPS-137)
 
 Sebastian asked on 2026-11-04 to "implement all the suggestions - start now", and the review behind that ask found drives that stayed down for 20 min on Nov 3. Each live drive now records a heartbeat each minute, and a watcher in the sampler process gives a silent drive with a dead process one restart and alerts the coordinator on a second death. The watcher schedules no new work. It only restores a drive that was already running: a task with no heartbeat in the store is not watched, so it never starts a drive for a task that has never had one. The ruling that Intent owns scheduling and dependencies stays. A drive that ended by itself, a stop that a person or a coordinator asked for with the drive's stop command, a SIGINT, and the statuses other than active and pr_open never restart. Stop records give the process id and the command line of the drive's parent, which describe that parent. They do not name the sender of a signal, because Node does not report one, and no record claims a sender.
+
+## 2026-11-05 to 2026-11-06: evf v2 cutover
+
+evf v2 replaced evf v1 on 2026-11-05 and 2026-11-06. evf.toml holds the evf v2 roles, checks and policy, and evf reads them from the base branch, so the base branch decides them and a branch cannot change them for itself. Sebastian ruled on 2026-11-06: "Yes, switch all evf-v2 roles to Opus 5.5 medium now." Every evf v2 role runs Opus 5.5 at medium effort, as evf.toml records.
+
+These rulings governed evf v1 mechanisms and are retired with evf v1:
+
+- D76 (migration renumbering on merge; D78 had already superseded it).
+- D79 (the evf ship queue and update-branch flow).
+- D80 (the evf machine load limit).
+- D81 (timing sets through evf timing on a quiet local database).
+- D86 (the drive heartbeat watcher).
+- D82, mechanism parts only: the seat and model assignments (Sonnet implements, Opus plans and verifies) and the review-by-session mechanism (EVF-Author and EVF-Review lines, session ids checked by ship). Still in force: a review is independent of its author, done by a different session with no shared context, and Claude does the building and reviewing.
+- D85, mechanism parts only: launch rewriting the model and effort in plugin agent files and role files. Still in force: the preference for Opus 5.5 at medium effort, which evf.toml now carries for every role.
 
 ## D87, 2026-11-07: the task catalog writes its own descriptions (T-61, WP-026 C1)
 
