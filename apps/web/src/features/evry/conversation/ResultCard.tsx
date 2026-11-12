@@ -47,10 +47,13 @@ export function ResultCard({
 	operation,
 	result,
 	originalTotal,
+	photos,
 }: {
 	operation: string;
 	result: SourceResult;
 	originalTotal: number | null;
+	/** The current photo route of each person row, by person id (useRowPhotos). A row without one keeps the initials. */
+	photos: Readonly<Record<string, string>>;
 }) {
 	const [all, setAll] = useState(false);
 	const { title, summary, icon, rows, facts } = cardView(operation, result, originalTotal);
@@ -72,7 +75,14 @@ export function ResultCard({
 					{(all ? rows : rows.slice(0, FIRST_ROWS)).map((view) => {
 						const body = (
 							<>
-								{view.avatar === "person" ? <Avatar name={view.name} size="sm" decorative /> : null}
+								{view.avatar === "person" ? (
+									<Avatar
+										name={view.name}
+										src={view.photoFor ? photos[view.photoFor] : undefined}
+										size="sm"
+										decorative
+									/>
+								) : null}
 								{view.avatar && view.avatar !== "person" ? (
 									<span
 										aria-hidden="true"

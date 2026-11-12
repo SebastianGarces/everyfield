@@ -905,7 +905,8 @@ export const churchWriter = {
 
 	/**
 	 * The saved exports of one Church Document, the latest 100 newest first (DOC-003). Any seat reads them. One statement.
-	 * A creator's name shows while that person holds a seat in the church plant.
+	 * A creator's name shows while that person holds a seat in the church plant. A deleted document lists nothing: its
+	 * seats are told "deleted", anyone else "unavailable".
 	 */
 	async listExports(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -914,6 +915,7 @@ export const churchWriter = {
 			const found = await rowsOf<{
 				ok: boolean;
 				document_id: string | null;
+				deleted: boolean | null;
 				id: string | null;
 				revision: number | null;
 				format: string | null;
@@ -924,24 +926,25 @@ export const churchWriter = {
 				download_name: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id AS document_id, x.id, x.version_number AS revision, x.format, x.generated_at,
-					x.creator_name, x.sha256, x.byte_count, x.download_name
+				sql`SELECT g.ok, d.id AS document_id, d.archived_at IS NOT NULL AS deleted, x.id, x.version_number AS revision,
+					x.format, x.generated_at, x.creator_name, x.sha256, x.byte_count, x.download_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document' AND d.archived_at IS NULL
+					AND d.kind = 'church_document'
 				LEFT JOIN LATERAL (
 					SELECT gd.id, sr.version_number, gd.format, gd.generated_at, f.sha256, f.byte_count, gd.download_name,
 						${seatedName(sql`gd.creator_account_id`)} AS creator_name
 					FROM generated_document gd
 					JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
 					JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
-					WHERE gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
+					WHERE d.archived_at IS NULL AND gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
 					ORDER BY gd.generated_at DESC, gd.id DESC
 					LIMIT ${PAGE}
 				) x ON true`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
+			if (found[0].deleted) deny("deleted");
 			return c.savedExportList.parse({
 				documentId: input.documentId,
 				exports: found
@@ -963,7 +966,8 @@ export const churchWriter = {
 
 	/**
 	 * The stored bytes of one saved export (DOC-003): read from private storage, checked against the saved digest, never
-	 * rendered again. The seat is checked before and after the bytes are read. Any seat reads it.
+	 * rendered again. The seat is checked before and after the bytes are read. Any seat reads it. Once the document is
+	 * deleted no export of it is read: its seats are told "deleted", anyone else "unavailable" (Nora, Nov 10, 2026).
 	 */
 	async readExportFile(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
@@ -972,6 +976,7 @@ export const churchWriter = {
 			if (!storage) deny("unavailable");
 			const found = await rowsOf<{
 				ok: boolean;
+				deleted: boolean | null;
 				id: string | null;
 				object_id: string | null;
 				format: c.SavedExport["format"] | null;
@@ -979,20 +984,26 @@ export const churchWriter = {
 				revision: number | null;
 			}>(
 				db,
-				sql`SELECT g.ok, gd.id, gd.object_id, gd.format, gd.download_name, sr.version_number AS revision
+				sql`SELECT g.ok, d.archived_at IS NOT NULL AS deleted, gd.id, gd.object_id, gd.format, gd.download_name,
+					sr.version_number AS revision
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
-				LEFT JOIN generated_document gd ON g.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
-					AND gd.source_document_id = ${input.documentId}::uuid
+				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
+					AND d.kind = 'church_document'
+				LEFT JOIN generated_document gd ON d.archived_at IS NULL AND gd.id = ${input.exportId}::uuid
+					AND gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
 				LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id`,
 			);
 			const row = found[0];
 			if (!row?.ok) deny("access_denied");
+			if (row.deleted) deny("deleted");
 			if (!row.id || !row.object_id || !row.format || !row.download_name || row.revision === null) deny("unavailable");
 			const authorize: ResourceAuthorizer = async (tx, file, intent) => {
 				if (intent !== "read") return null;
 				const allowed = await rowsOf<{ ok: boolean }>(
 					tx,
 					sql`SELECT ${gateSql(scope, false)} AS ok FROM generated_document gd
+					JOIN document d ON d.id = gd.source_document_id AND d.tenant_id = gd.tenant_id
+						AND d.kind = 'church_document' AND d.archived_at IS NULL
 					WHERE gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 						AND gd.source_document_id = ${input.documentId}::uuid AND gd.object_id = ${file.id}::uuid`,
 				);

@@ -102,8 +102,11 @@ function create(v: z.infer<typeof env>) {
 				},
 			]),
 	});
-	// The purge job becomes eligible at the cancellation deadline.
+	// The purge job becomes eligible at the cancellation deadline. Each open seat's deletion notice commits with the
+	// witness change.
+	const { workspaceNotice, ...credentialMail } = mail;
 	const deletion = deletionOperations({
+		workspaceNotice,
 		queue: (tx, i) =>
 			queueJobs(tx, [
 				{
@@ -143,7 +146,7 @@ function create(v: z.infer<typeof env>) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
 		},
-		...mail,
+		...credentialMail,
 	});
 	return {
 		db,

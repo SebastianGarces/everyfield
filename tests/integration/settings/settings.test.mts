@@ -208,6 +208,8 @@ before(async () => {
 					},
 				]);
 			},
+			// Notice mail is covered by workspace-deletion-mail.test.mts.
+			workspaceNotice: async () => {},
 		},
 		credentials,
 	};

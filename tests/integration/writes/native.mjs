@@ -1080,6 +1080,15 @@ try {
 	);
 	assert.equal(churchAudit.rows.length, 1);
 	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
+	// Each open seat's deletion notice joins the witness write, as the settings mount queues it.
+	const noticeMail = createMailService({
+		db: f.db,
+		encryptionKey: randomBytes(32),
+		addressKey: randomBytes(32),
+		from: "native@example.test",
+		authorize: async () => new Set(),
+		transport: { send: async () => ({ kind: "unknown" }), lookup: async () => ({ kind: "unknown" }) },
+	});
 	const deletion = deletionOperations({
 		queue: (tx, i) =>
 			queueJobs(tx, [
@@ -1092,6 +1101,24 @@ try {
 					eligibleAt: i.eligibleAt,
 				},
 			]),
+		workspaceNotice: async (tx, notice, writes) => {
+			for (const r of notice.recipients)
+				await noticeMail.append(
+					tx,
+					{
+						owner: { kind: "account", id: r.accountId },
+						purpose: "notification",
+						logicalKey: `workspace-deletion/${notice.kind}/${notice.requestId}`,
+						recipient: r.accountId,
+						address: r.address,
+						content: { subject: "Workspace deletion", text: notice.plant.name },
+						operation: null,
+						notice: null,
+						eligibleAt: new Date().toISOString(),
+					},
+					writes,
+				);
+		},
 	});
 	const requested = await measure("settings.requestWorkspaceDeletion", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>
