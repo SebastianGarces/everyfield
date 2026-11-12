@@ -179,6 +179,12 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 60);
+	// The feed page reads the same first page, the unread count of its filter and the mark revision in one statement.
+	const page = ok(await api.readFeedPage(db, reader, {}));
+	assert.deepEqual(page.feed, first);
+	assert.equal(page.unread, 60);
+	assert.equal(page.revision, ok(await api.getPreferences(db, reader, {})).revision);
+	assert.equal(ok(await api.readFeedPage(db, reader, { category: "task_overdue" })).unread, 0);
 	const unread = ok(await api.readFeed(db, reader, { unread: true }));
 	assert.equal(
 		unread.items.some((row) => row.id === due),

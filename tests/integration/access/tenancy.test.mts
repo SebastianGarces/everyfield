@@ -45,6 +45,7 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
@@ -454,8 +455,15 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
+	// A meetings read this file's own seed meeting covers.
+	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
+		area(
+			"meetings:meetingsReader.pageGuests",
+			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			unavailable,
+		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
 		}),

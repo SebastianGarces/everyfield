@@ -39,7 +39,10 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle id="vision-report">Vision meetings</CardTitle>
-					<CardDescription>The last 12 with final attendance</CardDescription>
+					<CardDescription>
+						Totals count every Vision meeting held so far, without cancelled or voided ones. The trend shows the last 12
+						with final attendance.
+					</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			{got.status === "loading" ? (

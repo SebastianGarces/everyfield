@@ -1183,6 +1183,10 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	const fresh = await get(owner, c.id);
 	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh, [id]), "invalid_subject");
 	refused(await replace(member, fresh, [b.id]), "unavailable");
+	// One read names the rows again, by ID: a bulk change's stale rows and the page's badges. A deleted or foreign task
+	// is absent, never an error, and the badge counts open prerequisites only.
+	const named = ok(await read(owner, "listRows", { taskIds: [a.id, b.id, c.id, gone.id, theirs.id] }));
+	assert.deepEqual(Object.fromEntries(named.items.map((t) => [t.title, t.openPrerequisites])), { A: 1, B: 1, C: 0 });
 	assert.deepEqual(
 		ok(await read(owner, "prerequisiteCandidates", { taskId: c.id })).items.filter((t) =>
 			[a.id, b.id, c.id].includes(t.id),
