@@ -32,6 +32,9 @@ const HEADINGS = [
 
 export function ContentSection({ index }: { index: number }) {
 	const [source, setSource] = useState("asn");
+	const [preferred, setPreferred] = useState("asn");
+	const [status, setStatus] = useState("");
+	const reading = SOURCES.find((s) => s.id === source);
 	const [title, setTitle] = useState("Run your first vision meeting");
 	const [active, setActive] = useState<EditorCommand[]>(["bold"]);
 	const current = useActiveHeading(HEADINGS.map((h) => h.id));
@@ -111,9 +114,21 @@ export function ContentSection({ index }: { index: number }) {
 				className="mt-5"
 				sources={SOURCES}
 				currentId={source}
-				preferredId="asn"
+				preferredId={preferred}
 				onChoose={setSource}
 				onSettings={() => undefined}
+				prefer={
+					reading && reading.kind !== "global" && source !== preferred
+						? {
+								name: reading.name,
+								onSelect: () => {
+									setPreferred(reading.id);
+									setStatus(`${reading.name} is now your preferred network.`);
+								},
+							}
+						: undefined
+				}
+				status={status}
 				admin={
 					<>
 						<Button variant="ghost" size="sm" icon={ViewOffIcon}>

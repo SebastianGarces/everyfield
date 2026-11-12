@@ -198,6 +198,30 @@ export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, stri
 	return rows;
 }
 
+/** The church's stored Wiki source order, as wiki.setSourceOrder keeps it. Revision "0": no order is stored yet. */
+export type SourceOrder = { revision: string; churches: string[]; networks: string[] };
+
+/** The list with `id` first and the rest in the order they had. */
+export const toHead = (ids: readonly string[], id: string): string[] => [id, ...ids.filter((item) => item !== id)];
+
+/**
+ * The order that makes `source` the preferred one in its own list, or null when "Set as preferred" is not offered:
+ * no order to change (not an Owner or Admin), the Global source, the source already preferred here, or already first
+ * in its list. With two or more churches and no stored order, any church can be chosen, even the first one listed.
+ */
+export function preferredOrder(
+	order: SourceOrder | null,
+	source: Pick<SourceRow, "id" | "kind">,
+	preferredId: string,
+): (SourceOrder & { list: "churches" | "networks" }) | null {
+	if (!order || source.kind === "global" || source.id === preferredId) return null;
+	const list = source.kind === "church" ? "churches" : "networks";
+	const index = order[list].indexOf(source.id);
+	const unordered = list === "churches" && order.revision === "0" && order.churches.length > 1;
+	if (index < 0 || (index === 0 && !unordered)) return null;
+	return { ...order, list, [list]: toHead(order[list], source.id) };
+}
+
 export type Block =
 	| { kind: "heading"; level: 2 | 3; text: string; id: string }
 	| { kind: "paragraph"; text: string }

@@ -327,7 +327,8 @@ function OrgBadge({ source, size = "sm" }: { source: WikiSource; size?: "sm" | "
 /**
  * WikiSourceBar (components.md): Source menu, Meta, Back to preferred and Admin tools. Choosing a source changes only
  * what this reader sees now; reading a named source that is not the preferred one outlines the bar in blue and
- * offers the way back. `admin` holds the Hide and Edit actions, shown only to editors.
+ * offers the way back. `admin` holds the Hide and Edit actions, shown only to editors. `prefer` offers "Set … as
+ * preferred" for the source being read; `status` is the polite live line under the bar that reports that save.
  */
 export function WikiSourceBar({
 	sources,
@@ -335,6 +336,8 @@ export function WikiSourceBar({
 	preferredId,
 	onChoose,
 	onSettings,
+	prefer,
+	status,
 	admin,
 	adminLabel = "Network admin",
 	className,
@@ -345,6 +348,10 @@ export function WikiSourceBar({
 	onChoose: (id: string) => void;
 	/** Opens the church's preferred-source setting; without it the menu offers no way there. */
 	onSettings?: () => void;
+	/** Makes the source being read the church's preferred one. `name` is that source's name. */
+	prefer?: { name: string; onSelect: () => void };
+	/** Pass a string (empty at first) to keep the live region mounted before its first message. */
+	status?: string;
 	admin?: ReactNode;
 	adminLabel?: string;
 	className?: string;
@@ -352,13 +359,13 @@ export function WikiSourceBar({
 	const current = sources.find((s) => s.id === currentId) ?? sources[0];
 	if (!current) return null;
 	const named = currentId !== preferredId;
-	return (
+	const bar = (
 		<div
 			data-view={named ? "named" : "default"}
 			className={cn(
 				"flex flex-wrap items-center gap-3 rounded-card bg-surface py-2.5 pr-3 pl-2.5 shadow-card",
 				named && "shadow-[var(--ef-shadow-card),inset_0_0_0_1.5px_var(--ef-blue-300)]",
-				className,
+				status === undefined && className,
 			)}
 		>
 			<Menu>
@@ -401,11 +408,13 @@ export function WikiSourceBar({
 					<MenuLabel className="text-xs font-normal">
 						Choosing a source changes only what you read now. Your church&apos;s preferred source is set in Settings.
 					</MenuLabel>
+					{prefer ? (
+						<DropdownMenu.Item onSelect={prefer.onSelect} className={MENU_ACTION}>
+							Set {prefer.name} as preferred
+						</DropdownMenu.Item>
+					) : null}
 					{onSettings ? (
-						<DropdownMenu.Item
-							onSelect={onSettings}
-							className="flex h-[38px] cursor-pointer items-center rounded-md px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
-						>
+						<DropdownMenu.Item onSelect={onSettings} className={MENU_ACTION}>
 							Change the preferred source
 						</DropdownMenu.Item>
 					) : null}
@@ -431,7 +440,19 @@ export function WikiSourceBar({
 			) : null}
 		</div>
 	);
+	if (status === undefined) return bar;
+	return (
+		<div className={className}>
+			{bar}
+			<p role="status" className="mt-2 px-1 text-sm text-text-2 empty:mt-0">
+				{status}
+			</p>
+		</div>
+	);
 }
+
+const MENU_ACTION =
+	"flex min-h-[38px] cursor-pointer items-center rounded-md px-2.5 py-2 text-md text-ink outline-none data-[highlighted]:bg-surface-2";
 
 export type EditorCommand =
 	"block" | "bold" | "italic" | "link" | "bulletList" | "orderedList" | "quote" | "callout" | "image" | "undo" | "redo";
