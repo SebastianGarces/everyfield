@@ -25,6 +25,7 @@ import {
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
 import {
 	RENDER_PROFILE,
+	RenderFailed,
 	digestOf,
 	engineVersionOf,
 	renderContext,
@@ -33,7 +34,10 @@ import {
 	renderPreview,
 	renderTemplatePdf,
 } from "../../../packages/domain/src/documents/render.ts";
-import { legalFixture } from "../../../packages/domain/test/legal-fixture.tsx";
+import { forkTemplate } from "../../../packages/contracts/src/documents/format/index.ts";
+import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import { renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
 import { NEUTRAL_THEME, makePalette } from "../../../packages/domain/src/documents/theme.ts";
 import { contentSnapshot, REGISTRY, entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { fontDigests } from "../../../packages/domain/src/documents/fonts.ts";
@@ -308,12 +312,10 @@ describe("INV-doc-engine: api engine", () => {
 	});
 
 	test("AC:DOC-020 a formal/legal document always prints the notice, and an unfilled doctrinal slot is a visible blank", async () => {
-		const out = await renderPdfElement(
-			legalFixture(renderContext(CHURCH, NEUTRAL_VALUES, NEUTRAL_THEME, "formal/legal")),
-		);
-		const text = out.text.flat().join(" ");
+		const bylaws = await forkTemplate(docTemplateById("bylaws")!, { data: NEUTRAL_VALUES });
+		const text = (await renderDocPdf(bylaws)).text.flat().join(" ");
 		assert.ok(text.includes("Template, not legal advice"));
-		assert.ok(text.includes("To be completed by the network"));
+		assert.ok(text.includes(SLOT_BLANK_NOTE.slice(0, 30)), "the unfilled statement of faith is a marked blank");
 		for (const entry of pdfs) {
 			const own = await renderTemplatePdf(entry, FULL);
 			assert.equal(
@@ -450,3 +452,19 @@ async function xlsxBytes(kind: "first-year-budget" | "budget-worksheet") {
 	assert.ok(bytes);
 	return bytes;
 }
+
+test("BUG-PR551: a template render that throws reaches the caller as render_failed with the error as its cause", async () => {
+	// T-126: render.ts dropped the cause, so a failed library render logged "render_failed" with nothing behind it.
+	const boom = new Error("the theme could not be read");
+	const theme = new Proxy({} as typeof NEUTRAL_THEME, {
+		get() {
+			throw boom;
+		},
+	});
+	await assert.rejects(renderTemplatePdf({ id: "commitment-card" }, NEUTRAL_VALUES, theme), (error: unknown) => {
+		assert.ok(error instanceof RenderFailed);
+		assert.equal(error.message, "render_failed");
+		assert.equal(error.cause, boom);
+		return true;
+	});
+});

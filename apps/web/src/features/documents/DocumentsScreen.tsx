@@ -16,6 +16,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
+import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { generateDocument, resolveDocument } from "./actions.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
@@ -25,6 +26,8 @@ import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview } from "./preview-
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
+	MERGE_TOO_LONG,
+	mergeTooLong,
 	SOURCE_LABEL,
 	categoryLabel,
 	choose,
@@ -69,9 +72,8 @@ type Props = {
 	textTemplates: readonly string[];
 };
 
-function failureText(code: string, problem?: string) {
-	if (code === "invalid_input" && problem?.toLowerCase().includes("16"))
-		return "Shorten the fields. Together they must stay under 16 KB.";
+function failureText(code: string, path?: string) {
+	if (mergeTooLong(code, path)) return MERGE_TOO_LONG;
 	if (code === "unavailable")
 		return "Preview uses the church name, the pastor, and the launch date. This account has no current church seat.";
 	return RENDER_FAILED;
@@ -144,7 +146,7 @@ export function DocumentsScreen({
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -189,7 +191,7 @@ export function DocumentsScreen({
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -597,14 +599,18 @@ function TemplatePanel({
 							hint={shown ?? undefined}
 							error={invalid ? fieldError(field.key, field.label) : undefined}
 						>
-							<Input value={value} maxLength={2000} onChange={(event) => onDraft(field.key, event.target.value)} />
+							<Input
+								value={value}
+								maxLength={MERGE_VALUE_MAX}
+								onChange={(event) => onDraft(field.key, event.target.value)}
+							/>
 						</Field>
 					);
 				})}
 			</div>
 			{tooLong ? (
 				<p role="status" className="text-sm font-medium text-magenta-600">
-					Shorten the fields. Together they must stay under 16 KB.
+					{MERGE_TOO_LONG}
 				</p>
 			) : null}
 			{canPreview ? null : (

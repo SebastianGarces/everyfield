@@ -7,7 +7,8 @@ import { FORMAT_SCHEMA } from "./schema.ts";
 import type { AnyNode, DocDocument, DocTemplate, FormatSchema, PageSetup, TableNode, ValueSpec } from "./types.ts";
 
 const SLUG = /^[a-z][a-z0-9-]{0,79}$/;
-const KEY = /^[a-z][a-z0-9_]{0,59}$/;
+/** A field or write-in key: a lowercase letter, then letters, digits or underscores, 60 at most. */
+export const KEY = /^[a-z][a-z0-9_]{0,59}$/;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const NUMERIC = new Set(["number", "money"]);
 
@@ -409,6 +410,7 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 		fail("exports", "XLSX export needs at least one ledger table (a budget) in the body");
 	if (ctx.nodes > schema.limits.nodes)
 		fail("body", `the document holds ${ctx.nodes} nodes; the limit is ${schema.limits.nodes}`);
+	// The limit counts UTF-16 code units of the JSON (string length), not UTF-8 bytes; the words are the prototype's.
 	const bytes = JSON.stringify(doc).length;
 	if (bytes > schema.limits.jsonBytes)
 		fail("(root)", `the document is ${bytes} bytes; the limit is ${schema.limits.jsonBytes}`);

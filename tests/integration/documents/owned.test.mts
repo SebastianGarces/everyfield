@@ -901,12 +901,12 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			}),
 			"unavailable",
 		);
-		const churchBody = ok(await documentsWriter.readChurch(db, owner, { documentId: church.id })).body;
+		const churchSave = ok(await documentsWriter.readChurch(db, owner, { documentId: church.id })).body;
 		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, {
 				documentId: saved.id,
 				expectedRevision: saved.revision,
-				body: churchBody,
+				body: churchSave,
 			}),
 			"unavailable",
 		);

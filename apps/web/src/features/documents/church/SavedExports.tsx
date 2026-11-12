@@ -6,7 +6,8 @@ import { Button, Card, ConfirmDialog, EmptyState } from "@everyfield/ui/controls
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { deleteSavedExport } from "./actions.ts";
-import { FORMAT_LABEL, savedAt as exportedAt } from "./labels.ts";
+import { FORMAT_LABEL } from "../model.ts";
+import { savedAt as exportedAt } from "./labels.ts";
 
 // The saved exports of one Church Document, newest first. Each row downloads the stored bytes of that export, which never
 // change after later edits, brand kit changes or renderer changes. Only an Owner or Admin sees Delete.
@@ -41,8 +42,8 @@ export function SavedExports({
 			{exports.length === 0 ? (
 				<Card>
 					<EmptyState icon={FileLockedIcon} title="No saved exports yet" headingLevel="h3">
-						Download this document as PDF or Word and Everyfield saves that exact file here. It stays the same later, so
-						you can always get back the copy you shared.
+						Download this document as PDF, Word or, for a budget, Excel, and Everyfield saves that exact file here. It
+						stays the same later, so you can always get back the copy you shared.
 					</EmptyState>
 				</Card>
 			) : (

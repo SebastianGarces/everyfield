@@ -16,7 +16,8 @@ import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
 
-// The Church Documents reads. The library is one statement; a document page is two (the document and its saved exports).
+// The Church Documents reads. The library is one statement; a document page is three, run together: the document, its
+// saved exports and its revisions.
 // The PDF bytes are a separate request (churchFileRoute), so the page never waits for a render.
 
 export type ChurchView = {

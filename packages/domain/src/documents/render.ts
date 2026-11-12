@@ -147,7 +147,7 @@ export async function renderTemplatePdf(
 		);
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
-		throw new RenderFailed();
+		throw new RenderFailed(error);
 	}
 }
 

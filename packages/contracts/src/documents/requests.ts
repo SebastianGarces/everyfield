@@ -53,7 +53,11 @@ export const generateRequest = z
 	.strictObject({ ...contextInput, requestKey: z.string().trim().min(1).max(80) })
 	.superRefine(oneSubject);
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
-const documentTitle = z.string().trim().min(1).max(200);
+/** A document title or church template name holds at most this many characters. */
+export const TEMPLATE_NAME_MAX = 200;
+/** A church template description holds at most this many characters. */
+export const TEMPLATE_DESCRIPTION_MAX = 500;
+const documentTitle = z.string().trim().min(1).max(TEMPLATE_NAME_MAX);
 /** A plain native document saves its title and one native body node (D-209). Any other body is refused. */
 export const saveNativeRequest = z.strictObject({
 	title: documentTitle,
@@ -75,7 +79,7 @@ export const saveChurchTemplateRequest = z.strictObject({
 	documentId: recordId,
 	revision: z.int().min(1).max(1_000_000),
 	name: documentTitle,
-	description: z.string().trim().max(500).optional(),
+	description: z.string().trim().max(TEMPLATE_DESCRIPTION_MAX).optional(),
 	requestKey: z.string().trim().min(1).max(80),
 });
 /**
@@ -97,7 +101,7 @@ export const updateChurchTemplateRequest = z.strictObject({
 export const editChurchTemplateRequest = z.strictObject({
 	templateId: recordId,
 	name: documentTitle,
-	description: z.string().trim().max(500),
+	description: z.string().trim().max(TEMPLATE_DESCRIPTION_MAX),
 	requestKey: z.string().trim().min(1).max(80),
 });
 /** Delete a church template from "New from template". Documents made from it keep their content. */

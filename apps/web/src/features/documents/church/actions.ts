@@ -13,8 +13,10 @@ import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
 
-// New from template and Delete. The actor is read again here; the server refuses a Member, whatever the page showed.
-// A success moves to the next page on the server, so the library is fresh without a client refresh.
+// The Church Documents actions: create from a template, save, branding, delete, the church templates (save as,
+// list, update, rename, delete), deleting a saved export, and comparing with or accepting a template's changes. The
+// actor is read again here; the server refuses a Member, whatever the page showed. Create and delete move to the next
+// page on the server, so the library is fresh without a client refresh.
 
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
 
