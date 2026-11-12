@@ -4,7 +4,7 @@ import { sectionResult, settingsError, type SettingsError } from "@everyfield/co
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
-import { and, eq, gt, inArray, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
