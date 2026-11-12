@@ -7,6 +7,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { chainSendNow } from "../../../apps/web/src/features/communication/sendNowChain.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { ok } from "../../support/fixture.mts";
 
 let f, plant, owner;
 const keys = {
@@ -14,10 +15,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
 };
 const read = (op, input, deliveryKeys) =>
 	f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, deliveryKeys));
@@ -220,11 +217,11 @@ test("AC:CASE-COM-012 a refused send step leaves the message scheduled and names
 	const personId = await person("Chain Refused", `refused-${randomUUID().slice(0, 8)}@example.test`);
 	const transport = carrier(async () => ({ outcome: "ids", ids: ["never"] }));
 	// A stale revision on the send step is refused by the domain before any provider call.
-	const refused = ok(await chain(personId, transport, newKeys(), () => "999999"));
-	assert.equal(refused.report, null);
-	assert.notEqual(refused.sendIssue, null);
+	const stale = ok(await chain(personId, transport, newKeys(), () => "999999"));
+	assert.equal(stale.report, null);
+	assert.notEqual(stale.sendIssue, null);
 	assert.equal(transport.calls.send, 0, "no provider call after a refused send");
-	const row = await stateOf(refused.communicationId);
+	const row = await stateOf(stale.communicationId);
 	assert.equal(row.state, "scheduled");
 	assert.equal(row.accepted, 0);
 

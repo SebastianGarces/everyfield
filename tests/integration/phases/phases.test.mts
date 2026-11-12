@@ -16,21 +16,13 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/server/phases/notices.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-038: the journey a church plant declares and moves through. Every write runs through the phase writer the
 // /intelligence actions call, on its own schema of the development or CI database.
 
 let f, writer, onboarding;
 let faultyNotices = false;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const history = (who) => phaseReader.readHistory(f.db, who.actor);
@@ -336,8 +328,11 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 		[owner, 1, "Discernment is done", "forward", 0],
 	];
 	let revision = await revisionOf(plant);
+	const dbNow = async () => Date.parse((await one(sql`SELECT clock_timestamp()::text AS t`)).t);
 	for (const [who, to, reason, direction, from] of steps) {
+		const earliest = await dbNow();
 		const r = ok(await move(who, to, reason, revision));
+		const latest = await dbNow();
 		assert.equal(r.outcome, "moved");
 		assert.equal(r.state.phase, to);
 		assert.equal(BigInt(r.state.revision), BigInt(revision) + 1n);
@@ -354,7 +349,9 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 				occurredAt: null,
 			},
 		);
-		assert.ok(Math.abs(Date.parse(r.entry.occurredAt) - Date.now()) < 60_000);
+		// The move's time is the database's own, read back between two database clock reads around the call.
+		const at = Date.parse(r.entry.occurredAt);
+		assert.ok(at >= earliest && at <= latest, `${r.entry.occurredAt} outside the move`);
 		revision = r.state.revision;
 	}
 	const h = ok(await history(owner));

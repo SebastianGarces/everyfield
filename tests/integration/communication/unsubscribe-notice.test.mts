@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
+import { ok } from "../../support/fixture.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import {
 	applyMessagesOptOut,
@@ -35,10 +36,6 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const ZONE = "America/Chicago";
 const key = () => randomUUID();
 const now = () => new Date();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 /** A church in Chicago time, so the send time in a notice is visibly the church's own. */
@@ -177,8 +174,8 @@ test("AC:CASE-NTF-016 T-242 Done 2: a refused opt-out, from a forged or tampered
 	const tampered = real.slice(0, -2) + (real.endsWith("A") ? "BB" : "AA");
 	const forged = messagesOptOutToken({ current: randomBytes(32), previous: [] }, { plantId: w.id, personId: ana.id });
 	for (const token of [tampered, forged]) {
-		const refused = await applyMessagesOptOut(f.db, ring, now, { token });
-		assert.equal(refused.status, "refused");
+		const outcome = await applyMessagesOptOut(f.db, ring, now, { token });
+		assert.equal(outcome.status, "refused");
 	}
 	assert.deepEqual(await stored(sam), []);
 	assert.deepEqual(await ours(sam), []);

@@ -121,7 +121,8 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 	const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 	observeDatabase({ $client: pool });
 	try {
-		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT pg_sleep(0.05)"))));
+		// Three queries on a one-client pool: the second and third queue behind the first, with no sleep needed.
+		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT 1"))));
 	} finally {
 		await pool.end();
 	}

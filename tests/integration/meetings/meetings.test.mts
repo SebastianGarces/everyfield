@@ -1,4 +1,3 @@
-import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -17,6 +16,7 @@ import {
 	venuesReader,
 	venuesWriter as venues,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { NEXT_REQUEST } from "../../../apps/web/src/features/meetings/model.ts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 
@@ -26,25 +26,21 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-const database = await testDatabase({ prefix: "wp020", max: 6 });
+const database = await fixture({ prefix: "wp020", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let queries = [];
 
 // Plant P (Chicago): 0 Owner, 1 Member with an own linked Person, 2 Admin. Plant Q: 3 Admin.
-const P = randomUUID(),
-	Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -98,33 +94,6 @@ before(async () => {
 			return Reflect.apply(query, this, args);
 		};
 	});
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
 });
 after(async () => {
 	await database.close();
@@ -1113,21 +1082,8 @@ test("INV-reads: meeting pages and details are one statement whatever their size
 
 test("INV-tenancy C13: meeting and venue reads check access in their own statement, so a seat that changes mid-request reads only what it still may", async () => {
 	// A second Admin of P whose seat changes after the request's viewer lookup; their own Person is a guest.
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	const seat = (
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${a.id},${P},'admin',clock_timestamp()) RETURNING id`,
-		)
-	).rows[0].id;
+	const a = await database.actor(null, "admin", { account: { registration_kind: "planter" } });
+	const seat = await database.seat(a, { kind: "plant", id: P }, "admin");
 	const m = await schedule();
 	const own = await person("Admin Two", { account: a.id });
 	ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: own } }));

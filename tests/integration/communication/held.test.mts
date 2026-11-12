@@ -13,6 +13,7 @@ import {
 } from "../../../apps/web/src/features/communication/model.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
+import { ok } from "../../support/fixture.mts";
 
 // WP-028, T-241: a scheduled message waits in Everyfield and goes to the email service at its send time. An email the
 // email service already holds (every scheduled email before T-241, made here with heldAtProvider) is cancelled or moved
@@ -30,10 +31,6 @@ const keys = {
 };
 const DAY = 86_400_000;
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const read = (op, input, extra) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
 

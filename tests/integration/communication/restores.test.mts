@@ -4,6 +4,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
+import { ok } from "../../support/fixture.mts";
 
 // REQ-NTF-011 (WP-028): "Your address" lists every earlier restore of the viewer's own blocked address, newest first,
 // with the date, who restored it and their reason, in a fixed number of statements.
@@ -14,10 +15,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
 };
 
 /** A hard bounce blocks the address, as the bounce callback does: a new block or a block again after a restore. */
