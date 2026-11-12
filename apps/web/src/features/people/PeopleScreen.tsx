@@ -516,8 +516,8 @@ const COLUMNS: Column<ListRow>[] = [
 ];
 
 /**
- * An active tag filter from the address (ruling D47). People must carry every selected tag. The tag picker and tag
- * names come with WP-012/ui; until then a chip only shows that a tag filter is on and removes it.
+ * An active tag filter from the address (ruling D47). People must carry every selected tag. The chip shows "Tag" (or
+ * "Tag N" when several are on), not the tag's name, and removes that filter.
  */
 function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (

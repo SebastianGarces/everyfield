@@ -38,7 +38,7 @@ async function readOnPool<T>(
 	}
 }
 
-/** Runs one native write in its own transaction. Origin is built here, never taken from the browser. */
+/** Runs one native write in its own transaction, with the write context built from the viewer's authority. */
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
