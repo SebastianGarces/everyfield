@@ -1,7 +1,1 @@
-[
-	"branding:brandReader.get",
-	"branding:brandReader.resolveTheme",
-	"branding:brandReader.suggestColors",
-	"branding:readBrandAsset",
-	"settings:readAvatar"
-]
+[]

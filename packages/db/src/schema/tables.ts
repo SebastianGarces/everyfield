@@ -1829,20 +1829,7 @@ export const job = pgTable(
 			.default(sql`gen_random_uuid()`),
 		tenant_id: uuid("tenant_id").notNull(),
 		kind: text("kind", {
-			enum: [
-				"mail",
-				"notification",
-				"digest",
-				"assessment",
-				"reference_generation",
-				"feedback_publication",
-				"object_cleanup",
-				"lifecycle_purge",
-				"assistant_turn",
-				"document_render",
-				"people_import",
-				"evry_effect",
-			],
+			enum: ["mail", "digest", "object_cleanup", "lifecycle_purge", "assistant_turn", "people_import", "evry_effect"],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
 		producer_key: text("producer_key").notNull(),
@@ -1884,7 +1871,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text, 'evry_effect'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -1896,7 +1883,7 @@ export const job = pgTable(
 		check("job_ck_6", sql`((subject_record_id IS NOT NULL) OR (producer_key = 'sweep'::text))`),
 		check(
 			"job_ck_7",
-			sql`((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))`,
+			sql`((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))`,
 		),
 		index("job_ref_1").using("btree", table.subject_record_id.asc().nullsLast()),
 		uniqueIndex("job_uq_1")

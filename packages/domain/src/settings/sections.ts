@@ -51,7 +51,6 @@ export interface SettingsEffects {
 			kind: "plant_timezone" | "personal_timezone" | "digest";
 		},
 	): Promise<string>;
-	invalidate(tx: Tx, input: { owner: Context["selected"]; revision: string; operationId: string }): Promise<void>;
 }
 export interface SectionDependencies {
 	organizations: OrganizationAdapter<Transaction>;
@@ -393,7 +392,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 							})
 							.where(eq(t.plant.id, i.plant.id)),
 					);
-					await deps.effects.invalidate(tx, { owner: i.plant, revision: next.revision, operationId: c.id });
 					if (canonical(old.values.digest) !== canonical(next.values.digest))
 						await deps.effects.replan(tx, {
 							owner: i.plant,
