@@ -17,8 +17,8 @@ export type OnboardingReply<T> =
 // WP-008. Validate current relationships/consent/revisions before conversion.
 // Same intent returns the original receipt and actual current phase, not another
 // creation entry. Required facts, Owner/Person link, all-OFF self-start settings
-// or selected exact-pair consent, history, audit, receipt and WP-031 mail intents
-// commit together. Mail dispatch happens after commit through the outbox only.
+// or selected exact-pair consent, history, audit, receipt and mail intents
+// commit together. Mail is sent after commit, from the outbox only.
 // Person bootstrap uses the WP-011 same-transaction producer, never email alone.
 // Lead answers require the actual created Owner/account-linked Person and use
 // ordinary role assignment; occupied roles conflict, no templates/readers/care

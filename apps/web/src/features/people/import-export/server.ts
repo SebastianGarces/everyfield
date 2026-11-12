@@ -26,8 +26,8 @@ import { read, type Viewer } from "../server.ts";
 // the viewer from the session; the producer rechecks the seat's authority in its own statement. Answers are JSON: ok
 // with the value, refused with the producer's code (and the bad line for quoting), both with status 200 because the
 // request itself worked, or 503 for a failed database call, which the screen reads as a lost reply. The CSV downloads
-// answer 403 or 503 without a body. Import and receipt start the import worker after the answer, until the shared job
-// executor exists (WP-050).
+// answer 403 or 503 without a body. The scheduled runner drains due imports; the import and retry routes also start the
+// import worker after the answer, so previews, which run no cron, still finish.
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
