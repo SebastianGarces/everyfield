@@ -1,3 +1,4 @@
+import { reminderSlot } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { authorizeMeetingNotices, meetingNotice, planNotifications } from "@everyfield/domain/meetings";
 import "server-only";
@@ -14,9 +15,8 @@ import { queuedMailService, seatedNotificationService } from "./seated-notificat
 // notification service, in the transaction that finishes the job.
 
 const NOTICES_PER_RUN = 20;
-const slot = z.enum(["announcement", "day_7", "day_3", "day_1"]);
 /** The slot a job key names: `meeting/announcement`, or `meeting/day_7/<start>` for a reminder. */
-const slotOf = (key: string) => slot.parse(key.split("/")[1]);
+const slotOf = (key: string) => reminderSlot.parse(key.split("/")[1]);
 
 type Outcome = "lost" | "stale" | "passed" | "suppressed" | "planned";
 const finish: Record<Exclude<Outcome, "lost">, JobResult> = {
