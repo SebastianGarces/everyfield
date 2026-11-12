@@ -8,10 +8,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import {
-	createNotificationProducer,
-	issueMailOptOutToken,
-} from "../../../packages/domain/src/notifications/index.ts";
+import { createNotificationProducer, issueMailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { ok, seeds } from "../../support/fixture.mts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import {
@@ -495,8 +492,9 @@ async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"])
 	})(new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }));
 	return (await response.json()) as { steps: Record<string, { status: string; count?: unknown }> };
 }
-const passOver = (svc: ReturnType<typeof recorded>["svc"], prefixes: readonly string[]) => (limit: number, until: number) =>
-	runDueMail(runtime, svc, prefixes, limit, until);
+const passOver =
+	(svc: ReturnType<typeof recorded>["svc"], prefixes: readonly string[]) => (limit: number, until: number) =>
+		runDueMail(runtime, svc, prefixes, limit, until);
 const row = async (query) => (await db.execute(query)).rows[0];
 
 test("AC:T151-2 every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
@@ -552,7 +550,10 @@ test("AC:T151-3 a seeded backlog of dead links and past reminders sends none of 
 	await db.execute(querySql`UPDATE job SET eligible_at=clock_timestamp()-interval '2 days'
 		WHERE subject_record_id=${querySql.param(pastReminder)}`);
 
-	const { steps } = await tick({ identity: passOver(svc, MAIL_PASSES.identity), notice: passOver(svc, MAIL_PASSES.notice) });
+	const { steps } = await tick({
+		identity: passOver(svc, MAIL_PASSES.identity),
+		notice: passOver(svc, MAIL_PASSES.notice),
+	});
 	assert.deepEqual(steps["mail-expiry"], { status: "ok", count: 3 });
 	assert.deepEqual(steps["identity-mail"], { status: "ok", count: 2 });
 	assert.deepEqual(steps["notice-mail"], { status: "ok", count: 0 });
@@ -575,7 +576,9 @@ test("AC:T151-4 an unknown handoff is replayed on the next tick under the same k
 	assert.deepEqual((await tick(pass)).steps["identity-mail"], { status: "ok", count: 1 });
 	assert.equal(keys.length, 1);
 	assert.deepEqual(
-		await row(querySql`SELECT m.state, j.state AS job FROM mail m JOIN job j ON j.id=m.job_id WHERE m.id=${querySql.param(id)}`),
+		await row(
+			querySql`SELECT m.state, j.state AS job FROM mail m JOIN job j ON j.id=m.job_id WHERE m.id=${querySql.param(id)}`,
+		),
 		{ state: "unknown", job: "reconcile" },
 	);
 	answer = { kind: "accepted", id: "replayed-" + randomUUID() };

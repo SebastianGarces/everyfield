@@ -543,7 +543,9 @@ test("INV-email-safety: queued invitation mail captures a typed address, sends a
 	assert.deepEqual(await transport.lookup(typed.id, signal()), { kind: "accepted", id: typed.id });
 	assert.deepEqual(resend.take(), [], "a capture id never asks Resend");
 	// A replay under the stored key answers with the first capture and writes no second email.
-	const { rows } = await (await database()).f.admin.execute(sql`SELECT r.provider_key AS key FROM mail m
+	const { rows } = await (
+		await database()
+	).f.admin.execute(sql`SELECT r.provider_key AS key FROM mail m
 		JOIN mail_request_member mem ON mem.mail_id = m.id JOIN mail_request r ON r.id = mem.request_id
 		WHERE m.provider_message_id = ${typed.id}`);
 	const payload = { from: "invitations@resend.dev", ...message("real.invitee@example.com") };
