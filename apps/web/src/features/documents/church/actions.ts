@@ -2,7 +2,6 @@
 
 import { requestDatabase } from "@/server/database";
 import {
-	type saveChurchRequest,
 	type ChurchCompare,
 	type CompareView,
 	type ChurchTemplateSummary,
@@ -10,7 +9,6 @@ import {
 } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
-import type { z } from "zod";
 import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
@@ -45,8 +43,6 @@ export async function createChurchDocument(
 	redirect(`/documents/church/${id}`);
 }
 
-type ChurchSaveInput = z.input<typeof saveChurchRequest>;
-
 export type SaveResult =
 	{ status: "saved"; revision: string } | { status: "refused"; code: string; message: string } | { status: "lost" };
 
@@ -64,11 +60,7 @@ export async function saveChurchDocument(
 	if (!actor || !db) return { status: "lost" };
 	try {
 		// The writer parses the request, body included, once; a body it refuses names its first problem.
-		const reply = await documentsWriter.saveNative(db, actor, {
-			documentId,
-			expectedRevision,
-			body,
-		} as ChurchSaveInput);
+		const reply = await documentsWriter.saveNative(db, actor, { documentId, expectedRevision, body });
 		if (reply.status !== "ok") {
 			if (reply.error.code === "invalid_input")
 				return {
