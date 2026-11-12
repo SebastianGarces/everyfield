@@ -103,7 +103,14 @@ export function useNotificationBell() {
 					) : (
 						<ul aria-label="Latest notifications">
 							{feed.state.data.items.slice(0, SHOWN).map((item) => (
-								<NotificationItem key={item.id} item={item} clock={clock} onRead={feed.markOne} compact />
+								<NotificationItem
+									key={item.id}
+									item={item}
+									clock={clock}
+									onRead={feed.markOne}
+									onOpen={() => setOpen(false)}
+									compact
+								/>
 							))}
 						</ul>
 					)}

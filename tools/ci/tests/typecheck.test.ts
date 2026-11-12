@@ -204,7 +204,10 @@ test("T-53: every package runs the pinned bun 1.4.4 as check --no-script --no-pr
 	assert.equal(rootPkg.devDependencies.bun, "1.4.4");
 	for (const dir of PACKAGES) {
 		const scripts = JSON.parse(readFileSync(join(repo, dir, "package.json"), "utf8")).scripts;
-		assert.equal(scripts["typecheck:bun"], "../../node_modules/.bin/bun check --no-script --no-pretty --all", dir);
+		// The shadow reads the tsconfig tsc reads: apps/web's typecheck-only one (T-258), else the package's own.
+		const project = / -p (\S+)/.exec(scripts.typecheck)?.[1];
+		const bun = `../../node_modules/.bin/bun check ${project ? `-p ${project} ` : ""}--no-script --no-pretty --all`;
+		assert.equal(scripts["typecheck:bun"], bun, dir);
 	}
 	// A global bun that records any call, ahead of everything else on a PATH that holds no other bun.
 	const fake = mkdtempSync(join(tmpdir(), "global-bun-"));

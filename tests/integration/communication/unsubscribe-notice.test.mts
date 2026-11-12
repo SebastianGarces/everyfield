@@ -1,7 +1,8 @@
 // T-242: the staff member who scheduled a Messages email is told in the bell at the moment someone on it unsubscribes
 // (REQ-NTF-016). The notice is written in the opt-out's own statement, so it exists when the unsubscribe answer
 // returns. In-app only (D-680), to the scheduler while they hold a seat in that church (D-681), one per email and per
-// person (D-682), none for an email the email service already held before T-241 (D-683), and no link (D-684).
+// person (D-682), none for an email the email service already held before T-241 (D-683). Since T-260 the entry names
+// the scheduled email it is about as its subject, and the bell and feed link to it (D-731 to D-733).
 // Every email goes through the real Messages adapter to a recorded fake of the Resend API, and staff read the notice
 // through the real feed and bell reads.
 import test, { after, before } from "node:test";
@@ -163,7 +164,8 @@ test("AC:CASE-NTF-016 T-242 Done 1-2: Ana unsubscribes and Sam, who scheduled th
 	assert.match(expected.body, /Next Sunday”, scheduled for [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:30 (AM|PM)\.$/);
 	assert.equal(JSON.stringify(newest).includes(ana.email), false, "the notice never shows Ana's address");
 	assert.deepEqual(await stored(sam), [{ email: email.id, church: w.id, title: expected.title, body: expected.body }]);
-	assert.equal("href" in newest || "link" in newest, false, "the notice has no link (D-684)");
+	// T-260 Done 8: the subject is the scheduled email, from the notice's own source record; the domain names no URL.
+	assert.deepEqual(newest.subject, { kind: "communication", id: email.id });
 });
 
 test("AC:CASE-NTF-016 T-242 Done 2: a refused opt-out, from a forged or tampered token, writes no notice", async () => {
