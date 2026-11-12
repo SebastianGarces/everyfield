@@ -37,6 +37,9 @@ export const numbered = (numId, runs, ilvl = 0) =>
 export const link = (id, text) => `<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
 export const br = "<w:r><w:br/></w:r>";
 export const tab = "<w:r><w:tab/></w:r>";
+/** A run holding a text box around `inner`, with the fallback copy Word writes beside it. */
+export const textBox = (inner) =>
+	`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
 
 /** A Word table: `rows` are its rows' XML, `props` the inside of its w:tblPr. */
 export const table = (rows, props = "") =>

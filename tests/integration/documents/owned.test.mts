@@ -1386,14 +1386,12 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 
 		// Criterion 6: text boxes stay paragraphs in reading order and the drawing's fallback copy is not repeated; a table
 		// is a native table (T-111), its cells one line of plain text.
-		const textBox = (inner) =>
-			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
 		const mixed = ok(
 			await importWord(
 				W.word(
 					W.styled("Heading1", "Plan") +
 						`<w:tbl><w:tr><w:tc>${W.styled("Heading1", "Cell heading")}</w:tc><w:tc>${W.numbered("1", "Cell item")}</w:tc></w:tr></w:tbl>` +
-						W.p(["Before box ", textBox(W.p("Inside box")), "after box"]) +
+						W.p(["Before box ", W.textBox(W.p("Inside box")), "after box"]) +
 						W.p() +
 						W.p("Tom &amp; Ann &lt;3") +
 						W.p() +
@@ -1864,9 +1862,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			type: "doc",
 			content: [para(text("Empty next")), tableOf(numberedLabels(2), false, [typed("", ""), typed("", "")])],
 		});
-		const textBox = (inner) =>
-			`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
-		assert.deepEqual(await imported(W.p(["Box: ", textBox(table([row([cell("In box"), cell("too")])]))])), {
+		assert.deepEqual(await imported(W.p(["Box: ", W.textBox(table([row([cell("In box"), cell("too")])]))])), {
 			type: "doc",
 			content: [para(text("Box: ")), para(text("In box")), para(text("too"))],
 		});
