@@ -7,6 +7,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { chainSendNow } from "../../../apps/web/src/features/communication/sendNowChain.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { ok } from "../../support/fixture.mts";
 
 let f, plant, owner;
 const keys = {
@@ -14,10 +15,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
 };
 const read = (op, input, deliveryKeys) =>
 	f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, deliveryKeys));
@@ -70,7 +67,7 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null }]);
 });
 
-test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words (D-434)", async () => {
+test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words", async () => {
 	await person("José Núñez", "jn@accent.test");
 	await person("Liam O'Brien", "liam@obrien.test");
 	await person("Nora O\u2019Brien", "nora.ob@typo.test");
@@ -113,10 +110,10 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 	const target = await person("Receiver", "receiver@aud.test");
 	const mailId = randomUUID();
 	await f.admin
-		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
+		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, communication_id, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at)
 		VALUES(${mailId}, ${plant.id}, ${target}, ${sealText(keys.encryptionKey, "receiver@aud.test", addressAad(plant.id, mailId))},
-		'communication', ${`communication/${sent}/${target}`}, 'p', 'a', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, 'sent',
+		'communication', ${sent}, ${`communication/${sent}/${target}`}, 'p', 'a', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, 'sent',
 		${mailAddressHash(keys.addressKey, "receiver@aud.test")}, clock_timestamp(), '2026-11-01T15:00:00Z'::timestamptz)`);
 	const page = ok(await read("listHistory", { query: "T-" }));
 	const by = (subject) => page.items.find((item) => item.subject === subject);
@@ -220,11 +217,11 @@ test("AC:CASE-COM-012 a refused send step leaves the message scheduled and names
 	const personId = await person("Chain Refused", `refused-${randomUUID().slice(0, 8)}@example.test`);
 	const transport = carrier(async () => ({ outcome: "ids", ids: ["never"] }));
 	// A stale revision on the send step is refused by the domain before any provider call.
-	const refused = ok(await chain(personId, transport, newKeys(), () => "999999"));
-	assert.equal(refused.report, null);
-	assert.notEqual(refused.sendIssue, null);
+	const stale = ok(await chain(personId, transport, newKeys(), () => "999999"));
+	assert.equal(stale.report, null);
+	assert.notEqual(stale.sendIssue, null);
 	assert.equal(transport.calls.send, 0, "no provider call after a refused send");
-	const row = await stateOf(refused.communicationId);
+	const row = await stateOf(stale.communicationId);
 	assert.equal(row.state, "scheduled");
 	assert.equal(row.accepted, 0);
 

@@ -6,6 +6,7 @@ import { Extension, type Editor } from "@tiptap/core";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { holdLeave } from "../../../../components/save/leave.ts";
+import { saveAndLeave } from "../../save-chain.ts";
 import { deleteBlock, moveBlock } from "./blocks.ts";
 
 // What the Church Document editor and the plain document editor share around the paper: the save status line, the
@@ -194,10 +195,10 @@ export function LeaveDialog({
 						loading={saving}
 						onClick={async () => {
 							setSaving(true);
-							// A save that throws must not leave the dialog locked on "saving".
-							const saved = await onSave().catch(() => false);
-							setSaving(false);
-							finish(saved);
+							await saveAndLeave(onSave, (leave) => {
+								setSaving(false);
+								finish(leave);
+							});
 						}}
 					>
 						Save and leave

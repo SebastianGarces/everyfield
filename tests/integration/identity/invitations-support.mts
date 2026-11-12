@@ -2,6 +2,7 @@ import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 import {
 	createInvitationService,
 	createSeatService,
@@ -129,55 +130,21 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		return decodeURIComponent(m[1]);
 	}
 
+	const seed = seeds(admin);
 	async function account(state = "active", address = key() + "@example.test") {
-		const id = key(),
-			user = key(),
-			session = key();
-		await admin
-			.insert(t.auth_user)
-			.values({ id: user, name: "Synthetic person", email: address, email_verified: true });
-		await admin
-			.insert(t.account)
-			.values({ id, auth_user_id: user, registration_state: state, registration_kind: "discovery" });
-		await admin.insert(t.auth_session).values({
-			id: session,
-			user_id: user,
-			token: randomBytes(32).toString("hex"),
-			expires_at: new Date(Date.now() + 86400000),
+		const a = await seed.actor(null, "owner", {
+			email: address,
+			user: { name: "Synthetic person" },
+			account: { registration_state: state },
 		});
-		return { id, user, session, email: address };
+		return { id: a.id, user: a.user, session: a.session, email: address };
 	}
 	async function workspace(kind = "plant") {
-		const id = key();
-		if (kind === "plant")
-			await admin.insert(t.plant).values({
-				id,
-				name: "Synthetic plant",
-				timezone: "UTC",
-				warning_days: 7,
-				alert_days: 14,
-				digest_weekday: 1,
-				digest_hour: 8,
-				phase: 1,
-				material_revision: "1",
-			});
-		else
-			await admin
-				.insert(t.organization)
-				.values({ id, kind, name: "Synthetic organization", timezone: "UTC", material_revision: "1" });
-		return kind === "plant" ? { kind: "plant", id } : { kind: "organization", id, organizationKind: kind };
+		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
+		return seed.organization(kind, { name: "Synthetic organization" });
 	}
 	async function seat(a, w, role = "owner") {
-		const id = key();
-		await admin.insert(t.seat).values({
-			id,
-			account_id: a.id,
-			plant_id: w.kind === "plant" ? w.id : null,
-			organization_id: w.kind === "organization" ? w.id : null,
-			role,
-			accepted_at: new Date(),
-		});
-		return id;
+		return seed.seat(a, w, role);
 	}
 	async function resident(w) {
 		const id = key();

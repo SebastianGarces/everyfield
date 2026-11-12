@@ -45,6 +45,8 @@ export const taskItem = z.strictObject({
 	completedAt: instant.nullable(),
 	deleted: z.boolean(),
 });
+/** The live rows of the named tasks, in no set order; a deleted or foreign task is simply absent. */
+export const taskRows = z.strictObject({ items: z.array(taskItem).max(100) });
 export const taskPage = z.strictObject({
 	items: z.array(taskItem).max(100),
 	total: count,

@@ -24,6 +24,7 @@ import {
 	tocRequest,
 	tocResult,
 	wikiArticle,
+	wikiBlocks,
 	type SourceView,
 	type WikiArticle,
 	type WikiReply,
@@ -42,7 +43,7 @@ import {
 	visibleBodySql,
 	type CorpusAccess,
 } from "./corpus.ts";
-import { bodyBlocks, sectionExcerpt } from "./excerpt.ts";
+import { sectionExcerpt } from "./excerpt.ts";
 import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
@@ -214,19 +215,6 @@ function plainText(text: SQL): SQL {
 		text,
 	)})`;
 }
-/**
- * The words of a body for search: the text, callout labels and diagram source of organization nodes, in document
- * order, so node types and keys are never indexed; else the markdown itself. Older organization text that is not JSON is read as markdown.
- */
-function searchBodySql(): SQL {
-	return sql`CASE
-		WHEN p.content_type = 'safe_nodes' AND pg_input_is_valid(p.body, 'jsonb') THEN (
-			SELECT string_agg(t #>> '{}', E'\n')
-			FROM jsonb_path_query(p.body::jsonb, 'strict $.** ? (@.type() == "object").keyvalue() ? ((@.key == "text" || @.key == "label" || @.key == "source") && @.value.type() == "string").value', '{}', true) t
-		)
-		ELSE p.body
-	END`;
-}
 export async function search(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(searchRequest, raw);
@@ -247,19 +235,13 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
-						SELECT p.*, w.words,
-							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
+						-- Every visible row comes from exactly one revision, whose stored vector the database wrote with it.
+						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
-						CROSS JOIN LATERAL (SELECT ${searchBodySql()} AS words) w
-						CROSS JOIN LATERAL (
-							SELECT
-								setweight(to_tsvector('english', coalesce(p.title, '')), 'A')
-								|| setweight(to_tsvector('english', coalesce(p.excerpt, '')), 'B')
-								|| setweight(to_tsvector('english', coalesce(w.words, '')), 'C') AS vector
-						) v
+						JOIN article_revision r ON r.id = p.revision_id
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND v.vector @@ websearch_to_tsquery('english', ${input.query})
+							AND r.search_vector @@ websearch_to_tsquery('english', ${input.query})
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
@@ -267,7 +249,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 						COALESCE((
 							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
-								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(s.words, s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
 								FROM (
 									SELECT * FROM scored
 									ORDER BY text_rank DESC, article_id
@@ -485,7 +467,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
-					SELECT json_agg(${articleJson()} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
 					FROM recent p
 					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
@@ -594,7 +576,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where, { body: false }));
 		const row = z
 			.object({
 				allowed: z.boolean(),
@@ -707,7 +689,7 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
-		const blocks = bodyBlocks(article.contentType, article.body!);
+		const blocks = wikiBlocks(article.contentType, article.body!);
 		try {
 			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return exportResult.parse({
@@ -733,7 +715,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, bodyBlocks(article.contentType, article.body!), meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		});

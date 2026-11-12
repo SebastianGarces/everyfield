@@ -1,40 +1,29 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import {
-	drawingLines,
-	drawingPdf,
-	drawingSvg,
-	reviewDigest,
-	teamsReader,
-	teamsWriter,
-} from "../../../packages/domain/src/teams/index.ts";
+import { drawingLines, drawingPdf, drawingSvg } from "../../../packages/domain/src/teams/chart.ts";
+import { teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const database = await testDatabase({ prefix: "wp017", max: 6 });
+const database = await fixture({ prefix: "wp017", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -65,54 +54,13 @@ async function makeRole(teamId, name, fields = {}) {
 	).role;
 }
 function initInput(input) {
-	const lines = input.lines ?? [];
 	return {
 		requestKey: input.requestKey ?? key(),
-		input: {
-			expectedVersion: input.expectedVersion,
-			mode: input.mode,
-			selections: input.selections,
-			...(input.lines ? { lines: input.lines } : {}),
-			reviewDigest: reviewDigest({
-				expectedVersion: input.expectedVersion,
-				mode: input.mode,
-				selections: input.selections,
-				lines,
-			}),
-		},
+		input: { expectedVersion: input.expectedVersion, mode: input.mode, selections: input.selections },
 	};
 }
 const init = (input, who = 0) => run(teamsWriter.initialize, initInput(input), who);
 
-before(async () => {
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
-});
 after(async () => {
 	await database.close();
 });
@@ -150,7 +98,7 @@ test("AC:B01-004 AC:B01-011 AC:B01-032 AC:B01-035 skip, read and cancel add no t
 	);
 });
 
-test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-029 AC:B01-030 AC:B01-031 AC:B01-034 AC:TARGET-TEAM-001 AC:TARGET-TEAM-003 import keeps the chosen rows and the custom teams", async () => {
+test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-029 AC:B01-030 AC:TARGET-TEAM-001 AC:TARGET-TEAM-003 import keeps the chosen rows and the custom teams", async () => {
 	const custom = await makeTeam("Hospitality desk");
 	const accounts = await count(sql`SELECT count(*)::int AS n FROM account`);
 	refused(
@@ -161,9 +109,17 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 		}),
 		"stale_template_version",
 	);
-	const bad = initInput({ expectedVersion: "2", mode: "import", selections: [] });
-	bad.input.reviewDigest = "0".repeat(64);
-	refused(await run(teamsWriter.initialize, bad), "stale_review");
+	const unsent = [
+		{ selections: [{ teamKey: "worship", roleKeys: [], label: "Music" }] },
+		{ selections: [{ teamKey: "worship", roleKeys: [], personId: randomUUID() }] },
+		{ selections: [], lines: [] },
+		{ selections: [], reviewDigest: "0".repeat(64) },
+	];
+	for (const extra of unsent) {
+		const sent = initInput({ expectedVersion: "2", mode: "import", selections: [] });
+		Object.assign(sent.input, extra);
+		refused(await run(teamsWriter.initialize, sent), "invalid_input");
+	}
 	refused(
 		await init({
 			expectedVersion: "2",
@@ -247,50 +203,42 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	assert.equal(roleTeam, destination.id);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_role WHERE team_id=${other.id}`), 0);
 	assert.equal((await admin.execute(sql`SELECT name FROM team WHERE id=${other.id}`)).rows[0].name, "Facilities");
-	const pastor = await person("Pastor Pat", { stage: "launch_team" });
 	const lead = ok(
 		await init({
 			expectedVersion: "2",
 			mode: "import",
-			selections: [{ teamKey: "leadership", roleKeys: ["senior_pastor"], personId: pastor }],
+			selections: [{ teamKey: "leadership", roleKeys: ["senior_pastor"] }],
 		}),
 	);
 	assert.deepEqual(lead.teamKeys, ["leadership"]);
 	assert.deepEqual(lead.roleKeys, ["senior_pastor"]);
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${pastor}`)).rows[0].stage, "leader");
-	assert.equal(
-		await count(
-			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${pastor} AND action='people.stage_changed'`,
-		),
-		1,
-	);
-	assert.equal(
-		Number(
-			(await admin.execute(sql`SELECT pipeline_position FROM person WHERE id=${pastor}`)).rows[0].pipeline_position,
-		),
-		0,
-	);
+	assert.equal(lead.label, "Leadership");
+	assert.equal(lead.createdResponsibilities, 0);
 	assert.equal(
 		await count(
 			sql`SELECT count(*)::int AS n FROM team_role WHERE plant_id=${P} AND template_key='launch_coordinator'`,
 		),
 		0,
 	);
-	const holder = (
-		await admin.execute(
-			sql`SELECT tn.person_id FROM team_tenure tn JOIN team_role r ON r.id=tn.role_id
-				WHERE r.template_key='senior_pastor' AND tn.ended_on IS NULL AND r.plant_id=${P}`,
-		)
-	).rows[0].person_id;
-	assert.equal(holder, pastor);
-	const otherPastor = await person("Other Pastor");
+	const pastorRole = (
+		await admin.execute(sql`SELECT id, team_id FROM team_role WHERE plant_id=${P} AND template_key='senior_pastor'`)
+	).rows[0];
+	const pastor = await person("Pastor Pat");
 	ok(
+		await run(teamsWriter.assignRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", pastorRole.id),
+			input: { roleId: pastorRole.id, teamId: pastorRole.team_id, personId: pastor },
+		}),
+	);
+	const occupied = ok(
 		await init({
 			expectedVersion: "2",
 			mode: "import",
-			selections: [{ teamKey: "leadership", roleKeys: ["senior_pastor"], personId: otherPastor }],
+			selections: [{ teamKey: "leadership", roleKeys: ["senior_pastor"] }],
 		}),
 	);
+	assert.equal(occupied.newTenantRows, 0);
 	assert.equal(
 		(
 			await admin.execute(
@@ -318,31 +266,6 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	);
 	assert.equal(later.newSelectedRoles, 1);
 	assert.equal(later.importOfferAvailable, true);
-	const version = await sourceVersion();
-	const duties = ok(
-		await init({
-			expectedVersion: "2",
-			mode: "import",
-			selections: [],
-			lines: [
-				{ teamId: custom.id, sourceVersionId: version, sourceLine: "1", text: "Lead worship", selected: true },
-				{ teamId: custom.id, sourceVersionId: version, sourceLine: "2", text: "Print songs", selected: false },
-				{ teamId: custom.id, sourceVersionId: version, sourceLine: "3", text: "Tune the room", selected: false },
-			],
-		}),
-	);
-	assert.equal(duties.createdResponsibilities, 1);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${custom.id}`), 1);
-	const repeatDuties = ok(
-		await init({
-			expectedVersion: "2",
-			mode: "import",
-			selections: [],
-			lines: [{ teamId: custom.id, sourceVersionId: version, sourceLine: "1", text: "Lead worship", selected: true }],
-		}),
-	);
-	assert.equal(repeatDuties.createdResponsibilities, 0);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${custom.id}`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM account`), accounts);
 });
 
@@ -924,7 +847,7 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 	);
 });
 
-test("a team leader can edit a role and still cannot change the church profile", async () => {
+test("AC:TARGET-TEAM-004 a team leader can edit a role and still cannot change the church profile", async () => {
 	const team = await makeTeam("Leader desk");
 	const slot = await makeRole(team.id, "Lead title");
 	const linked = await person("Linked Lead", { account: actors[1].id, stage: "launch_team" });
@@ -989,7 +912,7 @@ test("a team leader can edit a role and still cannot change the church profile",
 	const settings = sectionOperations({
 		organizations: {},
 		organizationEffects: {},
-		effects: { replan: async () => "1", invalidate: async () => {} },
+		effects: { replan: async () => "1" },
 		suppression: async () => "clear",
 	});
 	const plantRevision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;
@@ -1043,18 +966,3 @@ test("AC:PERSONREF-TEAM-ROLE-LEADER-RETIRE retirement ends the open role and kee
 	const leader = (await admin.execute(sql`SELECT leader_person_id FROM team WHERE id=${team.id}`)).rows[0];
 	assert.equal(leader.leader_person_id, null);
 });
-
-async function sourceVersion() {
-	const release = randomUUID();
-	const item = randomUUID();
-	const version = randomUUID();
-	const token = randomUUID();
-	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
-		VALUES(${release},${token},'memory',${token.replaceAll("-", "")},'validated','0','none',1,${GLOBAL},0)`);
-	await admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${item},'ministry_template',${token},${GLOBAL})`,
-	);
-	await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
-		VALUES(${version},${item},${release},1,'lines',${token},'test')`);
-	return version;
-}

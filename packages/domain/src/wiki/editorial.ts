@@ -67,22 +67,26 @@ function votesOf(raw: unknown) {
 	return voteList.parse(parsed ?? []);
 }
 
+/**
+ * The reader's own votes on an article. Only a plant seat records feedback (setMine), so a reader with no plant seat has
+ * none to read. A plant seat reads under setMine's check (meSql): the session, seat, role and lifecycle are live in the
+ * same statement, or the read refuses.
+ */
 export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackGetMineRequest, raw);
+	const context = authority.actor.context;
+	const none = () => mineValue({ articleId: input.articleId, currentVote: null, ownHistoryVotes: [] });
+	if (context.kind !== "seat" || context.owner.kind !== "plant") return runRead(async () => none());
+	const owner = context.owner;
 	return runRead(async () => {
 		const result = await db.execute(sql`
-			WITH mine AS (
-				SELECT i.account_id
-				FROM live_session(${authority.session}::uuid) i
-				WHERE i.registration_state = 'active'
-					AND i.account_id = ${authority.actor.accountId}::uuid
-			)
+			WITH ${meSql(authority, owner)}
 			SELECT
-				EXISTS (SELECT FROM mine) AS allowed,
+				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
 					SELECT json_agg(a.result->>'currentVote' ORDER BY a.occurred_at, a.id)
 					FROM audit_event a
-					WHERE a.actor_id = (SELECT account_id FROM mine)
+					WHERE a.actor_id = (SELECT account_id FROM me)
 						AND a.action = 'feedback.received'
 						AND a.result->>'articleId' = ${input.articleId}
 				), '[]'::json) AS votes`);
@@ -243,7 +247,7 @@ async function mutate(
 						ELSE 'draft'
 					END,
 					current_revision_id = CASE WHEN ${mode} = 'publish' THEN (SELECT id FROM ins) ELSE e.current_revision_id END,
-					draft_revision_id = CASE WHEN ${mode} = 'publish' THEN e.draft_revision_id ELSE (SELECT id FROM ins) END,
+					draft_revision_id = CASE WHEN ${mode} = 'publish' THEN NULL ELSE (SELECT id FROM ins) END,
 					based_on_upstream_id = COALESCE(e.based_on_upstream_id, (SELECT upstream_id FROM base)),
 					revision = e.revision + 1
 				WHERE e.id = (SELECT id FROM editor) AND EXISTS (SELECT FROM ins)
@@ -421,7 +425,7 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 					title, eligible_at, created_at
 				)
 				SELECT n.tenant_id, n.account_id, 'reference_update', 'reference_update',
-					n.tenant_id::text || '/wiki_upstream/' || n.revision_id::text || '/' || n.meaningful_sequence::text,
+					n.tenant_id::text || '/wiki_upstream_review/' || n.revision_id::text || '/' || n.meaningful_sequence::text || '/published',
 					n.tenant_id, n.meaningful_sequence, n.title, clock_timestamp(), clock_timestamp()
 				FROM (
 					SELECT * FROM editors

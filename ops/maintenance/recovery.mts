@@ -1,4 +1,3 @@
-import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../packages/domain/package.json', import.meta.url));
 const { z } = require('zod');
@@ -22,30 +21,4 @@ export function validateCandidate(input, now, originalExpiries = new Map()) {
     if (Date.parse(subject.expiresAt) <= now.getTime() || (prior && Date.parse(subject.expiresAt) > Date.parse(prior))) throw Error('subject_expired_or_reset');
   }
   return { manifest: m, effectiveExpiresAt: new Date(Math.min(expires,...m.subjects.map(s=>Date.parse(s.expiresAt)))).toISOString(), liveRecoveryProven: false };
-}
-export function verifyCandidateBytes(manifest, database, objects) {
-  function matches(entry, bytes) { return bytes && bytes.length === entry.bytes && createHash('sha256').update(bytes).digest('hex') === entry.sha256; }
-  if (!matches(manifest.database,database) || objects.size !== manifest.objects.length || manifest.objects.some(o => !matches(o,objects.get(o.id)))) throw Error('incomplete_copy');
-  return { database: 1, objects: manifest.objects.length };
-}
-// AES-GCM authenticates both the manifest and copied bytes. Caller-held key is
-// independently recovered in a drill; a successful round trip is not key custody proof.
-export function encryptCopy(bytes, key) {
-  if (key.length !== 32) throw Error('invalid_key');
-  const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, nonce);
-  cipher.setAAD(Buffer.from('everyfield-backup-v1'));
-  const body = Buffer.concat([cipher.update(bytes),cipher.final()]);
-  return Buffer.concat([Buffer.from('EVF1'),nonce,cipher.getAuthTag(),body]);
-}
-export function decryptCopy(bytes, key) {
-  if (key.length !== 32 || bytes.length < 32 || bytes.subarray(0,4).toString() !== 'EVF1') throw Error('invalid_copy');
-  const cipher = createDecipheriv('aes-256-gcm',key,bytes.subarray(4,16));
-  cipher.setAAD(Buffer.from('everyfield-backup-v1'));cipher.setAuthTag(bytes.subarray(16,32));
-  return Buffer.concat([cipher.update(bytes.subarray(32)),cipher.final()]);
-}
-export function restoreBarriers(input) {
-  const v = z.strictObject({ isolated: z.literal(true), usersDisabled: z.literal(true), jobsDisabled: z.literal(true),
-    mailDisabled: z.literal(true), issuesDisabled: z.literal(true), currentWitnessesVerified: z.literal(true),
-    externalReceiptsReconciled: z.literal(true), matchingBytesVerified: z.literal(true), expiryVerified: z.literal(true) }).safeParse(input);
-  return v.success ? { state: 'eligible_for_restricted_drill', serviceMayOpen: false } : { state: 'blocked', serviceMayOpen: false };
 }

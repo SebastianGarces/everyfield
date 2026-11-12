@@ -2,6 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { searchPath, testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 
 // The schema exists from import on; `setup` adds the tenant and `teardown` drops everything.
@@ -15,8 +16,7 @@ export const runtimeSettings = {
 };
 export const tenant = randomUUID();
 export async function setup() {
-	await db.execute(querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
-    VALUES(${querySql.param(tenant)},'Synthetic','America/Chicago',7,14,0,16,1,1)`);
+	await seeds(db).plant({ id: tenant, digest_weekday: 0, digest_hour: 16 });
 }
 export async function teardown() {
 	await database.close();

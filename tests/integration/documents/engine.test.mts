@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import test, { describe } from "node:test";
+import test, { describe, mock } from "node:test";
 import {
 	PDFArray,
 	PDFDict,
@@ -70,8 +70,8 @@ const tagsOf = async (bytes: Buffer) => {
 	return { doc, tags };
 };
 
-describe("WP-036/api engine", () => {
-	test("DOC-006: the registry and docs/catalog/document-templates.json agree on id, class and format", async () => {
+describe("INV-doc-engine: api engine", () => {
+	test("AC:DOC-006 the registry and docs/catalog/document-templates.json agree on id, class and format", async () => {
 		// The existing templates, then the text templates authored in code, which "Save for your church" prints too.
 		const authored = ["bylaws", "prayer-letter"];
 		const existing = catalogJson.templates.filter((t: { source: string }) => t.source === "existing");
@@ -91,7 +91,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(loaded.templates.find((t) => t.id === "launch-sunday-checklists")!.pageCount, 2);
 	});
 
-	test("INV-doc-aspect INV-doc-fillable DOC-007: the template view carries class, page size, page count and fillable", async () => {
+	test("AC:DOC-007 the template view carries class, page size, page count and fillable", async () => {
 		const loaded = await library();
 		const view = (id: string) => templateView(loaded.templates.find((t) => t.id === id)!);
 		assert.deepEqual(view("commitment-card").pageSize, { width: 306, height: 396 });
@@ -113,7 +113,7 @@ describe("WP-036/api engine", () => {
 		assert.deepEqual(view("vision-meeting-agenda").outline, ["Run of show", "Attendees", "Follow-up actions"]);
 	});
 
-	test("DOC-008: the neutral theme gives every church the church name, ink and green, and no Everyfield mark", async () => {
+	test("AC:DOC-008 the neutral theme gives every church the church name, ink and green, and no Everyfield mark", async () => {
 		assert.equal(NEUTRAL_THEME.primary, "#181D19");
 		assert.equal(NEUTRAL_THEME.accent, "#026B40");
 		assert.equal(NEUTRAL_THEME.logo, undefined);
@@ -126,7 +126,7 @@ describe("WP-036/api engine", () => {
 		}
 	});
 
-	test("DOC-009: textOn and legible derive contrast-safe colors and a pair below its minimum throws", async () => {
+	test("AC:DOC-009 textOn and legible derive contrast-safe colors and a pair below its minimum throws", async () => {
 		assert.ok(ratio(textOn("#1F4E6B", "#181D19"), "#1F4E6B") >= MIN_BODY);
 		assert.ok(ratio(legible("#F5D90A", "#FFFFFF", "#181D19", MIN_BODY), "#FFFFFF") >= MIN_BODY);
 		assert.ok(ratio(legible("#E3A21A", "#FFFFFF", "#181D19", MIN_NONTEXT), "#FFFFFF") >= MIN_NONTEXT);
@@ -150,7 +150,7 @@ describe("WP-036/api engine", () => {
 		);
 	});
 
-	test("DOC-010: only DM Serif Display, DM Sans and EF Figures are embedded, from committed files", async () => {
+	test("AC:DOC-010 only DM Serif Display, DM Sans and EF Figures are embedded, from committed files", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, FULL, sampleKit());
 			const doc = await PDFDocument.load(out.bytes, { updateMetadata: false });
@@ -168,7 +168,7 @@ describe("WP-036/api engine", () => {
 		assert.equal(fontDigests().length, 9);
 	});
 
-	test("INV-doc-bytes DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {
+	test("AC:DOC-002 the same inputs give the same SHA-256 in two separate Node processes", () => {
 		const run = () =>
 			execFileSync(
 				"node_modules/.bin/tsx",
@@ -185,19 +185,24 @@ describe("WP-036/api engine", () => {
 		assert.equal(first, second);
 	});
 
-	test("DOC-002: no PDF holds a wall-clock date or a random id", async () => {
+	test("AC:DOC-002 no PDF holds a wall-clock date or a random id", async () => {
 		const first = new Map<string, Awaited<ReturnType<typeof renderTemplatePdf>>>();
 		for (const entry of pdfs) first.set(entry.id, await renderTemplatePdf(entry, FULL));
-		await new Promise((resolve) => setTimeout(resolve, 1100));
-		for (const entry of pdfs) {
-			const a = first.get(entry.id)!;
-			const b = await renderTemplatePdf(entry, FULL);
-			assert.equal(digestOf(a.bytes), digestOf(b.bytes), entry.id);
-			assert.equal(/\/(CreationDate|ModDate)/.test(a.bytes.toString("latin1")), false, `${entry.id} has a date`);
+		// The second render runs a day later by the clock: a date in the bytes would change the digest.
+		mock.timers.enable({ apis: ["Date"], now: Date.now() + 86_400_000 });
+		try {
+			for (const entry of pdfs) {
+				const a = first.get(entry.id)!;
+				const b = await renderTemplatePdf(entry, FULL);
+				assert.equal(digestOf(a.bytes), digestOf(b.bytes), entry.id);
+				assert.equal(/\/(CreationDate|ModDate)/.test(a.bytes.toString("latin1")), false, `${entry.id} has a date`);
+			}
+		} finally {
+			mock.timers.reset();
 		}
 	});
 
-	test("DOC-004: the engine version hashes the packages, fonts, tokens and registry", () => {
+	test("AC:DOC-004 the engine version hashes the packages, fonts, tokens and registry", () => {
 		const base = contentSnapshot();
 		assert.equal(renderEngineVersion(), engineVersionOf(base));
 		const changed = structuredClone(base);
@@ -213,7 +218,7 @@ describe("WP-036/api engine", () => {
 		);
 	});
 
-	test("INV-doc-fillable DOC-017: each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
+	test("AC:DOC-017 each PDF holds its named AcroForm fields, tooltips, signature fields and a /DR font", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, NEUTRAL_VALUES);
 			const doc = await PDFDocument.load(out.bytes, { updateMetadata: false });
@@ -245,7 +250,7 @@ describe("WP-036/api engine", () => {
 		);
 	});
 
-	test("DOC-018: each PDF is tagged, titled, set to a language and logos carry alt text", async () => {
+	test("AC:DOC-018 each PDF is tagged, titled, set to a language and logos carry alt text", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, FULL, sampleKit());
 			const { doc, tags } = await tagsOf(out.bytes);
@@ -284,7 +289,7 @@ describe("WP-036/api engine", () => {
 		}
 	});
 
-	test("DOC-019: 'plant' appears only in 'church plant', in every PDF and XLSX text", async () => {
+	test("AC:DOC-019 'plant' appears only in 'church plant', in every PDF and XLSX text", async () => {
 		const texts: string[] = [];
 		for (const entry of pdfs) texts.push((await renderTemplatePdf(entry, FULL, sampleKit())).text.flat().join(" "));
 		for (const entry of pdfs) texts.push((await renderTemplatePdf(entry, NEUTRAL_VALUES)).text.flat().join(" "));
@@ -302,7 +307,7 @@ describe("WP-036/api engine", () => {
 		}
 	});
 
-	test("DOC-020: a formal/legal document always prints the notice, and an unfilled doctrinal slot is a visible blank", async () => {
+	test("AC:DOC-020 a formal/legal document always prints the notice, and an unfilled doctrinal slot is a visible blank", async () => {
 		const out = await renderPdfElement(
 			legalFixture(renderContext(CHURCH, NEUTRAL_VALUES, NEUTRAL_THEME, "formal/legal")),
 		);
@@ -319,7 +324,7 @@ describe("WP-036/api engine", () => {
 		}
 	});
 
-	test("DOC-011 to DOC-014: page counts and layouts match the approved arrangement", async () => {
+	test("AC:DOC-011 AC:DOC-012 AC:DOC-013 AC:DOC-014 page counts and layouts match the approved arrangement", async () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, FULL, sampleKit());
 			assert.equal(out.pages, entry.pageCount, entry.id);
@@ -341,7 +346,7 @@ describe("WP-036/api engine", () => {
 		}
 	});
 
-	test("DOC-012, DOC-013: budgets hold labels, live formulas, a frozen pane and a currency format", async () => {
+	test("AC:DOC-012 AC:DOC-013 budgets hold labels, live formulas, a frozen pane and a currency format", async () => {
 		const first = new ExcelJS.Workbook();
 		await first.xlsx.load(await xlsxBytes("first-year-budget"));
 		assert.deepEqual(
@@ -377,7 +382,7 @@ describe("WP-036/api engine", () => {
 	});
 
 	test(
-		"DOC-012: LibreOffice recalculates a filled budget to the expected totals",
+		"AC:DOC-012 LibreOffice recalculates a filled budget to the expected totals",
 		{ skip: !hasSoffice() },
 		async () => {
 			const { mkdtempSync, writeFileSync, readFileSync: read } = await import("node:fs");

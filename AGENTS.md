@@ -10,13 +10,14 @@ dashboard live outside the checkout. `bin/` here holds product tools only.
 
 1. A seat starts in its own worktree with a brief that holds the full ask and spec. Your role's prompt comes from
    `.agents/role-prompts/`. Use the brief and linked current clauses as the contract.
-2. Build inside the scope. Commit. Do not push or open a PR: evf runs the checks, the PR, the review and the landing.
+2. Build inside the scope. Commit. Do not push or open a PR: after simplify, evf runs the checks, the PR, the review, CI,
+   the owner gate and the landing, in that order (`docs/build-agent-workflow.md`).
 3. Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
    `evf proof add <n> --status met --evidence <path>` per `verifier` criterion, after your last commit.
 4. Close with `evf run done --status passed --summary-file <file>`. Your summary becomes the what and why of the PR.
 5. A fresh Opus 5.5 medium session that never shared context with the author (D82) reads the full diff, spot-checks the
    proof with `verify-preview` and records `evf review submit --verdict approved|changes --report-file <file>`.
-6. evf lands the exact head once required GitHub CI is green and the review approved it.
+6. evf lands the exact head once required GitHub CI is green, the review approved it and any owner gate passed.
 
 A path in an `evf.toml` owner class also waits for Sebastian. The classes are `document-templates`, `landing-marketing`,
 `wiki`, `brand-prototype` and `workflow-gates`. Decide reversible things yourself and record them with
@@ -30,8 +31,8 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
   1. Never use the production database. Tests and checks use the shared development database.
   2. Only evf lands work. Never push to main, force-push or merge by hand.
   3. Never read or print secrets: `.env*` files, credentials or connection strings.
-- UI work runs in the implementer seat and reads `.agents/roles/ui-designer.md` and the better-* skills. Opus 5.5 medium
-  plans and verifies.
+- UI tasks run in the `ui` seat, which reads `.agents/roles/ui-designer.md`, `.agents/roles/implementor.md` and the
+  better-* skills. `evf.toml` sets every role to Opus 5.5 medium.
 - Use one portless preview per worktree (`bin/dev stack up`). No Vercel preview deployments, except `bin/qa` for Nora's
   QA previews (`docs/runbooks/qa-preview.md`).
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
@@ -41,7 +42,6 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
   weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
   "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
-- Decide reversible ambiguities and record them in task notes, using `decisions`.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
 - Every clickable element shows `cursor-pointer`: buttons, links, tabs, menu items, clickable rows, chips,
@@ -55,12 +55,18 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 
 ## Roles and skills
 
-| Specialist | Read |
+Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role>.md` names:
+
+| Role | Read |
 |---|---|
-| spec-writer, coordinator | `.agents/roles/coordinator.md` |
-| implementor | `.agents/roles/implementor.md` |
-| ui-designer | `.agents/roles/ui-designer.md` |
-| verifier | `.agents/roles/verifier.md` |
+| planner | `.agents/roles/coordinator.md` |
+| implementer | `.agents/roles/implementor.md`, plus `.agents/roles/ui-designer.md` for UI work |
+| ui | `.agents/roles/ui-designer.md` and `.agents/roles/implementor.md` |
+| simplifier | `principle-laziness-protocol` and `principle-subtract-before-you-add` |
+| ideator | `.agents/roles/ui-designer.md` for UI ideas |
+| comparer | `.agents/roles/ui-designer.md` for UI ideas |
+| prototype-merger | `.agents/roles/coordinator.md` |
+| verifier | `.agents/roles/verifier.md` and `.agents/skills/verify-preview/SKILL.md` |
 
 | Need | Read |
 |---|---|
@@ -122,5 +128,4 @@ Run documentation checks with `python3 docs/check-all.py`.
 Generate assigned context with `docs/package-context.py` from `docs/plan/context-manifest.json`.
 Requirement JSON is the behavior authority; product chapters are summaries. Read original
 references and approved design sections on demand. Documentation status grants no implementation
-or spending approval. G-WORKFLOW closes only after W0 to W5 merge and one task completes
-end to end through Phase 7.
+or spending approval.

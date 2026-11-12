@@ -75,7 +75,7 @@ async function fixture(draft: Record<string, unknown> = {}) {
 const claim = (dir: string, ...extra: string[]) =>
 	wiki(dir, "claim-check", "--reviewer", "Bryan", "--approval", "these claims hold", "--base", "main", ...extra);
 
-test("wiki claim-check records the named reviewer on pending drafts, in one commit, and pushes it", async () => {
+test("INV-wiki-drafts: wiki claim-check records the named reviewer on pending drafts, in one commit, and pushes it", async () => {
 	const f = await fixture();
 	const bare = join(f.dir, "..", `${f.dir.split("/").pop()}-origin.git`);
 	try {
@@ -106,7 +106,7 @@ test("wiki claim-check records the named reviewer on pending drafts, in one comm
 	}
 });
 
-test("wiki claim-check refuses a one-word approval, uncommitted changes and main", async () => {
+test("INV-wiki-drafts: wiki claim-check refuses a one-word approval, uncommitted changes and main", async () => {
 	const f = await fixture();
 	try {
 		const head = git(f.dir, "rev-parse", "HEAD");
@@ -129,7 +129,7 @@ test("wiki claim-check refuses a one-word approval, uncommitted changes and main
 	}
 });
 
-test("wiki promote-all promotes the passed drafts in one local commit and the seed still checks", async () => {
+test("INV-wiki-drafts: wiki promote-all promotes the passed drafts in one local commit and the seed still checks", async () => {
 	const f = await fixture();
 	try {
 		assert.equal(claim(f.dir).status, 0);
@@ -154,7 +154,7 @@ test("wiki promote-all promotes the passed drafts in one local commit and the se
 	}
 });
 
-test("wiki promote-all leaves a pending draft alone, and a refused promotion returns the checkout to its start", async () => {
+test("INV-wiki-drafts: wiki promote-all leaves a pending draft alone, and a refused promotion returns the checkout to its start", async () => {
 	const pending = await fixture();
 	try {
 		const seed = await readFile(join(pending.seed, "seed.json"));

@@ -16,20 +16,12 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-022: attendance, finalization and its generated work, the Vision evaluation, reports and attendee notes, through
 // the native write boundary (withMeetingsWrite) and the request's verified viewer, on an isolated schema.
 
 let f, writer, plant, other, owner, member, foreign;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code, JSON.stringify(r.error));
-	return r.error;
-};
 const write = (who, op, input) => withMeetingsWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
 const guestWrite = (who, op, input) =>
 	withMeetingsWrite(f.db, who.actor, (tx, ctx) => guestsWriter[op](tx, ctx, input));
@@ -72,6 +64,23 @@ const reconcile = async (who, meetingId, attendeeIds) =>
 const work = (meetingId) =>
 	rows(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b LEFT JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${meetingId} ORDER BY b.kind, b.person_id`);
+/** A participation row as the attendance contract shows it, read back from the database. */
+async function storedAttendee(meetingId, personId) {
+	const g = await one(sql`SELECT g.id, g.revision::text AS revision, g.presence, coalesce(g.rsvp, 'pending') AS rsvp,
+		g.card_response IS NOT NULL AS has_card, g.classification, g.classification_stage, g.prior_vision_id, p.display_name,
+		p.state FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id=${meetingId} AND g.person_id=${personId}`);
+	return {
+		guestId: g.id,
+		revision: g.revision,
+		person: { personId, displayName: g.display_name, state: g.state },
+		presence: g.presence,
+		rsvp: g.rsvp,
+		hasCard: g.has_card,
+		classification: g.classification,
+		classificationStage: g.classification_stage,
+		priorVisionId: g.prior_vision_id,
+	};
+}
 const stageOf = async (id) => (await one(sql`SELECT stage FROM person WHERE id=${id}`)).stage;
 const classOf = async (meetingId, personId) =>
 	one(
@@ -616,7 +625,7 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 
 // S2 batch 2 F06: the modal never sends `evaluatedOn`, so the server's own default date must always be accepted.
 // Finalize has no date check, so a meeting dated after today in its timezone can be finalized and then evaluated.
-test("BUG-S2-F06 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
+test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
 	const all = (n) => ({
 		attendanceScore: n,
 		locationScore: n,
@@ -777,6 +786,52 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	refused(await read(admin, "listAttendance", { meetingId: v }), "unavailable");
 });
 
+test("AC:TARGET-MTG-016 no report counts a cancelled or a voided meeting", async () => {
+	const w = await f.workspace();
+	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
+	const a = await f.account();
+	await f.seat(a, w, "owner");
+	const admin = { ...a, actor: await f.actor(a.session) };
+	const [p1, p2, p3] = [
+		await person("Q1", "prospect", w),
+		await person("Q2", "prospect", w),
+		await person("Q3", "prospect", w),
+	];
+	const held = async (at: string, attendees: string[], score: number) => {
+		const id = await meeting("vision_meeting", at, w);
+		ok(await finalize(admin, id, attendees));
+		await f.admin.execute(sql`UPDATE meeting SET evaluation_scores=${sql.param(Array(8).fill(score))}::int[],
+			evaluated_on=local_date, evaluated_at=clock_timestamp(), evaluation_revision=1 WHERE id=${id}`);
+		return id;
+	};
+	const first = await held("2026-08-04T23:00:00Z", [p1], 3);
+	const cancelled = await held("2026-08-11T23:00:00Z", [p1, p2, p3], 1);
+	await f.admin.execute(sql`UPDATE meeting SET status='cancelled' WHERE id=${cancelled}`);
+	const voided = await held("2026-08-18T23:00:00Z", [p1, p2, p3], 1);
+	await f.admin.execute(sql`UPDATE meeting SET occurrence_voided_at=clock_timestamp() WHERE id=${voided}`);
+	const last = await held("2026-08-25T23:00:00Z", [p1, p2], 5);
+	const window = { from: "2026-08-01", to: "2026-08-31" };
+
+	const stats = ok(await read(admin, "summaryStats", window));
+	assert.deepEqual([stats.held, stats.finalized, stats.attendances], [2, 2, 3]);
+	assert.deepEqual(
+		ok(await read(admin, "attendanceTrend", window)).points.map((p) => p.meetingId),
+		[first, last],
+	);
+	assert.deepEqual(
+		ok(await read(admin, "evaluationTrend", window)).points.map((p) => p.meetingId),
+		[first, last],
+	);
+	// The previous meeting and the baseline skip the cancelled and the voided one.
+	const analytics = ok(await read(admin, "readAnalytics", { meetingId: last }));
+	assert.deepEqual(analytics.growth, { status: "known", difference: 1, percent: 100 });
+	assert.deepEqual(ok(await read(admin, "compareEvaluation", { meetingId: last })).baseline, {
+		status: "known",
+		value: 3,
+		count: 1,
+	});
+});
+
 test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeting and author", async () => {
 	const v = await meeting("vision_meeting", "2026-10-11T23:00:00Z");
 	const alex = await person("Alex"),
@@ -862,6 +917,109 @@ test("INV-attendance: guest list writes that change the attended set move its re
 	assert.equal(await revision(m), finalized);
 	ok(await reconcile(owner, m, [alex]));
 	assert.deepEqual(await attended(), ["Alex"]);
+});
+
+test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the revisions they wrote, so the next save goes through", async () => {
+	const m = await meeting();
+	const [alex, casey, dana, newcomer] = [
+		await person("Alex"),
+		await person("Casey"),
+		await person("Dana"),
+		await person("Newcomer"),
+	];
+	const guestRevision = async (personId) => (await storedAttendee(m, personId)).revision;
+	const invite = (personId) =>
+		guestWrite(owner, "inviteGuest", { requestKey: key(), input: { meetingId: m, personId } });
+	// Every guest result names the attendance revision the meeting holds after it: moved by an attended guest
+	// joining or leaving, unchanged otherwise.
+	const steps = [];
+	const step = async (what, result) => {
+		const value = ok(await result);
+		assert.equal(value.attendanceRevision, await revision(m), what);
+		steps.push(value.attendanceRevision);
+		return value;
+	};
+	await step("invite", invite(alex));
+	await step("invite", invite(casey));
+	await step("invite", invite(dana));
+	for (const personId of [alex, casey])
+		ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId } }));
+	const before = await revision(m);
+	const door = (
+		await step(
+			"walk-in",
+			guestWrite(owner, "createWalkInContact", { requestKey: key(), input: { meetingId: m, displayName: "Door" } }),
+		)
+	).guest.person.personId;
+	const sam = (
+		await step(
+			"attended contact",
+			guestWrite(owner, "createGuestContact", {
+				requestKey: key(),
+				input: { meetingId: m, displayName: "Sam", attendance: "attended" },
+			}),
+		)
+	).guest.person.personId;
+	await step(
+		"absent contact",
+		guestWrite(owner, "createGuestContact", {
+			requestKey: key(),
+			input: { meetingId: m, displayName: "Later", attendance: "not_recorded" },
+		}),
+	);
+	const removed = await step(
+		"remove an attended guest",
+		guestWrite(owner, "removeGuest", {
+			requestKey: key(),
+			expectedRevision: await guestRevision(casey),
+			input: { meetingId: m, personId: casey },
+		}),
+	);
+	assert.equal(BigInt(removed.attendanceRevision) - BigInt(before), 3n, "a walk-in, an attended contact, a removal");
+
+	// Walk-in, then Finish check-in: the finalize reviewed at the revision the last guest answer returned goes through.
+	const final = ok(
+		await write(owner, "finalizeAttendance", {
+			requestKey: key(),
+			expectedRevision: removed.attendanceRevision,
+			input: { meetingId: m, attendeeIds: [alex, door, newcomer] },
+		}),
+	);
+	assert.equal(final.attendanceRevision, await revision(m));
+	// The written rows come back as stored: the attendees, the newcomer's new row and Sam, marked but not kept.
+	assert.deepEqual(final.attendees, await Promise.all([alex, door, sam, newcomer].map((id) => storedAttendee(m, id))));
+	assert.deepEqual(
+		final.attendees.map((a) => [a.person.displayName, a.presence]),
+		[
+			["Alex", "attended"],
+			["Door", "attended"],
+			["Sam", "absent"],
+			["Newcomer", "attended"],
+		],
+	);
+	// A response card at the revision finalize returned saves the first time.
+	const alexRow = final.attendees.find((a) => a.person.personId === alex);
+	ok(
+		await guestWrite(owner, "recordCard", {
+			requestKey: key(),
+			expectedRevision: alexRow.revision,
+			input: { meetingId: m, personId: alex, response: "interested" },
+		}),
+	);
+
+	// A correction returns each row it wrote, the removed attendee too.
+	const corrected = ok(
+		await write(owner, "reconcileAttendance", {
+			requestKey: key(),
+			expectedRevision: final.attendanceRevision,
+			input: { meetingId: m, attendeeIds: [alex, newcomer, casey], reason: "Sign-in sheet checked" },
+		}),
+	);
+	assert.deepEqual(corrected.attendees, await Promise.all([casey, door].map((id) => storedAttendee(m, id))));
+	assert.equal(corrected.attendanceRevision, await revision(m));
+	// A finalize that changes nothing writes no row and returns none.
+	const again = ok(await finalize(owner, m, [alex, newcomer, casey]));
+	assert.deepEqual([again.outcome, again.attendees], ["noop", []]);
 });
 
 test("INV-statements: a finalize preview runs the command once and saves nothing", async () => {
@@ -1098,6 +1256,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			}),
 			stageChanges: [{ personId: c.extra, from: "prospect", to: "attendee" }],
 			work: expectedWork,
+			// The rows it wrote, as stored now: the leaver's existing row, then the added Person's new one.
+			attendees: await Promise.all([c.leaver, c.extra].map((id) => storedAttendee(c.v, id))),
 		},
 	);
 
@@ -1284,4 +1444,43 @@ test("INV-planning: the locked fact read of a settle plans below the JIT thresho
 	const cost = plan.rows[0]["QUERY PLAN"][0].Plan["Total Cost"];
 	const threshold = Number((await f.admin.$client.query("SHOW jit_above_cost")).rows[0].jit_above_cost);
 	assert.ok(cost < threshold, `planned cost ${cost} passes jit_above_cost ${threshold}`);
+});
+
+// D-562 (REQ-MTG-010): the current leader of a team meeting's ministry finalizes and corrects that meeting's attendance,
+// as Owners and Admins do. Any other Member is refused.
+test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle attendance; another Member cannot", async () => {
+	const seated = async (role) => {
+		const a = await f.account();
+		await f.seat(a, plant, role);
+		return { ...a, actor: await f.actor(a.session) };
+	};
+	const [leader, bystander, adminSeat] = [await seated("member"), await seated("member"), await seated("admin")];
+	const leaderPerson = await person("Lead Host");
+	await f.admin.execute(sql`UPDATE person SET linked_account_id=${leader.id} WHERE id=${leaderPerson}`);
+	const team = randomUUID();
+	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
+		VALUES(${team},${plant.id},'Greeters','active',1,${leaderPerson},'explicit')`);
+	const teamMeeting = async (at) => {
+		const id = await meeting("orientation", at);
+		await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${id}`);
+		return id;
+	};
+	const guest = await person("Team Guest");
+
+	const led = await teamMeeting("2026-09-03T23:00:00Z");
+	refused(await finalize(bystander, led, [guest]), "unavailable");
+	ok(await finalize(leader, led, [guest]));
+	refused(await reconcile(bystander, led, []), "unavailable");
+	ok(await reconcile(leader, led, []));
+
+	for (const [who, at] of [
+		[owner, "2026-09-04T23:00:00Z"],
+		[adminSeat, "2026-09-05T23:00:00Z"],
+	]) {
+		const m = await teamMeeting(at);
+		ok(await finalize(who, m, [guest]));
+		ok(await reconcile(who, m, []));
+	}
+	// The leader of one ministry settles nothing for a meeting that is not their team's.
+	refused(await finalize(leader, await meeting("orientation", "2026-09-06T23:00:00Z"), [guest]), "unavailable");
 });

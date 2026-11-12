@@ -1,9 +1,8 @@
-import { testDatabase } from "../../../support/test-database.mts";
+import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { setTimeout as sleep } from "node:timers/promises";
 
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { createSignals } from "../../../../packages/domain/src/intelligence/index.ts";
@@ -23,25 +22,23 @@ import {
 } from "../../../../packages/domain/src/people/index.ts";
 
 // Duplicate review, merge, guarded Unmerge and record corrections through their public operations on a scratch schema.
-const database = await testDatabase({ prefix: "wp015" });
+const database = await fixture({ prefix: "wp015" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let today;
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plants = [database.tenant.id, (await database.plant()).id],
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		database.actors.admin,
+	];
+today = (await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))
+	.rows[0].d;
 // 0: plant A owner, 1: plant A member, 2: plant B admin, 3: plant A admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
@@ -78,44 +75,18 @@ const skillsOf = async (personId) =>
 		(r) => r.name,
 	);
 
-before(async () => {
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-		[3, plants[0], "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
-		);
-	today = (await rows(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))[0].d;
-});
 after(async () => {
 	await database.close();
 });
 
-test("REQ-PPL-024: a write racing a merge waits for it and never leaves a current reference on the retired source", async () => {
+test("AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source", async () => {
 	const keep = await person("Jordan Lee"),
 		gone = await person("Jordan L.");
 	const r = ok(await review(gone.id, keep.id));
 	let release;
 	const hold = new Promise((resolve) => (release = resolve));
-	let merged = false;
+	let merged;
+	const mergeWritten = new Promise((resolve) => (merged = resolve));
 	// The merge holds its transaction open until the racing write has started.
 	const first = tx(async (t) => {
 		ok(
@@ -124,13 +95,14 @@ test("REQ-PPL-024: a write racing a merge waits for it and never leaves a curren
 				input: { sourceId: gone.id, survivorId: keep.id, reviewDigest: r.reviewDigest },
 			}),
 		);
-		merged = true;
+		merged();
 		await hold;
 	});
-	while (!merged) await sleep(10);
+	await mergeWritten;
 	let settled = false;
 	const racing = addSkill(gone.id, "Sound").then((result) => ((settled = true), result));
-	await sleep(400);
+	// The skill write blocks on the merge's row lock: Postgres shows it waiting, and it has not settled.
+	await waitingOnLock(db);
 	assert.equal(settled, false, "the skill write must wait for the merge to commit");
 	release();
 	await first;
@@ -528,7 +500,7 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 	);
 });
 
-test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
+test("AC:REQ-PPL-016 the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
 	// Unique facts, so other tests' people in this church never match.
 	const tag = randomBytes(4).toString("hex"),
 		digits = String(1e9 + (randomBytes(4).readUInt32BE() % 1e9)).slice(1);
@@ -882,7 +854,7 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 	);
 });
 
-test("REQ-PPL-024: the reference registry names every Person foreign key in the database exactly once", async () => {
+test("AC:REQ-PPL-024 the reference registry names every Person foreign key in the database exactly once", async () => {
 	const declared = await rows(sql`SELECT c.conrelid::regclass::text AS t,a.attname AS col FROM pg_constraint c
  JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(n,i) ON k.i=1 JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n
  WHERE c.contype='f' AND c.confrelid=${schema + ".person"}::regclass ORDER BY 1,2`);

@@ -9,6 +9,7 @@ import {
 	sendDiscoveryAssociationReceipt,
 } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 const account = randomUUID(),
 	org = randomUUID(),
@@ -53,11 +54,11 @@ function base(revision = "1") {
 	return {
 		owner: plantOwner,
 		source: { kind: "task", id: task, revision },
-		title: "Task due",
 		text: "An open task is due.",
 		operation: null,
 	};
 }
+const titles = { due: "Task due", overdue: "Task overdue" };
 before(async () => {
 	await setup();
 	const user = randomUUID();
@@ -88,6 +89,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					titles,
 					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
@@ -103,6 +105,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					titles,
 					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
@@ -123,6 +126,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			await notifications.syncTaskReminders(tx, [
 				{
 					base: base("2"),
+					titles,
 					recipients: [account],
 					due: { kind: "undated" },
 					open: false,
@@ -147,6 +151,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		transaction(runtime, (tx) =>
 			notifications.enqueue(tx, {
 				...base(),
+				title: "Task due",
 				recipient: account,
 				category: "task_due",
 				occurrence: "due",
@@ -154,6 +159,41 @@ test("INV-notification: resync replay retains due intents and changed source can
 			}),
 		),
 		/notification_source_stale/,
+	);
+});
+test("AC:NTF-005 a task's due reminder reads 'Task due: …' and its overdue reminder 'Task overdue: …'", async () => {
+	const id = randomUUID();
+	const due = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+	await db.execute(
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${querySql.param(id)},${querySql.param(tenant)},'Book the venue','general','medium','not_started',now(),'date_only',${querySql.param(due)})`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${querySql.param(tenant)},${querySql.param(id)},${querySql.param(account)})`,
+	);
+	await transaction(runtime, (tx) =>
+		taskReminders(notifications)(tx, [
+			{
+				plantId: tenant,
+				taskId: id,
+				revision: "1",
+				title: "Book the venue",
+				assigneeIds: [account],
+				due: { kind: "date_only", date: due, zone: "America/Chicago" },
+				open: true,
+				created: true,
+			},
+		]),
+	);
+	assert.deepEqual(
+		(
+			await db.execute(
+				querySql`SELECT split_part(logical_key,'/',2) AS category,title FROM notice WHERE source_record_id=${querySql.param(id)} ORDER BY 1`,
+			)
+		).rows,
+		[
+			{ category: "task_due", title: "Task due: Book the venue" },
+			{ category: "task_overdue", title: "Task overdue: Book the venue" },
+		],
 	);
 });
 test("INV-wiki: each published upstream change yields only an in-app notice, no mail or content change", async () => {

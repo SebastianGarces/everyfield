@@ -1,6 +1,7 @@
-// The everyfield.doc/1 schema: a port of design/doc-format/approach-a/schema.json. Each node lists its group, its
+// The everyfield.doc/1 schema, ported from the retired approach-a prototype. Each node lists its group, its
 // attributes and the nodes it may hold. Units are points (72 per inch). Colors are theme tokens, never hex values.
-// A test keeps this object equal to the design file, plus the later `if` node the design names (conditional text).
+// A test keeps this object equal to tests/integration/documents/fixtures/format/schema.json, plus the later `if`
+// node the design names (conditional text).
 import type { FormatSchema } from "./types.ts";
 
 export const FORMAT_SCHEMA: FormatSchema = {

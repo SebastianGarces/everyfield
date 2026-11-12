@@ -167,11 +167,9 @@ export async function updateKitItem(
 
 // Guests --------------------------------------------------------------------------------------------------------
 
-export async function inviteGuest(requestKey: string, input: unknown) {
-	return act((tx, ctx) => guestsWriter.inviteGuest(tx, ctx, { requestKey, input }));
-}
-export async function createGuestContact(requestKey: string, input: unknown) {
-	return act((tx, ctx) => guestsWriter.createGuestContact(tx, ctx, { requestKey, input }));
+/** Everyone chosen in Add guest, People and new contacts, in one write with one request key. */
+export async function addGuests(requestKey: string, input: unknown) {
+	return act((tx, ctx) => guestsWriter.addGuests(tx, ctx, { requestKey, input }));
 }
 export async function removeGuest(requestKey: string, expectedRevision: string, meetingId: string, personId: string) {
 	return act((tx, ctx) =>

@@ -12,12 +12,12 @@ import Underline from "@tiptap/extension-underline";
 import { UndoRedo } from "@tiptap/extensions";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type ViewMutationRecord } from "@tiptap/pm/view";
 import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
 import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
-import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { IMAGE_KINDS, insideColumn, regionAt } from "./blocks.ts";
 import { ConditionRules, EfIf } from "./condition-extension.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
@@ -775,23 +775,60 @@ export const LayoutRules = Extension.create({
 					return tr.docChanged ? tr : null;
 				},
 				props: {
-					transformPasted: (slice, view) => {
-						if (regionAt(view.state)) return slice;
-						const strip = (fragment: Fragment): Fragment => {
-							const nodes: PMNode[] = [];
-							fragment.forEach((child) => {
-								if (child.type.name === "pageNumber") return;
-								nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
-							});
-							return Fragment.fromArray(nodes);
-						};
-						return new Slice(strip(slice.content), slice.openStart, slice.openEnd);
-					},
+					transformPasted: (slice, view) => pastedSlice(slice, view.state),
 				},
 			}),
 		];
 	},
 });
+
+/**
+ * What a paste brings in. A page number outside the header and the footer is dropped. Under a column, a pasted columns
+ * node, or bare columns copied across, gives way to its columns' blocks in order, since the format refuses columns
+ * anywhere inside a column; the schema then drops what still cannot sit there.
+ */
+export function pastedSlice(slice: Slice, state: EditorState): Slice {
+	const dropNumbers = !regionAt(state);
+	const flatten = insideColumn(state);
+	if (!dropNumbers && !flatten) return slice;
+	const strip = (fragment: Fragment): Fragment => {
+		const nodes: PMNode[] = [];
+		fragment.forEach((child) => {
+			if (dropNumbers && child.type.name === "pageNumber") return;
+			if (flatten && (child.type.name === "columns" || child.type.name === "column")) {
+				strip(child.content).forEach((node) => nodes.push(node));
+				return;
+			}
+			nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
+		});
+		return Fragment.fromArray(nodes);
+	};
+	// An open side that ran through a flattened columns node loses its columns and column levels.
+	const open = (depth: number, edge: (node: Fragment) => PMNode | null) => {
+		let removed = 0;
+		let fragment: Fragment = slice.content;
+		for (let d = 0; d < depth; d++) {
+			const node = edge(fragment);
+			if (!node) break;
+			if (flatten && (node.type.name === "columns" || node.type.name === "column")) removed++;
+			fragment = node.content;
+		}
+		return depth - removed;
+	};
+	const content = strip(slice.content);
+	const max = Slice.maxOpen(content);
+	return new Slice(
+		content,
+		Math.min(
+			open(slice.openStart, (f) => f.firstChild),
+			max.openStart,
+		),
+		Math.min(
+			open(slice.openEnd, (f) => f.lastChild),
+			max.openEnd,
+		),
+	);
+}
 
 // ---------------------------------------------------------------- the set
 

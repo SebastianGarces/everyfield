@@ -14,7 +14,7 @@ import {
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
 before(setup);
 after(teardown);
-const create = async (maxAttempts = 4, kind = "document_render") => {
+const create = async (maxAttempts = 4, kind = "object_cleanup") => {
 	const id = await subject();
 	return transaction(runtime, (tx) =>
 		enqueueJob(tx, {
@@ -30,7 +30,7 @@ const create = async (maxAttempts = 4, kind = "document_render") => {
 };
 test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and retain retry budget", async () => {
 	const id = await create();
-	const groups = await Promise.all([claimDue(runtime, ["document_render"]), claimDue(runtime, ["document_render"])]);
+	const groups = await Promise.all([claimDue(runtime, ["object_cleanup"]), claimDue(runtime, ["object_cleanup"])]);
 	assert.deepEqual(groups.map((g) => g.length).sort(), [0, 1]);
 	const claim = groups.flat()[0];
 	assert.equal(claim.id, id);
@@ -42,7 +42,7 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	assert.equal(await recoverLease(runtime), 1);
 	assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	await due();
-	const [newClaim] = await claimDue(runtime, ["document_render"]);
+	const [newClaim] = await claimDue(runtime, ["object_cleanup"]);
 	assert.equal(newClaim.claim_generation, "3");
 	assert.equal(newClaim.attempt_count, 2);
 	for (const stale of [
@@ -61,7 +61,7 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 		"succeeded",
 	);
 });
-test("INV-jobs: default, assessment and explicit leases meet the execution limits", async () => {
+test("INV-jobs: default and explicit leases meet the execution limits", async () => {
 	async function bracket(operation, seconds) {
 		const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0].at;
 		const claim = await operation();
@@ -72,12 +72,10 @@ test("INV-jobs: default, assessment and explicit leases meet the execution limit
 		return claim;
 	}
 	for (const [kind, seconds, expected] of [
-		["document_render", undefined, 300],
-		["assessment", undefined, 120],
-		["document_render", 1, 1],
-		["document_render", 120, 120],
-		["document_render", 300, 300],
-		["assessment", 300, 120],
+		["object_cleanup", undefined, 300],
+		["object_cleanup", 1, 1],
+		["object_cleanup", 120, 120],
+		["object_cleanup", 300, 300],
 	]) {
 		await create(4, kind);
 		const claim = await bracket(async () => {
@@ -86,13 +84,10 @@ test("INV-jobs: default, assessment and explicit leases meet the execution limit
 		}, expected);
 		if (seconds !== 1)
 			for (const extension of [300, 1])
-				await bracket(
-					async () => {
-						assert.equal(await extendLease(runtime, claim, extension), true);
-						return claim;
-					},
-					kind === "assessment" ? 120 : extension,
-				);
+				await bracket(async () => {
+					assert.equal(await extendLease(runtime, claim, extension), true);
+					return claim;
+				}, extension);
 		for (const invalid of [0, 301, 1.5]) {
 			await assert.rejects(claimDue(runtime, [kind], 1, invalid));
 			await assert.rejects(extendLease(runtime, claim, invalid));
@@ -105,7 +100,7 @@ test("INV-jobs: default, assessment and explicit leases meet the execution limit
 test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted jobs stop", async () => {
 	for (const external of [false, true]) {
 		const id = await create(1);
-		const [claim] = await claimDue(runtime, ["document_render"]);
+		const [claim] = await claimDue(runtime, ["object_cleanup"]);
 		if (external) assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 		await db.execute(
 			querySql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${querySql.param(id)}`,
@@ -118,7 +113,7 @@ test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted j
 		assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	}
 	const id = await create();
-	const [claim] = await claimDue(runtime, ["document_render"]);
+	const [claim] = await claimDue(runtime, ["object_cleanup"]);
 	assert.equal(
 		await finishJob(runtime, claim, { state: "retry_wait", code: "busy'; --", retryAfterSeconds: 900 }),
 		true,
@@ -128,7 +123,7 @@ test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted j
 	);
 	assert.ok(wait.rows[0].seconds >= 899 && wait.rows[0].seconds <= 900);
 	assert.deepEqual([wait.rows[0].state, wait.rows[0].error_code], ["retry_wait", "busy'; --"]);
-	assert.deepEqual(await claimDue(runtime, ["document_render"]), []);
+	assert.deepEqual(await claimDue(runtime, ["object_cleanup"]), []);
 });
 test("INV-jobs: a retry on the last attempt waits instead of failing when the worker saved progress and reset its budget", async () => {
 	const job = async (id: string) =>
@@ -139,7 +134,7 @@ test("INV-jobs: a retry on the last attempt waits instead of failing when the wo
 		).rows[0];
 	for (const progress of [false, true]) {
 		const id = await create(1);
-		const [claim] = await claimDue(runtime, ["document_render"]);
+		const [claim] = await claimDue(runtime, ["object_cleanup"]);
 		assert.equal(claim.attempt_count, claim.max_attempts);
 		// A People import that saves failed rows resets the row's count, as scanPage does on a committed page.
 		if (progress) await db.execute(querySql`UPDATE job SET attempt_count=0 WHERE id=${querySql.param(id)}`);
@@ -154,7 +149,7 @@ test("INV-jobs: intent and producer fact roll back together, replay retains orig
 	const input = {
 		tenant,
 		subject: record,
-		kind: "document_render",
+		kind: "object_cleanup",
 		key: record,
 		revision: "1",
 		eligibleAt: "2026-01-01T00:00:00Z",
@@ -186,7 +181,7 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 		enqueueJob(tx, {
 			tenant,
 			subject: null,
-			kind: "notification",
+			kind: "people_import",
 			key: "sweep",
 			revision: null,
 			eligibleAt: "2026-01-01T00:00:00Z",
@@ -210,7 +205,7 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 		},
 	};
 	for (let i = 0; i < 4; i++) {
-		const [claim] = await claimDue(runtime, ["notification"]);
+		const [claim] = await claimDue(runtime, ["people_import"]);
 		assert.equal(claim.id, id);
 		assert.equal(await transaction(runtime, (tx) => scanPage(tx, claim, config)), true);
 		observed++;
@@ -230,7 +225,7 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 	);
 });
 test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips one another claim holds and never claims a job twice", async () => {
-	const ids = [await create(4, "reference_generation"), await create(4, "reference_generation")].sort();
+	const ids = [await create(4, "digest"), await create(4, "digest")].sort();
 	const pool = runtime.$client;
 	const calls = { query: 0, connect: 0 };
 	const query = pool.query,
@@ -248,7 +243,7 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 		// Another transaction holds the oldest job: the claim skips it and takes the next one, without waiting.
 		held = await db.transaction(async (tx) => {
 			await tx.execute(querySql`SELECT id FROM job WHERE id=${querySql.param(ids[0])} FOR UPDATE`);
-			return claimDue(runtime, ["reference_generation"]);
+			return claimDue(runtime, ["digest"]);
 		});
 		// One message on one checked-out connection; a transaction would check out a connection and send no pool query.
 		assert.deepEqual(calls, { query: 1, connect: 1 });
@@ -260,7 +255,7 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 		held.map((c) => c.id),
 		[ids[1]],
 	);
-	const [oldest] = await claimDue(runtime, ["reference_generation"]);
+	const [oldest] = await claimDue(runtime, ["digest"]);
 	assert.deepEqual([oldest.id, oldest.attempt_count, oldest.claim_generation], [ids[0], 1, "1"]);
-	assert.deepEqual(await claimDue(runtime, ["reference_generation"]), []);
+	assert.deepEqual(await claimDue(runtime, ["digest"]), []);
 });

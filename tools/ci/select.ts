@@ -15,6 +15,7 @@ export const CHECKS = {
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
 	"github-scripts": { kind: "suite", root: ".github/scripts", files: ".github/scripts/*.test.cjs" },
+	"ops-watch": { kind: "suite", root: "ops/actionable-watch/test", files: "ops/actionable-watch/test/*.test.mts" },
 } as const satisfies Record<string, Check>;
 
 export type CheckId = keyof typeof CHECKS;
@@ -78,7 +79,8 @@ export const RULES: readonly Rule[] = [
 		packages: true,
 		checks: ["ci-coverage"],
 	},
-	// Browser suites run nightly and in the verifier's preview; their models and the app they drive run here.
+	// The app job runs the tests/ui model tests, the ones that do not import tests/ui/setup.mjs, through apps/web
+	// test:unit. Browser suites, which import setup.mjs, run nightly and in the verifier's preview.
 	{ name: "browser suite", paths: ["tests/ui/**"], packages: true, fallbackPackage: "@everyfield/web" },
 	{
 		name: "documentation",
@@ -120,11 +122,20 @@ export const RULES: readonly Rule[] = [
 		paths: ["scripts/lint-rule-coverage.mjs"],
 		tests: ["tests/workflow/lint-rule-coverage.test.mjs"],
 	},
+	// The guard reads every file under tests/integration as text (T-261). A change to the guard itself is a changed test
+	// file under tests/workflow, which runs everything.
+	{
+		name: "integration timing guard",
+		paths: ["tests/integration/**"],
+		tests: ["tests/workflow/integration-timing.test.mjs"],
+	},
 	{ name: "coverage read tracer", paths: ["scripts/trace-reads.mjs"], tests: ["tests/workflow/nightly.test.ts"] },
 	// Fixtures and helpers next to the tests: the tests read them, so coverage cannot see every use.
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
+	// The watcher's tests read its README and plist as text, so every file under it runs the whole suite.
+	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{
 		name: "failure reporting and feedback queue input",
 		paths: [".github/internal-feedback.json", ".github/ISSUE_TEMPLATE/**", ".github/scripts/*.sh"],

@@ -3,6 +3,7 @@
 // against the recording fake of Resend. Nothing calls Resend. The CI db job runs this file.
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { setImmediate } from "node:timers/promises";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,6 +29,7 @@ import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
+import { ok } from "../../support/fixture.mts";
 
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
@@ -48,10 +50,6 @@ const ready = { keys, apiKey: "re_test_key" };
 const message = (to, subject = "Hello") => ({ to, subject, html: `<p>${subject}</p>`, text: subject });
 const signal = () => AbortSignal.timeout(5_000);
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 /** True when any request the recorder saw holds the address anywhere: path, header key or body. */
 const holds = (requests, address) => JSON.stringify(requests).toLowerCase().includes(address.toLowerCase());
 const outboxTo = async () => (await readOutbox()).map((entry) => entry.to);
@@ -207,7 +205,7 @@ async function queuedInvitation(address, env, request) {
 			IDENTITY_ADDRESS_KEY: mailKeys.addressKey.toString("hex"),
 			IDENTITY_MAIL_FROM: "invitations@resend.dev",
 		},
-		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Date.now() + 30_000),
+		() => runDueInvitationMail(queuedMailTransport(ready, request, env), 5, Infinity),
 	);
 	assert.equal(mailed, 1);
 	const { rows } = await f.admin
@@ -253,7 +251,7 @@ function countingFetch() {
 // The rule's purity (no value import, require, process, fetch, await or Date) is the everyfield/pure-module lint rule
 // in .oxlintrc.json. Each sender refusing an unapproved address: WP-029-4, WP-029-8 and WP-029-14 (mail.ts), WP-029-9
 // (server/jobs/resend.ts) and WP-029-10 (early access).
-test("AC:WP-029-1 the rule reads only its two arguments", () => {
+test("INV-email-safety: the rule reads only its two arguments", () => {
 	const read = [];
 	const env = new Proxy(
 		{ VERCEL_ENV: "preview", EMAIL_TEST_RECIPIENTS: "tester@example.org", NODE_ENV: "production" },
@@ -268,12 +266,12 @@ test("AC:WP-029-1 the rule reads only its two arguments", () => {
 	assert.deepEqual([...new Set(read)].sort(), ["EMAIL_TEST_RECIPIENTS", "VERCEL_ENV"]);
 });
 
-test("AC:WP-029-2 only VERCEL_ENV exactly production allows any address", () => {
+test("INV-email-safety: only VERCEL_ENV exactly production allows any address", () => {
 	assert.equal(mailRecipientAllowed({ VERCEL_ENV: "production" }, TYPED), true);
 	for (const [name, env] of RESTRICTED) assert.equal(mailRecipientAllowed(env, TYPED), false, name);
 });
 
-test("AC:WP-029-3 a restricted environment approves Resend test addresses and listed full addresses only", () => {
+test("INV-email-safety: a restricted environment approves Resend test addresses and listed full addresses only", () => {
 	const env = { VERCEL_ENV: "preview" };
 	for (const address of [" Delivered+A@Resend.dev ", "delivered+a@resend.dev", APPROVED])
 		assert.equal(mailRecipientAllowed(env, address), true, address);
@@ -306,7 +304,7 @@ test("AC:WP-029-3 a restricted environment approves Resend test addresses and li
 	}
 });
 
-test("AC:WP-029-4 on a preview with a key a typed address is captured on Send now, scheduled hand-off and transactional mail", async () => {
+test("INV-email-safety: on a preview with a key a typed address is captured on Send now, scheduled hand-off and transactional mail", async () => {
 	const typed = await person(TYPED);
 	const settled = [];
 	const resend = resendRecorder(PREVIEW, (ids) => settled.push(...ids));
@@ -335,7 +333,7 @@ test("AC:WP-029-4 on a preview with a key a typed address is captured on Send no
 	assert.match(page, /real\.reset@example\.com/);
 });
 
-test("AC:WP-029-5 a mixed batch splits, whatever the position of the approved message", async () => {
+test("INV-email-safety: a mixed batch splits, whatever the position of the approved message", async () => {
 	const typed = await person("real.mixed@example.com");
 	const maria = await person(APPROVED);
 	const settled = [];
@@ -388,7 +386,7 @@ test("AC:WP-029-5 a mixed batch splits, whatever the position of the approved me
 	}
 });
 
-test("AC:WP-029-6 cancel and time change pick capture or Resend from the message id", async () => {
+test("INV-email-safety: cancel and time change pick capture or Resend from the message id", async () => {
 	const at = new Date(Date.now() + 3 * DAY).toISOString();
 	const later = new Date(Date.now() + 4 * DAY).toISOString();
 	const entry = async (id) => (await readOutbox()).find((row) => row.id === id);
@@ -440,13 +438,24 @@ test("AC:WP-029-6 cancel and time change pick capture or Resend from the message
 	assert.equal((await entry(id)).cancelled, true);
 });
 
-test("AC:WP-029-7 refusals and capture faults never reach the provider", async () => {
+test("INV-email-safety: refusals and capture faults never reach the provider", async () => {
 	const realFetch = globalThis.fetch;
-	globalThis.fetch = async () => Response.json({ data: [{ name: "verified.example.org", status: "verified" }] });
+	// The domain list settles through promise jobs only (no body stream), so one event-loop turn after the fetch
+	// settles it: the wait is on the read, not on a clock.
+	let fetched = 0;
+	globalThis.fetch = async () => {
+		fetched++;
+		return {
+			ok: true,
+			status: 200,
+			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
+		};
+	};
 	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
-		await new Promise((done) => setTimeout(done, 100));
+		await setImmediate();
+		assert.equal(fetched, 1, "the domain read started before the send");
 	} finally {
 		globalThis.fetch = realFetch;
 	}
@@ -510,7 +519,7 @@ test("AC:WP-029-7 refusals and capture faults never reach the provider", async (
 	assert.deepEqual(quiet.take(), []);
 });
 
-test("AC:WP-029-8 queued invitation mail captures a typed address, sends an approved one, and looks up no capture", async () => {
+test("INV-email-safety: queued invitation mail captures a typed address, sends an approved one, and looks up no capture", async () => {
 	const resend = resendRecorder();
 	const typed = await queuedInvitation("real.invitee@example.com", PREVIEW, resend.fetch);
 	assert.equal(typed.state, "accepted");
@@ -534,7 +543,7 @@ test("AC:WP-029-8 queued invitation mail captures a typed address, sends an appr
 	assert.equal(resend.take().length, 1, "a Resend id still asks Resend");
 });
 
-test("AC:WP-029-9 the guard is inside createResendTransport.send", async () => {
+test("INV-email-safety: the guard is inside createResendTransport.send", async () => {
 	const payload = { from: "a@resend.dev", ...message(TYPED) };
 	const resend = resendRecorder();
 	const transport = createResendTransport("re_test_key", resend.fetch, { VERCEL_ENV: "preview" });
@@ -552,13 +561,13 @@ test("AC:WP-029-9 the guard is inside createResendTransport.send", async () => {
 	assert.deepEqual(await outboxTo(), [TYPED, TYPED, TYPED]);
 });
 
-test("AC:WP-029-10 early access with a recipient that is not approved calls no fetch and answers unavailable", async () => {
+test("INV-email-safety: early access with a recipient that is not approved calls no fetch and answers unavailable", async () => {
 	const { f } = await database();
 	for (const [name, extra] of RESTRICTED) {
-		const refused = countingFetch();
-		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), refused.request);
+		const blocked = countingFetch();
+		const { result, email } = await earlyAccess(earlyEnv("owner@example.org", extra), blocked.request);
 		assert.deepEqual(result, { status: "unavailable" }, name);
-		assert.deepEqual(refused.calls, [], name);
+		assert.deepEqual(blocked.calls, [], name);
 		const { rows } = await f.admin.execute(
 			sql`SELECT count(*)::int AS n FROM early_access_request WHERE email = ${email}`,
 		);
@@ -593,7 +602,7 @@ test("AC:WP-029-10 early access with a recipient that is not approved calls no f
 	assert.equal(listed.calls.length, 1);
 });
 
-test("AC:WP-029-11 production sends the typed address on all four paths, with the same request as before", async () => {
+test("INV-email-safety: production sends the typed address on all four paths, with the same request as before", async () => {
 	const { f } = await database();
 	const typed = await person("real.production@example.com");
 	const resend = resendRecorder(PRODUCTION);
@@ -671,7 +680,7 @@ test("AC:WP-029-11 production sends the typed address on all four paths, with th
 	assert.deepEqual(await readOutbox(), [], "no capture file appears");
 });
 
-test("AC:WP-029-12 unknown, development and absent environments stay restricted, and the outbox stays closed elsewhere", async () => {
+test("INV-email-safety: unknown, development and absent environments stay restricted, and the outbox stays closed elsewhere", async () => {
 	for (const [name, env] of RESTRICTED) {
 		const resend = resendRecorder(env, () => {});
 		const batch = await resend.transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal());
@@ -714,7 +723,7 @@ test("AC:WP-029-12 unknown, development and absent environments stay restricted,
 	}
 });
 
-test("AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off", async () => {
+test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", async () => {
 	const outbox = process.env.EVERYFIELD_DEV_OUTBOX;
 	for (const [name, extra] of [
 		["NODE_ENV", { NODE_ENV: "production" }],

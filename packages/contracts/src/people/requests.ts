@@ -48,11 +48,6 @@ export const updatePersonRequest = commandEnvelope(
 		}),
 	}),
 );
-// Same transaction caller owns Launch attendance. No name/email matching branch.
-export const guestSelection = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("existing"), personId }),
-	z.strictObject({ kind: z.literal("new"), displayName, email: contactFields.email, phone: contactFields.phone }),
-]);
 export const personRequest = z.strictObject({ personId });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
@@ -111,6 +106,8 @@ export const reorderPipelineRequest = commandEnvelope(
 
 // Organization identity never carries plant recruitment or commitment fields.
 export const createOrganizationPersonRequest = z.strictObject({ requestKey, input: z.strictObject(contactFields) });
+/** One pair on the duplicates list: the person an import added with "Add, review later" and the person it may duplicate. */
+export const duplicatePairRequest = z.strictObject({ personId, withPersonId: personId });
 /** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
 export const duplicateCheckRequest = z.strictObject({
 	displayName: z.string().max(255).optional(),

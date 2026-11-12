@@ -8,16 +8,20 @@ import {
 	importReceiptRequest,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
-import { executeBulkImport, peopleCsv } from "@everyfield/domain/people";
+import { privateStorage } from "@everyfield/db/schema";
+import { executeStoredImport, peopleCsv, previewStoredImport, signPeopleImport } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
-import { MAX_BYTES } from "./model.ts";
 
-// The CSV routes under /api/people (REQ-PPL-018, REQ-PPL-019). They sit outside the /people proxy, which would cut a
-// request body at 10 MB, so a 10 MiB file reaches the producer whole. Each rebuilds the viewer from the session; the
-// producer rechecks the seat's authority in its own statement. Answers are JSON: ok with the value, refused with the
-// producer's code (and the bad line for quoting), both with status 200 because the request itself worked, or 503 for a
-// failed database call, which the screen reads as a lost reply. The CSV downloads answer 403 or 503 without a body. Import and receipt start the import worker after the answer, until the shared job executor exists (WP-050).
+// The CSV routes under /api/people (REQ-PPL-018, REQ-PPL-019). No request here carries the import file: the browser puts
+// it once into the private bucket with the URL the upload route signs, and the preview and the import name that upload,
+// so the server reads the stored object itself (REQ-PPL-014's private-file flow). A function's request and reply bodies
+// are capped well under 10 MiB on the host, so the preview, which lists every row, streams its reply. Each route rebuilds
+// the viewer from the session; the producer rechecks the seat's authority in its own statement. Answers are JSON: ok
+// with the value, refused with the producer's code (and the bad line for quoting), both with status 200 because the
+// request itself worked, or 503 for a failed database call, which the screen reads as a lost reply. The CSV downloads
+// answer 403 or 503 without a body. Import and receipt start the import worker after the answer, until the shared job
+// executor exists (WP-050).
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
@@ -34,11 +38,21 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 	return json({ status: "ok", value: ok(reply.value) });
 }
 
+/**
+ * Whether a browser sent this request from another site. The import posts write and read church data, so only a
+ * same-origin request is accepted; a request without the header (an older browser or a script) is allowed, as in
+ * saveExportRoute.
+ */
+function crossSite(request: Request) {
+	const site = request.headers.get("sec-fetch-site");
+	return site !== null && site !== "same-origin";
+}
+
 async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
-/** The file limit, the reviewed choice of every row the contract allows (about 31 bytes each as JSON) and form overhead. */
-const BODY_LIMIT = MAX_BYTES + importLimits.rows * 48 + 64 * 1024;
+/** The reviewed choice of every row the contract allows (about 31 bytes each as JSON) and the rest of the request. */
+const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
 /**
  * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
  * read into memory. A declared Content-Length above the limit is refused without reading at all.
@@ -76,39 +90,83 @@ export async function templateRoute() {
 	});
 }
 
-/** POST /api/people/import/preview: the raw file bytes. Every row's outcome and duplicates; it writes nothing. */
-export async function previewRoute(request: Request) {
-	const v = await viewer();
-	if (!v) return refused("access_denied");
-	const file = await boundedBody(request);
-	if (!file) return json({ status: "refused", code: "file_too_large" });
-	return answer(await read(v, (tx, ctx) => peopleCsv.previewImport(tx, ctx, { file })));
+/** A JSON reply sent in pieces: the host caps a reply it holds whole, and a full preview is about the file's size. */
+function streamed(body: Answer) {
+	const text = new TextEncoder().encode(JSON.stringify(body));
+	const PIECE = 256 * 1024;
+	let at = 0;
+	const stream = new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (at >= text.length) return controller.close();
+			controller.enqueue(text.subarray(at, (at += PIECE)));
+		},
+	});
+	return new Response(stream, { headers: { ...NO_STORE, "Content-Type": "application/json" } });
 }
 
-/**
- * POST /api/people/import: a form with the same file and the reviewed choices under one request key. Repeating it
- * after a lost reply returns the saved receipt; after a partial import it retries the remaining rows.
- */
-export async function importRoute(request: Request) {
+/** A small JSON request body (an upload id, or the reviewed choices), read within BODY_LIMIT; undefined when not JSON. */
+async function jsonBody(request: Request): Promise<unknown> {
+	const body = await boundedBody(request);
+	if (!body) return undefined;
+	try {
+		return JSON.parse(new TextDecoder().decode(body)) as unknown;
+	} catch {
+		return undefined;
+	}
+}
+
+/** The viewer, database and private bucket an import route needs, or the refusal the screen shows without them. */
+async function importDeps(request: Request) {
+	if (crossSite(request)) return refused("access_denied");
 	const v = await viewer();
 	const db = requestDatabase();
 	if (!v || !db) return refused("access_denied");
-	const body = await boundedBody(request);
-	if (!body) return json({ status: "refused", code: "file_too_large" });
-	const type = request.headers.get("content-type") ?? "";
-	const form = await new Response(body, { headers: { "content-type": type } }).formData().catch(() => null);
-	const file = form?.get("file");
-	const review = form?.get("review");
-	if (!(file instanceof Blob) || typeof review !== "string") return json({ status: "refused", code: "invalid_input" });
-	let parsed: unknown;
+	const storage = privateStorage();
+	if (!storage) return refused("storage_unavailable");
+	return { v, db, storage };
+}
+
+/**
+ * POST /api/people/import/upload: `{ byteLength }`. A five-minute URL that puts this one file straight into the private
+ * bucket; a file over the limit is refused before anything is uploaded.
+ */
+export async function uploadRoute(request: Request) {
+	const deps = await importDeps(request);
+	if (deps instanceof Response) return deps;
+	const input = await jsonBody(request);
 	try {
-		parsed = JSON.parse(review);
-	} catch {
-		return json({ status: "refused", code: "invalid_input" });
+		return answer(await signPeopleImport(deps.db, deps.storage, deps.v.authority, input));
+	} catch (error) {
+		console.error(JSON.stringify({ component: "people-import", outcome: "sign_failed", error: String(error) }));
+		return lost();
 	}
-	const input = { ...(parsed as object), file: new Uint8Array(await file.arrayBuffer()) };
+}
+
+/** POST /api/people/import/preview: `{ uploadId }`. Every row's outcome and duplicates in the stored file; it writes nothing. */
+export async function previewRoute(request: Request) {
+	const deps = await importDeps(request);
+	if (deps instanceof Response) return deps;
+	const input = await jsonBody(request);
 	try {
-		const reply = await executeBulkImport(db, v.authority, input);
+		const reply = await previewStoredImport(deps.db, deps.storage, deps.v.authority, input);
+		if (reply.status !== "ok") return answer(reply);
+		return streamed({ status: "ok", value: reply.value });
+	} catch (error) {
+		console.error(JSON.stringify({ component: "people-import", outcome: "preview_failed", error: String(error) }));
+		return lost();
+	}
+}
+
+/**
+ * POST /api/people/import: the same upload and the reviewed choices under one request key, as JSON. Repeating it
+ * after a lost reply returns the saved receipt; after a partial import it retries the remaining rows.
+ */
+export async function importRoute(request: Request) {
+	const deps = await importDeps(request);
+	if (deps instanceof Response) return deps;
+	const input = await jsonBody(request);
+	try {
+		const reply = await executeStoredImport(deps.db, deps.storage, deps.v.authority, input);
 		if (reply.status === "ok") drainPeopleImports();
 		return answer(reply);
 	} catch (error) {
