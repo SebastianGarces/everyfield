@@ -986,16 +986,16 @@ try {
 		const church = await churchDocument("commitment-card");
 		const base = await storedBody(church);
 		// The saved document holds its page setup and exports beside the body, so the fill leaves room for them.
-		const churchBody = {
+		const churchSave = {
 			...base,
 			body: {
 				...base.body,
 				content: [...base.body.content, ...euros(BODY_JSON_MAX - 60_000 - JSON.stringify(base).length)],
 			},
 		};
-		const churchLength = JSON.stringify(churchBody).length;
+		const churchLength = JSON.stringify(churchSave).length;
 		assert.ok(churchLength > 1_900_000, `Church body is ${churchLength}`);
-		assert.ok(bytesOf(churchBody) > 3_000_000, "the Church save is over 3 MB on the wire");
+		assert.ok(bytesOf(churchSave) > 3_000_000, "the Church save is over 3 MB on the wire");
 		const [{ revision: churchRevision }] = (
 			await admin.execute(sql`SELECT revision::text AS revision FROM document WHERE id=${church}::uuid`)
 		).rows;
@@ -1004,7 +1004,7 @@ try {
 			`/documents/church/${church}`,
 			"apps/web/src/features/documents/church/actions.ts",
 			"saveChurchDocument",
-			[church, churchRevision, churchBody],
+			[church, churchRevision, churchSave],
 		);
 		assert.equal(savedChurch.status, "saved", JSON.stringify(savedChurch).slice(0, 500));
 		assert.equal(JSON.stringify(await storedBody(church)).length, churchLength);
