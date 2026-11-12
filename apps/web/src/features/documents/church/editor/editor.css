@@ -957,4 +957,24 @@
 }
 .ef-native .ef-paper {
 	--tok-ink: var(--paper-text);
+	/* A table's header and stripes take the Everyfield theme's muted fill, its rules the paper's line (T-100). */
+	--tok-muted: var(--paper-muted);
+	--on-muted: var(--paper-text);
+	--tok-border: var(--paper-line);
+}
+
+/* A plain document's table read-only (written/NativeProse.tsx): the editor's cells, with nothing to click or type. */
+.ef-paper span.ef-read-head {
+	display: block;
+	cursor: default;
+}
+.ef-paper span.ef-read-head:hover {
+	box-shadow: none;
+}
+.ef-paper .ef-read-check {
+	cursor: default;
+}
+.ef-paper .ef-read-check[data-checked="true"]::after {
+	content: "\2713";
+	font-weight: 700;
 }

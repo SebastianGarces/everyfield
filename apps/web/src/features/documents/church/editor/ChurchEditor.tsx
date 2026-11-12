@@ -44,6 +44,7 @@ import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
 import { BlockControls } from "./LayoutControls.tsx";
+import { TABLE_REFUSED } from "./TableControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
@@ -55,9 +56,6 @@ import { EditorToolbar } from "./Toolbar.tsx";
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
 // the document as ProseMirror JSON and builds the stored document from it on Save. It stays mounted while the preview
 // shows, so the content, the cursor and the undo history survive a trip to the preview and back.
-
-const TABLE_REFUSED =
-	"That change would break a table, so nothing changed. Select the whole table, or text in one cell.";
 
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
