@@ -80,6 +80,12 @@ export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
 	eligible: (tx: Transaction, input: readonly NoticeInput[]) => Promise<readonly ({ address: string | null } | null)[]>;
 }) {
+	/**
+	 * Writes each notice, with its email, once per recipient and logical key. A task, meeting or launch source must be at
+	 * the notice's revision. An affiliation notice names the revision its occurrence wrote, which a later change to the
+	 * connection (a sharing change after an approval) moves past without cancelling it; its worker checks that the
+	 * occurrence still holds.
+	 */
 	async function enqueueMany(tx: Transaction, inputs: readonly NoticeInput[]) {
 		const values = inputs.map((input) => noticeInput.parse(input));
 		const data = values.map((v, n) => {
@@ -111,7 +117,7 @@ export function createNotificationService(config: {
  SELECT i.n,t.kind,o.kind AS organization_kind,
  CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
- WHEN 'affiliation' THEN EXISTS(SELECT FROM affiliations s WHERE s.id=i.source AND i.owner IN(s.plant_id,s.organization_id) AND s.revision=i.revision)
+ WHEN 'affiliation' THEN EXISTS(SELECT FROM affiliations s WHERE s.id=i.source AND i.owner IN(s.plant_id,s.organization_id) AND s.revision>=i.revision)
  WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND (s.plant_id=i.owner OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=s.plant_id AND a.organization_id=i.owner AND a.ended_at IS NULL)) AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision) ELSE false END AS source_live,
