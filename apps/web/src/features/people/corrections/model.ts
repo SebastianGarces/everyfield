@@ -268,7 +268,7 @@ export function blockerText(cause: Blocker, names: { source: string; survivor: s
 				? "The record with an Everyfield account must be the one you keep."
 				: `${names.source} has an Everyfield account, so ${names.source} must be the person you keep.`;
 		case "unregistered_reference":
-			return `${names.source} still has ${kindList(kinds)}. Everyfield cannot move these yet. Finish or reassign them, then review again.`;
+			return `${names.source} has ${kindList(kinds)} on record. Merging people with this history is not available in Everyfield yet.`;
 	}
 }
 
