@@ -211,8 +211,8 @@ async function readChurchWithKit(
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false, archived = false) {
-	return (await readChurchWithKit(db, scope, documentId, { admin, archived }))?.doc ?? null;
+async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
 function safeJson(text: string): unknown {
@@ -1084,8 +1084,8 @@ export const churchWriter = {
 	async readChurch(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurch(db, readerScope(authority), input.documentId, false, true);
-			return found ?? deny("unavailable");
+			const found = await readChurchWithKit(db, readerScope(authority), input.documentId, { archived: true });
+			return found?.doc ?? deny("unavailable");
 		});
 	},
 
