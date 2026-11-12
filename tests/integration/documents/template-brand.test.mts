@@ -225,7 +225,16 @@ describe("T-190 library templates follow the church brand kit", { concurrency: 1
 		const firstBytes = digestOf(await storedBytes(first.id));
 		await saveKit({ primaryColor: NEXT_PRIMARY });
 		assert.equal(digestOf(await storedBytes(first.id)), firstBytes, "the stored file did not change");
-		ok(await documentsWriter.download(db, await authority(0), { documentId: first.id }, storage));
+		const link = ok(await documentsWriter.download(db, await authority(0), { documentId: first.id }, storage));
+		const key = (
+			(
+				await admin.execute(
+					sql`SELECT f.opaque_key FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${first.id}::uuid`,
+				)
+			).rows[0] as { opaque_key: string }
+		).opaque_key;
+		assert.ok(link.url.includes(key), "the download link names the stored object");
+		assert.equal(digestOf(client.objects.get(key)!), firstBytes, "the download returns the exact stored bytes");
 		const replay = await save("guest-sign-in-sheet", "t190-change");
 		assert.equal(replay.id, first.id);
 		assert.equal(replay.digest, first.digest, "the replay is the file saved first, not a conflict");

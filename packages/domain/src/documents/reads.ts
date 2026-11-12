@@ -3,6 +3,7 @@ import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
+import type { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import {
 	accountOpen,
@@ -118,12 +119,20 @@ export const documentsReader = {
 const agendaTemplateKind = (id: string) =>
 	(Object.entries(AGENDA_TEMPLATE) as [AgendaKind, string][]).find(([, template]) => template === id)?.[0];
 
+type Artifact = { db: Database; storage: PrivateStorage | null };
 async function contextOf(
 	db: Reader,
 	authority: RequestActor,
 	raw: unknown,
-	artifact: { db: Database; storage: PrivateStorage | null } | null,
-) {
+	artifact: null,
+): Promise<z.infer<typeof c.contextResult>>;
+async function contextOf(
+	db: Reader,
+	authority: RequestActor,
+	raw: unknown,
+	artifact: Artifact,
+): Promise<z.infer<typeof c.previewResult>>;
+async function contextOf(db: Reader, authority: RequestActor, raw: unknown, artifact: Artifact | null) {
 	const input = parse(artifact ? c.previewRequest : c.resolveContextRequest, raw);
 	const cleaned = cleanOverrides(input.overrides);
 	if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);

@@ -56,8 +56,6 @@ export async function readPreview(
 				: { status: "refused", code: reply.error.code };
 		}
 		const value = reply.value;
-		const artifact = "artifact" in value ? value.artifact : undefined;
-		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
 		return {
 			status: "ok",
 			value: {
@@ -66,8 +64,8 @@ export async function readPreview(
 				fields: value.fields,
 				missing: value.missing,
 				complete: value.complete,
-				artifact,
-				brandKit: "brandKit" in value && value.brandKit === true,
+				artifact: value.artifact,
+				brandKit: value.brandKit,
 			},
 		};
 	} catch (error) {
