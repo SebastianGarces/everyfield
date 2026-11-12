@@ -178,19 +178,3 @@ export function meetingMailGrants(input: SQLWrapper): SQLWrapper {
 		WHERE m.status IN ('planning','ready') AND m.retired_at IS NULL AND m.starts_at>clock_timestamp()
 		FOR SHARE OF n, m, s`;
 }
-/** The mail rows an authorize check reads, as `i(id, recipient, notice)`. */
-export const mailGrantInput = (mail: readonly { id: string; recipient: string | null; notice: string | null }[]) =>
-	sql`jsonb_to_recordset(${JSON.stringify(mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice })))}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
-/** Which meeting notice mail may go out (meetingMailGrants), in one statement. */
-export async function authorizeMeetingNotices(
-	tx: Reader,
-	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
-): Promise<ReadonlySet<string>> {
-	const r = await tx.execute(meetingMailGrants(mailGrantInput(mail)));
-	return new Set(
-		z
-			.array(z.object({ id: z.uuid() }))
-			.parse(r.rows)
-			.map((row) => row.id),
-	);
-}

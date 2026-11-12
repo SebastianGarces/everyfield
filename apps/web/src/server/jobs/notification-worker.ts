@@ -1,7 +1,7 @@
 import { reminderSlot } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { mailGrantInput, meetingMailGrants, meetingNotice, planNotifications } from "@everyfield/domain/meetings";
+import { meetingMailGrants, meetingNotice, planNotifications } from "@everyfield/domain/meetings";
 import {
 	milestone,
 	milestoneCategory,
@@ -142,6 +142,10 @@ export function createNotificationWorker(config: { mail: ReturnType<typeof creat
 	return { run };
 }
 export type NotificationWorker = ReturnType<typeof createNotificationWorker>;
+
+/** The mail rows an authorize check reads, as `i(id, recipient, notice)`. */
+const mailGrantInput = (mail: readonly { id: string; recipient: string | null; notice: string | null }[]) =>
+	sql`jsonb_to_recordset(${JSON.stringify(mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice })))}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
 
 /**
  * Which notification mail may go out, checked at send time in one statement: a meeting notice under the meeting rule
