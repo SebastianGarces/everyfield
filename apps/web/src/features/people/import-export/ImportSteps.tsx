@@ -642,11 +642,19 @@ export function DoneStep({
 								: `${plural(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
-							{partial
-								? "The other rows are saved. Try the rows that did not save again; nobody is added twice."
-								: flagged
-									? `${plural(flagged, "person", "people")} added with a note to review against a possible duplicate.`
-									: "Everyone you chose is in People now."}
+							{partial ? (
+								"The other rows are saved. Try the rows that did not save again; nobody is added twice."
+							) : flagged ? (
+								<>
+									{flagged} to review in{" "}
+									<IntentLink href="/people/duplicates" className="font-medium text-ink underline underline-offset-2">
+										Duplicates
+									</IntentLink>
+									.
+								</>
+							) : (
+								"Everyone you chose is in People now."
+							)}
 						</p>
 					</div>
 				</div>

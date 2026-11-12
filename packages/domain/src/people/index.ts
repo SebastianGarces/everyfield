@@ -2,7 +2,7 @@ import "server-only";
 export { accountPersonProducer, peopleWriter } from "./people.ts";
 export { getAccountLink, peopleReader, peopleViewer, readColumnOrders } from "./queries.ts";
 export { readPersonPage, type PersonPageParts } from "./page.ts";
-export { checkForDuplicates } from "./duplicates.ts";
+export { checkForDuplicates, listDuplicatePairs } from "./duplicates.ts";
 export { personSearchMatch, searchPeople, type PersonHit } from "./search.ts";
 export { peopleMerge } from "./merge/index.ts";
 export { peopleUnmerge } from "./unmerge/index.ts";

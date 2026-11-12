@@ -104,6 +104,9 @@
 	"GET /api/evry/open": {
 		"limit": 2
 	},
+	"GET /api/evry/conversations/[id]": {
+		"limit": 2
+	},
 	"GET /tasks": {
 		"limit": 6
 	},
@@ -952,6 +955,9 @@
 		"limit": 3
 	},
 	"native.people.getPersonTags": {
+		"limit": 3
+	},
+	"native.people.listDuplicatePairs": {
 		"limit": 3
 	},
 	"native.people.listHouseholds": {

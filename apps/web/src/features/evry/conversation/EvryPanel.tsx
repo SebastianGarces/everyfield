@@ -34,6 +34,7 @@ import {
 	sendNotice,
 	type Conversation,
 	type Send,
+	type State,
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
@@ -270,6 +271,8 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						stopping={state.stopping}
 						canRetry={turn === lastTurn && retryable(state, turns)}
 						retrying={c.retrying}
+						reviews={state.reviews}
+						onSeen={c.seen}
 						onRetry={() => {
 							void c.retry(turn.id);
 							focusComposer();
@@ -339,6 +342,8 @@ function TurnView({
 	stopping,
 	canRetry,
 	retrying,
+	reviews,
+	onSeen,
 	onRetry,
 }: {
 	turn: Turn;
@@ -346,6 +351,8 @@ function TurnView({
 	stopping: boolean;
 	canRetry: boolean;
 	retrying: boolean;
+	reviews: State["reviews"];
+	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
 	const notice = endNotice(turn.end);
@@ -389,7 +396,13 @@ function TurnView({
 									originalTotal={block.originalTotal}
 								/>
 							) : (
-								<ReviewCard key={block.sequence} proposalId={block.proposalId} target={block.target} />
+								<ReviewCard
+									key={block.sequence}
+									proposalId={block.proposalId}
+									target={block.target}
+									seed={reviews[block.proposalId]}
+									onSeen={onSeen}
+								/>
 							),
 						)}
 						{waiting ? (
