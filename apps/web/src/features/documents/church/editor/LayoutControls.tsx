@@ -74,8 +74,8 @@ function ControlsFor({
 	palette: DocBrand["palette"] | null;
 }) {
 	const attrs = target.node.attrs;
-	// A plain document (no palette) has settings for its tables only: its dividers take no weight or color.
-	if (!palette) return target.kind === "table" ? <TableControls editor={editor} palette={null} /> : null;
+	// A plain document (no palette) has settings for its tables only (BlockControls passes no other target).
+	if (!palette) return <TableControls editor={editor} palette={null} />;
 	switch (target.kind) {
 		case "columns":
 			return (

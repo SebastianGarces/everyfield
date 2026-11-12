@@ -56,10 +56,8 @@ function tableFaults(node: Rec, path: string, faults: string[]) {
 		});
 	if (Array.isArray(node.content))
 		node.content.forEach((row, r) => {
+			// A group, subtotal or total row needs a ledger table, which the style check above refuses (validate).
 			if (!isRec(row)) return;
-			const role = isRec(row.attrs) ? row.attrs.role : undefined;
-			if (role !== undefined && role !== "item")
-				faults.push(`${path}.content[${r}]: a plain document cannot hold a ${String(role)} row`);
 			if (Array.isArray(row.content))
 				row.content.forEach((cell, c) => {
 					if (!isRec(cell) || !Array.isArray(cell.content)) return;
@@ -219,14 +217,12 @@ export function nativeText(body: DocNode): string {
 
 // ---------------------------------------------------------------- a table brought into a plain document
 
-const MARKED = new Set(["bold", "italic", "underline", "link"]);
-
 /** The inline content a plain cell keeps: text with bold, italic, underline and links. A line break becomes a space. */
 function plainInline(content: readonly InlineNode[] | undefined): InlineNode[] {
 	const out: InlineNode[] = [];
 	for (const node of content ?? []) {
 		if (node.type === "text") {
-			const marks = (node.marks ?? []).filter((m) => MARKED.has(m.type));
+			const marks = (node.marks ?? []).filter((m) => MARKS.has(m.type));
 			out.push({ type: "text", text: node.text.replace(/[\r\n]+/g, " "), ...(marks.length ? { marks } : {}) });
 		} else if (node.type === "hardBreak") out.push({ type: "text", text: " " });
 	}
