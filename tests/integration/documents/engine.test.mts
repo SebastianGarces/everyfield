@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import test, { describe } from "node:test";
+import test, { describe, mock } from "node:test";
 import {
 	PDFArray,
 	PDFDict,
@@ -188,12 +188,17 @@ describe("WP-036/api engine", () => {
 	test("DOC-002: no PDF holds a wall-clock date or a random id", async () => {
 		const first = new Map<string, Awaited<ReturnType<typeof renderTemplatePdf>>>();
 		for (const entry of pdfs) first.set(entry.id, await renderTemplatePdf(entry, FULL));
-		await new Promise((resolve) => setTimeout(resolve, 1100));
-		for (const entry of pdfs) {
-			const a = first.get(entry.id)!;
-			const b = await renderTemplatePdf(entry, FULL);
-			assert.equal(digestOf(a.bytes), digestOf(b.bytes), entry.id);
-			assert.equal(/\/(CreationDate|ModDate)/.test(a.bytes.toString("latin1")), false, `${entry.id} has a date`);
+		// The second render runs a day later by the clock: a date in the bytes would change the digest.
+		mock.timers.enable({ apis: ["Date"], now: Date.now() + 86_400_000 });
+		try {
+			for (const entry of pdfs) {
+				const a = first.get(entry.id)!;
+				const b = await renderTemplatePdf(entry, FULL);
+				assert.equal(digestOf(a.bytes), digestOf(b.bytes), entry.id);
+				assert.equal(/\/(CreationDate|ModDate)/.test(a.bytes.toString("latin1")), false, `${entry.id} has a date`);
+			}
+		} finally {
+			mock.timers.reset();
 		}
 	});
 

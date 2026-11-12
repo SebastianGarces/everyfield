@@ -8,6 +8,7 @@
 // test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
 // Every step runs through the real createFromTemplate, readChurch, history and export path.
 import { testDatabase } from "../../support/test-database.mts";
+import { ok, seeds } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -23,6 +24,7 @@ import { randomUUID } from "node:crypto";
 const database = await testDatabase({ prefix: "t84" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
+const seed = seeds(admin);
 
 class MemoryClient extends S3Client {
 	objects = new Map();
@@ -99,25 +101,8 @@ const PARAGRAPHS = [
 
 /** A plant with one Owner. Returns the plant id and a function giving that Owner's request authority. */
 async function plantWithOwner(name) {
-	const plant = randomUUID(),
-		account = randomUUID(),
-		user = randomUUID(),
-		session = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${account + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account},${user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${account},${plant},'owner',clock_timestamp())`,
-	);
+	const plant = (await seed.plant({ name })).id;
+	const { session } = await seed.actor({ kind: "plant", id: plant }, "owner");
 	const authority = async () => {
 		const actor = await RequestActor.resolve(db, session);
 		assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -126,11 +111,7 @@ async function plantWithOwner(name) {
 	return { plant, authority };
 }
 async function organization(kind, statement = null) {
-	const id = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO organization(id,kind,name,timezone,material_revision,statement_of_faith) VALUES(${id},${kind},'Synthetic network','UTC',1,${statement})`,
-	);
-	return id;
+	return (await seed.organization(kind, { name: "Synthetic network", statement_of_faith: statement })).id;
 }
 const setStatement = (id, statement) =>
 	admin.execute(sql`UPDATE organization SET statement_of_faith=${statement} WHERE id=${id}::uuid`);
@@ -144,10 +125,6 @@ async function affiliate(plant, org, acceptedAt = "2026-01-01T00:00:00Z") {
 
 // ---------------------------------------------------------------- the operations, as a user calls them
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
 const create = async (who, templateId = BYLAWS) =>
 	ok(
 		await documentsWriter.createFromTemplate(db, await who.authority(), {

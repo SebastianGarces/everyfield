@@ -6,6 +6,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
+import { ok, refusedWith } from "../../support/fixture.mts";
 
 // WP-039 slice 2: manual signals and leadership-candidate attestations through the signals operations the Attestations
 // page calls, on a scratch schema of the development or CI database. The clock is injected so ages are exact.
@@ -13,16 +14,7 @@ import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 let f, signals;
 let now = "2026-10-13T16:00:00.000Z";
 const clock = { now: () => now };
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-	return r.error;
-};
+const refusedBare = refusedWith({ details: {} });
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const rejects = (promise, pattern) =>
@@ -109,10 +101,10 @@ test("AC:PI-015 criterion 1: another key, including leadership_candidate and a W
 		"relationship",
 		"nope",
 	])
-		refused(await attest(a, key), "invalid_input");
-	refused(await correct(a, { action: "correct", key: "leadership_candidate", value: "yes" }, "1"), "invalid_input");
-	refused(await reaffirm(a, "relationship", "yes", "1"), "invalid_input");
-	refused(await signals.getHistory(f.db, a.actor, { key: "community" }), "invalid_input");
+		refusedBare(await attest(a, key), "invalid_input");
+	refusedBare(await correct(a, { action: "correct", key: "leadership_candidate", value: "yes" }, "1"), "invalid_input");
+	refusedBare(await reaffirm(a, "relationship", "yes", "1"), "invalid_input");
+	refusedBare(await signals.getHistory(f.db, a.actor, { key: "community" }), "invalid_input");
 	assert.deepEqual(await counts(w), { attestations: 0, revisions: 0, audits: 0 });
 });
 
@@ -137,11 +129,11 @@ test("AC:PI-015 AC:WP-039-3 AC:WP-039-5 criterion 2: the page shows seven Unknow
 	// An Owner reads the same page as an Admin.
 	const owned = await page(await seated(w, "owner"));
 	assert.deepEqual([owned.signals, owned.counts], [view.signals, view.counts]);
-	refused(await signals.readAttestations(f.db, member.actor, {}), "access_denied");
-	refused(await signals.getHistory(f.db, member.actor, { key: null }), "access_denied");
+	refusedBare(await signals.readAttestations(f.db, member.actor, {}), "access_denied");
+	refusedBare(await signals.getHistory(f.db, member.actor, { key: null }), "access_denied");
 	const ended = await seated(w);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${ended.id}`);
-	refused(await signals.readAttestations(f.db, ended.actor, {}), "access_denied");
+	refusedBare(await signals.readAttestations(f.db, ended.actor, {}), "access_denied");
 	// A foreign church's admin reads only its own page.
 	assert.equal(
 		(await page(stranger)).signals.every((s) => s.state === "unanswered"),
@@ -176,7 +168,7 @@ test("AC:PI-015 AC:REQ-KNOW-050 criterion 3: a signal is answered with its name 
 	assert.equal(detailed.signal.detail, "Pledges due");
 	assert.equal(detailed.signal.reference, "Budget v2");
 	// Tomorrow in the church's zone is the future.
-	refused(await attest(a, "systems_tested", "yes", { asOf: "2026-10-14" }), "invalid_input");
+	refusedBare(await attest(a, "systems_tested", "yes", { asOf: "2026-10-14" }), "invalid_input");
 	assert.equal((await entry(a, "systems_tested")).state, "unanswered");
 	// A retry with the same key returns the first result and writes nothing again.
 	const key = randomUUID();
@@ -190,7 +182,7 @@ test("AC:PI-015 AC:REQ-KNOW-050 criterion 3: a signal is answered with its name 
 		audits: before.audits + 1,
 	});
 	// The same key for a different request is refused and writes nothing.
-	refused(await attest(a, "prayer_in_gatherings", "not_yet", {}, "0", key), "idempotency_conflict");
+	refusedBare(await attest(a, "prayer_in_gatherings", "not_yet", {}, "0", key), "idempotency_conflict");
 	assert.equal((await entry(a, "prayer_in_gatherings")).value, "yes");
 });
 
@@ -199,7 +191,7 @@ test("AC:PI-014 criterion 4: a correction to another value keeps history; the sa
 	const w = await f.workspace();
 	const a = await seated(w);
 	const made = ok(await attest(a, "prayer_leader_assigned", "yes", { detail: "Grace" }));
-	refused(
+	refusedBare(
 		await correct(a, { action: "correct", key: "prayer_leader_assigned", value: "yes" }, made.signal.revision),
 		"no_change",
 	);
@@ -221,13 +213,16 @@ test("AC:PI-014 criterion 4: a correction to another value keeps history; the sa
 	assert.equal(gone.signal.value, null);
 	assert.equal(gone.signal.renewal.status, "unknown");
 	assert.notEqual(gone.signal.state, "unanswered");
-	refused(await correct(a, { action: "retract", key: "prayer_leader_assigned" }, gone.signal.revision), "not_current");
-	refused(
+	refusedBare(
+		await correct(a, { action: "retract", key: "prayer_leader_assigned" }, gone.signal.revision),
+		"not_current",
+	);
+	refusedBare(
 		await correct(a, { action: "correct", key: "prayer_leader_assigned", value: "yes" }, gone.signal.revision),
 		"not_current",
 	);
 	// Never-answered signals have nothing to correct or retract.
-	refused(await correct(a, { action: "retract", key: "systems_tested" }, "0"), "not_current");
+	refusedBare(await correct(a, { action: "retract", key: "systems_tested" }, "0"), "not_current");
 	const view = await page(a);
 	assert.equal(view.counts.notAnswered, 7);
 	// A retracted signal is answered again, and every earlier answer stays.
@@ -290,7 +285,7 @@ test("AC:PI-014 criterion 5: history lists every revision newest first, and the 
 	);
 	// No other authority writes a revision: a Member cannot.
 	const member = await seated(w, "member");
-	refused(await attest(member, "systems_tested"), "access_denied");
+	refusedBare(await attest(member, "systems_tested"), "access_denied");
 	assert.equal((await counts(w)).revisions, 3);
 });
 
@@ -369,16 +364,16 @@ test("AC:B01-025 AC:B01-026 criterion 7: Still true refreshes only that signal; 
 		made[key] = ok(await attest(a, key, "yes")).signal;
 	now = at(20);
 	const before = await counts(w);
-	refused(
+	refusedBare(
 		await reaffirm(a, "financial_base_established", "yes", made.financial_base_established.revision),
 		"not_reaffirmable",
 	);
-	refused(await reaffirm(a, "systems_tested", "yes", "0"), "not_reaffirmable");
-	refused(
+	refusedBare(await reaffirm(a, "systems_tested", "yes", "0"), "not_reaffirmable");
+	refusedBare(
 		await reaffirm(a, "prayer_rhythm_established", "not_yet", made.prayer_rhythm_established.revision),
 		"revision_conflict",
 	);
-	refused(await reaffirm(a, "prayer_rhythm_established", "yes", "9"), "revision_conflict");
+	refusedBare(await reaffirm(a, "prayer_rhythm_established", "yes", "9"), "revision_conflict");
 	assert.deepEqual(await counts(w), before);
 	const renewed = ok(await reaffirm(a, "prayer_rhythm_established", "yes", made.prayer_rhythm_established.revision));
 	assert.equal(renewed.signal.ageDays, 0);
@@ -390,18 +385,18 @@ test("AC:B01-025 AC:B01-026 criterion 7: Still true refreshes only that signal; 
 	assert.equal((await entry(a, "financial_base_established")).ageDays, 20);
 	assert.equal((await entry(a, "prayer_in_gatherings")).revision, "1");
 	// A stale reviewed revision is refused after the signal moved on.
-	refused(
+	refusedBare(
 		await reaffirm(a, "prayer_rhythm_established", "yes", made.prayer_rhythm_established.revision),
 		"revision_conflict",
 	);
 	// An unanswered signal and a retracted signal cannot be reaffirmed.
-	refused(await reaffirm(a, "core_group_giving", "yes", "0"), "revision_conflict");
+	refusedBare(await reaffirm(a, "core_group_giving", "yes", "0"), "revision_conflict");
 	const retracted = ok(
 		await correct(a, { action: "retract", key: "core_group_giving" }, made.core_group_giving.revision),
 	);
-	refused(await reaffirm(a, "core_group_giving", "yes", retracted.signal.revision), "not_current");
+	refusedBare(await reaffirm(a, "core_group_giving", "yes", retracted.signal.revision), "not_current");
 	const fresh = await seated(await f.workspace());
-	refused(await reaffirm(fresh, "prayer_in_gatherings", "yes", "0"), "not_current");
+	refusedBare(await reaffirm(fresh, "prayer_in_gatherings", "yes", "0"), "not_current");
 	// One failed row does not undo the others: each reaffirm is its own write.
 	const rows_ = await Promise.all([
 		reaffirm(a, "prayer_in_gatherings", "yes", made.prayer_in_gatherings.revision),
@@ -444,20 +439,20 @@ test("AC:PI-014 AC:AUDIT-004 AC:WP-039-4 criterion 8: every accepted write has o
 	assert.deepEqual(corrected.map((r) => r.action).sort(), ["attestation.corrected", "attestation.recorded"]);
 	// Refusals leave nothing behind.
 	const snapshot = await counts(w);
-	refused(await attest(member, "values_documented"), "access_denied");
-	refused(await correct(member, { action: "retract", key: "systems_tested" }, "2"), "access_denied");
-	refused(await reaffirm(member, "core_group_giving", "yes", "0"), "access_denied");
+	refusedBare(await attest(member, "values_documented"), "access_denied");
+	refusedBare(await correct(member, { action: "retract", key: "systems_tested" }, "2"), "access_denied");
+	refusedBare(await reaffirm(member, "core_group_giving", "yes", "0"), "access_denied");
 	// An admin of another church names this church's signal: it is theirs alone.
 	ok(await attest(foreign, "systems_tested", "yes"));
 	assert.deepEqual(await counts(w), snapshot);
 	assert.equal((await one(sql`SELECT count(*)::int n FROM attestation WHERE plant_id=${other.id}`)).n, 1);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${b.id}`);
-	refused(await attest(b, "values_documented"), "access_denied");
+	refusedBare(await attest(b, "values_documented"), "access_denied");
 	// An organization seat has no authority over a church.
 	const org = await f.workspace("sending_church");
 	const orgAdmin = await seated(org);
-	refused(await signals.readAttestations(f.db, orgAdmin.actor, {}), "access_denied");
-	refused(await attest(orgAdmin, "values_documented"), "access_denied");
+	refusedBare(await signals.readAttestations(f.db, orgAdmin.actor, {}), "access_denied");
+	refusedBare(await attest(orgAdmin, "values_documented"), "access_denied");
 	assert.deepEqual(await counts(w), snapshot);
 	void before;
 	// Two admins save a first answer from the same revision: one wins, one revision_conflict.
@@ -579,7 +574,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 		one_,
 	);
 	const lee = await person(a, "Lee Day");
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -587,7 +582,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 		}),
 		"invalid_input",
 	);
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -599,7 +594,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 	const stranger = await seated(await f.workspace());
 	const foreignPerson = await person(stranger, "Foreign Canary");
 	const nothing = await counts(w);
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -607,7 +602,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 		}),
 		"not_found",
 	);
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -616,7 +611,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 		"not_found",
 	);
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${lee.id}`);
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -628,7 +623,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 	// Not an eighth signal: the signal list is unchanged and a Member cannot record one.
 	assert.equal((await page(a)).signals.length, 7);
 	const member = await seated(w, "member");
-	refused(
+	refusedBare(
 		await signals.attestCandidate(f.db, member.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "0",
@@ -654,7 +649,7 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: "0", input }),
 	).candidate;
 	// The same facts are no change.
-	refused(
+	refusedBare(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: made.revision,
@@ -683,7 +678,7 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 	).candidate;
 	assert.equal(gone.state, "retracted");
 	assert.equal(gone.established, false);
-	refused(
+	refusedBare(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: gone.revision,
@@ -691,7 +686,7 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 		}),
 		"not_current",
 	);
-	refused(
+	refusedBare(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: "9",
@@ -762,7 +757,7 @@ test("WP-039 C2: a retired Person's candidate keeps its row and statement, marke
 		true,
 	);
 	const untouched = await counts(w);
-	refused(
+	refusedBare(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
 			expectedRevision: made.revision,
@@ -838,5 +833,5 @@ test("AC:REQ-TEAM-017 criterion 10: recording, correcting and retracting a candi
 	assert.deepEqual(await snapshot(), before);
 	// Organization reads get nothing new: the organization seat cannot read candidates or history.
 	const org = await seated(await f.workspace("sending_church"));
-	refused(await signals.getHistory(f.db, org.actor, { key: null }), "access_denied");
+	refusedBare(await signals.getHistory(f.db, org.actor, { key: null }), "access_denied");
 });

@@ -1,4 +1,4 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refused, waitingOnLock } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -25,20 +25,24 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-const database = await testDatabase({ prefix: "wp011", max: 6 });
+const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "America/New_York" } });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let queries = [];
 /** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
 let beforeSend = null;
 
-const plants = [randomUUID(), randomUUID()],
-	organization = randomUUID(),
-	actors = Array.from({ length: 5 }, () => ({
-		id: randomUUID(),
-		user: randomUUID(),
-		session: randomUUID(),
-	}));
+const plants = [database.tenant.id, (await database.plant({ timezone: "America/New_York" })).id],
+	organization = (await database.organization("sending_church", { timezone: "America/New_York" })).id,
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		await database.actor({ kind: "organization", id: organization, organizationKind: "sending_church" }, "owner", {
+			account: { registration_kind: "planter" },
+		}),
+		database.actors.admin,
+	];
 const ctx = (who = 0, selected = { kind: "plant", id: plants[0] }) => ({
 	session: actors[who].session,
 	selected,
@@ -49,14 +53,6 @@ const orgCtx = () =>
 		id: organization,
 		organizationKind: "sending_church",
 	});
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-};
 async function tx(body) {
 	return db.transaction(body);
 }
@@ -81,34 +77,6 @@ before(async () => {
 			return hook ? hook(text).then(() => Reflect.apply(query, this, args)) : Reflect.apply(query, this, args);
 		};
 	});
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/New_York',7,14,1,8,1,1)`,
-		);
-	await admin.execute(
-		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${sql.param(organization)},'sending_church','Synthetic','America/New_York',1)`,
-	);
-	for (const [i, plant, organizationId, roleName] of [
-		[0, plants[0], null, "owner"],
-		[1, plants[0], null, "member"],
-		[2, plants[1], null, "admin"],
-		[3, null, organization, "owner"],
-		[4, plants[0], null, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(organizationId)},${sql.param(roleName)},clock_timestamp())`,
-		);
 });
 after(async () => {
 	await database.close();
@@ -116,21 +84,8 @@ after(async () => {
 
 /** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
 async function seatedReader(role, selected) {
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	const seat = (
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
-		)
-	).rows[0].id;
+	const a = await database.actor(null, role, { account: { registration_kind: "planter" } });
+	const seat = await database.seat(a, selected, role);
 	// The request's viewer lookup, before the change lands (D59).
 	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
 	return { ...a, seat, selected, reader };
@@ -1465,9 +1420,7 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 	t.after(async () => {
 		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=ANY(${sql.param(made)}::uuid[])`);
 	});
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
-	);
+	await database.plant({ id: plant, timezone: "America/New_York" });
 	const seated = (role, selected = { kind: "plant", id: plant }) => seatedReader(role, selected);
 	const owner = await seated("owner");
 	const p = ok(
@@ -1676,7 +1629,12 @@ test("INV-concurrency (RT-3): a change committed while a native write is in flig
 			input: { personId: p.id, patch: { displayName: "Mine" } },
 		}),
 	);
-	while (!queries.some((q) => q.startsWith("/* evf:final */"))) await new Promise((r) => setTimeout(r, 10));
+	// The native write's final statement waits for the other writer's row lock.
+	await waitingOnLock(db);
+	assert.ok(
+		queries.some((q) => q.startsWith("/* evf:final */")),
+		"the final statement is the one waiting",
+	);
 	release();
 	await other;
 	refused(await mine, "conflict");

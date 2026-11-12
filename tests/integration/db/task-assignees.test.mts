@@ -1,4 +1,5 @@
 import { testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -33,21 +34,13 @@ test("AC:TARGET-TSK-002 criterion 1: each task keeps its single assignee after t
 		);
 	await migrate(admin, schema, pathToFileURL(directory + "/"));
 
-	const plant = randomUUID(),
-		first = randomUUID(),
-		second = randomUUID();
-	await run(
-		querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic Plant','America/Chicago',7,14,1,8,1,1)`,
-	);
-	for (const id of [first, second]) {
-		const user = randomUUID();
-		await run(
-			querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${user + "@example.test"},true,'Synthetic')`,
-		);
-		await run(
-			querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${id},${user},'active','planter')`,
-		);
-	}
+	const seed = seeds(admin);
+	const { id: plant } = await seed.plant({ name: "Synthetic Plant" });
+	const planter = { account: { registration_kind: "planter" } };
+	const [{ id: first }, { id: second }] = [
+		await seed.actor(null, "owner", planter),
+		await seed.actor(null, "owner", planter),
+	];
 	const held = new Map<string, string | null>([
 		[randomUUID(), first],
 		[randomUUID(), second],

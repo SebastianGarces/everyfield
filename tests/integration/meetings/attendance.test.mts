@@ -16,20 +16,12 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // WP-022: attendance, finalization and its generated work, the Vision evaluation, reports and attendee notes, through
 // the native write boundary (withMeetingsWrite) and the request's verified viewer, on an isolated schema.
 
 let f, writer, plant, other, owner, member, foreign;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code, JSON.stringify(r.error));
-	return r.error;
-};
 const write = (who, op, input) => withMeetingsWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
 const guestWrite = (who, op, input) =>
 	withMeetingsWrite(f.db, who.actor, (tx, ctx) => guestsWriter[op](tx, ctx, input));

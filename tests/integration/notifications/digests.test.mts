@@ -11,6 +11,7 @@ import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";
 import { db as admin, runtime, runtimeSettings, setup, teardown } from "../jobs/support.mts";
+import { seeds } from "../../support/fixture.mts";
 
 // The church digest (NTF-007) and the oversight digest (NTF-008) as the scheduled runner delivers them: GET with the
 // CRON_SECRET bearer and a clock the test moves, on a suite schema of the shared development database. Each scenario
@@ -106,10 +107,14 @@ async function person(name: string, prefs: Record<string, boolean | "daily" | "w
 	return { id, email, session };
 }
 async function church(name: string, zone: string, schedule: { weekday: number; hour: number; cadence?: string }) {
-	const id = randomUUID();
-	await admin.execute(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,digest_cadence,phase,material_revision)
-		VALUES(${id},${name},${zone},7,14,${schedule.weekday},${schedule.hour},${schedule.cadence ?? "weekly"},1,1)`);
-	return id;
+	const plant = await seeds(admin).plant({
+		name,
+		timezone: zone,
+		digest_weekday: schedule.weekday,
+		digest_hour: schedule.hour,
+		digest_cadence: schedule.cadence ?? "weekly",
+	});
+	return plant.id;
 }
 async function organization(name: string, zone: string) {
 	const id = randomUUID();
