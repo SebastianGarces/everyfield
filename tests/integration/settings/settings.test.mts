@@ -104,7 +104,7 @@ const effect = async (tx, input) => {
 	if (faults) throw Error("intent_fault");
 	return enqueueJob(tx, {
 		tenant: input.owner.id,
-		kind: "notification",
+		kind: "digest",
 		subject: input.owner.id,
 		key: `settings/${input.kind}/${input.operationId}/${input.revision}`,
 		revision: input.revision,
@@ -129,31 +129,10 @@ before(async () => {
 	});
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx, i) => {
-			if (faults) throw Error("notice_fault");
-			return queueJobs(tx, [
-				{
-					tenant: i.pair.organization.id,
-					kind: "notification",
-					subject: i.relationshipId,
-					key: "sharing/" + i.eventId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]);
+		invalidate: (tx, i) => {
+			if (faults) throw Error("grant_fault");
+			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
-		invalidate: (tx, i) =>
-			queueJobs(
-				tx,
-				i.owners.map((owner) => ({
-					tenant: owner.id,
-					kind: "assessment",
-					subject: i.sourceId,
-					key: "invalidate/" + i.sourceId + "/" + i.revision,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				})),
-			),
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
 	const credentials = createAccountCredentials({
@@ -201,17 +180,6 @@ before(async () => {
 		organizationEffects,
 		effects: {
 			replan: effect,
-			invalidate: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.owner.id,
-					kind: "assessment",
-					subject: i.owner.id,
-					key: "settings-material/" + i.operationId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				});
-				if (faults) throw Error("invalidate_fault");
-			},
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
@@ -304,7 +272,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	faults = true;
 	await assert.rejects(
 		call("saveSection", f.a, command({ ...v.input, change: { kind: "digest", value: { cadence: "off" } } }, "2"), f.p),
-		/invalidate_fault/,
+		/intent_fault/,
 	);
 	faults = false;
 	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
@@ -952,7 +920,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	denied(await call("saveSection", f.a, command(input, "2"), f.p), "conflict");
 	const next = { ...input, expectedConsentRevision: "2", patch: { people: false } };
 	faults = true;
-	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /notice_fault/);
+	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /grant_fault/);
 	faults = false;
 	assert.equal(
 		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
