@@ -291,7 +291,10 @@ test('AC:TARGET-PPL-018 a repeat of a skipped row loses "Add, review later"; oth
 });
 
 test("INV-pairs-count: the header link counts the listed pairs, says 100+ past 100 and hides at zero", () => {
-	const pairs = (n, completeness = "complete") => ({ items: Array.from({ length: n }, (_, i) => ({ i })), completeness });
+	const pairs = (n, completeness = "complete") => ({
+		items: Array.from({ length: n }, (_, i) => ({ i })),
+		completeness,
+	});
 	assert.equal(pairsToReview(pairs(1)), "1 to review in Duplicates");
 	assert.equal(pairsToReview(pairs(3)), "3 to review in Duplicates");
 	assert.equal(pairsToReview(pairs(100)), "100 to review in Duplicates");

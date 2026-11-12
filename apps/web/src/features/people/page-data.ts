@@ -2,7 +2,12 @@ import "server-only";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { listPeopleRequest, type PeopleContext } from "@everyfield/contracts/people";
 import type * as people from "@everyfield/contracts/people";
-import { listDuplicatePairs, peopleReader, readPersonPage as readPersonPageData, type PersonPageParts } from "@everyfield/domain/people";
+import {
+	listDuplicatePairs,
+	peopleReader,
+	readPersonPage as readPersonPageData,
+	type PersonPageParts,
+} from "@everyfield/domain/people";
 import type { z } from "zod";
 import { isFiltered, listRequest, pageCount, pairsToReview, type PeopleQuery } from "./model.ts";
 
