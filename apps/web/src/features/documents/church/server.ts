@@ -79,10 +79,10 @@ export async function loadLibrary(
 	}
 }
 
-/** The church plant's archived Church Documents, newest archive first, for an Owner or Admin. One statement. */
+/** The church plant's archived Church Documents, newest archive first. The page lets only an Owner or Admin in. */
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
 	const db = requestDatabase();
-	if (!db || !canManageChurch(authority)) return db ? { status: "refused" } : { status: "failed" };
+	if (!db) return { status: "failed" };
 	try {
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
 		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
