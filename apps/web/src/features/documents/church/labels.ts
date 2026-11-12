@@ -33,18 +33,33 @@ const SIZES: Record<string, string> = Object.fromEntries(
 	]),
 );
 
+/** The blocks whose name does not depend on their attributes, as Insert and template compare both say it. */
+export const BLOCK_NAME = {
+	paragraph: "Paragraph",
+	bulletList: "Bulleted list",
+	orderedList: "Numbered list",
+	quote: "Quote",
+	divider: "Divider",
+	spacer: "Spacer",
+	pageBreak: "Page break",
+	box: "Colored box",
+	table: "Table",
+} as const;
+
+const named = (type: keyof typeof BLOCK_NAME) => () => BLOCK_NAME[type];
+
 /** What a block is called: "Paragraph", "Heading 2", "3 columns". A heading with no level is the format's level 2. */
 const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
-	paragraph: () => "Paragraph",
+	paragraph: named("paragraph"),
 	heading: (b) => `Heading ${(b.attrs as { level?: number } | undefined)?.level ?? 2}`,
-	bulletList: () => "Bulleted list",
-	orderedList: () => "Numbered list",
-	quote: () => "Quote",
-	divider: () => "Divider",
-	spacer: () => "Spacer",
-	pageBreak: () => "Page break",
+	bulletList: named("bulletList"),
+	orderedList: named("orderedList"),
+	quote: named("quote"),
+	divider: named("divider"),
+	spacer: named("spacer"),
+	pageBreak: named("pageBreak"),
 	columns: (b) => `${(b as { content?: unknown[] }).content?.length ?? 2} columns`,
-	box: () => "Colored box",
+	box: named("box"),
 	image: (b) => {
 		const source = (b.attrs as { source?: string } | undefined)?.source ?? "logo";
 		return source === "mark" ? "Mark" : source === "photo" ? "Photo" : "Logo";
@@ -54,7 +69,7 @@ const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
 		return kind === "signature" ? "Signature line" : kind === "date" ? "Date line" : "Write-in line";
 	},
 	slot: (b) => (b.attrs as { label?: string } | undefined)?.label ?? "Section",
-	table: () => "Table",
+	table: named("table"),
 };
 
 export const blockLabel = (block: BlockNode) => BLOCK_LABEL[block.type]?.(block) ?? "Block";

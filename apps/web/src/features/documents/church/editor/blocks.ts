@@ -6,6 +6,7 @@ import type { Condition } from "./condition.ts";
 import { conditionIssue } from "./condition-extension.ts";
 import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
 import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
+import { BLOCK_NAME } from "../labels.ts";
 
 // Whole-block actions, each one transaction, so one Undo reverses it. Insert puts the new block after the block that
 // holds the selection, inside the innermost column, box, conditional text, header or footer (insertionPoint). Move up,
@@ -68,26 +69,26 @@ export type InsertKind =
 	| "slot";
 type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "tables" | "conditions" | "sections";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
-	{ kind: "paragraph", label: "Paragraph", group: "text" },
+	{ kind: "paragraph", label: BLOCK_NAME.paragraph, group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
-	{ kind: "bulletList", label: "Bulleted list", group: "text" },
-	{ kind: "orderedList", label: "Numbered list", group: "text" },
-	{ kind: "quote", label: "Quote", group: "text" },
-	{ kind: "divider", label: "Divider", group: "rules" },
+	{ kind: "bulletList", label: BLOCK_NAME.bulletList, group: "text" },
+	{ kind: "orderedList", label: BLOCK_NAME.orderedList, group: "text" },
+	{ kind: "quote", label: BLOCK_NAME.quote, group: "text" },
+	{ kind: "divider", label: BLOCK_NAME.divider, group: "rules" },
 	{ kind: "accentBar", label: "Accent bar", group: "rules" },
-	{ kind: "spacer", label: "Spacer", group: "rules" },
-	{ kind: "pageBreak", label: "Page break", group: "rules" },
+	{ kind: "spacer", label: BLOCK_NAME.spacer, group: "rules" },
+	{ kind: "pageBreak", label: BLOCK_NAME.pageBreak, group: "rules" },
 	{ kind: "columns2", label: "2 columns", group: "layout" },
 	{ kind: "columns3", label: "3 columns", group: "layout" },
 	{ kind: "columns4", label: "4 columns", group: "layout" },
-	{ kind: "box", label: "Colored box", group: "layout" },
+	{ kind: "box", label: BLOCK_NAME.box, group: "layout" },
 	{ kind: "writeIn", label: "Write-in line", group: "lines" },
 	{ kind: "signature", label: "Signature line", group: "lines" },
 	{ kind: "dateLine", label: "Date line", group: "lines" },
 	{ kind: "logo", label: "Logo", group: "images" },
 	{ kind: "mark", label: "Mark", group: "images" },
 	{ kind: "photo", label: "Photo", group: "images" },
-	{ kind: "table", label: "Table", group: "tables" },
+	{ kind: "table", label: BLOCK_NAME.table, group: "tables" },
 	{ kind: "checklist", label: "Checklist rows", group: "tables" },
 	{ kind: "budget", label: "Budget table", group: "tables" },
 	{ kind: "if", label: "Conditional text", group: "conditions" },
