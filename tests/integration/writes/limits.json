@@ -1398,6 +1398,12 @@
 		"limit": 5,
 		"retry": 10
 	},
+	"people/duplicates.dismissDuplicatePair": {
+		"limit": 3
+	},
+	"people/duplicates.restoreDuplicatePair": {
+		"limit": 3
+	},
 	"people/csv/index.signPeopleImport": {
 		"limit": 1
 	},

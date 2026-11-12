@@ -226,25 +226,24 @@ const changeRow = z.object({ found: z.boolean(), changed: z.boolean() });
  * click, a second tab) changes nothing, writes no audit row and answers "noop". A pair on neither list is refused as
  * pair_unavailable, with nothing written.
  */
-function pairWrite(change: "dismiss" | "restore") {
-	return (tx: Tx, ctx: WriteContext, raw: unknown) =>
-		reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
-			const plant = ctx.selected.id;
-			const input = parse(c.duplicatePairRequest, raw);
-			await declareWrite(tx, "established");
-			await lockOwner(tx, ctx);
-			const actor = (await authorize(tx, ctx, true)).accountId;
-			const write =
-				change === "dismiss"
-					? sql`INSERT INTO person_duplicate_dismissal (plant_id,person_id,with_person_id)
+function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw: unknown) {
+	return reply(tx, async () => {
+		if (ctx.selected.kind !== "plant") deny();
+		const plant = ctx.selected.id;
+		const input = parse(c.duplicatePairRequest, raw);
+		await declareWrite(tx, "established");
+		await lockOwner(tx, ctx);
+		const actor = (await authorize(tx, ctx, true)).accountId;
+		const write =
+			change === "dismiss"
+				? sql`INSERT INTO person_duplicate_dismissal (plant_id,person_id,with_person_id)
  SELECT ${plant}::uuid,id,with_id FROM pair ON CONFLICT (plant_id,person_id,with_person_id) DO NOTHING
  RETURNING person_id,with_person_id`
-					: sql`DELETE FROM person_duplicate_dismissal d USING pair
+				: sql`DELETE FROM person_duplicate_dismissal d USING pair
  WHERE d.plant_id=${plant}::uuid AND d.person_id=pair.id AND d.with_person_id=pair.with_id
  RETURNING d.person_id,d.with_person_id`;
-			const action = change === "dismiss" ? "people.duplicate_dismissed" : "people.duplicate_restored";
-			const r = await tx.execute(sql`WITH pair AS (
+		const action = change === "dismiss" ? "people.duplicate_dismissed" : "people.duplicate_restored";
+		const r = await tx.execute(sql`WITH pair AS (
   SELECT p.id,m.id with_id FROM person p JOIN person m ON m.id=${input.withPersonId}::uuid AND m.tenant_id=p.tenant_id
   WHERE p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.state='live' AND m.state='live' AND ${flagged}
   FOR SHARE OF p,m
@@ -253,12 +252,16 @@ function pairWrite(change: "dismiss" | "restore") {
   SELECT ${plant}::uuid,${actor}::uuid,${hash([plant, actor])},${action},${change === "dismiss" ? "hide" : "restore"},
    'person',person_id,jsonb_build_object('withPersonId',with_person_id) FROM changed RETURNING 1
 ) SELECT EXISTS(SELECT FROM pair) AS found,EXISTS(SELECT FROM audit) AS changed`);
-			const row = changeRow.parse(r.rows[0]);
-			if (!row.found) deny("pair_unavailable");
-			return c.duplicatePairChange.parse({ outcome: row.changed ? "changed" : "noop" });
-		});
+		const row = changeRow.parse(r.rows[0]);
+		if (!row.found) deny("pair_unavailable");
+		return c.duplicatePairChange.parse({ outcome: row.changed ? "changed" : "noop" });
+	});
 }
 /** people.dismissDuplicatePair: "Not a duplicate" takes a listed pair off the list and into the Dismissed view. */
-export const dismissDuplicatePair = pairWrite("dismiss");
+export async function dismissDuplicatePair(tx: Tx, ctx: WriteContext, raw: unknown) {
+	return pairWrite("dismiss", tx, ctx, raw);
+}
 /** people.restoreDuplicatePair: Restore puts a dismissed pair back on the list, in its import order. */
-export const restoreDuplicatePair = pairWrite("restore");
+export async function restoreDuplicatePair(tx: Tx, ctx: WriteContext, raw: unknown) {
+	return pairWrite("restore", tx, ctx, raw);
+}
