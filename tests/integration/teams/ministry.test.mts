@@ -125,12 +125,12 @@ async function worship(label) {
 	return { team, people, former, gone };
 }
 
-test("AC:TARGET-MTG-007 a team meeting needs one current ministry and an Owner or Admin", async () => {
+test("AC:TARGET-MTG-007 a team meeting needs one current ministry and an Owner, Admin or its own leader", async () => {
 	const team = await makeTeam("Hospitality planning");
-	// A Member who leads the ministry still plans no meeting.
+	// A Member who does not lead the ministry plans no meeting.
 	const lead = await own(1, "Member Lead", { stage: "launch_team" });
 	await assign(team, await makeRole(team.id, "Host lead", { leadership: true }), lead);
-	refused(await plan({ teamId: team.id }, 1));
+	refused(await plan({ teamId: team.id }, 4));
 	const missing = refused(await plan({}), "invalid_input");
 	assert.deepEqual(
 		missing.details.issues.map((i) => [i.path, i.problem]),
@@ -152,6 +152,82 @@ test("AC:TARGET-MTG-007 a team meeting needs one current ministry and an Owner o
 	const made = ok(await plan({ teamId: team.id }, 2)).meeting;
 	assert.equal(made.type, "team_meeting");
 	assert.deepEqual(made.team, { id: team.id, name: "Hospitality planning" });
+});
+
+test("AC:TARGET-TEAM-013 REQ-TEAM-013 a ministry's own linked leader schedules its team meeting, and nothing else", async () => {
+	const w = await worship("Led");
+	const lead = await own(1, "Member Lead", { stage: "launch_team" });
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: await rev("team", w.team.id),
+			input: { teamId: w.team.id, personId: lead },
+		}),
+	);
+	const elsewhere = await makeTeam("Led elsewhere");
+	await assign(elsewhere, await makeRole(elsewhere.id, "Lead", { leadership: true }), await person("Elsewhere Lead"));
+	const meetings = () => count(sql`SELECT count(*)::int AS n FROM meeting`);
+	const before = await meetings();
+
+	// The current leader, linked to this Member's account, schedules the ministry's meeting with its subtype.
+	const made = ok(await plan({ teamId: w.team.id, subtype: "planning" }, 1)).meeting;
+	assert.equal(made.type, "team_meeting");
+	assert.equal(made.subtype, "planning");
+	assert.deepEqual(made.team, { id: w.team.id, name: w.team.name });
+	assert.equal(made.guestCount, 6);
+	const read = ok(await meetingsReader.get(db, await viewer(), { meetingId: made.id }));
+	assert.equal(read.meeting.subtype, "planning");
+	assert.equal((await admin.execute(sql`SELECT subtype FROM meeting WHERE id=${made.id}`)).rows[0].subtype, "planning");
+	assert.equal(await meetings(), before + 1);
+
+	// A plain Member, another ministry, another type, a new venue or hand-picked guests are refused.
+	refused(await plan({ teamId: w.team.id }, 4));
+	refused(await plan({ teamId: elsewhere.id }, 1));
+	refused(await plan({ type: "orientation", teamId: undefined }, 1));
+	refused(await plan({ type: "vision_meeting", teamId: undefined }, 1));
+	refused(
+		await plan(
+			{ teamId: w.team.id, venue: { kind: "new", venue: { name: "Hall", address: "1 Main" } } },
+			1,
+		),
+	);
+	refused(await plan({ teamId: w.team.id, guests: [w.former] }, 1));
+	assert.equal(await meetings(), before + 1);
+
+	// A leader whose Person is unlinked or no longer live schedules nothing.
+	await admin.execute(sql`UPDATE person SET linked_account_id=NULL WHERE id=${lead}`);
+	try {
+		refused(await plan({ teamId: w.team.id }, 1));
+	} finally {
+		await admin.execute(sql`UPDATE person SET linked_account_id=${actors[1].id} WHERE id=${lead}`);
+	}
+	await admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${lead}`);
+	try {
+		refused(await plan({ teamId: w.team.id }, 1));
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live', retired_at=NULL WHERE id=${lead}`);
+	}
+	assert.equal(await meetings(), before + 1);
+	ok(await plan({ teamId: w.team.id }, 1));
+});
+
+test("AC:TARGET-TEAM-013 a subtype is a team meeting's alone, and the Owner and Admin still schedule every type", async () => {
+	const team = await makeTeam("Subtype ministry");
+	const plain = ok(await plan({ teamId: team.id })).meeting;
+	assert.equal(plain.subtype, null);
+	for (const subtype of ["regular", "training", "planning", "special", "rehearsal"])
+		assert.equal(ok(await plan({ teamId: team.id, subtype }, 2)).meeting.subtype, subtype);
+	const wrong = refused(await plan({ type: "orientation", teamId: undefined, subtype: "training" }), "invalid_input");
+	assert.deepEqual(
+		wrong.details.issues.map((i) => [i.path, i.problem]),
+		[["input.subtype", "subtype_only_for_team_meeting"]],
+	);
+	refused(await plan({ teamId: team.id, subtype: "worship" }), "invalid_input");
+	for (const who of [0, 2])
+		for (const type of ["vision_meeting", "orientation", "prelaunch_practice"]) {
+			const made = ok(await plan({ type, teamId: undefined }, who)).meeting;
+			assert.deepEqual([made.type, made.subtype, made.team], [type, null, null]);
+		}
 });
 
 test("AC:TARGET-MTG-007 a team meeting's guest list is each person serving now, once, invited and absent", async () => {

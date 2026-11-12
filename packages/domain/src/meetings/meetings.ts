@@ -94,9 +94,15 @@ export const meetingsWriter = {
 					zone = w.plant.timezone,
 					startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
 				const plant = sql`${w.plant.id}::uuid`;
-				// A team meeting's ministry, locked while its people are copied; an archived one is refused.
+				// REQ-TEAM-013: a Member schedules only their own ministry's team meeting, with its copied roster and no new
+				// venue or hand-picked guests, which stay with an Owner or Admin.
+				if (!w.admin && (i.type !== "team_meeting" || i.venue.kind === "new" || i.guests.length)) deny();
+				// A team meeting's ministry, locked while its people are copied; an archived one is refused. `leads` is the
+				// attendance rule (REQ-MTG-010, D-562): the ministry's leader is a live Person linked to the writer.
 				const team = i.teamId
 					? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
+						'leads', EXISTS (SELECT FROM person lp WHERE lp.id = t.leader_person_id AND lp.tenant_id = t.plant_id
+							AND lp.state = 'live' AND lp.linked_account_id = ${w.accountId}::uuid),
 						'people', (SELECT coalesce(json_agg(s.id ORDER BY s.id), '[]') FROM (${servingPeople(sql`t.id`, plant)}) s))
 						FROM team t WHERE t.id = ${sql.param(i.teamId)}::uuid AND t.plant_id = ${plant} FOR SHARE)`
 					: sql`NULL::json`;
@@ -112,10 +118,13 @@ export const meetingsWriter = {
 						vision_number: z.number().int(),
 						venue: venueFacts,
 						guests: z.array(z.uuid()),
-						team: z.object({ name: z.string(), archived: z.boolean(), people: z.array(z.uuid()) }).nullable(),
+						team: z
+							.object({ name: z.string(), archived: z.boolean(), leads: z.boolean(), people: z.array(z.uuid()) })
+							.nullable(),
 						now: z.coerce.date(),
 					})
 					.parse(r.rows[0]);
+				if (!w.admin && (!f.team?.leads || f.team.archived)) deny();
 				if (f.guests.length !== i.guests.length) deny("invalid_subject");
 				if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
 				// The ministry's people join as copied guests; a person also chosen by hand stays a hand-added guest.
@@ -130,7 +139,7 @@ export const meetingsWriter = {
 					plant_id: w.plant.id,
 					revision: "1",
 					type: i.type,
-					subtype: null,
+					subtype: i.subtype ?? null,
 					status: "planning",
 					title: i.title?.trim() || null,
 					notes: i.notes?.trim() || null,
@@ -156,10 +165,11 @@ export const meetingsWriter = {
 				};
 				// The meeting, its copied venue, agenda, kit, guests and reminders commit together or not at all.
 				audit.writes
-					.push(sql`INSERT INTO meeting (id, plant_id, type, team_id, title, notes, creator_id, local_date, local_time,
-					timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
+					.push(sql`INSERT INTO meeting (id, plant_id, type, subtype, team_id, title, notes, creator_id, local_date,
+					local_time, timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
 					attendance_revision, agenda, agenda_version, kit_version)
-					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.team_id}::uuid, ${m.title}, ${m.notes}, ${w.accountId}::uuid,
+					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.subtype}, ${m.team_id}::uuid, ${m.title}, ${m.notes},
+						${w.accountId}::uuid,
 						${m.local_date}::date, ${m.local_time}::time, ${zone}, ${startsAt.toISOString()}::timestamptz, '1',
 						${m.venue_id}::uuid, ${m.venue_name}, ${m.venue_address}, ${m.vision_number}::int, 'planning', 1,
 						${JSON.stringify(agenda)}::jsonb, ${m.agenda_version}::int, ${m.kit_version}::int)`);
@@ -183,10 +193,13 @@ export const meetingsWriter = {
 						visionNumber: m.vision_number,
 						guests: m.guest_count,
 						...(m.team_id ? { teamId: m.team_id } : {}),
+						...(m.subtype ? { subtype: m.subtype } : {}),
 						...facts(m),
 					},
 				};
-			});
+			},
+			{ member: true },
+			);
 		});
 	},
 	async edit(tx: Tx, ctx: MeetingsContext, raw: unknown) {

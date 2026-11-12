@@ -7,6 +7,7 @@ import {
 	kitCategory,
 	meetingId,
 	meetingStatus,
+	meetingSubtype,
 	meetingType,
 	presence,
 	reminderSlot,
@@ -87,6 +88,8 @@ export const agendaResult = z.strictObject({
 });
 export const meetingDetail = z.strictObject({
 	...meetingSummary.shape,
+	/** A team meeting's subtype when one was chosen; other meetings have none. */
+	subtype: meetingSubtype.nullable(),
 	notes: z.string().nullable(),
 	agenda: agendaResult,
 	kit: z.strictObject({ version: z.int().min(1), checked: z.int().min(0), total: z.int().min(0) }).nullable(),
