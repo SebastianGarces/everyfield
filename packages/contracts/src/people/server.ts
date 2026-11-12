@@ -142,9 +142,4 @@ export interface AccountPersonProducer<Tx> {
 				| { kind: "first"; displayName: string };
 		},
 	): Promise<PeopleReply<z.infer<typeof result.accountPersonResolution>>>;
-	ensureGuest(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.guestSelection>,
-	): Promise<PeopleReply<z.infer<typeof lockedPersonReference>>>;
 }

@@ -125,8 +125,10 @@ async function runTick() {
 const feed = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
 /** The recipient's bell entries about this meeting, as [category, title]. */
 async function bell(who: number, meetingId: string) {
-	// A notice shows from its time on the database clock, which may trail the host's by a few milliseconds.
-	await new Promise((resolve) => setTimeout(resolve, 200));
+	// A notice shows from its time on the database clock, which may trail the host's by a few milliseconds: bring this
+	// meeting's notices that are still ahead of it back to the database's now, in their order.
+	await admin.execute(sql`UPDATE notice SET eligible_at=clock_timestamp()
+		WHERE source_record_id=${meetingId} AND eligible_at>clock_timestamp()`);
 	const reader = await RequestActor.resolve(db, actors[who]!.session);
 	return ok(await feed.readFeed(db, reader, {}))
 		.items.filter((i) => i.subject?.kind === "meeting" && i.subject.id === meetingId)

@@ -122,6 +122,13 @@ export const RULES: readonly Rule[] = [
 		paths: ["scripts/lint-rule-coverage.mjs"],
 		tests: ["tests/workflow/lint-rule-coverage.test.mjs"],
 	},
+	// The guard reads every file under tests/integration as text (T-261). A change to the guard itself is a changed test
+	// file under tests/workflow, which runs everything.
+	{
+		name: "integration timing guard",
+		paths: ["tests/integration/**"],
+		tests: ["tests/workflow/integration-timing.test.mjs"],
+	},
 	{ name: "coverage read tracer", paths: ["scripts/trace-reads.mjs"], tests: ["tests/workflow/nightly.test.ts"] },
 	// Fixtures and helpers next to the tests: the tests read them, so coverage cannot see every use.
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
