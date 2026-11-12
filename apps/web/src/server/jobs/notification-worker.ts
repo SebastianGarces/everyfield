@@ -143,10 +143,6 @@ export function createNotificationWorker(config: { mail: ReturnType<typeof creat
 }
 export type NotificationWorker = ReturnType<typeof createNotificationWorker>;
 
-/** The mail rows an authorize check reads, as `i(id, recipient, notice)`. */
-const mailGrantInput = (mail: readonly { id: string; recipient: string | null; notice: string | null }[]) =>
-	sql`jsonb_to_recordset(${JSON.stringify(mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice })))}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
-
 /**
  * Which notification mail may go out, checked at send time in one statement: a meeting notice under the meeting rule
  * (meetingMailGrants), a connection or sharing milestone under its own (relationshipMailGrants).
@@ -155,7 +151,8 @@ export async function authorizeNotificationMail(
 	tx: Transaction,
 	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
 ): Promise<ReadonlySet<string>> {
-	const input = mailGrantInput(mail);
+	const rows = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
+	const input = sql`jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
 	const r =
 		await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}), relationship AS (${relationshipMailGrants(input)})
 		SELECT id FROM meeting UNION SELECT id FROM relationship`);
