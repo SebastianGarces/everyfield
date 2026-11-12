@@ -11107,6 +11107,9 @@
 				},
 				"refusal": {
 					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
+				},
+				"communication_id": {
+					"note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix."
 				}
 			},
 			"foreignKeys": {
@@ -11162,6 +11165,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"communication_id,tenant_id->communication(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "A message with recipient sends is never deleted; only drafts are, and a draft has no mail. A foreign key grants no current access."
 					}
 				}
 			}

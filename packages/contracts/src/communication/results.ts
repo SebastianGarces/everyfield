@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineSafeError, recordId, revision, safeError } from "../common/values.ts";
 import { instant } from "../common/time.ts";
-import { audienceInput, communicationStates, meetingTemplateType, templateCategory } from "./values.ts";
+import { AUDIENCE_LIMIT, audienceInput, communicationStates, meetingTemplateType, templateCategory } from "./values.ts";
 
 export const communicationError = z.discriminatedUnion("code", [
 	...safeError.options,
@@ -15,6 +15,17 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
 	defineSafeError("rsvp_needs_meeting", {}, "never"),
+	defineSafeError(
+		"audience_too_large",
+		{
+			limit: z.literal(AUDIENCE_LIMIT),
+			recipients: z
+				.number()
+				.int()
+				.min(AUDIENCE_LIMIT + 1),
+		},
+		"never",
+	),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;
@@ -63,6 +74,11 @@ export const previewResult = z.strictObject({
 export const audienceResult = z.strictObject({
 	resolvedDistinctPeople: z.number().int().nonnegative(),
 	eligibleRecipients: z.number().int().nonnegative(),
+	/**
+	 * People with an address, unsubscribed people included: the count the `AUDIENCE_LIMIT` cap applies to at schedule and
+	 * at handoff, because the handoff's frozen request holds a member for each of them.
+	 */
+	cappedRecipients: z.number().int().nonnegative(),
 	missingEmailExclusions: z.array(z.string()),
 	duplicateAddressesRemoved: z.number().int().nonnegative(),
 	eligibleEmails: z.array(z.string()),

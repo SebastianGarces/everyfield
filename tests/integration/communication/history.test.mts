@@ -60,9 +60,9 @@ async function mail(communicationId, personId, address, patch = {}) {
 	const hours = patch.sentHours ?? null;
 	const created = patch.createdHours ?? null;
 	await f.admin
-		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
+		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, communication_id, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at, delivered_at, opened_at, clicked_at, accepted_at)
-		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${`communication/${communicationId}/${personId}`},
+		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${communicationId}, ${`communication/${communicationId}/${personId}`},
 			'payload', 'audience', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, ${patch.state ?? "sent"}, ${addressHash},
 			clock_timestamp() - make_interval(hours => coalesce(${created}::int, 0)),
 			CASE WHEN ${hours}::int IS NULL THEN NULL ELSE clock_timestamp() - make_interval(hours => ${hours}::int) END,
@@ -557,6 +557,34 @@ test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective co
 			},
 		}),
 		"not_found",
+	);
+});
+
+test("INV-history-search: history search for an ampersand phrase matches the message body and subject as typed", async () => {
+	const inBody = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Sunday lunch",
+				bodyHtml: "<p>Food &amp; fellowship after the service.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const inSubject = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Food & fellowship night",
+				bodyHtml: "<p>Bring a dish.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const page = ok(await read(owner, "listHistory", { query: "Food & fellowship" }));
+	assert.deepEqual(
+		page.items.map((item) => item.id).sort(),
+		[inBody.communicationId, inSubject.communicationId].sort(),
 	);
 });
 
