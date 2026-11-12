@@ -45,7 +45,8 @@ IDs and timestamps.
 
 The reset refuses production mode and any host except the development branch's
 pooled or direct endpoint, currently `ep-autumn-dew-b8ltidky`. If that branch is
-replaced, review the host allowlist in `scripts/reset-dev.ts` before using it.
+replaced, review the host allowlist in `src/development.ts` before using it; every
+script, test and tool that refuses a non-development database calls its guard.
 Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that list.
 Credentials belong only in ignored local files and provider environment settings.
 

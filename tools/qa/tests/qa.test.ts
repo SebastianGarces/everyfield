@@ -31,7 +31,7 @@ const NEON_PASSWORD = "npg_SentinelNeonPassword01";
 const BYPASS = "sentinel-bypass-secret-0f1e2d3c";
 const API_KEY = "re_sentinel_resend_key_99";
 
-const DEV = { id: `${DEV_ENDPOINT}-b8ltidky`, branch_id: "br-dev" };
+const DEV = { id: DEV_ENDPOINT, branch_id: "br-dev" };
 const PROD = { id: `${PROD_ENDPOINT}-b8tvq4ha`, branch_id: "br-main" };
 const BRANCHES = [
 	{ id: "br-dev", name: "development" },
@@ -178,7 +178,7 @@ function files(dir: string): Array<[string, string]> {
 
 test("INV-qa-preview: qa up refuses before it creates anything when the parent is missing or production", () => {
 	for (const [endpoints, reason] of [
-		[[PROD], /No single ep-autumn-dew endpoint/],
+		[[PROD], new RegExp(`No single ${DEV_ENDPOINT} endpoint`)],
 		[[DEV, { ...PROD, branch_id: "br-dev" }], /production database/],
 	] as const) {
 		const s = setup([...endpoints]);
