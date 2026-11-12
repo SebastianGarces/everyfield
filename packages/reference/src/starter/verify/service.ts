@@ -94,7 +94,6 @@ function wikiOf(error: unknown): never {
 	if (error instanceof ReferenceRefusal) {
 		switch (error.code) {
 			case "invalid_generation":
-			case "stale_claim":
 				throw new WikiRefusal("incomplete_candidate");
 			case "access_denied":
 			case "revision_conflict":
@@ -145,7 +144,6 @@ async function authorizeCaller(
 	if (selected.rows.length !== 1) return null;
 	return {
 		actorId: caller.actorId,
-		mode: "operator",
 		review: {
 			commandDigest: hash(canonical(command)),
 			approvalLocator: source.version,

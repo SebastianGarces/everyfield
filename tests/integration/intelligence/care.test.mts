@@ -109,11 +109,7 @@ before(async () => {
 			revision: i.revision,
 			eligibleAt: new Date().toISOString(),
 		});
-	tz = timezoneOperations(
-		{ replan: (tx, i) => job(tx, i, "notification"), invalidate: (tx, i) => job(tx, i, "assessment") },
-		personalCalendar,
-		clock,
-	);
+	tz = timezoneOperations({ replan: (tx, i) => job(tx, i, "digest") }, personalCalendar, clock);
 	deletion = deletionOperations({
 		queue: (tx, i) =>
 			queueJobs(tx, [
