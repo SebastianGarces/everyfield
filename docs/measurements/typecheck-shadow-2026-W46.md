@@ -31,8 +31,8 @@ The window ends at 2026-11-12T16:00:00Z, so that every CI run counted had finish
 | CI | 1052 `ci.yml` runs | 1039 | **0** |
 | **Together** | | **1108** | **17** |
 
-**17 mismatches in 1108 shadow runs: 17 local, 0 CI.** No mismatch has a real disagreement between two verdicts: in each
-of the 17, the shadow read no per-package status from `tsc` (all 7 packages `unknown`). See [Mismatches](#mismatches).
+**17 mismatches in 1108 shadow runs: 17 local, 0 CI.** In each of the 17, the shadow read no per-package status from
+`tsc` (all 7 packages `unknown`). See [Mismatches](#mismatches).
 
 ## Local runs
 
@@ -94,7 +94,7 @@ the reason when not, the line number in the CI raw file, and `mismatch`. It leav
 
 All 17 are local. Each mismatched run lists all 7 packages (`apps/web`, `packages/contracts`, `packages/db`,
 `packages/domain`, `packages/evry`, `packages/reference`, `packages/ui`) as mismatched, with tsc `unknown` in each. No
-line has a `shadow_error`. "Fast" means tsc exited in under 0.3 s.
+line has a `shadow_error`.
 
 | # | Time (UTC) | Commit | Tree | tsc | bun outcome (per package) | Differences (file, line, code, side) |
 |---:|---|---|---|---|---|---|
@@ -116,28 +116,17 @@ line has a `shadow_error`. "Fast" means tsc exited in under 0.3 s.
 | 16 | 2026-11-11T20:29:11Z | `07f78be8b` | clean | exit 1, 0.2 s | pass, all 7 | none |
 | 17 | 2026-11-12T12:16:05Z | `20fbc0503` | dirty | exit 1, 0.2 s | missing (exit 127), all 7 | none |
 
-These are the shapes in the fields. This report does not explain them:
-
-| Shape | Runs | What the line shows |
-|---|---|---|
-| Neither side ran | 3, 4, 5, 8, 9, 17 | tsc exited 1 fast and every `typecheck:bun` script exited 127 (not found) |
-| tsc did not run, bun passed | 1, 16 | tsc exited 1 fast. bun passed in all 7 packages |
-| Exit codes agree, tsc status unread | 2, 6, 7, 11, 14, 15 | tsc exited 0 after a full run and bun passed in all 7, but the shadow read no per-package `Done` from tsc's output |
-| bun-only TS2307 in `.next` types | 10, 12, 13 | bun reported TS2307 in the generated `.next/(dev/)types/validator.ts`. tsc also exited 1 after a full run, but the shadow captured no tsc diagnostics (`tsc.errors` 0), so whether tsc reported the same error is not in the data |
-
 In every mismatch, the per-package `differences` list is complete: `differences_total` equals its length.
 
 ## Timings
 
 `tsc.wall_ms` is the whole `pnpm -r typecheck` call, packages in parallel. `bun.wall_ms` is the sum of the 7 `bun check`
-runs, one after another. The "both ran" rows keep the lines where tsc took at least 1 s and bun gave a verdict (pass or
-errors), which leaves out the 8 runs above where one side did not run.
+runs, one after another.
 
 | Source | Lines | tsc median | tsc max | bun check median | bun check max | Median ratio |
 |---|---:|---:|---:|---:|---:|---:|
 | Local, all | 69 | 18.9 s | 38.7 s | 2.2 s | 3.5 s | 8.6× |
-| Local, both ran | 61 | 19.5 s | 38.7 s | 2.2 s | 3.5 s | 8.7× |
-| CI, all (= both ran) | 1039 | 44.6 s | 81.6 s | 5.9 s | 8.8 s | 7.6× |
+| CI, all | 1039 | 44.6 s | 81.6 s | 5.9 s | 8.8 s | 7.6× |
 
 tsc got faster partway through the window. Split at 2026-11-11T16:15Z, the local tsc median is 5.0 s over the 17 lines
 from then on, against 22.2 s over the 52 lines before. In CI it is 67.7 s over the 564 lines before and 23.0 s over the 475 lines after.
