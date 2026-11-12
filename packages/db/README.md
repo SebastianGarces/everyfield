@@ -164,5 +164,7 @@ or target-to-DDL generator. Regenerate the readable schema docs after catalog ch
 
 ```sh
 python3 docs/schema/render-docs.py
-python3 docs/schema/render-diagram.py
 ```
+
+The ER diagram is generated on demand and not committed (it is ignored by git). To view it, run
+`python3 docs/schema/render-diagram.py` and open `docs/schema/schema-diagram.html`.
