@@ -25,7 +25,7 @@ export function useRowPhotos(conversationId: string | null, turns: readonly Turn
 			turns.flatMap((t) =>
 				t.blocks.flatMap((b) =>
 					b.kind === "result"
-						? cardView(b.operation, b.result, b.originalTotal).rows.flatMap((r) => (r.person ? [r.person] : []))
+						? cardView(b.operation, b.result, b.originalTotal).rows.flatMap((r) => (r.photoFor ? [r.photoFor] : []))
 						: [],
 				),
 			),

@@ -76,7 +76,12 @@ export function ResultCard({
 						const body = (
 							<>
 								{view.avatar === "person" ? (
-									<Avatar name={view.name} src={view.person ? photos[view.person] : undefined} size="sm" decorative />
+									<Avatar
+										name={view.name}
+										src={view.photoFor ? photos[view.photoFor] : undefined}
+										size="sm"
+										decorative
+									/>
 								) : null}
 								{view.avatar && view.avatar !== "person" ? (
 									<span
