@@ -5,6 +5,7 @@
 //     role and link to the person; no household row links to /people/.
 //   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
 //     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
+//   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -440,4 +441,52 @@ test("INV-result-card-export: exportPeople is a count card: the export count, no
 		["Directory export", "203 people", "file", [], ["Download the file from the People page."]],
 	);
 	assert.equal(cardView("people.exportPeople", exported(1), null).summary, "1 person");
+});
+
+test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to review card: each imported person links to their page with the person they may duplicate", () => {
+	const pair = (id, label, mayDuplicate) => ({
+		kind: "person",
+		id,
+		label,
+		fields: { mayDuplicateId: P2, mayDuplicate },
+	});
+	const exclusions = ["pairs marked not a duplicate", "retired or merged people", "pairs no import flagged"];
+	const view = cardView(
+		"people.listDuplicatePairs",
+		result(
+			"people.listDuplicatePairs",
+			[pair(P1, "John Smith", "Jon Smith"), pair(H, "Casey Brooks", "Casey Morgan")],
+			{
+				exclusions,
+			},
+		),
+		null,
+	);
+	assert.deepEqual([view.title, view.summary, view.icon], ["Duplicates to review", "2 people", "people"]);
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.avatar, r.href, r.mark]),
+		[
+			["John Smith", "May duplicate Jon Smith", "person", `/people/${P1}`, null],
+			["Casey Brooks", "May duplicate Casey Morgan", "person", `/people/${H}`, null],
+		],
+	);
+	assert.deepEqual(view.facts, [
+		"Not included: pairs marked not a duplicate, retired or merged people, pairs no import flagged.",
+	]);
+	// Past the first 100 pairs the total is unknown, and the card says only the first are shown.
+	const partial = cardView(
+		"people.listDuplicatePairs",
+		result("people.listDuplicatePairs", [pair(P1, "John Smith", "Jon Smith")], {
+			total: null,
+			completeness: "partial",
+		}),
+		null,
+	);
+	assert.equal(partial.summary, "1 person");
+	assert.equal(partial.facts[0], "Only the first matches are shown.");
+	const none = cardView("people.listDuplicatePairs", result("people.listDuplicatePairs", []), null);
+	assert.deepEqual(
+		[none.summary, none.facts],
+		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
+	);
 });
