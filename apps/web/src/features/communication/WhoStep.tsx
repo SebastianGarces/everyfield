@@ -7,15 +7,7 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { resolveAudience, searchRecipients } from "./actions.ts";
 import { audienceSize, plural, type Form } from "./composeModel.ts";
-import {
-	audienceGroups,
-	capText,
-	groupLabel,
-	type Audience,
-	type AudienceSummary,
-	type Recipient,
-	type Team,
-} from "./model.ts";
+import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
 
 // Who: groups and teams in a searchable multi-select, people in one To field, then the counts and who is left out.
 
@@ -182,7 +174,6 @@ function Counts({
 			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
 		},
 	];
-	const cap = summary ? capText(summary.cappedRecipients, summary.cappedRecipients - summary.eligibleRecipients) : null;
 	return (
 		<div className="flex flex-col gap-4">
 			<div aria-live="polite" className="grid max-w-3xl grid-cols-3 gap-3">
@@ -195,14 +186,6 @@ function Counts({
 					</div>
 				))}
 			</div>
-			{cap ? (
-				<p
-					role={cap.over ? "alert" : undefined}
-					className={cap.over ? "text-sm font-medium text-magenta-600" : "text-sm text-text-2"}
-				>
-					{cap.text}
-				</p>
-			) : null}
 			{failed ? (
 				<p role="alert" className="text-sm font-medium text-magenta-600">
 					{failed}

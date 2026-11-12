@@ -41,16 +41,7 @@ import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/disp
 import { flushSync } from "react-dom";
 import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import {
-	addAttendeeNote,
-	clearCard,
-	correctRsvp,
-	createGuestContact,
-	inviteGuest,
-	recordCard,
-	removeGuest,
-	setInviter,
-} from "./actions.ts";
+import { addAttendeeNote, addGuests, clearCard, correctRsvp, recordCard, removeGuest, setInviter } from "./actions.ts";
 import { PresenceCell, type usePresence } from "./Attendance.tsx";
 import {
 	ChosenList,
@@ -60,7 +51,7 @@ import {
 	type ChosenChip,
 	type PickedPerson,
 } from "./dialogs.tsx";
-import { sendTwice, type Wait } from "../../components/save/model.ts";
+import type { Wait } from "../../components/save/model.ts";
 import {
 	CARD_LABEL,
 	CARD_RESPONSES,
@@ -248,69 +239,51 @@ export function GuestList({
 		});
 	}
 	/**
-	 * Everyone on Chosen, added together: people from People with meetings.inviteGuest, new people with
-	 * meetings.createGuestContact (their Person and guest row in one write), one request per person, each with its own
-	 * request key. The keys are made once per click, so the lane's replay of a lost answer never adds anyone twice.
-	 * Some refused or lost: the added guests stay and the form opens again with only the others chosen.
+	 * Everyone on Chosen, added together in one meetings.addGuests write: people from People and new people (their
+	 * Person and guest row). The request key is made once per click, so the lane's replay of a lost answer never adds
+	 * anyone twice. People no longer live are not added: the others stay and the form opens again with only them chosen.
 	 */
 	function add(draft: AddDraft) {
-		type Entry = { key: string; name: string; person: PickedPerson | null; fresh: NewGuest | null };
-		const entries: Entry[] = [
-			...draft.people.map((p) => ({ key: crypto.randomUUID(), name: p.name, person: p, fresh: null })),
-			...draft.fresh.map((n) => ({ key: crypto.randomUUID(), name: n.displayName, person: null, fresh: n })),
-		];
-		write<{ added: { guest: Guest; attendanceRevision: string }[]; left: Entry[] }>({
-			what: entries.length === 1 ? entries[0]!.name : `${entries.length} guests`,
+		const names = new Map(draft.people.map((p) => [p.id, p.name]));
+		const count = draft.people.length + draft.fresh.length;
+		write({
+			what: count === 1 ? (draft.people[0]?.name ?? draft.fresh[0]!.displayName) : `${count} guests`,
 			done: "added",
 			form: { kind: "add", draft },
-			changes: entries.map((e) => ({
-				kind: "guest" as const,
-				guest: pendingGuest(e.person, e.name, e.fresh?.key),
-			})),
-			send: async () => {
-				const added: { guest: Guest; attendanceRevision: string }[] = [];
-				const left: Entry[] = [];
-				let refusal: string | null = null;
-				for (const e of entries) {
-					const send = e.fresh
-						? () =>
-								createGuestContact(e.key, {
-									meetingId: meeting.id,
-									displayName: e.fresh!.displayName,
-									email: e.fresh!.email || null,
-									phone: e.fresh!.phone || null,
-									country: "US" as const,
-								})
-						: () => inviteGuest(e.key, { meetingId: meeting.id, personId: e.person!.id, inviterPersonId: null });
-					const r = await sendTwice(send);
-					if (r.status === "ok") added.push(r.value);
-					else {
-						left.push(e);
-						if (r.status === "refused") refusal ??= r.code;
-					}
-				}
-				if (!added.length) return refusal ? { status: "refused", code: refusal } : { status: "lost" };
-				return { status: "ok", value: { added, left } };
-			},
-			ok: ({ added, left }) => {
-				// One request after another, so each answer's attendance revision is newer than the one before.
-				for (const a of added) onGuest(a.guest, a.attendanceRevision);
-				if (!left.length)
+			changes: [
+				...draft.people.map((p) => ({ kind: "guest" as const, guest: pendingGuest(p, p.name) })),
+				...draft.fresh.map((n) => ({ kind: "guest" as const, guest: pendingGuest(null, n.displayName, n.key) })),
+			],
+			send: (key) =>
+				addGuests(key, {
+					meetingId: meeting.id,
+					people: draft.people.map((p) => p.id),
+					contacts: draft.fresh.map((n) => ({
+						displayName: n.displayName,
+						email: n.email || null,
+						phone: n.phone || null,
+						country: "US" as const,
+					})),
+				}),
+			ok: ({ guests: added, notAdded, attendanceRevision }) => {
+				for (const g of added) onGuest(g, attendanceRevision);
+				if (!notAdded.length)
 					return toast({
 						message:
 							added.length === 1
-								? `${added[0]!.guest.person.displayName} is on the guest list.`
+								? `${added[0]!.person.displayName} is on the guest list.`
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});
-				toast({ message: `${added.length} added. ${left.length} not added.`, tone: "info" });
+				toast({ message: `${added.length} added. ${notAdded.length} not added.`, tone: "info" });
+				const left = new Set<string>(notAdded);
 				lane.open({
 					kind: "add",
 					draft: {
 						...draft,
-						people: left.flatMap((e) => (e.person ? [e.person] : [])),
-						fresh: left.flatMap((e) => (e.fresh ? [e.fresh] : [])),
-						notAdded: left.map((e) => e.name),
+						people: draft.people.filter((p) => left.has(p.id)),
+						fresh: [],
+						notAdded: notAdded.map((id) => names.get(id) ?? ""),
 					},
 				});
 			},
