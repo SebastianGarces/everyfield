@@ -132,8 +132,9 @@ const contactFields = {
 	country: z.string().trim().max(255).nullable().default(null),
 };
 const contact = { meetingId, ...contactFields };
-const guestAttendance = { attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") };
-export const createGuestContactRequest = create(z.strictObject({ ...contact, ...guestAttendance }));
+export const createGuestContactRequest = create(
+	z.strictObject({ ...contact, attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") }),
+);
 export const createWalkInContactRequest = create(z.strictObject(contact));
 /**
  * Everyone chosen in one Add guest submit, as one write: People already in this church, and new contacts made as
@@ -148,10 +149,7 @@ export const addGuestsRequest = create(
 				.max(100)
 				.refine((ids) => new Set(ids).size === ids.length, "duplicate_person")
 				.default([]),
-			contacts: z
-				.array(z.strictObject({ ...contactFields, ...guestAttendance }))
-				.max(50)
-				.default([]),
+			contacts: z.array(z.strictObject(contactFields)).max(50).default([]),
 		})
 		.refine((v) => v.people.length + v.contacts.length > 0, "nobody_chosen"),
 );

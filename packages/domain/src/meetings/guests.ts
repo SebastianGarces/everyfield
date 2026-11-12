@@ -288,8 +288,8 @@ export const guestsWriter = {
 				}
 				if (notAdded.length === people.length && !contacts.length) deny("invalid_subject");
 				const now = new Date();
-				const made = contacts.map((i) => ({
-					person: newPerson(
+				const made = contacts.map((i) =>
+					newPerson(
 						ctx,
 						{
 							displayName: i.displayName,
@@ -304,21 +304,13 @@ export const guestsWriter = {
 						randomUUID(),
 						now,
 					),
-					attended: i.attendance === "attended",
-				}));
-				const fresh = made.map((p) =>
-					newGuest(randomUUID(), p.person.id, p.person.display_name, p.attended ? "attended" : "absent"),
 				);
-				// A guest who joins already marked present changes who attended (REQ-MTG-012): the revision moves once.
-				const attendanceRevision = [...restored, ...fresh].some((g) => g.presence === "attended")
+				const fresh = made.map((p) => newGuest(randomUUID(), p.id, p.display_name, "absent"));
+				// A guest who comes back already marked present changes who attended (REQ-MTG-012): the revision moves once.
+				const attendanceRevision = restored.some((g) => g.presence === "attended")
 					? changeAttended(audit, m.id, f.finalized, f.attendance)
 					: f.attendance;
-				appendPeople(
-					tx,
-					ctx,
-					made.map((p) => p.person),
-					audit.writes,
-				);
+				appendPeople(tx, ctx, made, audit.writes);
 				if (restored.length)
 					audit.writes.push(sql`UPDATE participation SET removed_at = NULL, rsvp = 'pending', rsvp_source = NULL,
 						rsvp_at = NULL, inviter_person_id = NULL, revision = revision + 1
@@ -338,14 +330,14 @@ export const guestsWriter = {
 						tenant_id: w.plant.id,
 						actor_id: w.accountId,
 						subject_type: "person",
-						subject_id: p.person.id,
+						subject_id: p.id,
 						action: "people.created",
 						kind: "create",
 						before_revision: null,
-						after_revision: p.person.revision,
+						after_revision: p.revision,
 						before_value: null,
-						after_value: delta(null, personChanges(undefined, p.person).after).after,
-						metadata: { meetingId: m.id, guestId: fresh[n]!.id, attended: p.attended },
+						after_value: delta(null, personChanges(undefined, p).after).after,
+						metadata: { meetingId: m.id, guestId: fresh[n]!.id, attended: false },
 					});
 				const byPerson = new Map([...current, ...restored, ...invited].map((g) => [g.person_id, g]));
 				const guests = [...people.flatMap((id) => byPerson.get(id) ?? []), ...fresh];
