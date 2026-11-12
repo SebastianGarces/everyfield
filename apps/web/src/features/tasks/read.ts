@@ -2,7 +2,7 @@ import * as c from "@everyfield/contracts/tasks";
 import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
-import { parseQuery, type Outcome } from "./model.ts";
+import { type Outcome } from "./model.ts";
 import { loadTask, read, reader, taskViewer, templates, type TaskViewer } from "./server.ts";
 
 // GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
@@ -35,15 +35,23 @@ export async function GET(request: Request) {
 				),
 			);
 		// The current page's derived "Blocked by" counts, after a task they may wait for settled, reopened or was deleted.
-		// The same scope as the page; only the badge leaves the server.
-		case "blocking": {
-			const r = await read((tx) => reader.list(tx, viewer, parseQuery(p)));
+		// Only the rows on screen are read, by ID, and only the badge leaves the server.
+		case "blocking":
 			return answer(
-				r.status === "ok"
-					? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })) }
-					: r,
+				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, async (v) => {
+					const r = await read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v)));
+					return r.status === "ok"
+						? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })) }
+						: r;
+				}),
 			);
-		}
+		// The list rows of the named tasks in one statement: a bulk change's stale rows, read again together.
+		case "rows":
+			return answer(
+				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, (v) =>
+					read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v))),
+				),
+			);
 		case "seats":
 			return answer(
 				await read(async (tx) =>

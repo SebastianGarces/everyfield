@@ -10,6 +10,7 @@ import { deletionOperations, issueRestrictedDeletionSession } from "../../../pac
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import {
 	executeBulkImport,
 	PeopleReadContext,
@@ -82,14 +83,7 @@ try {
 		const pid = await locked;
 		try {
 			const result = body();
-			for (let waited = 0; ; waited++) {
-				const r = await f.db.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`,
-				);
-				if (r.rows[0].n > 0) break;
-				if (waited > 200) throw Error("no write waited for the church row");
-				await new Promise((resolve) => setTimeout(resolve, 25));
-			}
+			await waitingOnLock(f.db, { blockedBy: pid });
 			release();
 			return await result;
 		} finally {

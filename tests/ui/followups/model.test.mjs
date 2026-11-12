@@ -7,7 +7,6 @@ import {
 	emptyDraft,
 	keepSelection,
 	outcomeInput,
-	ownersOf,
 	pickOutcome,
 	preferredOwners,
 	totalsAfter,
@@ -95,19 +94,7 @@ test("AC:TARGET-MTG-021 the 48-hour countdown runs from the meeting start and cl
 	assert.deepEqual(windowAt(origin, Date.parse("2026-03-09T15:00:00.001Z")), { open: false });
 });
 
-test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owners include the viewer only when eligible; a re-read keeps only the person's own choice", () => {
-	const plan = (eligible) => ({
-		from: { accountId: "me", displayName: "Ana", eligible, protectedOwner: false },
-		recipients: [{ accountId: "b", displayName: "Ben" }],
-	});
-	assert.deepEqual(
-		ownersOf(plan(true)).map((o) => o.accountId),
-		["me", "b"],
-	);
-	assert.deepEqual(
-		ownersOf(plan(false)).map((o) => o.accountId),
-		["b"],
-	);
+test("AC:TARGET-TSK-013 a re-read keeps only the person's own choice", () => {
 	const kept = keepSelection(new Set(["t1", "t2", "gone"]), [{ taskId: "t1" }, { taskId: "t2" }, { taskId: "new" }]);
 	assert.deepEqual([...kept], ["t1", "t2"]);
 });

@@ -27,10 +27,10 @@
 		"limit": 3
 	},
 	"GET /meetings/[meetingId]": {
-		"limit": 10
+		"limit": 8
 	},
 	"GET /meetings/[meetingId] (leadership team meeting)": {
-		"limit": 9
+		"limit": 7
 	},
 	"GET /meetings/[meetingId]/agenda": {
 		"limit": 2
@@ -60,7 +60,7 @@
 		"limit": 2
 	},
 	"GET /notifications": {
-		"limit": 4
+		"limit": 2
 	},
 	"GET /notifications/read?what=count": {
 		"limit": 2
@@ -92,11 +92,32 @@
 	"GET /signin (signed out)": {
 		"limit": 0
 	},
+	"GET /wiki": {
+		"limit": 6
+	},
+	"GET /wiki/[slug]": {
+		"limit": 6
+	},
+	"GET /wiki/[slug] (crawler)": {
+		"limit": 1
+	},
+	"GET /api/evry/open": {
+		"limit": 2
+	},
 	"GET /tasks": {
 		"limit": 6
 	},
 	"GET /tasks?task=<follow-up>": {
 		"limit": 9
+	},
+	"GET /tasks/follow-ups": {
+		"limit": 5
+	},
+	"GET /tasks/read?what=blocking": {
+		"limit": 4
+	},
+	"GET /tasks/read?what=rows": {
+		"limit": 4
 	},
 	"GET /tasks (phase offer)": {
 		"limit": 7
@@ -109,6 +130,9 @@
 	},
 	"POST notifications.markSelectedRead": {
 		"limit": 6
+	},
+	"POST communication.readMeetingContext": {
+		"limit": 2
 	},
 	"POST people.addNote": {
 		"limit": 3
@@ -1364,6 +1388,9 @@
 	"people/csv/index.executeBulkImport": {
 		"limit": 5,
 		"retry": 10
+	},
+	"people/csv/index.signPeopleImport": {
+		"limit": 1
 	},
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,

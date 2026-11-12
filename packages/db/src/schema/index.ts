@@ -5,6 +5,7 @@ export {
 	assertPrivateBucket,
 	signPrivatePut,
 	readPrivateObject,
+	readPrivateUpload,
 	readAuthorizedObject,
 	readAuthorizedObjectIfChanged,
 	createAuthorizedDownload,

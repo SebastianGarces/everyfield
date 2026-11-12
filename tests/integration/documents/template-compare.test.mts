@@ -8,7 +8,7 @@
 //   Criterion 10: the legal notice is never a difference, and accept all keeps it in the PDF and the Word file.
 //   Criterion 11: an accept from a stale compare is a conflict and writes nothing.
 //   Criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with.
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter, templateStatus } from "../../../packages/domain/src/documents/index.ts";
@@ -139,25 +139,22 @@ describe("T-19 compare a document with its template (no database)", () => {
 
 // ---------------------------------------------------------------- the read and the accept, on the database
 
-const database = await testDatabase({ prefix: "t19cmp" });
+const database = await fixture({ prefix: "t19cmp", plant: { name: "Harvest Point" } });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const OWNER = 0;
 const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-};
 const authority = async (who) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -204,33 +201,6 @@ const revisionCount = async (id) =>
 	);
 
 before(async () => {
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, name, tz] of [
-		[P, "Harvest Point", "America/Chicago"],
-		[Q, "Other Church", "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},${name},${tz},7,14,1,8,1,1)`,
-		);
-	for (const [index, plant, role] of [
-		[OWNER, P, "owner"],
-		[MEMBER, P, "member"],
-		[ADMIN, P, "admin"],
-		[OTHER, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${role},clock_timestamp())`,
-		);
 	// Harvest Point has a senior pastor, so the pastor field prints the church's value; Other Church has none.
 	const pastor = randomUUID();
 	const team = randomUUID();

@@ -36,6 +36,7 @@ import {
 	peopleViewer,
 	peopleWriter,
 	personFields,
+	previewStoredImport,
 	readColumnOrders,
 	readPersonPage,
 	readPersonPhoto,
@@ -44,8 +45,10 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
@@ -163,10 +166,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
@@ -456,8 +455,15 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
+	// A meetings read this file's own seed meeting covers.
+	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
+		area(
+			"meetings:meetingsReader.pageGuests",
+			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			unavailable,
+		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
 		}),
@@ -647,6 +653,12 @@ function cases(who) {
 			() => getCommitmentDownload(f.db, storage, new PeopleReadContext(who.actor), { commitmentId: a.commitment }),
 			// The seed stores no signed document, so church A has no download either.
 			{ refused: "unavailable", control: null },
+		),
+		ppl(
+			"previewStoredImport",
+			() => previewStoredImport(f.db, storage, who.actor, { uploadId: key() }),
+			// An upload id names a staged file of the caller's own church only; the seed stages none.
+			{ refused: "file_changed", control: null },
 		),
 		ppl(
 			"peopleCsv.previewImport",

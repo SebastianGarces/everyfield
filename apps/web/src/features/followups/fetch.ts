@@ -1,7 +1,6 @@
-import type * as tc from "@everyfield/contracts/tasks";
-import type { z } from "zod";
 import type { Account, ContactHistory, Coverage, HandoffPlan, ObligationPage, Outcome, Owners } from "./model.ts";
 import type { CallRead, PersonFollowUps } from "./server.ts";
+import { assigneeOptions } from "../tasks/fetch.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
 async function get<T>(params: Record<string, string>): Promise<Outcome<T>> {
@@ -56,7 +55,7 @@ function cached<T>(read: () => Promise<Outcome<T>>) {
  * on or keyboard focus reaching the control that needs them), so the list is there when the menu or dialog opens (C76).
  */
 const owners = cached(() => get<Account[]>({ what: "owners" }));
-const seats = cached(() => get<z.infer<typeof tc.assigneeOptions>>({ what: "seats" }));
+const seats = cached(() => assigneeOptions());
 export const prefetchOwners = owners.get;
 /** After a save names an owner as not eligible, or owners changed, the next read asks again. */
 export const forgetOwners = owners.forget;

@@ -18,21 +18,14 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let api, mail;
 let faults = false;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
@@ -1041,7 +1034,12 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
 	for (const [table, id, patch, restore] of [
 		[t.account, adminReader.id, { registration_state: "pending_domain" }, { registration_state: "active" }],
-		[t.seat, adminSeat.id, { accepted_at: new Date(Date.now() + 60000) }, { accepted_at: adminSeat.accepted_at }],
+		[
+			t.seat,
+			adminSeat.id,
+			{ accepted_at: sql`clock_timestamp()+interval '1 day'` },
+			{ accepted_at: adminSeat.accepted_at },
+		],
 		[t.team, lead.lead.assignment.teamId, { archived_at: new Date() }, { archived_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { retired_at: new Date() }, { retired_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { leadership: false }, { leadership: true }],
@@ -1139,7 +1137,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 		continueConversion = new Promise((resolve) => {
 			proceed = resolve;
 		});
-	let conversionPid, endPid;
+	let conversionPid;
+	const endPid = [];
 	const converting = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
@@ -1161,7 +1160,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	await held;
 	const ending = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
-		endPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
+		endPid.push((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid);
 		return associations["associations.end"](
 			tx,
 			orgActor.session,
@@ -1176,19 +1175,11 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	});
 	const settled = Promise.allSettled([converting, ending]);
 	try {
-		const deadline = Date.now() + 5000;
-		let blocked = false;
-		while (Date.now() < deadline) {
-			if (endPid) {
-				const r = await admin.execute(sql`SELECT pg_blocking_pids(${endPid}) pids`);
-				if (r.rows[0].pids.includes(conversionPid)) {
-					blocked = true;
-					break;
-				}
-			}
-			await new Promise((resolve) => setTimeout(resolve, 20));
-		}
-		assert.equal(blocked, true, "The ending operation must reach the held conversion lock");
+		assert.equal(
+			await waitingOnLock(admin, { pids: endPid, blockedBy: conversionPid }),
+			true,
+			"The ending operation must reach the held conversion lock",
+		);
 	} finally {
 		proceed();
 	}
@@ -1468,9 +1459,12 @@ for (const [registration, kind, seatRole] of [
 		await admin
 			.insert(t.organization)
 			.values({ id: org, kind, name: "Overseeing organization", timezone: "UTC", material_revision: "1" });
-		await admin
-			.insert(t.seat)
-			.values({ account_id: a.id, organization_id: org, role: seatRole, accepted_at: new Date(Date.now() - 1000) });
+		await admin.insert(t.seat).values({
+			account_id: a.id,
+			organization_id: org,
+			role: seatRole,
+			accepted_at: sql`clock_timestamp()-interval '1 second'`,
+		});
 		const viewer = await readViewer(db, writeSessionId.parse(a.session));
 		const entry = await readOnboardingEntry(
 			db,

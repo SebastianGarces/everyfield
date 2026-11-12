@@ -50,7 +50,7 @@ const standalone = {
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
+	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport", "signPeopleImport"],
 	"/packages/domain/src/people/commitments/index.ts": [
 		"getCommitmentDownload",
 		"signCommitmentDocument",
@@ -78,6 +78,8 @@ export async function measure(name, body, options = {}) {
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
+		// Exempt from the no-wall-clock rule (test-standard): the sample's `ms` reports real time, which is its job; nothing
+		// asserts on it.
 		const started = performance.now();
 		let status = "threw";
 		try {

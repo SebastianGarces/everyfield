@@ -15,9 +15,10 @@ import {
 	articleBlocks,
 	editorBlocksFromBody,
 	editorWriteBody,
-	markdownBlocks,
 	type EditorBlock,
 } from "../../../apps/web/src/features/wiki/model.ts";
+
+const markdownBlocks = (body: string) => articleBlocks("safe_mdx", body);
 
 const seed = JSON.parse(await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8")) as {
 	articles: { slug: string; content: string | null }[];

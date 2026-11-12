@@ -2,6 +2,7 @@ import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { testDatabase } from "../../support/test-database.mts";
+import { seeds, waitingOnLock as sharedWaitingOnLock } from "../../support/fixture.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
@@ -13,6 +14,7 @@ const database = await testDatabase({ prefix: "wp007", max: 8 });
 export const { schema, admin: db } = database;
 export const runtime = database.pools.runtime;
 export const teardown = database.close;
+const seed = seeds(db);
 export async function tx<T>(
 	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
 ): Promise<T> {
@@ -23,48 +25,21 @@ export async function tx<T>(
 }
 
 export async function tenant(kind: "plant" | "sending_church" | "sending_network", name = "Synthetic") {
-	const id = randomUUID();
-	if (kind === "plant")
-		await db.execute(
-			sql`INSERT INTO plant(id,name,street,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},${sql.param(name)},'private street','America/Chicago',7,14,0,16,1,1)`,
-		);
-	else
-		await db.execute(
-			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${sql.param(id)},${sql.param(kind)},${sql.param(name)},'UTC',1)`,
-		);
-	return owner.parse(kind === "plant" ? { kind: "plant", id } : { kind: "organization", id, organizationKind: kind });
+	const created =
+		kind === "plant"
+			? await seed.plant({ name, street: "private street", digest_weekday: 0, digest_hour: 16 })
+			: await seed.organization(kind, { name });
+	return owner.parse(created);
 }
 export async function identity(selected?: ReturnType<typeof owner.parse>, role = "owner") {
-	const user = randomUUID(),
-		account = randomUUID(),
-		handle = randomUUID(),
-		email = randomUUID() + "@example.test";
-	await db.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(user)},${sql.param(email)},true,'Synthetic')`,
-	);
-	await db.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(account)},${sql.param(user)},'active',${sql.param(
-			selected?.kind === "plant"
-				? "planter"
-				: selected?.kind === "organization"
-					? selected.organizationKind === "sending_church"
-						? "sending_church"
-						: "network"
-					: "discovery",
-		)})`,
-	);
-	await db.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(handle)},${sql.param(user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-	);
-	if (selected)
-		await db.execute(
-			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${sql.param(account)},${sql.param(selected.kind === "plant" ? selected.id : null)},${sql.param(selected.kind === "organization" ? selected.id : null)},${sql.param(role)},clock_timestamp())`,
-		);
+	const a = await seed.actor(selected?.kind === "account" ? null : (selected as never), role as never, {
+		email: randomUUID() + "@example.test",
+	});
 	return {
-		account,
-		session: sessionId.parse(handle),
-		email,
-		selected: selected ?? owner.parse({ kind: "account", id: account }),
+		account: a.id,
+		session: sessionId.parse(a.session),
+		email: a.email,
+		selected: selected ?? owner.parse({ kind: "account", id: a.id }),
 	};
 }
 export const proofs = new Map<string, string>();
@@ -153,17 +128,8 @@ export async function call(name: keyof typeof api, actor: Actor, input: unknown)
 		api[name](c, actor.session, actor.selected, input as never);
 	return reads.has(name) ? tx(run) : write(actor, run);
 }
-/** Resolves once another transaction of this test role waits for a row lock. */
-export async function waitingOnLock() {
-	for (let attempt = 0; attempt < 400; attempt++) {
-		const r = await runtime.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock'`,
-		);
-		if ((r.rows[0] as { n: number }).n > 0) return;
-		await new Promise((resolve) => setTimeout(resolve, 25));
-	}
-	throw Error("the rival transaction never waited for a lock");
-}
+/** Resolves once another transaction of this test role waits for a row lock (the shared wait on lock state). */
+export const waitingOnLock = () => sharedWaitingOnLock(runtime);
 export async function affiliation(
 	plant: ReturnType<typeof owner.parse>,
 	org: ReturnType<typeof owner.parse>,
