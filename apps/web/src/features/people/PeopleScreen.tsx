@@ -9,6 +9,7 @@ import {
 	KanbanIcon,
 	LeftToRightListBulletIcon,
 	UserAdd01Icon,
+	UserMultiple02Icon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
@@ -135,6 +136,12 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 				subtitle="Everyone you have met, from first visit to leader."
 				actions={
 					<>
+						{loaded.review ? (
+							<IntentLink href="/people/duplicates" className={buttonVariants({ variant: "ghost" })}>
+								<Icon icon={UserMultiple02Icon} size={18} />
+								{loaded.review}
+							</IntentLink>
+						) : null}
 						{shown.workspaceEmpty ? null : (
 							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
 								Export CSV
