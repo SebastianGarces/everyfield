@@ -9,6 +9,7 @@ import {
 	reportTime,
 	sendTimeFull,
 	sendTimeOf,
+	sendTimeShort,
 	stoppedReason,
 	type Change,
 	type Review,
@@ -83,6 +84,10 @@ function People({ label, names }: { label: string; names: { name: string; note?:
 	);
 }
 
+/** The people a review leaves out, each with the reason. */
+const leftOutNames = (rows: { name: string; reason: string }[]) =>
+	rows.map((r) => ({ name: r.name, note: LEFT_OUT_REASON[r.reason] ?? r.reason }));
+
 /** The reviewed facts of one email change. */
 export function MailChanges({ review }: { review: Review }) {
 	const subject = text(find(review, "subject")?.after);
@@ -114,13 +119,7 @@ export function MailChanges({ review }: { review: Review }) {
 						label="Will get it"
 						names={(Array.isArray(recipients) ? recipients : []).map((r: { name: string }) => ({ name: r.name }))}
 					/>
-					<People
-						label="Left out"
-						names={(Array.isArray(leftOut) ? leftOut : []).map((r: { name: string; reason: string }) => ({
-							name: r.name,
-							note: LEFT_OUT_REASON[r.reason] ?? r.reason,
-						}))}
-					/>
+					<People label="Left out" names={leftOutNames(Array.isArray(leftOut) ? leftOut : [])} />
 					<Block label="What each person sees">{text(content)}</Block>
 				</>
 			) : null}
@@ -132,6 +131,9 @@ export function MailChanges({ review }: { review: Review }) {
 						{String(count ?? 0)} {Number(count) === 1 ? "person" : "people"}
 					</New>
 				</Row>
+			) : null}
+			{op === "communication.replaceScheduledReviewed" && Array.isArray(leftOut) ? (
+				<People label="Left out" names={leftOutNames(leftOut)} />
 			) : null}
 			{op === "communication.replaceScheduledReviewed" && audience ? (
 				<Row label="Audience">
@@ -145,7 +147,9 @@ export function MailChanges({ review }: { review: Review }) {
 					<Block label="Body now" muted>
 						{text(body.before)}
 					</Block>
-					<Block label="Body after">{text(body.after)}</Block>
+					<Block label={review.receipt?.report?.kind === "replace_stopped" ? "New body, not scheduled" : "Body after"}>
+						{text(body.after)}
+					</Block>
 				</>
 			) : null}
 			{time ? (
@@ -242,9 +246,9 @@ function handoffText(report: Handoff, at: string | null): string {
 		: `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email at ${at}. Check again asks it again.`;
 }
 
-function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>) {
+function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>, at: string | null) {
 	if (report.confirmation === "not_confirmed")
-		return "Nothing new was scheduled. The email service did not confirm every cancel. Check again asks it again.";
+		return `Nothing new was scheduled. The email service did not confirm every cancel, so the original email still goes out${at ? ` ${at}` : ""} to anyone not cancelled. Check again asks it again.`;
 	if (report.confirmation === "blocked")
 		return "Nothing new was scheduled. At least one recipient could not be cancelled because the email already went out.";
 	return `The old send is cancelled, and the new one was not scheduled. ${stoppedReason(report.code)} Nobody gets this email unless you schedule it again.`;
@@ -254,6 +258,9 @@ function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>) {
 export function MailResult({ review }: { review: Review }) {
 	const report = review.receipt?.report;
 	if (!report) return null;
+	// The send time the review showed, for a result that says the original email may still go out.
+	const time = sendTimeOf(review, "after") ?? sendTimeOf(review, "before");
+	const sendAt = time ? sendTimeShort(time) : null;
 	let lines: ReactNode = null;
 	switch (report.kind) {
 		case "schedule":
@@ -302,7 +309,17 @@ export function MailResult({ review }: { review: Review }) {
 				<>
 					{cancelTally(report)}
 					{report.confirmation === "not_confirmed" ? (
-						<p className="text-text-2">Not confirmed is not cancelled. Check again asks the email service again.</p>
+						<>
+							<p>
+								{`The email service hasn't confirmed the cancel. It may still go out${sendAt ? ` ${sendAt}` : ""}. Check again to ask it.`}
+							</p>
+							{report.people ? (
+								<People
+									label="Affected"
+									names={report.people.map((p) => ({ name: p.name, note: RECIPIENT_OUTCOME[p.outcome] }))}
+								/>
+							) : null}
+						</>
 					) : null}
 				</>
 			);
@@ -311,7 +328,7 @@ export function MailResult({ review }: { review: Review }) {
 			lines = (
 				<>
 					{cancelTally(report)}
-					<p>{stoppedText(report)}</p>
+					<p>{stoppedText(report, sendAt)}</p>
 					<People
 						label="Affected"
 						names={report.people.map((p) => ({ name: p.name, note: RECIPIENT_OUTCOME[p.outcome] }))}

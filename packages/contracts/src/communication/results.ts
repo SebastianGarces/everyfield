@@ -405,6 +405,8 @@ export const mailReport = z.discriminatedUnion("kind", [
 		cancelled: count,
 		sent: count,
 		open: count,
+		/** Set when a cancel is not confirmed: everyone the email service held, with what happened to them. */
+		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })).optional(),
 	}),
 	/** Every old send is confirmed cancelled and the new one reached the email service. */
 	z.object({

@@ -510,8 +510,13 @@ export function ReviewCard({
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
-	// Only a confirmed result carries the tick: a saved outcome that says nothing happened carries the alert.
-	const icon = view === "completed" && mailTitle && mailTitle.tone !== "green" ? Alert02Icon : base.icon;
+	// Only a confirmed result carries the tick: a saved outcome that says nothing happened carries the alert, and so
+	// does an email review the server refused on the card.
+	const icon =
+		mailTitle &&
+		((view === "completed" && mailTitle.tone !== "green") || (view === "pending" && review?.review.refusal))
+			? Alert02Icon
+			: base.icon;
 	const h = mailTitle ? { ...base, ...mailTitle, icon } : base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =

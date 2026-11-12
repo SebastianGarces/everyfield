@@ -252,14 +252,14 @@ for (const [engine, launcher] of ENGINES) {
 			);
 			assert.equal((await d.message()).state, "draft", "nothing is scheduled before approval");
 			// A time past the 30-day window, and a time already gone, are refused on the card with a plain reason.
-			const far = await ask(panel, "Schedule it for 45 days from now at 9am", "Review before scheduling");
-			assert.match(await far.innerText(), /at most 30 days/);
+			const far = await ask(panel, "Schedule it for 45 days from now at 9am", "Can't schedule this email");
+			assert.match(await far.innerText(), /Everyfield can hold an email for up to 30 days/);
 			assert.equal(
 				await far.getByRole("button", { name: "Approve" }).count(),
 				0,
 				"a time outside the window cannot be approved",
 			);
-			const past = await ask(panel, "Schedule it for yesterday at 9am", "Review before scheduling");
+			const past = await ask(panel, "Schedule it for yesterday at 9am", "Can't schedule this email");
 			assert.match(await past.innerText(), /already passed/);
 			assert.equal(await past.getByRole("button", { name: "Approve" }).count(), 0);
 		}));
@@ -455,6 +455,9 @@ for (const [engine, launcher] of ENGINES) {
 				await unconfirmed.waitFor({ timeout: 90_000 });
 				assert.notEqual(await headIcon(unconfirmed), tick, "only a confirmed result carries the tick");
 				assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 0);
+				const unconfirmedText = await unconfirmed.innerText();
+				assert.match(unconfirmedText, /It may still go out Fri, [A-Z][a-z]{2} \d+, 9:00 AM/);
+				assert.match(unconfirmedText, /Affected \(3\)/);
 				assert.equal(newestStatus(await messages(page)), "Cancel not confirmed", "Messages does not say Cancelled yet");
 				await silence(false);
 				await page.getByRole("button", { name: "Ask Evry" }).click();
@@ -497,6 +500,8 @@ for (const [engine, launcher] of ENGINES) {
 				const blockedText = await blocked.innerText();
 				assert.match(blockedText, /Nothing new was scheduled/);
 				assert.match(blockedText, /Lena Ortiz\s*Cancel not confirmed/);
+				assert.match(blockedText, /the original email still goes out Fri, [A-Z][a-z]{2} \d+, 9:00 AM/);
+				assert.match(blockedText, /New body, not scheduled\s*We moved to 5 pm/);
 			} finally {
 				await silence(false);
 			}

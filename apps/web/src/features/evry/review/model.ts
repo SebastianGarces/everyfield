@@ -260,6 +260,12 @@ const MAIL_PENDING: Record<string, string> = {
 	"communication.cancelScheduledReviewed": "Review before cancelling",
 	"communication.replaceScheduledReviewed": "Review the replacement",
 };
+/** The head of a review the server refused on the card itself, such as a time outside the window it can hold. */
+const MAIL_REFUSED: Record<string, string> = {
+	"communication.scheduleReviewed": "Can't schedule this email",
+	"communication.rescheduleReviewed": "Can't move this email",
+	"communication.replaceScheduledReviewed": "Can't replace this email",
+};
 /** The note on a review the Owner dismissed: what stays as it was. */
 export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.saveDraft": "You closed this review. Nothing was saved.",
@@ -276,7 +282,14 @@ export function mailHead(
 ): { title: string; tone: "amber" | "green" | "magenta" | "gray" } | null {
 	if (!isMail(review.operation)) return null;
 	if (phase === "pending")
-		return { title: review.stale ? "Message changed" : MAIL_PENDING[review.operation]!, tone: "amber" };
+		return {
+			title: review.stale
+				? "Message changed"
+				: review.review.refusal
+					? (MAIL_REFUSED[review.operation] ?? "Can't do this")
+					: MAIL_PENDING[review.operation]!,
+			tone: "amber",
+		};
 	if (phase === "running")
 		return {
 			title: review.operation === "communication.saveDraft" ? "Saving…" : "Working with the email service…",
@@ -467,7 +480,7 @@ export function mailRefusalText(code: string | undefined): string {
 		case "stale_review":
 			return "The recipients or the content changed since the review, so nothing was sent to the email service. Ask Evry to review it again.";
 		case "schedule_window_exceeded":
-			return "The email service holds an email for at most 30 days and cannot send in the past. Pick another time.";
+			return "Everyfield can hold an email for up to 30 days and can't send in the past. Pick another time.";
 		case "access_denied":
 			return "Your seat no longer allows email changes, so nothing was done.";
 		case "mail_unavailable":

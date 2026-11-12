@@ -350,7 +350,7 @@ test("AC:WP-028-3 a schedule review names who gets it, who is left out and why, 
 	const past = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(-2) });
 	assert.match(past!.review.refusal!, /already passed/);
 	const far = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(45) });
-	assert.match(far!.review.refusal!, /at most 30 days/);
+	assert.match(far!.review.refusal!, /Everyfield can hold an email for up to 30 days/);
 	await assert.rejects(
 		approveProposal(db, owner, far!.id, { revision: far!.revision, digest: far!.digest }, null),
 		{ code: "review_closed" },
@@ -661,6 +661,13 @@ test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs
 		{ confirmation: first.review.receipt!.report!.confirmation, open: first.review.receipt!.report!.open },
 		{ confirmation: "not_confirmed", open: 2 },
 	);
+	// The card lists everyone the email service still holds, so the owner sees who may still get it.
+	const held = first.review.receipt!.report!;
+	assert.ok(held.kind === "cancel");
+	assert.deepEqual(
+		held.people?.map((p) => p.outcome),
+		["open", "open"],
+	);
 	assert.equal(
 		(
 			await rows(
@@ -697,6 +704,8 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	assert.match(String(change(proposal, "body")!.after), /5 pm/);
 	assert.equal((change(proposal, "audience")!.before as { recipients: number }).recipients, 4);
 	assert.equal((change(proposal, "audience")!.after as { recipients: number }).recipients, 1);
+	// The review names who the new audience leaves out before approval, as the schedule review does.
+	assert.ok(Array.isArray(change(proposal, "leftOut")!.after));
 	const sends = service.calls.send.length;
 	const done = await approve(owner, proposal, service.port);
 	const report = done.review.receipt!.report!;

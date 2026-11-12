@@ -85,10 +85,10 @@ const paragraphs = (text: string) =>
 		.map((block) => `<p>${escapeHtml(block).replaceAll("\n", "<br>")}</p>`)
 		.join("");
 
-/** The window the email service accepts: not in the past, at most 30 days ahead (scheduleAccepted). */
+/** The window Everyfield holds an email for: not in the past, at most 30 days ahead (scheduleAccepted). */
 const acceptedWindow = (at: SQL): SQL =>
 	sql`CASE WHEN ${at} < clock_timestamp() THEN 'That time has already passed. Pick a time from now on.'
-		WHEN ${at} > clock_timestamp() + interval '30 days' THEN 'The email service holds an email for at most 30 days. Pick a time within the next 30 days.' END`;
+		WHEN ${at} > clock_timestamp() + interval '30 days' THEN 'Everyfield can hold an email for up to 30 days. Pick a time within the next 30 days.' END`;
 const withRefusal = (refusal: SQL, review: SQL): SQL =>
 	sql`${review} || CASE WHEN ${refusal} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('refusal',${refusal}) END`;
 
@@ -190,6 +190,8 @@ const classifiedPeople = (plantId: string, facts: AudienceFacts) =>
 	)`;
 /** What the handoff would refuse about the `classified` audience, said on the review so nothing is approved in vain. */
 const audienceRefusal = sql`CASE WHEN (SELECT count(*) FROM classified WHERE reason IS NULL)=0 THEN 'Nobody in this audience can get this email.' END`;
+/** Who the review leaves out of the email and why, by name. */
+const leftOutPeople = sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name,'reason',reason) ORDER BY name,id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`;
 const leftOutIds = sql`coalesce((SELECT jsonb_agg(id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`;
 
 type Handoff = Awaited<ReturnType<typeof communicationWriter.handOffScheduled>>;
@@ -253,7 +255,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 				sql`jsonb_build_object('target',${message},'changes',jsonb_build_array(
 					${change("subject", null, sql`to_jsonb(c.subject)`)},
 					${change("recipients", null, sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name) ORDER BY name,id) FROM classified WHERE reason IS NULL),'[]'::jsonb)`)},
-					${change("leftOut", null, sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name,'reason',reason) ORDER BY name,id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`)},
+					${change("leftOut", null, leftOutPeople)},
 					${change("content", null, sql`to_jsonb(replace(${content}::text, ${SAMPLE_NAME}::text, coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY name, id LIMIT 1), '')))`)},
 					${change("sendAt", null, instantAt(at))}))`,
 			)} AS review,
@@ -394,17 +396,19 @@ async function cancelStep(
 	);
 	if (cancelled.status !== "ok") return { refused: cancelled.error.code };
 	const v = cancelled.value;
+	const open = v.scheduledCancel === "reconcile";
 	return {
 		receiptId: communicationId,
 		revision: saved.expectedRevision,
 		report: {
 			kind: "cancel",
 			// Cancelled only once the email service confirmed every recipient it held.
-			confirmation:
-				v.scheduledCancel === "confirmed" ? "confirmed" : v.scheduledCancel === "reconcile" ? "not_confirmed" : "none",
+			confirmation: v.scheduledCancel === "confirmed" ? "confirmed" : open ? "not_confirmed" : "none",
 			cancelled: v.confirmedCount,
 			sent: v.sentCount,
 			open: v.openCount,
+			// A cancel that is not confirmed lists who may still get the email.
+			...(open ? { people: await recipientOutcomes(db, authority, communicationId) } : {}),
 		},
 	};
 }
@@ -585,6 +589,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 			change("subject", null, sql`to_jsonb(c.subject)`),
 			change("sendAt", null, instantAt(sql`c.scheduled_at`)),
 			change("recipientCount", null, sql`to_jsonb(${held})`),
+			change("leftOut", null, leftOutPeople),
 		];
 		if (html !== null)
 			changes.push(
