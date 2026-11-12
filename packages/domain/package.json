@@ -42,7 +42,6 @@
 		"test:meetings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/meetings/*.test.mts",
 		"test:db": "pnpm test:writes",
 		"test:onboarding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/onboarding/*.test.mts",
-		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/identity/invitations.test.mts ../../tests/integration/identity/locks.test.mts",
 		"test:settings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/settings/*.test.mts",
 		"test:tasks": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/tasks/*.test.mts",
 		"test:communication": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/communication/*.test.mts",

@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";

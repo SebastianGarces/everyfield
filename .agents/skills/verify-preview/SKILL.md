@@ -81,11 +81,12 @@ You are a fresh Opus 5.5 medium session that never shared context with the autho
 ## 2. Start the previews
 
 ```bash
-node $S/preview.mjs --pr <n>      # after: the PR head, in a detached worktree .worktrees/verify-<sha7>
+node $S/preview.mjs --pr <n>      # after: the PR head, in a worktree .worktrees/verify-<sha7> on branch verify/<sha7>
 node $S/preview.mjs --main        # before: current origin/main, the same way
+node $S/preview.mjs --ref <sha>   # any other commit, the same way (for example a PR's old base)
 ```
 
-Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
+Review starts after evf has opened the PR, so `--pr <n>` is the after side. Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
 `preview.mjs` builds the preview env from the main checkout's `apps/web/.env.local` and lays the
 worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*` values reach the preview.
 `IDENTITY_ORIGIN` is the exception: it is always `${PREVIEW_URL}` unless an explicit `--config` sets it.
@@ -205,8 +206,7 @@ umask 077; mkdir -p ~/.config/everyfield
 tigris access-keys create everyfield-evidence-upload --bucket everyfield-evidence --role Editor \
   --default-permissions disable --env ~/.config/everyfield/evidence.env --for aws >/dev/null
 ```
-Use the PR task ID as `<task>`, for example `OPS-W3` or `WP-012`, so its evidence can be deleted
-together.
+Use the PR task ID as `<task>`, for example `T-41`, so its evidence can be deleted together.
 
 Everything you publish is public to anyone with the link. Upload only synthetic data or data from
 the shared development database. Never upload:
@@ -304,6 +304,7 @@ when you asked for changes. A new head needs a new verification.
 
 ```bash
 agent-browser --session <task>-verify close
-portless preview down <id>          # both previews
-git worktree remove <project>       # both verify worktrees, paths printed by preview.mjs
+portless preview down <id> --remove-worktree    # both previews and their verify worktrees
 ```
+
+The `verify/<sha7>` branch stays after its worktree is gone. Delete it with `git branch -D verify/<sha7>`.

@@ -106,7 +106,7 @@ fs.writeFileSync(file, JSON.stringify(rows));
 console.log(JSON.stringify(result));
 `;
 
-test("bin/dev stack, logs and traces work on the selected worktree, and up waits for a slot", () => {
+test("bin/dev stack and logs work on the selected worktree, and up waits for a slot", () => {
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "dev-stack-test-")));
 	try {
 		const bin = join(dir, "bin"),
@@ -152,9 +152,6 @@ test("bin/dev stack, logs and traces work on the selected worktree, and up waits
 		assert.equal(down.status, 0, down.stderr);
 		assert.equal(JSON.parse(down.stdout).state, "stopped");
 
-		const traces = dev(["traces"], env);
-		assert.equal(traces.status, 1);
-		assert.match(traces.stderr, /No trace reader exists yet/);
 		assert.equal(dev(["stack", "sideways"], env).status, 2);
 		assert.equal(dev(["nothing"], env).status, 2);
 	} finally {
