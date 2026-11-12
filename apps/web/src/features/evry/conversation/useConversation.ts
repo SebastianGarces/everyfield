@@ -61,6 +61,7 @@ function reduce(state: State, action: Action): State {
 		case "seen": {
 			if (!(action.proposalId in state.reviews)) return state;
 			const { [action.proposalId]: _, ...reviews } = state.reviews;
+			void _;
 			return { ...state, reviews };
 		}
 	}

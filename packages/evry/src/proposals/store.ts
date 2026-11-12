@@ -11,7 +11,6 @@ import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
 import type { ReviewedWrite } from "./types.ts";
 import {
-	allowedWrites,
 	currentReview,
 	mine,
 	operation,

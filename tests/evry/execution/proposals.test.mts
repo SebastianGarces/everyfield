@@ -553,7 +553,10 @@ test("T-231 INV-budget: a conversation's page read brings every review card's cu
 	}
 	const c = await createConversation(db, owner, { requestKey: randomUUID() });
 	for (const name of names) {
-		await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: `Change ${name.split(" ")[0]}'s city to Newtown` });
+		await submitTurn(db, owner, c.id, {
+			requestKey: randomUUID(),
+			text: `Change ${name.split(" ")[0]}'s city to Newtown`,
+		});
 		assert.equal(await work(), "succeeded");
 	}
 	const cards = (page: { events: { kind: string; sequence: number; body: Record<string, unknown> }[] }) =>
@@ -589,7 +592,10 @@ test("T-231 INV-budget: a conversation's page read brings every review card's cu
 			assert.ok(now <= alsoNow, "now is the database clock when the page was read");
 		}
 		assert.deepEqual(
-			[pending, expired, withheld].map((card) => [read.reviews[card.id]!.status, read.reviews[card.id]!.review.withheld]),
+			[pending, expired, withheld].map((card) => [
+				read.reviews[card.id]!.status,
+				read.reviews[card.id]!.review.withheld,
+			]),
 			[
 				["pending", undefined],
 				["expired", undefined],

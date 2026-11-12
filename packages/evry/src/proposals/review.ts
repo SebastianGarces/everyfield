@@ -72,7 +72,6 @@ export const proposalRow = z.object({
 });
 export type Proposal = z.infer<typeof proposalRow>;
 
-
 /** The current review of proposal `id` (a uuid expression) as the actor may read it now: no row when they may not. */
 export const currentReview = (actor: EvryActor, id: SQL) =>
 	sql`SELECT ${projection("p")} AS proposal FROM proposal p WHERE p.id=${id} AND ${readable(actor)}`;
