@@ -268,14 +268,15 @@ export function visibleBodySql(): SQL {
 	return sql`CASE WHEN p.hidden OR (p.order_required AND p.source_kind = 'church') THEN NULL ELSE p.body END`;
 }
 
-export function articleJson(): SQL {
+/** One article as JSON. A title list (`body: false`) leaves the body out: it shows titles, never the text. */
+export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	return sql`json_build_object(
 		'articleId', p.article_id,
 		'sourceId', p.source_id,
 		'sourceKind', p.source_kind,
 		'hidden', p.hidden,
 		'state', CASE WHEN p.order_required THEN 'source_order_required' ELSE p.state END,
-		'body', ${visibleBodySql()},
+		'body', ${body ? visibleBodySql() : sql`NULL`},
 		'title', p.title,
 		'slug', p.slug,
 		'excerpt', p.excerpt,
@@ -350,7 +351,12 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 }
 
 /** Every matching article in one statement. The count does not grow with the corpus. */
-export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQL = sql`true`): SQL {
+export function catalogQuery(
+	access: CorpusAccess,
+	source: SourceView,
+	where: SQL = sql`true`,
+	options: { body?: boolean } = {},
+): SQL {
 	return sql`WITH ${corpusCtes(access, source)},
 		rows AS (
 			SELECT p.*, NULL::text AS snippet
@@ -360,7 +366,7 @@ export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQ
 			EXISTS (SELECT FROM me) AS allowed,
 			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
 			COALESCE((
-				SELECT json_agg(${articleJson()} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
+				SELECT json_agg(${articleJson(options)} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
 				FROM rows p
 				LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
 				LEFT JOIN LATERAL (

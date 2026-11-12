@@ -19,6 +19,7 @@ import { deliveryText, hubLabel, scheduleText } from "../../../apps/web/src/feat
 import { POST as oneClick } from "../../../apps/web/src/features/communication/unsubscribeOneClick.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime } from "./scheduled-support.mts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, churchA, churchB, ownerA, ownerB, memberA;
 const origin = "https://app.example.test";
@@ -34,15 +35,6 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const HOUR = 3_600_000;
 const key = () => randomUUID();
 const now = () => new Date();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function person(church, name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {

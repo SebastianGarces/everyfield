@@ -25,7 +25,7 @@ const checkInput = (
 		? { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant }, expectedRevision }
 		: { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant } };
 
-test("AC:WP006-IDN-029 AC:C0-SCOPE-001 AC:WP006-API-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
+test("AC:TARGET-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
 	const a = await account(db.admin),
 		p = await plant(db.admin),
 		o = await organization(db.admin);
@@ -62,7 +62,7 @@ test("AC:WP006-IDN-029 AC:C0-SCOPE-001 AC:WP006-API-IDN-029 INV-tenancy: fresh s
 	assert.deepEqual(await transaction(db.runtime, (tx) => currentActor(tx, expired.session, own(expired))), unavailable);
 });
 
-test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization duties and no resident internal access", async () => {
+test("AC:ADR1-002 INV-pipeline: exact organization duties and no resident internal access", async () => {
 	const o = await organization(db.admin),
 		other = await organization(db.admin);
 	const admin = await account(db.admin),

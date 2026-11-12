@@ -121,6 +121,8 @@ test("INV-retry: only the last turn that did not complete, with no run active an
 	assert.equal(check([ask(1), end(2, { state: "stopped", reason: "cancelled" })]), true);
 	assert.equal(check([ask(1), end(2, { state: "completed", reason: "completed" })]), false);
 	assert.equal(check([ask(1)], T), false);
+	// A run already active (a retry just sent) blocks another, even though the last saved turn failed.
+	assert.equal(check([ask(1), failed("model_unavailable", "new_turn")], T), false);
 	// model_unavailable is a calm notice, not an error.
 	assert.equal(endNotice({ state: "failed", reason: "failed", error: { code: "model_unavailable" } }).tone, "neutral");
 });

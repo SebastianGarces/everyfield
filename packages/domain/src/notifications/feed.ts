@@ -9,7 +9,7 @@ import {
 	markSelectedReadRequest,
 } from "@everyfield/contracts/notifications";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 import {
 	PAGE,
@@ -36,9 +36,11 @@ const itemRow = z.object({
 	read: z.boolean(),
 	dueLocalDate: z.string().nullable(),
 	overdue: z.boolean(),
+	subject: z.unknown(),
 	cursorAt: z.string(),
 });
 const pageRow = z.object({ account_id: z.uuid().nullable(), items: z.array(itemRow) });
+const headRow = z.object({ unread: z.number().int(), revision: z.string() });
 const countRow = z.object({ account_id: z.uuid().nullable(), count: z.number().int() });
 const markRow = z.object({
 	me: z.uuid().nullable(),
@@ -46,6 +48,24 @@ const markRow = z.object({
 	visible_ids: z.array(z.uuid()),
 	changed: z.boolean(),
 });
+
+/**
+ * The record an entry is about, from what the notice already stores (D-733): the scheduled email, task or meeting is
+ * its source record. A Wiki review names the published global revision in its key; the entry links to that article by
+ * the revision's slug. Every other category, and a review whose revision is not a published global one, has none.
+ */
+const subjectSql = sql`CASE split_part(n.logical_key,'/',2)
+	WHEN 'scheduled_email_unsubscribe' THEN json_build_object('kind','communication','id',n.source_record_id)
+	WHEN 'task_due' THEN json_build_object('kind','task','id',n.source_record_id)
+	WHEN 'task_overdue' THEN json_build_object('kind','task','id',n.source_record_id)
+	WHEN 'meeting_announcement' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'meeting_reminder' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'wiki_upstream_review' THEN (
+		SELECT json_build_object('kind','article','id',r.article_id,'slug',r.slug) FROM article_revision r
+		WHERE r.id = CASE WHEN split_part(n.logical_key,'/',3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+				THEN split_part(n.logical_key,'/',3)::uuid END
+			AND r.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid AND r.published_at IS NOT NULL)
+	END`;
 
 function feedSql(
 	session: string,
@@ -55,9 +75,10 @@ function feedSql(
 	cursorId: string | null,
 	asOf: string,
 	unread: boolean,
+	extra: SQL = sql``,
 ) {
 	return sql`WITH ${selfSql(session, accountId)}
-		SELECT (SELECT account_id FROM me) AS account_id,
+		SELECT (SELECT account_id FROM me) AS account_id, ${extra}
 			COALESCE((SELECT json_agg(item ORDER BY sort_at DESC, sort_id DESC) FROM (
 				SELECT json_build_object(
 					'id', n.id,
@@ -68,6 +89,7 @@ function feedSql(
 					'read', n.read_at IS NOT NULL,
 					'dueLocalDate', n.schedule_date,
 					'overdue', ${overdueSql(asOf)},
+					'subject', ${subjectSql},
 					'cursorAt', to_char(n.eligible_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
 				) AS item, n.eligible_at AS sort_at, n.id AS sort_id
 				FROM notice n
@@ -78,6 +100,26 @@ function feedSql(
 				ORDER BY n.eligible_at DESC, n.id DESC
 				LIMIT ${PAGE + 1}
 			) page), '[]'::json) AS items`;
+}
+
+function feedValue(items: z.infer<typeof itemRow>[]) {
+	const more = items.length > PAGE;
+	const visible = more ? items.slice(0, PAGE) : items;
+	const last = visible.at(-1);
+	return feedResult.parse({
+		items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue, subject }) => ({
+			id,
+			category,
+			title,
+			body,
+			eligibleAt,
+			read,
+			dueLocalDate,
+			overdue,
+			subject,
+		})),
+		nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
+	});
 }
 
 export async function readFeed(
@@ -103,22 +145,41 @@ export async function readFeed(
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
 		if (!row.account_id) deny();
-		const more = row.items.length > PAGE;
-		const visible = more ? row.items.slice(0, PAGE) : row.items;
-		const last = visible.at(-1);
-		return feedResult.parse({
-			items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue }) => ({
-				id,
+		return feedValue(row.items);
+	});
+}
+
+/**
+ * The feed's first page, the unread count of the same category and the account revision that marks carry, in one
+ * statement (REQ-NTF-003). The feed page and the bell open read this.
+ */
+export async function readFeedPage(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	now: () => Date = () => new Date(),
+) {
+	return readReply(async () => {
+		const input = parse(readFeedRequest.omit({ cursor: true }), raw);
+		const category = input.category ?? null;
+		const result = await db.execute(
+			feedSql(
+				authority.session,
+				authority.actor.accountId,
 				category,
-				title,
-				body,
-				eligibleAt,
-				read,
-				dueLocalDate,
-				overdue,
-			})),
-			nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
-		});
+				null,
+				null,
+				now().toISOString(),
+				input.unread === true,
+				sql`(SELECT count(*)::int FROM notice n WHERE ${noticeVisible()} AND n.read_at IS NULL
+					AND (${category}::text IS NULL OR split_part(n.logical_key,'/',2) = ${category})) AS unread,
+				(SELECT revision::text FROM account WHERE id = (SELECT account_id FROM me)) AS revision,`,
+			),
+		);
+		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
+		if (!row.account_id) deny();
+		const head = headRow.parse(result.rows[0]);
+		return { feed: feedValue(row.items), unread: head.unread, revision: head.revision };
 	});
 }
 

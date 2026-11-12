@@ -12,6 +12,7 @@ import {
 	type MergeKey,
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
+import { communicationAccess } from "./access.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
@@ -19,7 +20,6 @@ import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "
 import type { OptOutKeyRing } from "../notifications/opt-out.ts";
 import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
 
-const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
 
 /**
@@ -67,6 +67,9 @@ export type DeliveryTransport = {
 
 type Actor = ReturnType<typeof readerOf>;
 type Member = {
+	/** The mail row. */
+	id: string;
+	/** The recipient's place in its batch's frozen request: the index of its email in that batch's provider call. */
 	position: number;
 	state: string;
 	personId: string | null;
@@ -78,6 +81,21 @@ type Member = {
 	unsubscribed: boolean;
 };
 type Mode = "now" | "scheduled" | "lookup";
+/**
+ * One frozen request of a message: at most `MAIL_BATCH_LIMIT` recipients, in person-id order, under their own provider
+ * key and attempt. `expired`: past the email service's 23 h 55 min idempotency window from its first handoff, so it is
+ * only looked up, never sent again. `messages` holds the frozen email of each recipient still to be handed off, by
+ * position; null when it no longer opens.
+ */
+type Batch = {
+	requestId: string;
+	attemptId: string;
+	providerKey: string;
+	expired: boolean;
+	members: Member[];
+	messages: ReadonlyMap<number, DeliveryMessage | null>;
+};
+type Update = { id: string; outcome: "accepted" | "refused" | "unknown"; providerId: string | null };
 /** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
 const holding = (row: Member) => row.state === "accepted" || row.state === "unknown" || row.state === "dispatched";
 /** Recipients Everyfield still holds for the send time: a cancel or time change needs no provider call. */
@@ -136,21 +154,14 @@ export function mailAddressHash(key: Uint8Array, address: string) {
 	if (addressKey.length !== 32) throw new Error("mail_keys_required");
 	return addressHash(addressKey, address);
 }
+/** C13: the Owner or Admin check of every delivery statement, the same one communication reads make. */
 function adminGate(actor: Actor) {
-	return sql`EXISTS (SELECT 1 FROM live_session(${actor.session}::uuid) i
-		JOIN account a ON a.id = i.account_id AND a.id = ${actor.accountId}::uuid AND a.auth_user_id IS NOT NULL
-		JOIN seat st ON st.account_id = a.id AND st.id = ${actor.seatId}::uuid AND st.plant_id = ${actor.plantId}::uuid
-			AND st.ended_at IS NULL AND st.accepted_at <= clock_timestamp() AND st.role = ${actor.role}
-			AND st.role <> 'member'
-		WHERE i.registration_state = 'active' AND i.expires_at > clock_timestamp())`;
+	return communicationAccess(actor, actor.session, true);
 }
 function requireActor(authority: RequestActor) {
 	const actor = readerOf(authority);
 	if (!administers(actor)) deny("access_denied");
 	return actor;
-}
-function prefix(id: string) {
-	return `communication/${id}/%`;
 }
 function counts(members: readonly Member[]) {
 	// A recipient waiting in Everyfield for its send time counts as accepted: it goes out then unless they opt out.
@@ -205,31 +216,6 @@ function dispatchValue(
 	});
 }
 
-type Loaded = {
-	allowed: boolean;
-	id: string | null;
-	revision: string | null;
-	state: string | null;
-	subject: string | null;
-	body_html: string | null;
-	body_text: string | null;
-	audience: unknown;
-	review_digest: string | null;
-	scheduled_at: string | null;
-	people: unknown;
-	foreign_people: number | null;
-	request_id: string | null;
-	provider_key: string | null;
-	attempt_id: string | null;
-	attempt_outcome: string | null;
-	first_at: string | null;
-	members: unknown;
-	meeting_id: string | null;
-	meeting_open: boolean | null;
-	guests: unknown;
-	church_name: string | null;
-};
-
 const loadedSchema = z.object({
 	allowed: z.boolean(),
 	id: z.uuid().nullable(),
@@ -243,17 +229,14 @@ const loadedSchema = z.object({
 	scheduled_at: z.string().nullable(),
 	people: z.unknown().nullable(),
 	foreign_people: z.coerce.number().int().nullable(),
-	request_id: z.uuid().nullable(),
-	provider_key: z.string().nullable(),
-	attempt_id: z.uuid().nullable(),
-	attempt_outcome: z.string().nullable(),
-	first_at: z.string().nullable(),
-	members: z.unknown().nullable(),
+	batches: z.unknown().nullable(),
 	meeting_id: z.uuid().nullable(),
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
 	church_name: z.string().nullable(),
 });
+
+type Loaded = z.infer<typeof loadedSchema>;
 
 async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
 	const gate = adminGate(actor);
@@ -277,41 +260,50 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 					WHERE p.id = e.value::uuid AND p.plant_id = c.plant_id AND p.tenant_id = c.plant_id AND p.state = 'live'
 				)
 			) END AS foreign_people,
-			r.id AS request_id, r.provider_key, a.id AS attempt_id, a.outcome AS attempt_outcome,
-			to_char(r.first_dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS first_at,
-			CASE WHEN r.id IS NULL THEN '[]'::jsonb ELSE (
-				SELECT coalesce(jsonb_agg(jsonb_build_object(
-					'position', mem.position, 'state', m.state, 'personId', m.recipient_person_id, 'provider', m.provider_message_id,
-					'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-					'cancelRequested', m.cancel_requested_at IS NOT NULL, 'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed'
-				) ORDER BY mem.position), '[]'::jsonb)
-				FROM mail_request_member mem
-				JOIN mail m ON m.id = mem.mail_id
-				WHERE mem.request_id = r.id
-			) END AS members
+			-- Every frozen request of the message, in the person-id order its batches were cut in. A recipient still to be
+			-- handed off carries its sealed email, so a retry sends the frozen bytes without another read.
+			CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE coalesce((
+				SELECT jsonb_agg(jsonb_build_object('requestId', b.id, 'providerKey', b.provider_key, 'attemptId', b.attempt_id,
+					'expired', b.expired, 'members', b.members) ORDER BY b.first_person, b.id)
+				FROM (
+					SELECT r.id, r.provider_key, a.id AS attempt_id, min(m.recipient_person_id::text) AS first_person,
+						coalesce(r.first_dispatched_at + interval '23 hours 55 minutes' <= clock_timestamp(), false) AS expired,
+						jsonb_agg(jsonb_build_object(
+							'id', m.id, 'position', mem.position, 'state', m.state, 'personId', m.recipient_person_id,
+							'provider', m.provider_message_id,
+							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+							'cancelRequested', m.cancel_requested_at IS NOT NULL,
+							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
+							'payload', CASE WHEN m.state = 'dispatched' THEN m.frozen_payload END,
+							'address', CASE WHEN m.state = 'dispatched' THEN m.recipient_address_encrypted END
+						) ORDER BY mem.position) AS members
+					FROM mail m
+					JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
+					JOIN mail_request r ON r.id = mem.request_id AND r.tenant_id = mem.tenant_id
+					JOIN mail_attempt a ON a.request_id = r.id AND a.attempt_number = 1
+					WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
+					GROUP BY r.id, r.provider_key, a.id, r.first_dispatched_at
+				) b
+			), '[]'::jsonb) END AS batches
 		FROM (SELECT ${gate} AS allowed) g
 		LEFT JOIN LATERAL (
 			SELECT * FROM communication c
 			WHERE g.allowed AND c.id = ${communicationId}::uuid AND c.plant_id = ${actor.plantId}::uuid
-		) c ON true
-		LEFT JOIN LATERAL (
-			SELECT r.id, r.provider_key, r.first_dispatched_at
-			FROM mail m
-			JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
-			JOIN mail_request r ON r.id = mem.request_id
-			WHERE c.id IS NOT NULL AND m.tenant_id = c.plant_id AND m.logical_key LIKE ${prefix(communicationId)}
-			ORDER BY r.first_dispatched_at NULLS LAST, r.id
-			LIMIT 1
-		) r ON true
-		LEFT JOIN mail_attempt a ON a.request_id = r.id AND a.attempt_number = 1`),
+		) c ON true`),
 	);
 	return loadedSchema.parse(raw ?? { allowed: false });
 }
 
-function membersOf(raw: unknown): Member[] {
-	return z
-		.array(
+const sealedPayload = z.object({ v: z.literal(1), sealed: z.string() });
+const storedBatches = z.array(
+	z.object({
+		requestId: z.uuid(),
+		providerKey: z.string(),
+		attemptId: z.uuid(),
+		expired: z.boolean(),
+		members: z.array(
 			z.object({
+				id: z.uuid(),
 				position: z.number().int(),
 				state: z.string(),
 				personId: z.uuid().nullable(),
@@ -319,9 +311,44 @@ function membersOf(raw: unknown): Member[] {
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
 				unsubscribed: z.boolean(),
+				payload: sealedPayload.nullable(),
+				address: z.string().nullable(),
 			}),
-		)
-		.parse(asJson(raw) ?? []);
+		),
+	}),
+);
+const sealedMessage = z.object({
+	subject: z.string(),
+	text: z.string(),
+	html: z.string(),
+	headers: z.record(z.string(), z.string()).optional(),
+});
+
+/** A recipient's frozen email as it was sealed at the handoff, or null when it no longer opens: never sent blank. */
+function openFrozen(
+	encryptionKey: Uint8Array,
+	tenantId: string,
+	row: { id: string; payload: z.infer<typeof sealedPayload> | null; address: string | null },
+): DeliveryMessage | null {
+	const json = row.payload && openText(encryptionKey, row.payload.sealed, `${tenantId}/${row.id}/communication`);
+	const to = row.address && openText(encryptionKey, row.address, addressAad(tenantId, row.id));
+	const message = json ? sealedMessage.safeParse(JSON.parse(json)) : null;
+	return message?.success && to ? { ...message.data, to } : null;
+}
+
+/** The message's stored batches. With `encryptionKey`, each one carries the frozen email of every recipient not yet answered. */
+function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): Batch[] {
+	return storedBatches.parse(asJson(raw) ?? []).map(({ members, ...batch }) => ({
+		...batch,
+		members,
+		messages: new Map(
+			encryptionKey
+				? members
+						.filter((row) => row.state === "dispatched")
+						.map((row) => [row.position, openFrozen(encryptionKey, tenantId, row)])
+				: [],
+		),
+	}));
 }
 
 async function openLoaded(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
@@ -332,30 +359,26 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(await db.execute(sql`SELECT ${audiencePeople(actor.plantId, audience)} AS people`)) as
-		{ people?: unknown } | undefined;
-	const people = resolved?.people ?? [];
+	// The audience resolves under the same gate, so a seat or lifecycle that changed since the load reads no one.
+	const resolved = one(
+		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
+			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
+	) as { allowed?: boolean; people?: unknown } | undefined;
+	if (resolved?.allowed !== true) deny("access_denied");
+	const people = resolved.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
-	if (parts.people.length > BATCH_LIMIT) deny("invalid_input");
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
 	if (found.review_digest !== digest)
 		deny("stale_review", { previewBody: found.body_html, scriptExecution: false, providerCalls: 0 });
 	return { found: { ...found, people }, audience, parts, digest };
 }
 
-type Prepared =
-	| { kind: "resume"; requestId: string; attemptId: string; providerKey: string; members: Member[] }
-	| {
-			kind: "send";
-			requestId: string;
-			attemptId: string;
-			providerKey: string;
-			messages: DeliveryMessage[];
-			members: Member[];
-	  }
-	| { kind: "done"; members: Member[] };
-
+/**
+ * The message's batches. A message handed off before reuses its stored batches: never regrouped, re-frozen or given a
+ * new key. Otherwise the audience is frozen now, in person-id order, cut into batches of at most `MAIL_BATCH_LIMIT`, and
+ * every mail row, request, member and attempt is written in one statement, so no crash leaves part of it frozen.
+ */
 async function prepare(
 	db: Database,
 	actor: Actor,
@@ -364,17 +387,10 @@ async function prepare(
 	mode: Mode,
 	/** The send time the email service holds for a scheduled handoff; null for send now. */
 	heldUntil: string | null,
-): Promise<Prepared> {
+): Promise<Batch[]> {
 	const { found } = loaded;
-	if (found.request_id && found.provider_key && found.attempt_id) {
-		return {
-			kind: "resume",
-			requestId: found.request_id,
-			attemptId: found.attempt_id,
-			providerKey: found.provider_key,
-			members: membersOf(found.members),
-		};
-	}
+	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
+	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
 	// A message with an RSVP link needs an open meeting whose guest list the links come from.
 	const linked = usesRsvpLink(found.body_html);
@@ -389,7 +405,7 @@ async function prepare(
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
 	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
-	const rows = unique.map((person, position) => {
+	const rows = unique.map((person, index) => {
 		const address = person.email!.trim().toLowerCase();
 		const id = randomUUID();
 		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
@@ -439,14 +455,22 @@ async function prepare(
 				),
 			},
 			address: seal(keys.encryptionKey, address, `${actor.plantId}/${id}/address`),
-			position,
+			batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
+			position: index % c.MAIL_BATCH_LIMIT,
 			to: address,
 		};
 	});
-	const requestHash = hash(rows.map((row) => row.payload_hash));
-	const providerKey = `communication/${found.id}/${requestHash}`;
-	const requestId = randomUUID();
-	const attemptId = randomUUID();
+	// Each batch is its own request: its own frozen member list, request hash, provider key and attempt.
+	const groups = Array.from({ length: Math.ceil(rows.length / c.MAIL_BATCH_LIMIT) }, (_, batch) => {
+		const requestHash = hash(rows.filter((row) => row.batch === batch).map((row) => row.payload_hash));
+		return {
+			batch,
+			id: randomUUID(),
+			attempt: randomUUID(),
+			provider_key: `communication/${found.id}/${requestHash}`,
+			request_hash: requestHash,
+		};
+	});
 	// One set-based token write in the same statement as the mail rows, for the guests whose message carries a link.
 	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
 	// A scheduled handoff waits in Everyfield: the minute runner hands it to the email service at its send time
@@ -465,14 +489,20 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text, position int
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
+					batch int, position int
+				)
+			),
+			requests AS (
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(groups)}::jsonb) AS q(
+					batch int, id uuid, attempt uuid, provider_key text, request_hash text
 				)
 			),
 			ins_mail AS (
-				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, logical_key, payload_hash, audience_hash,
+				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
-				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', i.logical_key, i.payload_hash, ${loaded.digest},
+				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
@@ -491,60 +521,91 @@ async function prepare(
 			)${tokens},
 			ins_req AS (
 				INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
-				SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${providerKey}, ${requestHash}, clock_timestamp()
-				FROM gate g
-				WHERE g.allowed AND EXISTS (SELECT 1 FROM ins_mail)
+				SELECT q.id, ${actor.plantId}::uuid, q.provider_key, q.request_hash, clock_timestamp()
+				FROM requests q
+				JOIN gate g ON g.allowed
+				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				RETURNING id
 			),
 			ins_mem AS (
 				INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
 				SELECT r.id, ${actor.plantId}::uuid, m.id, i.position
 				FROM ins_req r
-				JOIN ins_mail m ON true
-				JOIN input i ON i.id = m.id
+				JOIN requests q ON q.id = r.id
+				JOIN input i ON i.batch = q.batch
+				JOIN ins_mail m ON m.id = i.id
 				RETURNING mail_id
 			),
 			ins_attempt AS (
 				INSERT INTO mail_attempt (id, tenant_id, request_id, attempt_number, claim_generation, started_at, outcome, completed_at)
-				SELECT ${attemptId}::uuid, ${actor.plantId}::uuid, r.id, 1, 1, clock_timestamp(),
+				SELECT q.attempt, ${actor.plantId}::uuid, r.id, 1, 1, clock_timestamp(),
 					CASE WHEN bool_or(m.state IN ('dispatched', 'scheduled')) THEN 'in_flight' ELSE 'refused' END,
 					CASE WHEN bool_or(m.state IN ('dispatched', 'scheduled')) THEN NULL ELSE clock_timestamp() END
 				FROM ins_req r
-				JOIN ins_mail m ON true
-				GROUP BY r.id
+				JOIN requests q ON q.id = r.id
+				JOIN input i ON i.batch = q.batch
+				JOIN ins_mail m ON m.id = i.id
+				GROUP BY q.attempt, r.id
 				RETURNING outcome
 			),
 			ins_audit AS (
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record',
-					${found.id}::uuid, ${"dispatch/" + providerKey}, '{}'::jsonb,
+					${found.id}::uuid, ${"dispatch/" + groups[0]!.provider_key}, '{}'::jsonb,
 					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail), 'rsvpLinks', ${issued})
 				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				ON CONFLICT (subject_id, event_key) DO NOTHING
 				RETURNING id
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
-				(SELECT outcome FROM ins_attempt) AS outcome,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('position', i.position, 'state', m.state, 'personId', i.person, 'provider', NULL,
-					'scheduledAt', ${heldUntil}::text, 'cancelRequested', false, 'unsubscribed', m.refusal IS NOT NULL) ORDER BY i.position)
-					FROM ins_mail m JOIN input i ON i.id = m.id), '[]'::jsonb) AS members,
+				(SELECT count(*)::int FROM ins_attempt) AS attempts,
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'unsubscribed', m.refusal IS NOT NULL))
+					FROM ins_mail m), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
-	) as { allowed: boolean; outcome: string | null; members: unknown };
+	) as { allowed: boolean; attempts: number | null; members: unknown };
 	if (stored?.allowed !== true) deny("access_denied");
-	const members = membersOf(stored.members);
-	if (!members.length || !stored.outcome) deny("conflict");
-	const messages = rows
-		.filter((row) => members.find((member) => member.position === row.position)?.state === "dispatched")
-		.map((row) => ({
-			to: row.to,
-			subject: found.subject!,
-			html: row.html,
-			text: row.text,
-			...(row.headers ? { headers: row.headers } : {}),
-		}));
-	if (stored.outcome === "refused" || messages.length === 0) return { kind: "done", members };
-	return { kind: "send", requestId, attemptId, providerKey, messages, members };
+	const written = new Map(
+		z
+			.array(z.object({ id: z.uuid(), state: z.string(), unsubscribed: z.boolean() }))
+			.parse(asJson(stored.members) ?? [])
+			.map((row) => [row.id, row]),
+	);
+	if (written.size !== rows.length || stored.attempts !== groups.length) deny("conflict");
+	return groups.map((group) => {
+		const members = rows.filter((row) => row.batch === group.batch);
+		const state = (id: string) => written.get(id)!.state;
+		return {
+			requestId: group.id,
+			attemptId: group.attempt,
+			providerKey: group.provider_key,
+			expired: false,
+			members: members.map((row) => ({
+				id: row.id,
+				position: row.position,
+				state: state(row.id),
+				personId: row.person,
+				provider: null,
+				scheduledAt: heldUntil,
+				cancelRequested: false,
+				unsubscribed: written.get(row.id)!.unsubscribed,
+			})),
+			messages: new Map(
+				members
+					.filter((row) => state(row.id) === "dispatched")
+					.map((row) => [
+						row.position,
+						{
+							to: row.to,
+							subject: found.subject!,
+							html: row.html,
+							text: row.text,
+							...(row.headers ? { headers: row.headers } : {}),
+						},
+					]),
+			),
+		};
+	});
 }
 
 /**
@@ -558,54 +619,53 @@ const staff = (actor: Actor): Recorder => ({
 	actorId: actor.accountId,
 });
 
-async function record(
-	db: Database,
-	who: Recorder,
-	communicationId: string,
-	requestId: string,
-	attemptId: string,
-	updates: readonly { position: number; outcome: "accepted" | "refused" | "unknown"; providerId: string | null }[],
-	base: readonly Member[],
-) {
-	const outcome = combined(base, updates);
-	const action = outcome === "accepted" ? "mail.accepted" : outcome === "refused" ? "mail.refused" : "mail.reconciled";
-	const recorded = updates.map((row) => ({
-		position: row.position,
-		outcome: row.outcome,
-		provider_id: row.providerId,
-	}));
+/** One batch's answers: which recipients the email service accepted, refused or left unknown. */
+type Answered = { batch: Pick<Batch, "requestId" | "attemptId" | "members">; updates: readonly Update[] };
+
+/** Every answered batch's recipients, attempts and audit rows in one statement, however many batches answered. */
+async function record(db: Database, who: Recorder, communicationId: string, answered: readonly Answered[]) {
+	const mails = answered.flatMap(({ batch, updates }) =>
+		updates.map((row) => ({ id: row.id, request: batch.requestId, outcome: row.outcome, provider_id: row.providerId })),
+	);
+	const attempts = answered.map(({ batch, updates }) => {
+		const outcome = combined(batch.members, updates);
+		const action =
+			outcome === "accepted" ? "mail.accepted" : outcome === "refused" ? "mail.refused" : "mail.reconciled";
+		return { id: batch.attemptId, request: batch.requestId, outcome, action };
+	});
 	await db.execute(sql`WITH input AS (
-		SELECT * FROM jsonb_to_recordset(${JSON.stringify(recorded)}::jsonb) AS x(position int, outcome text, provider_id text)
+		SELECT * FROM jsonb_to_recordset(${JSON.stringify(mails)}::jsonb) AS x(id uuid, request uuid, outcome text, provider_id text)
+	), attempts AS (
+		SELECT * FROM jsonb_to_recordset(${JSON.stringify(attempts)}::jsonb) AS y(id uuid, request uuid, outcome text, action text)
 	), updated AS (
 		UPDATE mail m SET
 			state = CASE x.outcome WHEN 'accepted' THEN 'accepted' WHEN 'refused' THEN 'refused' ELSE 'unknown' END,
 			provider_message_id = CASE WHEN x.outcome = 'accepted' THEN x.provider_id ELSE m.provider_message_id END,
 			accepted_at = CASE WHEN x.outcome = 'accepted' AND m.accepted_at IS NULL THEN clock_timestamp() ELSE m.accepted_at END
-		FROM mail_request_member mem
-		JOIN input x ON x.position = mem.position
-		WHERE mem.request_id = ${requestId}::uuid AND mem.tenant_id = ${who.plantId}::uuid
-			AND mem.mail_id = m.id AND m.state IN ('dispatched', 'unknown')
+		FROM input x
+		JOIN mail_request_member mem ON mem.mail_id = x.id AND mem.request_id = x.request
+		WHERE mem.tenant_id = ${who.plantId}::uuid AND m.id = mem.mail_id AND m.tenant_id = mem.tenant_id
+			AND m.state IN ('dispatched', 'unknown')
 			AND ${who.gate}
-		RETURNING m.id
-	), attempt AS (
-		UPDATE mail_attempt SET outcome = ${outcome}, completed_at = clock_timestamp()
-		WHERE id = ${attemptId}::uuid AND tenant_id = ${who.plantId}::uuid AND ${who.gate}
-		AND (EXISTS (SELECT 1 FROM updated) OR NOT EXISTS (SELECT 1 FROM input))
-		RETURNING id
+		RETURNING x.request
+	), attempted AS (
+		UPDATE mail_attempt a SET outcome = y.outcome, completed_at = clock_timestamp()
+		FROM attempts y
+		WHERE a.id = y.id AND a.request_id = y.request AND a.tenant_id = ${who.plantId}::uuid AND ${who.gate}
+		AND (EXISTS (SELECT 1 FROM updated u WHERE u.request = y.request)
+			OR NOT EXISTS (SELECT 1 FROM input x WHERE x.request = y.request))
+		RETURNING y.request, y.outcome, y.action
 	)
 	INSERT INTO audit_event (tenant_id, actor_id, system_cause, action, kind, subject_type, subject_id, event_key, metadata, after_value)
-	SELECT ${who.plantId}::uuid, ${who.actorId}::uuid, CASE WHEN ${who.actorId}::uuid IS NULL THEN 'mail_transport' END, ${action}, 'outcome', 'record', ${communicationId}::uuid,
-		${"outcome/" + requestId + "/" + outcome}, '{}'::jsonb, jsonb_build_object('outcome', ${outcome}::text)
-	WHERE EXISTS (SELECT 1 FROM attempt)
+	SELECT ${who.plantId}::uuid, ${who.actorId}::uuid, CASE WHEN ${who.actorId}::uuid IS NULL THEN 'mail_transport' END, t.action, 'outcome', 'record', ${communicationId}::uuid,
+		'outcome/' || t.request::text || '/' || t.outcome, '{}'::jsonb, jsonb_build_object('outcome', t.outcome)
+	FROM attempted t
 	ON CONFLICT (subject_id, event_key) DO NOTHING`);
 }
 
-function combined(
-	base: readonly Member[],
-	updates: readonly { position: number; outcome: "accepted" | "refused" | "unknown" }[],
-) {
-	const next = new Map(updates.map((row) => [row.position, row.outcome]));
-	const states = base.map((row) => next.get(row.position) ?? row.state);
+function combined(base: readonly Member[], updates: readonly Update[]) {
+	const next = new Map(updates.map((row) => [row.id, row.outcome]));
+	const states = base.map((row) => next.get(row.id) ?? row.state);
 	if (states.length && states.every((state) => state === "accepted" || state === "sent")) return "accepted";
 	if (states.length && states.every((state) => state === "refused" || state === "failed" || state === "cancelled"))
 		return "refused";
@@ -613,18 +673,64 @@ function combined(
 	return "unknown";
 }
 
-function applyIds(batch: DeliveryBatch, positions: readonly number[], align: "compressed" | "absolute") {
-	if (batch.outcome === "unknown")
-		return positions.map((position) => ({ position, outcome: "unknown" as const, providerId: null }));
-	if (batch.outcome === "refused")
-		return positions.map((position) => ({ position, outcome: "refused" as const, providerId: null }));
-	return positions.map((position, index) => {
-		// A send list is only the dispatched rows. A lookup list keeps the original member position.
-		const id = batch.ids[align === "absolute" ? position : index];
+function applyIds(
+	batch: DeliveryBatch,
+	rows: readonly Pick<Member, "id" | "position">[],
+	align: "compressed" | "absolute",
+): Update[] {
+	if (batch.outcome === "unknown") return rows.map((row) => ({ id: row.id, outcome: "unknown", providerId: null }));
+	if (batch.outcome === "refused") return rows.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
+	return rows.map((row, index) => {
+		// A send list is only the rows handed off. A lookup list keeps the original member position.
+		const id = batch.ids[align === "absolute" ? row.position : index];
 		return id
-			? { position, outcome: "accepted" as const, providerId: id }
-			: { position, outcome: "unknown" as const, providerId: null };
+			? { id: row.id, outcome: "accepted", providerId: id }
+			: { id: row.id, outcome: "unknown", providerId: null };
 	});
+}
+
+/**
+ * Hand one batch over, or ask about it. A batch the email service never answered is sent under its own stored key with
+ * its frozen bytes: the same request, so a send that already reached the email service is not sent twice. A batch it
+ * answered with unknown, or one past the idempotency window, is only looked up by its key. Null: nothing to do, or the
+ * lookup failed and the batch stays as it was. `lost`: the call threw.
+ */
+async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
+	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
+	if (!open.length) return null;
+	if (batch.expired || open.some((row) => row.state === "unknown")) {
+		try {
+			return {
+				sent: false,
+				lost: false,
+				updates: applyIds(await transport.lookup(batch.providerKey, signal()), open, "absolute"),
+			};
+		} catch {
+			return { sent: false, lost: true, updates: null };
+		}
+	}
+	const ready = open.filter((row) => batch.messages.get(row.position));
+	const updates: Update[] = open
+		.filter((row) => !batch.messages.get(row.position))
+		.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
+	if (!ready.length) return { sent: false, lost: false, updates };
+	let answer: DeliveryBatch;
+	let lost = false;
+	try {
+		answer = await transport.send(
+			{
+				key: batch.providerKey,
+				messages: ready.map((row) => batch.messages.get(row.position)!),
+				scheduledAt: ready[0]!.scheduledAt,
+			},
+			signal(),
+		);
+	} catch {
+		// The email service may hold it: the batch is unknown, and the next call looks it up by its key.
+		lost = true;
+		answer = { outcome: "unknown" };
+	}
+	return { sent: true, lost, updates: [...updates, ...applyIds(answer, ready, "compressed")] };
 }
 
 async function handoff(
@@ -644,46 +750,27 @@ async function handoff(
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
-	const prepared = await prepare(db, actor, opened, ready, mode, heldUntil);
-	if (prepared.kind === "done") return dispatchValue(input.input.communicationId, prepared.members, 0, "failed");
-	const open = prepared.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
-	if (!open.length) return dispatchValue(input.input.communicationId, prepared.members, 0, "accepted");
-	let batch: DeliveryBatch;
+	const batches = await prepare(db, actor, opened, ready, mode, heldUntil);
+	// One provider call per batch, in order; every answer is stored in one statement after the last call.
+	const answered: Answered[] = [];
 	let providerCalls = 0;
-	try {
-		if (prepared.kind === "send") {
-			providerCalls = 1;
-			batch = await transport.send(
-				{ key: prepared.providerKey, messages: prepared.messages, scheduledAt: heldUntil },
-				signal(),
-			);
-		} else {
-			batch = await transport.lookup(prepared.providerKey, signal());
-		}
-	} catch {
-		return dispatchValue(input.input.communicationId, prepared.members, providerCalls, "accepted_unknown");
+	let lost = false;
+	for (const batch of batches) {
+		const result = await handOffBatch(transport, batch);
+		if (!result) continue;
+		if (result.sent) providerCalls += 1;
+		lost ||= result.lost;
+		if (result.updates) answered.push({ batch, updates: result.updates });
 	}
-	const positions =
-		prepared.kind === "send"
-			? prepared.members.filter((row) => row.state === "dispatched").map((row) => row.position)
-			: open.map((row) => row.position);
-	const updates = applyIds(batch, positions, prepared.kind === "resume" ? "absolute" : "compressed");
-	await record(
-		db,
-		staff(actor),
-		input.input.communicationId,
-		prepared.requestId,
-		prepared.attemptId,
-		updates,
-		prepared.members,
+	if (answered.length) await record(db, staff(actor), input.input.communicationId, answered);
+	const next = new Map(answered.flatMap(({ updates }) => updates.map((row) => [row.id, row])));
+	const members = batches.flatMap((batch) =>
+		batch.members.map((row) => {
+			const update = next.get(row.id);
+			return update ? { ...row, state: update.outcome, provider: update.providerId } : row;
+		}),
 	);
-	const next = prepared.members.map((row) => {
-		const update = updates.find((item) => item.position === row.position);
-		return update
-			? { ...row, state: update.outcome === "accepted" ? "accepted" : update.outcome, provider: update.providerId }
-			: row;
-	});
-	return dispatchValue(input.input.communicationId, next, providerCalls, "accepted");
+	return dispatchValue(input.input.communicationId, members, providerCalls, lost ? "accepted_unknown" : "accepted");
 }
 
 /** Hand a scheduled message to the email service now: it goes out at once. */
@@ -716,19 +803,19 @@ export function reconcileReviewed(
 	return readReply(() => handoff(db, authority, raw, transport, keys, "lookup"));
 }
 
-type Answer = { position: number; outcome: Exclude<ProviderAnswer["outcome"], "unknown"> };
+type Answer = { id: string; outcome: Exclude<ProviderAnswer["outcome"], "unknown"> };
 
 async function loadHandoff(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
 	const found = await loadAudience(db, actor, communicationId);
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision) deny("conflict");
-	return { found, members: membersOf(found.members) };
+	return { found, members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members) };
 }
 
 /**
- * Ask about every open recipient that has its own email-service id, in one transport call. A failed or missing
- * answer leaves the recipient open.
+ * Ask about every open recipient that has its own email-service id, across every batch, in one transport call. A
+ * failed or missing answer leaves the recipient open.
  */
 async function askEach(
 	open: readonly Member[],
@@ -744,7 +831,7 @@ async function askEach(
 	}
 	return asked.flatMap((row, index): Answer[] => {
 		const outcome = replies[index]?.outcome ?? "unknown";
-		return outcome === "unknown" ? [] : [{ position: row.position, outcome }];
+		return outcome === "unknown" ? [] : [{ id: row.id, outcome }];
 	});
 }
 
@@ -757,14 +844,13 @@ async function recordAnswers(
 	db: Database,
 	actor: Actor,
 	communicationId: string,
-	requestId: string,
 	answers: readonly Answer[],
 	movedTo: string | null,
 	audit: { eventKey: string; after: Record<string, number | string> },
 ) {
 	const cancel = movedTo === null;
 	await db.execute(sql`WITH input AS (
-			SELECT * FROM jsonb_to_recordset(${JSON.stringify(answers)}::jsonb) AS x(position int, outcome text)
+			SELECT * FROM jsonb_to_recordset(${JSON.stringify(answers)}::jsonb) AS x(id uuid, outcome text)
 		), updated AS (
 			UPDATE mail m SET
 				state = CASE WHEN x.outcome = 'sent' THEN 'sent' WHEN ${cancel}::boolean THEN 'cancelled' ELSE m.state END,
@@ -773,9 +859,8 @@ async function recordAnswers(
 				scheduled_at = CASE WHEN x.outcome = 'done' AND NOT ${cancel}::boolean
 					THEN ${movedTo}::timestamptz ELSE m.scheduled_at END,
 				sent_at = CASE WHEN x.outcome = 'sent' THEN coalesce(m.sent_at, clock_timestamp()) ELSE m.sent_at END
-			FROM mail_request_member mem
-			JOIN input x ON x.position = mem.position
-			WHERE mem.request_id = ${requestId}::uuid AND mem.tenant_id = ${actor.plantId}::uuid AND mem.mail_id = m.id
+			FROM input x
+			WHERE m.id = x.id AND m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${communicationId}::uuid
 				AND m.state IN ('accepted', 'unknown', 'dispatched') AND ${adminGate(actor)}
 			RETURNING m.id
 		)
@@ -787,9 +872,9 @@ async function recordAnswers(
 }
 
 function answered(members: readonly Member[], answers: readonly Answer[], done: (row: Member) => Member) {
-	const byPosition = new Map(answers.map((answer) => [answer.position, answer.outcome]));
+	const byId = new Map(answers.map((answer) => [answer.id, answer.outcome]));
 	return members.map((row) => {
-		const outcome = byPosition.get(row.position);
+		const outcome = byId.get(row.id);
 		if (!outcome) return row;
 		return outcome === "sent" ? { ...row, state: "sent" } : done(row);
 	});
@@ -808,45 +893,41 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		const { found, members } = await loadHandoff(db, actor, input.input.communicationId, input.expectedRevision);
 		const open = members.filter(holding);
 		let next = members;
-		// Recipients still waiting in Everyfield are cancelled at once: the email service never had them.
+		// Recipients still waiting in Everyfield are cancelled at once: the email service never had them. For the ones it
+		// may hold, the request is stored before the calls, so a lost answer still shows as a cancel not confirmed. Both
+		// are one statement across every batch.
 		const local = members.filter(waiting);
-		if (found.request_id && local.length) {
-			await db.execute(sql`WITH updated AS (
+		if (local.length || open.some((row) => !row.cancelRequested)) {
+			await db.execute(sql`WITH local AS (
 					UPDATE mail m SET state = 'cancelled', cancel_requested_at = coalesce(m.cancel_requested_at, clock_timestamp()),
 						cancel_confirmed_at = clock_timestamp()
-					FROM mail_request_member mem
-					WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
-						AND mem.mail_id = m.id AND m.state = 'scheduled' AND ${adminGate(actor)}
+					WHERE m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${found.id}::uuid
+						AND m.state = 'scheduled' AND ${adminGate(actor)}
+					RETURNING m.id
+				), requested AS (
+					UPDATE mail m SET cancel_requested_at = clock_timestamp()
+					WHERE m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${found.id}::uuid
+						AND m.state IN ('accepted', 'unknown', 'dispatched')
+						AND m.cancel_requested_at IS NULL AND ${adminGate(actor)}
 					RETURNING m.id
 				)
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
-					${"cancel-waiting/" + found.id}, '{}'::jsonb, jsonb_build_object('cancelled', (SELECT count(*) FROM updated))
-				WHERE EXISTS (SELECT 1 FROM updated)
+					${"cancel-waiting/" + found.id}, '{}'::jsonb, jsonb_build_object('cancelled', (SELECT count(*) FROM local))
+				WHERE EXISTS (SELECT 1 FROM local)
+				UNION ALL
+				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
+					${"cancel-request/" + found.id}, '{}'::jsonb, jsonb_build_object('requested', (SELECT count(*) FROM requested))
+				WHERE EXISTS (SELECT 1 FROM requested)
 				ON CONFLICT (subject_id, event_key) DO NOTHING`);
 			next = next.map((row) => (waiting(row) ? { ...row, state: "cancelled" } : row));
 		}
-		if (found.request_id && open.length) {
-			// The request is stored before the calls, so a lost answer still shows as a cancel not confirmed.
-			if (open.some((row) => !row.cancelRequested))
-				await db.execute(sql`WITH updated AS (
-						UPDATE mail m SET cancel_requested_at = clock_timestamp()
-						FROM mail_request_member mem
-						WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
-							AND mem.mail_id = m.id AND m.state IN ('accepted', 'unknown', 'dispatched')
-							AND m.cancel_requested_at IS NULL AND ${adminGate(actor)}
-						RETURNING m.id
-					)
-					INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
-					SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
-						${"cancel-request/" + found.id}, '{}'::jsonb, jsonb_build_object('requested', (SELECT count(*) FROM updated))
-					WHERE EXISTS (SELECT 1 FROM updated)
-					ON CONFLICT (subject_id, event_key) DO NOTHING`);
+		if (open.length) {
 			const answers = await askEach(open, (providerIds) => transport.cancel(providerIds, signal()));
 			next = answered(next, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
-				await recordAnswers(db, actor, found.id!, found.request_id, answers, null, {
+				await recordAnswers(db, actor, found.id!, answers, null, {
 					eventKey: openCount === 0 ? `cancel-confirmed/${found.id}` : `cancel-check/${input.requestKey}`,
 					after: {
 						cancelled: answers.filter((answer) => answer.outcome === "done").length,
@@ -881,7 +962,7 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 		const found = await loadAudience(db, actor, input.input.communicationId);
 		if (found.allowed !== true) deny("access_denied");
 		if (!found.id) deny("not_found");
-		const members = membersOf(found.members);
+		const members = batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members);
 		const replacementAllowed =
 			members.some((row) => row.state === "cancelled") &&
 			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
@@ -920,9 +1001,8 @@ export function rescheduleDispatched(
 				), waiting AS (
 					-- Recipients Everyfield still holds move with the saved time; the email service never had them.
 					UPDATE mail m SET scheduled_at = ${requested}::timestamptz
-					FROM mail_request_member mem
-					WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
-						AND mem.mail_id = m.id AND m.state = 'scheduled' AND EXISTS (SELECT 1 FROM updated)
+					WHERE m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${found.id}::uuid
+						AND m.state = 'scheduled' AND EXISTS (SELECT 1 FROM updated)
 					RETURNING m.id
 				)
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, before_value, after_value)
@@ -936,12 +1016,12 @@ export function rescheduleDispatched(
 			row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested;
 		const open = members.filter(holdsOther);
 		let next = members;
-		if (found.request_id && open.length) {
+		if (open.length) {
 			const answers = await askEach(open, (providerIds) => transport.reschedule(providerIds, requested, signal()));
 			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
 			if (answers.length) {
 				const left = open.length - answers.length;
-				await recordAnswers(db, actor, found.id!, found.request_id, answers, requested, {
+				await recordAnswers(db, actor, found.id!, answers, requested, {
 					eventKey: left === 0 ? `time-confirmed/${found.id}/${requested}` : `time-check/${input.requestKey}`,
 					after: {
 						scheduled_at: requested,
@@ -1147,20 +1227,15 @@ const claimedSchema = z.object({
 			state: z.string(),
 			personId: z.uuid().nullable(),
 			unsubscribed: z.boolean(),
-			payload: z.object({ v: z.literal(1), sealed: z.string() }).nullable(),
+			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
 		}),
 	),
 });
-const sealedMessage = z.object({
-	subject: z.string(),
-	text: z.string(),
-	html: z.string(),
-	headers: z.record(z.string(), z.string()).optional(),
-});
 
 /**
- * Claim one due scheduled email (every recipient of one handoff, so its batch goes under its own idempotency key) and
+ * Claim one due batch of a scheduled email (every recipient of one frozen request, so it goes under its own idempotency
+ * key; a message of several batches is claimed one batch at a time) and
  * decide each recipient at the send time, in one statement: a person who unsubscribed from this church, or a blocked
  * address, is refused and never handed off; everyone else is marked sending. Two runners never claim the same email.
  */
@@ -1234,7 +1309,8 @@ export async function runDueScheduled(
 			gate: sql`NOT ${churchClosing(sql`${claimed.tenant_id}::uuid`)}`,
 			actorId: null,
 		};
-		const base: Member[] = claimed.members.map((row) => ({
+		const members: Member[] = claimed.members.map((row) => ({
+			id: row.id,
 			position: row.position,
 			state: row.state,
 			personId: row.personId,
@@ -1243,40 +1319,21 @@ export async function runDueScheduled(
 			cancelRequested: false,
 			unsubscribed: row.unsubscribed,
 		}));
-		const sending = claimed.members.filter((row) => row.state === "dispatched");
-		const opened = sending.map((row) => {
-			const json =
-				row.payload &&
-				openText(ready.encryptionKey, row.payload.sealed, `${claimed.tenant_id}/${row.id}/communication`);
-			const to = row.address && openText(ready.encryptionKey, row.address, addressAad(claimed.tenant_id, row.id));
-			const message = json ? sealedMessage.safeParse(JSON.parse(json)) : null;
-			return { position: row.position, message: message?.success && to ? { ...message.data, to } : null };
-		});
-		// A recipient whose sealed email no longer opens is refused, never sent blank.
-		const updates: { position: number; outcome: "accepted" | "refused" | "unknown"; providerId: string | null }[] =
-			opened
-				.filter((row) => !row.message)
-				.map((row) => ({ position: row.position, outcome: "refused", providerId: null }));
-		const messages = opened.filter((row) => row.message);
-		if (messages.length) {
-			let batch: DeliveryBatch;
-			try {
-				batch = await transport.send(
-					{ key: claimed.provider_key, messages: messages.map((row) => row.message!), scheduledAt: null },
-					signal(),
-				);
-			} catch {
-				batch = { outcome: "unknown" };
-			}
-			updates.push(
-				...applyIds(
-					batch,
-					messages.map((row) => row.position),
-					"compressed",
-				),
-			);
-		}
-		await record(db, who, claimed.communication_id, claimed.request_id, claimed.attempt_id, updates, base);
+		// The claim leaves each recipient dispatched or refused, so the batch is sent, never looked up.
+		const batch: Batch = {
+			requestId: claimed.request_id,
+			attemptId: claimed.attempt_id,
+			providerKey: claimed.provider_key,
+			expired: false,
+			members,
+			messages: new Map(
+				claimed.members
+					.filter((row) => row.state === "dispatched")
+					.map((row) => [row.position, openFrozen(ready.encryptionKey, claimed.tenant_id, row)]),
+			),
+		};
+		const result = await handOffBatch(transport, batch);
+		await record(db, who, claimed.communication_id, [{ batch, updates: result?.updates ?? [] }]);
 	}
 	return handled;
 }

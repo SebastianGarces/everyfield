@@ -6,7 +6,7 @@ import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
-import { isFiltered, listRequest, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
+import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
 // The meetings screens' data access. Every producer read is one statement without locks, so a page sends its reads
@@ -80,7 +80,7 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 	const list = (q: MeetingsQuery) => read(viewer, (db, a) => meetingsReader.list(db, a, listRequest(q)));
 	const [first, upcoming] = await Promise.all([
 		list(query),
-		read(viewer, (db, a) => meetingsReader.list(db, a, { window: "upcoming", limit: 1 })),
+		read(viewer, (db, a) => meetingsReader.list(db, a, NEXT_REQUEST)),
 	]);
 	let page = first;
 	if (page.status === "ok" && page.value.items.length === 0 && query.page > pageCount(page.value.total)) {
@@ -126,13 +126,12 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	const request = { meetingId };
 	// The evaluation exists only for a Vision meeting, so it is read right after the meeting, while the other reads run.
 	const meetingRead = read(viewer, (db, a) => meetingsReader.get(db, a, request));
-	const [meeting, guests, kit, cards, own, attendance, analytics, evaluation, agendaTemplate] = await Promise.all([
+	const [meeting, people, kit, own, analytics, evaluation, agendaTemplate] = await Promise.all([
 		meetingRead,
-		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
+		// The guests, their cards and their attendance come from one read of the participation rows.
+		read(viewer, (db, a) => meetingsReader.pageGuests(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listKit(db, a, request)),
-		read(viewer, (db, a) => meetingsReader.listCards(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.getOwnRsvp(db, a, request)),
-		readAttendance(viewer, meetingId),
 		// The meeting's report is for Owners and Admins; a Member's read would only be refused.
 		canWrite(viewer) ? readAnalytics(viewer, meetingId) : null,
 		meetingRead.then((m) =>
@@ -144,17 +143,18 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	]);
 	if (meeting.status === "failed") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
+	const page = value(people);
 	return {
 		status: "found",
 		meeting: meeting.value.meeting,
 		agendaTemplate,
-		guests: value(guests)?.guests ?? null,
+		guests: page?.guests.guests ?? null,
 		/** Owners and Admins: the first email open per guest Person. Shown apart from RSVP and attendance. */
-		emailOpens: value(guests)?.emailOpens ?? [],
+		emailOpens: page?.guests.emailOpens ?? [],
 		kit: value(kit),
-		cards: value(cards)?.cards ?? null,
+		cards: page?.cards.cards ?? null,
 		own: value(own),
-		attendance: value(attendance),
+		attendance: page?.attendance ?? null,
 		analytics: analytics ? value(analytics) : null,
 		evaluation: evaluation ? value(evaluation) : null,
 		now: new Date().toISOString(),

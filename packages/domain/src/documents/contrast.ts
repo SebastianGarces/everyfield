@@ -1,4 +1,6 @@
-import { luminance } from "../branding/color.ts";
+import { ratio, textOn } from "../branding/color.ts";
+
+export { ratio, textOn };
 
 // WCAG 2.x contrast. Every text/background pair in a document goes through `pair()`,
 // so the logged ratios match what the page actually uses.
@@ -18,10 +20,6 @@ const toHex = (r: number, g: number, b: number) =>
 		)
 		.join("")
 		.toUpperCase();
-export const ratio = (a: string, b: string) => {
-	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
-	return (hi + 0.05) / (lo + 0.05);
-};
 const mix = (a: string, b: string, t: number) => {
 	const [r1, g1, b1] = hex(a),
 		[r2, g2, b2] = hex(b);
@@ -43,13 +41,6 @@ export class ContrastLog {
 		return fg;
 	}
 }
-
-/** Text colour on a brand fill: whichever of white or ink has the higher WCAG ratio, when it reaches 4.5:1. On a
- *  mid-tone fill neither does, and black does: any fill white misses has luminance above 0.18, so black clears 4.6:1. */
-export const textOn = (bg: string, ink: string, white = "#FFFFFF") => {
-	const best = ratio(white, bg) >= ratio(ink, bg) ? white : ink;
-	return ratio(best, bg) >= MIN_BODY ? best : "#000000";
-};
 
 /** A brand colour used as text or as a thin line: keep it if it clears `min` on `bg`, else step it toward ink until it does.
  *  A brand colour under 3:1 is therefore never printed as text; the derived shade is. */

@@ -1,7 +1,8 @@
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { consentOperations } from "./consent.ts";
-import type { OrganizationEffects } from "./core.ts";
+export { readPipelineConsents } from "./consent.ts";
+import type { OrganizationEffects, RelationshipNotice } from "./core.ts";
 import { getHistory } from "./history.ts";
 export { readHistory } from "./history.ts";
 import type { GeographyReference } from "./profile.ts";
@@ -25,17 +26,7 @@ export function createOrganizationAdapter(
 }
 export { readAnswerableInvitation } from "./relationships.ts";
 export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
-export type { GeographyReference, OrganizationEffects };
+export type { GeographyReference, OrganizationEffects, RelationshipNotice };
 
-export {
-	connectionRevision,
-	idsIn,
-	namesFor,
-	pairOf,
-	pendingFor,
-	residencyLinks,
-	residencyRevision,
-	subjectFacts,
-	targetsFor,
-} from "./reads.ts";
+export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
 export type { Kind, Viewer } from "./reads.ts";

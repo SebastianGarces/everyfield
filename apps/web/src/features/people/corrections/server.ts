@@ -6,6 +6,7 @@ import {
 	assessments,
 	commitments,
 	interviews,
+	listDuplicatePairs,
 	peopleMerge,
 	peopleReader,
 	peopleUnmerge,
@@ -95,6 +96,9 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 
 /** Duplicate hints for one live plant person (REQ-PPL-016), read with the person page. Hints only. */
 export type DuplicateHints = z.infer<typeof c.duplicateHints>;
+/** The pairs CSV imports flagged with "Add, review later" whose two people are both still live (REQ-PPL-018). */
+export type DuplicatePairs = z.infer<typeof c.duplicatePairs>;
+export const readPairs = (tx: Transaction, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
 
 /** The Unmerge preview with both people's names, in one transaction. */
 export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {

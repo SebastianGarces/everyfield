@@ -6,7 +6,7 @@ import { sql } from "@everyfield/db/query";
 import { database } from "../database";
 import { authorizeInvitationMail, createInvitationService } from "@everyfield/domain/identity";
 import { accountPersonProducer } from "@everyfield/domain/people";
-import { createMailService, runDueMail, type MailTransport } from "../jobs/mail";
+import { createMailService, queueOnlyTransport, runDueMail, type MailTransport } from "../jobs/mail";
 
 // The invitation mount (WP-008/ui ruling U1). It builds the shipped WP-008/api invitation service once, with the real
 // WP-011 Person producer in the same transaction. The identity mount passes it to registration (invitation-origin
@@ -23,16 +23,6 @@ const env = z.object({
 
 /** Invitation mail keys: the invitation itself and the receipt after acceptance (authorizeInvitationMail). */
 export const INVITATION_MAIL = ["invitation/", "invitation-accepted/"];
-
-/** The enqueue side never sends: a request that queues mail does not wait on the email service. */
-const refusing: MailTransport = {
-	async send() {
-		return { kind: "refused", retryable: true };
-	},
-	async lookup() {
-		return { kind: "unknown" };
-	},
-};
 
 function invitationMail(v: z.infer<typeof env>, transport: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -73,7 +63,7 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 	const v = parsed.data;
 	const db = database(v.IDENTITY_DATABASE_URL);
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
-	const mail = invitationMail(v, refusing);
+	const mail = invitationMail(v, queueOnlyTransport);
 	service = createInvitationService({
 		db,
 		origin: v.IDENTITY_ORIGIN,

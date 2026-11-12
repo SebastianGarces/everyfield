@@ -2014,6 +2014,72 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "audit_tenant_action_latest": {
+          "name": "audit_tenant_action_latest",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_actor_action": {
+          "name": "audit_actor_action",
+          "columns": [
+            {
+              "expression": "actor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -8374,7 +8440,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text, 'evry_effect'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -8398,7 +8464,7 @@
         },
         "job_ck_7": {
           "name": "job_ck_7",
-          "value": "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))"
+          "value": "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))"
         }
       },
       "isRLSEnabled": false
@@ -9361,6 +9427,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "communication_id": {
+          "name": "communication_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9474,6 +9546,27 @@
             },
             {
               "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_communication": {
+          "name": "mail_communication",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "communication_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -9599,6 +9692,21 @@
           "columnsTo": [
             "id",
             "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "mail_fk_8": {
+          "name": "mail_fk_8",
+          "tableFrom": "mail",
+          "tableTo": "communication",
+          "columnsFrom": [
+            "communication_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -11348,11 +11456,11 @@
         },
         "notice_ck_1": {
           "name": "notice_ck_1",
-          "value": "(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text]))"
+          "value": "(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text]))"
         },
         "notice_ck_2": {
           "name": "notice_ck_2",
-          "value": "(purpose = ANY (ARRAY['insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text]))"
+          "value": "(purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text]))"
         },
         "notice_ck_3": {
           "name": "notice_ck_3",
@@ -11498,7 +11606,7 @@
         },
         "notification_preference_ck_1": {
           "name": "notification_preference_ck_1",
-          "value": "category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review')"
+          "value": "category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe')"
         },
         "notification_preference_ck_2": {
           "name": "notification_preference_ck_2",
@@ -11518,7 +11626,7 @@
         },
         "notification_preference_ck_6": {
           "name": "notification_preference_ck_6",
-          "value": "((category <> 'wiki_upstream_review'::text) OR (channel = 'in_app'::text))"
+          "value": "((category <> ALL (ARRAY['wiki_upstream_review'::text, 'scheduled_email_unsubscribe'::text])) OR (channel = 'in_app'::text))"
         }
       },
       "isRLSEnabled": false

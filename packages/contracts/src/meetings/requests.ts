@@ -9,6 +9,7 @@ import {
 	enteredTime,
 	meetingId,
 	meetingStatus,
+	meetingSubtype,
 	meetingType,
 	meetingWindow,
 	pageInput,
@@ -31,12 +32,16 @@ export const venueChoice = z.discriminatedUnion("kind", [
 ]);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
-/** A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). */
+/**
+ * A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). Only a
+ * team meeting carries a subtype (REQ-TEAM-013).
+ */
 export const scheduleMeetingRequest = create(
 	z
 		.strictObject({
 			type: meetingType,
 			teamId: recordId.optional(),
+			subtype: meetingSubtype.optional(),
 			title: optionalText(200),
 			notes: optionalText(5000),
 			...enteredTime,
@@ -50,6 +55,10 @@ export const scheduleMeetingRequest = create(
 		.refine((v) => (v.type === "team_meeting") === (v.teamId !== undefined), {
 			path: ["teamId"],
 			message: "team_meeting_needs_one_team",
+		})
+		.refine((v) => v.subtype === undefined || v.type === "team_meeting", {
+			path: ["subtype"],
+			message: "subtype_only_for_team_meeting",
 		}),
 );
 // Type and team are fixed at creation, so an edit cannot name them.
@@ -116,17 +125,34 @@ export const setInviterRequest = commandEnvelope(
 /** Null resets the answer to Pending. */
 export const correctRsvpRequest = commandEnvelope(z.strictObject({ ...guest, rsvp: rsvpAnswer.nullable() }));
 export const saveOwnRsvpRequest = create(z.strictObject({ meetingId, rsvp: rsvpAnswer }));
-const contact = {
-	meetingId,
+const contactFields = {
 	displayName,
 	email: z.string().trim().pipe(z.email().max(320)).nullable().default(null),
 	phone: z.string().trim().max(40).nullable().default(null),
 	country: z.string().trim().max(255).nullable().default(null),
 };
+const contact = { meetingId, ...contactFields };
 export const createGuestContactRequest = create(
 	z.strictObject({ ...contact, attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") }),
 );
 export const createWalkInContactRequest = create(z.strictObject(contact));
+/**
+ * Everyone chosen in one Add guest submit, as one write: People already in this church, and new contacts made as
+ * prospects from this meeting's guest list (REQ-MTG-007, REQ-MTG-011). Nobody here gets an inviter.
+ */
+export const addGuestsRequest = create(
+	z
+		.strictObject({
+			meetingId,
+			people: z
+				.array(personId)
+				.max(100)
+				.refine((ids) => new Set(ids).size === ids.length, "duplicate_person")
+				.default([]),
+			contacts: z.array(z.strictObject(contactFields)).max(50).default([]),
+		})
+		.refine((v) => v.people.length + v.contacts.length > 0, "nobody_chosen"),
+);
 export const recordCardRequest = commandEnvelope(
 	z.strictObject({
 		...guest,
@@ -145,8 +171,6 @@ const reviewedPeople = z
 	.max(500)
 	.refine((ids) => new Set(ids).size === ids.length, "duplicate_person");
 export const copyTeamRosterRequest = create(z.strictObject({ meetingId, add: reviewedPeople, remove: reviewedPeople }));
-/** Internal: the invitation send or guest transaction that already holds the reviewed intent mints the token. */
-export const createRsvpTokenRequest = z.strictObject(guest);
 export const rsvpToken = z
 	.string()
 	.regex(/^[A-Za-z0-9_-]{43}$/)

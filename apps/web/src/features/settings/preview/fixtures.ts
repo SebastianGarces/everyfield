@@ -117,10 +117,6 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 						? [
 								{ category: "oversight_digest", channel: "email", enabled: true },
 								{ category: "oversight_digest", channel: "in_app", enabled: true },
-								{ category: "relationship_milestone", channel: "email", enabled: true },
-								{ category: "relationship_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "email", enabled: false },
 								{ category: "phase_milestone", channel: "in_app", enabled: true },
 								{ category: "phase_milestone", channel: "email", enabled: false },
 							]
@@ -135,9 +131,8 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 								{ category: "meeting_announcement", channel: "email", enabled: false },
 								{ category: "planter_digest", channel: "in_app", enabled: true },
 								{ category: "planter_digest", channel: "email", enabled: true },
-								{ category: "launch_milestone", channel: "in_app", enabled: true },
-								{ category: "launch_milestone", channel: "email", enabled: true },
 								{ category: "wiki_upstream_review", channel: "in_app", enabled: false },
+								{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true },
 							],
 				planterCadence: persona === "network" ? null : "weekly",
 				oversightCadence: persona === "network" ? "daily" : null,
