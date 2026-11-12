@@ -6,13 +6,7 @@ import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
 import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "./core.ts";
-import {
-	catalogRole,
-	catalogTeam,
-	offerRemains,
-	TEMPLATE_VERSION,
-	unknownSelection,
-} from "./templates.ts";
+import { catalogRole, catalogTeam, offerRemains, TEMPLATE_VERSION, unknownSelection } from "./templates.ts";
 
 const text = z.string().nullable();
 const id = z.string().uuid();
