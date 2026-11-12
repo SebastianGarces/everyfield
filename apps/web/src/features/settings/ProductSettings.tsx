@@ -1,5 +1,6 @@
 "use client";
 
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
@@ -15,16 +16,21 @@ import {
 import { assetSrc, uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
+	finalizeAvatar,
 	getSection,
 	previewPersonalTimezone,
 	previewPlantTimezone,
+	removeAvatar,
 	requestAccountDeletion,
+	requestAvatarUpload,
 	requestEmailChange,
+	requestWorkspaceDeletion,
 	saveChurch,
 	saveSection,
 	setPersonalTimezone,
 	setPlantTimezone,
 } from "./actions";
+import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
@@ -37,8 +43,6 @@ import { SettingsProvider } from "./store";
 // route (app/settings/[section]), and closing then goes to the viewer's home page. /settings shows the first section
 // the viewer is offered without changing the address.
 
-// The photo stays out until a private bucket exists (Q2), and church workspace deletion until it has a server action:
-// their rows are then not shown at all.
 const PORT: SettingsPort = {
 	getSection,
 	saveSection,
@@ -55,7 +59,15 @@ const PORT: SettingsPort = {
 		suggestColors,
 		assetSrc,
 	},
-	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
+	flows: {
+		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc: avatarRoute },
+		requestEmailChange,
+		changePassword,
+		previewPersonalTimezone,
+		setPersonalTimezone,
+		requestAccountDeletion,
+		requestWorkspaceDeletion,
+	},
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
@@ -102,9 +114,14 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	return { element, open: (key: DialogSection) => navigate(key) };
 }
 
-/** The restricted deletion page, with the deadline the request returned when the request is known to be pending. */
+/**
+ * The restricted deletion page for the request's subject (a church workspace or your account), with the deadline the
+ * request returned when it is known to be pending. A reply that never arrived came from your account's dialog.
+ */
 export function deletionPage(status: DeletionStatus | null): string {
-	return status?.status === "pending_deletion"
-		? `/account-deletion?until=${encodeURIComponent(status.cancelUntil)}`
-		: "/account-deletion";
+	const page =
+		status && status.status !== "active" && status.subject.kind === "plant"
+			? "/workspace-deletion"
+			: "/account-deletion";
+	return status?.status === "pending_deletion" ? `${page}?until=${encodeURIComponent(status.cancelUntil)}` : page;
 }
