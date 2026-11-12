@@ -44,16 +44,17 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { readBrandAssetIfChanged } from "../../../packages/domain/src/branding/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
+import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
 import { organizationsCases, seedOrganizations } from "./tenancy-organizations.mts";
 import { phasesCases, seedPhases } from "./tenancy-phases.mts";
+import { seedSettings, settingsCases } from "./tenancy-settings.mts";
 import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
 import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 
@@ -676,14 +677,6 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
-		[
-			"branding:readBrandAssetIfChanged",
-			{
-				run: () => readBrandAssetIfChanged(f.db, storage, who.actor, key(), () => true),
-				// The seed stores no brand asset, so church A has nothing to read back either.
-				expected: { refused: "unavailable", control: null },
-			},
-		],
 		// Only a sending church's own Owner or Admin has pipeline choices; a church's owner, even naming a church A id as
 		// the connection, gets none, and church A has no sending-church connection for the control to read.
 		[
@@ -702,6 +695,8 @@ function cases(who) {
 		...organizationsCases(t, who),
 		...accessCases(t, who),
 		...onboardingCases(t, who),
+		...brandingCases(t, who),
+		...settingsCases(t, who),
 	]);
 }
 
@@ -727,6 +722,8 @@ before(async () => {
 	await seedOrganizations(t);
 	await seedAccess(t);
 	await seedOnboarding(t);
+	await seedBranding(t);
+	await seedSettings(t);
 });
 after(() => f?.close());
 
