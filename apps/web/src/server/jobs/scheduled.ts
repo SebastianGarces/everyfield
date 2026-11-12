@@ -1,5 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
+import { documentsWriter } from "@everyfield/domain/documents";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
@@ -33,6 +34,13 @@ type StepStatus = { status: "ok"; count: unknown } | { status: "skipped" } | { s
 /** A step's component name, the count key the body has always used (null: none), and its run, or null when unconfigured. */
 type Step = readonly [component: string, key: string | null, run: (() => Promise<unknown>) | null];
 
+/** One bounded documents orphan sweep (D-879). Its count is the files purged and the files it could not settle. */
+async function sweepOrphans(db: Database, storage: PrivateStorage) {
+	const reply = await documentsWriter.reconcileOrphans(db, storage);
+	if (reply.status !== "ok") throw Error(reply.error.code);
+	return reply.value;
+}
+
 /**
  * The runner's Messages work (T-241): cancel what the email service already holds for people who unsubscribed, then
  * hand each due scheduled email to the email service, checking every recipient's opt-out at that moment.
@@ -46,7 +54,9 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
  * runs the existing workers, each of which returns expired leases to the queue first. It deletes the uploaded files that
- * failed or partial People imports kept for 7 days after they last stopped (`people-import-files`). Requested deletions whose
+ * failed or partial People imports kept for 7 days after they last stopped (`people-import-files`). Beside the queued
+ * object cleanup (`object-cleanup`) it sweeps up to 20 stored files nothing references, such as an export or upload
+ * whose write never finished (`documents-orphans`, skipped without private storage). Requested deletions whose
  * cancellation deadline has passed are purged on the cleanup login (`lifecycle_purge`). It queues the digests whose period
  * ended at the run's clock and delivers a bounded batch of them (WP-030), and writes the notices of due meeting
  * announcements and reminders (`notification`). The workers claim with SKIP
@@ -116,6 +126,7 @@ export function scheduledJobs(config: {
 			["people-import", null, () => runDueImports(db, 4, until)],
 			["people-import-files", null, () => deleteExpiredImportFiles(db)],
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
+			["documents-orphans", null, storage && (() => sweepOrphans(db, storage))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
 			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
 			["assistant-turn", "turns", () => runTurns(db, 4, until)],
