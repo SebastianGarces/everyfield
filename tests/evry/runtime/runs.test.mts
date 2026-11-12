@@ -173,6 +173,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 				: [],
 		);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
+		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
 			"people.exportPeople",
 			"people.generateCsvTemplate",
@@ -189,7 +191,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			operations,
 			who === "owner"
 				? [
-						...peopleReads,
+						...ownerReads,
 						"people.exportPeople",
 						"people.generateCsvTemplate",
 						"people.getActivities",

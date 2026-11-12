@@ -3,6 +3,7 @@ import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import {
 	checkForDuplicates as nativeDuplicates,
+	listDuplicatePairs as nativePairs,
 	PeopleReadContext,
 	peopleReader,
 	personFields,
@@ -18,6 +19,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
+import { ownerOrAdmin } from "../commands/index.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 // The People read tools: each calls the native People read that screens use, under the same domain authority, whose
@@ -107,7 +109,7 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckRequest>> = {
 	operation: "people.checkForDuplicates",
 	description:
-		"Before proposing a new person, find people in this church who share the email or phone (exact hint) or the name (potential hint). A hint never proves two records are the same person.",
+		"Find people in this church who share an email or phone (exact hint) or a name (potential hint): before proposing a new person, or to compare people who may be the same person. A hint never proves two records are the same person.",
 	input: duplicateCheckRequest,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
@@ -131,8 +133,37 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 	},
 };
 
+export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
+	operation: "people.listDuplicatePairs",
+	description:
+		'List the people waiting for duplicate review: the possible duplicates a CSV import flagged ("Add, review later"), each an imported person and the existing person it may duplicate. Use it when asked who needs review or about possible duplicates. Only import-flagged pairs nobody marked "Not a duplicate", not a scan of all People, so an empty list never means the church has no duplicates. A pair is never proof that two records are the same person.',
+	input: z.strictObject({}),
+	allowed: ownerOrAdmin,
+	async invoke(tx: Transaction, actor: EvryActor): Promise<SourceResult> {
+		const reply = await nativePairs(tx, new PeopleReadContext(actor.authority));
+		if (reply.status !== "ok") throw new EvryRefusal("source_unavailable");
+		const { items, completeness } = reply.value;
+		return {
+			operation: "people.listDuplicatePairs",
+			status: "available",
+			rows: items.map((pair) =>
+				personRow(actor, pair.person.id, pair.person.displayName, {
+					mayDuplicateId: pair.with.id,
+					mayDuplicate: pair.with.displayName,
+				}),
+			),
+			// The domain lists the first 100 pairs; past them only those are known, never a false exhaustive total.
+			total: completeness === "complete" ? items.length : null,
+			page: 1,
+			next: null,
+			completeness,
+			exclusions: ["pairs marked not a duplicate", "retired or merged people", "pairs no import flagged"],
+		};
+	},
+};
+
 /** The installed People read tools, in catalog order. */
-export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates] as const;
+export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
 
 const verifiedRow = z.object({
 	id: z.uuid(),
