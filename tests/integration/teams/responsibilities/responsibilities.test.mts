@@ -21,7 +21,7 @@ import { fixture, ok, refused } from "../../../support/fixture.mts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "wp018", max: 6 });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ timezone: "America/New_York" })).id;

@@ -79,7 +79,7 @@ function measure(
 }
 
 function version(command: string[]): string {
-	const run = spawnSync(command[0], ["--version"], { encoding: "utf8" });
+	const run = spawnSync(command[0]!, ["--version"], { encoding: "utf8" });
 	return (run.stdout || run.stderr).trim().split("\n")[0] ?? "?";
 }
 
@@ -134,7 +134,7 @@ export async function compare(
 		for (const dir of packages) {
 			const cmd = commands(root, dir);
 			for (const tool of TOOLS) {
-				const load = loadavg()[0];
+				const load = loadavg()[0]!;
 				const m = await measure(cmd[tool], join(root, dir));
 				const row: Measurement = {
 					package: dir,
@@ -155,7 +155,7 @@ export async function compare(
 				);
 			}
 		}
-	const cmd = commands(root, packages[0]);
+	const cmd = commands(root, packages[0]!);
 	const header = [
 		`## Typecheck comparison, ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
 		"",

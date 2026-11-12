@@ -98,7 +98,7 @@ function shadow(f: Fixture, extra: Record<string, string | undefined> = {}) {
 	});
 	const lines = run.stdout.split("\n").filter((l) => l.startsWith("typecheck-shadow "));
 	assert.equal(lines.length, 1, `one result line per run:\n${run.stdout}\n${run.stderr}`);
-	return { ...run, line: lines[0], result: JSON.parse(lines[0].slice("typecheck-shadow ".length)) };
+	return { ...run, line: lines[0]!, result: JSON.parse(lines[0]!.slice("typecheck-shadow ".length)) };
 }
 
 const TSC_PASS = "exit 0";
@@ -176,6 +176,53 @@ test("INV-typecheck: the exit code is always tsc's when bun check errors, crashe
 			assert.equal(run.result.mismatch, "yes", `bun ${name} is never a silent match`);
 			assert.ok(Date.now() - started < 20_000, "a hung bun check is stopped by the timeout");
 		}
+});
+
+test("INV-typecheck: a failing typecheck:tools fails the run, and the shadow still records the packages' tsc", (t) => {
+	const cases: Array<[string, string, number]> = [
+		[TSC_PASS, "exit 0", 0],
+		[TSC_PASS, "printf 'tools/qa/a.ts(1,1): error TS2322: Type mismatch.\\n'; exit 2", 2],
+		[TSC_FAIL, "exit 2", 1],
+		[TSC_FAIL, "exit 0", 1],
+	];
+	for (const [tsc, tools, status] of cases) {
+		const f = workspace(
+			{
+				"packages/a": { scripts: { typecheck: tsc, "typecheck:bun": "exit 0" } },
+				"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
+			},
+			{ "typecheck:tools": tools },
+		);
+		t.after(f.close);
+		const run = shadow(f);
+		assert.equal(run.status, status, `${tsc} / ${tools}: ${run.stderr}`);
+		assert.equal(run.result.tsc.exit, tsc === TSC_PASS ? 0 : 1, "the shadow compares bun with the packages only");
+		if (status === 2) assert.match(run.stderr, /typecheck:tools failed/);
+	}
+});
+
+test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch", () => {
+	assert.equal(rootPkg.scripts["typecheck:tools"], "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json");
+	const listed = spawnSync(
+		join(repo, "node_modules/typescript-7/bin/tsc"),
+		["-p", "tsconfig.tools.json", "--listFilesOnly"],
+		{
+			cwd: repo,
+			encoding: "utf8",
+		},
+	);
+	assert.equal(listed.status, 0, listed.stderr);
+	const files = listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	for (const file of [
+		"scripts/fast-check.ts",
+		"tools/ci/typecheck.ts",
+		"tools/ci/tests/typecheck.test.ts",
+		"tools/qa/qa.ts",
+		"tools/qa/tests/qa.test.ts",
+		"ops/actionable-watch/run.mts",
+		"ops/actionable-watch/test/run.test.mts",
+	])
+		assert.ok(files.includes(file), `${file} is in the tools program`);
 });
 
 test("INV-typecheck: each run appends its result line to the log outside CI and only prints it in CI", (t) => {
@@ -266,7 +313,7 @@ test("INV-typecheck: typecheck:bun at the root, in a package and in the shadow n
 	for (const marker of markers) assert.equal(existsSync(marker), false, `${marker} must not exist`);
 	// Without --no-script the same binary does start the package's check script, so the marker can appear.
 	spawnSync(join(repo, "node_modules/.bin/bun"), ["check"], { cwd: join(f.root, "packages/p"), env: env() });
-	assert.equal(existsSync(markers[1]), true, "control: bun check without --no-script runs the check script");
+	assert.equal(existsSync(markers[1]!), true, "control: bun check without --no-script runs the check script");
 });
 
 test("INV-typecheck: a package .env reaches no checker, child process or output", (t) => {

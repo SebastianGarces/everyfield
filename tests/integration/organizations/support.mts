@@ -6,7 +6,6 @@ import { seeds, waitingOnLock as sharedWaitingOnLock } from "../../support/fixtu
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 // The schema exists from import on; `teardown` drops it.

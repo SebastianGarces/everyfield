@@ -1,12 +1,10 @@
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { assertDevelopmentDatabase, developmentHosts } from "../../../packages/db/src/development.ts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 let url: URL;
 try {
 	url = assertDevelopmentDatabase(process.env.JOBS_TEST_CONNECTION);
