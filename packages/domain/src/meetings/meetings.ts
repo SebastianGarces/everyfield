@@ -5,7 +5,6 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { command, deny, next, parse, reply, type MeetingsContext, type Tx, type Writer } from "./core.ts";
-import { syncReminderJobs } from "./notifications.ts";
 import { servingPeople } from "./roster.ts";
 import { detail, facts, meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
@@ -171,7 +170,6 @@ export const meetingsWriter = {
 						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p
 						UNION ALL SELECT ${w.plant.id}::uuid, ${id}::uuid, p, true, 'pending', 'absent'
 							FROM unnest(${sql.param(roster)}::uuid[]) p`);
-				audit.writes.push(...syncReminderJobs(m, f.now));
 				return {
 					value: result(m, "changed", audit.id),
 					subject: id,
@@ -196,11 +194,7 @@ export const meetingsWriter = {
 			const input = parse(c.editMeetingRequest, raw);
 			return command(tx, ctx, "meetings.edit", input, async (w, audit) => {
 				const p = input.input.patch;
-				const {
-					m: before,
-					extra,
-					now,
-				} = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
+				const { m: before, extra } = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
 				expected(before, input.expectedRevision);
 				const writes: SQLWrapper[] = [];
 				const place = p.venue ? location(w, p.venue, venueFacts.parse(extra), before, writes) : {};
@@ -230,7 +224,6 @@ export const meetingsWriter = {
 								venue_address = ${m.venue_address}, local_date = ${m.local_date}::date, local_time = ${m.local_time}::time,
 								starts_at = ${m.starts_at.toISOString()}::timestamptz`,
 						),
-						...syncReminderJobs(m, now),
 					);
 				}
 				return {
@@ -246,7 +239,7 @@ export const meetingsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.changeStatusRequest, raw);
 			return command(tx, ctx, "meetings.changeStatus", input, async (w, audit) => {
-				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
+				const { m: before } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
 				const to = input.input.to,
 					noop = before.status === to;
@@ -258,7 +251,7 @@ export const meetingsWriter = {
 				)
 					deny("status_transition");
 				const m = noop ? before : changed(before, { status: to });
-				if (!noop) audit.writes.push(update(before, sql`status = ${to}`), ...syncReminderJobs(m, now));
+				if (!noop) audit.writes.push(update(before, sql`status = ${to}`));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",
@@ -276,10 +269,7 @@ export const meetingsWriter = {
 				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
 				const m = changed(before, { retired_at: now });
-				audit.writes.push(
-					update(before, sql`retired_at = ${now.toISOString()}::timestamptz`),
-					...syncReminderJobs(m, now),
-				);
+				audit.writes.push(update(before, sql`retired_at = ${now.toISOString()}::timestamptz`));
 				return {
 					...meetingChange(m, result(m, "changed", audit.id), before),
 					action: "meetings.changed",
@@ -305,7 +295,6 @@ export const meetingsWriter = {
 				if (!noop)
 					audit.writes.push(
 						update(before, sql`status = 'completed', actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`),
-						...syncReminderJobs(m, now),
 					);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
@@ -337,7 +326,6 @@ export const meetingsWriter = {
 						before,
 						sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
 					),
-					...syncReminderJobs(m, now),
 				);
 				return {
 					...meetingChange(m, result(m, "changed", audit.id), before),

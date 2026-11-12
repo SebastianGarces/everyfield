@@ -1500,15 +1500,10 @@
 			],
 			"job.kind": [
 				"mail",
-				"notification",
 				"digest",
-				"assessment",
-				"reference_generation",
-				"feedback_publication",
 				"object_cleanup",
 				"lifecycle_purge",
 				"assistant_turn",
-				"document_render",
 				"people_import",
 				"evry_effect"
 			],
