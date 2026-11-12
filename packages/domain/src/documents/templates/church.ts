@@ -8,9 +8,9 @@ import {
 	type TextDocumentSpec,
 } from "./text-content.ts";
 
-export type SignatureSlot = { label: string; name: string; width: number };
+type SignatureSlot = { label: string; name: string; width: number };
 /** The fixed frame of a Church Document: what export prints around the editable body, in the PDF and the DOCX. */
-export type Frame =
+type Frame =
 	| { kind: "sign"; closing: string; slots: SignatureSlot[] }
 	| { kind: "adopt"; closing: string; signers: number }
 	| { kind: "letter"; signOff: string };
@@ -35,7 +35,7 @@ export type ChurchTemplate = {
 	body: ChurchBlock[];
 };
 
-export const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
+const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
 	{ key: "church_name", label: "Church name", required: true, autoFill: "church_name" },
 	{ key: "pastor_name", label: "Pastor name", required: false, autoFill: "pastor_name" },
 ];
@@ -166,47 +166,3 @@ export const CHURCH_TEMPLATES: ChurchTemplate[] = [
 export const TEXT_TEMPLATE_IDS: readonly string[] = CHURCH_TEMPLATES.map((template) => template.id);
 
 export const churchTemplate = (id: string) => CHURCH_TEMPLATES.find((template) => template.id === id);
-
-/**
- * Editable catalog ids with no authored content yet (docs/catalog/document-templates.json, `editable: true`).
- * `createFromTemplate` refuses these with `template_not_authored`; a test keeps this list equal to the catalog.
- */
-export const PENDING_EDITABLE = [
-	"church-planting-prospectus",
-	"partnership-agreement",
-	"residency-plan",
-	"board-minutes",
-	"conflict-of-interest-policy",
-	"financial-controls-policy",
-	"accountable-plan-reimbursement-policy",
-	"child-protection-policy",
-	"monthly-progress-report",
-	"support-letter",
-	"group-exemption-rev-proc-2026-8",
-] as const;
-
-/** Catalog ids that are not editable: fixed-layout, budget and email templates. Refused with `template_not_editable`. */
-export const NOT_EDITABLE = [
-	"commitment-card",
-	"response-card",
-	"guest-sign-in-sheet",
-	"vision-meeting-agenda",
-	"board-meeting-agenda",
-	"first-year-budget",
-	"budget-worksheet",
-	"launch-sunday-checklists",
-	"vision-meeting-invitation",
-	"vision-meeting-reminder",
-	"vision-meeting-follow-up-attended",
-	"vision-meeting-follow-up-no-show",
-	"orientation-invitation",
-	"team-meeting-invitation",
-	"general-announcement",
-	"vision-meeting-kit-checklist",
-	"vision-meeting-self-assessment",
-	"follow-up-interview-questions",
-	"ministry-team-checklists",
-	"volunteer-application",
-	"background-check-consent",
-	"launch-sunday-run-sheet",
-] as const;

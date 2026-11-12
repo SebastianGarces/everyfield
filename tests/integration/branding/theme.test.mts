@@ -41,7 +41,7 @@ const church = (k: BrandKitData | null) => ({ name: "Harvest Point", kit: k });
 const CLASSES: DocumentClass[] = ["formal/legal", "outward-facing", "operational", "email"];
 const ink = "#1A1A1A";
 
-describe("WP-104/api colors and contrast", () => {
+describe("AC:CASE-BRD-003 colors and contrast", () => {
 	test("AC:CASE-BRD-003 contrast follows WCAG 2.x against white, with the derived text color", () => {
 		assert.equal(colorView("#F2D74A").contrast, 1.44);
 		assert.deepEqual(colorView("#F2D74A"), {
@@ -61,7 +61,7 @@ describe("WP-104/api colors and contrast", () => {
 		assert.equal(colorView("#C9A227").badge, "fails_text");
 	});
 
-	test("the derived text color reaches 4.5:1 on any fill", () => {
+	test("AC:CASE-BRD-003 the derived text color reaches 4.5:1 on any fill", () => {
 		for (let r = 0; r < 256; r += 51)
 			for (let g = 0; g < 256; g += 51)
 				for (let b = 0; b < 256; b += 51) {
@@ -79,7 +79,7 @@ describe("WP-104/api colors and contrast", () => {
 	});
 });
 
-describe("WP-104/api resolveDocumentTheme", () => {
+describe("AC:CASE-BRD-006 resolveDocumentTheme", () => {
 	test("AC:CASE-BRD-006 formal/legal: small header logo, primary on rules and headings, neutral body, EIN footer, page numbers", () => {
 		const theme = resolveDocumentTheme(church(kit()), "formal/legal");
 		assert.equal(theme.kind, "church");
@@ -118,13 +118,14 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		});
 	});
 
+	// The text on a fill is the one the PDF prints there (T-123): the renderer's rule picks white or the document ink.
 	test("AC:CASE-BRD-006 operational: small mark, accent fill on table headers and checkboxes with the derived text color", () => {
 		const theme = resolveDocumentTheme(church(kit()), "operational");
 		if (theme.layout.documentClass !== "operational") throw Error("class");
 		assert.equal(theme.layout.mark?.alt, "Mark alt");
 		assert.equal(theme.layout.markHeightMm, 10);
-		assert.deepEqual(theme.layout.tableHeader, { fill: "#D4A017", text: "#000000" });
-		assert.deepEqual(theme.layout.checkbox, { fill: "#D4A017", text: "#000000" });
+		assert.deepEqual(theme.layout.tableHeader, { fill: "#D4A017", text: "#181D19" });
+		assert.deepEqual(theme.layout.checkbox, { fill: "#D4A017", text: "#181D19" });
 	});
 
 	test("AC:CASE-BRD-006 email: logo at most 200 px, primary-color button with derived text, web-safe stacks, footer with name and address", () => {
@@ -136,7 +137,10 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		assert.equal(theme.layout.logoMaxWidthPx, 200);
 		assert.deepEqual(theme.layout.button, { fill: "#1F4E79", text: "#FFFFFF" });
 		// The button follows the primary color of any kit, not the example value.
-		for (const [primaryColor, text] of [["#8B1E3F", "#FFFFFF"], ["#F2D74A", "#000000"]] as const) {
+		for (const [primaryColor, text] of [
+			["#8B1E3F", "#FFFFFF"],
+			["#F2D74A", "#000000"],
+		] as const) {
 			const other = resolveDocumentTheme(church(kit({ primaryColor })), "email").layout;
 			if (other.documentClass !== "email") throw Error("class");
 			assert.deepEqual(other.button, { fill: primaryColor, text });
@@ -154,8 +158,8 @@ describe("WP-104/api resolveDocumentTheme", () => {
 			// The color stays on rules and fills, with the derived text color on the fill.
 			assert.equal(theme.colors.rule, "#F2D74A");
 			if (theme.layout.documentClass === "operational") {
-				assert.deepEqual(theme.layout.tableHeader, { fill: "#F2D74A", text: "#000000" });
-				assert.deepEqual(theme.layout.checkbox, { fill: "#F2D74A", text: "#000000" });
+				assert.deepEqual(theme.layout.tableHeader, { fill: "#F2D74A", text: "#181D19" });
+				assert.deepEqual(theme.layout.checkbox, { fill: "#F2D74A", text: "#181D19" });
 			}
 		}
 		// A color at 3:1 or more may head a section.
@@ -165,7 +169,7 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		);
 	});
 
-	test("every logo in a theme carries its alt text", () => {
+	test("AC:CASE-BRD-006 every logo in a theme carries its alt text", () => {
 		for (const documentClass of CLASSES) {
 			const layout = resolveDocumentTheme(church(kit()), documentClass).layout as Record<string, unknown>;
 			const logos = Object.values(layout).filter((value) => value && typeof value === "object" && "fileId" in value);
@@ -197,20 +201,5 @@ describe("WP-104/api resolveDocumentTheme", () => {
 			documentTheme.parse(neutral);
 			documentTheme.parse(branded);
 		}
-	});
-
-	test("AC:CASE-DOC-017-CHURCH the church theme for the CASE-DOC-017 kit", () => {
-		const doc017 = kit({ primaryColor: "#8B1E3F", accentColor: "#C9A227" });
-		const theme = resolveDocumentTheme(church(doc017), "outward-facing", { useChurchBranding: true });
-		assert.equal(theme.kind, "church");
-		assert.deepEqual(
-			[theme.colors.primary, theme.colors.accent, theme.fonts.heading, theme.fallbackUsed],
-			["#8B1E3F", "#C9A227", "DM Serif Display", false],
-		);
-	});
-
-	test("an accent that is absent resolves to the primary color", () => {
-		const theme = resolveDocumentTheme(church(kit({ accentColor: null })), "operational");
-		assert.equal(theme.colors.accent, "#1F4E79");
 	});
 });

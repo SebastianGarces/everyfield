@@ -40,7 +40,7 @@ const toolCall = (toolName: string, input: unknown): LanguageModelV4Content => (
 });
 
 const pageSize = (text: string) =>
-	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\bevery|all\b/i.test(text) ? 100 : 24));
+	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\b(?:every|all)\b/i.test(text) ? 100 : 24));
 
 function classify(text: string) {
 	if (/\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text)) return "pastoral_boundary";
@@ -134,7 +134,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			];
 		const name = change?.[1] ?? /\b(?:[Ff]ind|named|called|for)\s+([A-Z][\w'-]+)/.exec(text)?.[1];
 		if (name) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
-		if (/\bpeople|everyone|members?\b/i.test(text))
+		if (/\b(?:people|everyone|members?)\b/i.test(text))
 			return [toolCall("people_read", { operation: "people.listPeople", input: { limit: pageSize(text) } })];
 	}
 	return [{ type: "text", text: "Ask me about the people in this church, for example: find Alex." }];

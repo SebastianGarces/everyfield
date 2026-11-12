@@ -28,7 +28,21 @@ const templateSchema = z.strictObject({
 });
 export type CatalogTemplate = z.infer<typeof templateSchema>;
 
-export async function library() {
+let loaded: ReturnType<typeof loadLibrary> | undefined;
+
+/**
+ * The template library: the frozen reference rows and the code-authored templates. Read once per process; a failed
+ * read is not kept, so the next call tries again.
+ */
+export function library() {
+	loaded ??= loadLibrary().catch((error: unknown) => {
+		loaded = undefined;
+		throw error;
+	});
+	return loaded;
+}
+
+async function loadLibrary() {
 	const starter = await loadStarter();
 	const version = await referenceArtifactSha256();
 	// The frozen reference row gives identity; the registry gives format, page count and layout facts (WP-036/api).

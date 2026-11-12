@@ -1,7 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { tasksMount } from "@/server/tasks";
 import { personId as personIdOf } from "@everyfield/contracts/common";
-import type { FollowUpError } from "@everyfield/contracts/followups";
 import type { Transaction } from "@everyfield/db/client";
 import {
 	createFollowUpWriter,
@@ -19,7 +18,6 @@ import {
 	COVERAGE_PAGE,
 	HISTORY_PAGE,
 	outcomeOf,
-	ownersOf,
 	type Account,
 	type ContactHistory,
 	type DutyItem,
@@ -36,7 +34,7 @@ import {
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
-export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -67,10 +65,15 @@ export async function write<T>(
 	}
 }
 
-/** The current eligible follow-up owners, in one statement (REQ-TSK-012). Owner/Admin. */
+/** The current eligible follow-up owners, the viewer among them when eligible, in one statement (REQ-TSK-012). */
 export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<Outcome<Account[]>> {
-	const plan = outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, { fromAccountId: viewer.accountId }));
-	return plan.status === "ok" ? { status: "ok", value: ownersOf(plan.value) } : plan;
+	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
+	return seats.status === "ok"
+		? {
+				status: "ok",
+				value: seats.value.items.map(({ accountId, displayName }) => ({ accountId, displayName })),
+			}
+		: { status: "refused", code: seats.error.code };
 }
 
 /** Open follow-ups and Vision follow-ups per page on the Person page; "Show more" reads the next one. */
@@ -173,5 +176,3 @@ export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: stri
 		: null;
 	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent, others, record } } };
 }
-
-export type { FollowUpError };

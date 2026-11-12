@@ -356,7 +356,8 @@
         "meetings.inviteGuest",
         "meetings.removeGuest",
         "meetings.previewRosterImport",
-        "meetings.copyTeamRoster"
+        "meetings.copyTeamRoster",
+        "meetings.addGuests"
       ],
       "acceptance_ids": [
         "AC-MTG-007--MTG-007"
@@ -565,7 +566,8 @@
       "spec": "docs/product/meetings-follow-up.md#req-mtg-011",
       "operations": [
         "meetings.createGuestContact",
-        "meetings.createWalkInContact"
+        "meetings.createWalkInContact",
+        "meetings.addGuests"
       ],
       "acceptance_ids": [
         "AC-MTG-011--MTG-011"
@@ -922,7 +924,7 @@
         "TSK-003",
         "TSK-004"
       ],
-      "text": "A person records what happened on a follow-up: contacted, tried without contact, admin-only or no longer needed, and when it happened. Only a confirmed contact counts as contact. Explicit human-confirmed contacted alone advances actual-contact freshness using occurredAt; email sent/open/click, task administrative completion, attempt or waiver supplies no contact. A contacted outcome with future/invalid time is rejected; historical late entry remains its actual occurrence. Contacted may be recorded independently from task completion when truthful, with the distinction shown. Current freshness is maximum valid effective contacted occurrence after corrections/reopen/void; removing erroneous latest evidence reveals earlier valid date rather than retaining a cached false success. Contact log renders a human-contact badge, never email delivered. A correction shows the old value, new value, who and why, updates the current contact date and marks affected assessments out of date together, does not resend mail or erase original recorded outcome. Notes remain bounded operational records and cannot become private-care/model pastoral inference.",
+      "text": "A person records what happened on a follow-up: contacted, tried without contact, admin-only or no longer needed, and when it happened. Only a confirmed contact counts as contact. Explicit human-confirmed contacted alone advances actual-contact freshness using occurredAt; email sent/open/click, task administrative completion, attempt or waiver supplies no contact. A contacted outcome with future/invalid time is rejected: a time up to 2 minutes after the server's clock is browser clock difference (\"Just now\") and is stored as the server's clock, never after the recorded time; a time more than 2 minutes after it is refused as future (Audit #551); historical late entry remains its actual occurrence. Contacted may be recorded independently from task completion when truthful, with the distinction shown. Current freshness is maximum valid effective contacted occurrence after corrections/reopen/void; removing erroneous latest evidence reveals earlier valid date rather than retaining a cached false success. Contact log renders a human-contact badge, never email delivered. A correction shows the old value, new value, who and why, updates the current contact date and marks affected assessments out of date together, does not resend mail or erase original recorded outcome. Notes remain bounded operational records and cannot become private-care/model pastoral inference.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-022",
       "operations": [
         "followups.recordOutcome",

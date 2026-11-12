@@ -54,7 +54,7 @@ function deployment() {
   } };
 }
 
-test('BUG-W5: repeated CI failure updates one incident even while the issue list is stale', async () => {
+test('BUG-3895651f9: repeated CI failure updates one incident even while the issue list is stale', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci() }), 1);
   const paginate = p.github.paginate;
@@ -163,7 +163,7 @@ test('INV-fail-forward: a CI run that never started is reported as an incident',
   assert.match(p.issues[0].body, /Source: https:\/\/github.com\/run\/3/);
 });
 
-test('OPS-52-P5: green main CI closes the open CI incident only when the green commit contains the failed one', async () => {
+test('INV-ci-incident: green main CI closes the open CI incident only when the green commit contains the failed one', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success' }) }), undefined);
   assert.equal(await report({ ...p, context: ci() }), 1);
@@ -186,4 +186,22 @@ test('OPS-52-P5: green main CI closes the open CI incident only when the green c
   assert.equal(await report({ ...p, context: ci({ head_sha: 'd'.repeat(40) }) }), 2);
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'e'.repeat(40) }) }), 2);
   assert.deepEqual(p.issues.map(i => i.state), ['closed', 'closed']);
+});
+
+test('INV-ci-incident: a failed nightly scheduled CI run on main opens the CI incident, and a green scheduled run closes it', async () => {
+  const p = provider();
+  assert.equal(await report({ ...p, context: ci({ event: 'schedule' }) }), 1);
+  assert.equal(p.issues.length, 1);
+  assert.equal(p.issues[0].title, 'P0: CI failed on main');
+  assert.match(p.issues[0].body, /Commit: a{40}/);
+  assert.match(p.issues[0].body, /compile failed: fixture failure/);
+  // A later push failure updates the same incident: schedule and push share one marker.
+  assert.equal(await report({ ...p, context: ci({ head_sha: 'b'.repeat(40) }) }), 1);
+  assert.equal(p.issues.length, 1);
+  // A scheduled run on another branch is not main.
+  assert.equal(await report({ ...p, context: ci({ event: 'schedule', head_branch: 'feature', conclusion: 'success', head_sha: 'c'.repeat(40) }) }), undefined);
+  assert.equal(p.issues[0].state, 'open');
+  assert.equal(await report({ ...p, context: ci({ event: 'schedule', conclusion: 'success', head_sha: 'c'.repeat(40), html_url: 'https://github.com/run/11' }) }), 1);
+  assert.equal(p.issues[0].state, 'closed');
+  assert.match(p.comments[0].body, /passed again at c{40}, which contains the failed commit b{40}: https:\/\/github.com\/run\/11/);
 });

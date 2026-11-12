@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/documents";
 import { sql } from "@everyfield/db/query";
-import type { Database, Transaction } from "@everyfield/db/client";
+import { checkoutClient, type Database, type Transaction } from "@everyfield/db/client";
 import { putPrivateObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import "server-only";
 import { liveRead } from "../access/session.ts";
@@ -48,6 +48,26 @@ export function iso(value: unknown) {
 export async function rowsOf<T>(db: Pick<Database, "execute"> | Transaction, query: ReturnType<typeof sql>) {
 	const found = await db.execute(query);
 	return found.rows as T[];
+}
+
+/**
+ * The second run of a one-statement write whose first statement failed on a racing write's unique key. It runs in a
+ * transaction that names itself a retry on the wire (as the established write run does), so the statement budgets
+ * count it as the retry of the same write.
+ */
+export async function rerun<T>(db: Database, body: (bound: Database) => Promise<T>): Promise<T> {
+	const { client, db: bound } = await checkoutClient(db);
+	try {
+		await client.query("BEGIN /* evf:retry */");
+		const value = await body(bound);
+		await client.query("COMMIT");
+		return value;
+	} catch (error) {
+		await client.query("ROLLBACK").catch(() => undefined);
+		throw error;
+	} finally {
+		client.release();
+	}
 }
 
 export function sameRevision(left: string, right: string) {

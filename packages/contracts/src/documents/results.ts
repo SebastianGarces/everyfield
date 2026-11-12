@@ -1,25 +1,28 @@
 import { z } from "zod";
-import { correlationId, recordId, tenantId } from "../common/values.ts";
+import { defineSafeError, recordId, sha256Text as sha256, tenantId, type Reply } from "../common/values.ts";
+import { phaseNumber } from "../phases/index.ts";
 import { docDocument, type DocDifference } from "./format/index.ts";
+import { nativeBody } from "./native.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
-/** Refusals a document-template read can return. An unknown template is "unavailable". */
+/**
+ * Refusals a document-template read can return. An unknown template is "unavailable". "deleted" goes only to a seat of
+ * the church plant whose Church Document was deleted; anyone else gets "unavailable" for it, as for an unknown id.
+ */
 export const documentsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unavailable", {}, "never"),
-	error("invalid_subject", {}, "never"),
-	error("render_failed", {}, "never"),
-	error("conflict", {}, "refresh"),
-	error("access_denied", {}, "never"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError("deleted", {}, "never"),
+	defineSafeError("invalid_subject", {}, "never"),
+	defineSafeError("render_failed", {}, "never"),
+	defineSafeError("conflict", {}, "refresh"),
+	defineSafeError("access_denied", {}, "never"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
-export type DocumentsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: DocumentsError };
+export type DocumentsReply<T> = Reply<T, DocumentsError>;
 
-const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const mergeField = z.strictObject({
 	key: z.string().min(1).max(80),
 	label: z.string().min(1).max(200),
@@ -31,7 +34,7 @@ export const templateView = z.strictObject({
 	name: z.string().min(1).max(200),
 	description: z.string().min(1).max(2000),
 	category: documentCategory,
-	phase: z.int().min(0).max(6).nullable(),
+	phase: phaseNumber.nullable(),
 	formats: z.array(documentFormat).min(1).max(3),
 	pageCount: z.int().min(1).max(20),
 	wikiSlug: z.string().min(1).max(200).nullable(),
@@ -72,6 +75,8 @@ const contextValue = {
 export const contextResult = z.strictObject(contextValue);
 export const previewResult = z.strictObject({
 	...contextValue,
+	/** The church plant has a saved brand kit, so the render uses the church theme where the kit has a primary color. */
+	brandKit: z.boolean(),
 	artifact: z.string().min(1).nullable(),
 	digest: sha256.nullable(),
 	engineVersion: sha256.nullable(),
@@ -129,16 +134,30 @@ export const ownedDocument = z.strictObject({
 	tenantId: tenantId,
 	kind: z.enum(["native", "core_values", "launch_summary"]),
 	title: z.string().min(1).max(200),
-	body: z.string().max(2_000_000),
+	/** The current revision's body; a pre-change text revision reads as one paragraph per line. */
+	body: nativeBody,
+	/** True when the current revision is stored as plain text, saved before native bodies. */
+	textRevision: z.boolean(),
 	revision: revisionToken,
+	/** The current revision record: Use for this church names it. */
+	revisionId: recordId,
 	contentHash: sha256,
 	archived: z.boolean(),
 	copiedFromRevisionId: recordId.nullable(),
 	copiedFromHash: sha256.nullable(),
 });
+/** One row of the written-documents list: the document without its body, which the list never reads. */
+export const ownedListItem = ownedDocument.omit({ body: true, textRevision: true });
 export const ownedDocumentPage = z.strictObject({
-	documents: z.array(ownedDocument).max(100),
+	documents: z.array(ownedListItem).max(100),
 });
+/** One account document Use for this church offers: its title and the current revision a copy takes. */
+export const copySource = z.strictObject({
+	id: recordId,
+	title: z.string().min(1).max(200),
+	revisionId: recordId,
+});
+export const copySourcePage = z.strictObject({ documents: z.array(copySource).max(100) });
 export const coreValuesEvidence = z.strictObject({
 	documentId: recordId.nullable(),
 	text: z.string().max(2_000_000).nullable(),
@@ -161,6 +180,8 @@ export const docBrand = z.strictObject({
 		primary: hexColor,
 		accent: hexColor,
 		accentLine: hexColor,
+		/** Primary as text on white, as the PDF prints the title, numbered heading numbers and links. */
+		primaryText: hexColor,
 		/** The text color the PDF prints on a box filled with each token. */
 		on: z.strictObject({
 			ink: hexColor,
@@ -211,6 +232,11 @@ export const churchDocument = z.strictObject({
 export const churchDocumentView = churchDocument.extend({
 	brands: z.strictObject({ church: docBrand.nullable(), plain: docBrand }),
 	mergeValues: z.record(z.string().max(60), z.string().max(2000)),
+	/**
+	 * Where the document stands against the current version of its template, built-in or the church's own: "behind"
+	 * when the template hash it records is not the current one's; null when there is nothing to compare with.
+	 */
+	template: z.enum(["behind", "current"]).nullable(),
 });
 export type DocBrands = z.infer<typeof churchDocumentView>["brands"];
 export const churchRevisionSummary = z.strictObject({
@@ -221,10 +247,20 @@ export const churchRevisionSummary = z.strictObject({
 	authorName: z.string().min(1).max(255).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
+	/**
+	 * The formats this revision offers, from its own body: PDF and Word as its export list names them, and Excel while it
+	 * holds a ledger table. Empty for a stored body that cannot render.
+	 */
+	formats: z.array(documentFormat).max(3),
 });
+/** The most revisions one church revision list holds: the newest ones. */
+export const CHURCH_REVISION_LIST_MAX = 1000;
 export const churchRevisionList = z.strictObject({
 	documentId: recordId,
-	revisions: z.array(churchRevisionSummary).max(1000),
+	/** The newest CHURCH_REVISION_LIST_MAX revisions, oldest first. */
+	revisions: z.array(churchRevisionSummary).max(CHURCH_REVISION_LIST_MAX),
+	/** True when the document has older revisions than the list holds. */
+	truncated: z.boolean(),
 });
 export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: docDocument });
 /** One entry of the Church Document library. */
@@ -288,27 +324,37 @@ export const savedExport = z.strictObject({
 export const savedExportList = z.strictObject({ documentId: recordId, exports: z.array(savedExport).max(100) });
 export const deletedExport = z.strictObject({ exportId: recordId, deleted: z.literal(true) });
 export type SavedExport = z.infer<typeof savedExport>;
+const differenceList = z
+	.array(
+		z.custom<DocDifference>(
+			(v) => !!v && typeof v === "object" && "id" in v && "part" in v && "kind" in v,
+			"a difference",
+		),
+	)
+	.max(10_000);
+const listKey = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 /**
- * A Church Document beside the current version of its template: every difference in reading order, and the text each
- * merge field prints on both sides (the document's frozen values, then what an accepted new field would print).
- * `behind` is true when the template hash the document records is not the current template's.
+ * A Church Document beside the current version of its template, as two lists in reading order (D-423), and the text
+ * each merge field prints on both sides (the document's frozen values, then what an accepted new field would print).
+ * `changes` ("Template changes") holds only what the template changed since `baseVersion`, the version the document
+ * records; both are null when that version is not stored. `differences` ("All differences") holds every difference
+ * from the current version. `keys` names each list for an accept. `behind` is true when the template hash the
+ * document records is not the current template's.
  */
 export const churchCompare = z.strictObject({
 	documentId: recordId,
 	revision: revisionToken,
 	templateTitle: z.string().min(1).max(200),
+	/** True when the template is the church's own ("Save as template"), false for one of Everyfield's. */
+	churchTemplate: z.boolean(),
 	templateVersion: z.int().min(1),
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	baseVersion: z.int().min(1).nullable(),
 	behind: z.boolean(),
 	values: z.record(z.string(), z.string()),
-	differences: z
-		.array(
-			z.custom<DocDifference>(
-				(v) => !!v && typeof v === "object" && "id" in v && "part" in v && "kind" in v,
-				"a difference",
-			),
-		)
-		.max(10_000),
+	changes: differenceList.nullable(),
+	differences: differenceList,
+	keys: z.strictObject({ changes: listKey.nullable(), all: listKey }),
 });
 export type ChurchCompare = z.infer<typeof churchCompare>;
 export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });

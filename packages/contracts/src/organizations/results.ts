@@ -163,16 +163,3 @@ export const pipelineAggregateAccessResult = z.strictObject({
 	allowed: z.boolean(),
 	minimumContributors: z.literal(2),
 });
-
-// Fixed producer projections. The dispatcher still rechecks current relationship,
-// category and recipient eligibility; a coarse sever notice uses its own event.
-export const relationshipNotice = z.strictObject({
-	eventId,
-	relationshipId: recordId,
-	kind: z.enum(["relationship_approved", "relationship_ended", "sharing_changed"]),
-});
-export const oversightActivityLine = z.strictObject({
-	date: z.iso.date(),
-	activity: z.enum(["people", "meetings", "tasks", "ministry_teams", "wiki"]),
-	count: z.number().int().nonnegative(),
-});

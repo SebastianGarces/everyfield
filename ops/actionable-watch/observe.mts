@@ -189,7 +189,7 @@ export function parseStatus(raw: unknown): Result<Status> {
 	};
 }
 
-/** `gh run list --json headSha,status,conclusion,createdAt` for the CI push workflow on main. */
+/** `gh run list --json headSha,status,conclusion,createdAt` for the CI workflow on main (push and nightly runs). */
 export function parseCi(raw: unknown): Result<Ci | null> {
 	const parsed = list(
 		"runs",

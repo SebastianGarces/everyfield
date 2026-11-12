@@ -14,6 +14,7 @@ import {
 import { renderDocFile, renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { makePalette, tokenColor, type ThemeImage } from "../../../packages/domain/src/documents/theme.ts";
+import { MIN_BODY, ratio, textOn } from "../../../packages/domain/src/documents/contrast.ts";
 import { docxMedia } from "./fixtures/readers.mts";
 import { createHash } from "node:crypto";
 
@@ -34,11 +35,11 @@ const kit = (patch: Partial<BrandKitData> = {}): BrandKitData =>
 		...patch,
 	}) as unknown as BrandKitData;
 
-test("WP-036 the brand of a document is the palette the PDF paints, and the kit's images it may show", () => {
+test("AC:CASE-BRD-006 the brand of a document is the palette the PDF paints, and the kit's images it may show", () => {
 	const themed = documentBrand(kit(), true);
 	const palette = makePalette({ name: "church", primary: "#1F4E6B", accent: "#D4731A" });
 	assert.equal(themed.palette.themed, true);
-	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "accentLine"] as const)
+	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "accentLine", "primaryText"] as const)
 		assert.equal(themed.palette[key], palette[key], key);
 	assert.equal(themed.palette.on.primary, palette.onPrimary);
 	assert.equal(themed.palette.on.accent, palette.onAccent);
@@ -75,7 +76,7 @@ const png = async (width: number, height: number, color: string): Promise<ThemeI
 	aspect: width / height,
 });
 
-test("WP-036 an image node prints the full logo, the mark or the cover photo, in the PDF and the Word file", async () => {
+test("AC:CASE-BRD-006 an image node prints the full logo, the mark or the cover photo, in the PDF and the Word file", async () => {
 	const logo = await png(600, 200, "#1F4E6B");
 	const mark = await png(360, 360, "#D4731A");
 	const photo = await png(900, 600, "#4D5361");
@@ -127,4 +128,31 @@ test("WP-036 an image node prints the full logo, the mark or the cover photo, in
 			media.includes(createHash("sha256").update(image.bytes).digest("hex")),
 			`the Word file holds ${image.alt}`,
 		);
+});
+
+// documents/doc-3: on a mid-tone fill neither white nor the ink reaches 4.5:1, so text on it falls back to black.
+const MID_TONES = ["#E53935", "#E91E63", "#D9534F"] as const;
+const INK = makePalette(NEUTRAL_EXPORT_THEME.render).ink;
+
+test("AC:CASE-BRD-003 text on a mid-tone brand fill reaches 4.5:1", () => {
+	for (const fill of MID_TONES) {
+		assert.ok(ratio("#FFFFFF", fill) < MIN_BODY && ratio(INK, fill) < MIN_BODY, `${fill} is a mid tone`);
+		const on = textOn(fill, INK);
+		assert.equal(on, "#000000", fill);
+		assert.ok(ratio(on, fill) >= MIN_BODY, `${on} on ${fill} is ${ratio(on, fill).toFixed(2)}:1`);
+	}
+	// A fill white or the ink already clears keeps that color.
+	assert.equal(textOn("#1F4E6B", INK), "#FFFFFF");
+	assert.equal(textOn("#F4F1EA", INK), INK);
+});
+
+test("AC:CASE-BRD-006 the commitment card and the budget worksheet render with a mid-tone brand color", async () => {
+	for (const color of MID_TONES)
+		for (const slot of ["accent", "primary"] as const)
+			for (const id of ["commitment-card", "budget-worksheet"]) {
+				const doc = await forkTemplate(docTemplateById(id)!, { data: { church_name: "Harbor City Church" } });
+				const theme = { ...NEUTRAL_EXPORT_THEME.render, name: "church", primary: "#1F4E6B", accent: "#D4731A" };
+				const pdf = await renderDocPdf(doc, { ...theme, [slot]: color });
+				assert.ok(pdf.pages >= 1, `${id} with ${slot} ${color}`);
+			}
 });

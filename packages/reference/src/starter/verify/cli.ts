@@ -8,13 +8,10 @@ import { parseArgs } from "node:util";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
+import { developmentHosts } from "@everyfield/db/development";
 import { approvedWiki } from "../manifest/approved.ts";
 import { referenceService } from "./service.ts";
 
-const DEVELOPMENT_HOSTS = [
-	"ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech",
-	"ep-autumn-dew-b8ltidky-pooler.c-14.us-east-1.aws.neon.tech",
-];
 const PUBLISHER_EMAIL = "wiki-publisher@example.test";
 
 function fail(message: string): never {
@@ -31,7 +28,7 @@ try {
 } catch {
 	fail("Set DATABASE_URL. No setting values are printed.");
 }
-const development = DEVELOPMENT_HOSTS.includes(target.hostname);
+const development = developmentHosts.has(target.hostname);
 if (values.production) {
 	if (development) fail("--production names the production database, but DATABASE_URL is the development one.");
 	if (!values.operator) fail("--production requires --operator <account-id> with the reference_publish grant.");

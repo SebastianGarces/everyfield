@@ -3,11 +3,13 @@
 The DAG defines packages and dependencies. evf v2 (the `evf` in `~/.cargo/bin`) runs the work, and its task records are the live
 state. `evf status` and the dashboard at `http://localhost:4384` show them.
 
-`docs/build-progress.json` stopped updating at the evf v2 cutover in November 2026, and nothing writes it now. It stays as
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235, and nothing writes it now. It stays as
 the frozen record of what evf v1 shipped, because the explorer reads it. Do not read it as current state, and do not edit
 it to record new work.
 
-Each task runs plan, implement, simplify, the repo's checks, verify, a pull request and landing. The base branch's
+Each task runs these steps in order: plan, implement, simplify, the repo's checks, the pull request (evf pushes the branch
+and opens or updates the PR), review, required GitHub CI, the owner gate where a path in an owner class applies, and
+landing. The base branch's
 `evf.toml` sets the roles, each role's prompt file and the owner classes. The implementer proves its own work: tests,
 390 and 1440 px screenshots of each UI state it changed, and `evf proof add <n> --status met --evidence <path>` per
 `verifier` criterion. The verifier is a fresh session that did not write the change. It reads the full diff, spot-checks
@@ -31,9 +33,9 @@ WP-097 keeps the owner's 2026-10-14 fast-track history in the frozen record, wit
 and owner go-live references. Preserve that evidence.
 
 Keep media and traces outside the repository. Generate the explorer outside the checkout; it is a read-only view of the
-frozen record, so it does not show work landed since the cutover. Global kickoff and concrete spending approvals remain
-separate from milestone readiness. G-WORKFLOW closes when W0 to W5 merge and one task runs end to end through Phase 7.
-This document does not claim that closure.
+frozen record, so it does not show work landed after 2026-10-22. Global kickoff and concrete spending approvals remain
+separate from milestone readiness. G-WORKFLOW is the evf v2 workflow gate, and its record in
+[`docs/plan/release-gates.json`](plan/release-gates.json) defines its closure. This document does not claim that closure.
 
 ## Changes to evf itself
 
@@ -44,6 +46,12 @@ that commit, backs up `~/.cargo/bin/evf`, swaps the new binary in, restarts ever
 runs an install step by hand. `evf --version` names the commit the binary in use was built from. A failed install shows
 a notice on the dashboard. `~/dev/evf-v2/README.md` ("Self-install") gives the backups, the logs and the way to turn it
 off.
+
+Coming with evf-v2 branch `evf/t94-carry-proof` (`050dc0a`, T-94), and not in the evf in use until evf-v2 task T-1 lands
+it on evf-v2 `main` and self-install deploys it: a merge or rebase of main that leaves a task's own lines alone keeps its
+proofs and the owner's approval, even when main edited a line next to the task's hunk and the change id moved (T-79 lost
+26 proofs that way). Checks and the review still run again. Any edit to the task's own lines voids both. `DESIGN.md`
+("A carry") on that branch gives the rule. Self-install is the deploy. Nobody swaps the binary by hand.
 
 ## Tools that moved
 

@@ -5,7 +5,7 @@ import { defaultPrimitives } from "../pdfcn/themes/primitives.ts";
 import type { PdfcnTheme } from "../pdfcn/types.ts";
 import { documentFonts } from "../fonts.ts";
 import { FONT, SIZE, SP, type Palette } from "../theme.ts";
-import { T, View, type Ctx } from "./blocks.tsx";
+import type { Ctx } from "./blocks.tsx";
 
 export const LETTER = { width: 612, height: 792 } as const;
 export const CARD = { width: 306, height: 396 } as const; // 4.25 x 5.5 in at 72 pt per inch
@@ -100,18 +100,3 @@ export function Doc(ctx: Ctx, title: string, subject: string, pages: ReactNode, 
 		</PdfcnThemeProvider>
 	);
 }
-
-/** A doctrinal section no one has filled in: a visible blank the network completes. */
-export const DoctrineSlot = (ctx: Ctx, title: string) => (
-	<View
-		wrap={false}
-		style={{ borderWidth: 1, borderColor: ctx.p.fieldBorder, padding: SP[3], marginVertical: SP[2], minHeight: 72 }}
-	>
-		{T(ctx, title, { size: SIZE.xs, weight: 700, color: ctx.p.mutedText, use: "doctrinal slot label", caps: true })}
-		{T(ctx, "To be completed by the network. Leave blank until it is filled.", {
-			size: SIZE.sm,
-			color: ctx.p.mutedText,
-			use: "doctrinal slot hint",
-		})}
-	</View>
-);

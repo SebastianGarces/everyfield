@@ -45,6 +45,8 @@ export const taskItem = z.strictObject({
 	completedAt: instant.nullable(),
 	deleted: z.boolean(),
 });
+/** The live rows of the named tasks, in no set order; a deleted or foreign task is simply absent. */
+export const taskRows = z.strictObject({ items: z.array(taskItem).max(100) });
 export const taskPage = z.strictObject({
 	items: z.array(taskItem).max(100),
 	total: count,
@@ -182,7 +184,17 @@ export const bulkOutcome = z.enum([
 ]);
 export const bulkResult = z.strictObject({
 	receiptId: operationId,
-	items: z.array(z.strictObject({ taskId: recordId, outcome: bulkOutcome, revision: revision.nullable() })).max(100),
+	items: z
+		.array(
+			z.strictObject({
+				taskId: recordId,
+				outcome: bulkOutcome,
+				revision: revision.nullable(),
+				// The next occurrence a completed recurring task created, as a single complete returns it.
+				successor: taskDetail.nullable(),
+			}),
+		)
+		.max(100),
 	changed: count,
 	// Selected tasks this request did not change and that are still open, for the person to review.
 	remaining: z.array(recordId).max(100),

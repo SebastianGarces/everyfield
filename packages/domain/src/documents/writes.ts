@@ -14,8 +14,9 @@ import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
-import { cleanOverrides, resolveMerge } from "./merge.ts";
-import { ARTIFACT_MAX, RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { cleanOverrides } from "./merge.ts";
+import { forSubject } from "./reads.ts";
+import { ARTIFACT_MAX, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
 	PAGE,
@@ -26,6 +27,7 @@ import {
 	plantScope,
 	postgresCode,
 	refuseStorage,
+	rerun,
 	rowsOf,
 	sameRevision,
 	storeBytes,
@@ -44,7 +46,17 @@ type OwnedRow = {
 	archived: boolean;
 	copied_from_revision_id: string | null;
 	copied_from_hash: string | null;
+	revision_id: string;
 };
+
+/**
+ * True when a stored revision body has text: a native body node with a non-blank text node, or a pre-change text
+ * revision that is not blank. A body of empty blocks has none, so it never counts as core values or as a copy source.
+ */
+const hasText = (body: ReturnType<typeof sql.raw>) =>
+	sql`(CASE WHEN left(${body}, 1) = '{' AND pg_input_is_valid(${body}, 'jsonb')
+		THEN jsonb_path_exists(${body}::jsonb, '$.**.text ? (@ like_regex "[^[:space:]]")')
+		ELSE length(btrim(${body})) > 0 END)`;
 
 function hashOf(body: string) {
 	return createHash("sha256").update(body, "utf8").digest("hex");
@@ -86,13 +98,16 @@ function copyScope(authority: RequestActor) {
 }
 
 function ownedFrom(row: OwnedRow, tenantId: string) {
+	const stored = c.readNative(row.body);
 	return c.ownedDocument.parse({
 		id: row.id,
 		tenantId: row.tenant_id ?? tenantId,
 		kind: row.kind,
 		title: row.title,
-		body: row.body,
+		body: stored.body,
+		textRevision: stored.text,
 		revision: row.revision,
+		revisionId: row.revision_id,
 		contentHash: row.content_hash,
 		archived: row.archived,
 		copiedFromRevisionId: row.copied_from_revision_id,
@@ -124,12 +139,9 @@ const generatedWriter = {
 			);
 			if (!plant.open) deny();
 			if (!plant.subjectOk) deny("invalid_subject");
-			const resolved = resolveMerge(
-				template,
-				{ churchName: plant.churchName, pastorName: plant.pastorName, launchDate: plant.launchDate },
-				cleaned.values,
-			);
-			if (!resolved.ok) rejectInput(resolved.path, resolved.problem);
+			// The preview's own resolve and render, so the file holds the bytes the preview showed for this subject.
+			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
+			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
 			const stored = await rowsOf<{
 				id: string;
@@ -158,13 +170,9 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			let bytes: Buffer | null;
-			try {
-				bytes = await renderPreview(template, input.format, resolved);
-			} catch (error) {
-				if (error instanceof RenderFailed) deny("render_failed");
-				throw error;
-			}
+			// D-109, D-418: the network's statement and the brand kit print as they stand now and are not inputs, so a replay
+			// on the same key returns the file saved earlier.
+			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 			const file = await storeBytes(
@@ -316,32 +324,43 @@ const generatedWriter = {
 			parse(c.listOwnedRequest, raw);
 			const scope = viewScope(authority);
 			if (!scope) deny();
-			const found = await rowsOf<OwnedRow & { ok: boolean }>(
+			const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
 				db,
 				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash
+					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.content_hash,
+					r.id AS revision_id
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
-					AND d.kind NOT IN ('church_document', 'church_template')
+					AND d.kind NOT IN ('church_document', 'church_template') AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
 			);
 			if (found[0]?.ok !== true && found.length > 0) deny();
 			if (found.length === 0) deny();
+			// One parse of the page checks every row once.
 			return c.ownedDocumentPage.parse({
-				documents: found.filter((row) => row.id).map((row) => ownedFrom(row, scope.tenantId)),
+				documents: found
+					.filter((row) => row.id)
+					.map((row) => ({
+						id: row.id,
+						tenantId: row.tenant_id ?? scope.tenantId,
+						kind: row.kind,
+						title: row.title,
+						revision: row.revision,
+						revisionId: row.revision_id,
+						contentHash: row.content_hash,
+						archived: row.archived,
+						copiedFromRevisionId: row.copied_from_revision_id,
+						copiedFromHash: row.copied_from_hash,
+					})),
 			});
 		});
 	},
 
-	async read(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
-
-	async getAuthorized(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
+	read: readOwnedDocument,
+	/** The catalog's name for `read` (D-878): the same operation, kept so its catalog entry and tenancy case hold. */
+	getAuthorized: readOwnedDocument,
 
 	createFromTemplate: churchWriter.createFromTemplate,
 	setBranding: churchWriter.setBranding,
@@ -378,30 +397,33 @@ const generatedWriter = {
 				LIMIT 1`,
 			);
 			if (!found[0] || found[0].ok !== true) deny();
-			if (!found[0].id || !found[0].body) return c.coreValuesEvidence.parse({ documentId: null, text: null });
-			return c.coreValuesEvidence.parse({ documentId: found[0].id, text: found[0].body });
+			// The evidence is the plain text of the body: lines in reading order, never the stored JSON.
+			const text = found[0].body ? c.nativeText(c.readNative(found[0].body).body) : "";
+			if (!found[0].id || !text) return c.coreValuesEvidence.parse({ documentId: null, text: null });
+			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
 		});
 	},
 
 	async saveNative(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.saveNativeRequest, raw);
-			if (!input.body.trim()) rejectInput("body", "Body is empty.");
+			if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const hash = hashOf(input.body);
+			const body = JSON.stringify(input.body);
+			const hash = hashOf(body);
 			if (input.expectedRevision === "0") {
 				if (input.documentId) rejectInput("documentId", "A new document has no id.");
-				return createNative(db, scope, input.title, input.body, hash);
+				return createNative(db, scope, input.title, body, hash);
 			}
 			if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
-			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, input.body, hash, null);
+			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, null);
 		});
 	},
 
 	async archive(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.archiveDocumentRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
@@ -413,7 +435,7 @@ const generatedWriter = {
 
 	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.designateCoreValuesRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
@@ -428,20 +450,24 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const bytes = decodeImport(input.bytes);
-			let text: string;
+			let read: c.DocNode;
 			try {
-				text = readImport(bytes, input.format);
+				read = readImport(input.bytes, input.format);
 			} catch (error) {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
 			}
-			const hash = hashOf(text);
+			// Text lands as one paragraph for each line, a Word file with its headings, lists and links. Either passes the
+			// same native body rules as any save before anything is written.
+			const parsed = c.nativeBody.safeParse(read);
+			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
+			const body = JSON.stringify(parsed.data);
+			const hash = hashOf(body);
 			const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
 				db,
 				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
 					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash,
-					r.body, r.content_hash, a.after_value->>'hash' AS stored_hash
+					r.body, r.content_hash, r.id AS revision_id, a.after_value->>'hash' AS stored_hash
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN audit_event a ON g.ok AND a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${input.requestKey}
 					AND a.action = 'documents.imported'
@@ -459,66 +485,94 @@ const generatedWriter = {
 				scope,
 				"native_import",
 				input.format === "text" ? "text/plain" : MEDIA.docx,
-				bytes,
+				input.bytes,
 				`import:${scope.tenantId}:${input.requestKey}`,
 			);
 			const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
 			if (input.expectedRevision === "0") {
 				if (input.documentId) rejectInput("documentId", "A new document has no id.");
-				return createNative(db, scope, input.title, text, hash, imported);
+				return createNative(db, scope, input.title, body, hash, imported);
 			}
 			if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
-			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, text, hash, imported);
+			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, imported);
 		});
 	},
 
+	/**
+	 * Use for this church: an Owner or Admin copies the current revision of one of their own account documents into one
+	 * new church document. The original does not change, and a later edit of it does not reach the copy. One statement
+	 * checks the seat, the source and the request key, writes the copy and its `documents.copied` audit row. The same
+	 * key returns the same copy; a key used for another source is a conflict. Two racing attempts with one key meet the
+	 * unique audit key: the loser runs the statement once more and finds the winner's copy.
+	 */
 	async useForChurch(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.useForChurchRequest, raw);
 			const scope = copyScope(authority);
 			if (!scope) deny();
-			const docId = randomUUID();
-			const revId = randomUUID();
-			const found = await rowsOf<OwnedRow & { ok: boolean }>(
+			let row: Awaited<ReturnType<typeof copyForChurch>>;
+			try {
+				row = await copyForChurch(db, scope, input);
+			} catch (error) {
+				if (postgresCode(error) !== "23505") throw error;
+				row = await rerun(db, (bound) => copyForChurch(bound, scope, input));
+			}
+			if (!row?.ok) deny();
+			if (row.prior_id) {
+				if (row.prior_source !== input.documentId) deny("conflict");
+				if (!row.prior_title || !row.prior_revision_id || row.prior_body === null) deny();
+				return ownedFrom(
+					{
+						id: row.prior_id,
+						kind: row.prior_kind ?? "native",
+						title: row.prior_title,
+						body: row.prior_body,
+						revision: row.prior_revision ?? "1",
+						content_hash: row.prior_hash ?? "",
+						archived: row.prior_archived === true,
+						copied_from_revision_id: row.prior_copied_revision,
+						copied_from_hash: row.prior_copied_hash,
+						revision_id: row.prior_revision_id,
+					},
+					scope.tenantId,
+				);
+			}
+			if (!row.id) deny();
+			return ownedFrom(row as OwnedRow, scope.tenantId);
+		});
+	},
+
+	/**
+	 * What Use for this church offers: the Owner's or Admin's own account documents that are not archived and have
+	 * text, newest first, without their bodies. One statement; the seat check is in it.
+	 */
+	async listCopySources(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			parse(c.listCopySourcesRequest, raw);
+			const scope = copyScope(authority);
+			if (!scope) deny();
+			const found = await rowsOf<{
+				ok: boolean;
+				id: string | null;
+				title: string;
+				revision_id: string | null;
+			}>(
 				db,
-				sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
-				source AS (
-					SELECT d.kind, d.title, r.id AS revision_id, r.body, r.content_hash
-					FROM document d
-					JOIN document_revision r ON r.id = ${input.revisionId}::uuid AND r.document_id = d.id AND r.tenant_id = d.tenant_id
-					JOIN gate ON gate.ok
-					WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.accountId}::uuid
-						AND d.kind IN ('native', 'core_values') AND length(btrim(r.body)) > 0
-				),
-				inserted AS (
-					INSERT INTO document (id, tenant_id, kind, title, current_revision_id, copied_from_revision_id, copied_from_hash, revision)
-					SELECT ${docId}::uuid, ${scope.tenantId}::uuid, source.kind, source.title, ${revId}::uuid, source.revision_id, source.content_hash, 1
-					FROM source
-					RETURNING id, tenant_id, kind, title, revision::text AS revision, copied_from_revision_id, copied_from_hash
-				),
-				added AS (
-					INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
-					SELECT ${revId}::uuid, inserted.tenant_id, inserted.id, 1, source.body, source.content_hash, clock_timestamp(), clock_timestamp()
-					FROM inserted JOIN source ON true
-					RETURNING id
-				),
-				aud AS (
-					INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, metadata)
-					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.copied', 'create', inserted.id,
-						clock_timestamp(), clock_timestamp(), 'copied:' || inserted.id::text, '{}'::jsonb
-					FROM inserted
-					RETURNING id
-				)
-				SELECT (SELECT ok FROM gate) AS ok, i.id, i.tenant_id, i.kind, i.title, i.revision,
-					false AS archived, i.copied_from_revision_id, i.copied_from_hash, s.body, s.content_hash,
-					(SELECT count(*) FROM added) AS written, (SELECT count(*) FROM aud) AS audited
-				FROM (SELECT 1) seed
-				LEFT JOIN inserted i ON true
-				LEFT JOIN source s ON true`,
+				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id
+				FROM (SELECT ${gateSql(scope, true)} AS ok) g
+				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.accountId}::uuid AND d.current_revision_id IS NOT NULL
+					AND d.kind IN ('native', 'core_values') AND d.archived_at IS NULL
+				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
+					AND (r.import_state IS NULL OR r.import_state = 'ready') AND ${hasText(sql.raw("r.body"))}
+				ORDER BY r.recorded_at DESC NULLS LAST
+				LIMIT ${PAGE}`,
 			);
-			const row = found[0];
-			if (!row?.ok || !row.id) deny();
-			return ownedFrom(row, scope.tenantId);
+			if (found[0]?.ok !== true) deny();
+			return c.copySourcePage.parse({
+				documents: found
+					.filter((row) => row.id && row.revision_id)
+					.map((row) => ({ id: row.id, title: row.title, revisionId: row.revision_id })),
+			});
 		});
 	},
 
@@ -538,6 +592,11 @@ const generatedWriter = {
 		});
 	},
 
+	/**
+	 * Purges up to 20 stored files nothing references once their staging window has passed. A file stays `ready` and
+	 * unreferenced between its upload and the write that refers to it (a saved export, a brand asset before Save), so a
+	 * file inside its window is never a candidate; the scheduled runner calls this every minute (D-879).
+	 */
 	async reconcileOrphans(db: Database, storage: PrivateStorage | null) {
 		return settle(async () => {
 			if (!storage) deny();
@@ -546,7 +605,7 @@ const generatedWriter = {
 				sql`SELECT id FROM file_object
 				WHERE state IN ('pending', 'failed', 'ready')
 					AND NOT file_is_referenced(id)
-					AND (state <> 'pending' OR expires_at < clock_timestamp())
+					AND (expires_at IS NULL OR expires_at < clock_timestamp())
 				ORDER BY id
 				LIMIT 20`,
 			);
@@ -569,6 +628,10 @@ const generatedWriter = {
 	},
 };
 
+async function readOwnedDocument(db: Database, authority: RequestActor, raw: unknown) {
+	return settle(() => readOwned(db, authority, raw));
+}
+
 async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(c.ownedDocumentRequest, raw);
 	const scope = viewScope(authority);
@@ -576,7 +639,8 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const found = await rowsOf<OwnedRow & { ok: boolean }>(
 		db,
 		sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-			d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash
+			d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash,
+			r.id AS revision_id
 		FROM (SELECT ${gateSql(scope, false)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.current_revision_id IS NOT NULL
@@ -585,6 +649,92 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	);
 	if (!found[0]?.ok || !found[0].id) deny();
 	return ownedFrom(found[0], scope.tenantId);
+}
+
+/**
+ * The copy statement. A request key already on a `documents.copied` audit row of this church plant answers with that
+ * copy (`prior_*`) and writes nothing. Otherwise the source must be the actor's own live native or core-values
+ * document, its current revision the one the request names, with text; the copy is a plain native document.
+ */
+async function copyForChurch(db: Database, scope: Scope, input: z.output<typeof c.useForChurchRequest>) {
+	const docId = randomUUID();
+	const revId = randomUUID();
+	const found = await rowsOf<
+		Partial<OwnedRow> & {
+			ok: boolean;
+			id: string | null;
+			prior_id: string | null;
+			prior_source: string | null;
+			prior_kind: OwnedRow["kind"] | null;
+			prior_title: string | null;
+			prior_body: string | null;
+			prior_revision: string | null;
+			prior_hash: string | null;
+			prior_archived: boolean | null;
+			prior_copied_revision: string | null;
+			prior_copied_hash: string | null;
+			prior_revision_id: string | null;
+		}
+	>(
+		db,
+		sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+		prior AS (
+			SELECT a.subject_id, a.after_value->>'source' AS source_id
+			FROM audit_event a JOIN gate ON gate.ok
+			WHERE a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${input.requestKey} AND a.action = 'documents.copied'
+		),
+		earlier AS (
+			SELECT pd.id, pd.kind, pd.title, pd.revision::text AS revision, pd.archived_at IS NOT NULL AS archived,
+				pd.copied_from_revision_id, pd.copied_from_hash, pr.id AS revision_id, pr.body, pr.content_hash, prior.source_id
+			FROM prior
+			LEFT JOIN document pd ON pd.id = prior.subject_id AND pd.tenant_id = ${scope.tenantId}::uuid
+			LEFT JOIN document_revision pr ON pr.id = pd.current_revision_id AND pr.tenant_id = pd.tenant_id
+		),
+		source AS (
+			SELECT d.title, r.id AS revision_id, r.body, r.content_hash
+			FROM document d
+			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
+			JOIN gate ON gate.ok
+			WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.accountId}::uuid
+				AND r.id = ${input.revisionId}::uuid AND d.kind IN ('native', 'core_values') AND d.archived_at IS NULL
+				AND ${hasText(sql.raw("r.body"))} AND (r.import_state IS NULL OR r.import_state = 'ready')
+				AND NOT EXISTS (SELECT FROM prior)
+		),
+		inserted AS (
+			INSERT INTO document (id, tenant_id, kind, title, current_revision_id, copied_from_revision_id, copied_from_hash, revision)
+			SELECT ${docId}::uuid, ${scope.tenantId}::uuid, 'native', source.title, ${revId}::uuid, source.revision_id, source.content_hash, 1
+			FROM source
+			RETURNING id, tenant_id, kind, title, revision::text AS revision, copied_from_revision_id, copied_from_hash
+		),
+		added AS (
+			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
+			SELECT ${revId}::uuid, inserted.tenant_id, inserted.id, 1, source.body, source.content_hash, clock_timestamp(), clock_timestamp()
+			FROM inserted JOIN source ON true
+			RETURNING id
+		),
+		aud AS (
+			INSERT INTO audit_event (
+				tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, request_key, after_value, metadata
+			)
+			SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.copied', 'create', inserted.id,
+				clock_timestamp(), clock_timestamp(), 'copied:' || inserted.id::text, ${input.requestKey},
+				jsonb_build_object('source', ${input.documentId}::text), '{}'::jsonb
+			FROM inserted
+			RETURNING id
+		)
+		SELECT (SELECT ok FROM gate) AS ok, i.id, i.tenant_id, i.kind, i.title, i.revision,
+			false AS archived, i.copied_from_revision_id, i.copied_from_hash, s.body, s.content_hash, ${revId}::uuid AS revision_id,
+			e.id AS prior_id, e.source_id AS prior_source, e.kind AS prior_kind, e.title AS prior_title, e.body AS prior_body,
+			e.revision AS prior_revision, e.content_hash AS prior_hash, e.archived AS prior_archived,
+			e.copied_from_revision_id AS prior_copied_revision, e.copied_from_hash AS prior_copied_hash,
+			e.revision_id AS prior_revision_id,
+			(SELECT count(*) FROM added) AS written, (SELECT count(*) FROM aud) AS audited
+		FROM (SELECT 1) seed
+		LEFT JOIN inserted i ON true
+		LEFT JOIN source s ON true
+		LEFT JOIN earlier e ON true`,
+	);
+	return found[0];
 }
 
 type ImportLink = { objectId: string; format: "text" | "docx"; hash: string; requestKey: string };
@@ -648,6 +798,7 @@ async function createNative(
 			archived: false,
 			copied_from_revision_id: null,
 			copied_from_hash: null,
+			revision_id: revId,
 		},
 		scope.tenantId,
 	);
@@ -692,7 +843,7 @@ async function appendNative(
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
-			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind NOT IN ('church_document', 'church_template')
+			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind IN ('native', 'core_values')
 		),
 		added AS (
 			INSERT INTO document_revision (
@@ -756,6 +907,7 @@ async function appendNative(
 			archived: false,
 			copied_from_revision_id: row.copied_from_revision_id,
 			copied_from_hash: row.copied_from_hash,
+			revision_id: revId,
 		},
 		scope.tenantId,
 	);
@@ -783,7 +935,7 @@ async function mutateOwned(
 		sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
 		existing AS (
 			SELECT d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision, d.archived_at,
-				d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash, r.import_state
+				d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash, r.import_state, r.id AS revision_id
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
@@ -797,7 +949,7 @@ async function mutateOwned(
 			FROM existing
 			WHERE document.id = existing.id AND existing.archived_at IS NULL AND existing.revision = ${expected}
 				AND (${action} <> 'designate' OR (
-					existing.kind = 'native' AND length(btrim(existing.body)) > 0
+					existing.kind = 'native' AND ${hasText(sql.raw("existing.body"))}
 					AND (existing.import_state IS NULL OR existing.import_state = 'ready')
 				))
 			RETURNING document.id, document.revision::text AS revision, document.kind, document.archived_at
@@ -816,9 +968,9 @@ async function mutateOwned(
 		)
 		SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM existing) AS found, (SELECT revision FROM existing) AS prior_revision,
 			(SELECT kind FROM existing) AS prior_kind, (SELECT title FROM existing) AS title, (SELECT body FROM existing) AS body,
-			(SELECT content_hash FROM existing) AS content_hash,
+			(SELECT content_hash FROM existing) AS content_hash, (SELECT revision_id FROM existing) AS revision_id,
 			(SELECT archived_at IS NOT NULL FROM existing) AS archived,
-			(SELECT length(btrim(body)) > 0 AND (import_state IS NULL OR import_state = 'ready') FROM existing) AS eligible,
+			(SELECT ${hasText(sql.raw("body"))} AND (import_state IS NULL OR import_state = 'ready') FROM existing) AS eligible,
 			(SELECT copied_from_revision_id FROM existing) AS copied_from_revision_id,
 			(SELECT copied_from_hash FROM existing) AS copied_from_hash,
 			(SELECT id FROM updated) AS stored, (SELECT revision FROM updated) AS next_revision,
@@ -846,13 +998,6 @@ async function mutateOwned(
 		},
 		scope.tenantId,
 	);
-}
-
-function decodeImport(value: string) {
-	if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) rejectInput("bytes", "Bytes are not base64.");
-	const bytes = Buffer.from(value, "base64");
-	if (!bytes.length || bytes.length > 10 * 1024 * 1024) rejectInput("bytes", "The file must be 10 MiB or smaller.");
-	return bytes;
 }
 
 type Reply<T> = Promise<c.DocumentsReply<T>>;
@@ -884,8 +1029,11 @@ function historyGet(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 /**
- * `documents.saveNative`: a text body saves a plain native document. Any other body saves a Church Document, whose
- * parser accepts only an everyfield.doc/1 document and refuses an old block list with invalid_input.
+ * `documents.saveNative`: a title and a native body node save a plain native document; a request without a title saves
+ * a Church Document, whose parser accepts only an everyfield.doc/1 document and refuses an old block list with
+ * invalid_input. The stored kind decides what each may change: the plain save's statement writes only a native or
+ * core-values document and the Church Document save's only a Church Document, so a save on the other kind writes
+ * nothing (D-224).
  */
 function saveNative(
 	db: Database,
@@ -894,7 +1042,7 @@ function saveNative(
 ): Reply<c.ChurchDocument>;
 function saveNative(db: Database, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
 function saveNative(db: Database, authority: RequestActor, raw: unknown) {
-	if (typeof raw === "object" && raw !== null && "body" in raw && typeof raw.body !== "string")
+	if (typeof raw === "object" && raw !== null && !("title" in raw))
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);
 }

@@ -2,7 +2,7 @@ import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, 
 
 // Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
 
-export const SECTION_ORDER: readonly SectionKey[] = [
+const SECTION_ORDER: readonly SectionKey[] = [
 	"church",
 	"brand",
 	"organization",
@@ -23,13 +23,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
-export const DIALOG_SECTIONS = [
-	"church",
-	"brand",
-	"organization",
-	"notifications",
-	"account",
-] as const satisfies SectionKey[];
+const DIALOG_SECTIONS = ["church", "brand", "organization", "notifications", "account"] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
 
 export function dialogSection(value: string | undefined): DialogSection | null {
@@ -101,7 +95,7 @@ export function canDeleteWorkspace(viewer: SettingsViewer): boolean {
 	return viewer.context === "plant" && viewer.role === "owner";
 }
 
-export const ERROR_TEXT: Record<SettingsError["code"], string> = {
+const ERROR_TEXT: Record<SettingsError["code"], string> = {
 	invalid_input: "Some values are not valid. Check the fields marked in red.",
 	access_denied: "You no longer have access to this. Ask an Owner or Admin of your church.",
 	unavailable: "This is not available right now.",
@@ -138,18 +132,40 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 	phase_milestone: { label: "Phase milestones", description: "A plant moves to its next phase" },
 	launch_milestone: { label: "Launch milestones", description: "Completed or reopened" },
 	wiki_upstream_review: { label: "Wiki review requests", description: "Changes waiting for your review" },
+	scheduled_email_unsubscribe: {
+		label: "Unsubscribes from scheduled email",
+		description: "Someone on an email you scheduled unsubscribes",
+	},
 };
 
-/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the pairs this audience has. */
+/**
+ * The categories something sends today. Nothing writes launch milestones yet (D-762), so Settings does not offer a
+ * choice that nothing reads; its stored choices are kept.
+ */
+const SENT: ReadonlySet<Category> = new Set([
+	"task_due",
+	"task_overdue",
+	"meeting_announcement",
+	"meeting_reminder",
+	"planter_digest",
+	"oversight_digest",
+	"relationship_milestone",
+	"sharing_milestone",
+	"phase_milestone",
+	"wiki_upstream_review",
+	"scheduled_email_unsubscribe",
+]);
+
+/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */
 export function preferenceRows(choices: readonly NotificationChoice[]) {
-	return (Object.keys(CATEGORY_TEXT) as Category[]).flatMap((category) => {
-		const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
-		const email = choices.find((c) => c.category === category && c.channel === "email");
-		return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
-	});
+	return (Object.keys(CATEGORY_TEXT) as Category[])
+		.filter((category) => SENT.has(category))
+		.flatMap((category) => {
+			const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
+			const email = choices.find((c) => c.category === category && c.channel === "email");
+			return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
+		});
 }
 
-/** Shallow structural equality for drafts made of plain values. */
-export function sameValue(a: unknown, b: unknown): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
-}
+/** Shallow structural equality for drafts made of plain values: one rule, kept in drafts.ts. */
+export { same } from "./drafts.ts";

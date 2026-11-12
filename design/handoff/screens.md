@@ -90,6 +90,7 @@ The main app is desktop only. These screens need a phone layout because people u
 | Accept a seat invitation | Seat invitation email | `/invite/[token]` | creates an account | WP-008 |
 | RSVP confirmed, change answer | RSVP confirmation email | `/rsvp/[token]` | no, token link | WP-021 |
 | Email preferences | Footer of every church email | `/email-preferences/[token]` (v2 used `/unsubscribe`) | no, token link | WP-030, WP-028 |
+| Messages unsubscribe | Footer of every Messages email to a CRM person | `/unsubscribe/[token]` | no, token link | WP-028 |
 
 Token links are personal and expire. They show only that person's own data.
 
@@ -177,6 +178,7 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Correct, revoke and redo training | TEAM-009 | WP-019 | not designed |
 | Cold-start guidance on Plant Intelligence | PI-034 | WP-044 | not designed |
 | Restore an address after global suppression, with history | NTF-011 | WP-028, WP-030 | not designed |
+| Messages unsubscribe page, one-hour undo, and the opt-out line on the person's record | NTF-016 | WP-028 | not designed |
 
 ### Features with no screen of their own
 

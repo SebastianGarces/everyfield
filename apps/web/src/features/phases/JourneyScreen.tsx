@@ -42,6 +42,8 @@ import {
 	pendingMove,
 	REASON_MESSAGE,
 	refusalMessage,
+	requestKeys,
+	sent,
 	SHORT_NAME,
 	withEntry,
 	type Journey,
@@ -71,6 +73,10 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 	const [move, setMove] = useState<MoveDraft | null>(null);
 	const [declare, setDeclare] = useState<PhaseNumber | null>(null);
 	const [receipt, setReceipt] = useState<string | null>(null);
+	// A lost move reopens with what was sent, so trying again is the same intent and replays its request key.
+	const [lostMove, setLostMove] = useState<MoveDraft | null>(null);
+	const [lostDeclare, setLostDeclare] = useState<PhaseNumber | null>(null);
+	const [keys] = useState(() => requestKeys(() => crypto.randomUUID()));
 	const phase = catalog.phases[journey.state.phase]!;
 	const actor = { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"];
 	const busy = journey.entries.some(isPending);
@@ -81,8 +87,12 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 		const before = journey;
 		setMove(null);
 		setReceipt(null);
+		setLostMove(null);
 		setJourney(pendingMove(before, draft.to, checked.reason, actor, new Date().toISOString()));
-		const r = await movePhase(crypto.randomUUID(), before.state.revision, draft.to, draft.reason);
+		const intent = ["move", before.state.revision, draft.to, draft.reason] as const;
+		const r = await sent(() => movePhase(keys.keyFor(intent), before.state.revision, draft.to, draft.reason));
+		if (r.status === "lost") setLostMove({ ...draft, error: null, changed: null });
+		else keys.settle(intent);
 		if (r.status === "ok") {
 			if (r.value.outcome === "noop") return setReceipt(`No change: already in Phase ${r.value.state.phase}.`);
 			return setJourney(withEntry(before, r.value.state, r.value.entry));
@@ -103,8 +113,12 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 		const before = journey;
 		setDeclare(null);
 		setReceipt(null);
+		setLostDeclare(null);
 		setJourney(pendingDeclaration(before, to, actor, new Date().toISOString()));
-		const r = await declarePhase(crypto.randomUUID(), before.state.revision, to);
+		const intent = ["declare", before.state.revision, to] as const;
+		const r = await sent(() => declarePhase(keys.keyFor(intent), before.state.revision, to));
+		if (r.status === "lost") setLostDeclare(to);
+		else keys.settle(intent);
 		if (r.status === "ok") return setJourney(withEntry(before, r.value.state, r.value.entry));
 		setJourney(
 			r.status === "refused" && r.error.code === "revision_conflict"
@@ -134,7 +148,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 								variant="outline"
 								size="sm"
 								disabled={busy}
-								onClick={() => setMove({ to: journey.state.phase, reason: "", error: null, changed: null })}
+								onClick={() => setMove(lostMove ?? { to: journey.state.phase, reason: "", error: null, changed: null })}
 							>
 								Change phase
 							</Button>
@@ -147,7 +161,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 					{journey.state.declarable ? (
 						<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3">
 							<p className="text-sm text-ink-2">Already further along? Declare your current phase.</p>
-							<Button variant="secondary" size="sm" disabled={busy} onClick={() => setDeclare(2)}>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={() => setDeclare(lostDeclare ?? 2)}>
 								Declare phase
 							</Button>
 						</div>

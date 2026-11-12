@@ -1,51 +1,32 @@
+import "../platform/setup.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import {
+	createOnboardingProducer,
+	readOnboardingEntry,
+	withOnboardingWrite,
+} from "../../../packages/domain/src/onboarding/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp009_" + randomUUID().replaceAll("-", ""),
-	role = "wp009_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 6,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db, api, mail;
+const database = await testDatabase({ prefix: "wp009", max: 6 });
+const { admin, schema } = database;
+const db = database.pools.runtime;
+let api, mail;
 let faults = false;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
@@ -102,17 +83,6 @@ async function resume(f) {
 	return value;
 }
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -154,13 +124,7 @@ before(async () => {
 	});
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-029 AC:DC-031 creation is atomic, ungated, leader bootstrap and replay never demote", async () => {
@@ -252,7 +216,7 @@ test("AC:TARGET-IDN-013 required mail-intent failure rolls back plant, seat, Per
 	assert.equal(created.status, "created");
 });
 
-test("AC:WP009-MUL-006 AC:ADR1-006 self confirmation, exact identity, live account, no seat transfer or organization creation", async () => {
+test("AC:ADR1-006 self confirmation, exact identity, live account, no seat transfer or organization creation", async () => {
 	const a = await actor(),
 		other = await actor(),
 		q = command({ name: "Boundary", confirmed: true });
@@ -326,6 +290,109 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 		(await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, f.p.id))).length,
 		1,
 	);
+});
+
+test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, each time sending the revision it last read", async () => {
+	const f = await makePlant();
+	let r = await resume(f);
+	assert.equal(r.scheduleRevision, "1");
+	let { revision, scheduleRevision } = r;
+	for (const date of ["2027-03-07", "2027-04-11", "2027-05-16", "2027-06-20"]) {
+		const saved = ok(
+			await call(
+				"declareJourney",
+				f.a,
+				command(
+					{
+						journey: { answer: "unsure" },
+						launch: { answer: "planned", date, expectedScheduleRevision: scheduleRevision },
+					},
+					revision,
+				),
+				f.p,
+			),
+		);
+		assert.equal(saved.scheduledLaunchDate, date);
+		const [row] = await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id));
+		assert.equal(saved.scheduleRevision, row.revision, "the reply names the launch row it wrote");
+		r = await resume(f);
+		assert.equal(r.scheduledLaunchDate, date);
+		assert.equal(r.scheduleRevision, saved.scheduleRevision);
+		({ revision, scheduleRevision } = saved);
+	}
+	assert.equal(scheduleRevision, "4");
+	// No date keeps the schedule and still names its revision.
+	const kept = ok(
+		await call(
+			"declareJourney",
+			f.a,
+			command({ journey: { answer: "unsure" }, launch: { answer: "no_date" } }, revision),
+			f.p,
+		),
+	);
+	assert.equal(kept.scheduledLaunchDate, "2027-06-20");
+	assert.equal(kept.scheduleRevision, "4");
+	// Another tab moved the date: the revision this screen read is stale, so the save is refused.
+	await admin
+		.update(t.launch)
+		.set({ target_date: "2027-07-04", revision: sql`${t.launch.revision}+1` })
+		.where(eq(t.launch.plant_id, f.p.id));
+	const stale = command(
+		{ journey: { answer: "unsure" }, launch: { answer: "planned", date: "2027-08-01", expectedScheduleRevision: "4" } },
+		kept.revision,
+	);
+	denied(await call("declareJourney", f.a, stale, f.p), "conflict");
+	r = await resume(f);
+	assert.equal(r.scheduledLaunchDate, "2027-07-04");
+	assert.equal(r.scheduleRevision, "5");
+});
+
+test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary with retry same_request and writes nothing", async () => {
+	for (const [setting, code] of [
+		["lock_timeout", "55P03"],
+		["statement_timeout", "57014"],
+	]) {
+		const f = await makePlant(),
+			r = await resume(f);
+		const q = command(
+			{
+				journey: { answer: "unsure" },
+				launch: { answer: "planned", date: "2027-03-07", expectedScheduleRevision: "1" },
+			},
+			r.revision,
+		);
+		const before = await counts();
+		let release, held;
+		const locked = new Promise((resolve) => (held = resolve));
+		// A second connection holds the plant row until the save gives up waiting for it.
+		const holder = admin.transaction(async (tx) => {
+			await tx.execute(sql`SELECT id FROM plant WHERE id=${f.p.id}::uuid FOR UPDATE`);
+			held();
+			await new Promise((resolve) => (release = resolve));
+		});
+		await locked;
+		let result;
+		try {
+			result = await db.transaction(async (tx) => {
+				await tx.execute(sql.raw(`SET LOCAL ${setting}='200ms'`));
+				return api.declareJourney(tx, ctx(f.a, f.p), q);
+			});
+		} finally {
+			release();
+			await holder;
+		}
+		assert.equal(result.status, "refused", `${code}: ${JSON.stringify(result)}`);
+		assert.equal(result.error.code, "temporary", code);
+		assert.equal(result.error.retry, "same_request", code);
+		assert.deepEqual(result.error.details, {});
+		assert.deepEqual(await counts(), before, `${code}: nothing is written`);
+		assert.equal((await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id))).length, 0);
+		const after = await resume(f);
+		assert.equal(after.revision, r.revision);
+		assert.equal(after.journey.status, "pending");
+		// The same request goes through once the row is free.
+		assert.equal(ok(await call("declareJourney", f.a, q, f.p)).scheduledLaunchDate, "2027-03-07");
+	}
 });
 
 test("AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps", async () => {
@@ -656,12 +723,8 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 		.where(and(eq(t.mail.recipient_account_id, unselectedOwner.id), eq(t.mail.purpose, "discovery_receipt")));
 	assert.equal(notices.length, 1);
 	assert.equal(notices[0].state, "pending");
-	const invalidations = await admin
-		.select()
-		.from(t.job)
-		.where(and(eq(t.job.kind, "assessment"), eq(t.job.subject_record_id, second.relationshipId)));
-	assert.equal(invalidations.length, 1);
-	assert.equal(invalidations[0].source_revision, "2");
+	// No worker runs assessments yet, so the conversion queues no job for the link (D-530).
+	assert.deepEqual(await admin.select().from(t.job).where(eq(t.job.subject_record_id, second.relationshipId)), []);
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
 	assert.equal(replay.status, "existing");
@@ -972,7 +1035,12 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
 	for (const [table, id, patch, restore] of [
 		[t.account, adminReader.id, { registration_state: "pending_domain" }, { registration_state: "active" }],
-		[t.seat, adminSeat.id, { accepted_at: new Date(Date.now() + 60000) }, { accepted_at: adminSeat.accepted_at }],
+		[
+			t.seat,
+			adminSeat.id,
+			{ accepted_at: sql`clock_timestamp()+interval '1 day'` },
+			{ accepted_at: adminSeat.accepted_at },
+		],
 		[t.team, lead.lead.assignment.teamId, { archived_at: new Date() }, { archived_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { retired_at: new Date() }, { retired_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { leadership: false }, { leadership: true }],
@@ -1042,7 +1110,6 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 
 test("INV-discovery-race: a conversion and an organization ending its link serialize without deadlock", async () => {
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
-	const { queueJobs } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
 		link = await relationship(d.a, "sending_church", false),
 		orgActor = await actor("sending_church");
@@ -1054,30 +1121,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 			async invitation() {
 				throw Error("Invitation is outside this race");
 			},
-			notice(tx, input) {
-				return queueJobs(tx, [
-					{
-						tenant: input.pair.organization.id,
-						kind: "notification",
-						subject: input.relationshipId,
-						key: "race/" + input.eventId,
-						revision: input.revision,
-						eligibleAt: new Date().toISOString(),
-					},
-				]);
-			},
-			invalidate(tx, input) {
-				return queueJobs(
-					tx,
-					input.owners.map((owner) => ({
-						tenant: owner.id,
-						kind: "assessment",
-						subject: input.sourceId,
-						key: "race/" + input.sourceId,
-						revision: input.revision,
-						eligibleAt: new Date().toISOString(),
-					})),
-				);
+			invalidate(_tx, input) {
+				return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state='ready'`;
 			},
 		},
 		{
@@ -1093,7 +1138,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 		continueConversion = new Promise((resolve) => {
 			proceed = resolve;
 		});
-	let conversionPid, endPid;
+	let conversionPid;
+	const endPid = [];
 	const converting = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
@@ -1115,7 +1161,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	await held;
 	const ending = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
-		endPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
+		endPid.push((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid);
 		return associations["associations.end"](
 			tx,
 			orgActor.session,
@@ -1130,19 +1176,11 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	});
 	const settled = Promise.allSettled([converting, ending]);
 	try {
-		const deadline = Date.now() + 5000;
-		let blocked = false;
-		while (Date.now() < deadline) {
-			if (endPid) {
-				const r = await admin.execute(sql`SELECT pg_blocking_pids(${endPid}) pids`);
-				if (r.rows[0].pids.includes(conversionPid)) {
-					blocked = true;
-					break;
-				}
-			}
-			await new Promise((resolve) => setTimeout(resolve, 20));
-		}
-		assert.equal(blocked, true, "The ending operation must reach the held conversion lock");
+		assert.equal(
+			await waitingOnLock(admin, { pids: endPid, blockedBy: conversionPid }),
+			true,
+			"The ending operation must reach the held conversion lock",
+		);
 	} finally {
 		proceed();
 	}
@@ -1278,7 +1316,7 @@ async function verifiedWriteActor(session: string) {
 	});
 }
 
-test("INV-reads: the onboarding entry of a plant owner is one statement with no locks (RT-6a)", async (t) => {
+test("INV-reads: the onboarding entry of a plant owner is one statement with no locks", async (t) => {
 	const f = await makePlant();
 	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
 	assert.equal(viewer.authority.actor.context.role, "owner");
@@ -1352,7 +1390,7 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "either", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ seatlessEntryStatements: statements.length }));
-	assert.ok(statements.length <= 6, `seatless entry: ${statements.length} statements`);
+	assert.equal(statements.length, 5, `seatless entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,
@@ -1401,7 +1439,7 @@ test("INV-reads: a pending account's onboarding entry reads only its account row
 	recording = false;
 	assert.deepEqual(entry, { kind: "start", offer: "discovery", accountRevision: "1" });
 	t.diagnostic(JSON.stringify({ pendingEntryStatements: statements.length }));
-	assert.ok(statements.length <= 1, `pending entry: ${statements.length} statements`);
+	assert.equal(statements.length, 1, `pending entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
 		false,
@@ -1416,15 +1454,18 @@ for (const [registration, kind, seatRole] of [
 	["network", "sending_network", "admin"],
 	["sending_church", "sending_church", "owner"],
 ] as const) {
-	test(`T-65 an active ${registration} account with an organization ${seatRole} seat gets the organization entry`, async () => {
+	test(`INV-onboarding-entry: an active ${registration} account with an organization ${seatRole} seat gets the organization entry`, async () => {
 		const a = await actor(registration, "active"),
 			org = randomUUID();
 		await admin
 			.insert(t.organization)
 			.values({ id: org, kind, name: "Overseeing organization", timezone: "UTC", material_revision: "1" });
-		await admin
-			.insert(t.seat)
-			.values({ account_id: a.id, organization_id: org, role: seatRole, accepted_at: new Date(Date.now() - 1000) });
+		await admin.insert(t.seat).values({
+			account_id: a.id,
+			organization_id: org,
+			role: seatRole,
+			accepted_at: sql`clock_timestamp()-interval '1 second'`,
+		});
 		const viewer = await readViewer(db, writeSessionId.parse(a.session));
 		const entry = await readOnboardingEntry(
 			db,
@@ -1441,3 +1482,143 @@ for (const [registration, kind, seatRole] of [
 		assert.deepEqual(entry, { kind: "elsewhere", reason: "organization" });
 	});
 }
+
+test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session ended reads no onboarding facts", async () => {
+	const session = (a) => ({
+		status: "active",
+		accountId: a.id,
+		sessionId: a.session,
+		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+	});
+	const { OnboardingReadContext } = await import("../../../packages/domain/src/onboarding/core.ts");
+	// A plant Owner: the entry and the resume read, with the RequestActor resolved before the seat ended.
+	const f = await makePlant();
+	const owner = (await readViewer(db, writeSessionId.parse(f.a.session))).authority;
+	assert.equal((await readOnboardingEntry(db, api, session(f.a), owner, true)).kind, "plant");
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, f.a.id));
+	assert.deepEqual(await readOnboardingEntry(db, api, session(f.a), owner, true), {
+		kind: "elsewhere",
+		reason: "member",
+	});
+	denied(await db.transaction((tx) => api.getResume(tx, new OnboardingReadContext(owner), {})));
+
+	// A Discovery account: the profile read, with the RequestActor resolved before the session ended.
+	const d = await discovery();
+	const explorer = (await readViewer(db, writeSessionId.parse(d.a.session))).authority;
+	assert.equal((await readOnboardingEntry(db, api, session(d.a), explorer, true)).kind, "discovery");
+	await admin
+		.update(t.auth_session)
+		.set({ expires_at: new Date(0) })
+		.where(eq(t.auth_session.id, d.a.session));
+	denied(await db.transaction((tx) => api.getDiscoveryProfile(tx, new OnboardingReadContext(explorer), {})));
+	assert.deepEqual(await readOnboardingEntry(db, api, session(d.a), explorer, true), {
+		kind: "elsewhere",
+		reason: "unavailable",
+	});
+
+	// A seatless account before creation: the precreation facts need a live session too.
+	const a = await actor("planter", "active");
+	const fresh = (await readViewer(db, writeSessionId.parse(a.session))).authority;
+	assert.equal((await readOnboardingEntry(db, api, session(a), fresh, true)).kind, "start");
+	await admin
+		.update(t.auth_session)
+		.set({ expires_at: new Date(0) })
+		.where(eq(t.auth_session.id, a.session));
+	assert.deepEqual(await readOnboardingEntry(db, api, session(a), fresh, true), {
+		kind: "elsewhere",
+		reason: "unavailable",
+	});
+});
+
+test("INV-write-clock: answerLead, declareJourney and complete each write the plant once, and their saved times are that write's clock", async () => {
+	const f = await makePlant();
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	// The plant UPDATEs one command sends. The declaration's phase move is part of its WITH statement, not one of them.
+	async function plantWrites(name, q) {
+		statements.length = 0;
+		recording = true;
+		const value = ok(await call(name, f.a, q, f.p));
+		recording = false;
+		return { value, writes: statements.filter((s) => /^\s*update\s+("[^"]+"\.)?"plant"\s/i.test(s)) };
+	}
+	const stored = async () => {
+		const [row] = await admin
+			.select({ plant: t.plant, setup: t.onboarding_setup })
+			.from(t.plant)
+			.innerJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
+			.where(eq(t.plant.id, f.p.id));
+		return row;
+	};
+	let r = await resume(f);
+
+	const lead = await plantWrites("answerLead", command({ answer: "no" }, r.revision));
+	assert.equal(lead.writes.length, 1, lead.writes.join("\n"));
+	assert.match(lead.writes[0], /clock_timestamp\(\)/);
+	let row = await stored();
+	assert.equal(row.plant.lead_answer, "no");
+	assert.equal(row.plant.revision, lead.value.revision);
+	assert.equal(BigInt(lead.value.revision), BigInt(r.revision) + 1n);
+	assert.equal(BigInt(row.plant.material_revision), BigInt(r.materialRevision) + 1n);
+	assert.deepEqual(row.setup.lead, lead.value.lead);
+	r = await resume(f);
+	assert.deepEqual(r.lead, lead.value.lead);
+
+	const journey = await plantWrites(
+		"declareJourney",
+		command(
+			{
+				journey: { answer: "existing", phase: 3 },
+				launch: { answer: "planned", date: "2026-11-10", expectedScheduleRevision: "1" },
+			},
+			r.revision,
+		),
+	);
+	assert.equal(journey.writes.length, 1, journey.writes.join("\n"));
+	assert.equal(journey.value.currentPhase, 3);
+	assert.equal(journey.value.journey.savedAt, journey.value.launch.savedAt);
+	assert.ok(journey.value.journey.savedAt > lead.value.lead.savedAt);
+	row = await stored();
+	assert.equal(row.plant.journey_answer, "existing");
+	assert.equal(row.plant.launch_answer, "planned");
+	assert.equal(row.plant.phase, 3);
+	assert.equal(row.plant.revision, journey.value.revision);
+	assert.deepEqual(row.setup.journey, journey.value.journey);
+	assert.deepEqual(row.setup.launch, journey.value.launch);
+
+	const done = await plantWrites("complete", command({}, journey.value.revision));
+	assert.equal(done.writes.length, 1, done.writes.join("\n"));
+	row = await stored();
+	assert.equal(done.value.completion.completedAt, row.plant.onboarding_completed_at.toISOString());
+	assert.equal(row.plant.revision, done.value.revision);
+	assert.equal(done.value.completion.materialRevision, row.plant.material_revision);
+	assert.equal(row.setup.completed_material_revision, row.plant.material_revision);
+
+	// A second completion changes no plant row and records a noop.
+	const again = await plantWrites("complete", command({}, done.value.revision));
+	assert.equal(again.writes.length, 0, again.writes.join("\n"));
+	assert.deepEqual(again.value.completion, done.value.completion);
+	assert.deepEqual(await stored(), row);
+	const noops = await admin
+		.select()
+		.from(t.audit_event)
+		.where(and(eq(t.audit_event.tenant_id, f.p.id), eq(t.audit_event.kind, "noop")));
+	assert.equal(noops.length, 1);
+
+	// A resume inside a bound write reads through the same entry statement and gives the same answer.
+	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	const inside = await withOnboardingWrite(db, viewer.authority, ctx(f.a, f.p), (tx) =>
+		api.getResume(tx, ctx(f.a, f.p), {}),
+	);
+	assert.deepEqual(ok(inside), await resume(f));
+});

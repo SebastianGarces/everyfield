@@ -1,0 +1,56 @@
+{
+	"budget-worksheet": [
+		{
+			"version": 1,
+			"hash": "sha256:beca3968c6872ae08a306e4886c8e0dc88a7bdc6b7d6eb16e2c531cc18cbe0ad"
+		}
+	],
+	"bylaws": [
+		{
+			"version": 1,
+			"hash": "sha256:bfe4c25a4bb79f75c6dca82a103235f01b7cb4e7911d27570bb3bf42657f528c"
+		}
+	],
+	"commitment-card": [
+		{
+			"version": 1,
+			"hash": "sha256:2a14651a927991bdebba88178587e54d329eadb460e55b604d489a6778793f6b"
+		}
+	],
+	"conflict-of-interest-policy": [
+		{
+			"version": 1,
+			"hash": "sha256:b0809020005e1b2ead90e75820dd349b89639686a5b3375fdb3d2c9604899a07"
+		}
+	],
+	"follow-up-letter": [
+		{
+			"version": 1,
+			"hash": "sha256:7840d223ffc98b98d66e38c6ae3d4a33ab00ae27784e95e2df3e602b0b48a898"
+		}
+	],
+	"guest-sign-in-sheet": [
+		{
+			"version": 1,
+			"hash": "sha256:cf1f4fd7a6a5853060ba42d3aca12a30a9a89f83604b28465f9487f688179b58"
+		}
+	],
+	"launch-team-commitment": [
+		{
+			"version": 1,
+			"hash": "sha256:79d97cc48cadc8132b930e6ae0d28d5ee9e1565a6eedc752b8636a767a61e8ba"
+		}
+	],
+	"member-expectations": [
+		{
+			"version": 1,
+			"hash": "sha256:39f148fe11c7f6869873bc32526792d62dd6c96ef2cd076d53a9b414faf0afc0"
+		}
+	],
+	"prayer-letter": [
+		{
+			"version": 1,
+			"hash": "sha256:691657c9f2fdd061b036485bcdba83274e5ec3629cb374894ba7535d9fe2c71c"
+		}
+	]
+}

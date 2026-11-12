@@ -15,7 +15,7 @@ export const storedKind = z
 	.transform((k) => (k === "follow_up" ? "first_vision_follow_up" : "meeting_evaluation"));
 export const storageKind = (k: z.infer<typeof c.obligationKind>) =>
 	k === "first_vision_follow_up" ? ("follow_up" as const) : ("evaluation" as const);
-export const taskRow = z.object({
+const taskRow = z.object({
 	id: z.uuid(),
 	revision,
 	title: z.string(),
@@ -81,7 +81,7 @@ export type TaskRow = z.infer<typeof taskRow>;
  * One task as a single-task read returns it: its checklist, its series rule, whether a live successor exists, whether
  * the assignee is still seated and whether the relation is live. A status change needs all of them (REQ-TSK-007).
  */
-export const lockedTask = taskRow.extend({
+const lockedTask = taskRow.extend({
 	checklist: taskRow.shape.checklist
 		.unwrap()
 		.nullable()
@@ -121,8 +121,8 @@ const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',
 	FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
-	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id AND n.deleted_at IS NULL)
-		AS has_successor,
+	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.series_id=t.series_id AND n.plant_id=t.plant_id
+		AND n.deleted_at IS NULL) AS has_successor,
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
 const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN obligation o ON o.id=t.obligation_id AND o.plant_id=t.plant_id
@@ -334,6 +334,26 @@ export const taskReader = {
 				page: v.page,
 				next: v.page * v.limit < total ? v.page + 1 : null,
 				completeness: "complete",
+			});
+		});
+	},
+	/** The list rows of the named live tasks of the church, without the list's search, order or count. One statement. */
+	async listRows(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.taskRowsRequest, raw);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT ${columns}, ${views}, row_number() OVER (ORDER BY t.id) AS ord ${joins}
+				WHERE t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL AND t.id=ANY(${sql.param(v.taskIds)}::uuid[])`,
+			);
+			const asOf = now();
+			return c.taskRows.parse({
+				items: z
+					.array(taskRow)
+					.parse(found)
+					.map((row) => itemOf(row, asOf)),
 			});
 		});
 	},

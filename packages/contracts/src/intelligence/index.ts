@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { correlationId, recordId, requestKey, revision } from "../common/values.ts";
+import { defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 
 // The private weekly check-in contract (WP-039, REQ-PI-038 to REQ-PI-041). Only the original author reads or writes a
@@ -90,22 +90,20 @@ export const careWriteResult = z.strictObject({
 });
 export type CareWriteResult = z.infer<typeof careWriteResult>;
 
-const error = <C extends string>(code: C, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject({}), correlationId, retry: z.literal(retry) });
 /**
  * Every refusal. `not_found` is the one answer for a week that does not exist and for another author's week: it has no
  * body, week, count or calendar. A refusal never carries details.
  */
 export const careError = z.discriminatedUnion("code", [
-	error("invalid_input", "never"),
-	error("access_denied", "never"),
-	error("not_found", "never"),
-	error("idempotency_conflict", "never"),
-	error("personal_timezone_confirmation_required", "never"),
-	error("revision_conflict", "refresh"),
+	defineSafeError("invalid_input", {}, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("not_found", {}, "never"),
+	defineSafeError("idempotency_conflict", {}, "never"),
+	defineSafeError("personal_timezone_confirmation_required", {}, "never"),
+	defineSafeError("revision_conflict", {}, "refresh"),
 ]);
 export type CareError = z.infer<typeof careError>;
-export type CareReply<T> = { status: "ok"; value: T } | { status: "refused"; error: CareError };
+export type CareReply<T> = Reply<T, CareError>;
 
 /** The trimmed note, or null when it is blank. */
 export const noteOf = (raw: string) => raw.trim() || null;

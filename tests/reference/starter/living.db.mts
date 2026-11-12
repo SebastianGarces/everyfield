@@ -2,7 +2,7 @@
 // Only this test reads the bootstrap payload, to build that old generation (criterion 11).
 // fixtures/living-wiki is a synthetic living seed with a corrected 501(c)(3) article. It proves the install
 // path carries corrected text byte for byte apart from the real seed's content.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase, testDatabaseUrl, type TestDatabase } from "../../support/test-database.mts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import test, { after } from "node:test";
@@ -11,7 +11,6 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { hash } from "../../../packages/reference/src/hash.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import type { WikiSource } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { referenceService } from "../../../packages/reference/src/starter/verify/service.ts";
@@ -20,19 +19,6 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
-
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only shared development or disposable CI endpoint permitted");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
 
 // The pin the app installed before WP-033, from git history. Only this test still builds it.
 const bootstrapSource: WikiSource = {
@@ -82,24 +68,18 @@ async function seedContent(path: string, wanted: string): Promise<string> {
 	return row.content;
 }
 
-const stores: { db: ReturnType<typeof createDatabase>; schema: string }[] = [];
+// The guard admits a local host only as CI's disposable database.
+const localCi = ["localhost", "127.0.0.1"].includes(testDatabaseUrl().hostname);
+const stores: TestDatabase<never>[] = [];
 after(async () => {
-	for (const { db, schema } of stores) {
-		await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await closeDatabase(db);
-	}
+	for (const store of stores) await store.close();
 });
 
 /** An empty reference store in its own schema, with one operator who holds reference_publish. */
-async function emptyStore(schema = "wp033_test_" + randomUUID().replaceAll("-", "")) {
-	const db = createDatabase({
-		connectionString: source.href,
-		max: 4,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	stores.push({ db, schema });
-	await db.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
+async function emptyStore(schema?: string) {
+	const store = await testDatabase({ prefix: "wp033_test", schema, roles: {} });
+	stores.push(store);
+	const db = store.admin;
 	const caller = { actorId: randomUUID(), userId: randomUUID(), sessionId: randomUUID() };
 	await db.execute(
 		sql`INSERT INTO auth_user(id, email, email_verified, name) VALUES (${caller.userId}::uuid, ${caller.userId + "@example.test"}, true, 'Publisher')`,

@@ -15,7 +15,7 @@ function fixture() {
 
 const cli = (root: string) => spawnSync(process.execPath, [tool], { cwd: root, encoding: "utf8" });
 
-test("BUG-OPS10-ci: follow recursive scripts, filters and file globs; fail an unlisted integration test", () => {
+test("BUG-3b7185b67: follow recursive scripts, filters and file globs; fail an unlisted integration test", () => {
 	const f = fixture();
 	try {
 		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
@@ -152,10 +152,104 @@ test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and mus
 	}
 });
 
-test("CI runs this check on its own, in the tools job the required ci check needs", () => {
+test("INV-ci-tests: an unlisted pure tests/ui model test fails the guard; a browser suite importing setup.mjs is not required", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		mkdirSync(join(f.root, "apps/web"), { recursive: true });
+		mkdirSync(join(f.root, "packages/domain/test"), { recursive: true });
+		mkdirSync(join(f.root, "tests/ui/people"), { recursive: true });
+		mkdirSync(join(f.root, "tests/reference/releases"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		writeFileSync(
+			join(f.root, "packages/domain/package.json"),
+			JSON.stringify({ name: "@everyfield/domain", scripts: { test: "tsx --test test/*.test.ts" } }),
+		);
+		writeFileSync(join(f.root, "packages/domain/test/rules.test.ts"), "");
+		writeFileSync(
+			join(f.root, "apps/web/package.json"),
+			JSON.stringify({
+				name: "@everyfield/web",
+				scripts: {
+					"test:unit": "node --test ../../tests/ui/people/model.test.mjs ../../tests/reference/releases/*.db.mts",
+				},
+			}),
+		);
+		writeFileSync(join(f.root, "tests/ui/setup.mjs"), "");
+		writeFileSync(join(f.root, "tests/ui/people/model.test.mjs"), 'import "node:test";\n');
+		writeFileSync(join(f.root, "tests/ui/people/browser.test.mjs"), 'import { launch } from "../setup.mjs";\n');
+		writeFileSync(join(f.root, "tests/reference/releases/pin.db.mts"), "");
+		writeFileSync(
+			join(f.root, ".github/workflows/ci.yml"),
+			"jobs:\n  tests:\n    steps:\n      - run: pnpm -r --if-present test:unit\n      - run: pnpm -r --if-present test\n",
+		);
+		let result = cli(f.root);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 3 test files/);
+		writeFileSync(join(f.root, "tests/ui/people/new-model.test.mjs"), 'import "node:test";\n');
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.match(
+			result.stderr,
+			/^ci-tests: Tests missing from CI commands:\ntests\/ui\/people\/new-model\.test\.mjs\n/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-ci-db-steps: each package with test:db needs a CI step, and the domain census matrix runs by part", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		for (const name of ["db", "evry", "domain"]) {
+			mkdirSync(join(f.root, `packages/${name}`), { recursive: true });
+			mkdirSync(join(f.root, `tests/integration/${name}`), { recursive: true });
+			writeFileSync(
+				join(f.root, `packages/${name}/package.json`),
+				JSON.stringify({
+					name: `@everyfield/${name}`,
+					scripts: { "test:db": `node --test ../../tests/integration/${name}/*.test.mts` },
+				}),
+			);
+			writeFileSync(join(f.root, `tests/integration/${name}/one.test.mts`), "");
+		}
+		const workflow = (packages: string[]) =>
+			writeFileSync(
+				join(f.root, ".github/workflows/ci.yml"),
+				"jobs:\n  db:\n    steps:\n      - run: pnpm db:migrate\n" +
+					packages.map((p) => `      - name: "${p} tests"\n        run: pnpm --filter "${p}" test:db\n`).join("") +
+					"  domain:\n    strategy:\n      matrix:\n        include:\n          - part: 1\n            build: true\n" +
+					"          - part: 2\n    steps:\n" +
+					'      - run: pnpm --filter "@everyfield/domain" test:db\n',
+			);
+		workflow(["@everyfield/db", "@everyfield/evry"]);
+		let result = cli(f.root);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 3 test files/);
+		// The dropped package's suite is still listed elsewhere, so only the test:db rule can catch the missing step.
+		writeFileSync(
+			join(f.root, "package.json"),
+			JSON.stringify({ scripts: { other: "node --test tests/integration/evry/one.test.mts" } }),
+		);
+		workflow(["@everyfield/db"]);
+		writeFileSync(
+			join(f.root, ".github/workflows/ci.yml"),
+			readFileSync(join(f.root, ".github/workflows/ci.yml"), "utf8") + "      - run: pnpm other\n",
+		);
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.equal(result.stderr, "ci-tests: ci.yml runs no test:db for @everyfield/evry. Add a step to the db job.\n");
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-ci-tests: CI runs this check on its own, in the tooling job the required ci check needs", () => {
 	const workflow = readFileSync(resolve(import.meta.dirname, "../../../.github/workflows/ci.yml"), "utf8");
-	const job = workflow.split(/(?=^  [\w-]+:\s*$)/m).find((part) => part.startsWith("  tools:"));
-	assert.ok(job, "ci.yml has a tools job");
+	const job = workflow.split(/(?=^  [\w-]+:\s*$)/m).find((part) => part.startsWith("  tooling:"));
+	assert.ok(job, "ci.yml has a tooling job");
 	assert.match(job, /^ +run: node tools\/ci\/ci-tests\.ts$/m);
-	assert.match(workflow, /needs: \[[^\]]*\btools\b[^\]]*\]/);
+	assert.match(workflow, /needs: \[[^\]]*\btooling\b[^\]]*\]/);
 });

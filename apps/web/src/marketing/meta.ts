@@ -6,7 +6,7 @@ import { COPY } from "./copy";
 export const SITE_NAME = "Everyfield";
 
 /** Alt text for a share image: the words it shows. scripts/render-share-images.mjs writes the same text. */
-export function shareAlt(headline: string, subhead: string) {
+function shareAlt(headline: string, subhead: string) {
 	return `${SITE_NAME}: ${headline} ${subhead}`;
 }
 const TITLE_MAX = 60;

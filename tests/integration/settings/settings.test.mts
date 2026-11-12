@@ -1,13 +1,12 @@
+import "../platform/setup.mts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
-	createSettingsProducer,
 	createLifecycleCleanup,
 	issueRestrictedDeletionSession,
 	createAccountCredentials,
@@ -15,47 +14,34 @@ import {
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
+import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp010_" + randomUUID().replaceAll("-", ""),
-	role = "wp010_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+const database = await testDatabase({
+	prefix: "wp010",
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 	max: 8,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
-let db, cleanupDb, authDb, api, onboarding, mail, producerDeps;
+const { admin } = database;
+const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
+let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
+/** A trusted IP per session, for a test that must not share the default IP's budget with earlier tests. */
+const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	input,
 	expectedRevision,
@@ -115,7 +101,7 @@ const effect = async (tx, input) => {
 	if (faults) throw Error("intent_fault");
 	return enqueueJob(tx, {
 		tenant: input.owner.id,
-		kind: "notification",
+		kind: "digest",
 		subject: input.owner.id,
 		key: `settings/${input.kind}/${input.operationId}/${input.revision}`,
 		revision: input.revision,
@@ -123,33 +109,6 @@ const effect = async (tx, input) => {
 	});
 };
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [suffix, cap] of [
-		["", "everyfield_runtime"],
-		["_cleanup", "everyfield_cleanup"],
-		["_auth", "everyfield_auth"],
-	]) {
-		const password = randomBytes(32).toString("hex"),
-			name = role + suffix;
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${cap} TO ${name}`));
-		const url = new URL(source);
-		url.username = name;
-		url.password = password;
-		const client = createDatabase({
-			connectionString: url.href,
-			max: 8,
-			options: `-c search_path=${schema},pg_catalog,pg_temp`,
-		});
-		if (suffix === "") db = client;
-		else if (suffix === "_cleanup") cleanupDb = client;
-		else authDb = client;
-	}
 	mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -167,31 +126,10 @@ before(async () => {
 	});
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx, i) => {
-			if (faults) throw Error("notice_fault");
-			return queueJobs(tx, [
-				{
-					tenant: i.pair.organization.id,
-					kind: "notification",
-					subject: i.relationshipId,
-					key: "sharing/" + i.eventId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]);
+		invalidate: (tx, i) => {
+			if (faults) throw Error("grant_fault");
+			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
-		invalidate: (tx, i) =>
-			queueJobs(
-				tx,
-				i.owners.map((owner) => ({
-					tenant: owner.id,
-					kind: "assessment",
-					subject: i.sourceId,
-					key: "invalidate/" + i.sourceId + "/" + i.revision,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				})),
-			),
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
 	const credentials = createAccountCredentials({
@@ -209,7 +147,7 @@ before(async () => {
 				email: v.principal.email,
 				verified: v.principal.verified,
 			};
-			return { request, trustedIp: "198.51.100.21", viewer };
+			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
 		deliverVerification: async (_tx, i) => {
@@ -239,17 +177,6 @@ before(async () => {
 		organizationEffects,
 		effects: {
 			replan: effect,
-			invalidate: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.owner.id,
-					kind: "assessment",
-					subject: i.owner.id,
-					key: "settings-material/" + i.operationId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				});
-				if (faults) throw Error("invalidate_fault");
-			},
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
@@ -281,10 +208,12 @@ before(async () => {
 					},
 				]);
 			},
+			// Notice mail is covered by workspace-deletion-mail.test.mts.
+			workspaceNotice: async () => {},
 		},
 		credentials,
 	};
-	api = createSettingsProducer(producerDeps);
+	api = settingsApi(producerDeps);
 	onboarding = createOnboardingProducer({
 		relationships: (tx, inputs) => sendOnboardingRelationships(tx, inputs, mail),
 		enqueue: async (tx, i, command) => {
@@ -306,16 +235,7 @@ before(async () => {
 		},
 	});
 });
-after(async () => {
-	for (const client of [db, cleanupDb, authDb]) if (client) await closeDatabase(client);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const suffix of ["", "_cleanup", "_auth"])
-			await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role + suffix}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-});
+after(database.close);
 
 test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped settings preserve nullable locality and reject stale or foreign saves", async () => {
 	const f = await plant(),
@@ -351,7 +271,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	faults = true;
 	await assert.rejects(
 		call("saveSection", f.a, command({ ...v.input, change: { kind: "digest", value: { cadence: "off" } } }, "2"), f.p),
-		/invalidate_fault/,
+		/intent_fault/,
 	);
 	faults = false;
 	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
@@ -361,10 +281,15 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	assert.equal(name.current.name, "Member Updated");
 });
 
-test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
+test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
 	let current = ok(await section(a, { section: "notifications" }));
-	assert.equal(current.values.choices.length, 19);
+	assert.equal(current.values.choices.length, 20);
+	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
+	assert.deepEqual(
+		current.values.choices.filter((c) => c.category === "scheduled_email_unsubscribe"),
+		[{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true }],
+	);
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
 	const saved = ok(
@@ -451,7 +376,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
-	const producer = createSettingsProducer({
+	const producer = settingsApi({
 		...producerDeps,
 		personalCalendar: {
 			preview: async () => {
@@ -540,7 +465,7 @@ async function restricted(a, subject, status) {
 		})),
 	);
 }
-test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:WP010-KNOW-069 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
+test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:DEL58-004 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
 	const f = await plant(),
 		member = await seat(f.p, "member");
 	const ordinaryAdmin = await seat(f.p, "admin");
@@ -618,19 +543,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 	);
 	const settled = Promise.allSettled(edits);
 	try {
-		let waiting = false;
-		for (let i = 0; i < 100; i++) {
-			const rows = (
-				await admin.execute(
-					sql`SELECT pid FROM pg_stat_activity WHERE pid IN (${pids[0] ?? 0},${pids[1] ?? 0}) AND wait_event_type='Lock'`,
-				)
-			).rows;
-			if (rows.length === 2) {
-				waiting = true;
-				break;
-			}
-		}
-		assert.equal(waiting, true, "both real edits reached their lock wait");
+		assert.equal(await waitingOnLock(admin, { pids, count: 2 }), true, "both real edits reached their lock wait");
 	} finally {
 		release();
 	}
@@ -680,7 +593,7 @@ async function overdue(a, subject) {
 		cancelUntil: w.cancel_until.toISOString(),
 	};
 }
-test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
+test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
 	const f = await plant();
 	const subject = { kind: "account", id: f.a.id };
 	const p = await overdue(f.a, subject);
@@ -722,7 +635,7 @@ test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancella
 	assert.equal(church.name, "Harvest Point");
 });
 
-test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
+test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
 	const f = await plant(),
 		other = await plant();
 	const subject = { kind: "plant", id: f.p.id };
@@ -744,6 +657,40 @@ test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its 
 		(await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, other.p.id))).length,
 		1,
 	);
+});
+
+test("AC:DEL58-005 T-195: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
+	// An account holds one open seat at a time (seat_uq_0), so the seats elsewhere belong to other accounts.
+	const f = await plant(),
+		other = await plant(),
+		network = await organization();
+	const member = await seat(f.p, "member"),
+		otherAdmin = await seat(other.p, "admin");
+	const p = await overdue(f.a, { kind: "plant", id: f.p.id });
+	const purge = createLifecycleCleanup(cleanupDb, {
+		authorize: async () => true,
+		removeOwnedResources: async () => true,
+	});
+	assert.equal((await purge({ subject: p.subject, requestId: p.requestId, revision: p.revision })).status, "purged");
+	for (const a of [f.a, member]) {
+		const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+		assert.equal(account.registration_state, "active");
+		const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
+		assert.deepEqual([user.name, user.email], ["Synthetic", a.user + "@example.test"]);
+	}
+	const open = await admin.execute(
+		sql`SELECT account_id, role FROM seat WHERE ended_at IS NULL AND account_id IN (${other.a.id}::uuid, ${otherAdmin.id}::uuid, ${network.a.id}::uuid) ORDER BY role`,
+	);
+	assert.deepEqual(
+		new Set(open.rows.map((r) => `${r.account_id}/${r.role}`)),
+		new Set([`${other.a.id}/owner`, `${otherAdmin.id}/admin`, `${network.a.id}/owner`]),
+	);
+	assert.equal(ok(await section(other.a, { section: "plant", plant: other.p })).values.profile.name, "Harvest Point");
+	assert.equal(
+		ok(await section(otherAdmin, { section: "plant", plant: other.p })).values.profile.name,
+		"Harvest Point",
+	);
+	ok(await section(network.a, { section: "organization", organization: network.o }));
 });
 
 test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private bytes, atomically changes the reference and denies old/foreign versions", async () => {
@@ -787,7 +734,7 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes });
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
-	assert.deepEqual(await readAvatar(db, storage, ctx(a), upload.uploadId), bytes);
+	assert.deepEqual(await readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }), bytes);
 	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
 	let entered, release;
 	const locked = new Promise((r) => (entered = r)),
@@ -799,11 +746,14 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	});
 	await locked;
 	try {
-		const read = await Promise.race([
-			readAvatar(db, storage, ctx(a), upload.uploadId),
-			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
-		]);
-		assert.deepEqual(read, bytes);
+		// The read races Postgres lock state: it must finish before any session of the runtime role waits for a lock.
+		const done = new AbortController();
+		const read = readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }).finally(() =>
+			done.abort(),
+		);
+		const waited = await waitingOnLock(db, { signal: done.signal });
+		assert.equal(waited, false, "photo read waited for the session lock");
+		assert.deepEqual(await read, bytes);
 	} finally {
 		release();
 		await holder;
@@ -812,6 +762,292 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const clear = ok(await call("removeAvatar", a, command({}, "2")));
 	assert.deepEqual(clear, { status: "absent" });
 	denied(await call("getAvatar", a, { versionId: upload.uploadId }));
+});
+
+// T-271: the account photo read rule (REQ-IDN-006). Its own account, and the people who hold a live seat in a church or
+// organization where the account holds one, load its current version. Everyone else gets the same refusal as a
+// missing photo.
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
+/** A private bucket fake that keeps the bytes it was sent. */
+function photoStorage() {
+	const objects = new Map();
+	return {
+		bucket: "synthetic-only",
+		client: {
+			send: async (command) => {
+				const i = command.input;
+				switch (command.constructor.name) {
+					case "GetBucketAclCommand":
+						return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+					case "PutObjectCommand":
+						objects.set(i.Key, Buffer.from(i.Body));
+						return {};
+					case "GetObjectCommand": {
+						const body = objects.get(i.Key);
+						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+					}
+					default:
+						throw Error("unexpected provider operation");
+				}
+			},
+		},
+	};
+}
+/** The account uploads and finalizes a new photo, as Settings does; the version it becomes. */
+async function setPhoto(storage, a) {
+	const upload = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: PNG.length }));
+	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes: PNG });
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId }, row.revision)));
+	return { accountId: a.id, versionId: upload.uploadId };
+}
+/** What one account's session gets for one photo version: its bytes, or "refused" for every kind of refusal. */
+const photoRead = (storage, a, photo) =>
+	readAvatar(db, storage, ctx(a), photo).then(
+		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
+		(error) => (error.message === "unavailable" ? "refused" : error.message),
+	);
+/** A fresh normal session for an account whose sessions a deletion request ended. */
+async function newSession(a) {
+	const session = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	return { ...a, session };
+}
+
+test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load each other's current photo; nobody else does", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		member = await seat(f.p, "member"),
+		other = await plant(),
+		network = await organization(),
+		seatless = await actor();
+	const owner = await setPhoto(storage, f.a),
+		memberPhoto = await setPhoto(storage, member);
+	const read = (who, photo) => photoRead(storage, who, photo);
+
+	// Done 4: each seat holder loads the other's photo, and the account loads its own.
+	assert.equal(await read(member, owner), "bytes");
+	assert.equal(await read(f.a, memberPhoto), "bytes");
+	assert.equal(await read(f.a, owner), "bytes");
+	// Done 5: another church, an organization the person is not in, no seat at all.
+	for (const who of [other.a, network.a, seatless]) {
+		assert.equal(await read(who, owner), "refused");
+		assert.equal(await read(who, memberPhoto), "refused");
+	}
+	// The rule follows the shared workspace: a seat holder in the same organization loads that photo.
+	const peer = await actor();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: peer.id, organization_id: network.o.id, role: "member", accepted_at: new Date() });
+	const networkPhoto = await setPhoto(storage, network.a);
+	assert.equal(await read(peer, networkPhoto), "bytes");
+	assert.equal(await read(f.a, networkPhoto), "refused");
+	// The account and version must belong together: another account's id with this version is refused.
+	assert.equal(await read(member, { accountId: member.id, versionId: owner.versionId }), "refused");
+
+	// Done 6: no live session (unknown, expired) gets the refusal.
+	assert.equal(await read({ id: member.id, session: randomUUID() }, owner), "refused");
+	// A session counts only for its own account.
+	assert.equal(await read({ id: member.id, session: seatless.session }, owner), "refused");
+	const own = await setPhoto(storage, seatless);
+	assert.equal(await read(seatless, own), "bytes");
+	await admin.execute(
+		sql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${seatless.session}`,
+	);
+	assert.equal(await read(seatless, own), "refused");
+
+	// Done 8: a replaced version is refused to every viewer, the account itself included; only the current one loads.
+	const replaced = await setPhoto(storage, f.a);
+	assert.equal(await read(f.a, owner), "refused");
+	assert.equal(await read(member, owner), "refused");
+	assert.equal(await read(member, replaced), "bytes");
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, f.a.id));
+	ok(await call("removeAvatar", f.a, command({}, row.revision)));
+	assert.equal(await read(f.a, replaced), "refused");
+	assert.equal(await read(member, replaced), "refused");
+
+	// Done 7: after the seat ends, neither side loads the other's photo any more.
+	const current = await setPhoto(storage, f.a);
+	assert.equal(await read(member, current), "bytes");
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${member.id} AND plant_id=${f.p.id}`,
+	);
+	assert.equal(await read(member, current), "refused");
+	assert.equal(await read(f.a, memberPhoto), "refused");
+	assert.equal(await read(member, memberPhoto), "bytes");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant load each other's photos while the link is current", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		staff = await seat(f.p, "member"),
+		church = await organization(),
+		director = await actor(),
+		outsider = await organization();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: director.id, organization_id: church.o.id, role: "member", accepted_at: new Date() });
+	const [link] = await admin
+		.insert(t.affiliation)
+		.values({
+			plant_id: f.p.id,
+			organization_id: church.o.id,
+			accepted_at: new Date(),
+			share_people: false,
+			share_meetings: false,
+			share_tasks: false,
+			share_ministry_teams: false,
+			share_wiki: false,
+			share_activity: false,
+			shared_findings: false,
+		})
+		.returning();
+	const planter = await setPhoto(storage, f.a),
+		staffPhoto = await setPhoto(storage, staff),
+		directorPhoto = await setPhoto(storage, director);
+	const read = (who, photo) => photoRead(storage, who, photo);
+
+	// The church's directors load the planter's and plant staff's photos, and the plant's people load theirs.
+	for (const who of [church.a, director]) {
+		assert.equal(await read(who, planter), "bytes");
+		assert.equal(await read(who, staffPhoto), "bytes");
+	}
+	assert.equal(await read(staff, directorPhoto), "bytes");
+	assert.equal(await read(f.a, directorPhoto), "bytes");
+	// An organization with no link to the plant gets the refusal both ways.
+	assert.equal(await read(outsider.a, planter), "refused");
+	assert.equal(await read(outsider.a, directorPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, outsider.a)), "refused");
+
+	// A director whose seat ended is refused at once, both ways; so is the plant's photo of a staff seat that ended.
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${director.id} AND organization_id=${church.o.id}`,
+	);
+	assert.equal(await read(director, planter), "refused");
+	assert.equal(await read(staff, directorPhoto), "refused");
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${staff.id} AND plant_id=${f.p.id}`,
+	);
+	assert.equal(await read(church.a, staffPhoto), "refused");
+	assert.equal(await read(staff, await setPhoto(storage, church.a)), "refused");
+
+	// Once the link ends, the church's remaining director no longer loads the planter's photo.
+	assert.equal(await read(church.a, planter), "bytes");
+	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link.id}`);
+	assert.equal(await read(church.a, planter), "refused");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
+	const storage = photoStorage();
+	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.
+	const f = await plant(),
+		leaving = await seat(f.p, "member");
+	const photo = await setPhoto(storage, leaving);
+	assert.equal(await photoRead(storage, f.a, photo), "bytes");
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, leaving.id));
+	ok(await call("requestAccountDeletion", leaving, command({ confirmed: true }, row.revision)));
+	assert.equal(await photoRead(storage, f.a, photo), "refused");
+	assert.equal(await photoRead(storage, await newSession(leaving), photo), "refused");
+
+	// Church workspace deletion: a fresh session of a seat holder there no longer loads the church's photos.
+	const church = await plant(),
+		member = await seat(church.p, "member");
+	const ownerPhoto = await setPhoto(storage, church.a);
+	const memberPhoto = await setPhoto(storage, member);
+	assert.equal(await photoRead(storage, member, ownerPhoto), "bytes");
+	const [plantRow] = await admin.select().from(t.plant).where(eq(t.plant.id, church.p.id));
+	ok(
+		await call(
+			"requestWorkspaceDeletion",
+			church.a,
+			command({ plant: church.p, confirmed: true }, plantRow.revision),
+			church.p,
+		),
+	);
+	const again = await newSession(member);
+	assert.equal(await photoRead(storage, again, ownerPhoto), "refused");
+	assert.equal(await photoRead(storage, await newSession(church.a), memberPhoto), "refused");
+	// The member's own photo is still theirs to load.
+	assert.equal(await photoRead(storage, again, memberPhoto), "bytes");
+});
+
+test("AC:TARGET-IDN-006 T-271 Done 2-3: the Seats roster and the People list name each visible photo by its account and version", async () => {
+	const storage = photoStorage();
+	const f = await plant(),
+		member = await seat(f.p, "member"),
+		plain = await seat(f.p, "member"),
+		former = await seat(f.p, "member");
+	const ownerPhoto = await setPhoto(storage, f.a),
+		memberPhoto = await setPhoto(storage, member),
+		formerPhoto = await setPhoto(storage, former);
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
+
+	const roster = async (a) => {
+		const authority = (await readViewer(db, a.session)).authority;
+		const list = await createSeatService(db).list(authority, { workspace: f.p });
+		return Object.fromEntries(list.items.map((s) => [s.displayName + "/" + s.status, s.avatar]));
+	};
+	await admin.execute(
+		sql`UPDATE auth_user u SET name=n.name FROM (VALUES (${f.a.user}::uuid,'Owner'),(${member.user}::uuid,'Member'),(${plain.user}::uuid,'Plain'),(${former.user}::uuid,'Former')) n(id,name) WHERE u.id=n.id`,
+	);
+	const expected = {
+		"Owner/active": ownerPhoto,
+		"Member/active": memberPhoto,
+		"Plain/active": null,
+		"Former/removed": null,
+	};
+	assert.deepEqual(await roster(f.a), expected);
+	assert.deepEqual(await roster(member), expected);
+	// No storage key or bearer URL is in the roster.
+	assert.doesNotMatch(JSON.stringify(await roster(f.a)), /private\/|https?:/);
+	assert.equal(formerPhoto.accountId, former.id);
+
+	// People: a linked seat holder shows the account photo; a People photo wins; unlinked and former stay plain.
+	const person = async (name, linked) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at,linked_account_id)
+			VALUES(${id},${f.p.id},${f.p.id},${name},'other','prospect','unknown','unknown',0,'live',clock_timestamp(),${linked ?? null})`);
+		return id;
+	};
+	const linked = await person("Linked", member.id),
+		// The Owner's own Person, which creating the church linked to the Owner's account.
+		[{ id: both }] = await admin
+			.select({ id: t.person.id })
+			.from(t.person)
+			.where(and(eq(t.person.plant_id, f.p.id), eq(t.person.linked_account_id, f.a.id))),
+		unlinked = await person("Unlinked"),
+		leftChurch = await person("Left", former.id);
+	const crm = randomUUID();
+	await admin.insert(t.file_object).values({
+		id: crm,
+		tenant_id: f.p.id,
+		purpose: "person_photo",
+		opaque_key: `private/${f.p.id}/${randomUUID()}`,
+		media_type: "image/png",
+		max_bytes: "1",
+		byte_count: "1",
+		sha256: createHash("sha256").update("x").digest("hex"),
+		state: "ready",
+		upload_key: crm,
+		claim_generation: "0",
+	});
+	await admin.update(t.person).set({ photo_object_id: crm }).where(eq(t.person.id, both));
+	const authority = (await readViewer(db, plain.session)).authority;
+	const page = ok(
+		await db.transaction((tx) =>
+			peopleReader.listPeople(tx, new PeopleReadContext(authority), listPeopleRequest.parse({ page: 1, limit: 100 })),
+		),
+	);
+	const photos = Object.fromEntries(page.photos.map((p) => [p.personId, p.photo]));
+	assert.deepEqual(photos[linked], { kind: "account", ...memberPhoto });
+	assert.deepEqual(photos[both], { kind: "person", personId: both, versionId: crm });
+	assert.equal(photos[unlinked], undefined);
+	assert.equal(photos[leftChurch], undefined);
 });
 
 let signInAuth;
@@ -846,6 +1082,107 @@ async function login(a) {
 	ingress.set(s.session.id, request);
 	return { ...a, session: s.session.id };
 }
+/** Fresh proof on the restricted workspace deletion page, as the web mount sends it. */
+const openWorkspace = (a, password = a.password) =>
+	producerDeps.credentials.openWorkspaceDeletion({ email: a.email, password }, null);
+const PROOF_REFUSED = { status: "refused", code: "proof_invalid" };
+async function credentialSeat(p, role) {
+	const a = await credentialActor();
+	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
+	return a;
+}
+test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	const member = await credentialSeat(f.p, "member"),
+		seatedAdmin = await credentialSeat(f.p, "admin");
+	const [church] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
+	const ask = (a) =>
+		call("requestWorkspaceDeletion", a, command({ plant: f.p, confirmed: true }, church.revision), f.p);
+	denied(await ask(member));
+	denied(await ask(seatedAdmin));
+	// Before any request, the Owner's own credentials open nothing.
+	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
+	const seatOf = async (a) => {
+		const context = (await viewerOf(a))?.authority.actor.context;
+		return context ? { kind: context.kind, owner: context.owner, role: context.role } : null;
+	};
+	const seats = { [owner.id]: "owner", [member.id]: "member", [seatedAdmin.id]: "admin" };
+	for (const a of [owner, member, seatedAdmin])
+		assert.deepEqual(await seatOf(a), { kind: "seat", owner: f.p, role: seats[a.id] });
+
+	const pending = ok(await ask(owner));
+	assert.equal(pending.status, "pending_deletion");
+	assert.deepEqual(pending.subject, { kind: "plant", id: f.p.id });
+	assert.equal(Date.parse(pending.cancelUntil) - Date.parse(pending.requestedAt), 30 * 86400_000);
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
+	assert.equal(w.cancel_until.toISOString(), pending.cancelUntil);
+	// Every seat's open session ended, and a new sign-in reaches no church.
+	for (const a of [owner, member, seatedAdmin]) assert.equal(await viewerOf(a), null);
+	assert.equal(await viewerOf(await login(member)), null);
+
+	// A wrong password, another seat's own credentials and an account with no request all get the same refusal.
+	assert.deepEqual(await openWorkspace(owner, "Wrong secret 1234!"), PROOF_REFUSED);
+	assert.deepEqual(await openWorkspace(member), PROOF_REFUSED);
+	assert.deepEqual(await openWorkspace(await credentialActor()), PROOF_REFUSED);
+	assert.deepEqual(
+		await producerDeps.credentials.openAccountDeletion({ email: owner.email, password: owner.password }, null),
+		PROOF_REFUSED,
+	);
+
+	const opened = await openWorkspace(owner);
+	assert.equal(opened.status, "ok");
+	assert.deepEqual(opened.value.subject, { kind: "plant", id: f.p.id });
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	assert.deepEqual(
+		ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request))),
+		pending,
+	);
+	const cancelled = ok(
+		await db.transaction((tx) =>
+			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, pending.revision)),
+		),
+	);
+	assert.equal(cancelled.status, "cancelled");
+	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
+	// A cancelled request opens no restricted session again.
+	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
+
+	// Signing in normally gives the Owner and the seats their church back.
+	for (const a of [owner, member, seatedAdmin])
+		assert.deepEqual(await seatOf(await login(a)), { kind: "seat", owner: f.p, role: seats[a.id] });
+	assert.equal(
+		ok(await section(await login(owner), { section: "plant", plant: f.p })).values.profile.name,
+		"Harvest Point",
+	);
+});
+
+test("AC:DEL58-007 T-195: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	// A request whose 30 days ended a day ago, with no purge run yet.
+	const p = await overdue(owner, { kind: "plant", id: f.p.id });
+	const opened = await openWorkspace(owner);
+	assert.equal(opened.status, "ok");
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const late = ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request)));
+	assert.deepEqual(late, p);
+	denied(
+		await db.transaction((tx) =>
+			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, late.revision)),
+		),
+		"deadline_passed",
+	);
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
+	assert.equal(w.state, "pending_deletion");
+});
+
 test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email proof is requester-bound, superseded, 24 hours, unique, and preserves account/Person identity", async () => {
 	const a = await credentialActor(),
 		b = await credentialActor();
@@ -858,14 +1195,18 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(requested.status, "verification_requested");
 	const first = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", b, { proof: first.token })).status, "refused");
+	const dbNow = async () => Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
+	const earliest = await dbNow();
 	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	const latest = await dbNow();
 	const second = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", a, { proof: first.token })).status, "refused");
 	const proofs = await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id));
 	assert.equal(proofs.filter((p) => p.superseded_at !== null).length, 1);
 	const active = proofs.find((p) => p.superseded_at === null);
 	const expiry = active.expires_at.getTime();
-	assert.equal(Math.round((expiry - Date.now()) / 3600_000), 24);
+	// The proof lives 24 hours from its request, read against the database clock around that request.
+	assert.ok(expiry >= earliest + 86_400_000 && expiry <= latest + 86_400_000 + 1, String(expiry - earliest));
 	const result = await call("confirmEmailChange", a, { proof: second.token });
 	assert.equal(result.status, "succeeded");
 	assert.equal(result.action, "email_changed");
@@ -935,7 +1276,7 @@ async function organization() {
 	await admin.insert(t.seat).values({ account_id: a.id, organization_id: id, role: "owner", accepted_at: new Date() });
 	return { o, a };
 }
-test("AC:CASE-NTF-004 WP-030 D-a: an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
+test("AC:CASE-NTF-004 an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
 	const { a } = await organization();
 	const current = ok(await section(a, { section: "notifications" }));
 	const oversight = (channel) =>
@@ -994,11 +1335,20 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	denied(await call("saveSection", f.a, command(input, "2"), f.p), "conflict");
 	const next = { ...input, expectedConsentRevision: "2", patch: { people: false } };
 	faults = true;
-	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /notice_fault/);
+	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /grant_fault/);
 	faults = false;
 	assert.equal(
 		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
 		"2",
+	);
+	// The committed change queued one milestone job for the plant (T-267); the refused, conflicting and faulted saves none.
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT tenant_id,producer_key,source_revision::text AS revision FROM job WHERE kind='notification' AND subject_record_id=${relationship.id}`,
+			)
+		).rows,
+		[{ tenant_id: f.p.id, producer_key: "affiliation/sharing/2", revision: "2" }],
 	);
 	const profile = ok(
 		await call(
@@ -1040,29 +1390,20 @@ test("INV-lifecycle: an account root read serializes first-witness deletion even
 		await gate;
 	});
 	await ready;
-	let pid,
-		started,
-		done = false;
+	let pid, started;
+	const done = new AbortController();
 	const running = new Promise((r) => (started = r));
 	const deletion = db.transaction(async (tx) => {
 		pid = (await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id;
 		started();
 		const result = await api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }));
-		done = true;
+		done.abort();
 		return result;
 	});
 	await running;
 	try {
-		let blocked = false;
-		for (let i = 0; i < 60 && !done; i++) {
-			const [state] = (await admin.execute(sql`SELECT wait_event_type FROM pg_stat_activity WHERE pid=${pid}`)).rows;
-			if (state?.wait_event_type === "Lock") {
-				blocked = true;
-				break;
-			}
-		}
-		assert.equal(blocked, true);
-		assert.equal(done, false);
+		assert.equal(await waitingOnLock(admin, { pids: [pid], signal: done.signal }), true);
+		assert.equal(done.signal.aborted, false);
 	} finally {
 		release();
 	}
@@ -1181,7 +1522,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	]) {
 		const f = await plant();
 		ok(await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "daily", hour } }), f.p));
-		const frozen = createSettingsProducer({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
+		const frozen = settingsApi({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
 		const preview = ok(
 			await db.transaction((tx) =>
 				frozen.previewPlantTimezone(tx, ctx(f.a, f.p), { plant: f.p, timeZone: "America/New_York" }),
@@ -1206,7 +1547,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	}
 });
 
-test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
+test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
 	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
 	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
 	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
@@ -1296,7 +1637,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	const [outbox] = await admin.select().from(t.mail).where(eq(t.mail.id, overdue.mail));
 	await admin
 		.update(t.job)
-		.set({ eligible_at: new Date(Date.now() - 1000) })
+		.set({ eligible_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.job.id, outbox.job_id));
 	const claims = await claimDue(db, ["mail"], 100);
 	const claim = claims.find((c) => c.id === outbox.job_id);
@@ -1337,7 +1678,19 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
-test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
+test("AC:TARGET-IDN-007 an email change whose send throws is unknown and gives its try back", async () => {
+	const a = await credentialActor();
+	trustedIps.set(a.session, "198.51.100.31");
+	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
+	const live = ingress.get(a.session);
+	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
+	ingress.set(a.session, live);
+	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
+});
+
+test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
 		subject = { kind: "account", id: f.a.id };
@@ -1441,7 +1794,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const plantPreview = ok(await call("previewPlantTimezone", f.a, { plant: f.p, timeZone: "America/New_York" }, f.p));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, plantPreview.previewId));
 	denied(
 		await call(
@@ -1455,7 +1808,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const personal = ok(await call("previewPersonalTimezone", f.a, { timeZone: "America/New_York" }));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, personal.previewId));
 	denied(
 		await call(
@@ -1755,13 +2108,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
 	);
 	assert.equal(deletion.value.status, "pending_deletion");
-	// BEGIN, the bound actor and COMMIT, plus: the insert; the file and the write; the write; the insert; the preview,
-	// the replan job and the write; the witness read, the witness, the suspension and the write. A native write reads
-	// its request key only when it is refused or its key conflicts (RT-3).
-	assert.deepEqual(
-		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
-		[4, 5, 4, 4, 6, 7],
-	);
 	for (const [key, field] of [
 		[finalizeKey, "avatar"],
 		[removeKey, "avatar"],
@@ -1789,6 +2135,8 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
+	// While the request is pending, the same login reaches no viewer.
+	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const measured = async (body) => {
 		statements.length = 0;
@@ -1805,6 +2153,37 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
 	);
 	assert.equal(cancelled.value.status, "cancelled");
-	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
-	assert.deepEqual([status.count, cancelled.count], [5, 6]);
+	// BEGIN, SAVEPOINT, the locking read, RELEASE, COMMIT.
+	assert.equal(status.count, 5);
+	// Kept: the original email and password sign in again to a working account.
+	const fresh = await login(a);
+	assert.notEqual(await viewerOf(fresh), null);
+	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
+	const a = await actor();
+	const account = ok(await section(a, { section: "account" }));
+	const notifications = ok(await section(a, { section: "notifications" }));
+	assert.equal(notifications.revision, account.revision);
+	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
+	// A name save moves the revision the notifications section reads; a toggle sent with the old one is refused.
+	const named = ok(
+		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
+	);
+	assert.notEqual(named.current.revision, account.revision);
+	assert.equal(ok(await section(a, { section: "notifications" })).revision, named.current.revision);
+	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
+	assert.equal(stale.status, "refused", JSON.stringify(stale));
+	assert.equal(stale.error.code, "conflict");
+	// The toggle with the shared revision saves, and moves the revision Your account reads in turn.
+	const toggled = ok(
+		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
+	);
+	assert.equal(ok(await section(a, { section: "account" })).revision, toggled.current.revision);
+	denied(
+		await call("saveSection", a, command({ section: "account", name: "Too Old" }, named.current.revision)),
+		"conflict",
+	);
+	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });

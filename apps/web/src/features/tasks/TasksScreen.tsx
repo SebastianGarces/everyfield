@@ -2,8 +2,6 @@
 
 import {
 	Add01Icon,
-	ArrowTurnBackwardIcon,
-	Cancel01Icon,
 	Delete02Icon,
 	FilterHorizontalIcon,
 	LockKeyIcon,
@@ -65,7 +63,7 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadBlocking, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	BadgeReads,
 	blocks,
@@ -117,9 +115,10 @@ import {
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type Viewer,
 } from "./model.ts";
 import { DescriptionPreview } from "./description.ts";
-import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
+import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
@@ -127,7 +126,6 @@ import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
 
-export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
 	query: TaskQuery;
 	page: { items: TaskItem[]; total: number; page: number };
@@ -412,8 +410,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
 			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
-			// A status change moves a series' open occurrence; a successor (below) names the new one.
-			const occurrence = moved ? null : cur.occurrence;
+			// A status change moves a series' open occurrence; a successor (below) names the new one. A task that starts a
+			// new series (Make it repeat on a stopped one) leaves its old series' open occurrence behind.
+			const occurrence = moved || cur.task.recurrence?.seriesId !== task.recurrence?.seriesId ? null : cur.occurrence;
 			const history =
 				moved && cur.history.status === "ok" && cur.history.value.next === null
 					? {
@@ -495,9 +494,18 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const readBadges = (attempt = 0) => {
 		const read = badgeReads.current.start(window.location.search);
 		const current = () => badgeReads.current.applies(read, window.location.search);
+		const held = (id: string) => {
+			const st = known.current[id];
+			return st?.status === "ok" && st.prerequisites !== null;
+		};
+		const ids = listed.current.filter((row) => !held(row.id)).map((row) => row.id);
+		if (!ids.length) {
+			readingBadges.current = false;
+			return badgeReads.current.end();
+		}
 		readingBadges.current = true;
 		setBadgesStale(false);
-		loadBlocking(read.scope).then((r) => {
+		loadBlocking(ids).then((r) => {
 			if (!current()) return;
 			if (r.status !== "ok") {
 				if (attempt < 2) return void setTimeout(() => current() && readBadges(attempt + 1), 1000 * (attempt + 1));
@@ -506,10 +514,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			}
 			readingBadges.current = false;
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
-			const held = (id: string) => {
-				const st = known.current[id];
-				return st?.status === "ok" && st.prerequisites !== null;
-			};
 			setItems((rows) =>
 				rows.map((row) =>
 					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
@@ -522,9 +526,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 
 	/**
 	 * The next occurrence a completed recurring task created: it joins the list next to its predecessor when it matches
-	 * the query, the counts move, and the toast offers to open it.
+	 * the query, and the counts move. A single complete also toasts it (succeeded); a bulk one reports the whole set.
 	 */
-	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
 		if (matches(query, next, viewer.accountId) && !listed.current.some((r) => r.id === next.id)) {
 			setItems((rows) =>
 				rows.some((r) => r.id === pred.id)
@@ -547,6 +551,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				};
 				return { ...d, [pred.id]: { ...cur, occurrence: { status: "series", seriesId, open } } };
 			});
+	};
+	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+		addSuccessor(pred, next);
 		const when = dueText(next.due, year);
 		toast({
 			tone: "success",
@@ -569,6 +576,23 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				setItems((rows) => rows.map((x) => (x.id === id ? r.value.task : x)));
 				setDetails((d) => ({ ...d, [id]: { status: "ok", ...r.value } }));
 			});
+
+	/** Stale rows after a bulk change, read again together: one request whatever their number. */
+	const refreshRows = (ids: string[]): void => {
+		if (!ids.length) return;
+		const again = new Set(ids);
+		void loadRows(ids)
+			.catch(() => lost)
+			.then((r) => {
+				if (r.status !== "ok") return;
+				const fresh = new Map(r.value.items.map((t) => [t.id, t]));
+				setItems((rows) => rows.map((x) => fresh.get(x.id) ?? x));
+				// A cached panel of a stale task no longer matches; the open one reads again, the others on their next open.
+				const shown = shownId.current;
+				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !again.has(id) || id === shown)));
+				if (shown && again.has(shown)) void refresh(shown);
+			});
+	};
 
 	/**
 	 * A step's confirmed answer: added, ticked or removed. The open panel's steps, the parent row's step count and the
@@ -789,6 +813,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					);
 					setCounts(nextCounts);
 					if (moved) setTotal((t) => Math.max(0, t - moved));
+					for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
 					// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
 					const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
 					if (kind === "complete" && changed.size)
@@ -798,7 +823,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
 					);
 					if (shownTask && changed.has(shownTask)) refresh(shownTask);
-					for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
+					refreshRows(result.items.filter((i) => i.outcome === "stale").map((i) => i.taskId));
 					setSelected(new Set(result.remaining));
 					const unchanged = result.items
 						.filter((i) => i.outcome !== "changed")
@@ -1245,50 +1270,6 @@ function TaskRow({
 			)}
 			<SaveNotice {...notice} dialogOpen={modal} className="basis-full pt-2.5 pl-[58px] max-app-sm:pl-0" />
 		</li>
-	);
-}
-
-/** The status choices for one task, shared by the row menu and the task panel. */
-export function StatusItems({
-	task,
-	disabled = false,
-	onAction,
-}: {
-	task: Pick<TaskItem, "status">;
-	/** The task's last save is in flight or unknown (C68). */
-	disabled?: boolean;
-	onAction: (a: StatusAction) => void;
-}) {
-	if (isSettled(task.status))
-		return (
-			<MenuItem icon={ArrowTurnBackwardIcon} disabled={disabled} onSelect={() => onAction({ kind: "reopen" })}>
-				Reopen
-			</MenuItem>
-		);
-	return (
-		<>
-			<MenuItem icon={Tick02Icon} disabled={disabled} onSelect={() => onAction({ kind: "complete" })}>
-				Mark done
-			</MenuItem>
-			<MenuLabel>Status</MenuLabel>
-			<MenuRadioGroup
-				value={task.status}
-				onValueChange={(v) => {
-					const status = OPEN_STATUSES.find((s) => s === v);
-					if (status && status !== task.status) onAction({ kind: "status", status });
-				}}
-			>
-				{OPEN_STATUSES.map((s) => (
-					<MenuRadioItem key={s} value={s} disabled={disabled}>
-						{STATUS_LABEL[s]}
-					</MenuRadioItem>
-				))}
-			</MenuRadioGroup>
-			<MenuSeparator />
-			<MenuItem icon={Cancel01Icon} disabled={disabled} onSelect={() => onAction({ kind: "waive", reason: null })}>
-				Close as no longer needed
-			</MenuItem>
-		</>
 	);
 }
 

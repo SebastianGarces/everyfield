@@ -1,12 +1,12 @@
-import type { EveryfieldDoc } from "@everyfield/contracts/documents";
+import { ledgerTables, type EveryfieldDoc } from "@everyfield/contracts/documents";
 import { renderDocumentWithLayout } from "@formepdf/core";
 import type { ExportTheme } from "./church-theme.ts";
 import { renderDocDocx } from "./doc-docx.ts";
-import { fieldValues } from "./doc-values.ts";
+import { fieldValues, printedDoc } from "./doc-values.ts";
 import { PROBE_MARK, docElement, needsSplit, type FlowMode } from "./layouts/doc.tsx";
 import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
-import { buildLedgerWorkbook, ledgerTables } from "./xlsx.ts";
+import { buildLedgerWorkbook } from "./xlsx.ts";
 
 type LaidElement = { bookmark?: string; children?: LaidElement[] };
 
@@ -30,9 +30,11 @@ async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: Everyfield
 
 /**
  * The PDF of one everyfield.doc/1 document or template. The Church Document preview, "Download PDF" and the saved
- * export all call this function, so the same revision and theme give the same bytes.
+ * export all call this function, so the same revision and theme give the same bytes. A Member's view is this PDF.
  */
-export async function renderDocPdf(doc: EveryfieldDoc, theme: RenderTheme = NEUTRAL_THEME): Promise<PdfRender> {
+export async function renderDocPdf(source: EveryfieldDoc, theme: RenderTheme = NEUTRAL_THEME): Promise<PdfRender> {
+	// Conditional text resolves first, so a block left out leaves no blank and the page breaks follow.
+	const doc = printedDoc(source);
 	const values = fieldValues(doc);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
 	const context = () => renderContext(values.church_name ?? doc.title, values, theme, doc.class);
@@ -47,9 +49,17 @@ export async function renderDocPdf(doc: EveryfieldDoc, theme: RenderTheme = NEUT
 
 export type DocFormat = "pdf" | "docx" | "xlsx";
 
-/** The formats a document offers: PDF and Word always, Excel when the body holds a ledger table (a budget). */
+/**
+ * The formats a document offers, in a fixed order: its `exports` list as its body corrects it (`exportsFor`), so Excel
+ * only while the body holds a ledger table (a budget), and a format the list leaves out is never offered. `ledger` is
+ * whether the body holds one; a read that has no parsed body passes the flag it read.
+ */
+export function offeredFormats(exports: readonly DocFormat[], ledger: boolean): DocFormat[] {
+	return (["pdf", "docx", "xlsx"] as const).filter((format) => (format === "xlsx" ? ledger : exports.includes(format)));
+}
+
 export function docFormats(doc: EveryfieldDoc): DocFormat[] {
-	return ledgerTables(doc).length ? ["pdf", "docx", "xlsx"] : ["pdf", "docx"];
+	return offeredFormats(doc.exports, ledgerTables(doc.body).length > 0);
 }
 
 /**

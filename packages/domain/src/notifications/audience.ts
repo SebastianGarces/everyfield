@@ -14,7 +14,7 @@ import {
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
-import { RequestActor, accountOwner, audit, deny, jsonValue, parse, readReply, runWrite } from "./core.ts";
+import { RequestActor, accountOwner, audit, deny, jsonValue, parse, readReply, runWrite, seatAccess } from "./core.ts";
 
 const idsRow = z.object({ allowed: z.boolean(), ids: z.array(z.uuid()) });
 const receiptRow = z.object({
@@ -27,11 +27,6 @@ const wikiRow = z.object({
 	rows: z.array(z.object({ id: z.uuid(), recipient: z.uuid() })),
 });
 
-function liveAccount(session: string, accountId: string) {
-	return sql`EXISTS (SELECT FROM live_session(${session}::uuid) i
-		WHERE i.registration_state = 'active' AND i.account_id = ${accountId}::uuid)`;
-}
-
 export async function readAssociationAudience(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(readAssociationAudienceRequest, raw);
@@ -39,14 +34,7 @@ export async function readAssociationAudience(db: Database, authority: RequestAc
 		const discovery = input.discoveryAccountId;
 		const result = await db.execute(sql`WITH caller AS (
 				SELECT 1 AS ok
-				WHERE ${liveAccount(authority.session, authority.actor.accountId)}
-					AND EXISTS (
-						SELECT FROM seat mine
-						WHERE mine.account_id = ${authority.actor.accountId}::uuid
-							AND mine.organization_id = ${org}::uuid
-							AND mine.role IN ('owner','admin') AND mine.ended_at IS NULL
-							AND mine.accepted_at <= clock_timestamp()
-					)
+				WHERE ${seatAccess({ session: authority.session, account: authority.actor.accountId, tenant: org, admin: true })}
 			),
 			linked AS (
 				SELECT ${discovery}::uuid AS account_id
@@ -84,10 +72,12 @@ export async function readAssociationAudience(db: Database, authority: RequestAc
 export async function readAssociationReceipt(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(readAssociationReceiptRequest, raw);
-		const result = await db.execute(sql`SELECT ${liveAccount(authority.session, authority.actor.accountId)}
-				AND EXISTS (SELECT FROM seat s WHERE s.account_id = ${authority.actor.accountId}::uuid
-					AND s.organization_id = ${input.organizationId}::uuid AND s.role IN ('owner','admin')
-					AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()) AS allowed,
+		const result = await db.execute(sql`SELECT ${seatAccess({
+			session: authority.session,
+			account: authority.actor.accountId,
+			tenant: input.organizationId,
+			admin: true,
+		})} AS allowed,
 				COALESCE((SELECT json_agg(json_build_object('accountId', recipient_account_id, 'state', state) ORDER BY recipient_account_id)
 					FROM mail
 					WHERE purpose IN ('discovery_receipt','relationship_receipt')
@@ -111,9 +101,7 @@ export async function readMeetingAudience(db: Database, authority: RequestActor,
 		const result = await db.execute(sql`WITH seated AS (
 				SELECT account_id FROM seat
 				WHERE plant_id = ${input.plantId}::uuid AND ended_at IS NULL AND accepted_at <= clock_timestamp()
-					AND ${liveAccount(authority.session, authority.actor.accountId)}
-					AND EXISTS (SELECT FROM seat mine WHERE mine.account_id = ${authority.actor.accountId}::uuid
-						AND mine.plant_id = ${input.plantId}::uuid AND mine.ended_at IS NULL AND mine.accepted_at <= clock_timestamp())
+					AND ${seatAccess({ session: authority.session, account: authority.actor.accountId, tenant: input.plantId })}
 			)
 			SELECT EXISTS(SELECT FROM seated) AS allowed,
 				COALESCE((SELECT json_agg(a ORDER BY a) FROM (

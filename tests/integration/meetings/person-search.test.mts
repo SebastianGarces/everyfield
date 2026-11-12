@@ -5,7 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { searchPeople } from "../../../packages/domain/src/people/index.ts";
 
-// The shared person-search rule that the meetings pickers use (and Compose recipients will): the start of a name word
+// The one person-search rule that the meetings pickers and Compose recipients use: the start of a name word
 // or of the email local part, never the email domain; case and diacritics ignored; digits match a phone from three.
 
 let f, plant, other, owner, member;
@@ -47,6 +47,8 @@ before(async () => {
 	await rows("Rosa Bennett", "rosa@example.test");
 	await rows("Sara Nunez", null);
 	await rows("José Núñez-Pérez", "jose.n@example.test", "+1 (555) 010-2233");
+	await rows("Liam O'Brien", "liam@obrien.test");
+	await rows("Nora O\u2019Brien", "nora.ob@typo.test");
 	await rows("Retired Sam", "sam@example.test", null, plant, "retired");
 	await rows("Sam Elsewhere", "sam@example.test", null, other);
 });
@@ -64,7 +66,7 @@ test("AC:TARGET-MTG-011 a query word matches the start of a name word or the ema
 	assert.deepEqual(await search("maria@"), ["Maria Santos"]);
 	assert.deepEqual(await search("maria@example.test"), ["Maria Santos"]);
 	assert.deepEqual(await search("@example.test"), []);
-	assert.deepEqual(await search("n"), ["José Núñez-Pérez", "Sara Nunez"]);
+	assert.deepEqual(await search("n"), ["José Núñez-Pérez", "Nora O\u2019Brien", "Sara Nunez"]);
 	assert.deepEqual(await search("   "), []);
 });
 
@@ -74,6 +76,16 @@ test("AC:TARGET-MTG-011 case and diacritics are ignored, hyphens split name word
 	assert.deepEqual(await search("nunez"), ["José Núñez-Pérez", "Sara Nunez"]);
 	assert.deepEqual(await search("perez"), ["José Núñez-Pérez"]);
 	assert.deepEqual(await search("sam"), []);
+});
+
+test("AC:TARGET-MTG-011 apostrophes split name words in the name and the query, never the domain", async () => {
+	const both = ["Liam O'Brien", "Nora O\u2019Brien"];
+	assert.deepEqual(await search("brien"), both);
+	assert.deepEqual(await search("o'brien"), both);
+	assert.deepEqual(await search("O\u2019BRIEN"), both);
+	assert.deepEqual(await search("liam o'b"), ["Liam O'Brien"]);
+	assert.deepEqual(await search("obrien"), []);
+	assert.deepEqual(await search("typo"), []);
 });
 
 test("AC:TARGET-MTG-011 a phone query needs three digits and matches the phone digits", async () => {
@@ -99,9 +111,9 @@ test("INV-access the search keeps the live access check, returns at most 8 and s
 	assert.equal(phone, none);
 	// A member sees what main let a member see; a seat from another church is refused, not empty.
 	const outsider = await f.account();
-	const refused = await f.db.transaction((tx) =>
+	const outsiderSearch = await f.db.transaction((tx) =>
 		searchPeople(tx, { session: outsider.session, selected: { kind: "plant", id: plant.id } }, "s"),
 	);
-	assert.equal(refused.status, "refused");
+	assert.equal(outsiderSearch.status, "refused");
 	assert.deepEqual(await search("ros", member), ["Rosa Bennett"]);
 });

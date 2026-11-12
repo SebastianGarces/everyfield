@@ -1,7 +1,14 @@
 "use client";
 
 import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import type { DocBrands, DocDocument, SavedExport } from "@everyfield/contracts/documents";
+import {
+	CHURCH_REVISION_LIST_MAX,
+	exportsFor,
+	type DocBrands,
+	type DocDocument,
+	type ExportFormat,
+	type SavedExport,
+} from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
@@ -12,7 +19,7 @@ import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL, type FORMAT_LABEL } from "./labels.ts";
+import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
@@ -45,11 +52,14 @@ export function ChurchDocumentScreen({
 	canManage,
 	exports: firstExports,
 	revisions: firstRevisions,
+	revisionsTruncated,
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The saved revisions, newest first. */
+	/** The newest saved revisions, newest first, at most CHURCH_REVISION_LIST_MAX. */
 	revisions: RevisionRow[];
+	/** True when the document has older revisions than `revisions` holds. */
+	revisionsTruncated: boolean;
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
@@ -65,13 +75,26 @@ export function ChurchDocumentScreen({
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
-	const [revisions, setRevisions] = useState(firstRevisions);
+	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
+	const { revisions } = listed;
 	const [history, setHistory] = useState(false);
-	const setRevision = (next: string) => {
+	// Excel is offered while the body holds a budget table, so a save can add it or take it away. The header follows the
+	// shown revision; each Revisions row keeps the formats its own revision offers.
+	const [formats, setFormats] = useState<readonly ExportFormat[]>(doc.formats);
+	const setRevision = (next: string, offered: readonly ExportFormat[]) => {
 		setShownRevision(next);
+		setFormats(offered);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
-		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
+		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
+		setListed((now) =>
+			now.revisions.some((r) => r.number === row.number)
+				? now
+				: {
+						revisions: [row, ...now.revisions].slice(0, CHURCH_REVISION_LIST_MAX),
+						truncated: now.truncated || now.revisions.length >= CHURCH_REVISION_LIST_MAX,
+					},
+		);
 	};
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
 	const [current, setCurrent] = useState(() => ({
@@ -92,13 +115,13 @@ export function ChurchDocumentScreen({
 	const [exports, setExports] = useState(firstExports);
 	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
 	// spinner and a failure show beside the button that was clicked.
-	const [exporting, setExporting] = useState<{ at: number | null; format: keyof typeof FORMAT_LABEL } | null>(null);
+	const [exporting, setExporting] = useState<{ at: number | null; format: ExportFormat } | null>(null);
 	const [exportError, setExportError] = useState<{ at: number | null; message: string } | null>(null);
 	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
 	// reaches the same saved export instead of making a second one.
 	const keys = useRef(new Map<string, string>());
 
-	async function download(format: keyof typeof FORMAT_LABEL, at: number | null = null) {
+	async function download(format: ExportFormat, at: number | null = null) {
 		if (exporting) return;
 		const target = at === null ? revision : String(at);
 		const slot = `${target}:${format}`;
@@ -156,7 +179,7 @@ export function ChurchDocumentScreen({
 				}
 				actions={
 					<>
-						{DOWNLOADS.filter((d) => doc.formats.includes(d.format)).map((d, i) => (
+						{DOWNLOADS.filter((d) => formats.includes(d.format)).map((d, i) => (
 							<Button
 								key={d.format}
 								variant={i === 0 ? "primary" : "secondary"}
@@ -217,9 +240,11 @@ export function ChurchDocumentScreen({
 					revisions={revisions}
 					file={file}
 					template={current.template}
+					templateName={doc.templateName}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
-						setRevision(next);
+						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
+						setRevision(next, exportsFor(document.exports, document.body));
 						setCurrent((now) => ({
 							document,
 							revision: next,
@@ -253,8 +278,8 @@ export function ChurchDocumentScreen({
 			)}
 			<ChurchRevisions
 				revisions={revisions}
+				truncated={listed.truncated}
 				current={Number(revision)}
-				formats={doc.formats}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
 				error={exportError}
 				onDownload={(at, format) => void download(format, at)}

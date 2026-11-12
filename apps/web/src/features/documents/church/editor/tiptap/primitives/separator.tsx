@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "../tiptap-utils.ts";
 import { SEPARATOR } from "../styles.ts";
 
-export type Orientation = "horizontal" | "vertical";
+type Orientation = "horizontal" | "vertical";
 
 export interface SeparatorProps extends React.HTMLAttributes<HTMLDivElement> {
 	orientation?: Orientation;
