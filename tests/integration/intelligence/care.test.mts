@@ -17,6 +17,7 @@ import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.t
 import { nextMonday } from "../../../apps/web/src/features/settings/time.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { ok, refusedWith } from "../../support/fixture.mts";
 
 // WP-039 slice 1: private weekly check-ins, through the privateCare operations the /me/check-in actions call and the
 // personal timezone operations Settings calls, on a scratch schema of the development or CI database. The clock is
@@ -25,16 +26,7 @@ import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/ca
 let f, care, tz, deletion;
 let now = "2026-10-13T16:00:00.000Z";
 const clock = { now: () => now };
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-	return r.error;
-};
+const refusedBare = refusedWith({ details: {} });
 /** A refusal without its correlation id, to compare two refusals. */
 const bare = (r) => (r.status === "refused" ? { ...r, error: { ...r.error, correlationId: null } } : r);
 const rows = async (q) => (await f.admin.execute(q)).rows;
@@ -131,10 +123,10 @@ test("AC:B03-021 criterion 1: with no confirmed personal zone, reads and saves a
 	const w = await f.workspace();
 	// The church is in UTC and the account has none: neither UTC, the church zone nor a device zone stands in.
 	const a = await seated(w, "admin", null);
-	refused(await current(a), "personal_timezone_confirmation_required");
-	refused(await history(a), "personal_timezone_confirmation_required");
-	refused(await trends(a), "personal_timezone_confirmation_required");
-	refused(await save(a, STEADY, "0"), "personal_timezone_confirmation_required");
+	refusedBare(await current(a), "personal_timezone_confirmation_required");
+	refusedBare(await history(a), "personal_timezone_confirmation_required");
+	refusedBare(await trends(a), "personal_timezone_confirmation_required");
+	refusedBare(await save(a, STEADY, "0"), "personal_timezone_confirmation_required");
 	assert.deepEqual(await footprint(a), { calendars: 0, weeks: 0, revisions: 0, revision: null });
 	// Confirming a zone in Settings is the way through.
 	await changeZone(a, "Europe/London");
@@ -203,12 +195,12 @@ test("AC:B03-024 AC:PI-CARE-001 criterion 2: a save changes this week only, a sa
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 2, revision: "2" });
 	// A retry of the first request returns the first answer and writes nothing.
 	assert.deepEqual(ok(await save(a, STRAINED, "0", "Long week.", firstKey)), first);
-	refused(await save(a, STEADY, "0", "", firstKey), "idempotency_conflict");
+	refusedBare(await save(a, STEADY, "0", "", firstKey), "idempotency_conflict");
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 2, revision: "2" });
 	// A stale revision changes nothing; bounds are checked before anything runs.
-	refused(await save(a, STRAINED, "1"), "revision_conflict");
-	refused(await save(a, { ...STEADY, pace: "fine" }, "2"), "invalid_input");
-	refused(await save(a, STEADY, "2", "x".repeat(2001)), "invalid_input");
+	refusedBare(await save(a, STRAINED, "1"), "revision_conflict");
+	refusedBare(await save(a, { ...STEADY, pace: "fine" }, "2"), "invalid_input");
+	refusedBare(await save(a, STEADY, "2", "x".repeat(2001)), "invalid_input");
 	assert.equal(ok(await save(a, STEADY, "2", "x".repeat(2000))).week.answer.note.length, 2000);
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 3, revision: "3" });
 });
@@ -265,7 +257,7 @@ test("AC:B03-023 criterion 4: a save and a zone change on one calendar give one 
 	ok(await save(a, STEADY, "0"));
 	const preview = await previewZone(a, "Pacific/Auckland");
 	ok(await save(a, STRAINED, "1"));
-	refused(await setZone(a, preview), "conflict");
+	refusedBare(await setZone(a, preview), "conflict");
 	assert.equal(
 		(await one(sql`SELECT personal_timezone FROM account WHERE id=${a.id}`)).personal_timezone,
 		"America/Chicago",
@@ -274,7 +266,7 @@ test("AC:B03-023 criterion 4: a save and a zone change on one calendar give one 
 	const b = await seated(w);
 	ok(await save(b, STEADY, "0"));
 	ok(await setZone(b, await previewZone(b, "Pacific/Auckland")));
-	refused(await save(b, STRAINED, "1"), "revision_conflict");
+	refusedBare(await save(b, STRAINED, "1"), "revision_conflict");
 	// Both at once: exactly one wins.
 	for (let i = 0; i < 4; i++) {
 		const c = await seated(w);
@@ -335,7 +327,7 @@ test("AC:B03-026 AC:GAP-PI-041 criterion 5: a correction keeps the week, its zon
 		],
 	);
 	const revision = page.revision;
-	refused(await correct(a, page.weeks[1].id, STEADY, revision), "not_found");
+	refusedBare(await correct(a, page.weeks[1].id, STEADY, revision), "not_found");
 	const fixed = ok(await correct(a, past.week.id, STEADY, revision, "Tired."));
 	assert.equal(fixed.outcome, "saved");
 	assert.deepEqual(
@@ -353,7 +345,7 @@ test("AC:B03-026 AC:GAP-PI-041 criterion 5: a correction keeps the week, its zon
 	// The same correction again adds no revision; a stale one is refused.
 	const same = ok(await correct(a, past.week.id, STEADY, fixed.revision, "Tired."));
 	assert.equal(same.outcome, "unchanged");
-	refused(await correct(a, past.week.id, STRAINED, revision), "revision_conflict");
+	refusedBare(await correct(a, past.week.id, STRAINED, revision), "revision_conflict");
 	const read = ok(await history(a));
 	assert.deepEqual(read.weeks[2], fixed.week);
 	assert.equal(read.weeks[0].answer.revision, 1);
@@ -421,7 +413,7 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 crite
 	for (const other of [b, owner]) {
 		const guessed = await correct(other, saved.week.id, STEADY, "0");
 		const missing = await correct(other, randomUUID(), STEADY, "0");
-		refused(guessed, "not_found");
+		refusedBare(guessed, "not_found");
 		assert.deepEqual(bare(guessed), bare(missing));
 		// Reads answer only for the caller's own calendar: B sees the same as an author with no check-ins.
 		const own = ok(await current(other));
@@ -437,8 +429,8 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 crite
 			bare(await current(other, { author: a.id })),
 			bare(await current(other, { author: randomUUID() })),
 		);
-		refused(await current(other, { author: a.id }), "invalid_input");
-		refused(
+		refusedBare(await current(other, { author: a.id }), "invalid_input");
+		refusedBare(
 			await care.save(f.db, other.actor, {
 				requestKey: randomUUID(),
 				expectedRevision: "1",
@@ -454,14 +446,14 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 crite
 	assert.equal(aRead.week.answer.note, "CARE-CANARY");
 	assert.equal(aRead.revision, "1");
 	// A Member has no check-in at all.
-	refused(await current(member), "access_denied");
-	refused(await save(member, STEADY, "0"), "access_denied");
-	refused(await correct(member, saved.week.id, STEADY, "1"), "access_denied");
+	refusedBare(await current(member), "access_denied");
+	refusedBare(await save(member, STEADY, "0"), "access_denied");
+	refusedBare(await correct(member, saved.week.id, STEADY, "1"), "access_denied");
 	assert.deepEqual(await footprint(member), { calendars: 0, weeks: 0, revisions: 0, revision: null });
 	// An author whose seat ended reads nothing, though the rows stay theirs.
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${b.id}`);
-	refused(await current(b), "access_denied");
-	refused(await save(b, STRAINED, "1"), "access_denied");
+	refusedBare(await current(b), "access_denied");
+	refusedBare(await save(b, STRAINED, "1"), "access_denied");
 });
 
 test("AC:ROLE43-011 AC:SCHEMA-007 criterion 8: merges, relinks and role edits leave every check-in with its author", async () => {
@@ -636,9 +628,9 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 criterion 11: deletion hides 
 			}),
 		),
 	);
-	refused(await current(a), "access_denied");
-	refused(await save(a, STEADY, "1"), "access_denied");
-	refused(await correct(a, randomUUID(), STEADY, "1"), "access_denied");
+	refusedBare(await current(a), "access_denied");
+	refusedBare(await save(a, STEADY, "1"), "access_denied");
+	refusedBare(await correct(a, randomUUID(), STEADY, "1"), "access_denied");
 	// No other Owner or Admin sees or inherits them.
 	assert.equal(ok(await current(owner)).week.answer.note, null);
 	// The purge at the deadline removes them and nothing else.
@@ -664,7 +656,7 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 criterion 11: deletion hides 
 			),
 		),
 	);
-	refused(await current(o), "access_denied");
+	refusedBare(await current(o), "access_denied");
 	// The church purge removes every author's check-ins there and leaves other churches alone.
 	const third = await f.workspace();
 	const t = await seated(third, "owner");

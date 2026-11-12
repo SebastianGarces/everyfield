@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
+import { ok, refused } from "../../support/fixture.mts";
 import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../../../packages/domain/src/operations/writes.ts";
 import {
@@ -21,15 +22,6 @@ import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 
 let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
 const read = (who, op, input) => f.db.transaction((tx) => taskReader[op](tx, who.actor, input));
 const create = async (who, input) =>
@@ -814,18 +806,17 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	const dispatch = async () => {
 		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 	};
-	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
 	const before = sent.length;
-	const first = Date.now() + 3000;
+	const first = (await dbNow()) + 86_400_000;
 	const t = await create(owner, {
 		title: "Print programs",
 		assigneeIds: [member.id],
 		due: deadline(first),
 	});
-	await wait(first);
+	await arrive(first);
 	await dispatch();
 	assert.equal(sent.length, before + 1);
-	const second = Date.now() + 3000;
+	const second = first + 3_600_000;
 	ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -833,7 +824,7 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 			input: { taskId: t.id, patch: { due: deadline(second) } },
 		}),
 	);
-	await wait(second);
+	await arrive(second);
 	await dispatch();
 	assert.equal(sent.length, before + 1);
 	// The overdue slot is still owed, once, at the new deadline plus 24 hours.
@@ -872,7 +863,19 @@ function deadline(ms) {
 const dispatch = async () => {
 	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 };
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
+/** The database clock, in epoch milliseconds. */
+async function dbNow() {
+	return Number((await rows(sql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS ms`))[0].ms);
+}
+/**
+ * The clock reaching `ms`, told through the data: every queued mail job due by then becomes due now, and later ones
+ * stay where the product put them.
+ */
+async function arrive(ms) {
+	await f.admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='mail' AND state IN ('ready','retry_wait') AND eligible_at<=${new Date(ms).toISOString()}::timestamptz`,
+	);
+}
 test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
 	// Team members with their own Person records, as account links make them.
 	const linked = async (name) => {
@@ -893,7 +896,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	const warnings = (id) => f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
 	const handTo = (duties, to) =>
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
-	const due = Date.now() + 4000;
+	const due = (await dbNow()) + 86_400_000;
 	const dated = (assigneeId, title) => create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
 	// Retiring a person hands the duty to another member; leaving the core stages does the same.
@@ -937,7 +940,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 			),
 		),
 	);
-	await wait(due);
+	await arrive(due);
 	await dispatch();
 	// Each duty's due reminder went to its new assignee and was sent, and the overdue one waits for them; the former
 	// assignee's two reminders were withdrawn.
@@ -965,7 +968,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 		return { ...a, seat: await f.seat(a, plant, "member") };
 	};
 	const [leaving, taking] = [await seated(), await seated()];
-	const due = Date.now() + 4000;
+	const due = (await dbNow()) + 86_400_000;
 	const dated = (title) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
 	// Removing the seat hands one duty to another member and leaves the other needing an owner.
@@ -989,7 +992,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 		reminders,
 	);
 	assert.equal(result.outcome, "changed");
-	await wait(due);
+	await arrive(due);
 	await dispatch();
 	// The handed duty's due reminder went to its new assignee and was sent, and the overdue one waits for them. The
 	// removed member's reminders were withdrawn from both duties; the duty without an owner reminds nobody.

@@ -48,6 +48,20 @@ message or partial receipt. Generic input validation gets no regression test.
 ## Pick the layer
 
 - Use integration tests against real Postgres from `bin/dev stack`, through the public operation.
+- A DB test seeds through the shared fixture in `tests/support/fixture.mts`: `fixture()` gives the migrated schema, a
+  tenant plant and its owner, admin and member actors with live sessions; `seeds(admin)` adds plants, organizations
+  and actors; `ok`, `refused` and `refusedWith` read results. Do not write a plant insert or an `ok`/`refused` of your
+  own, unless creating the plant is the behavior under test.
+- A DB test never sleeps, polls the clock or asserts on wall-clock time: no `setTimeout` delay or watchdog, `sleep`,
+  `pg_sleep` stall, clock polling loop or `Date.now()`/`performance.now()` deadline. Control time through the row
+  (`eligible_at`, `expires_at`, `created_at`) and compare with times the test set or read back from the database,
+  such as a row's `created_at` or the transaction's `now()`. A race test holds a real lock and waits for the rival
+  with `waitingOnLock`, which polls Postgres lock state; its `pids`, `blockedBy` and `count` options name which
+  sessions must wait, so no file writes its own lock poll. `Date.now()` may only place seeded rows days away from any
+  boundary. Three uses keep real time, and each says why in a comment: the production latency proof in
+  `tests/integration/identity/timing.production.mts`, the `ms` field of `tests/integration/writes/counter.mjs`, and
+  the 3 s wait in INV-expiry of `tests/integration/identity/invitations.test.mts`, where only elapsed time shows that
+  an expiry check reads the clock after a lock wait. Any other exemption needs the owner's agreement.
 - Use browser tests only for critical flows: sign-in, one meeting end to end, Evry review and approve.
   Prove other UI behavior broadly now; protect its domain behavior with integration tests.
 - Use contract tests only when something outside our code consumes the shape: Evry tool schemas,
