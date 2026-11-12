@@ -350,6 +350,19 @@ export const newChecklist = (): TableNode => ({
 	content: Array.from({ length: 3 }, () => ({ type: "row" as const, content: [emptyCell(), emptyCell()] })),
 });
 
+/** Insert → Table in a plain document (T-100 ruling b): a grid with a header, 3 text columns and 3 empty typed rows. */
+export function newPlainGrid(): TableNode {
+	const base: TableNode = { type: "table", attrs: { style: "grid", header: true, columns: grid(3) } };
+	return withRows(base, [emptyRow(base), emptyRow(base), emptyRow(base)]);
+}
+
+/** Insert → Checklist rows in a plain document: the checklist above, with no header color. */
+export function newPlainChecklist(): TableNode {
+	const table = newChecklist();
+	delete table.attrs.headerFill;
+	return table;
+}
+
 /** Insert → Budget table: one category with one line item, its total and a grand total. */
 export function newBudget(): TableNode {
 	const base: TableNode = {

@@ -365,8 +365,15 @@ function valueCellView(
 
 // ---------------------------------------------------------------- the table
 
-/** The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. */
-function textWidth(page: PageSetup) {
+/** The text width of a plain document's paper in points: 816 px Letter less 88 px on each side (`.ef-native`). */
+const PLAIN_TEXT_WIDTH = 480;
+
+/**
+ * The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. A plain document
+ * has no page setup and prints nothing, so its tables take the width of its paper.
+ */
+function textWidth(page: PageSetup | undefined) {
+	if (!page) return PLAIN_TEXT_WIDTH;
 	return (tileBox(page)?.width ?? 0) - (page.tile ? 2 * page.tile.padding : 0);
 }
 
@@ -396,7 +403,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		// or a box has. The table scrolls inside its own area when the screen is narrower than that.
 		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
 		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
-		const points = columnWidths(table().columns, textWidth(editor.state.doc.attrs.page as PageSetup) * share);
+		const points = columnWidths(table().columns, textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share);
 		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
 		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
 	}

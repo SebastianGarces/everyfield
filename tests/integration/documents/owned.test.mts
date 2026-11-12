@@ -1479,4 +1479,173 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },
 		);
 	});
+
+	test("AC:CASE-DOC-016 INV-documents T-100: plain tables save at the boundary, read back, feed core values and survive Use for this church", async () => {
+		const owner = await authority(2);
+		const member = await authority(1);
+		const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
+		const cell = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
+		const column = (id, label, type) => ({ id, label, type, width: 0 });
+		const grid = {
+			type: "table",
+			attrs: {
+				style: "grid",
+				header: true,
+				zebra: true,
+				columns: [
+					column("item", "Item", "text"),
+					column("count", "Count", "number"),
+					column("cost", "Cost", "money"),
+					column("done", "Done", "check"),
+					column("n", "No.", "index"),
+				],
+			},
+			content: [
+				{
+					type: "row",
+					content: [
+						cell(text("Chairs", [{ type: "link", attrs: { href: "https://example.org" } }, { type: "bold" }])),
+						{ type: "cell", attrs: { value: 1200 } },
+						{ type: "cell", attrs: { value: 3000.5 } },
+						{ type: "cell", attrs: { checked: true } },
+						cell(),
+					],
+				},
+				{ type: "row", content: [cell(text("Tables", [{ type: "italic" }])), cell(), cell(), cell(), cell()] },
+			],
+		};
+		const checklist = {
+			type: "table",
+			attrs: {
+				style: "rows",
+				header: false,
+				columns: [
+					{ id: "done", label: "Done", type: "check", width: 18 },
+					column("commitment", "Commitment", "text"),
+				],
+			},
+			content: [
+				{ type: "row", content: [cell(), cell(text("Pray"))] },
+				{ type: "row", content: [{ type: "cell", attrs: { checked: true } }, cell(text("Invite"))] },
+			],
+		};
+		const body = { type: "doc", content: [para(text("Setup plan")), grid, para(text("Then")), checklist] };
+		const revisions = () => countOf("document_revision", `WHERE tenant_id = '${P}'`);
+		const audits = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action LIKE 'documents.%'`);
+
+		// Criterion 7: the plain table set saves as the stored body node and reads back the same, for a Member too.
+		const saved = ok(await documentsWriter.saveNative(db, owner, { title: "Setup", body, expectedRevision: "0" }));
+		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
+		assert.deepEqual(ok(await documentsWriter.read(db, owner, { documentId: saved.id })).body, body);
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
+
+		// Each part a plain table refuses: nothing is written, on a new document or a save of this one.
+		const changed = (change) => {
+			const next = structuredClone(body);
+			change(next.content[1]);
+			return next;
+		};
+		const firstCell = (t) => t.content[0].content[0];
+		const refusals = {
+			"a budget table": changed((t) => (t.attrs.style = "ledger")),
+			"a formula column": changed((t) => (t.attrs.columns[1] = { ...t.attrs.columns[1], type: "formula", formula: "cost" })),
+			"a header color": changed((t) => (t.attrs.headerFill = "primary")),
+			"write-in rows": changed((t) => (t.attrs.writeInRows = 3)),
+			"a list field": changed((t) => (t.attrs.source = "people")),
+			"a group row": changed((t) => (t.content[0].attrs = { role: "group" })),
+			"a total row": changed((t) => (t.content[1].attrs = { role: "total" })),
+			"a tag in a cell": changed((t) => (firstCell(t).content = [text("Chairs", [{ type: "tag" }])])),
+			"a field in a cell": changed((t) => (firstCell(t).content = [{ type: "field", attrs: { key: "church_name" } }])),
+			"an image in a cell": changed((t) => (firstCell(t).content = [{ type: "image", attrs: { source: "logo" } }])),
+		};
+		const [beforeRevisions, beforeAudits] = [await revisions(), await audits()];
+		for (const bad of Object.values(refusals)) {
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, { title: "Bad", body: bad, expectedRevision: "0" }),
+				"invalid_input",
+			);
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, {
+					title: "Setup",
+					body: bad,
+					documentId: saved.id,
+					expectedRevision: saved.revision,
+				}),
+				"invalid_input",
+			);
+		}
+		assert.equal(await revisions(), beforeRevisions);
+		assert.equal(await audits(), beforeAudits);
+		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
+
+		// Criterion 9: the evidence writes each table as its lines, header labels first, in reading order with the prose.
+		ok(await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }));
+		const evidence = ok(await documentsWriter.readCoreValuesEvidence(db, member, {}));
+		assert.equal(evidence.documentId, saved.id);
+		assert.equal(
+			evidence.text,
+			[
+				"Setup plan",
+				"Item | Count | Cost | Done | No.",
+				"Chairs | 1,200 | $3,000.50 | [x] | 1",
+				"Tables |  |  | [ ] | 2",
+				"Then",
+				"[ ] | Pray",
+				"[x] | Invite",
+			].join("\n"),
+		);
+
+		// A body whose only content is an empty table, or a table of empty cells, never qualifies: no save, no core values.
+		const emptyRows = { type: "row", content: grid.attrs.columns.map(() => cell()) };
+		const emptyBodies = [
+			{ type: "doc", content: [{ ...grid, content: [] }] },
+			{ type: "doc", content: [para(), { ...grid, content: [emptyRows, emptyRows] }] },
+		];
+		for (const empty of emptyBodies)
+			refusedPrivate(
+				await documentsWriter.saveNative(db, owner, { title: "Empty", body: empty, expectedRevision: "0" }),
+				"invalid_input",
+			);
+		const shell = ok(await documentsWriter.saveNative(db, owner, { title: "Shell", body: doc("temp"), expectedRevision: "0" }));
+		const shellRevision = randomUUID();
+		const shellBody = JSON.stringify(emptyBodies[1]);
+		await admin.execute(sql`
+			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, recorded_at)
+			VALUES (${shellRevision}::uuid, ${P}::uuid, ${shell.id}::uuid, 2, ${shellBody}, ${sha(shellBody)}, clock_timestamp())
+		`);
+		await admin.execute(sql`UPDATE document SET current_revision_id = ${shellRevision}::uuid WHERE id = ${shell.id}::uuid`);
+		refusedPrivate(
+			await documentsWriter.designateCoreValues(db, owner, { documentId: shell.id, expectedRevision: shell.revision }),
+			"unavailable",
+		);
+
+		// Criterion 10: Use for this church copies the tables intact, and a later table edit of the original leaves the copy.
+		await endSeat(actors[2].id);
+		const source = ok(
+			await documentsWriter.saveNative(db, await authority(2), { title: "Setup tables", body, expectedRevision: "0" }),
+		);
+		await restoreSeat(actors[2].id);
+		const copy = ok(
+			await documentsWriter.useForChurch(db, await authority(2), {
+				documentId: source.id,
+				revisionId: source.revisionId,
+				requestKey: randomUUID(),
+			}),
+		);
+		assert.deepEqual(copy.body, body);
+		await endSeat(actors[2].id);
+		const edited = changed((t) => (t.content[0].content[2] = { type: "cell", attrs: { value: 10 } }));
+		ok(
+			await documentsWriter.saveNative(db, await authority(2), {
+				title: "Setup tables",
+				body: edited,
+				documentId: source.id,
+				expectedRevision: source.revision,
+			}),
+		);
+		assert.deepEqual(JSON.parse((await currentOf(source.id)).body), edited);
+		await restoreSeat(actors[2].id);
+		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: copy.id })).body, body);
+	});
 });

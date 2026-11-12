@@ -64,8 +64,18 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 const WEIGHT_LABEL = { hairline: "Hairline", rule: "Rule", bar: "Bar" } as const;
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
 
-function ControlsFor({ editor, target, palette }: { editor: Editor; target: Target; palette: DocBrand["palette"] }) {
+function ControlsFor({
+	editor,
+	target,
+	palette,
+}: {
+	editor: Editor;
+	target: Target;
+	palette: DocBrand["palette"] | null;
+}) {
 	const attrs = target.node.attrs;
+	// A plain document (no palette) has settings for its tables only: its dividers take no weight or color.
+	if (!palette) return target.kind === "table" ? <TableControls editor={editor} palette={null} /> : null;
 	switch (target.kind) {
 		case "columns":
 			return (
@@ -202,11 +212,14 @@ function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) 
 	);
 }
 
-/** The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. */
-export function BlockControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
+/**
+ * The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. A plain
+ * document passes no palette: only a table has settings there.
+ */
+export function BlockControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] | null }) {
 	const targets = useEditorState({
 		editor,
-		selector: ({ editor: e }) => layoutTargets(e.state),
+		selector: ({ editor: e }) => layoutTargets(e.state).filter((t) => palette || t.kind === "table"),
 		equalityFn: (a, b) =>
 			!!a && !!b && a.length === b.length && a.every((t, i) => t.pos === b[i]?.pos && t.node === b[i]?.node),
 	});
