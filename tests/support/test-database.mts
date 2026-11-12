@@ -6,12 +6,11 @@
 import { createDatabase, closeDatabase } from "../../packages/db/src/client.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { migrate as applyMigrations } from "../../packages/db/src/schema/migrate.ts";
+import { assertDevelopmentDatabase, developmentHosts } from "../../packages/db/src/development.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 
 /** A pool as createDatabase returns it, with its client to close. */
 export type Database = ReturnType<typeof createDatabase>;
-
-const DEVELOPMENT_HOST = "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech";
 
 /** The capabilities a test login role can hold, each the `everyfield_<name>` group role. */
 export type Capability = "runtime" | "auth" | "cleanup";
@@ -21,15 +20,16 @@ export type Capability = "runtime" | "auth" | "cleanup";
  * Throws for every other endpoint and under NODE_ENV=production.
  */
 export function testDatabaseUrl({ ci: allowCi = true }: { ci?: boolean } = {}): URL {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		allowCi &&
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if ((!ci && source.hostname !== DEVELOPMENT_HOST) || process.env.NODE_ENV === "production")
-		throw Error(`Approved shared development database${allowCi ? " or disposable CI database" : ""} required`);
+	const refused = Error(`Approved shared development database${allowCi ? " or disposable CI database" : ""} required`);
+	let source: URL;
+	try {
+		source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
+	} catch {
+		throw refused;
+	}
+	// The guard accepts a localhost URL only under CI's flags; this helper also wants CI's own database by name.
+	const ci = !developmentHosts.has(source.hostname);
+	if (ci && (!allowCi || source.pathname !== "/everyfield_ci")) throw refused;
 	if (!ci) source.searchParams.set("sslmode", "verify-full");
 	return source;
 }
