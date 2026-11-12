@@ -160,7 +160,8 @@ type OpenRead = Extract<PlantRead, { subjectOk: true }>;
  * for an agenda, the meeting's rows. The preview and generate both call this, so a generated file holds the bytes its
  * preview showed for the same template, format, overrides and subject. An agenda prints only from a live meeting of its
  * own kind; any other meeting reads as no subject at all. The render paints the plant's brand kit as it stands now
- * (`templateTheme`), so both paths use the same theme for the same kit.
+ * (`templateTheme`), so both paths use the same theme for the same kit. With a kit, each image costs the preview
+ * readBrandAsset's 8 statements; with no kit the preview stays at its one read.
  */
 export function forSubject(
 	loaded: Loaded,

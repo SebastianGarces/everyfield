@@ -459,8 +459,7 @@
 		"limit": 1
 	},
 	"documents.preview": {
-		"limit": 17,
-		"reason": "One statement reads the plant, the subject and the brand kit. With a kit the render reads the church theme's images through readBrandAsset (T-190), which checks the seat and the kit's reference and claims and finalizes the read in its own transactions: 8 statements an image. Its largest run, an outward-facing card with a logo and a cover photo: 5 read, 8 transaction, 4 locked read. With no kit: 1 read."
+		"limit": 17
 	},
 	"documents.printAgenda": {
 		"limit": 1
