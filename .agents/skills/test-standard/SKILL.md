@@ -61,7 +61,10 @@ message or partial receipt. Generic input validation gets no regression test.
   boundary. Three uses keep real time, and each says why in a comment: the production latency proof in
   `tests/integration/identity/timing.production.mts`, the `ms` field of `tests/integration/writes/counter.mjs`, and
   the 3 s wait in INV-expiry of `tests/integration/identity/invitations.test.mts`, where only elapsed time shows that
-  an expiry check reads the clock after a lock wait. Any other exemption needs the owner's agreement.
+  an expiry check reads the clock after a lock wait. `tests/workflow/integration-timing.test.mjs` enforces this rule
+  on every file under `tests/integration` and fails on each new sleep, clock poll or wall-clock assertion. Any other
+  exemption needs the owner's agreement and an entry in that guard's `EXEMPT` list, with its reason and the lines it
+  covers.
 - Use browser tests only for critical flows: sign-in, one meeting end to end, Evry review and approve.
   Prove other UI behavior broadly now; protect its domain behavior with integration tests.
 - Use contract tests only when something outside our code consumes the shape: Evry tool schemas,
