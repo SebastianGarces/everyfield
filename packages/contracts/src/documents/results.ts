@@ -215,7 +215,11 @@ export const churchDocument = z.strictObject({
 	revisionId: recordId,
 	body: docDocument,
 	contentHash: sha256,
-	archived: z.boolean(),
+	/**
+	 * Set once an Owner or Admin archived the document: when, and the archiver's name while they hold a seat in this
+	 * church plant (null once that seat ends, D-105). An archived document is read-only and leaves the library (T-9).
+	 */
+	archived: z.strictObject({ at: z.iso.datetime(), by: z.string().min(1).max(255).nullable() }).nullable(),
 	/** The merge values resolved into revision 1, with where each came from. */
 	provenance: z
 		.array(
@@ -358,6 +362,25 @@ export const churchCompare = z.strictObject({
 });
 export type ChurchCompare = z.infer<typeof churchCompare>;
 export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });
+export const archivedChurch = z.strictObject({ documentId: recordId, archived: z.literal(true) });
+export const restoredChurch = z.strictObject({ documentId: recordId, restored: z.literal(true) });
+/**
+ * One archived Church Document, as the archived list shows it: when it was archived and the archiver's name while they
+ * hold a seat in this church plant (null once that seat ends, D-105).
+ */
+export const archivedChurchSummary = z.strictObject({
+	id: recordId,
+	title: z.string().min(1).max(200),
+	documentClass: churchClass,
+	archivedAt: z.iso.datetime(),
+	archivedBy: z.string().min(1).max(255).nullable(),
+});
+export type ArchivedChurchSummary = z.infer<typeof archivedChurchSummary>;
+/** The church plant's archived Church Documents, newest archive first: the latest ARCHIVED_CHURCH_LIST_MAX. */
+export const ARCHIVED_CHURCH_LIST_MAX = 200;
+export const archivedChurchList = z.strictObject({
+	documents: z.array(archivedChurchSummary).max(ARCHIVED_CHURCH_LIST_MAX),
+});
 export type ChurchSummary = z.infer<typeof churchSummary>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export type ChurchRevisionList = z.infer<typeof churchRevisionList>;

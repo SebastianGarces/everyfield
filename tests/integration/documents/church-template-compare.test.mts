@@ -26,7 +26,7 @@ const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] }
 const shape = (differences) => differences.map((d) => [d.id, d.part, d.kind]);
 
 const database = await fixture({ prefix: "t80cmp", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;

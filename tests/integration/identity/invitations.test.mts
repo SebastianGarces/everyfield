@@ -544,8 +544,8 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 			...values,
 		});
 	// Each of these active seats is not a recipient remove would accept.
-	const unregistered = await member("pending_domain"),
-		future = await member(),
+	await member("pending_domain");
+	const future = await member(),
 		ended = await member(),
 		blockedAccount = await member(),
 		blockedSeat = await member(),

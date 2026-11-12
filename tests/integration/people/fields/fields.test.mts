@@ -26,7 +26,7 @@ const noReminders = async () => {
 
 // Households, tags, skills and the person photo through their public operations on a scratch schema.
 const database = await fixture({ prefix: "wp012" });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 
 const plants = [database.tenant.id, (await database.plant()).id],

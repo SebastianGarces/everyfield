@@ -1,5 +1,5 @@
 {
-	"//": "`pnpm typecheck` reads this file. It checks the branch's own code and leaves out what Next generates (.next/types, .next/dev/types and next-env.d.ts, which imports them). A reused worktree keeps those files from whichever tree `next dev` or `next build` last ran on, so they can name routes this branch lacks (T-258). GitHub CI typechecks before any of them exist, so it reads the same files. Editors and Next read tsconfig.json, which keeps Next's route types.",
+	"//": "`pnpm typecheck` (bun check) and CI's backstop `pnpm typecheck:tsc` (tsc) read this file. It checks the branch's own code and leaves out what Next generates (.next/types, .next/dev/types and next-env.d.ts, which imports them). A reused worktree keeps those files from whichever tree `next dev` or `next build` last ran on, so they can name routes this branch lacks (T-258). GitHub CI typechecks before any of them exist, so it reads the same files. Editors and Next read tsconfig.json, which keeps Next's route types.",
 	"extends": "./tsconfig.json",
 	"include": ["src/**/*.ts", "src/**/*.tsx", "*.ts"],
 	"exclude": ["node_modules", "next-env.d.ts"]
