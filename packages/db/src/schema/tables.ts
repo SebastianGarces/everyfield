@@ -1164,10 +1164,6 @@ export const document = pgTable(
 		current_revision_id: uuid("current_revision_id"),
 		/** For a Church Document or church template this marks it deleted; archive is `church_archived_at` (D-935). */
 		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
-		/** When an Owner or Admin archived this Church Document: it leaves the library and stays readable (T-9). */
-		church_archived_at: timestamp("church_archived_at", { withTimezone: true, mode: "date" }),
-		/** Who archived it; set with `church_archived_at`. */
-		church_archived_by: uuid("church_archived_by"),
 		copied_from_revision_id: uuid("copied_from_revision_id"),
 		copied_from_hash: text("copied_from_hash"),
 		revision: int64("revision")
@@ -1179,6 +1175,10 @@ export const document = pgTable(
 		use_church_branding: boolean("use_church_branding"),
 		input_provenance: jsonb("input_provenance"),
 		description: text("description"),
+		/** When an Owner or Admin archived this Church Document: it leaves the library and stays readable (T-9). */
+		church_archived_at: timestamp("church_archived_at", { withTimezone: true, mode: "date" }),
+		/** Who archived it; set with `church_archived_at`. */
+		church_archived_by: uuid("church_archived_by"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })

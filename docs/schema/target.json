@@ -16844,18 +16844,6 @@
           "nullable": true
         },
         {
-          "note": "When an Owner or Admin archived a Church Document (T-9). archived_at marks it deleted, never archived (D-935).",
-          "name": "church_archived_at",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
-          "note": "The account that archived it; set with church_archived_at. Not a foreign key, like an audit actor.",
-          "name": "church_archived_by",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "copied_from_revision_id",
           "type": "uuid",
@@ -16908,6 +16896,18 @@
           "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
           "name": "description",
           "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When an Owner or Admin archived a Church Document (T-9). archived_at marks it deleted, never archived (D-935).",
+          "name": "church_archived_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "The account that archived it; set with church_archived_at. Not a foreign key, like an audit actor.",
+          "name": "church_archived_by",
+          "type": "uuid",
           "nullable": true
         }
       ],
