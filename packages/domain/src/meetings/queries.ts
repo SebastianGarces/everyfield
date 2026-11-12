@@ -4,6 +4,7 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { deny, one, parse, read, type Reader } from "./core.ts";
+import { attendanceColumns, attendanceValue } from "./analytics.ts";
 import { card, guest, guestColumns, guestRow } from "./guests.ts";
 import { kitColumns, kitItem, kitRow } from "./meetings.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
@@ -148,6 +149,37 @@ export const meetingsReader = {
 				guests: z.array(guestRow).parse(row.guests).map(guest),
 				emailOpens: admin ? row.email_opens : [],
 			});
+		});
+	},
+	/**
+	 * The meeting page's guests in one statement: the guest list with its email opens, the recorded cards (notes for
+	 * Owner/Admin only) and the attendance list of up to the 500 guests a meeting can finalize. The page reads the
+	 * participation rows once instead of once each for listGuests, listCards and listAttendance.
+	 */
+	async pageGuests(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (v) => {
+			const i = parse(c.meetingRequest, raw);
+			const list = parse(c.attendanceListRequest, { meetingId: i.meetingId, limit: 500 });
+			const { row, admin } = await one(
+				db,
+				v,
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens,
+					${attendanceColumns(list, v.accountId)} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
+			if (!row) deny();
+			const rows = z.array(guestRow).parse(row.guests);
+			return {
+				guests: c.guestList.parse({
+					meetingId: i.meetingId,
+					guests: rows.map(guest),
+					emailOpens: admin ? row.email_opens : [],
+				}),
+				cards: c.cardList.parse({
+					meetingId: i.meetingId,
+					cards: rows.filter((g) => g.card_response !== null).map((g) => card(g, admin)),
+				}),
+				attendance: attendanceValue(row, list, { admin }),
+			};
 		});
 	},
 	/** Recorded Vision cards. Notes appear only for Owner/Admin. */

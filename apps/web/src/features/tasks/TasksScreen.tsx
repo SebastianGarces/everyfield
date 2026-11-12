@@ -63,7 +63,7 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadBlocking, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	BadgeReads,
 	blocks,
@@ -493,9 +493,18 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const readBadges = (attempt = 0) => {
 		const read = badgeReads.current.start(window.location.search);
 		const current = () => badgeReads.current.applies(read, window.location.search);
+		const held = (id: string) => {
+			const st = known.current[id];
+			return st?.status === "ok" && st.prerequisites !== null;
+		};
+		const ids = listed.current.filter((row) => !held(row.id)).map((row) => row.id);
+		if (!ids.length) {
+			readingBadges.current = false;
+			return badgeReads.current.end();
+		}
 		readingBadges.current = true;
 		setBadgesStale(false);
-		loadBlocking(read.scope).then((r) => {
+		loadBlocking(ids).then((r) => {
 			if (!current()) return;
 			if (r.status !== "ok") {
 				if (attempt < 2) return void setTimeout(() => current() && readBadges(attempt + 1), 1000 * (attempt + 1));
@@ -504,10 +513,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			}
 			readingBadges.current = false;
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
-			const held = (id: string) => {
-				const st = known.current[id];
-				return st?.status === "ok" && st.prerequisites !== null;
-			};
 			setItems((rows) =>
 				rows.map((row) =>
 					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
@@ -567,6 +572,23 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				setItems((rows) => rows.map((x) => (x.id === id ? r.value.task : x)));
 				setDetails((d) => ({ ...d, [id]: { status: "ok", ...r.value } }));
 			});
+
+	/** Stale rows after a bulk change, read again together: one request whatever their number. */
+	const refreshRows = (ids: string[]): void => {
+		if (!ids.length) return;
+		const again = new Set(ids);
+		void loadRows(ids)
+			.catch(() => lost)
+			.then((r) => {
+				if (r.status !== "ok") return;
+				const fresh = new Map(r.value.items.map((t) => [t.id, t]));
+				setItems((rows) => rows.map((x) => fresh.get(x.id) ?? x));
+				// A cached panel of a stale task no longer matches; the open one reads again, the others on their next open.
+				const shown = shownId.current;
+				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !again.has(id) || id === shown)));
+				if (shown && again.has(shown)) void refresh(shown);
+			});
+	};
 
 	/**
 	 * A step's confirmed answer: added, ticked or removed. The open panel's steps, the parent row's step count and the
@@ -796,7 +818,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
 					);
 					if (shownTask && changed.has(shownTask)) refresh(shownTask);
-					for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
+					refreshRows(result.items.filter((i) => i.outcome === "stale").map((i) => i.taskId));
 					setSelected(new Set(result.remaining));
 					const unchanged = result.items
 						.filter((i) => i.outcome !== "changed")

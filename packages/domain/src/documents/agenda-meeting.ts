@@ -1,4 +1,4 @@
-import { dateText, defaultTitle, sectionStarts, timeText } from "@everyfield/contracts/common";
+import { dateText, meetingTitle, sectionStarts, timeText } from "@everyfield/contracts/common";
 import type { MeetingRead } from "./meeting-read.ts";
 
 // What an agenda print reads from one meeting (WP-036/api, REQ-DOC-007). Plain data and pure text rules: no database and
@@ -33,15 +33,11 @@ export function agendaKindOf(m: Pick<MeetingRead, "type" | "leadership">): Agend
 	return null;
 }
 
-export function displayTitle(m: Pick<MeetingRead, "title" | "type" | "visionNumber">) {
-	return m.title?.trim() || defaultTitle(m);
-}
-
 export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting {
 	// Each section starts when the one before it ends, counted from the meeting's start (the Agenda card's rule).
 	const starts = sectionStarts(m.localTime, m.agenda);
 	return {
-		title: displayTitle(m),
+		title: meetingTitle(m),
 		date: dateText(m.localDate, thisYear),
 		time: timeText(m.localTime),
 		place: m.venueName === null ? null : `${m.venueName}, ${m.venueAddress ?? ""}`,

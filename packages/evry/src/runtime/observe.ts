@@ -22,6 +22,8 @@ export type ObserveOptions = {
 	pollMs?: number;
 	/** The longest live text goes undelivered without a passed access check (patterns.md: a live path rechecks). */
 	staleMs?: number;
+	/** The first page after `after`, when the caller just read it as its access check: the first poll uses it. */
+	first?: Awaited<ReturnType<typeof readConversation>>;
 };
 
 /**
@@ -38,7 +40,7 @@ export async function* observeRun(
 	conversationId: string,
 	after: number,
 	signal: AbortSignal,
-	{ pollMs = 100, staleMs = 1_000 }: ObserveOptions = {},
+	{ pollMs = 100, staleMs = 1_000, first }: ObserveOptions = {},
 ): AsyncGenerator<Observed> {
 	const queue: Observed[] = [];
 	const inner = new AbortController();
@@ -64,7 +66,9 @@ export async function* observeRun(
 		const delivered = new Set<string>();
 		try {
 			while (!inner.signal.aborted) {
-				const page = await readConversation(db, actor, conversationId, cursor);
+				// A caller that already read the first page (its access check) hands it over, so it is not read twice.
+				const page = first ?? (await readConversation(db, actor, conversationId, cursor));
+				first = undefined;
 				checkedAt = Date.now();
 				for (const event of page.events) {
 					cursor = event.sequence;
