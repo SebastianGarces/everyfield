@@ -200,13 +200,42 @@ export function canInsert(state: EditorState, kind: InsertKind): boolean {
 	if (kind === "slot" && hasSlot(state.doc)) return false;
 	// The format refuses columns anywhere under a column, a box or conditional text in a column included.
 	if (kind.startsWith("columns") && insideColumn(state)) return false;
+	const type = state.schema.nodes[NODE_OF[kind]];
 	const { pos, parent, index } = insertionPoint(state, kind);
-	const node = build(state.schema, kind);
-	if (!parent.canReplaceWith(index, index, node.type)) return false;
+	if (!type || !parent.canReplaceWith(index, index, type)) return false;
 	// Conditional text, or a block going into it: the format's rules for where it sits and what it holds.
-	if (kind === "if" || insideCondition(state)) return conditionIssue(state.tr.insert(pos, node).doc) === null;
+	if (kind === "if" || insideCondition(state))
+		return conditionIssue(state.tr.insert(pos, build(state.schema, kind)).doc) === null;
 	return true;
 }
+
+/** The node each Insert item adds: what the schema is asked about before anything is built. */
+const NODE_OF: Record<InsertKind, string> = {
+	paragraph: "paragraph",
+	heading: "heading",
+	bulletList: "bulletList",
+	orderedList: "orderedList",
+	quote: "quote",
+	divider: "divider",
+	accentBar: "divider",
+	spacer: "spacer",
+	pageBreak: "pageBreak",
+	columns2: "columns",
+	columns3: "columns",
+	columns4: "columns",
+	box: "box",
+	writeIn: "writeIn",
+	signature: "writeIn",
+	dateLine: "writeIn",
+	logo: "image",
+	mark: "image",
+	photo: "image",
+	table: "table",
+	checklist: "table",
+	budget: "table",
+	if: "if",
+	slot: "slot",
+};
 
 /** True when a column holds the selection, at any depth. */
 export function insideColumn(state: EditorState) {

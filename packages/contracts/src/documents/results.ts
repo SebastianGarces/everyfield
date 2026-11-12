@@ -142,8 +142,10 @@ export const ownedDocument = z.strictObject({
 	copiedFromRevisionId: recordId.nullable(),
 	copiedFromHash: sha256.nullable(),
 });
+/** One row of the written-documents list: the document without its body, which the list never reads. */
+export const ownedListItem = ownedDocument.omit({ body: true, textRevision: true });
 export const ownedDocumentPage = z.strictObject({
-	documents: z.array(ownedDocument).max(100),
+	documents: z.array(ownedListItem).max(100),
 });
 /** One account document Use for this church offers: its title and the current revision a copy takes. */
 export const copySource = z.strictObject({

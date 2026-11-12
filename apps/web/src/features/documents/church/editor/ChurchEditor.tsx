@@ -129,23 +129,30 @@ export default function ChurchEditor({
 		[],
 	);
 	const extensions = useMemo(() => [...editorExtensions(assets), BlockShortcuts], [assets]);
-	const editor = useEditor({
-		extensions,
-		content: editorContent(stored),
-		immediatelyRender: true,
-		// Start with the cursor in the first line of text, not on a whole block.
-		onCreate: ({ editor: created }) => {
-			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
-			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
-		},
-		editorProps: {
+	// The editor reads its content once, when it starts. Options that keep their identity across renders also spare the
+	// editor an options update (and a view update) on every parent render.
+	const [content] = useState(() => editorContent(stored));
+	const editorProps = useMemo(
+		() => ({
 			attributes: {
 				"aria-label": `${title}, document body`,
 				"aria-multiline": "true",
 				role: "textbox",
 				spellcheck: "true",
 			},
+		}),
+		[title],
+	);
+	const editor = useEditor({
+		extensions,
+		content,
+		immediatelyRender: true,
+		// Start with the cursor in the first line of text, not on a whole block.
+		onCreate: ({ editor: created }) => {
+			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
+			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
 		},
+		editorProps,
 	});
 
 	useEffect(() => {
@@ -171,15 +178,13 @@ export default function ChurchEditor({
 		savedDoc.current ??= editor.state.doc;
 		const sync = () => {
 			const same = isSaved(editor.state.doc);
-			setStatus((current) =>
-				current.kind === "saving"
-					? current
-					: same
-						? { kind: "saved" }
-						: current.kind === "failed"
-							? current
-							: { kind: "dirty" },
-			);
+			// The status object stays the same while its kind does, so React skips the render: typing in a document that is
+			// already unsaved draws nothing here.
+			setStatus((current) => {
+				if (current.kind === "saving") return current;
+				if (same) return current.kind === "saved" ? current : { kind: "saved" };
+				return current.kind === "failed" || current.kind === "dirty" ? current : { kind: "dirty" };
+			});
 		};
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
