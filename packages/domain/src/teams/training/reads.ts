@@ -206,18 +206,16 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
-	readStaffingFacts: teamFactsRead(c.staffingFactsRequest),
-};
-
-function teamFactsRead(request: typeof c.staffingFactsRequest) {
-	return (db: Reader, authority: RequestActor, raw: unknown) =>
-		read(authority, async (viewer) => {
-			const input = parse(request, raw);
+	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			const input = parse(c.staffingFactsRequest, raw);
 			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
 			owner(viewer.plantId, found.owner);
 			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
 		});
-}
+	},
+};
+
 function picked(found: Record<string, unknown>) {
 	return {
 		filledSlots: found.filledSlots,
