@@ -127,5 +127,4 @@ Run documentation checks with `python3 docs/check-all.py`.
 Generate assigned context with `docs/package-context.py` from `docs/plan/context-manifest.json`.
 Requirement JSON is the behavior authority; product chapters are summaries. Read original
 references and approved design sections on demand. Documentation status grants no implementation
-or spending approval. G-WORKFLOW closes only after W0 to W5 merge and one task completes
-end to end through Phase 7.
+or spending approval.

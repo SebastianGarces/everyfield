@@ -18,7 +18,7 @@ const item = {
 	state: "effective",
 };
 
-test("T-159: an untouched time keeps the stored instant, seconds and all", () => {
+test("BUG-T159: an untouched time keeps the stored instant, seconds and all", () => {
 	const draft = draftOf(item);
 	assert.equal(draft.at, "2026-10-12T19:37", "the field shows the browser's local minute");
 	const r = outcomeInput(draft, { completable: false, now });
@@ -26,7 +26,7 @@ test("T-159: an untouched time keeps the stored instant, seconds and all", () =>
 	assert.equal(r.input.occurredAt, "2026-10-12T14:07:45.318Z");
 });
 
-test("T-159: a changed time is read from the field in the browser's zone", () => {
+test("BUG-T159: a changed time is read from the field in the browser's zone", () => {
 	const r = outcomeInput({ ...draftOf(item), at: "2026-10-12T19:40" }, { completable: false, now });
 	assert.equal(r.input.occurredAt, "2026-10-12T14:10:00.000Z");
 	// Changing it back to what it showed keeps the stored instant again.
@@ -34,7 +34,7 @@ test("T-159: a changed time is read from the field in the browser's zone", () =>
 	assert.equal(back.input.occurredAt, "2026-10-12T14:07:45.318Z");
 });
 
-test("T-159: the call screen's Recent list keeps the contact log's order for out-of-order input", () => {
+test("BUG-T159: the call screen's Recent list keeps the contact log's order for out-of-order input", () => {
 	const e = (id, occurredAt, recordedAt) => ({ ...item, id, occurredAt, recordedAt });
 	// Shown out of order, and the new entry happened before the latest one.
 	const shown = [
