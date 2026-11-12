@@ -7,7 +7,7 @@ import { useEditorState } from "@tiptap/react";
 import { useId, useState } from "react";
 import { Group, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, WEIGHTS, type Target } from "./layout.ts";
-import { TOOLBAR } from "./tiptap/styles.ts";
+import { TOOLBAR_BASE } from "./tiptap/styles.ts";
 import { setFieldValue } from "./blocks.ts";
 import { ConditionControls } from "./ConditionControls.tsx";
 import { fieldDecl, writeInKindLabel } from "./extensions.ts";
@@ -209,11 +209,7 @@ export function BlockControls({ editor, palette }: { editor: Editor; palette: Do
 	});
 	if (!targets || targets.length === 0) return null;
 	return (
-		<div
-			role="group"
-			aria-label="Block settings"
-			className={cn(TOOLBAR, "flex-wrap overflow-visible border-t border-b-0 border-line")}
-		>
+		<div role="group" aria-label="Block settings" className={cn(TOOLBAR_BASE, "flex-wrap border-t")}>
 			{targets.map((target) => (
 				<ControlsFor key={`${target.kind}-${target.pos}`} editor={editor} target={target} palette={palette} />
 			))}

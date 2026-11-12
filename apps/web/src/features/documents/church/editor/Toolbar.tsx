@@ -62,7 +62,7 @@ import { ListButton } from "./tiptap/ui/list-button.tsx";
 import { LinkPopover } from "./tiptap/ui/link-popover.tsx";
 import { MarkButton } from "./tiptap/ui/mark-button.tsx";
 import { UndoRedoButton } from "./tiptap/ui/undo-redo-button.tsx";
-import { BUTTON_ICON, MENU_ITEM } from "./tiptap/styles.ts";
+import { BUTTON_ICON, MENU_ITEM, MENU_ITEM_BASE } from "./tiptap/styles.ts";
 
 // The main toolbar. The primitives, the mark buttons, the Undo and Redo buttons and the link popover are Tiptap's free
 // ready-made parts (see tiptap/README.md); the text-style, list, block and insert controls use the same primitives.
@@ -241,7 +241,7 @@ export function EditorToolbar({
 							tooltip="Text style"
 							disabled={s.style === null}
 							onMouseDown={(event) => event.preventDefault()}
-							className="min-w-[104px] justify-between"
+							className="h-9 min-w-[104px] justify-between gap-1.5 px-2"
 						>
 							<span>{current?.label ?? "Text style"}</span>
 							<Icon icon={UnfoldMoreIcon} size={16} />
@@ -289,7 +289,8 @@ export function EditorToolbar({
 						run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
 					/>
 				) : null}
-				<LinkPopover editor={editor} />
+				{/* The caret entering a link leaves focus in the document; the button opens the link's popover. */}
+				<LinkPopover editor={editor} autoOpenOnLinkActive={false} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
@@ -382,7 +383,7 @@ export function EditorToolbar({
 												</p>
 												<DropdownMenuItem
 													asChild
-													className={cn(MENU_ITEM, "inline-flex px-0 py-0.5 text-sm font-medium underline")}
+													className={cn(MENU_ITEM_BASE, "inline-flex py-0.5 text-sm font-medium underline")}
 												>
 													<a href="/settings/brand" target="_blank" rel="noreferrer">
 														Open the brand kit
@@ -414,7 +415,7 @@ export function EditorToolbar({
 								return (
 									<DropdownMenuItem
 										key={field.key}
-										className={cn(MENU_ITEM, "flex-col items-start gap-0")}
+										className={cn(MENU_ITEM_BASE, "flex flex-col items-start px-2.5 py-2 text-md")}
 										disabled={!s.canField}
 										onSelect={() => insertField(editor, field, church.mergeValues[field.key])}
 									>
