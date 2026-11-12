@@ -1675,7 +1675,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		await restoreSeat(actors[2].id);
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: copy.id })).body, body);
 	});
-	test("AC:CASE-DOC-016 T-111: a Word table imports as a native table of text columns", async () => {
+	test("AC:CASE-DOC-016: a Word table imports as a native table of text columns", async () => {
 		const member = await authority(1);
 		const text = (value, href) => ({
 			type: "text",
