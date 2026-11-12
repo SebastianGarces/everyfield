@@ -575,7 +575,8 @@ export async function sendOnboardingRelationships(
 			return {
 				owner: { kind: "account", id: recipient },
 				purpose: i.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-				logicalKey: "relationship/" + i.eventId + "/" + recipient,
+				// Under the onboarding mount's own key, so the organizations mail pass never claims a receipt.
+				logicalKey: "onboarding/relationship/" + i.eventId + "/" + recipient,
 				recipient,
 				address,
 				content: { subject: "Relationship updated", text: "A church relationship you are part of changed." },

@@ -4,7 +4,7 @@ import { sectionResult, settingsError, type SettingsError } from "@everyfield/co
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
-import { and, eq, gt, inArray, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -27,11 +27,10 @@ import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailEnv } from "../../server/mail-env.ts";
 import { database } from "@/server/database";
-import { createMailService } from "@/server/jobs/mail";
 import { enqueueJob, queueJobs } from "@/server/jobs/queue";
-import { protectedTemplate } from "@/server/jobs/templates";
 import { current as organizationMount } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
+import { settingsMail } from "./mail";
 import type { SettingsViewer } from "./port";
 
 // The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
@@ -55,7 +54,8 @@ const env = z.object({
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const organizations = organizationMount();
-	if (!organizations) return null;
+	const mail = settingsMail();
+	if (!organizations || !mail) return null;
 	const db = organizations.db,
 		origin = v.IDENTITY_ORIGIN,
 		addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -74,51 +74,6 @@ function create(v: z.infer<typeof env>) {
 				eligibleAt: new Date().toISOString(),
 			}),
 	};
-	const mail = createMailService({
-		db,
-		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
-		addressKey,
-		from: v.IDENTITY_MAIL_FROM,
-		// An email-change link goes only to the address of the account's live proof; a security notice only to its
-		// own account.
-		authorize: async (tx, list) => {
-			const proofs = await tx
-				.select({ account: t.identity_proof.account_id, address: t.identity_proof.proposed_email })
-				.from(t.identity_proof)
-				.where(
-					and(
-						inArray(
-							t.identity_proof.account_id,
-							list.map((m) => m.tenant),
-						),
-						eq(t.identity_proof.purpose, "email_change"),
-						isNull(t.identity_proof.superseded_at),
-						isNull(t.identity_proof.consumed_at),
-						gt(t.identity_proof.expires_at, sql`clock_timestamp()`),
-					),
-				);
-			return new Set(
-				list
-					.filter(
-						(m) =>
-							m.recipient === m.tenant &&
-							(m.purpose === "email_change"
-								? proofs.some((p) => p.account === m.tenant && p.address && addressHash(p.address) === m.addressHash)
-								: m.purpose === "notification" && m.logicalKey.startsWith("security/")),
-					)
-					.map((m) => m.id),
-			);
-		},
-		// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
-	});
 	const sections = sectionOperations({
 		organizations: organizations.adapter,
 		organizationEffects: organizations.effects,
@@ -188,49 +143,7 @@ function create(v: z.infer<typeof env>) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
 		},
-		deliverVerification: async (tx, i, writes) => {
-			const url = `${origin}/confirm-email?token=${encodeURIComponent(i.token)}`;
-			await mail.append(
-				tx,
-				{
-					owner: { kind: "account", id: i.accountId },
-					purpose: "email_change",
-					logicalKey: `email-change/${randomUUID()}`,
-					recipient: i.accountId,
-					address: i.address,
-					content: protectedTemplate({ purpose: "email_change", url }, origin),
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				},
-				writes,
-			);
-		},
-		securityNotice: (tx, i, writes) =>
-			mail.append(
-				tx,
-				{
-					owner: { kind: "account", id: i.accountId },
-					purpose: "notification",
-					logicalKey: `security/${i.correlationId}`,
-					recipient: i.accountId,
-					address: i.address,
-					content:
-						i.action === "password_changed"
-							? {
-									subject: "Your Everyfield password changed",
-									text: "The password for your Everyfield account changed. Other devices were signed out.\n\nIf you did not change it, reset your password now.",
-								}
-							: {
-									subject: "Your Everyfield sign-in email changed",
-									text: "The email you use to sign in to Everyfield changed. This address no longer signs in.\n\nIf you did not change it, contact Everyfield support now.",
-								},
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				},
-				writes,
-			),
+		...mail,
 	});
 	return {
 		db,
