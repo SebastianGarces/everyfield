@@ -32,6 +32,7 @@ import {
 	interviews,
 	listDismissedDuplicatePairs,
 	listDuplicatePairs,
+	listedDuplicatePair,
 	peopleCsv,
 	peopleMerge,
 	peopleReader,
@@ -361,9 +362,13 @@ async function seedChurchA() {
 		}),
 	);
 	await runDueImports(f.db, 10);
-	const pairs = ok(
+	const listedPairs = ok(
 		await f.db.transaction((t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
-	).items.filter((p) => p.person.displayName === `${MARK}-Third`);
+	).items;
+	// Row 2's pair stays listed, for the review's people.listedDuplicatePair (T-268).
+	const again = listedPairs.find((p) => p.person.displayName === `${MARK}-Again`);
+	a.listedPair = { a: again.with.id, b: again.person.id };
+	const pairs = listedPairs.filter((p) => p.person.displayName === `${MARK}-Third`);
 	ok(
 		await people((t, c) =>
 			dismissDuplicatePair(t, c, { personId: pairs[0].person.id, withPersonId: pairs[0].with.id }),
@@ -566,6 +571,7 @@ function cases(who) {
 		ppl("listDuplicatePairs", () => reads((t, c) => listDuplicatePairs(t, c)), {
 			value: { items: [], completeness: "complete" },
 		}),
+		ppl("listedDuplicatePair", () => reads((t, c) => listedDuplicatePair(t, c, a.listedPair)), { value: null }),
 		ppl("listDismissedDuplicatePairs", () => reads((t, c) => listDismissedDuplicatePairs(t, c)), {
 			// The church's own time zone is its only field: church B's, which is no church A value.
 			check: (value) => assert.deepEqual({ ...value, zone: "" }, { zone: "", items: [], completeness: "complete" }),

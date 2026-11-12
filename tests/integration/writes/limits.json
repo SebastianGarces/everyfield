@@ -923,7 +923,7 @@
 		"limit": 5
 	},
 	"native.people.duplicatePair": {
-		"limit": 5
+		"limit": 6
 	},
 	"native.people.executeBulkImport": {
 		"limit": 5
