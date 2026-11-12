@@ -333,31 +333,9 @@ function firstYear(church: string): Sheet[] {
 	return [monthly, summary];
 }
 
-function worksheet(church: string): Sheet[] {
-	const b = block(1, (row) => `B${row}*12`);
-	return [
-		{
-			name: "Budget worksheet",
-			widths: [36, 16, 16],
-			freeze: { x: 1, y: 3 },
-			rows: [
-				[text(`${church} Budget Worksheet`, S.title)],
-				[
-					text(
-						"Enter the monthly amount in each boxed cell. The annual amount is the monthly amount times 12.",
-						S.note,
-					),
-				],
-				[text("Category", S.head), text("Monthly", S.headRight), text("Annual", S.headRight)],
-				...b.rows,
-			],
-		},
-	];
-}
-
-/** A budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
-export function buildBudget(kind: "first-year" | "worksheet", church: string, theme: RenderTheme) {
-	return workbook(kind === "first-year" ? firstYear(church) : worksheet(church), new StyleBook(theme));
+/** The first-year budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
+export function buildFirstYearBudget(church: string, theme: RenderTheme) {
+	return workbook(firstYear(church), new StyleBook(theme));
 }
 
 // ---------------------------------------------------------------- everyfield.doc/1 ledgers

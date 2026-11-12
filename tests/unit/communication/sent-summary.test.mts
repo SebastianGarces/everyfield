@@ -3,7 +3,7 @@
 // scheduled-opt-out.test.mts reads from the domain after the send: Ana unsubscribed, Ben and Cy were accepted.
 //
 // It renders the real Totals in node, with no browser and no database. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/ui/render.tsconfig.json --test <this file>.
+// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

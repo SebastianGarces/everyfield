@@ -1,4 +1,4 @@
-// WP-036/api: the Forme renderer, the theme and the 11 templates. No database: it renders real bytes.
+// WP-036/api, T-205: the Forme renderer, the theme and the 13 library templates. No database: it renders real bytes.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -31,15 +31,15 @@ import {
 	renderContext,
 	renderEngineVersion,
 	renderPdfElement,
-	renderPreview,
-	renderTemplatePdf,
 } from "../../../packages/domain/src/documents/render.ts";
+import { libraryDoc, renderPreview, renderTemplatePdf } from "../../../packages/domain/src/documents/library-render.ts";
+import { docElement } from "../../../packages/domain/src/documents/layouts/doc.tsx";
 import { forkTemplate } from "../../../packages/contracts/src/documents/format/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
-import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
+import { SLOT_BLANK_NOTE, fieldValues, printedDoc } from "../../../packages/domain/src/documents/doc-values.ts";
 import { NEUTRAL_THEME, makePalette } from "../../../packages/domain/src/documents/theme.ts";
-import { contentSnapshot, REGISTRY, entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
+import { contentSnapshot, REGISTRY } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { fontDigests } from "../../../packages/domain/src/documents/fonts.ts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
 
@@ -52,7 +52,25 @@ const FULL = {
 	launch_date: "Sunday, April 11, 2027",
 };
 const NEUTRAL_VALUES = { church_name: CHURCH };
-const pdfs = REGISTRY.filter((entry) => entry.format === "pdf");
+// Each library template with its facts: from its template file, else its code layout in the registry.
+const LIBRARY = (await library()).templates.map((template) => ({ id: template.id, ...template.facts }));
+const pdfs = LIBRARY.filter((entry) => entry.format === "pdf");
+const factsOf = (id: string) => LIBRARY.find((entry) => entry.id === id)!;
+/** One library PDF laid out with its contrast log. */
+async function contrastRows(id: string, values: Record<string, string>, theme: typeof NEUTRAL_THEME) {
+	const file = docTemplateById(id);
+	if (file) {
+		const doc = printedDoc(await libraryDoc(file, values, theme, null));
+		const ctx = renderContext(CHURCH, fieldValues(doc), theme, doc.class);
+		await renderPdfElement(docElement(ctx, doc));
+		return ctx.log.rows;
+	}
+	const entry = REGISTRY.find((e) => e.id === id)!;
+	if (entry.format !== "pdf") throw new Error(id);
+	const ctx = renderContext(CHURCH, values, theme, entry.documentClass);
+	await renderPdfElement(entry.build(ctx));
+	return ctx.log.rows;
+}
 const catalogJson = JSON.parse(
 	readFileSync(new URL("../../../docs/catalog/document-templates.json", import.meta.url), "utf8"),
 );
@@ -75,30 +93,41 @@ const tagsOf = async (bytes: Buffer) => {
 };
 
 describe("INV-doc-engine: api engine", () => {
-	test("AC:DOC-006 the registry and docs/catalog/document-templates.json agree on id, class and format", async () => {
-		// The existing templates, then the text templates authored in code, which "Save for your church" prints too.
+	test("AC:DOC-006 the library and docs/catalog/document-templates.json agree on id, class and format", async () => {
+		// The existing templates, then the text templates with a file and no reference row, which "Save for your church"
+		// prints too.
 		const authored = ["bylaws", "prayer-letter"];
 		const existing = catalogJson.templates.filter((t: { source: string }) => t.source === "existing");
 		const rows = [...existing, ...authored.map((id) => catalogJson.templates.find((t: { id: string }) => t.id === id))];
-		assert.deepEqual(REGISTRY.map(ink), rows.map(ink));
+		assert.deepEqual(LIBRARY.map(ink), rows.map(ink));
 		for (const row of rows) {
-			const entry = entryFor(row.id)!;
-			assert.equal(entry.documentClass, row.class, row.id);
-			// The catalog lists Word for the three editable templates (OPS-79). This task offers the first listed format only.
-			assert.equal(entry.format, row.formats[0], row.id);
+			const facts = factsOf(row.id);
+			assert.equal(facts.documentClass, row.class, row.id);
+			// The catalog lists Word for the three editable templates (OPS-79). The library offers the first listed format.
+			assert.equal(facts.format, row.formats[0], row.id);
 		}
-		assert.equal(REGISTRY.filter((e) => e.format === "pdf").length, 11);
-		assert.deepEqual(REGISTRY.filter((e) => e.format === "xlsx").map(ink), ["first-year-budget", "budget-worksheet"]);
+		assert.equal(pdfs.length, 11);
+		assert.deepEqual(LIBRARY.filter((e) => e.format === "xlsx").map(ink), ["first-year-budget", "budget-worksheet"]);
+		// D-922: only the templates with no template file keep a code layout.
+		assert.deepEqual(REGISTRY.map(ink), [
+			"response-card",
+			"vision-meeting-agenda",
+			"board-meeting-agenda",
+			"first-year-budget",
+			"launch-sunday-checklists",
+		]);
+		for (const entry of LIBRARY)
+			assert.equal(docTemplateById(entry.id) !== undefined, !REGISTRY.some((e) => e.id === entry.id), entry.id);
 		const loaded = await library();
-		for (const template of loaded.templates)
-			assert.deepEqual(template.formats, [entryFor(template.id)!.format], template.id);
+		for (const template of loaded.templates) assert.deepEqual(template.formats, [template.facts.format], template.id);
 		assert.equal(loaded.templates.find((t) => t.id === "launch-sunday-checklists")!.pageCount, 2);
 	});
 
 	test("AC:DOC-007 the template view carries class, page size, page count and fillable", async () => {
 		const loaded = await library();
 		const view = (id: string) => templateView(loaded.templates.find((t) => t.id === id)!);
-		assert.deepEqual(view("commitment-card").pageSize, { width: 306, height: 396 });
+		// The commitment card prints four to a Letter sheet (its template file); the response card is one card a page.
+		assert.deepEqual(view("commitment-card").pageSize, { width: 612, height: 792 });
 		assert.deepEqual(view("response-card").pageSize, { width: 306, height: 396 });
 		assert.deepEqual(view("vision-meeting-agenda").pageSize, { width: 612, height: 792 });
 		assert.equal(view("launch-sunday-checklists").pageCount, 2);
@@ -142,11 +171,7 @@ describe("INV-doc-engine: api engine", () => {
 		assert.ok(ratio(low.primaryText, "#FFFFFF") >= MIN_BODY);
 		assert.ok(ratio(low.accentLine, "#FFFFFF") >= MIN_NONTEXT);
 		const log = new ContrastLog();
-		for (const entry of pdfs) {
-			const ctx = renderContext(CHURCH, FULL, lowContrastKit(), entry.documentClass);
-			await renderPdfElement(entry.build(ctx));
-			for (const row of ctx.log.rows) log.rows.push(row);
-		}
+		for (const entry of pdfs) log.rows.push(...(await contrastRows(entry.id, FULL, lowContrastKit())));
 		for (const row of log.rows) assert.ok(row.ratio >= row.min, `${row.use} ${row.ratio.toFixed(2)} < ${row.min}`);
 		assert.ok(
 			log.rows.some((row) => row.min === MIN_NONTEXT),
@@ -242,15 +267,18 @@ describe("INV-doc-engine: api engine", () => {
 				);
 			}
 		}
+		// T-205: the sign-in sheet's template file has write-in fields for the meeting date and number, filled on paper, so
+		// a library merge value for either one leaves the same blank field.
 		const withValues = await renderTemplatePdf({ id: "guest-sign-in-sheet" }, FULL);
-		assert.equal(
-			withValues.fields.some((f) => f.name === "meeting_date"),
-			false,
-			"a given date prints as text, not a field",
+		const blank = await renderTemplatePdf({ id: "guest-sign-in-sheet" }, NEUTRAL_VALUES);
+		assert.deepEqual(
+			withValues.fields.map((f) => f.name),
+			blank.fields.map((f) => f.name),
 		);
+		assert.ok(withValues.fields.some((f) => f.name === "meeting_date"));
 		assert.equal(
 			withValues.text.flat().some((line) => line.includes("Tuesday, November 10, 2026")),
-			true,
+			false,
 		);
 	});
 
@@ -258,7 +286,8 @@ describe("INV-doc-engine: api engine", () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, FULL, sampleKit());
 			const { doc, tags } = await tagsOf(out.bytes);
-			assert.ok(tags.has("H1"), `${entry.id} has no H1`);
+			// The commitment card's template file heads each card with an H2 ("My commitment") under the church name.
+			assert.ok(tags.has(entry.id === "commitment-card" ? "H2" : "H1"), `${entry.id} has no heading`);
 			if (
 				!["commitment-card", "response-card"].includes(entry.id) &&
 				!["follow-up-letter", "prayer-letter"].includes(entry.id) &&
@@ -379,7 +408,7 @@ describe("INV-doc-engine: api engine", () => {
 		const w = sheet.getWorksheet("Budget worksheet")!;
 		assert.equal(w.getCell("B3").value, "Monthly");
 		assert.equal(w.getCell("C3").value, "Annual");
-		assert.deepEqual(w.getCell("C5").value, { formula: "B5*12" });
+		assert.deepEqual(w.getCell("C5").value, { formula: "(B5*12)" });
 		assert.deepEqual(w.getCell("C10").value, { formula: "SUM(C5:C9)" });
 	});
 

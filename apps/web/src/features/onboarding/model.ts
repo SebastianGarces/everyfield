@@ -2,7 +2,7 @@ import type * as C from "@everyfield/contracts/onboarding";
 import type { z } from "zod";
 
 // The onboarding rules as pure functions (WP-009/ui R4-R6). The store (store.tsx) holds one State and applies these;
-// tests/ui/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
+// tests/unit/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
 // model test runs it without a bundler.
 
 export type Resume = Extract<z.infer<typeof C.resumeResult>, { status: "available" }>;

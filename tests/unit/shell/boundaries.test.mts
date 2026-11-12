@@ -5,7 +5,7 @@
 //
 // It renders the real boundary components in node, with no browser and no database. Try again is found in the element
 // tree the boundary returns and clicked by calling its handler, as React would. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/ui/render.tsconfig.json --test <this file>.
+// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

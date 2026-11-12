@@ -2306,7 +2306,7 @@
         "tests/integration/communication/communication.test.mts",
         "tests/integration/communication/held.test.mts",
         "tests/integration/communication/ui-reads.test.mts",
-        "tests/ui/communication/capture.test.mts"
+        "tests/unit/communication/capture.test.mts"
       ]
     },
     {

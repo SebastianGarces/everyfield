@@ -5,7 +5,7 @@ These files come from Tiptap's free, MIT-licensed UI component repository
 It is the source of the free `simple-editor` template (https://tiptap.dev/docs/ui-components/templates/simple-editor).
 Source commit: `799929bea4804c73767562b69f8acc2acdb8ac86` (main, 2025-10-07). Nothing here comes from a paid plan:
 no `@tiptap-pro/*` package, no Start-plan component such as the slash dropdown menu, no registry token. A test
-(`tests/ui/documents/editor-schema.test.mts`) fails on any non-MIT `@tiptap/*` package, any `@tiptap-pro/*` package and any
+(`tests/unit/documents/editor-schema.test.mts`) fails on any non-MIT `@tiptap/*` package, any `@tiptap-pro/*` package and any
 Tiptap registry line in an `.npmrc`.
 
 Every copied file keeps Tiptap's code apart from the Everyfield changes listed here. Some are the same in each: imports point to this folder, the SCSS
@@ -21,7 +21,7 @@ its `data-mobile` attribute; the attributes no style or code reads (`data-style`
 options with the code only they fed. A toolbar button writes `data-disabled` only while it is off
 (`data-disabled={!x || undefined}`): Tiptap writes `data-disabled="false"` on an enabled button, and the `data-[disabled]`
 classes and the controls' `[data-disabled]` cursor rule match the attribute whatever its value
-(`tests/ui/documents/toolbar-disabled.test.mts`).
+(`tests/unit/documents/toolbar-disabled.test.mts`).
 
 | File here                                          | Source in `apps/web/src/` of the Tiptap repository               | Extra change                                                                                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
