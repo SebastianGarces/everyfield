@@ -62,7 +62,7 @@ import { runDueImports } from "../../../apps/web/src/server/people/run-imports.t
 import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
-import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
+import { deletedDocumentCases, documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
@@ -850,6 +850,23 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 		}
 	}
 	assert.deepEqual(blind, [], "church A's own owner must see the seeded data, or the case proves nothing");
+});
+
+// T-189: a deleted Church Document's export link and page tell its own church it was deleted, and answer another church
+// exactly as an unknown id does, with no read of private storage.
+test("INV-tenancy: a deleted Church Document and its saved export answer another church as an unknown id", async () => {
+	const before = storageCalls;
+	const code = (reply) => (reply.status === "refused" ? reply.error.code : reply.status);
+	for (const c of deletedDocumentCases(t, ownerB)) {
+		const [deleted, unknown] = [await c.deleted(), await c.unknown()];
+		assert.equal(code(deleted), "unavailable", c.name);
+		assert.equal(code(deleted), code(unknown), `${c.name} answers church B as an unknown id`);
+	}
+	const own = Object.fromEntries(
+		await Promise.all(deletedDocumentCases(t, ownerA).map(async (c) => [c.name, code(await c.deleted())])),
+	);
+	assert.deepEqual(own, { readExportFile: "deleted", listExports: "deleted", readChurch: "unavailable" });
+	assert.equal(storageCalls, before, "no read of private storage");
 });
 
 // T-232: Add guest's one write takes a meeting and People only from the writer's own church.

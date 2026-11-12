@@ -79,18 +79,20 @@ export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
 ): Promise<
-	Load<{
-		view: ChurchView;
-		document: DocDocument;
-		brands: DocBrands | null;
-		mergeValues: Record<string, string>;
-		template: TemplateState;
-		exports: SavedExport[];
-		/** The newest 1000 revisions, newest first. */
-		revisions: RevisionRow[];
-		/** True when the document has older revisions than `revisions` holds. */
-		revisionsTruncated: boolean;
-	}>
+	| Load<{
+			view: ChurchView;
+			document: DocDocument;
+			brands: DocBrands | null;
+			mergeValues: Record<string, string>;
+			template: TemplateState;
+			exports: SavedExport[];
+			/** The newest 1000 revisions, newest first. */
+			revisions: RevisionRow[];
+			/** True when the document has older revisions than `revisions` holds. */
+			revisionsTruncated: boolean;
+	  }>
+	// Only a seat of the church plant whose document was deleted; anyone else gets "refused", as for an unknown id.
+	| { status: "deleted" }
 > {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
@@ -109,6 +111,7 @@ export async function loadChurchDocument(
 			documentsWriter.listExports(db, authority, { documentId }),
 			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
+		if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
 		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		return {
@@ -186,7 +189,8 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 
 /**
  * GET /documents/church/{id}/exports/{exportId}: the stored bytes of one saved export, never rendered again (DOC-003).
- * Another church plant, a seatless account and an unknown id get not found. The actor is read again here.
+ * Another church plant, a seatless account and an unknown id get not found. A seat of the church plant whose document
+ * was deleted gets no file: it goes to the document page, which says the document was deleted. The actor is read again.
  */
 export async function savedExportRoute(
 	_request: Request,
@@ -206,6 +210,12 @@ export async function savedExportRoute(
 			{ documentId: documentId.data, exportId: exportId.data },
 			privateStorage(),
 		);
+		if (reply.status !== "ok" && reply.error.code === "deleted") {
+			return new Response(null, {
+				status: 303,
+				headers: { ...NO_STORE, Location: `/documents/church/${documentId.data}` },
+			});
+		}
 		if (reply.status !== "ok") return gone();
 		const file = reply.value;
 		return new Response(Buffer.from(file.bytes, "base64"), {
