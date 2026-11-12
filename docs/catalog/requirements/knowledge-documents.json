@@ -826,7 +826,7 @@
         "WIKI-004",
         "WIKI-009"
       ],
-      "text": "After a publisher-marked meaningful revision, keep existing completed reading/percentage evidence and show Updated since you read it for the authorized current article; original source/revision evidence remains attributable.",
+      "text": "After a publisher-marked meaningful revision, keep existing completed reading/percentage evidence and show Updated since you read it for the authorized current article until that person opens it; opening it clears the label for that person only and changes no completion, percentage or bookmark (Audit #551); original source/revision evidence remains attributable.",
       "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
       "operations": [],
       "acceptance_ids": [

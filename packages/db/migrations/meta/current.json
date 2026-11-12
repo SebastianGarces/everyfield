@@ -20419,6 +20419,12 @@
           "name": "task_uq_2",
           "columns": [
             {
+              "expression": "series_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "predecessor_id",
               "isExpression": false,
               "asc": true,
