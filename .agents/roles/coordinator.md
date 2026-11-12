@@ -27,8 +27,7 @@ each later slice as its own task.
 
 Sebastian's approvals: the dashboard with Touch ID is the normal route. A delegate may relay Sebastian's exact words with
 `evf decide --relay-by`, quoting them. Never reuse earlier words for a new head. Global kickoff and spending gates still
-apply. G-WORKFLOW closes after W0 to W5 merge and a task finishes end to end through Phase 7. Full package closure
-remains an integration decision.
+apply. Full package closure remains an integration decision.
 
 Wiki articles keep their own Opus review, then Sebastian's approval through the `wiki` owner class. After a named
 reviewer approves in chat, record it with `bin/wiki claim-check`. Run `bin/wiki promote` only after human approval, on the
