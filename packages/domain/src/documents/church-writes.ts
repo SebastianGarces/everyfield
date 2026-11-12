@@ -100,6 +100,7 @@ function storedDoc(text: string | null) {
 	return parsed.success ? parsed.data : null;
 }
 
+const churchFields = c.churchDocument.omit({ body: true });
 /** One Church Document as the writers return it. The formats follow from the body; a stored row is never deleted here. */
 function churchResult(
 	tenantId: string,
@@ -119,7 +120,12 @@ function churchResult(
 	},
 ) {
 	const templateVersion = followedVersion(d.templateId, d.templateVersion, d.body.origin);
-	return c.churchDocument.parse({ ...d, templateVersion, tenantId, formats: docFormats(d.body), archived: false });
+	// The body arrives parsed (the request or the stored revision), so only the fields around it are checked here.
+	const { body, ...rest } = d;
+	return {
+		...churchFields.parse({ ...rest, templateVersion, tenantId, formats: docFormats(body), archived: false }),
+		body,
+	};
 }
 
 /**

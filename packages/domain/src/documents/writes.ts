@@ -324,10 +324,10 @@ const generatedWriter = {
 			parse(c.listOwnedRequest, raw);
 			const scope = viewScope(authority);
 			if (!scope) deny();
-			const found = await rowsOf<OwnedRow & { ok: boolean }>(
+			const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
 				db,
 				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash,
+					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.content_hash,
 					r.id AS revision_id
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
@@ -338,8 +338,22 @@ const generatedWriter = {
 			);
 			if (found[0]?.ok !== true && found.length > 0) deny();
 			if (found.length === 0) deny();
+			// One parse of the page checks every row once.
 			return c.ownedDocumentPage.parse({
-				documents: found.filter((row) => row.id).map((row) => ownedFrom(row, scope.tenantId)),
+				documents: found
+					.filter((row) => row.id)
+					.map((row) => ({
+						id: row.id,
+						tenantId: row.tenant_id ?? scope.tenantId,
+						kind: row.kind,
+						title: row.title,
+						revision: row.revision,
+						revisionId: row.revision_id,
+						contentHash: row.content_hash,
+						archived: row.archived,
+						copiedFromRevisionId: row.copied_from_revision_id,
+						copiedFromHash: row.copied_from_hash,
+					})),
 			});
 		});
 	},
@@ -545,23 +559,22 @@ const generatedWriter = {
 				ok: boolean;
 				id: string | null;
 				title: string;
-				revision_id: string;
-				body: string;
+				revision_id: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id, r.body
+				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.accountId}::uuid AND d.current_revision_id IS NOT NULL
 					AND d.kind IN ('native', 'core_values') AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
-					AND (r.import_state IS NULL OR r.import_state = 'ready')
+					AND (r.import_state IS NULL OR r.import_state = 'ready') AND ${hasText(sql.raw("r.body"))}
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
 			);
 			if (found[0]?.ok !== true) deny();
 			return c.copySourcePage.parse({
 				documents: found
-					.filter((row) => row.id && row.body && c.nativeText(c.readNative(row.body).body))
+					.filter((row) => row.id && row.revision_id)
 					.map((row) => ({ id: row.id, title: row.title, revisionId: row.revision_id })),
 			});
 		});
