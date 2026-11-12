@@ -39,7 +39,7 @@ function workspacePackages() {
 	return dirs.filter((d) => existsSync(join(d, "package.json")));
 }
 
-test("AC:DOC-EDIT-FREE: each Tiptap package the workspace depends on is installed under the MIT license", () => {
+test("INV-license: each Tiptap package the workspace depends on is installed under the MIT license", () => {
 	const found: string[] = [];
 	for (const dir of workspacePackages()) {
 		const manifest = readJson(join(dir, "package.json"));
@@ -59,7 +59,7 @@ test("AC:DOC-EDIT-FREE: each Tiptap package the workspace depends on is installe
 const schema = editorSchema();
 
 for (const template of DOC_TEMPLATES) {
-	test(`AC:DOC-EDIT-SCHEMA: a fork of ${template.id} loads into the editor schema and reads back unchanged`, async () => {
+	test(`AC:CASE-DOC-022 a fork of ${template.id} loads into the editor schema and reads back unchanged`, async () => {
 		const doc = await forkTemplate(template);
 		const node = schema.nodeFromJSON(editorContent(doc));
 		node.check();
@@ -69,7 +69,7 @@ for (const template of DOC_TEMPLATES) {
 	});
 }
 
-test("AC:DOC-EDIT-SCHEMA: a slot (a doctrinal section, in no built-in template) keeps every attribute and child", () => {
+test("AC:CASE-DOC-020-EDIT a slot (a doctrinal section, in no built-in template) keeps every attribute and child", () => {
 	const slot = {
 		type: "doc",
 		content: [
@@ -83,7 +83,7 @@ test("AC:DOC-EDIT-SCHEMA: a slot (a doctrinal section, in no built-in template) 
 	assert.deepStrictEqual(clean(schema.nodeFromJSON(slot).toJSON()), slot);
 });
 
-test("BUG-T50: each color token of the format has a swatch with its own readable name, never the raw token", () => {
+test("BUG-9ff6b1a67: each color token of the format has a swatch with its own readable name, never the raw token", () => {
 	const tokens = FORMAT_SCHEMA.tokens.color as readonly (keyof typeof TOKEN_NAMES)[];
 	assert.deepEqual([...TOKENS], [...tokens], "one swatch for each color token, in the format's order");
 	// A readable name is capitalized words, so a raw token such as "ink" or "muted-text" never passes.
@@ -92,7 +92,7 @@ test("BUG-T50: each color token of the format has a swatch with its own readable
 	assert.equal(new Set(tokens.map((token) => TOKEN_NAMES[token])).size, tokens.length, "no two swatches share a name");
 });
 
-test("BUG-T49: a commitment card with a stored empty contact_line shows nothing in the editor, not [Contact line]", async () => {
+test("BUG-64ca105ce: a commitment card with a stored empty contact_line shows nothing in the editor, not [Contact line]", async () => {
 	const card = DOC_TEMPLATES.find((t) => t.id === "commitment-card")!;
 	const sources = {
 		churchName: "Harbor City Church",
@@ -117,7 +117,7 @@ test("BUG-T49: a commitment card with a stored empty contact_line shows nothing 
 	assert.equal(fieldValues(bare).church_name, "[church name]");
 });
 
-test("BUG-T20: conditional text loads into the editor and reads back unchanged, in the body, a column and a box", async () => {
+test("BUG-58bc5acb8: conditional text loads into the editor and reads back unchanged, in the body, a column and a box", async () => {
 	const fork = await forkTemplate(
 		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
 		{ data: {} },
@@ -148,7 +148,7 @@ test("BUG-T20: conditional text loads into the editor and reads back unchanged, 
 	assert.deepStrictEqual(documentFrom(doc, node.toJSON()), clean(doc));
 });
 
-test("BUG-T20: the editor refuses conditional text where the format refuses it, each with its reason", () => {
+test("BUG-58bc5acb8: the editor refuses conditional text where the format refuses it, each with its reason", () => {
 	const p = { type: "paragraph", content: [{ type: "text", text: "x" }] };
 	const cond = (content: unknown[]) => ({ type: "if", attrs: { field: "a", test: "has-value" }, content });
 	const ledger = {
@@ -268,7 +268,7 @@ function columnsUnderColumn(doc: Doc) {
 	return found;
 }
 
-test("BUG-T123: Insert offers no columns in a box in a column or in a column, and still offers them in the body", () => {
+test("BUG-58bc5acb8: Insert offers no columns in a box in a column or in a column, and still offers them in the body", () => {
 	const kinds = ["columns2", "columns3", "columns4"] as const;
 	for (const word of ["inbox", "incolumn"])
 		for (const kind of kinds) assert.equal(canInsert(caretIn(word), kind), false, `${kind} at ${word}`);
@@ -276,7 +276,7 @@ test("BUG-T123: Insert offers no columns in a box in a column or in a column, an
 	assert.equal(canInsert(caretIn("inbox"), "paragraph"), true, "other blocks still insert in the box");
 });
 
-test("BUG-T123: a pasted columns node under a column gives way to its blocks, and the document saves", async () => {
+test("BUG-58bc5acb8: a pasted columns node under a column gives way to its blocks, and the document saves", async () => {
 	const fork = await forkTemplate(
 		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
 		{ data: {} },

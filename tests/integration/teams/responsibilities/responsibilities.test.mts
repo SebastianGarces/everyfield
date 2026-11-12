@@ -624,7 +624,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	);
 });
 
-test("REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
+test("AC:REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
 	const gone = (result) => refused(result, "unavailable");
 	const foreign = ok(await run(teamsWriter.create, { requestKey: key(), input: { name: "Foreign duties" } }, 3)).team;
 	// Another church's line, written directly: the writer is not under test for that church.
@@ -674,7 +674,7 @@ test("REQ-IDN-005 an unknown or another church's team or line is unavailable to 
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE text='Probe'`), 0);
 });
 
-test("a custom team and administration have no Playbook lines", async () => {
+test("AC:TARGET-TEAM-007 a custom team and administration have no Playbook lines", async () => {
 	for (const [name, templateKey] of [
 		["Office", "administration"],
 		["Custom", null],
@@ -700,7 +700,7 @@ test("a custom team and administration have no Playbook lines", async () => {
 	}
 });
 
-test("every WP-017 template key maps to a frozen catalog team or the no-lines key", async () => {
+test("AC:TARGET-TEAM-007 every template key maps to a frozen catalog team or the no-lines key", async () => {
 	const templateKeys = new Set(TEMPLATES.map((team) => team.key));
 	for (const key of Object.keys(REFERENCE_TEAM_KEY)) assert.equal(templateKeys.has(key), true);
 	for (const team of TEMPLATES) {

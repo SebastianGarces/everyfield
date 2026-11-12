@@ -46,7 +46,7 @@ const text = (html: string) =>
 		.replace(/\s+/g, " ")
 		.trim();
 
-test("BUG-551 (people/peo-20): the progress bar counts every row once, a failed-and-remaining row included", () => {
+test("BUG-PR551 (people/peo-20): the progress bar counts every row once, a failed-and-remaining row included", () => {
 	assert.deepEqual(progressOf(receipt as never), { done: 4, total: 6 });
 	const running = {
 		...receipt,
@@ -56,7 +56,7 @@ test("BUG-551 (people/peo-20): the progress bar counts every row once, a failed-
 	assert.deepEqual(progressOf(running as never), { done: 0, total: 6 });
 });
 
-test("BUG-551 (people/peo-7): a partial Done screen lists every row that did not save, unreached rows included", () => {
+test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did not save, unreached rows included", () => {
 	const html: string = renderToStaticMarkup(
 		createElement(
 			AppRouterContext.Provider,

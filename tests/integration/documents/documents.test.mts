@@ -85,8 +85,8 @@ after(async () => {
 	await database.close();
 });
 
-describe("WP-036/api document templates", { concurrency: 1 }, () => {
-	test("INV-doc-format CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
+describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
+	test("AC:CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
 		const owner = await authority(0);
 		const discovery = await authority(4);
 		assert.equal(discovery.actor.context.kind, "account");
@@ -155,7 +155,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		refused(await documentsReader["templates.list"](db, owner, { article: "g1" }), "invalid_input");
 	});
 
-	test("CASE-DOC-002 preview renders every format from the catalog and writes no rows", async () => {
+	test("AC:CASE-DOC-002 preview renders every format from the catalog and writes no rows", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
 		const before = await counts();
@@ -291,7 +291,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal(await countOf("document"), 1);
 	});
 
-	test("GAP-REF-003 REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
+	test("AC:GAP-REF-003 AC:REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
 		const { templates, version } = await library();
 		// The 11 frozen catalog rows, then Bylaws and Prayer Letter, authored in code.
 		assert.equal(templates.length, 13);
@@ -328,7 +328,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal("rollbackActivation" in reference, false);
 	});
 
-	test("CASE-DOC-007 CASE-DOC-011 agendas print from the meeting itself and only from a live meeting of their kind", async () => {
+	test("AC:CASE-DOC-007 AC:CASE-DOC-011 agendas print from the meeting itself and only from a live meeting of their kind", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
 		const outsider = await authority(3);

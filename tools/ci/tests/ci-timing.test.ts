@@ -148,7 +148,7 @@ function fixture() {
 	return { root, gh: join(bin, "gh"), run, calls, close: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-test("T-39: ci-timing splits queue, setup and run per job, counts cache lines and totals per job name", () => {
+test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache lines and totals per job name", () => {
 	const f = fixture();
 	try {
 		const r = f.run("--last", "2", "--json");
@@ -183,7 +183,7 @@ test("T-39: ci-timing splits queue, setup and run per job, counts cache lines an
 	}
 });
 
-test("T-39: ci-timing prints no data for a missing signal, never 0", () => {
+test("INV-ci-timing: ci-timing prints no data for a missing signal, never 0", () => {
 	const f = fixture();
 	try {
 		const r = f.run("--last", "2");
@@ -202,7 +202,7 @@ test("T-39: ci-timing prints no data for a missing signal, never 0", () => {
 	}
 });
 
-test("T-39: ci-timing sends only GET reads to GitHub", () => {
+test("INV-ci-timing: ci-timing sends only GET reads to GitHub", () => {
 	const f = fixture();
 	try {
 		assert.equal(f.run("--last", "2").status, 0);

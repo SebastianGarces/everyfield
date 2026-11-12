@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { evaluationIssues } from "../../../apps/web/src/features/meetings/model.ts";
 import { applyChange } from "../../../apps/web/src/features/meetings/page-state.ts";
 
-test("BUG-S2-F06: each issue maps to its factor, notes, reason or the dialog", () => {
+test("BUG-01aca6707: each issue maps to its factor, notes, reason or the dialog", () => {
 	const shown = evaluationIssues([
 		{ path: "input.scores.agendaScore", problem: "Invalid input: expected number, received undefined" },
 		{ path: "input.changes.nextStepsScore", problem: "Too big" },
@@ -22,7 +22,7 @@ test("BUG-S2-F06: each issue maps to its factor, notes, reason or the dialog", (
 	assert.match(shown.dialog[0], /evaluation date must fall between the meeting date and today/);
 });
 
-test("BUG-S2-F06: no issues maps to nothing, and an unknown path still says something", () => {
+test("BUG-01aca6707: no issues maps to nothing, and an unknown path still says something", () => {
 	assert.deepEqual(evaluationIssues([]), { scores: {}, dialog: [] });
 	assert.deepEqual(evaluationIssues([{ path: "input.extra", problem: "Unrecognized key" }]).dialog, [
 		"Some details are not valid. Check them and try again.",

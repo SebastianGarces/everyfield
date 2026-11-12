@@ -106,7 +106,7 @@ const TSC_FAIL = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 
 const BUN_SAME_EXIT_1 = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1";
 const BUN_SAME_EXIT_2 = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 2";
 
-test("T-53: exit codes 1 and 2 both mean errors, and matching errors are no mismatch", (t) => {
+test("INV-typecheck: exit codes 1 and 2 both mean errors, and matching errors are no mismatch", (t) => {
 	for (const bun of [BUN_SAME_EXIT_1, BUN_SAME_EXIT_2]) {
 		const f = workspace({
 			"packages/a": { scripts: { typecheck: TSC_FAIL, "typecheck:bun": bun } },
@@ -128,7 +128,7 @@ test("T-53: exit codes 1 and 2 both mean errors, and matching errors are no mism
 	}
 });
 
-test("T-53: a different error from bun check is a mismatch that lists each difference", (t) => {
+test("INV-typecheck: a different error from bun check is a mismatch that lists each difference", (t) => {
 	const f = workspace({
 		"packages/a": {
 			scripts: {
@@ -149,7 +149,7 @@ test("T-53: a different error from bun check is a mismatch that lists each diffe
 	assert.equal(run.result.packages[1].mismatch, "no");
 });
 
-test("T-53: the exit code is always tsc's when bun check errors, crashes, times out or is missing", (t) => {
+test("INV-typecheck: the exit code is always tsc's when bun check errors, crashes, times out or is missing", (t) => {
 	const cases: Array<[string, string | undefined, string]> = [
 		["errors", "printf 'src/z.ts(1,1): error TS2307: Cannot find module.\\n'; exit 1", "errors"],
 		["crashes", "kill -SEGV $$", "crash"],
@@ -178,7 +178,7 @@ test("T-53: the exit code is always tsc's when bun check errors, crashes, times 
 		}
 });
 
-test("T-53: each run appends its result line to the log outside CI and only prints it in CI", (t) => {
+test("INV-typecheck: each run appends its result line to the log outside CI and only prints it in CI", (t) => {
 	const f = workspace({
 		"packages/a": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
 		"packages/b": { scripts: { typecheck: TSC_PASS, "typecheck:bun": "exit 0" } },
@@ -200,7 +200,7 @@ test("T-53: each run appends its result line to the log outside CI and only prin
 	assert.equal(readFileSync(f.log, "utf8").trimEnd().split("\n").length, 2, "CI appends nothing");
 });
 
-test("T-53: every package runs the pinned bun 1.4.4 as check --no-script --no-pretty, never a global bun", (t) => {
+test("INV-typecheck: every package runs the pinned bun 1.4.4 as check --no-script --no-pretty, never a global bun", (t) => {
 	assert.equal(rootPkg.devDependencies.bun, "1.4.4");
 	for (const dir of PACKAGES) {
 		const scripts = JSON.parse(readFileSync(join(repo, dir, "package.json"), "utf8")).scripts;
@@ -236,7 +236,7 @@ test("T-53: every package runs the pinned bun 1.4.4 as check --no-script --no-pr
 	assert.equal(existsSync(marker), false, "the global bun never ran");
 });
 
-test("T-53: typecheck:bun at the root, in a package and in the shadow never starts a check script", (t) => {
+test("INV-typecheck: typecheck:bun at the root, in a package and in the shadow never starts a check script", (t) => {
 	const f = workspace(
 		{
 			"packages/p": {
@@ -269,7 +269,7 @@ test("T-53: typecheck:bun at the root, in a package and in the shadow never star
 	assert.equal(existsSync(markers[1]), true, "control: bun check without --no-script runs the check script");
 });
 
-test("T-53: a package .env reaches no checker, child process or output", (t) => {
+test("INV-typecheck: a package .env reaches no checker, child process or output", (t) => {
 	const sentinel = "t53-sentinel-4f1c9e";
 	const f = workspace({
 		// The tsc stand-in prints its whole environment, so a loaded .env would show in the output.

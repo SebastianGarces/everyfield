@@ -425,7 +425,7 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 	assert.deepEqual(ok(await receiptOf(requestKey)).counts, { created: 498, skipped: 0, failed: 3, remaining: 3 });
 	assert.equal(await count("person"), peopleBefore + 498);
 });
-test("AC:TARGET-PPL-018 INV-tenancy BUG-198-unconfirmed an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
+test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
 	const existing = await person("Rae Existing", { phone: "(555) 010-2030" });
 	const file =
 		"first_name,last_name,phone,email\r\nRae,Import,555-010-2030,\r\nSam,One,,sam@example.test\r\nSam,Two,,SAM@example.test\r\nUma,,,uma@example.test\r\n,,,bad\r\n";
@@ -527,7 +527,7 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-198-unconfirmed an import saves exactly 
 	}
 });
 
-test("AC:TARGET-PPL-018 D-516 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
+test("AC:TARGET-PPL-018 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
 	const tag = randomUUID().slice(0, 8);
 	const file = `first_name,last_name,email\r\nVi,One,vi-${tag}@example.test\r\nVi,Two,VI-${tag}@example.test\r\n`;
 	const p = ok(await preview(file));
@@ -853,7 +853,7 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	}
 });
 
-test("AC:TARGET-PPL-019 BUG-export-names the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
+test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
 	const maria = await person("Maria Santos");
 	const mary = await person("Mary Ann  Smith");
 	const grace = await person("Grace");
@@ -893,7 +893,7 @@ test("AC:TARGET-PPL-019 BUG-export-names the export derives first_name and last_
 	void uma;
 });
 
-test("INV-C32 a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
+test("INV-session-lock: a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
 	const file = "first_name\r\nLockfree\r\n";
 	const p = ok(await preview(file));
 	const requestKey = randomUUID();

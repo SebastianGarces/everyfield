@@ -23,7 +23,7 @@ const checkFails = (error: { cause?: { constraint?: string } }) =>
 	error.cause?.constraint === "organization_statement_of_faith";
 const TEXT = "We hold to these words.\n\nA second paragraph,\nwith a line break.";
 
-test("DOC-020: a network's Owner and Admin save, change and clear its statement of faith, read back each time", async () => {
+test("AC:DOC-020 a network's Owner and Admin save, change and clear its statement of faith, read back each time", async () => {
 	const network = await S.tenant("sending_network"),
 		ownerSeat = await S.identity(network, "owner"),
 		adminSeat = await S.identity(network, "admin"),
@@ -96,7 +96,7 @@ test("DOC-020: a network's Owner and Admin save, change and clear its statement 
 	);
 });
 
-test("DOC-020: the statement is at most 10,000 characters", async () => {
+test("AC:DOC-020 the statement is at most 10,000 characters", async () => {
 	const network = await S.tenant("sending_network"),
 		ownerSeat = await S.identity(network, "owner");
 	await assert.rejects(
@@ -120,7 +120,7 @@ test("DOC-020: the statement is at most 10,000 characters", async () => {
 	);
 });
 
-test("DOC-020: a sending church row cannot store a statement of faith", async () => {
+test("AC:DOC-020 a sending church row cannot store a statement of faith", async () => {
 	const church = await S.tenant("sending_church"),
 		ownerSeat = await S.identity(church, "owner");
 	await assert.rejects(

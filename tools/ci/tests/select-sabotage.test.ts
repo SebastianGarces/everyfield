@@ -12,7 +12,7 @@ const SOURCE = fileURLToPath(new URL("../select.ts", import.meta.url));
 const SUITE = fileURLToPath(new URL("./select.test.ts", import.meta.url));
 const LINE = "for (const test of reached) add(testWhy, test, `reached ${path}`);";
 
-test("T-41 a selection that drops the tests reaching a changed file fails the selection tests", (t) => {
+test("INV-ci-select: a selection that drops the tests reaching a changed file fails the selection tests", (t) => {
 	const source = readFileSync(SOURCE, "utf8");
 	assert.equal(source.split(LINE).length, 2, "select.ts adds each reaching test exactly once");
 	const dir = mkdtempSync(join(tmpdir(), "evf-sabotage-"));
@@ -30,8 +30,8 @@ test("T-41 a selection that drops the tests reaching a changed file fails the se
 	});
 	console.log(sabotaged.stdout);
 	assert.notEqual(sabotaged.status, 0, "the selection tests pass on a sabotaged selection");
-	assert.match(sabotaged.stdout, /✖ a tools\/qa source change runs only the tests that reached it/);
-	assert.match(sabotaged.stdout, /✖ a changed source file selects every test file that reached it/);
+	assert.match(sabotaged.stdout, /✖ INV-ci-select: a tools\/qa source change runs only the tests that reached it/);
+	assert.match(sabotaged.stdout, /✖ INV-ci-select: a changed source file selects every test file that reached it/);
 	// The same suite passes on the real select.ts, so the failure is the sabotage and nothing else.
 	const real = spawnSync(process.execPath, ["--test", "--test-reporter=spec", SUITE], { encoding: "utf8", env });
 	assert.equal(real.status, 0, real.stdout);

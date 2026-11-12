@@ -143,7 +143,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:TARGET-PPL-018 T-191 the Owner signs one upload, and the preview and the import read the stored object, never the browser's rows", async () => {
+test("AC:TARGET-PPL-018 the Owner signs one upload, and the preview and the import read the stored object, never the browser's rows", async () => {
 	const text = fileOf("Ana", 3);
 	const file = bytes(text);
 	const signed = ok(await signPeopleImport(db, storage, await authority(), { byteLength: file.length }));
@@ -220,7 +220,7 @@ test("AC:TARGET-PPL-018 T-191 the Owner signs one upload, and the preview and th
 	assert.equal(storage.reads.count, reads, "a Member's request never reads the bucket");
 });
 
-test("AC:TARGET-PPL-018 T-191 a file over 10 MiB is refused before upload, and a stored object over the limit is refused unread", async () => {
+test("AC:TARGET-PPL-018 a file over 10 MiB is refused before upload, and a stored object over the limit is refused unread", async () => {
 	const files = await count("file_object");
 	refused(await signPeopleImport(db, storage, await authority(), { byteLength: LIMIT + 1 }), "file_too_large");
 	refused(await signPeopleImport(db, storage, await authority(), { byteLength: 0 }), "invalid_input");
@@ -244,7 +244,7 @@ test("AC:TARGET-PPL-018 T-191 a file over 10 MiB is refused before upload, and a
 	assert.equal(ok(await preview(full)).counts.valid, 0, "a 10 MiB note is too long, but the file is read");
 });
 
-test("AC:TARGET-PPL-018 T-191 BUG-198-unconfirmed the import saves exactly the previewed object: swapped, missing or incomplete is file_changed with nobody created", async () => {
+test("AC:TARGET-PPL-018 BUG-PR198 the import saves exactly the previewed object: swapped, missing or incomplete is file_changed with nobody created", async () => {
 	const uploadId = await upload(fileOf("Swap", 2));
 	const p = ok(await preview(uploadId));
 	const people = await count("person"),
@@ -270,7 +270,7 @@ test("AC:TARGET-PPL-018 T-191 BUG-198-unconfirmed the import saves exactly the p
 	assert.equal(await count("person"), people + 2);
 });
 
-test("AC:TARGET-PPL-018 T-191 INV-lost-reply a retry after the upload repeats the import under its key and creates nobody twice", async () => {
+test("AC:TARGET-PPL-018 INV-lost-reply a retry after the upload repeats the import under its key and creates nobody twice", async () => {
 	const fail = async (on) =>
 		admin.execute(
 			sql.raw(
@@ -309,7 +309,7 @@ test("AC:TARGET-PPL-018 T-191 INV-lost-reply a retry after the upload repeats th
 	assert.equal(await count("person"), people + 3);
 });
 
-test("AC:TARGET-PPL-018 T-191 a failed or abandoned upload leaves no ready file: the shared cleanup removes the staged object and its row", async () => {
+test("AC:TARGET-PPL-018 a failed or abandoned upload leaves no ready file: the shared cleanup removes the staged object and its row", async () => {
 	// Signed but never uploaded, and uploaded but never imported.
 	const never = ok(await signPeopleImport(db, storage, await authority(), { byteLength: 100 })).uploadId;
 	const abandoned = await upload(fileOf("Gone", 1));
