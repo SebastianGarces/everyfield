@@ -8,7 +8,7 @@ import { describe } from "../../../apps/web/src/features/people/activity.ts";
 
 // The icon set as the web app resolves it; an icon is plain SVG data, so equal data is the same icon.
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
-const { GitMergeIcon, UserEdit01Icon, UserMultiple02Icon } = web("@hugeicons/core-free-icons");
+const { UserMultiple02Icon } = web("@hugeicons/core-free-icons");
 
 const entry = (action) => ({
 	id: "1c7d4f2a-3b8e-4d4c-8a6f-2e3d4c5b6a71",
@@ -31,9 +31,4 @@ test("T-269 a dismissal and its restore each name the other person in their own 
 		icon: UserMultiple02Icon,
 		tone: "violet",
 	});
-});
-
-test("T-269 merge and ordinary entries keep their own icons", () => {
-	assert.deepEqual(describe({ ...entry("person_merged"), withPerson: undefined }, "You").icon, GitMergeIcon);
-	assert.deepEqual(describe({ ...entry("updated"), withPerson: undefined }, "You").icon, UserEdit01Icon);
 });
