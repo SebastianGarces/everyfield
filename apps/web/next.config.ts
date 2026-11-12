@@ -22,9 +22,16 @@ const config: NextConfig = {
 	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
 	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and
-	// each request path; an email opt-out or Messages unsubscribe path carries its token (REQ-NTF-012, REQ-NTF-016), so
-	// those requests are not logged.
-	logging: { serverFunctions: false, incomingRequests: { ignore: [/\/email-preferences\//, /\/unsubscribe\//] } },
+	// each request URL with its query. An email opt-out, Messages unsubscribe or RSVP path carries its token (REQ-NTF-012,
+	// REQ-NTF-016, REQ-COM-010), and the confirm-email, verify-email and reset-password links carry theirs as
+	// `?token=`, also inside the encoded `returnTo` of the sign-in redirect a signed-out confirm-email visit gets. None of
+	// those requests is logged. The invitation link keeps its proof in the fragment, which no request carries (D54).
+	logging: {
+		serverFunctions: false,
+		incomingRequests: {
+			ignore: [/\/email-preferences\//, /\/unsubscribe\//, /\/rsvp\//, /(?:[?&]|%3F|%26)token(?:=|%3D)/i],
+		},
+	},
 	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
 	// optimized copies (their URLs carry the content hash of the source file).
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
@@ -53,9 +60,19 @@ const config: NextConfig = {
 		proxyClientMaxBodySize: IMPORT_BYTES_MAX + 64 * 1024,
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
-	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.
+	// Every response refuses framing and MIME sniffing and sends a cross-origin Referer as the origin only. The invitation
+	// page handles a proof (WP-008/ui ruling D54): no Referer leaves it. Its rule comes after the global one, because Next
+	// sends the last matching value of a header.
 	async headers() {
 		return [
+			{
+				source: "/:path*",
+				headers: [
+					{ key: "X-Frame-Options", value: "DENY" },
+					{ key: "X-Content-Type-Options", value: "nosniff" },
+					{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+				],
+			},
 			{
 				source: "/invitation",
 				headers: [
