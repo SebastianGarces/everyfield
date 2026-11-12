@@ -1,5 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
+import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
 import {
@@ -44,7 +45,8 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
 /**
  * The scheduled runner (Vercel cron, every minute): one bounded batch of every job kind that has a worker, so due work
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
- * runs the existing workers, each of which returns expired leases to the queue first. Requested deletions whose
+ * runs the existing workers, each of which returns expired leases to the queue first. It deletes the uploaded files that
+ * failed or partial People imports kept for 7 days after they last stopped (`people-import-files`). Requested deletions whose
  * cancellation deadline has passed are purged on the cleanup login (`lifecycle_purge`). It queues the digests whose period
  * ended at the run's clock and delivers a bounded batch of them (WP-030), and writes the notices of due meeting
  * announcements and reminders (`notification`). The workers claim with SKIP
@@ -112,6 +114,7 @@ export function scheduledJobs(config: {
 		const steps: Step[] = [
 			["close-lost-jobs", "closed", () => transaction(db, (tx) => closeLostJobs(tx))],
 			["people-import", null, () => runDueImports(db, 4, until)],
+			["people-import-files", null, () => deleteExpiredImportFiles(db)],
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
 			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
