@@ -45,18 +45,15 @@ const SEAT_TEXT =
 function Blocked({
 	title,
 	tone = "lock",
-	heading = "Weekly check-in",
 	children,
 }: {
 	title: string;
 	tone?: "lock" | "error";
-	/** The page's own title: this state stands in for the whole page. */
-	heading?: string;
 	children: React.ReactNode;
 }) {
 	return (
 		<>
-			<PageHeader size="xl" title={heading} />
+			<PageHeader size="xl" title="Weekly check-in" />
 			<Card>
 				<StatePanel tone={tone} icon={tone === "lock" ? LockKeyIcon : undefined} title={title} headingLevel="h2">
 					{children}
@@ -104,9 +101,9 @@ export async function AttestationsPage() {
 	const loaded = await loadAttestations(viewer);
 	if (loaded.status !== "ok")
 		return (
-			<Blocked title="We could not load the attestations" tone="error" heading="Attestations">
+			<PlantIntelligenceBlocked title="We could not load the attestations" tone="error">
 				This is a loading problem. Your answers are safe. Reload the page in a moment.
-			</Blocked>
+			</PlantIntelligenceBlocked>
 		);
 	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
 }

@@ -12,6 +12,7 @@ import {
 	type MergeKey,
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
+import { communicationAccess } from "./access.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
@@ -19,7 +20,6 @@ import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "
 import type { OptOutKeyRing } from "../notifications/opt-out.ts";
 import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
 
-const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
 
 /**
@@ -136,21 +136,14 @@ export function mailAddressHash(key: Uint8Array, address: string) {
 	if (addressKey.length !== 32) throw new Error("mail_keys_required");
 	return addressHash(addressKey, address);
 }
+/** C13: the Owner or Admin check of every delivery statement, the same one communication reads make. */
 function adminGate(actor: Actor) {
-	return sql`EXISTS (SELECT 1 FROM live_session(${actor.session}::uuid) i
-		JOIN account a ON a.id = i.account_id AND a.id = ${actor.accountId}::uuid AND a.auth_user_id IS NOT NULL
-		JOIN seat st ON st.account_id = a.id AND st.id = ${actor.seatId}::uuid AND st.plant_id = ${actor.plantId}::uuid
-			AND st.ended_at IS NULL AND st.accepted_at <= clock_timestamp() AND st.role = ${actor.role}
-			AND st.role <> 'member'
-		WHERE i.registration_state = 'active' AND i.expires_at > clock_timestamp())`;
+	return communicationAccess(actor, actor.session, true);
 }
 function requireActor(authority: RequestActor) {
 	const actor = readerOf(authority);
 	if (!administers(actor)) deny("access_denied");
 	return actor;
-}
-function prefix(id: string) {
-	return `communication/${id}/%`;
 }
 function counts(members: readonly Member[]) {
 	// A recipient waiting in Everyfield for its send time counts as accepted: it goes out then unless they opt out.
@@ -299,7 +292,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 			FROM mail m
 			JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
 			JOIN mail_request r ON r.id = mem.request_id
-			WHERE c.id IS NOT NULL AND m.tenant_id = c.plant_id AND m.logical_key LIKE ${prefix(communicationId)}
+			WHERE c.id IS NOT NULL AND m.tenant_id = c.plant_id AND m.communication_id = c.id
 			ORDER BY r.first_dispatched_at NULLS LAST, r.id
 			LIMIT 1
 		) r ON true
@@ -332,12 +325,18 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(await db.execute(sql`SELECT ${audiencePeople(actor.plantId, audience)} AS people`)) as
-		{ people?: unknown } | undefined;
-	const people = resolved?.people ?? [];
+	// The audience resolves under the same gate, so a seat or lifecycle that changed since the load reads no one.
+	const resolved = one(
+		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
+			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
+	) as { allowed?: boolean; people?: unknown } | undefined;
+	if (resolved?.allowed !== true) deny("access_denied");
+	const people = resolved.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
-	if (parts.people.length > BATCH_LIMIT) deny("invalid_input");
+	// Schedule refuses this first. An audience that grew past the cap after scheduling stops here, before the digest.
+	if (parts.people.length > c.AUDIENCE_LIMIT)
+		deny("audience_too_large", { limit: c.AUDIENCE_LIMIT, recipients: parts.people.length });
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
 	if (found.review_digest !== digest)
 		deny("stale_review", { previewBody: found.body_html, scriptExecution: false, providerCalls: 0 });
@@ -470,9 +469,9 @@ async function prepare(
 				)
 			),
 			ins_mail AS (
-				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, logical_key, payload_hash, audience_hash,
+				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
-				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', i.logical_key, i.payload_hash, ${loaded.digest},
+				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL

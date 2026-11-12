@@ -138,15 +138,35 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 	phase_milestone: { label: "Phase milestones", description: "A plant moves to its next phase" },
 	launch_milestone: { label: "Launch milestones", description: "Completed or reopened" },
 	wiki_upstream_review: { label: "Wiki review requests", description: "Changes waiting for your review" },
+	scheduled_email_unsubscribe: {
+		label: "Unsubscribes from scheduled email",
+		description: "Someone on an email you scheduled unsubscribes",
+	},
 };
 
-/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the pairs this audience has. */
+/**
+ * The categories something sends today (D-517). Meeting announcements and reminders, connection, sharing and launch
+ * milestones and wiki review requests wait for the notification worker, so Settings does not offer a choice that
+ * nothing reads; their stored choices are kept.
+ */
+const SENT: ReadonlySet<Category> = new Set([
+	"task_due",
+	"task_overdue",
+	"planter_digest",
+	"oversight_digest",
+	"phase_milestone",
+	"scheduled_email_unsubscribe",
+]);
+
+/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */
 export function preferenceRows(choices: readonly NotificationChoice[]) {
-	return (Object.keys(CATEGORY_TEXT) as Category[]).flatMap((category) => {
-		const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
-		const email = choices.find((c) => c.category === category && c.channel === "email");
-		return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
-	});
+	return (Object.keys(CATEGORY_TEXT) as Category[])
+		.filter((category) => SENT.has(category))
+		.flatMap((category) => {
+			const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
+			const email = choices.find((c) => c.category === category && c.channel === "email");
+			return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
+		});
 }
 
 /** Shallow structural equality for drafts made of plain values: one rule, kept in drafts.ts. */

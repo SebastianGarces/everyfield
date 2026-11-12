@@ -1,4 +1,4 @@
-import { and, asc, inArray, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, inArray, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { declareWrite, executeWrites } from "../operations/writes.ts";
@@ -8,12 +8,10 @@ import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
 import { accountId, owner, recordId, revision } from "@everyfield/contracts/common";
 import {
-	authorize,
 	deny,
 	expected,
 	live,
 	hash,
-	lockOwner,
 	lockedWrite,
 	mutation,
 	parse,
@@ -575,6 +573,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 					receiptId: id,
 					noteId,
 					revision: noteRevision,
+					personRevision: after.revision,
 					outcome: "changed",
 				},
 				subject: before.id,
@@ -589,7 +588,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 	return reply(tx, async () => {
 		if (ctx.selected.kind !== "plant") deny();
 		const input = parse(c.classifyAdultRequest, raw);
-		return c.classificationMutationResult.parse(
+		return c.plantPersonMutationResult.parse(
 			await mutation(
 				tx,
 				ctx,
@@ -601,16 +600,13 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 					expected(before, input.expectedRevision);
 					// With a birth date the effective value is derived from it, so no manual value can apply (REQ-PPL-026).
 					if (before.birth_date) deny("invalid_input", { reason: "birth_date_decides" });
-					const now = (
+					const { today } = (
 						await tx
-							.select({
-								today: sql<string>`((clock_timestamp() AT TIME ZONE ${tables.plant.timezone}))::date`,
-								timezone: tables.plant.timezone,
-							})
+							.select({ today: sql<string>`((clock_timestamp() AT TIME ZONE ${tables.plant.timezone}))::date` })
 							.from(tables.plant)
 							.where(eq(tables.plant.id, ctx.selected.id))
 					)[0]!;
-					if (input.input.occurredOn > now.today) deny("invalid_input");
+					if (input.input.occurredOn > today) deny("invalid_input", { reason: "future_date" });
 					audit.writes.push(
 						tx
 							.update(tables.person)
@@ -621,44 +617,12 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 							.where(eq(tables.person.id, before.id)),
 					);
 					const after = personRow.parse({
-							...before,
-							adult_classification: input.input.classification,
-							revision: String(BigInt(before.revision) + 1n),
-						}),
-						dto = c.plantPerson.parse(await project(tx, ctx, after, lockedWrite));
-					const first = await tx
-						.select({ id: tables.commitment.id, signed_on: tables.commitment.signed_on })
-						.from(tables.commitment)
-						.where(
-							and(
-								and(eq(tables.commitment.plant_id, ctx.selected.id), eq(tables.commitment.person_id, before.id)),
-								isNull(tables.commitment.voided_at),
-							),
-						)
-						.orderBy(asc(tables.commitment.signed_on), asc(tables.commitment.id))
-						.limit(1);
+						...before,
+						adult_classification: input.input.classification,
+						revision: String(BigInt(before.revision) + 1n),
+					});
 					return {
-						value: {
-							receiptId: id,
-							outcome: "changed",
-							observation: {
-								owner: ctx.selected,
-								personId: after.id,
-								asOf: new Date().toISOString(),
-								zone: now.timezone,
-								sourceRevision: after.revision,
-								lifecycle: dto.lifecycle,
-								classification: dto.adultClassification,
-								current: dto.commitment,
-								firstAcquisition: first.length
-									? {
-											status: "known",
-											occurredOn: first[0]!.signed_on,
-											evidenceId: first[0]!.id,
-										}
-									: { status: "unknown" },
-							},
-						},
+						value: await output(tx, ctx, after, id),
 						subject: before.id,
 						action: correction ? "people.corrected" : "people.recorded",
 						before,
@@ -835,44 +799,6 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			return c.accountPersonResolution.parse({
 				status: "linked",
 				personId: linked.id,
-			});
-		});
-	},
-	async ensureGuest(tx, ctx, raw) {
-		return reply(tx, async () => {
-			const input = parse(c.guestSelection, raw);
-			if (ctx.selected.kind !== "plant") deny();
-			await lockOwner(tx, ctx);
-			await authorize(tx, ctx, true);
-			let p: Person;
-			if (input.kind === "existing") p = await person(tx, ctx, input.personId, true);
-			else {
-				const created = await peopleWriter.createPerson(
-					tx,
-					ctx,
-					c.createPersonRequest.parse({
-						requestKey: randomUUID(),
-						input: {
-							displayName: input.displayName,
-							email: input.email,
-							phone: input.phone,
-						},
-					}),
-				);
-				if (created.status !== "ok") deny(created.error.code);
-				return c.lockedPersonReference.parse({
-					owner: ctx.selected,
-					personId: created.value.person.id,
-					revision: created.value.person.revision,
-					state: "live",
-				});
-			}
-			live(p);
-			return c.lockedPersonReference.parse({
-				owner: ctx.selected,
-				personId: p.id,
-				revision: p.revision,
-				state: "live",
 			});
 		});
 	},

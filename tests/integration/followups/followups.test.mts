@@ -25,17 +25,9 @@ import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, followups, tasks, reminders;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const write = (who, op, input) => withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
 const taskWrite = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
 const read = (who, op, input) => f.db.transaction((tx) => followUpReader[op](tx, who.actor, input));
@@ -1086,7 +1078,7 @@ async function sharedBy(c, personId, title, ids) {
 	return id;
 }
 
-test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one owner is eligible, and counts once under each", async () => {
+test("AC:TARGET-TSK-012 a follow-up is owned while one owner is eligible, and counts once under each", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1143,7 +1135,7 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 	);
 });
 
-test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole write when one account cannot own", async () => {
+test("AC:TARGET-TSK-012 assigning a list refuses the whole write when one account cannot own", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1182,7 +1174,7 @@ test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole wri
 	);
 });
 
-test("AC:TARGET-TSK-013 F07b criteria 5 and 7: a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
+test("AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const leaving = await c.seated("member");

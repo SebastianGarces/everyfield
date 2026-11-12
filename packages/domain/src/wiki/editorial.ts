@@ -67,22 +67,26 @@ function votesOf(raw: unknown) {
 	return voteList.parse(parsed ?? []);
 }
 
+/**
+ * The reader's own votes on an article. Only a plant seat records feedback (setMine), so a reader with no plant seat has
+ * none to read. A plant seat reads under setMine's check (meSql): the session, seat, role and lifecycle are live in the
+ * same statement, or the read refuses.
+ */
 export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackGetMineRequest, raw);
+	const context = authority.actor.context;
+	const none = () => mineValue({ articleId: input.articleId, currentVote: null, ownHistoryVotes: [] });
+	if (context.kind !== "seat" || context.owner.kind !== "plant") return runRead(async () => none());
+	const owner = context.owner;
 	return runRead(async () => {
 		const result = await db.execute(sql`
-			WITH mine AS (
-				SELECT i.account_id
-				FROM live_session(${authority.session}::uuid) i
-				WHERE i.registration_state = 'active'
-					AND i.account_id = ${authority.actor.accountId}::uuid
-			)
+			WITH ${meSql(authority, owner)}
 			SELECT
-				EXISTS (SELECT FROM mine) AS allowed,
+				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
 					SELECT json_agg(a.result->>'currentVote' ORDER BY a.occurred_at, a.id)
 					FROM audit_event a
-					WHERE a.actor_id = (SELECT account_id FROM mine)
+					WHERE a.actor_id = (SELECT account_id FROM me)
 						AND a.action = 'feedback.received'
 						AND a.result->>'articleId' = ${input.articleId}
 				), '[]'::json) AS votes`);

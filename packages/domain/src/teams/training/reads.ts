@@ -206,38 +206,16 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
-	readStaffingFacts: teamFactsRead(c.staffingFactsRequest),
-	readTrainingHealth: teamFactsRead(c.trainingHealthRequest),
-	async listTeamMeetings(db: Reader, authority: RequestActor, raw: unknown) {
+	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			const input = parse(c.listTeamMeetingsRequest, raw);
-			const found = await row(
-				db,
-				viewer,
-				sql`SELECT (SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS owner,
-					coalesce((SELECT json_agg(json_build_object('id', m.id, 'subtype', m.subtype, 'status', m.status,
-						'guestIds', coalesce((SELECT json_agg(pa.person_id ORDER BY pa.person_id)
-							FROM participation pa WHERE pa.meeting_id = m.id AND pa.removed_at IS NULL), '[]'::json))
-						ORDER BY m.starts_at, m.id)
-					FROM (SELECT id, subtype, status, starts_at FROM meeting
-						WHERE team_id = ${input.teamId}::uuid AND plant_id = ${viewer.plantId}::uuid AND type = 'team_meeting'
-						ORDER BY starts_at, id LIMIT 100) m), '[]'::json) AS meetings`,
-			);
-			owner(viewer.plantId, found.owner);
-			return c.teamMeetingList.parse({ teamId: input.teamId, meetings: found.meetings });
-		});
-	},
-};
-
-function teamFactsRead(request: typeof c.staffingFactsRequest | typeof c.trainingHealthRequest) {
-	return (db: Reader, authority: RequestActor, raw: unknown) =>
-		read(authority, async (viewer) => {
-			const input = parse(request, raw);
+			const input = parse(c.staffingFactsRequest, raw);
 			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
 			owner(viewer.plantId, found.owner);
 			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
 		});
-}
+	},
+};
+
 function picked(found: Record<string, unknown>) {
 	return {
 		filledSlots: found.filledSlots,

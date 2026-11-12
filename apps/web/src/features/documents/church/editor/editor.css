@@ -15,7 +15,8 @@
 	--paper-quiet: var(--paper-text-quiet);
 	--paper-line: #dee0e4;
 	--paper-muted: #edf0f4;
-	--paper-accent: #026b40;
+	/* The title, heading numbers and links print in primary as text on white (paletteVars, from the PDF palette). */
+	--paper-accent: var(--tok-primary-text);
 	--paper-primary: var(--paper-text);
 	position: relative;
 	box-sizing: border-box;
@@ -298,8 +299,8 @@
 	display: inline-block;
 	padding: 1px 8px;
 	border-radius: 4px;
-	background: var(--paper-accent);
-	color: white;
+	background: var(--tok-accent);
+	color: var(--on-accent);
 	font-size: 12px;
 	font-weight: 700;
 	line-height: 1.4;
@@ -948,6 +949,8 @@
 /* A plain native document's paper (written/): Letter width, no fixed page height, dividers in the paper's own ink. It
    has no page setup, so the page box is fixed here. */
 .ef-sheet.ef-native {
+	/* No brand palette: the plain document keeps the Everyfield green for its title and links. */
+	--tok-primary-text: #026b40;
 	--page-w: 816px;
 	--page-h: 640px;
 	--pad-x: 88px;

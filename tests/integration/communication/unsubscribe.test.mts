@@ -128,7 +128,7 @@ before(async () => {
 });
 after(teardown);
 
-test("T-25 criteria 1, 3: a task-due email ends with Unsubscribe and settings links and carries the RFC 8058 headers with the same token", async () => {
+test("AC:CASE-NTF-012 a task-due email ends with Unsubscribe and settings links and carries the RFC 8058 headers with the same token", async () => {
 	await notify(linked, "task_due");
 	const [email, ...rest] = await dispatchAll(linked);
 	assert.equal(rest.length, 0);
@@ -161,7 +161,7 @@ test("T-25 criteria 1, 3: a task-due email ends with Unsubscribe and settings li
 	});
 });
 
-test("T-25: a retried send of the same mail repeats the same body under its idempotency key", async () => {
+test("AC:CASE-NTF-012 a retried send of the same mail repeats the same body under its idempotency key", async () => {
 	await notify(linked, "task_overdue");
 	await db.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='mail' AND state='ready'`,
@@ -199,7 +199,7 @@ test("T-25: a retried send of the same mail repeats the same body under its idem
 	assert.equal(claimOf(pageToken(a.body)!).category, "task_overdue");
 });
 
-test("T-25 criteria 2, 4: one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
+test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
 	await notify(linked, "task_due");
 	const [email] = await dispatchAll(linked);
 	assert.ok(email);
@@ -239,7 +239,7 @@ test("T-25 criteria 2, 4: one-click with the header's token turns off task-due e
 	assert.equal(bell.rows[0]!.n, 3, "every task-due notice reached the bell");
 });
 
-test("T-25 criterion 6: security, invitation and receipt mail carries no Unsubscribe link and no List-Unsubscribe headers", async () => {
+test("AC:CASE-NTF-012 AC:CASE-NTF-013 security, invitation and receipt mail carries no Unsubscribe link and no List-Unsubscribe headers", async () => {
 	const purposes = [
 		"password_reset",
 		"email_verification",
@@ -275,7 +275,7 @@ test("T-25 criterion 6: security, invitation and receipt mail carries no Unsubsc
 	}
 });
 
-test("T-25 criterion 7: with no NOTIFICATION_OPT_OUT_KEYS the notification still goes, without link or headers", async () => {
+test("AC:CASE-NTF-012 with no NOTIFICATION_OPT_OUT_KEYS the notification still goes, without link or headers", async () => {
 	assert.equal(mailUnsubscribe({ IDENTITY_ORIGIN: ORIGIN }), null);
 	assert.equal(mailUnsubscribe({ IDENTITY_ORIGIN: ORIGIN, NOTIFICATION_OPT_OUT_KEYS: "not-a-key" }), null);
 	const bare = service(mailUnsubscribe({ IDENTITY_ORIGIN: ORIGIN }));
@@ -288,7 +288,7 @@ test("T-25 criterion 7: with no NOTIFICATION_OPT_OUT_KEYS the notification still
 	assert.ok(!email.html.includes("email-preferences"));
 });
 
-test("T-25 criterion 8: a captured notification records its List-Unsubscribe headers, and the dev outbox shows them", async () => {
+test("AC:CASE-NTF-012 a captured notification records its List-Unsubscribe headers, and the dev outbox shows them", async () => {
 	const outbox = mkdtempSync(join(tmpdir(), "t25-outbox-"));
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
@@ -317,7 +317,7 @@ test("T-25 criterion 8: a captured notification records its List-Unsubscribe hea
 	}
 });
 
-test("T-25 criterion 9: no token reaches a job error or an audit row", async () => {
+test("AC:CASE-NTF-012 no token reaches a job error or an audit row", async () => {
 	const rows = await db.execute(
 		sql`SELECT coalesce(error_code,'') AS v FROM job UNION ALL SELECT coalesce(reason,'')||coalesce(metadata::text,'')||coalesce(event_key,'') FROM audit_event`,
 	);

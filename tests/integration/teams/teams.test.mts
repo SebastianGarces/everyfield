@@ -1,40 +1,30 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import {
-	drawingLines,
-	drawingPdf,
-	drawingSvg,
-	reviewDigest,
-	teamsReader,
-	teamsWriter,
-} from "../../../packages/domain/src/teams/index.ts";
+import { drawingLines, drawingPdf, drawingSvg } from "../../../packages/domain/src/teams/chart.ts";
+import { reviewDigest, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const database = await testDatabase({ prefix: "wp017", max: 6 });
+const database = await fixture({ prefix: "wp017", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -84,35 +74,6 @@ function initInput(input) {
 }
 const init = (input, who = 0) => run(teamsWriter.initialize, initInput(input), who);
 
-before(async () => {
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
-});
 after(async () => {
 	await database.close();
 });
@@ -924,7 +885,7 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 	);
 });
 
-test("a team leader can edit a role and still cannot change the church profile", async () => {
+test("AC:TARGET-TEAM-004 a team leader can edit a role and still cannot change the church profile", async () => {
 	const team = await makeTeam("Leader desk");
 	const slot = await makeRole(team.id, "Lead title");
 	const linked = await person("Linked Lead", { account: actors[1].id, stage: "launch_team" });
@@ -989,7 +950,7 @@ test("a team leader can edit a role and still cannot change the church profile",
 	const settings = sectionOperations({
 		organizations: {},
 		organizationEffects: {},
-		effects: { replan: async () => "1", invalidate: async () => {} },
+		effects: { replan: async () => "1" },
 		suppression: async () => "clear",
 	});
 	const plantRevision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;

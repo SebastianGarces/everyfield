@@ -39,7 +39,7 @@ async function harness(world: World, failSends = 0) {
 
 const green = ok(ciRuns("1".repeat(40), "success"));
 
-test("N identical polls call the transport zero times", async () => {
+test("INV-watch-run: N identical polls call the transport zero times", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	assert.equal(await pollOnce(h.deps), "baseline");
 	for (let i = 0; i < 20; i++) {
@@ -49,7 +49,7 @@ test("N identical polls call the transport zero times", async () => {
 	assert.equal(h.sent.length, 0);
 });
 
-test("a restart over the same state file and identical status does not wake", async () => {
+test("INV-watch-run: a restart over the same state file and identical status does not wake", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	await pollOnce(h.deps);
 	h.world.evf = ok(running({ decisions: [{ id: 4 }] }));
@@ -61,7 +61,7 @@ test("a restart over the same state file and identical status does not wake", as
 	assert.deepEqual(h.sent[0].events.map((e) => e.key), ["decision:D-4"]);
 });
 
-test("missing or corrupt state re-baselines without a wake storm", async () => {
+test("INV-watch-run: missing or corrupt state re-baselines without a wake storm", async () => {
 	const busy = running({ decisions: [{ id: 1 }, { id: 2 }], tickError: "x" });
 	const h = await harness({ evf: ok(busy), gh: ok(ciRuns("2".repeat(40), "failure")) });
 	assert.equal(await pollOnce(h.deps), "baseline");
@@ -74,7 +74,7 @@ test("missing or corrupt state re-baselines without a wake storm", async () => {
 	assert.match(h.lines.join("\n"), /baseline reason=state_corrupt/);
 });
 
-test("evf failures and odd output log one line and leave state untouched", async () => {
+test("INV-watch-run: evf failures and odd output log one line and leave state untouched", async () => {
 	const h = await harness({ evf: ok(running({ decisions: [{ id: 1 }] })), gh: green });
 	await pollOnce(h.deps);
 	h.world.evf = ok(running());
@@ -100,7 +100,7 @@ test("evf failures and odd output log one line and leave state untouched", async
 	assert.equal(h.sent.length, 0);
 });
 
-test("gh unavailable turns only the CI check off and keeps the last CI", async () => {
+test("INV-watch-run: gh unavailable turns only the CI check off and keeps the last CI", async () => {
 	const red = ok(ciRuns("3".repeat(40), "failure"));
 	const h = await harness({ evf: ok(running()), gh: green });
 	await pollOnce(h.deps);
@@ -118,7 +118,7 @@ test("gh unavailable turns only the CI check off and keeps the last CI", async (
 	assert.deepEqual(h.sent.map((p) => p.events.map((e) => e.key)), [[`ci-failed:${"3".repeat(40)}`], ["decision:D-8"]]);
 });
 
-test("a failed send stays pending, retries once per poll, and is sent once on success", async () => {
+test("INV-watch-run: a failed send stays pending, retries once per poll, and is sent once on success", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	await pollOnce(h.deps);
 	h.world.evf = ok(running({ decisions: [{ id: 6 }] }));
@@ -135,7 +135,7 @@ test("a failed send stays pending, retries once per poll, and is sent once on su
 	assert.deepEqual(h.sent.map((p) => p.events.map((e) => e.key)), [["decision:D-6"]]);
 });
 
-test("a second concurrent instance exits without polling", async () => {
+test("INV-watch-run: a second concurrent instance exits without polling", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	let polled = 0;
 	const lock = await acquireLock(join(h.stateDir, "watch.lock"), NOW);
@@ -147,7 +147,7 @@ test("a second concurrent instance exits without polling", async () => {
 	assert.equal(await pollOnce(second), "baseline");
 });
 
-test("sensitive status text never reaches the payload, log or state", async () => {
+test("INV-watch-run: sensitive status text never reaches the payload, log or state", async () => {
 	const secret = "nora@example.com https://u:pw@hook.example/abc sk-LIVEKEY raw transcript";
 	const leaky = (id: number) => {
 		const raw = running({ decisions: [{ id, task: 1, question: secret, context: secret }] });
@@ -166,7 +166,7 @@ test("sensitive status text never reaches the payload, log or state", async () =
 	for (const bit of ["example", "pw@", "LIVEKEY", "transcript", "nora"]) assert.ok(!everything.includes(bit), `leaks ${bit}`);
 });
 
-test("the hourly send cap holds a pending event across a restart and lets it through an hour later", async () => {
+test("INV-watch-run: the hourly send cap holds a pending event across a restart and lets it through an hour later", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	let posts = 0;
 	let answer = 503;
@@ -195,7 +195,7 @@ test("the hourly send cap holds a pending event across a restart and lets it thr
 	assert.equal(posts, 21);
 });
 
-test("the webhook URL and key never reach the log or the state file, on success or failure", async () => {
+test("INV-watch-run: the webhook URL and key never reach the log or the state file, on success or failure", async () => {
 	const urlToken = "SENTINELURLTOKEN0d6f";
 	const key = "SENTINELKEY9a1c";
 	const routine = await fakeRoutine([200]);
@@ -248,7 +248,7 @@ function cli(args: string[], env: Record<string, string> = {}): Promise<{ code: 
 	});
 }
 
-test("--test-wake sends one test payload and neither reads nor changes the dedup state", async () => {
+test("INV-watch-run: --test-wake sends one test payload and neither reads nor changes the dedup state", async () => {
 	const routine = await fakeRoutine([200]);
 	try {
 		const dir = await mkdtemp(join(tmpdir(), "actionable-watch-testwake-"));
@@ -286,7 +286,7 @@ test("--test-wake sends one test payload and neither reads nor changes the dedup
 	}
 });
 
-test("--check-config reports only ok or the refusal code, sends nothing and leaves state.json alone", async () => {
+test("INV-watch-run: --check-config reports only ok or the refusal code, sends nothing and leaves state.json alone", async () => {
 	const routine = await fakeRoutine([200]);
 	try {
 		const dir = await mkdtemp(join(tmpdir(), "actionable-watch-check-"));

@@ -80,6 +80,18 @@ export interface MailTransport {
 	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
+/**
+ * The transport a mount queues through on the request side: it refuses every send, so a request that queues mail never
+ * waits on the email service. The scheduled runner sends the queued mail with a real transport.
+ */
+export const queueOnlyTransport: MailTransport = {
+	async send() {
+		return { kind: "refused", retryable: true };
+	},
+	async lookup() {
+		return { kind: "unknown" };
+	},
+};
 const stored = z.object({
 	id: z.uuid(),
 	tenant_id: z.uuid(),
@@ -785,6 +797,9 @@ async function claimDueMail(db: Database, prefixes: readonly string[]): Promise<
     FROM due WHERE j.id=due.id RETURNING j.*`);
 	return rows.rows.map((row) => claimSchema.parse(row))[0];
 }
+
+/** A scheduled-runner mail pass: sends at most `limit` due mail, starting none after `until`. Returns the claims. */
+export type MailPass = (limit: number, until: number) => Promise<number>;
 
 /** One bounded batch of a mount's due mail: claim, then dispatch each under the mount's own authorizer. Returns the claims. */
 export async function runDueMail(

@@ -32,8 +32,8 @@ and owner go-live references. Preserve that evidence.
 
 Keep media and traces outside the repository. Generate the explorer outside the checkout; it is a read-only view of the
 frozen record, so it does not show work landed after 2026-10-22. Global kickoff and concrete spending approvals remain
-separate from milestone readiness. G-WORKFLOW closes when W0 to W5 merge and one task runs end to end through Phase 7.
-This document does not claim that closure.
+separate from milestone readiness. G-WORKFLOW is the evf v2 workflow gate, and its record in
+[`docs/plan/release-gates.json`](plan/release-gates.json) defines its closure. This document does not claim that closure.
 
 ## Changes to evf itself
 

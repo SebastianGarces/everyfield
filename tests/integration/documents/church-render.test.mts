@@ -80,8 +80,8 @@ const tagsOf = async (bytes: Uint8Array) => {
 };
 const EDITABLE = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
 
-describe("WP-037 Church Document templates", () => {
-	test("DOC-022: five authored templates, each with a frame, a class and merge fields", () => {
+describe("AC:DOC-022 Church Document templates", () => {
+	test("AC:DOC-022 five authored templates, each with a frame, a class and merge fields", () => {
 		assert.deepEqual(
 			CHURCH_TEMPLATES.map((t) => t.id),
 			EDITABLE,
@@ -100,7 +100,7 @@ describe("WP-037 Church Document templates", () => {
 		assert.equal(churchTemplate("prayer-letter")!.style, "letter");
 	});
 
-	test("DOC-022: the editable, pending and not-editable id lists equal docs/catalog/document-templates.json", () => {
+	test("AC:DOC-022 the editable, pending and not-editable id lists equal docs/catalog/document-templates.json", () => {
 		const rows = catalogJson.templates as { id: string; editable: boolean }[];
 		const editable = rows.filter((t) => t.editable).map((t) => t.id);
 		assert.deepEqual([...editable].sort(), [...EDITABLE, ...PENDING_EDITABLE].sort());
@@ -113,7 +113,7 @@ describe("WP-037 Church Document templates", () => {
 		);
 	});
 
-	test("DOC-002: a merge value with no source is a marked blank, never invented", () => {
+	test("AC:DOC-002 a merge value with no source is a marked blank, never invented", () => {
 		assert.equal(
 			resolveTokens("Hello {pastor_name} of {church_name}", { church_name: "Harvest Point", pastor_name: null }),
 			"Hello [pastor name] of Harvest Point",
@@ -126,7 +126,7 @@ describe("WP-037 Church Document templates", () => {
 		for (const block of bodyOf("bylaws", null)) assert.equal(JSON.stringify(block).includes("{church_name}"), false);
 	});
 
-	test("DOC-019: every printed string says church plant, never a bare plant, and spells Everyfield", async () => {
+	test("AC:DOC-019 AC:DOC-021 every printed string says church plant, never a bare plant, and spells Everyfield", async () => {
 		for (const id of ["bylaws", "prayer-letter"]) {
 			const pdf = (await renderChurchPdf(input(id))).text.flat().join(" ");
 			const docx = wordText(docxParts(renderChurchDocx(input(id)))["word/document.xml"]!);
@@ -139,7 +139,7 @@ describe("WP-037 Church Document templates", () => {
 		}
 	});
 
-	test("DOC-020: Everyfield ships no doctrinal text in any authored template", () => {
+	test("AC:DOC-020 Everyfield ships no doctrinal text in any authored template", () => {
 		for (const template of CHURCH_TEMPLATES) {
 			const slots = template.body.filter((b) => b.kind === "slot");
 			assert.deepEqual(
@@ -155,8 +155,8 @@ describe("WP-037 Church Document templates", () => {
 	});
 });
 
-describe("WP-037 body model", () => {
-	test("DOC-016: the body never holds the legal notice, the letterhead or the signature block", () => {
+describe("AC:DOC-016 body model", () => {
+	test("AC:DOC-016 the body never holds the legal notice, the letterhead or the signature block", () => {
 		for (const template of CHURCH_TEMPLATES) {
 			const text = JSON.stringify(template.body);
 			assert.equal(text.includes("not legal advice"), false, template.id);
@@ -165,8 +165,8 @@ describe("WP-037 body model", () => {
 	});
 });
 
-describe("WP-037 PDF export", () => {
-	test("DOC-023: the PDF is tagged for PDF/UA, titled, in English and every field has a tooltip", async () => {
+describe("AC:DOC-023 PDF export", () => {
+	test("AC:DOC-023 the PDF is tagged for PDF/UA, titled, in English and every field has a tooltip", async () => {
 		for (const id of EDITABLE) {
 			const out = await renderChurchPdf(input(id, brandTheme()));
 			const { doc, tags } = await tagsOf(out.bytes);
@@ -191,7 +191,7 @@ describe("WP-037 PDF export", () => {
 		);
 	});
 
-	test("DOC-011: the template preview and the export of revision 1 show the same page text and outline", async () => {
+	test("AC:DOC-011 AC:DOC-022 the template preview and the export of revision 1 show the same page text and outline", async () => {
 		const loaded = await library();
 		for (const id of ["member-expectations", "launch-team-commitment", "follow-up-letter"]) {
 			for (const [theme, render] of [
@@ -224,7 +224,7 @@ describe("WP-037 PDF export", () => {
 		}
 	});
 
-	test("DOC-011: both themes keep the approved text-document look with legible type", async () => {
+	test("AC:DOC-011 AC:DOC-017 both themes keep the approved text-document look with legible type", async () => {
 		const kits = [brandTheme(), { ...brandTheme("#F5D90A"), render: lowContrastKit() }, NEUTRAL_EXPORT_THEME];
 		for (const id of EDITABLE)
 			for (const theme of kits) {
@@ -241,7 +241,7 @@ describe("WP-037 PDF export", () => {
 		assert.ok(new ContrastLog().rows.length === 0);
 	});
 
-	test("DOC-011: fixed-layout and budget previews keep main's bytes", async () => {
+	test("AC:DOC-011 fixed-layout and budget previews keep main's bytes", async () => {
 		// SHA-256 of each preview on main before WP-037 (the hash-all fixture, all values filled).
 		const main: Record<string, string> = {
 			"commitment-card": "7cb2e5a410ae6a8eb999ec97fcb38a8f4ecca62b7425afd55646f5a789eb31e8",
@@ -267,7 +267,7 @@ describe("WP-037 PDF export", () => {
 		}
 	});
 
-	test("DOC-002: the same revision and theme give the same PDF and the same Word bytes", async () => {
+	test("AC:DOC-002 the same revision and theme give the same PDF and the same Word bytes", async () => {
 		for (const id of ["bylaws", "prayer-letter"]) {
 			const a = await renderChurchPdf(input(id, brandTheme()));
 			const b = await renderChurchPdf(input(id, brandTheme()));
@@ -280,10 +280,10 @@ describe("WP-037 PDF export", () => {
 	});
 });
 
-describe("WP-037 legal notice and doctrinal slot", () => {
+describe("AC:DOC-019 AC:DOC-020 legal notice and doctrinal slot", () => {
 	const emptied = (id: string) => churchTemplate(id)!.body.filter((b) => b.kind === "slot") as ChurchBlock[];
 
-	test("CASE-DOC-019-EDIT: a formal/legal body with all its text deleted still prints the notice in both files", async () => {
+	test("AC:CASE-DOC-019-EDIT a formal/legal body with all its text deleted still prints the notice in both files", async () => {
 		const empty = input("bylaws", brandTheme(), emptied("bylaws"));
 		const pdf = await renderChurchPdf(empty);
 		assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"));
@@ -292,7 +292,7 @@ describe("WP-037 legal notice and doctrinal slot", () => {
 		assert.equal(wordText(parts["word/document.xml"]!).includes("not legal advice"), false, "outside the body");
 	});
 
-	test("CASE-DOC-019-EDIT: an outward-facing or operational export holds no notice", async () => {
+	test("AC:CASE-DOC-019-EDIT an outward-facing or operational export holds no notice", async () => {
 		for (const id of ["prayer-letter", "follow-up-letter", "member-expectations", "launch-team-commitment"]) {
 			assert.equal(
 				(await pdfPages((await renderChurchPdf(input(id))).bytes)).join(" ").includes("legal advice"),
@@ -304,7 +304,7 @@ describe("WP-037 legal notice and doctrinal slot", () => {
 		}
 	});
 
-	test("CASE-DOC-020-EDIT: an unfilled statement-of-faith slot is a visible, marked blank with no default text", async () => {
+	test("AC:CASE-DOC-020-EDIT an unfilled statement-of-faith slot is a visible, marked blank with no default text", async () => {
 		const pdf = (await pdfPages((await renderChurchPdf(input("bylaws", brandTheme()))).bytes)).join(" ");
 		const docx = wordText(docxParts(renderChurchDocx(input("bylaws", brandTheme())))["word/document.xml"]!);
 		for (const text of [pdf, docx]) {
@@ -316,7 +316,7 @@ describe("WP-037 legal notice and doctrinal slot", () => {
 		assert.ok(afterNote.startsWith("03 Members") || afterNote.startsWith("Members"), afterNote.slice(0, 40));
 	});
 
-	test("CASE-DOC-020-EDIT: a filled slot prints the church's own words in both files", async () => {
+	test("AC:CASE-DOC-020-EDIT a filled slot prints the church's own words in both files", async () => {
 		const body = bodyOf("bylaws").map((b) =>
 			b.kind === "slot" ? { ...b, text: "We hold these words as our own." } : b,
 		);
@@ -331,8 +331,8 @@ describe("WP-037 legal notice and doctrinal slot", () => {
 	});
 });
 
-describe("WP-037 Word export", () => {
-	test("DOC-023: the Word file is valid, uses heading styles, list numbering and tables, and keeps the theme", async () => {
+describe("AC:DOC-023 Word export", () => {
+	test("AC:DOC-023 the Word file is valid, uses heading styles, list numbering and tables, and keeps the theme", async () => {
 		const theme = brandTheme("#1F4E79");
 		// A PNG logo with alt text, as a stored brand asset is.
 		const png = Buffer.from(
@@ -379,7 +379,7 @@ describe("WP-037 Word export", () => {
 		assert.ok(wordText(letterhead["word/footer1.xml"]!).includes("EIN 84-1234567"));
 	});
 
-	test("DOC-023: a reader that is not the writer opens the Word file", async () => {
+	test("AC:DOC-023 a reader that is not the writer opens the Word file", async () => {
 		const bytes = renderChurchDocx(input("bylaws", brandTheme()));
 		// The importer of DOC-016 reads Word with its own ZIP and XML code.
 		const text = nativeText(readImport(bytes, "docx"));

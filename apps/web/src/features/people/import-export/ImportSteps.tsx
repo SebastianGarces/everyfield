@@ -30,8 +30,8 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
 	addCount,
+	canReview,
 	firstGroup,
-	isDuplicate,
 	plural,
 	problemText,
 	progressOf,
@@ -44,6 +44,7 @@ import {
 	type Preview,
 	type PreviewRow,
 	type ValidRow,
+	withReviewTargets,
 } from "./model.ts";
 
 import { RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
@@ -284,10 +285,12 @@ export function ReviewStep({
 	// Rows can match both ways; the group counts each row once.
 	const toCheck = rowsIn(preview.rows, "check").length;
 	const ready = counts.valid - toCheck;
+	// A row skipped under its repeat takes away that repeat's review target, so every change rechecks the targets.
+	const choose = (next: Map<number, Choice>) => onChoices(withReviewTargets(preview, next));
 	const setAll = (choice: Choice) => {
 		const next = new Map(choices);
 		for (const r of rowsIn(preview.rows, "check")) next.set(r.row, choice);
-		onChoices(next);
+		choose(next);
 	};
 	const list = useRef<HTMLDivElement>(null);
 	const turn = (p: number) => {
@@ -392,7 +395,8 @@ export function ReviewStep({
 									key={r.row}
 									row={r}
 									choice={r.status === "valid" ? choices.get(r.row)! : null}
-									onChoice={(c) => onChoices(new Map(choices).set(r.row, c))}
+									reviewable={r.status === "valid" && canReview(r, choices)}
+									onChoice={(c) => choose(new Map(choices).set(r.row, c))}
 									nameOf={(n) => nameOf(preview, n)}
 								/>
 							))}
@@ -426,11 +430,13 @@ function contact(r: ValidRow): string {
 function RowItem({
 	row,
 	choice,
+	reviewable,
 	onChoice,
 	nameOf,
 }: {
 	row: PreviewRow;
 	choice: Choice | null;
+	reviewable: boolean;
 	onChoice: (c: Choice) => void;
 	nameOf: (row: number) => string;
 }) {
@@ -490,7 +496,7 @@ function RowItem({
 						size="sm"
 						value={choice}
 						onValueChange={onChoice}
-						options={(isDuplicate(row)
+						options={(reviewable
 							? (["create", "create_and_review", "skip"] as const)
 							: (["create", "skip"] as const)
 						).map((c) => ({ value: c, label: CHOICE_LABEL[c] }))}
@@ -636,11 +642,19 @@ export function DoneStep({
 								: `${plural(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
-							{partial
-								? "The other rows are saved. Try the rows that did not save again; nobody is added twice."
-								: flagged
-									? `${plural(flagged, "person", "people")} added with a note to review against a possible duplicate.`
-									: "Everyone you chose is in People now."}
+							{partial ? (
+								"The other rows are saved. Try the rows that did not save again; nobody is added twice."
+							) : flagged ? (
+								<>
+									{flagged} to review in{" "}
+									<IntentLink href="/people/duplicates" className="font-medium text-ink underline underline-offset-2">
+										Duplicates
+									</IntentLink>
+									.
+								</>
+							) : (
+								"Everyone you chose is in People now."
+							)}
 						</p>
 					</div>
 				</div>

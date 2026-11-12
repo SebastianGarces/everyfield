@@ -22,7 +22,7 @@ const pinned = [
 	["general-announcement", "General announcement", "announcement", null],
 ];
 
-test("the seven system templates keep their keys, names, categories, meeting types and order", () => {
+test("AC:CASE-COM-008 the seven system templates keep their keys, names, categories, meeting types and order", () => {
 	assert.deepEqual(
 		systemTemplates.map((t) => [t.sourceKey, t.name, t.category, t.meetingType]),
 		pinned,
@@ -30,7 +30,7 @@ test("the seven system templates keep their keys, names, categories, meeting typ
 });
 
 for (const template of systemTemplates) {
-	test(`system template ${template.sourceKey} is a complete, sendable email`, () => {
+	test(`AC:CASE-COM-008 system template ${template.sourceKey} is a complete, sendable email`, () => {
 		const { sourceKey: _sourceKey, ...draft } = template;
 		assert.doesNotThrow(() => templateDraft.parse(draft), "the contract parser accepts it, as a fork does");
 		assert.equal(sanitizeHtml(template.bodyHtml), template.bodyHtml, "body survives the sanitizer unchanged");
@@ -72,7 +72,7 @@ for (const template of systemTemplates) {
 	});
 }
 
-test("each meeting template links to the guest's RSVP page once, in HTML and plain text", () => {
+test("AC:CASE-COM-008 AC:CASE-COM-010 each meeting template links to the guest's RSVP page once, in HTML and plain text", () => {
 	const href = "https://example.test/rsvp/sample-token";
 	for (const template of systemTemplates) {
 		const expected = rsvpKeys.has(template.sourceKey) ? 1 : 0;

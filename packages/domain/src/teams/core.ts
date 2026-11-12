@@ -174,7 +174,7 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 		after: after ? Object.fromEntries(keys.map((key) => [key, after[key] ?? null])) : null,
 	};
 }
-export type TeamWrite =
+type TeamWrite =
 	| "teams.create"
 	| "teams.edit"
 	| "teams.archive"
@@ -198,9 +198,7 @@ export type TeamWrite =
 	| "teams.setRequiredTrainingParticipants"
 	| "teams.attestCompletion"
 	| "teams.revokeCompletion"
-	| "teams.recompleteTraining"
-	| "teams.scheduleMeeting"
-	| "teams.recordAttendance";
+	| "teams.recompleteTraining";
 
 /** A team id, or a lookup that runs only when the actor is not an admin. */
 type LeaderGate = string | ((tx: Tx, w: Writer) => Promise<string | undefined>);

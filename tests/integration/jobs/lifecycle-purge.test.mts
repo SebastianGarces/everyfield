@@ -11,6 +11,7 @@ import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
+import { ok } from "../../support/fixture.mts";
 
 // REQ-IDN-032: a requested deletion finishes on its own. The account or church requests deletion through the real
 // settings operation; once the cancellation deadline has passed, the every-minute scheduled run claims the purge job and
@@ -54,17 +55,12 @@ async function run() {
 	return response.json();
 }
 
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
 const command = (input = {}, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
 const ctx = (a, selected = { kind: "account", id: a.id }) => ({ session: a.session, selected });
 
 before(async () => {
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx) => queueJobs(tx, []),
 		invalidate: (tx) => queueJobs(tx, []),
 	};
 	credentials = createAccountCredentials({
@@ -85,7 +81,7 @@ before(async () => {
 	api = createSettingsProducer({
 		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
 		organizationEffects,
-		effects: { replan: async () => {}, invalidate: async () => {} },
+		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
 		avatarCleanup: { queue: (tx) => queueJobs(tx, []) },
 		// As the settings mount queues it (apps/web/src/features/settings/server.ts).
@@ -225,8 +221,8 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, avatar.id)))[0].state, "purged");
 
 	// The old email and password no longer sign in, and the deletion page asks for proof again.
-	const refused = await signIn(a);
-	assert.notEqual(refused.status, 200);
+	const rejected = await signIn(a);
+	assert.notEqual(rejected.status, 200);
 	assert.deepEqual(await openDeletion(a), { status: "refused", code: "proof_invalid" });
 	assert.equal(await readViewer(db, a.session), null);
 

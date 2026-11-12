@@ -39,8 +39,8 @@ const words = (changes: WordChanges | null) => {
 	return { document: read(w, "document"), template: read(w, "template"), notes: w.notes };
 };
 
-describe("T-82 the word compare", () => {
-	test("criterion 10: a reworded sentence marks the dropped phrase and the new one, and keeps the rest", () => {
+describe("INV-word-compare: the word compare", () => {
+	test("INV-word-compare: a reworded sentence marks the dropped phrase and the new one, and keeps the rest", () => {
 		const changes = body(
 			p(t("We meet every Sunday at the old school hall for worship and prayer.")),
 			p(t("We meet every Sunday at the new community center for worship and prayer.")),
@@ -62,7 +62,7 @@ describe("T-82 the word compare", () => {
 		);
 	});
 
-	test("criterion 10, 2: a list compares item by item; only the changed item's word is marked", () => {
+	test("INV-word-compare: a list compares item by item; only the changed item's word is marked", () => {
 		assert.deepEqual(
 			words(
 				body(
@@ -78,7 +78,7 @@ describe("T-82 the word compare", () => {
 		);
 	});
 
-	test("criterion 2, 5: a heading marks its word; a level change alone marks nothing and says the setting changed", () => {
+	test("INV-word-compare: a heading marks its word; a level change alone marks nothing and says the setting changed", () => {
 		assert.deepEqual(words(body(h(2, "Our core values"), h(2, "Our shared values"))), {
 			document: [["=Our ", "-core", "= values"]],
 			template: [["=Our ", "+shared", "= values"]],
@@ -90,7 +90,7 @@ describe("T-82 the word compare", () => {
 		assert.deepEqual(words(body(h(2, "Our values"), h(3, "Your values"))).notes, ["settings"]);
 	});
 
-	test("criterion 10: punctuation is its own unit; a spacing-only change marks nothing", () => {
+	test("INV-word-compare: punctuation is its own unit; a spacing-only change marks nothing", () => {
 		assert.deepEqual(words(body(p(t("Come, and see.")), p(t("Come and see!")))), {
 			document: [["=Come", "-,", "= and see", "-."]],
 			template: [["=Come and see", "+!"]],
@@ -105,7 +105,7 @@ describe("T-82 the word compare", () => {
 		});
 	});
 
-	test("criterion 10, 5: formatting only (bold, a link) marks no word and says formatting changed", () => {
+	test("INV-word-compare: formatting only (bold, a link) marks no word and says formatting changed", () => {
 		assert.deepEqual(body(p(t("Give generously.")), p(t("Give "), t("generously", [{ type: "bold" }]), t("."))), {
 			show: "notes",
 			notes: ["formatting"],
@@ -119,7 +119,7 @@ describe("T-82 the word compare", () => {
 		);
 	});
 
-	test("criterion 10, 7: a merge field is one unit by key; the words beside it are marked, the field is not", () => {
+	test("INV-word-compare: a merge field is one unit by key; the words beside it are marked, the field is not", () => {
 		const changes = body(
 			p(t("Welcome to "), field("church.name"), t(" this Sunday.")),
 			p(t("You are invited to "), field("church.name"), t(" this Sunday.")),
@@ -140,7 +140,7 @@ describe("T-82 the word compare", () => {
 		});
 	});
 
-	test("criterion 10, 6: few shared words or a different shape shows both versions whole", () => {
+	test("INV-word-compare: few shared words or a different shape shows both versions whole", () => {
 		assert.deepEqual(body(p(t("Our mission is to love the city.")), p(t("Everyone belongs here, always."))), {
 			show: "whole",
 		});
@@ -148,7 +148,7 @@ describe("T-82 the word compare", () => {
 		assert.deepEqual(body(bullets("One", "Two"), bullets("One", "Two", "Three")), { show: "whole" });
 	});
 
-	test("criterion 3: the title and a footer get the same marks", () => {
+	test("INV-word-compare: the title and a footer get the same marks", () => {
 		assert.deepEqual(
 			words(
 				wordChanges({
@@ -180,7 +180,7 @@ describe("T-82 the word compare", () => {
 		);
 	});
 
-	test("criterion 7: a block that only differs by a field's value is still not listed", () => {
+	test("INV-word-compare: a block that only differs by a field's value is still not listed", () => {
 		const page = { size: "letter", orientation: "portrait", margin: { top: 72, right: 72, bottom: 72, left: 72 } };
 		const tpl = {
 			format: "everyfield.doc/1",

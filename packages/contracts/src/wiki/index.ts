@@ -341,3 +341,4 @@ export const upstreamReviewResult = z.strictObject({
 });
 
 export * from "./diagram.ts";
+export * from "./blocks.ts";

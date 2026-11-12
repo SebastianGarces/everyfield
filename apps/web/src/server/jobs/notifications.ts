@@ -9,7 +9,6 @@ import "server-only";
 import { z } from "zod";
 import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
 import { createMailService, type MailIntent } from "./mail.ts";
-import { enqueueJobs } from "./queue";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
 	id: z.uuid(),
@@ -75,6 +74,8 @@ const policy = {
 		purpose: "reference_update",
 		source: "article_editor_state",
 	},
+	// Written with the Messages opt-out itself (T-242), never through this queue.
+	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
 } as const;
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
@@ -279,7 +280,9 @@ export function createNotificationService(config: {
 	async function syncTaskReminders(
 		tx: Transaction,
 		inputs: readonly {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient">;
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient" | "title">;
+			/** The notice title of each reminder slot: the due reminder and the overdue one read differently. */
+			titles: Record<ReturnType<typeof taskReminderTimes>[number]["slot"], string>;
 			/** Every assignee of the task: each gets their own due and overdue notices (REQ-TSK-014). */
 			recipients: readonly string[];
 			due: Parameters<typeof taskReminderTimes>[0];
@@ -311,6 +314,7 @@ export function createNotificationService(config: {
 						.map((t) =>
 							noticeInput.parse({
 								...i.base,
+								title: i.titles[t.slot],
 								recipient,
 								category: t.slot === "due" ? "task_due" : "task_overdue",
 								occurrence: t.slot,
@@ -544,7 +548,7 @@ export async function sendDiscoveryAssociationReceipt(
 /** One durable notice batch for all links changed by a discovery conversion. */
 export async function sendOnboardingRelationships(
 	tx: Transaction,
-	inputs: readonly Parameters<import("@everyfield/domain/organizations").OrganizationEffects["notice"]>[1][],
+	inputs: readonly import("@everyfield/domain/organizations").RelationshipNotice[],
 	mail: ReturnType<typeof createMailService>,
 ) {
 	if (!inputs.length) return;
@@ -563,17 +567,6 @@ export async function sendOnboardingRelationships(
 		].map((recipient) => ({ i, recipient })),
 	);
 	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
-	await enqueueJobs(
-		tx,
-		inputs.map((i) => ({
-			tenant: i.pair.organization.id,
-			kind: "assessment",
-			subject: i.relationshipId,
-			key: "onboarding/" + i.relationshipId + "/" + i.revision,
-			revision: i.revision,
-			eligibleAt: new Date().toISOString(),
-		})),
-	);
 	await mail.enqueueMany(
 		tx,
 		notices.map(({ i, recipient }) => {
@@ -582,7 +575,8 @@ export async function sendOnboardingRelationships(
 			return {
 				owner: { kind: "account", id: recipient },
 				purpose: i.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-				logicalKey: "relationship/" + i.eventId + "/" + recipient,
+				// Under the onboarding mount's own key, so the organizations mail pass never claims a receipt.
+				logicalKey: "onboarding/relationship/" + i.eventId + "/" + recipient,
 				recipient,
 				address,
 				content: { subject: "Relationship updated", text: "A church relationship you are part of changed." },

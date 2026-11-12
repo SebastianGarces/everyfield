@@ -1,7 +1,7 @@
 "use client";
 
 import type { BrandKitData, DocumentClass, DocumentTheme } from "@everyfield/contracts/branding";
-import { textOn } from "@everyfield/domain/branding/color";
+import { DOCUMENT_INK, textOn } from "@everyfield/domain/branding/color";
 import { Tab, Tabs, TabsList, TabsPanel } from "@everyfield/ui/controls";
 import { createContext, use, useState, type CSSProperties, type ReactNode } from "react";
 import { familyOf } from "./fonts";
@@ -10,7 +10,7 @@ import { themeOf, type BrandForm } from "./model";
 // The live preview (REQ-BRD-006, REQ-DOC-017): one miniature page per document class. Every rule on it comes from the
 // theme that resolveDocumentTheme returns for the unsaved draft, the function the server resolves with, so no class
 // rule is written here. Text uses theme.colors.ink or theme.colors.heading only; a brand color appears as a rule or a
-// fill, with the derived text color (textOn) on the fill. Logos are fixed-size slots with the church name in type.
+// fill, with the text color the PDF prints on that fill (textOn, the renderer's rule) on it. Logos are fixed-size slots with the church name in type.
 
 const CLASSES: { value: DocumentClass; label: string }[] = [
 	{ value: "formal/legal", label: "Formal/legal" },
@@ -220,7 +220,7 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 					size={20}
 				/>
 			</div>
-			<div className="mt-4 px-6 py-6" style={{ background: band, color: textOn(band) }}>
+			<div className="mt-4 px-6 py-6" style={{ background: band, color: textOn(band, DOCUMENT_INK) }}>
 				<h4
 					className="text-[22px] leading-tight"
 					style={{ fontFamily: familyOf(theme.fonts.heading), fontWeight: 400 }}

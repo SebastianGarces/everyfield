@@ -1,33 +1,30 @@
 import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
 import type { Reply } from "@/server/organizations";
 import {
-	checkPipelineAggregateAccess,
 	endConnection,
-	getAssociationHistory,
-	getSharing,
 	inviteAssociation,
 	leaveResidency,
 	loadConnections,
 	loadDisclosure,
 	loadHistoryPage,
+	loadPipelineConsent,
 	loadResidency,
 	loadSharing,
-	readPipelineConsent,
-	readResidencySharing,
 	resendAssociationInvitation,
 	respondAssociationInvitation,
 	revokeAssociationInvitation,
+	savePipelineConsent,
+	saveResidencySharing,
 	saveSharing,
-	setPipelineConsent,
-	setResidencySharing,
 } from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
+import type { ReadConsent, SaveConsent } from "./Pipeline";
 import type { NameOf, OperationName, Run } from "./port";
-import type { ReadResidency } from "./Residency";
+import type { ReadResidency, SaveResidency } from "./Residency";
 import type { ReadSharing, SaveSharing } from "./Sharing";
 
 // The real port (WP-007/ui ruling D11): one typed server action per operation. The server parses the browser's input
@@ -41,17 +38,21 @@ const ACTIONS: Actions = {
 	"associations.resendInvitation": resendAssociationInvitation,
 	"associations.revokeInvitation": revokeAssociationInvitation,
 	"associations.respondInvitation": respondAssociationInvitation,
-	"associations.getHistory": getAssociationHistory,
-	"privacy.getSharing": getSharing,
-	"residency.readSharing": readResidencySharing,
-	"residency.setSharing": setResidencySharing,
 	"residency.leave": leaveResidency,
-	"pipelineSharing.readConsent": readPipelineConsent,
-	"pipelineSharing.setConsent": setPipelineConsent,
-	"pipelineSharing.checkAggregateAccess": checkPipelineAggregateAccess,
 };
 
 export const readResidency: ReadResidency = loadResidency;
+export const saveResidency: SaveResidency = async (command) => {
+	const r = await saveResidencySharing(command);
+	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+	return r.row;
+};
+export const readConsent: ReadConsent = loadPipelineConsent;
+export const saveConsent: SaveConsent = async (command) => {
+	const r = await savePipelineConsent(command);
+	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+	return r.consent;
+};
 export const readSharing: ReadSharing = loadSharing;
 export const saveSharingChoice: SaveSharing = async (command) => {
 	const r = await saveSharing(command);
