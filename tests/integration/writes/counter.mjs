@@ -41,6 +41,7 @@ const factories = {
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/people/duplicates.ts": ["dismissDuplicatePair", "restoreDuplicatePair"],
 	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
 	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],

@@ -4444,6 +4444,20 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "person_duplicate_dismissal",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_duplicate_dismissal",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "person_email_opt_out",
 			"privilege_type": "DELETE"
 		},
@@ -6756,6 +6770,27 @@
 			"kind": "table",
 			"object": "people_column",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_duplicate_dismissal",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_duplicate_dismissal",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "person_duplicate_dismissal",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",
