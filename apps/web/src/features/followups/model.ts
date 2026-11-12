@@ -1,6 +1,7 @@
 // Pure rules of the follow-up screens (REQ-MTG-021, REQ-MTG-022, REQ-TSK-004, REQ-TSK-012, REQ-TSK-013). No React and
 // no server code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/followups";
+import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
 import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
@@ -102,6 +103,11 @@ export type Draft = {
 	notes: string;
 	/** Complete the follow-up with this outcome. A separate choice from the outcome (REQ-MTG-022). */
 	complete: boolean;
+	/**
+	 * A correction's recorded time: the stored instant and the `at` it shows as. While `at` still reads the same, the
+	 * save sends the stored instant unchanged, so seconds and the zone it was entered in are never rewritten.
+	 */
+	stored?: { at: string; instant: string };
 };
 export const emptyDraft = (): Draft => ({ outcome: "", when: "", at: "", channel: "", notes: "", complete: false });
 /**
@@ -136,7 +142,8 @@ export function outcomeInput(
 	if (!d.outcome) errors.outcome = "Choose what happened.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
-	if (d.when === "earlier") {
+	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;
+	else if (d.when === "earlier") {
 		const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d.at) ? new Date(d.at) : null;
 		if (!parsed || Number.isNaN(parsed.getTime())) errors.at = "Enter the date and time it happened.";
 		else if (parsed.getTime() > now.getTime()) errors.at = "This time is in the future. Choose a time that has passed.";
@@ -173,13 +180,15 @@ export function localInputOf(at: string | Date): string {
 }
 /** The form for correcting a recorded outcome: its current values, said again by the person. */
 export function draftOf(item: OutcomeItem): Draft {
+	const at = localInputOf(item.occurredAt);
 	return {
 		outcome: item.outcome,
 		when: "earlier",
-		at: localInputOf(item.occurredAt),
+		at,
 		channel: item.channel ?? "",
 		notes: item.notes ?? "",
 		complete: item.completedTask,
+		stored: { at, instant: item.occurredAt },
 	};
 }
 
@@ -197,7 +206,10 @@ export function withOutcome(items: readonly OutcomeItem[], m: Pick<OutcomeMutati
 	);
 }
 
-export const FOLLOW_UP_WINDOW_MS = 48 * 60 * 60 * 1000;
+/** The call screen's Recent list after a saved outcome: the latest three by the contact log's order (withOutcome). */
+export const recentAfter = (items: readonly OutcomeItem[], m: Pick<OutcomeMutation, "record" | "previous">) =>
+	withOutcome(items, m).slice(0, 3);
+
 /**
  * The 48-hour window of a first-Vision follow-up at `now`, from the meeting's actual start (REQ-MTG-021): hours left
  * while it is open, rounded down, or closed. The measure itself is the server's; this is only the countdown.
@@ -225,26 +237,10 @@ export function measurementText(m: NonNullable<ObligationItem["measurement"]>): 
 	return { text: why[m.reason], status: "unknown" };
 }
 
-/**
- * The eligible follow-up owners (REQ-TSK-012) from a handoff preview of the viewer's own account: the other eligible
- * accounts, plus the viewer when the viewer is eligible. Sorted by name.
- */
-export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Account[] {
-	const me =
-		plan.from.eligible && plan.from.displayName !== null
-			? [{ accountId: plan.from.accountId, displayName: plan.from.displayName }]
-			: [];
-	return [...me, ...plan.recipients].sort(
-		(a, b) => a.displayName.localeCompare(b.displayName) || a.accountId.localeCompare(b.accountId),
-	);
-}
-
 /** Contact log entries per page on the Person page and in the task panel; "Show earlier" reads the next one. */
 export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */
 export const COVERAGE_PAGE = 24;
-/** The most follow-ups one handoff request may move (REQ-TSK-013). */
-export const HANDOFF_LIMIT = 100;
 /**
  * A handoff selection after the preview was read again: the person's own choice, kept for the follow-ups still in the
  * preview, with their latest revisions. Follow-ups that left the preview drop out; none is added.

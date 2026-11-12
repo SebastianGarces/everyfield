@@ -8,24 +8,27 @@
 	"scripts": {
 		"dev": "pnpm --filter @everyfield/web dev",
 		"build": "pnpm --filter @everyfield/web build",
-		"lint": "pnpm -r --if-present lint",
-		"typecheck": "pnpm -r --if-present typecheck",
-		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm test:logs && pnpm build",
+		"prepare": "bin/dev hooks install",
+		"lint": "pnpm -r --if-present lint && pnpm run lint:repo && pnpm run lint:tests && pnpm run lint:test-names",
+		"lint:repo": "packages/evry/node_modules/.bin/oxlint -c tools/.oxlintrc.json --max-warnings=0 tools && node scripts/lint/check-repo-files.mjs",
+		"lint:tests": "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 tests/integration tests/evry tests/ui tests/unit tests/workflow",
+		"lint:test-names": "node tools/ci/test-names.ts",
+		"typecheck": "node tools/ci/typecheck.ts",
+		"typecheck:tsc": "pnpm -r --if-present --no-bail typecheck:tsc",
+		"typecheck:tools": "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
-		"test:access": "pnpm --filter @everyfield/domain test",
-		"stack:up": "node scripts/stack.mjs up",
-		"stack:status": "node scripts/stack.mjs status",
-		"stack:down": "node scripts/stack.mjs down",
-		"stack:check": "node scripts/stack.mjs check",
+		"test:early-access": "pnpm --filter @everyfield/domain test",
 		"test:workflow": "node scripts/test-workflow.mjs",
 		"test:logs": "node --test ${EVF_NODE_TEST_FLAGS:-} tests/workflow/server-logs.test.mjs",
-		"test:ui": "node --test 'tests/ui/**/*.test.mjs'",
-		"format": "prettier --write \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
-		"format:check": "prettier --check \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
+		"test:ui": "node --test --test-concurrency=1 'tests/ui/**/*.test.mjs'",
+		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
+		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
 	},
 	"devDependencies": {
+		"bun": "1.4.4",
 		"eslint-config-prettier": "10.1.8",
-		"prettier": "3.9.10"
+		"prettier": "3.9.10",
+		"typescript-7": "npm:typescript@7.0.2"
 	}
 }

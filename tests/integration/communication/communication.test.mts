@@ -6,17 +6,9 @@ import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, foreign;
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const read = (who, op, input) =>
@@ -204,6 +196,59 @@ test("AC:INH-COMMUNICATION-05 a preview drops a missing email and a repeated add
 	assert.equal(after.attempts, before.attempts);
 });
 
+test("AC:CASE-COM-007 forking a source whose church fork is archived brings the fork back with its edits", async () => {
+	const sourceKey = "vision-meeting-reminder";
+	const fork = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	const edited = ok(
+		await write(owner, "updateTemplate", {
+			requestKey: key(),
+			expectedRevision: fork.revision,
+			input: {
+				templateId: fork.templateId,
+				patch: templateInput({ name: "Our reminder", category: "meeting_reminder" }),
+			},
+		}),
+	);
+	const archived = ok(
+		await write(owner, "archiveTemplate", {
+			requestKey: key(),
+			expectedRevision: edited.revision,
+			input: { templateId: fork.templateId },
+		}),
+	);
+	const auditRows = () =>
+		rows(
+			sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${fork.templateId}::uuid ORDER BY recorded_at, id`,
+		);
+	const beforeFork = (await auditRows()).length;
+
+	const restored = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	assert.equal(restored.templateId, fork.templateId);
+	assert.equal(restored.archived, false);
+	assert.equal(restored.name, "Our reminder");
+	assert.equal(BigInt(restored.revision), BigInt(archived.revision) + 1n);
+	const [row] = await rows(
+		sql`SELECT archived_at, revision::text AS revision, name FROM message_template WHERE id = ${fork.templateId}::uuid`,
+	);
+	assert.equal(row.archived_at, null);
+	assert.equal(row.revision, restored.revision);
+	assert.equal(row.name, "Our reminder");
+	const afterFork = await auditRows();
+	assert.equal(afterFork.length, beforeFork + 1);
+	const forkAudit = afterFork.at(-1);
+	assert.equal(forkAudit.action, "communication.template_forked");
+	assert.equal(typeof forkAudit.before_value.archived_at, "string");
+	assert.equal(forkAudit.after_value.archived_at, null);
+	const listed = ok(await read(owner, "listTemplates"));
+	const shown = listed.templates.find((template) => template.sourceKey === sourceKey);
+	assert.equal(shown.origin, "plant");
+	assert.equal(shown.templateId, fork.templateId);
+
+	const again = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
+	assert.deepEqual(again, restored);
+	assert.equal((await auditRows()).length, afterFork.length);
+});
+
 test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenced history", async () => {
 	const beforeCatalog = catalog();
 	const [first, second] = await Promise.all([
@@ -348,7 +393,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 	assert.deepEqual(catalog(), beforeCatalog);
 });
 
-test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty days", async () => {
+test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays inside thirty days", async () => {
 	const now = new Date("2026-10-13T16:00:00Z");
 	assert.equal(scheduleAccepted(now, new Date("2026-10-12T16:00:00Z")), false);
 	assert.equal(scheduleAccepted(now, now), true);
@@ -370,6 +415,62 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 		}),
 	);
 	refused(await read(owner, "getDraft", { id: incomplete.communicationId }), "not_found");
+
+	// Later saves update the one row; a delete from a tab that missed a save is refused and keeps the row.
+	const first = ok(await draft({ subject: "Update me", bodyHtml: "<p>v1</p>" }));
+	const rowsBefore = (await counts()).communications;
+	const second = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: first.revision,
+			input: { communicationId: first.communicationId, subject: "Update me v2", bodyHtml: "<p>v2</p>" },
+		}),
+	);
+	assert.equal(second.communicationId, first.communicationId);
+	assert.equal(second.revision, String(Number(first.revision) + 1));
+	const reopened = ok(await read(owner, "getDraft", { id: first.communicationId }));
+	assert.equal(reopened.subject, "Update me v2");
+	assert.equal(reopened.bodyHtml, "<p>v2</p>");
+	assert.equal(reopened.revision, second.revision);
+	const third = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: reopened.revision,
+			input: { communicationId: first.communicationId, subject: "Update me v3", bodyHtml: "<p>v3</p>" },
+		}),
+	);
+	assert.equal(third.revision, String(Number(first.revision) + 2));
+	assert.equal((await counts()).communications, rowsBefore);
+	const drafts = ok(await read(owner, "listDrafts")).drafts.filter(
+		(row) => row.communicationId === first.communicationId,
+	);
+	assert.deepEqual(
+		drafts.map((row) => row.subject),
+		["Update me v3"],
+	);
+	const history = ok(await read(owner, "listHistory", { query: "Update me" }));
+	assert.deepEqual(
+		history.items.map((item) => item.id),
+		[first.communicationId],
+	);
+	refused(
+		await write(owner, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: second.revision,
+			input: { communicationId: first.communicationId },
+		}),
+		"conflict",
+	);
+	const [kept3] = await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${first.communicationId}`);
+	assert.deepEqual({ ...kept3 }, { subject: "Update me v3", body_html: "<p>v3</p>" });
+	ok(
+		await write(owner, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: third.revision,
+			input: { communicationId: first.communicationId },
+		}),
+	);
+	refused(await read(owner, "getDraft", { id: first.communicationId }), "not_found");
 
 	const guest = await person("Schedule guest", { email: "schedule@example.test" });
 	const saved = ok(
@@ -598,7 +699,7 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 	assert.equal(after.attempts, before.attempts);
 });
 
-test("a forged actor with another user's live session writes nothing", async () => {
+test("AC:CASE-COM-003 a read-only member seat and a forged actor with another user's live session write nothing", async () => {
 	const snapshot = async () =>
 		(
 			await rows(sql`SELECT
@@ -608,7 +709,76 @@ test("a forged actor with another user's live session writes nothing", async () 
 				(SELECT count(*)::int FROM mail_attempt WHERE tenant_id = ${plant.id}) AS attempts,
 				(SELECT count(*)::int FROM audit_event WHERE tenant_id = ${plant.id}) AS audits`)
 		)[0];
+	const guest = await person("Member refusal guest", { email: "member-refusal@example.test" });
+	const owned = ok(
+		await draft({
+			subject: "Owner draft",
+			bodyHtml: "<p>Owner</p>",
+			audience: { ...emptyAudience, personIds: [guest] },
+		}),
+	);
+	const planned = ok(
+		await draft({
+			subject: "Owner planned",
+			bodyHtml: "<p>Planned</p>",
+			audience: { ...emptyAudience, personIds: [guest] },
+		}),
+	);
+	const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+	const scheduled = ok(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: planned.revision,
+			input: { communicationId: planned.communicationId, scheduledAt: tomorrow },
+		}),
+	);
 	const before = await snapshot();
+	// A Member reads Messages history but cannot save, delete, schedule or send.
+	refused(await write(member, "saveDraft", { requestKey: key(), input: { subject: "X" } }), "access_denied");
+	refused(
+		await write(member, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: owned.revision,
+			input: { communicationId: owned.communicationId },
+		}),
+		"access_denied",
+	);
+	refused(
+		await write(member, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: owned.revision,
+			input: { communicationId: owned.communicationId, scheduledAt: tomorrow },
+		}),
+		"access_denied",
+	);
+	let providerCalls = 0;
+	const transport = {
+		async send() {
+			providerCalls += 1;
+			return { outcome: "ids", ids: ["never"] };
+		},
+		async lookup() {
+			providerCalls += 1;
+			return { outcome: "unknown" };
+		},
+	};
+	refused(
+		await communicationWriter.sendReviewed(
+			f.db,
+			member.actor,
+			{ requestKey: key(), expectedRevision: scheduled.revision, input: { communicationId: planned.communicationId } },
+			transport,
+			{
+				encryptionKey: Buffer.alloc(32, 7),
+				addressKey: Buffer.alloc(32, 9),
+				from: "news@example.test",
+				origin: "https://app.example.test",
+			},
+		),
+		"access_denied",
+	);
+	assert.equal(providerCalls, 0);
+	assert.deepEqual(await snapshot(), before);
 	const forged = RequestActor.of(member.actor.session, owner.actor.actor);
 	const swapped = RequestActor.of(member.actor.session, {
 		...member.actor.actor,
@@ -630,4 +800,31 @@ test("a forged actor with another user's live session writes nothing", async () 
 	assert.equal(swappedSave.status, "refused", JSON.stringify(swappedSave));
 	assert.equal(swappedSave.error.code, "unavailable");
 	assert.deepEqual(await snapshot(), before);
+});
+
+test("AC:CASE-COM-012 a draft update that leaves out the subject keeps the stored subject; null clears it", async () => {
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Keep this subject", bodyHtml: "<p>First</p>" },
+		}),
+	);
+	const updated = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, bodyHtml: "<p>Second</p>" },
+		}),
+	);
+	assert.equal(updated.subject, "Keep this subject");
+	const [kept] = await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${saved.communicationId}`);
+	assert.deepEqual([kept.subject, kept.body_html], ["Keep this subject", "<p>Second</p>"]);
+	const cleared = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: updated.revision,
+			input: { communicationId: saved.communicationId, subject: null },
+		}),
+	);
+	assert.equal(cleared.subject, null);
 });

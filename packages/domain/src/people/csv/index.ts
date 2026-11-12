@@ -2,6 +2,7 @@ import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common
 import * as c from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
+import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
@@ -10,10 +11,12 @@ import { liveRead, writeVisibility, type RequestActor } from "../../access/sessi
 import { declareWrite, finishAudit, prepareWrite } from "../../operations/writes.ts";
 import {
 	authorize,
+	authorizeCachedWrite,
 	deny,
 	hash,
 	lockOwner,
 	parse,
+	PeopleReadContext,
 	readReply,
 	reply,
 	withPeopleWrite,
@@ -27,7 +30,8 @@ import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
 import { csvLine, parseCsv } from "./format.ts";
 
-// People CSV import (REQ-PPL-018) and export (REQ-PPL-019) for plant Owners and Admins.
+// People CSV import (REQ-PPL-018) for plant Owners and Admins, and export (REQ-PPL-019) for any seat in the plant:
+// Members may export what the directory shows them.
 
 /** C13/C32: the request's live access in each statement, without locking its session (live_session). */
 const access = (ctx: { session: string; selected: Owner }, admin = false) =>
@@ -182,8 +186,14 @@ function rowPersonId(importId: string, row: number): string {
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. */
+/**
+ * The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. fileDigest
+ * names the file's bytes, so a file uploaded again after the kept copy is deleted must be the same file (D-803); imports
+ * saved before it was recorded have none: while their kept copy lasts the button still retries from it, but once it is
+ * deleted no upload matches, and the remaining rows need a new import.
+ */
 const savedPlan = z.object({
+	fileDigest: z.string().optional(),
 	rows: z.int(),
 	skip: z.array(z.int()),
 	invalid: z.array(z.object({ row: z.int(), problems: z.array(c.rowProblem) })),
@@ -201,7 +211,7 @@ function planImport(
 	const valid = file.rows.filter((r) => r.status === "valid");
 	if (byRow.size !== choices.length || byRow.size !== valid.length || valid.some((r) => !byRow.has(r.row)))
 		deny("invalid_input");
-	const plan: Plan = { rows: file.rows.length, skip: [], invalid: [], create: [] };
+	const plan: Plan = { fileDigest: file.fileDigest, rows: file.rows.length, skip: [], invalid: [], create: [] };
 	for (const r of file.rows) {
 		if (r.status === "invalid") {
 			plan.invalid.push({ row: r.row, problems: r.problems });
@@ -227,8 +237,11 @@ const dropNulls = (_key: string, value: unknown) => (value === null ? undefined 
 
 type Created = Map<number, { personId: string; reviewWith: string | null }>;
 type Failed = Map<number, "row_write_failed">;
-/** Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. */
-function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean) {
+/**
+ * Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. `kept`:
+ * the import still holds its uploaded file.
+ */
+function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean, kept: boolean) {
 	const outcomes = new Map<number, unknown>();
 	for (const row of plan.skip) outcomes.set(row, { row, status: "skipped" });
 	for (const { row, problems } of plan.invalid)
@@ -247,6 +260,7 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Failed,
 	return c.importReceipt.parse({
 		importId,
 		status: running ? "in_progress" : remaining.length ? "partial" : "complete",
+		fileKept: kept,
 		rows: [...outcomes].sort(([a], [b]) => a - b).map(([, outcome]) => outcome),
 		remaining,
 		counts: {
@@ -259,17 +273,18 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Failed,
 }
 
 /**
- * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, the rows the job could
- * not write and the rows created so far, from their people.created audit rows.
+ * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, whether it still holds
+ * the uploaded file, the rows the job could not write and the rows created so far, from their people.created audit rows.
  */
 const importState = (importId: SQL) => sql`(SELECT jsonb_build_object('plan',sp.plan,
- 'running',sj.state IN ('ready','claimed','retry_wait'),'failed',sp.failed,
+ 'running',sj.state IN ('ready','claimed','retry_wait'),'kept',sp.upload IS NOT NULL,'failed',sp.failed,
  'created',coalesce((SELECT jsonb_agg(jsonb_build_object('row',(e.metadata->'import'->>'row')::int,'personId',e.subject_id,
   'reviewWith',e.metadata->'import'->'reviewWith')) FROM audit_event e WHERE e.command_id=si.id AND e.action='people.created'),'[]'::jsonb))
  FROM audit_event si JOIN person_import sp ON sp.id=si.id JOIN job sj ON sj.id=sp.job_id WHERE si.id=${importId})`;
 const savedState = z.object({
 	plan: z.unknown(),
 	running: z.boolean(),
+	kept: z.boolean(),
 	failed: z.array(z.object({ row: z.int(), reason: z.literal("row_write_failed") })),
 	created: z.array(z.object({ row: z.int(), personId: z.uuid(), reviewWith: z.uuid().nullable() })),
 });
@@ -280,14 +295,18 @@ function loadState(raw: unknown) {
 		created: new Map(state.created.map((r) => [r.row, { personId: r.personId, reviewWith: r.reviewWith }])) as Created,
 		failed: new Map(state.failed.map((f) => [f.row, f.reason])) as Failed,
 		running: state.running,
+		kept: state.kept,
 	};
 }
+/** The import's current receipt from its saved state. */
+const receiptOf = (importId: string, s: ReturnType<typeof loadState>) =>
+	receipt(importId, s.plan, s.created, s.failed, s.running, s.kept);
 
 /**
  * Save the reviewed rows and queue the job that writes them, and return at once. The bytes are read before any
  * database work. The save is a People write (D70): the gate holds the importer's Owner/Admin seat until COMMIT, and
- * the shared request key answers a repeat. Repeating the request returns the import's current receipt; after a
- * partial import it queues the job again for the remaining rows.
+ * the shared request key answers a repeat. Repeating the request returns the import's current receipt and queues
+ * nothing; "Try N rows again" is retryStoredImport.
  */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
 	const read = await readReply(async () => {
@@ -323,7 +342,7 @@ async function saveImport(
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("review_digest_conflict");
 	if (claim.kind === "unavailable") deny();
-	if (claim.kind === "replay") return resumeImport(tx, claim.id);
+	if (claim.kind === "replay") return receiptOf(claim.id, await stateOf(tx, sql`${claim.id}::uuid`));
 	const people = match.parse(
 		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
 	);
@@ -351,26 +370,80 @@ async function saveImport(
 		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
  VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
 	);
-	const answer = receipt(importId, plan, new Map(), new Map(), true);
+	const answer = receipt(importId, plan, new Map(), new Map(), true, true);
 	// The intent, the job and its payload in one statement with the audit row and its request key.
 	await finishAudit(tx, claim, identity, answer);
 	return answer;
 }
 
-/** A repeated import request: the import's current receipt, and a partial import queued again for its remaining rows. */
-async function resumeImport(tx: Tx, importId: string) {
-	const prior = loadState(
-		z
-			.object({ state: z.unknown() })
-			.parse((await tx.execute(sql`SELECT ${importState(sql`${importId}::uuid`)} AS state`)).rows[0]).state,
+/** The saved state of the import with this id, which the caller found in its own church. */
+async function stateOf(tx: Tx, importId: SQL) {
+	return loadState(
+		z.object({ state: z.unknown() }).parse((await tx.execute(sql`SELECT ${importState(importId)} AS state`)).rows[0])
+			.state,
 	);
-	const answer = receipt(importId, prior.plan, prior.created, prior.failed, prior.running);
+}
+
+/**
+ * "Try N rows again" for a partial import, named by its request key in the viewer's church (REQ-PPL-018). Without an
+ * upload the job reads the server's kept copy (D-802), so the 1-hour staged upload need not still exist. Once the copy
+ * is deleted, the person uploads the file again; the server reads the staged object and keeps it only when its bytes
+ * are the ones the import used (D-803). Either way the job writes only the remaining rows: each row's Person ID is fixed
+ * by the import, so a row an earlier run created is never created again.
+ */
+export async function retryStoredImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
+	const loaded = await readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const { requestKey, uploadId } = parse(c.retryImportRequest, raw);
+		return { requestKey, file: uploadId ? await storedFile(db, storage, ctx, uploadId) : null };
+	});
+	if (loaded.status !== "ok") return loaded;
+	const { requestKey, file } = loaded.value;
+	return withPeopleWrite(db, authority, (tx, ctx) => reply(tx, () => retryImport(tx, ctx, requestKey, file)));
+}
+
+async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: Uint8Array | null) {
+	const plant = plantId(ctx);
+	await declareWrite(tx, "established");
+	await lockOwner(tx, ctx);
+	// The account that retries becomes the importer: the job writes the remaining rows under its live seat.
+	const actorId = (await authorize(tx, ctx, true)).accountId;
+	const found = z.object({ id: z.uuid().nullable(), state: z.unknown() }).parse(
+		(
+			await tx.execute(sql`SELECT a.id, ${importState(sql`a.id`)} AS state FROM (SELECT 1) seed
+ LEFT JOIN audit_event a ON a.tenant_id=${plant}::uuid AND a.request_key=${requestKey} AND a.request_identity->>'operation'=${OPERATION}`)
+		).rows[0],
+	);
+	if (!found.id || !found.state) deny();
+	const prior = loadState(found.state);
+	const answer = receiptOf(found.id, prior);
 	if (answer.status !== "partial") return answer;
-	// Its last failures clear until the job reports again.
-	await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${importId}::uuid RETURNING job_id)
+	if (file && createHash("sha256").update(file).digest("hex") !== prior.plan.fileDigest) deny("import_file_mismatch");
+	const upload = file ? gzipSync(file).toString("base64") : null;
+	// Its last failures clear until the job reports again. Only a job that stopped is queued again, and only with a file.
+	const queued = await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb,
+  upload=coalesce(${upload}::text,upload),actor_id=${actorId}::uuid
+  WHERE id=${found.id}::uuid AND coalesce(${upload}::text,upload) IS NOT NULL RETURNING job_id)
  UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
-  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')`);
-	return receipt(importId, prior.plan, prior.created, new Map(), true);
+  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')
+ RETURNING job.id`);
+	if (!queued.rows.length) deny("import_file_expired");
+	return receipt(found.id, prior.plan, prior.created, new Map(), true, true);
+}
+
+/**
+ * The scheduled deletion of kept import files (D-801): a failed or partial import keeps its uploaded file for
+ * importFileKeptDays after its job last stopped, then loses it. The receipt is unchanged; a retry then needs the file
+ * uploaded again. At most 500 imports per run; locked ones wait for the next run. The number deleted.
+ */
+export async function deleteExpiredImportFiles(db: Database): Promise<number> {
+	const result = await db.execute(sql`UPDATE person_import SET upload=NULL WHERE id IN (
+ SELECT pi.id FROM person_import pi JOIN job j ON j.id=pi.job_id AND j.tenant_id=pi.tenant_id
+ WHERE pi.upload IS NOT NULL AND j.state NOT IN ('ready','claimed','retry_wait')
+  AND j.finished_at<=clock_timestamp()-make_interval(days=>${c.importFileKeptDays})
+ LIMIT 500 FOR UPDATE OF pi SKIP LOCKED) RETURNING id`);
+	return result.rows.length;
 }
 
 /** The importing account's current Owner/Admin seat in this church, for a worker that has no request session. */
@@ -389,10 +462,20 @@ type SavedRow = { row: number; reviewWith: string | null; values: Values };
  * One batch in one statement: the lease and the importer's live Owner/Admin seat, the new people, one people.created
  * audit row each tied to the import, and the pipeline and church revisions. A Person an earlier run wrote is left alone.
  */
-async function writeBatch(db: Database, lease: Lease, actorId: string, importId: string, batch: SavedRow[]) {
+async function writeBatch(
+	db: Database,
+	lease: Lease,
+	actorId: string,
+	importId: string,
+	batch: SavedRow[],
+	clock: { next: number },
+) {
 	const plant = lease.tenant_id,
 		church = owner.parse({ kind: "plant", id: plant }),
-		start = Date.now();
+		// Never earlier than the last row of the batch before: a batch that returns within its own span of milliseconds
+		// would otherwise start the next one inside it.
+		start = Math.max(Date.now(), clock.next);
+	clock.next = start + batch.length;
 	// Rows keep file order in the directory: each is recorded one millisecond after the one before it.
 	const people = batch.map((r, i) =>
 		newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
@@ -476,6 +559,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 		.map((r) => ({ ...r, values: values.get(r.row)! }));
 	const failed: FailedRow[] = [...loaded.failed];
 	let lost = false;
+	const clock = { next: 0 };
 	// Failed rows are saved at least every 10 s while a batch is split, and saved progress starts a fresh retry budget,
 	// as scanPage does: a run the platform stops never repeats saved rows, so even a file whose rows all fail finishes.
 	let saved = failed.length,
@@ -491,7 +575,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
-			if (!(await writeBatch(db, lease, actorId, loaded.id, batch))) lost = true;
+			if (!(await writeBatch(db, lease, actorId, loaded.id, batch, clock))) lost = true;
 		} catch (error) {
 			const why = rowFailure(error);
 			if (!why) throw error;
@@ -515,6 +599,101 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
  upload=CASE WHEN ${failed.length === 0} THEN NULL ELSE upload END
  WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id`);
 	return finished.rows.length ? "succeeded" : "lost";
+}
+
+// The screen's upload (REQ-PPL-018 over the REQ-PPL-014 private-file flow): the browser puts the file once into the
+// private bucket with a signed PUT, then the preview and the import each read the stored object here and parse it. No
+// request to the app carries the file, and no row the browser sends back is trusted.
+
+/** A staged import file's object key: the church comes from the verified viewer, so another church's upload cannot be named. */
+const uploadKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
+/**
+ * Sign one import upload: one statement checks the live Owner or Admin, inserts the pending file row and queues its
+ * cleanup for when it expires. Nothing references a staged file, so the shared object cleanup removes it then, whether
+ * the import ran or not. The PUT URL is signed locally for the exact key, type and length, and writes once.
+ */
+export async function signPeopleImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
+	return readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const plant = plantId(ctx);
+		// The same refusal as a stored file over the limit, so a browser that skips its own check learns why.
+		const declared = (raw as { byteLength?: unknown } | null)?.byteLength;
+		if (typeof declared === "number" && declared > c.importLimits.bytes) deny("file_too_large");
+		const input = parse(c.signImportUploadRequest, raw);
+		const id = randomUUID();
+		const key = uploadKey(plant, id);
+		const result = await db.execute(sql`WITH upload AS (
+ INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+ SELECT ${id}::uuid,${plant}::uuid,'native_import',${key}::text,'text/csv',${String(input.byteLength)}::bigint,
+  'pending',${"people-import/" + id}::text,0,clock_timestamp()+interval '1 hour'
+ WHERE ${access(ctx, true)}
+ RETURNING id,expires_at), cleanup AS (
+ INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+ SELECT ${plant}::uuid,'object_cleanup',u.id,'people-import-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
+ ON CONFLICT DO NOTHING)
+ SELECT id FROM upload`);
+		if (!result.rows[0]) deny();
+		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny());
+		return c.importUpload.parse({ uploadId: id, ...signed });
+	});
+}
+/**
+ * The stored upload's bytes. One statement first checks the live Owner or Admin and this church's own unexpired
+ * staged upload, so no other request reaches the bucket. An object over the limit is refused unread; a missing,
+ * expired or incomplete one is not the file the person chose, so it is refused as a changed file.
+ */
+async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleReadContext, uploadId: string) {
+	const plant = plantId(ctx),
+		key = uploadKey(plant, uploadId);
+	const found = z.object({ allowed: z.boolean(), staged: z.boolean() }).parse(
+		(
+			await db.execute(sql`SELECT ${access(ctx, true)} AS allowed, EXISTS(SELECT FROM file_object f
+ WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND f.purpose='native_import' AND f.opaque_key=${key}::text
+ AND f.state='pending' AND f.expires_at>clock_timestamp()) AS staged`)
+		).rows[0],
+	);
+	if (!found.allowed) deny();
+	if (!found.staged) deny("file_changed");
+	const object = await readPrivateUpload(storage, key, c.importLimits.bytes);
+	if (object === "too_large") deny("file_too_large");
+	if (object === "missing") deny("file_changed");
+	return object.bytes;
+}
+/** previewImport of a stored upload. The bucket is read with no transaction open. */
+export async function previewStoredImport(
+	db: Database,
+	storage: PrivateStorage,
+	authority: RequestActor,
+	raw: unknown,
+) {
+	const ctx = new PeopleReadContext(authority);
+	const loaded = await readReply(async () => {
+		authorizeCachedWrite(ctx);
+		const input = parse(c.previewStoredImportRequest, raw);
+		return storedFile(db, storage, ctx, input.uploadId);
+	});
+	if (loaded.status !== "ok") return loaded;
+	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
+}
+/**
+ * executeBulkImport of a stored upload: the server reads the object again and saves it only when it is the previewed
+ * file (its digest). A swapped, missing or incomplete object is refused as file_changed and nothing is saved.
+ */
+export async function executeStoredImport(
+	db: Database,
+	storage: PrivateStorage,
+	authority: RequestActor,
+	raw: unknown,
+) {
+	const loaded = await readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const { uploadId, ...input } = parse(c.executeStoredImportRequest, raw);
+		return { ...input, file: await storedFile(db, storage, ctx, uploadId) };
+	});
+	if (loaded.status !== "ok") return loaded;
+	return executeBulkImport(db, authority, loaded.value);
 }
 
 export const peopleCsv = {
@@ -580,8 +759,7 @@ export const peopleCsv = {
 				).rows[0],
 			);
 			if (!row.allowed || !row.id || !row.state) deny();
-			const saved = loadState(row.state);
-			return receipt(row.id, saved.plan, saved.created, saved.failed, saved.running);
+			return receiptOf(row.id, loadState(row.state));
 		});
 	},
 	/**
@@ -615,6 +793,25 @@ export const peopleCsv = {
 				// The byte order mark lets spreadsheets read the UTF-8 names correctly.
 				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
 				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
+			});
+		});
+	},
+	/**
+	 * What exportPeople would say about its file, without building it: the filename, the media type and the receipt.
+	 * One count(*) under the same filters and live access; it selects no contact value, note or person row. Evry uses it.
+	 */
+	async countExport(tx: Tx, ctx: Context, raw: unknown) {
+		return readReply(async () => {
+			plantId(ctx);
+			const filters = parse(c.exportPeopleRequest, raw);
+			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
+ (SELECT count(*)::int FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) AS matched`);
+			const state = z.object({ allowed: z.boolean(), matched: z.number().int() }).parse(result.rows[0]);
+			if (!state.allowed) deny();
+			return c.peopleExport.omit({ text: true }).parse({
+				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
+				mediaType: media,
+				receipt: { filters, matched: state.matched, returned: state.matched, completeness: "complete" },
 			});
 		});
 	},

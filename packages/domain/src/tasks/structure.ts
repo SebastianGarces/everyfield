@@ -183,7 +183,9 @@ export function structureWriter(reminders: TaskReminders) {
 		},
 		/**
 		 * Make a top-level task recurring, change its series rule, or stop it with a null rule (REQ-TSK-007). Stopping
-		 * keeps every occurrence and its history. A generated duty cannot recur. Owner/Admin.
+		 * keeps every occurrence and its history. A rule on any occurrence of a stopped series starts a new series from
+		 * that task as occurrence 1; the old series stays stopped with its other occurrences. A generated duty cannot
+		 * recur. Owner/Admin.
 		 */
 		async configureRecurrence(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
@@ -265,7 +267,8 @@ export function structureWriter(reminders: TaskReminders) {
 		/**
 		 * Complete up to 100 reviewed tasks in one transaction (REQ-TSK-008). Each task gets its own outcome: a missing
 		 * or foreign task is not_found, a changed one stale, a waived one closed, one a Member does not hold unauthorized.
-		 * Every valid task completes, recurring ones with their successor; a failure commits nothing, and a retry with the
+		 * Every valid task completes, recurring ones with their successor, which the task's item names; a failure commits
+		 * nothing, and a retry with the
 		 * same request key returns the stored outcomes without completing anything twice.
 		 */
 		async bulkComplete(tx: Tx, context: TaskContext, raw: unknown) {
@@ -278,7 +281,7 @@ export function structureWriter(reminders: TaskReminders) {
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });
-						return { row: r.row.revision, changes: r.changes };
+						return { row: r.row.revision, changes: r.changes, successor: r.successor };
 					}),
 				);
 			});
@@ -324,7 +327,9 @@ export function structureWriter(reminders: TaskReminders) {
 		items: readonly { taskId: string; expectedRevision: string }[],
 		apply: (
 			row: LockedTask,
-		) => z.infer<typeof c.bulkOutcome> | { row: string; changes: readonly ReturnType<typeof reminderChange>[] },
+		) =>
+			| z.infer<typeof c.bulkOutcome>
+			| { row: string; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
 	) {
 		const selected = [...new Map(items.map((i) => [i.taskId, i])).values()];
 		const rows = await loadTasks(
@@ -334,11 +339,16 @@ export function structureWriter(reminders: TaskReminders) {
 		);
 		const pending: ReturnType<typeof reminderChange>[] = [];
 		const remaining: string[] = [];
+		const asOf = now();
 		const results = selected.map((item) => {
 			const row = rows.get(item.taskId);
-			const done = (outcome: z.infer<typeof c.bulkOutcome>, revision: string | null = row?.revision ?? null) => {
+			const done = (
+				outcome: z.infer<typeof c.bulkOutcome>,
+				revision: string | null = row?.revision ?? null,
+				successor: TaskRow | null = null,
+			) => {
 				if (outcome !== "changed" && row && !row.deleted_at && OPEN(row.status)) remaining.push(item.taskId);
-				return { taskId: item.taskId, outcome, revision };
+				return { taskId: item.taskId, outcome, revision, successor: successor && detailOf(successor, asOf) };
 			};
 			if (!row) return done("not_found", null);
 			if (row.deleted_at) return done("deleted");
@@ -346,7 +356,7 @@ export function structureWriter(reminders: TaskReminders) {
 			const r = apply(row);
 			if (typeof r === "string") return done(r);
 			pending.push(...r.changes);
-			return done("changed", r.row);
+			return done("changed", r.row, r.successor ?? null);
 		});
 		return {
 			value: c.bulkResult.parse({

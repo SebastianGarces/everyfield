@@ -19,10 +19,10 @@ const railEntries: Record<MergeKey, Omit<MergeField, "key">> = {
 	rsvp_link: { label: "RSVP button", example: "Tell us if you can come", needsMeeting: true },
 };
 
-export const mergeFields: readonly MergeField[] = mergeKeys.map((key) => ({ key, ...railEntries[key] }));
+const mergeFields: readonly MergeField[] = mergeKeys.map((key) => ({ key, ...railEntries[key] }));
 
 /** Full names, because delivery fills `name` with the display name. */
-export const sampleNames: readonly string[] = [
+const sampleNames: readonly string[] = [
 	"Maria Santos",
 	"Daniel Okafor",
 	"Priya Raman",

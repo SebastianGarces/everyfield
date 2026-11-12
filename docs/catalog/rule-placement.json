@@ -3829,7 +3829,7 @@
     "Supported dueKind values: undated, local_date, resolved_instant, any.": "Supported due kind values: undated, local_date, resolved_instant, any.",
     "Supported preparationState values: complete, incomplete, any.": "Supported preparation state values: complete, incomplete, any.",
     "Supported providerOutcomes values: accepted, delivered, rejected, bounced, suppressed, unknown.": "Supported provider outcomes values: accepted, delivered, rejected, bounced, suppressed, unknown.",
-    "Supported registeredCategory values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.",
+    "Supported registeredCategory values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe.",
     "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/defaultUTC, no arbitrary interval/plant actor/names/notes/giving/body.": "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/default utc, no arbitrary interval/plant actor/names/notes/giving/body.",
     "Supported reminderKind values: scheduled_announcement, day_7, day_3, day_1.": "Supported reminder kind values: scheduled_announcement, day_7, day_3, day_1.",
     "Visible information for plant_owner|plant_admin|plant_member: messageId, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, asOf.": "Visible information for plant_owner|plant_admin|plant_member: message id, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, as of.",
@@ -4126,7 +4126,10 @@
     "correction receipt with effective lifecycle/acquisition source revision": "correction outcome with effective lifecycle/acquisition source revision",
     "human correction receipt no advanced-stage demotion": "human correction outcome, no advanced-stage demotion",
     "Supported format values: pdf, docx, xlsx.": "Supported format values: pdf, xlsx.",
-    "adult|child|unknown (default unknown; never inferred)": "adult|child|unknown (default unknown; recorded only; with a birth date, adult or child comes from the birth date)"
+    "adult|child|unknown (default unknown; never inferred)": "adult|child|unknown (default unknown; recorded only; with a birth date, adult or child comes from the birth date)",
+    "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe.",
+    "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe.",
+    "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices.": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor and scheduled email unsubscribe notices in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
   },
   "added_links": [
     {
@@ -4683,6 +4686,51 @@
       "requirement": "REQ-DOC-020",
       "operation": "documents.exportNative",
       "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.describeMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.applyMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.undoMessagesOptOut",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-PPL-016",
+      "operation": "people.dismissDuplicatePair",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "requirement": "REQ-PPL-016",
+      "operation": "people.restoreDuplicatePair",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "requirement": "REQ-MTG-007",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
+    },
+    {
+      "requirement": "REQ-MTG-011",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
+    },
+    {
+      "requirement": "REQ-NTF-006",
+      "operation": "meetings.planNotifications",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
+    },
+    {
+      "requirement": "REQ-DOC-022",
+      "operation": "documents.restoreChurch",
+      "reason": "T-284 (later slice 2 of T-9): the restore write proves an archived Church Document returns to the library under the DOC-016 owner, revision and archive rules."
     }
   ],
   "rule_additions": [
@@ -4697,6 +4745,30 @@
       "operation": "documents.generate",
       "rule": "Generate makes saved files for every template, including editable ones (\"Save for your church\"); an editable template can also become a Church Document through documents.createFromTemplate, then documents.exportNative.",
       "reason": "Sebastian, 2026-11-04 (T-56): keep Save for your church alongside editable documents, so generate makes saved files for editable templates too."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.applyMessagesOptOut",
+      "rule": "Messages opt-out requires an explicit native request bound to the disable purpose; only the Person's own token writes it.",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-016",
+      "operation": "communication.undoMessagesOptOut",
+      "rule": "Undo requires the separate one-hour undo token of that exact opt-out; no staff or Admin operation clears or rewrites it.",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-NTF-003",
+      "operation": "notifications.feed",
+      "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state.",
+      "reason": "T-260 (D-731 to D-733): feed entries link to their subject page, replacing D-684."
+    },
+    {
+      "requirement": "REQ-NTF-001",
+      "operation": "notifications.enqueue",
+      "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant.",
+      "reason": "T-229: notifications.cancelForEntity is removed; the rule still binds every notice the notification service writes, so it moves to notifications.enqueue."
     }
   ],
   "operation_additions": [
@@ -4999,6 +5071,41 @@
       "id": "documents.exportNative",
       "requirement": "REQ-DOC-023",
       "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): WP-037 owns editable template documents and their export."
+    },
+    {
+      "id": "communication.describeMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "communication.applyMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "communication.undoMessagesOptOut",
+      "requirement": "REQ-NTF-016",
+      "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "people.dismissDuplicatePair",
+      "requirement": "REQ-PPL-016",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "id": "people.restoreDuplicatePair",
+      "requirement": "REQ-PPL-016",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "id": "meetings.addGuests",
+      "requirement": "REQ-MTG-007",
+      "reason": "T-232 (later slice 3 of T-161, audit finding messages/com-36): Add guest sends everyone chosen in one set-based write instead of one request per person (patterns.md Performance, D70). Owner/Admin only; Evry keeps its one-person meetings.inviteGuest and meetings.createGuestContact."
+    },
+    {
+      "id": "documents.restoreChurch",
+      "requirement": "REQ-DOC-022",
+      "reason": "T-284 (later slice 2 of T-9): an Owner or Admin restores an archived Church Document from the archived list; it returns to the library with its revisions and saved exports unchanged. Owner/Admin only; not offered to Evry."
     }
   ],
   "shared_rewrites": {
@@ -5021,6 +5128,14 @@
     {
       "id": "teams.correct",
       "reason": "WP-017, 2026-11-02 (spec Done criterion 12): a second path that changed a ministry's own details. Edit details (teams.edit) with an optional reason is the only action that changes a ministry's name, description, icon or state; REQ-TEAM-002 states the behavior and old Corrected history entries still read."
+    },
+    {
+      "id": "notifications.syncMeetingReminders",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
+    },
+    {
+      "id": "notifications.cancelForEntity",
+      "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
     }
   ]
 }

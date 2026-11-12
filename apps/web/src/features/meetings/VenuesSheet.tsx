@@ -20,6 +20,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from "react
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { MONTHS } from "../shared/dates.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
 /** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
@@ -372,7 +373,6 @@ const FIELD_NAME: Record<string, string> = {
 	active: "archived state",
 };
 const fieldName = (k: string) => FIELD_NAME[k] ?? k;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "Oct 12, 2026" from an instant, by its UTC day, so the server and browser print the same words. */
 const dayText = (at: string) => {
 	const d = new Date(at);
@@ -385,19 +385,23 @@ type VenueDraft = Record<
 >;
 const text = (v: string | null) => v ?? "";
 
+const draftOf = (venue: Venue | undefined): VenueDraft => ({
+	name: text(venue?.name ?? null),
+	address: text(venue?.address ?? null),
+	contactName: text(venue?.contactName ?? null),
+	phone: text(venue?.phone ?? null),
+	email: text(venue?.email ?? null),
+	costDescription: text(venue?.costDescription ?? null),
+	capacity: venue?.capacity ? String(venue.capacity) : "",
+	notes: text(venue?.notes ?? null),
+	reason: "",
+});
+
 /** Add a place, or change one. A change with a reason is a correction and keeps the reason in the history. */
-function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
-	const [draft, setDraft] = useState<VenueDraft>({
-		name: text(venue?.name ?? null),
-		address: text(venue?.address ?? null),
-		contactName: text(venue?.contactName ?? null),
-		phone: text(venue?.phone ?? null),
-		email: text(venue?.email ?? null),
-		costDescription: text(venue?.costDescription ?? null),
-		capacity: venue?.capacity ? String(venue.capacity) : "",
-		notes: text(venue?.notes ?? null),
-		reason: "",
-	});
+function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
+	// The place being changed: as opened, or as read again after a save refused as out of date.
+	const [venue, setVenue] = useState(opened);
+	const [draft, setDraft] = useState<VenueDraft>(() => draftOf(opened));
 	const [touched, setTouched] = useState(false);
 	// The form stays open while it saves; its notice says why a save was refused or that it may already be saved.
 	const lane = useSaveIntent({ explain: problemText });
@@ -451,6 +455,17 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 			what: `The changes to ${venue.name}`,
 			send: (key) => changeVenue(op, key, venue.revision, input),
 			ok: (value) => onDone(venue.id, value.venue),
+			// Out of date: the form shows the place as it is now, as the refusal says, and saves against that revision.
+			refused: (code) =>
+				code === "conflict" &&
+				getVenue(venue.id).then(
+					(r) => {
+						if (r.status !== "ok" || r.value.status !== "available") return;
+						setVenue(r.value.venue);
+						setDraft(draftOf(r.value.venue));
+					},
+					() => {},
+				),
 		});
 	}
 

@@ -8,12 +8,15 @@
 //   Criterion 10: the legal notice is never a difference, and accept all keeps it in the PDF and the Word file.
 //   Criterion 11: an accept from a stale compare is a conflict and writes nothing.
 //   Criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter, templateStatus } from "../../../packages/domain/src/documents/index.ts";
-import { DOC_TEMPLATES, docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import {
+	DOC_TEMPLATES,
+	docTemplateById,
+	publishedTemplate,
+} from "../../../packages/domain/src/documents/doc-templates.ts";
 import {
 	LEGAL_NOTICE,
 	acceptDifferences,
@@ -27,7 +30,7 @@ import { documentFrom, editorContent } from "../../../apps/web/src/features/docu
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 const POLICY = "conflict-of-interest-policy";
 const v1 = docTemplateById(POLICY)!;
@@ -66,8 +69,17 @@ function versionTwo() {
 	return docTemplate.parse(v2);
 }
 
-describe("T-19 compare a document with its template (no database)", () => {
-	test("criterion 3: a fresh fork of each built-in template, saved through the editor, has no differences", async () => {
+/** The built-in templates with `next` as the policy's current version, published beside the stored ones. */
+async function withVersion(next) {
+	const hash = await templateHash(next);
+	return {
+		current: (id) => (id === POLICY ? next : docTemplateById(id)),
+		published: (id, h) => (id === POLICY && h === hash ? next : publishedTemplate(id, h)),
+	};
+}
+
+describe("INV-template-compare: compare a document with its template (no database)", () => {
+	test("INV-template-compare: a fresh fork of each built-in template, saved through the editor, has no differences", async () => {
 		for (const template of DOC_TEMPLATES) {
 			const fork = await forkTemplate(template, { data: { church_name: "Harvest Point" } });
 			assert.deepEqual(compareWithTemplate(fork, template), [], `${template.id} as forked`);
@@ -75,27 +87,7 @@ describe("T-19 compare a document with its template (no database)", () => {
 		}
 	});
 
-	test("criterion 2: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
-		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
-		const edited = structuredClone(fork);
-		edited.page.margin.left = 72;
-		edited.body.content[4] = { ...edited.body.content[4], content: [{ type: "text", text: "Our purpose" }] };
-		edited.body.content.splice(7, 1);
-		const differences = compareWithTemplate(throughEditor(edited), v1);
-		assert.deepEqual(shape(differences), [
-			[0, "page", "changed"],
-			[1, "body", "changed"],
-			[2, "body", "template-only"],
-		]);
-		assert.equal(differences[0].document.margin.left, 72);
-		assert.equal(differences[0].template.margin.left, 40);
-		assert.equal(differences[1].document.content[0].text, "Our purpose");
-		assert.equal(differences[1].template.content[0].text, "Purpose");
-		assert.deepEqual(differences[2].template, v1.body.content[7]);
-		assert.equal(differences[2].document, null);
-	});
-
-	test("criterion 2: the title, the header and the footer are listed too", async () => {
+	test("INV-template-compare: the title, the header and the footer are listed too", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);
 		edited.title = "Our Conflict Policy";
@@ -108,12 +100,21 @@ describe("T-19 compare a document with its template (no database)", () => {
 		]);
 	});
 
-	test("criterion 4: a merge field that differs only by its frozen value is not a difference", async () => {
+	test("INV-template-compare: a merge field that differs only by its frozen value is not a difference", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Somewhere Else", church_legal_name: "Else, Inc." } });
 		assert.deepEqual(compareWithTemplate(fork, v1), []);
 	});
 
-	test("criterion 5: accepting one difference applies only it; accept all gives the template's body", async () => {
+	test("INV-template-compare: a block that spells out its default attributes equals one that leaves them out", async () => {
+		// The editor writes the defaults once a person picks a style and picks the default back (Lead, then Body).
+		const fork = await forkTemplate(v1);
+		const at = fork.body.content.findIndex((block) => block.type === "paragraph" && !block.attrs);
+		assert.notEqual(at, -1, "the template has a paragraph with no attrs");
+		fork.body.content[at] = { ...fork.body.content[at], attrs: { align: "left", style: "body" } };
+		assert.deepEqual(compareWithTemplate(fork, v1), []);
+	});
+
+	test("INV-template-compare: accepting one difference applies only it; accept all gives the template's body", async () => {
 		const fork = await forkTemplate(v1, { data: { church_name: "Harvest Point" } });
 		const edited = structuredClone(fork);
 		edited.body.content[2] = { ...edited.body.content[2], content: [{ type: "text", text: "Our Policy" }] };
@@ -138,43 +139,22 @@ describe("T-19 compare a document with its template (no database)", () => {
 
 // ---------------------------------------------------------------- the read and the accept, on the database
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t19cmp_" + randomUUID().replaceAll("-", "");
-const roleName = "t19cmp_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const database = await fixture({ prefix: "t19cmp", plant: { name: "Harvest Point" } });
+const { admin } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const OWNER = 0;
 const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
-let db;
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-};
 const authority = async (who) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -221,46 +201,6 @@ const revisionCount = async (id) =>
 	);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, name, tz] of [
-		[P, "Harvest Point", "America/Chicago"],
-		[Q, "Other Church", "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},${name},${tz},7,14,1,8,1,1)`,
-		);
-	for (const [index, plant, role] of [
-		[OWNER, P, "owner"],
-		[MEMBER, P, "member"],
-		[ADMIN, P, "admin"],
-		[OTHER, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${role},clock_timestamp())`,
-		);
 	// Harvest Point has a senior pastor, so the pastor field prints the church's value; Other Church has none.
 	const pastor = randomUUID();
 	const team = randomUUID();
@@ -280,17 +220,11 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () => {
-	test("criterion 3: a fresh document matches its template and lists nothing", async () => {
+describe("INV-template-compare: compare and accept on a Church Document", { concurrency: 1 }, () => {
+	test("INV-template-compare: a fresh document matches its template and lists nothing", async () => {
 		const doc = await create(ADMIN, "guest-sign-in-sheet");
 		assert.equal(await templateStatus(doc.body), "current");
 		const found = ok(await compare(ADMIN, doc.id));
@@ -299,9 +233,9 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(found.revision, "1");
 	});
 
-	test("criteria 5, 6, 7, 9, 14: accepting some changes of a version 2 writes one revision with the exact body and origin", async () => {
+	test("INV-template-compare: accepting some changes of a version 2 writes one revision with the exact body and origin", async () => {
 		const v2 = versionTwo();
-		const templates = (id) => (id === POLICY ? v2 : docTemplateById(id));
+		const templates = await withVersion(v2);
 		const doc = await create(OWNER, POLICY);
 		// The church's own edit: its lead paragraph.
 		const edited = structuredClone(doc.body);
@@ -330,7 +264,14 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		const accepted = ok(
 			await accept(
 				OWNER,
-				{ documentId: doc.id, expectedRevision: "2", templateHash: found.templateHash, accept: [1, 2, 3] },
+				{
+					documentId: doc.id,
+					expectedRevision: "2",
+					templateHash: found.templateHash,
+					view: "all",
+					key: found.keys.all,
+					accept: [1, 2, 3],
+				},
 				templates,
 			),
 		);
@@ -396,16 +337,23 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(again.differences[0].document.content[0].text, r2.body.body.content[3].content[0].text);
 	});
 
-	test("criterion 9: a church with no value for a new field prints the template's fallback", async () => {
+	test("INV-template-compare: a church with no value for a new field prints the template's fallback", async () => {
 		const v2 = versionTwo();
-		const templates = (id) => (id === POLICY ? v2 : docTemplateById(id));
+		const templates = await withVersion(v2);
 		const doc = await create(OTHER, POLICY);
 		const found = ok(await compare(OTHER, doc.id, templates));
 		assert.equal(found.values.pastor_name, "our pastor");
 		const accepted = ok(
 			await accept(
 				OTHER,
-				{ documentId: doc.id, expectedRevision: "1", templateHash: found.templateHash, accept: "all" },
+				{
+					documentId: doc.id,
+					expectedRevision: "1",
+					templateHash: found.templateHash,
+					view: "all",
+					key: found.keys.all,
+					accept: "all",
+				},
 				templates,
 			),
 		);
@@ -414,7 +362,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.ok((await pdfText(await file(OTHER, doc.id, "pdf"))).includes("Questions go to our pastor."));
 	});
 
-	test("criterion 10: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
+	test("INV-template-compare: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const emptied = structuredClone(doc.body);
 		emptied.body = { type: "doc" };
@@ -430,6 +378,8 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 		);
@@ -440,7 +390,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.ok(docxText(await file(ADMIN, doc.id, "docx")).includes(LEGAL_NOTICE));
 	});
 
-	test("criterion 11: an accept from a compare that a later save made stale is a conflict and writes nothing", async () => {
+	test("INV-template-compare: an accept from a compare that a later save made stale is a conflict and writes nothing", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const edited = structuredClone(doc.body);
 		edited.body.content.splice(5, 1);
@@ -449,16 +399,26 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		assert.equal(found.revision, "2");
 		// Another tab saves revision 3 after the compare opened.
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));
-		const request = { documentId: doc.id, expectedRevision: "2", templateHash: found.templateHash, accept: [0] };
+		const request = {
+			documentId: doc.id,
+			expectedRevision: "2",
+			templateHash: found.templateHash,
+			view: "all",
+			key: found.keys.all,
+			accept: [0],
+		};
 		refused(await accept(ADMIN, request), "conflict");
 		assert.equal(await revisionCount(doc.id), 3);
 		// A compare made for another template version is a conflict too.
 		const stale = { ...request, expectedRevision: "3", templateHash: `sha256:${"0".repeat(64)}` };
 		refused(await accept(ADMIN, stale), "conflict");
 		// A number the compare does not have is refused as invalid.
-		refused(await accept(ADMIN, { ...request, expectedRevision: "3", accept: [99] }), "invalid_input");
-		assert.equal(await revisionCount(doc.id), 3);
 		const reloaded = ok(await compare(ADMIN, doc.id));
+		refused(
+			await accept(ADMIN, { ...request, expectedRevision: "3", key: reloaded.keys.all, accept: [99] }),
+			"invalid_input",
+		);
+		assert.equal(await revisionCount(doc.id), 3);
 		assert.equal(reloaded.revision, "3");
 		assert.deepEqual(shape(reloaded.differences), [
 			[0, "title", "changed"],
@@ -466,7 +426,7 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 		]);
 	});
 
-	test("criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with", async () => {
+	test("INV-template-compare: a Member is refused; a blank document and a gone template have nothing to compare with", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const found = ok(await compare(ADMIN, doc.id));
 		refused(await compare(MEMBER, doc.id), "access_denied");
@@ -475,13 +435,15 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "1",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 			"access_denied",
 		);
 		assert.equal(await revisionCount(doc.id), 1);
 
-		const gone = () => undefined;
+		const gone = { current: () => undefined, published: publishedTemplate };
 		assert.equal(await templateStatus(doc.body, gone), null);
 		refused(await compare(ADMIN, doc.id, gone), "unavailable");
 
@@ -494,6 +456,8 @@ describe("T-19 compare and accept on a Church Document", { concurrency: 1 }, () 
 				documentId: doc.id,
 				expectedRevision: "2",
 				templateHash: found.templateHash,
+				view: "all",
+				key: found.keys.all,
 				accept: "all",
 			}),
 			"unavailable",

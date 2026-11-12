@@ -16,9 +16,8 @@ Work from evidence, not guesses. Every task has its own stack, so what you see i
    `trace.zip` from a check run with `npx playwright show-trace <file>`.
 4. **Find the cause.** Ask why until you reach the first wrong value. Apply
    `principle-fix-root-causes`: no guard that hides the symptom.
-5. **Prove the fix.** Add a `BUG-` or `AC-` test if the gap could return (see `test-standard`),
+5. **Prove the fix.** Add a `BUG-` or `AC:` test if the gap could return (see `test-standard`),
    then rerun the check that failed.
 
 Keep raw output out of your context. Read summaries first and open one trace or log at a time.
-`bin/dev traces` says what to read instead until the observability package lands. Use the logs,
-and say so in your report.
+No trace reader exists yet. Read `bin/dev logs` instead, and say so in your report.

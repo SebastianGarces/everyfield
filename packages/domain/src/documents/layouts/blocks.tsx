@@ -1,12 +1,10 @@
-// Document building blocks on the pdfcn theme. pdfcn supplies PageNumber and the theme provider. Two things the
-// pdfcn Forme base does not emit are rebuilt here from the same tokens: heading tags (the pdfcn Heading renders a
-// plain Text) and table tags (the pdfcn Table is Views). Both feed the PDF structure tree (DOC accessibility).
+// Document building blocks on the theme tokens. Headings and tables carry their tags, which feed the PDF structure
+// tree (DOC accessibility).
 import type { ReactNode } from "react";
 import { Checkbox, Fixed, H1, H2, Image, Cell, Row, Svg, Table, Text, TextField, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
 import type { AgendaMeeting } from "../agenda-meeting.ts";
 import { ContrastLog, MIN_BODY, MIN_NONTEXT } from "../contrast.ts";
-import { PageNumber } from "../pdfcn/page-number.tsx";
 import { FONT, SIZE, SP, type RenderClass, type RenderTheme, type Palette, type ThemeImage } from "../theme.ts";
 
 export type Ctx = {
@@ -281,12 +279,12 @@ export const Cellfield = (name: string, w: number, h = 16) => (
 );
 
 /** Checkbox: a drawn square in the accent line color (3:1 on white) with the Forme fillable checkbox on top. */
-export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = "accent") => {
+export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = "accent", checked = false) => {
 	const line = tone === "accent" && ctx.p.brand ? ctx.p.accentLine : ctx.p.ink;
 	ctx.log.pair(`checkbox outline (${tone}) vs page`, line, ctx.p.white, MIN_NONTEXT);
 	return (
 		<View style={{ width: size, height: size, borderWidth: 1.5, borderColor: line }}>
-			<Checkbox name={name} width={size - 3} height={size - 3} />
+			<Checkbox name={name} width={size - 3} height={size - 3} checked={checked} />
 		</View>
 	);
 };
@@ -371,7 +369,7 @@ export const Cellt = (
 		style: { textAlign: o.align ?? "left" },
 	});
 
-/** Letterhead footer: the left text and the pdfcn page number. */
+/** Letterhead footer: the left text and "Page N of M". */
 export const Footer = (ctx: Ctx, left: string, rule: string) => (
 	<Fixed position="footer">
 		<View
@@ -391,7 +389,9 @@ export const Footer = (ctx: Ctx, left: string, rule: string) => (
 					: null}
 			</View>
 			<View style={{ width: 90 }}>
-				<PageNumber align="right" size="xs" format="Page {page} of {total}" />
+				<Text style={{ fontFamily: FONT.body, fontSize: SIZE.xs, color: ctx.p.mutedText, textAlign: "right" }}>
+					{"Page {{pageNumber}} of {{totalPages}}"}
+				</Text>
 			</View>
 		</View>
 	</Fixed>

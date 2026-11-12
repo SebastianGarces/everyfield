@@ -101,9 +101,9 @@ export async function AttestationsPage() {
 	const loaded = await loadAttestations(viewer);
 	if (loaded.status !== "ok")
 		return (
-			<Blocked title="We could not load the attestations" tone="error">
+			<PlantIntelligenceBlocked title="We could not load the attestations" tone="error">
 				This is a loading problem. Your answers are safe. Reload the page in a moment.
-			</Blocked>
+			</PlantIntelligenceBlocked>
 		);
 	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
 }

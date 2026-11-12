@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type * as tc from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import type { HandoffResult, Outcome, OutcomeMutation } from "./model.ts";
@@ -8,25 +7,20 @@ import { taskViewer, write } from "./server.ts";
 
 // Server actions for the follow-up screens. Each sends the browser's request to one producer command in one
 // transaction; the producer parses it with the WP-023 contract and checks authority inside its statements. The answer
-// carries what changed, so the screen updates from it and never reloads. A database failure reads as lost: the browser
+// carries what changed, so the follow-up screen updates from it. Nothing here revalidates: a revalidating action also
+// renders the page it was called on again and sends it with the answer (T-234). Tasks stays fresh in the browser
+// instead: the follow-up screens count each saved outcome (outcomeSaved in features/tasks/fresh.tsx), and a Tasks page
+// that browser back shows from before that outcome reads itself again. A database failure reads as lost: the browser
 // sends the same request key again, and the producer returns the first result instead of acting twice.
 
 type TaskMutation = z.infer<typeof tc.taskMutation>;
-/**
- * A saved outcome changes "What happened" of the task panel. Dropping the client router cache of /tasks makes a return
- * to it, by link or browser back, read the page again, so the panel never opens from a page held before the outcome.
- */
-function staleTasks<T>(result: Outcome<T>): Outcome<T> {
-	if (result.status === "ok") revalidatePath("/tasks");
-	return result;
-}
 const denied = { status: "refused", code: "access_denied" } as const;
 
 /** Records what happened on a follow-up, or (Owner/Admin) a contact with a Person (REQ-MTG-022). */
 export async function recordOutcome(requestKey: string, input: unknown): Promise<Outcome<OutcomeMutation>> {
 	const v = await taskViewer();
 	if (!v) return denied;
-	return staleTasks(await write(v, (w, tx, ctx) => w.recordOutcome(tx, ctx, { requestKey, input })));
+	return write(v, (w, tx, ctx) => w.recordOutcome(tx, ctx, { requestKey, input }));
 }
 
 /** Replaces a recorded outcome with a corrected one, or withdraws it, with a reason (REQ-MTG-022). */
@@ -37,7 +31,7 @@ export async function correctOutcome(
 ): Promise<Outcome<OutcomeMutation>> {
 	const v = await taskViewer();
 	if (!v) return denied;
-	return staleTasks(await write(v, (w, tx, ctx) => w.correctOutcome(tx, ctx, { requestKey, expectedRevision, input })));
+	return write(v, (w, tx, ctx) => w.correctOutcome(tx, ctx, { requestKey, expectedRevision, input }));
 }
 
 /** An explicit follow-up with a Person, undated unless a date is chosen (REQ-PPL-022, REQ-TSK-012). Owner/Admin. */

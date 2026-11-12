@@ -1,5 +1,6 @@
 "use server";
 
+import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
 import { articlePath, parseSource, sourceInput } from "./model.ts";
 import {
@@ -25,7 +26,8 @@ type WriteOk = {
 };
 export type WriteResult = WriteOk | { status: "denied" } | { status: "conflict" } | { status: "lost" };
 
-type Envelope = { requestKey: string; expectedRevision: string; articleId: string; plantId?: string };
+type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
+type Envelope = ReadingKey & { expectedRevision: string };
 
 async function actorMount() {
 	const actor = await wikiActor();
@@ -54,13 +56,12 @@ function mapReading(value: {
 	};
 }
 
-export async function recordArticleView(envelope: Envelope): Promise<WriteResult> {
+export async function recordArticleView(envelope: ReadingKey): Promise<WriteResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
 		const reply = await ready.mount.producer.recordView(ready.mount.db, ready.actor, {
 			requestKey: envelope.requestKey,
-			expectedRevision: envelope.expectedRevision,
 			input: { articleId: envelope.articleId, ...(envelope.plantId ? { plantId: envelope.plantId } : {}) },
 		});
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
@@ -71,13 +72,12 @@ export async function recordArticleView(envelope: Envelope): Promise<WriteResult
 	}
 }
 
-export async function saveProgress(envelope: Envelope, fraction: string): Promise<WriteResult> {
+export async function saveProgress(envelope: ReadingKey, fraction: string): Promise<WriteResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
 		const reply = await ready.mount.producer.updateProgress(ready.mount.db, ready.actor, {
 			requestKey: envelope.requestKey,
-			expectedRevision: envelope.expectedRevision,
 			input: {
 				articleId: envelope.articleId,
 				fraction,
@@ -342,7 +342,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 	const editor = editorContext(ready.actor);
 	if (!editor || editor.organizationId !== command.organizationId) return { status: "denied" };
 	if (!/^(0|[1-9]\d*)$/.test(command.expectedRevision)) return { status: "invalid" };
-	if (mode !== "hide" && (!command.body || command.body.length > 20000)) return { status: "invalid" };
+	if (mode !== "hide" && (!command.body || !organizationBodyFits(command.body))) return { status: "invalid" };
 	const cachePath = command.cachePath?.slice(0, 400);
 	const input = {
 		articleId: command.articleId,

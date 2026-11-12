@@ -30,10 +30,7 @@ export type OrganizationOwner = {
 	organizationKind: "sending_church" | "sending_network";
 };
 export type PlantSettings = z.infer<typeof S.plantSettings>;
-export type PlantProfile = z.infer<typeof S.plantProfile>;
-export type Inactivity = z.infer<typeof S.inactivity>;
 export type DigestSchedule = z.infer<typeof S.digestSchedule>;
-export type NotificationSettings = z.infer<typeof S.notificationSettings>;
 export type NotificationChoice = z.infer<typeof S.notificationChoice>;
 export type NotificationPatch = z.input<typeof S.notificationPatch>;
 export type AffiliationPatch = z.input<typeof S.affiliationPatch>;
@@ -48,7 +45,7 @@ export type PersonalTimezonePreview = z.infer<typeof N.personalTimezonePreview>;
 export type PersonalTimezoneResult = z.infer<typeof N.personalTimezoneResult>;
 export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
-export type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
+type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
 
 // The church brand kit (WP-104). Its operations and refusals come from the branding contract.
 export type BrandKit = B.BrandKit;
@@ -115,11 +112,14 @@ export interface BrandPort {
 	assetSrc(fileId: string): string;
 }
 
-/** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */
+/** The photo flow of your own account (REQ-IDN-006). */
 export interface AvatarPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
-	/** Sends the bytes to the server-owned staging upload. The server verifies type and size again. */
-	uploadAvatarBytes(uploadId: string, file: Blob): Promise<Reply<null>>;
+	/**
+	 * Sends the bytes to the server-owned staging upload, whose id is the version it becomes. The server verifies type
+	 * and size again; a file it refuses is invalid_input.
+	 */
+	uploadAvatarBytes(target: AvatarReference, file: Blob): Promise<Reply<null>>;
 	finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	/** The authenticated delivery route for one avatar version (avatarRoute). Never a storage key or bearer URL. */
@@ -127,8 +127,7 @@ export interface AvatarPort {
 }
 
 export interface FlowPort {
-	/** Absent until a private bucket exists (Q2): Your account then shows no Photo row. */
-	avatar?: AvatarPort;
+	avatar: AvatarPort;
 
 	requestEmailChange(
 		request: z.input<typeof N.requestEmailChange>,
@@ -141,8 +140,8 @@ export interface FlowPort {
 	setPersonalTimezone(request: z.input<typeof N.setPersonalTimezoneRequest>): Promise<Reply<PersonalTimezoneResult>>;
 
 	requestAccountDeletion(request: z.input<typeof S.requestAccountDeletion>): Promise<Reply<DeletionStatus>>;
-	/** Absent until church workspace deletion has a server action: the Church section then leaves it out. */
-	requestWorkspaceDeletion?(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
+	/** The Owner only; the server refuses an Admin or Member. */
+	requestWorkspaceDeletion(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
 }
 
 /** The restricted deletion session (REQ-IDN-032): status and cancel for one exact request, nothing else. */

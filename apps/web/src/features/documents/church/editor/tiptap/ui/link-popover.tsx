@@ -2,10 +2,8 @@
 
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
-import type { Editor } from "@tiptap/react";
 
 // --- Hooks ---
-import { useIsMobile } from "../use-mobile.ts";
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
 // --- Icons ---
@@ -22,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover.t
 import { Separator } from "../primitives/separator.tsx";
 import { Input, InputGroup } from "../primitives/input.tsx";
 
-export interface LinkMainProps {
+interface LinkMainProps {
 	/**
 	 * The URL to set for the link.
 	 */
@@ -68,12 +66,11 @@ export interface LinkPopoverProps extends Omit<ButtonProps, "type">, UseLinkPopo
 /**
  * Link button component for triggering the link popover
  */
-export const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, children, ...props }, ref) => {
+const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, children, ...props }, ref) => {
 	return (
 		<Button
 			type="button"
 			className={className}
-			data-style="ghost"
 			role="button"
 			tabIndex={-1}
 			aria-label="Link"
@@ -92,8 +89,6 @@ LinkButton.displayName = "LinkButton";
  * Main content component for the link popover
  */
 const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, removeLink, openLink, isActive }) => {
-	const isMobile = useIsMobile();
-
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (event.key === "Enter") {
 			event.preventDefault();
@@ -102,7 +97,7 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 	};
 
 	return (
-		<div className="flex flex-col gap-1.5" data-mobile={isMobile || undefined}>
+		<div className="flex flex-col gap-1.5">
 			<div className="flex items-center gap-1">
 				<InputGroup>
 					<Input
@@ -119,7 +114,7 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 				</InputGroup>
 
 				<ButtonGroup orientation="horizontal">
-					<Button type="button" onClick={setLink} title="Apply link" disabled={!url && !isActive} data-style="ghost">
+					<Button type="button" onClick={setLink} title="Apply link" disabled={!url && !isActive}>
 						<CornerDownLeftIcon className={BUTTON_ICON} />
 					</Button>
 				</ButtonGroup>
@@ -127,23 +122,11 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 				<Separator />
 
 				<ButtonGroup orientation="horizontal">
-					<Button
-						type="button"
-						onClick={openLink}
-						title="Open in new window"
-						disabled={!url && !isActive}
-						data-style="ghost"
-					>
+					<Button type="button" onClick={openLink} title="Open in new window" disabled={!url && !isActive}>
 						<ExternalLinkIcon className={BUTTON_ICON} />
 					</Button>
 
-					<Button
-						type="button"
-						onClick={removeLink}
-						title="Remove link"
-						disabled={!url && !isActive}
-						data-style="ghost"
-					>
+					<Button type="button" onClick={removeLink} title="Remove link" disabled={!url && !isActive}>
 						<TrashIcon className={BUTTON_ICON} />
 					</Button>
 				</ButtonGroup>
@@ -158,46 +141,17 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 };
 
 /**
- * Link content component for standalone use
- */
-export const LinkContent: React.FC<{
-	editor?: Editor | null;
-}> = ({ editor }) => {
-	const linkPopover = useLinkPopover({
-		editor,
-	});
-
-	return <LinkMain {...linkPopover} />;
-};
-
-/**
  * Link popover component for Tiptap editors.
  *
  * For custom popover implementations, use the `useLinkPopover` hook instead.
  */
 export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>(
-	(
-		{
-			editor: providedEditor,
-			hideWhenUnavailable = false,
-			onSetLink,
-			onOpenChange,
-			autoOpenOnLinkActive = true,
-			onClick,
-			children,
-			...buttonProps
-		},
-		ref,
-	) => {
+	({ editor: providedEditor, onOpenChange, autoOpenOnLinkActive = true, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);
 		const [isOpen, setIsOpen] = React.useState(false);
 
 		const { isVisible, canSet, isActive, url, error, setUrl, setLink, removeLink, openLink, label, Icon } =
-			useLinkPopover({
-				editor,
-				hideWhenUnavailable,
-				onSetLink,
-			});
+			useLinkPopover({ editor });
 
 		const handleOnOpenChange = React.useCallback(
 			(nextIsOpen: boolean) => {
@@ -236,7 +190,7 @@ export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>
 					<LinkButton
 						disabled={!canSet}
 						data-active-state={isActive ? "on" : "off"}
-						data-disabled={!canSet}
+						data-disabled={!canSet || undefined}
 						aria-label={label}
 						aria-pressed={isActive}
 						onClick={handleClick}

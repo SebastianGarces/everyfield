@@ -1,49 +1,35 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { brandReader, brandWriter } from "../../../packages/domain/src/branding/index.ts";
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
-import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
+import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
-import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
+import { EXPORT_MESSAGES, refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp036c_" + randomUUID().replaceAll("-", "");
-const roleName = "wp036c_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-let db;
-let foreignMeeting;
+const database = await fixture({ prefix: "wp036c", plant: { name: "Harvest Point" } });
+const { admin } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
+];
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {
@@ -80,15 +66,6 @@ class MemoryClient extends S3Client {
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const authority = async (who) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -141,45 +118,6 @@ const logoPng = await sharp({ create: { width: 480, height: 120, channels: 4, ba
 	.toBuffer();
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${P},'Harvest Point','America/Chicago',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${Q},'Other Church','America/New_York',7,14,1,8,1,1)`,
-	);
-	for (const [index, plant, role] of [
-		[OWNER, P, "owner"],
-		[MEMBER, P, "member"],
-		[ADMIN, P, "admin"],
-		[OTHER, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${role},clock_timestamp())`,
-		);
 	const pastor = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
@@ -198,13 +136,7 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 const state = {};
@@ -218,7 +150,7 @@ const fileOf = async (who, documentId, format, revision) =>
 const bytesFrom = (file) => Buffer.from(file.bytes, "base64");
 const policyText = async (file) => (await pdfPages(bytesFrom(file))).join(" ");
 
-describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () => {
+describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-022 New from template forks the policy, records its origin and freezes the church and brand kit values", async () => {
 		const owner = await authority(OWNER);
 		ok(
@@ -277,7 +209,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = doc;
 	});
 
-	test("WP-036 the card, the sign-in sheet and the budget fork with their own fields; an unknown template is refused", async () => {
+	test("AC:DOC-004 AC:DOC-006 AC:DOC-013 the card, the sign-in sheet and the budget fork with their own fields; an unknown template is refused", async () => {
 		const card = ok(await create(OWNER, "commitment-card", "wp036-card"));
 		assert.deepEqual(card.body.data, {
 			church_name: "Harvest Point",
@@ -299,7 +231,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(await counts(), before);
 	});
 
-	test("WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
+	test("AC:DOC-016 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
 		const doc = state.policy;
 		const before = await counts();
 		const oldShape = [{ kind: "paragraph", text: "An old block list." }];
@@ -313,6 +245,13 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		broken.body.content.push({ type: "paragraph", content: [{ type: "field", attrs: { key: "pastor_name" } }] });
 		const fault = refused(await save(ADMIN, doc.id, "1", broken), "invalid_input");
 		assert.match(fault.details.issues[0].problem, /the merge field "pastor_name" is not declared in "fields"/);
+		// A total is computed: a typed amount on a budget's subtotal row is refused.
+		const typedTotal = structuredClone(state.budget.body);
+		const ledger = typedTotal.body.content.find((n) => n.type === "table");
+		const subtotal = ledger.content.find((r) => r.attrs?.role === "subtotal");
+		subtotal.content[1] = { type: "cell", attrs: { value: 999 } };
+		const total = refused(await save(ADMIN, state.budget.id, "1", typedTotal), "invalid_input");
+		assert.match(total.details.issues[0].problem, /a subtotal row computes its numbers; it holds no typed value/);
 		assert.deepEqual(await counts(), before, "a refused save writes nothing");
 
 		const edited = structuredClone(doc.body);
@@ -332,7 +271,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
-	test("WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
+	test("AC:DOC-016 a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
 		const doc = state.policy;
 		// The editor holds the body in its own schema and builds the stored document with documentFrom. Edit it the way
 		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
@@ -352,6 +291,10 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 					{ type: "text", marks: [{ type: "link", attrs: { href: "https://example.com/policy" } }], text: "read" },
 					{ type: "hardBreak" },
 					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "bold" }], text: "bold" },
+					{ type: "text", text: " " },
+					{ type: "text", marks: [{ type: "italic" }], text: "italic" },
 				],
 			},
 			...tail,
@@ -370,10 +313,22 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.revision, String(Number(doc.revision) + 1));
 		assert.deepEqual(saved.body, edited);
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		// Each face the saved revision's PDF names embeds that face's own font program, not the regular one.
+		const faces = await pdfFontFaces(bytesFrom(ok(await fileOf(MEMBER, doc.id, "pdf", Number(saved.revision)))));
+		// BaseFont "DMSans-Bold-Italic" is the font program whose own name table says family "DM Sans", style "Bold Italic".
+		const named = faces.map((f) => [f.baseFont, `${f.family.replace(/ 14pt$/, "")} ${f.style}`]);
+		for (const [baseFont, held] of named) {
+			const [family, ...style] = baseFont.split("-");
+			const expected = `${{ DMSans: "DM Sans", DMSerifDisplay: "DM Serif Display", EFFigures: "EF Figures" }[family]} ${style.join(" ") || "Regular"}`;
+			assert.equal(held, expected, `${baseFont} embeds its own face`);
+		}
+		const embedded = new Set(faces.map((f) => f.baseFont));
+		for (const face of ["DMSans", "DMSans-Bold", "DMSans-Italic", "DMSans-Bold-Italic", "DMSerifDisplay"])
+			assert.ok(embedded.has(face), `${face} is embedded: ${[...embedded]}`);
 		state.policy = saved;
 	});
 
-	test("WP-036 slice 3: the editor read carries the palette the PDF paints; a Member's call is refused", async () => {
+	test("AC:DOC-017 the editor read carries the palette the PDF paints; a Member's call is refused", async () => {
 		const doc = state.policy;
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
 		assert.equal(edit.id, doc.id);
@@ -393,7 +348,9 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			church_tagline: "A church for the whole city.",
 			contact_line: "harvestpoint.church  ·  (555) 010-0100",
 		});
-		const { brands: _brands, mergeValues: _values, ...document } = edit;
+		// T-80: the editor read also says where the document stands against its template.
+		assert.ok(["current", "behind"].includes(edit.template));
+		const { brands: _brands, mergeValues: _values, template: _template, ...document } = edit;
 		assert.deepEqual(
 			document,
 			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
@@ -404,7 +361,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 	});
 
-	test("AC:DOC-EDIT-SLOT AC:DOC-EDIT-HISTORY a doctrinal section prints blank, then filled, then not at all; history names each saver", async () => {
+	test("AC:CASE-DOC-020-EDIT a doctrinal section prints blank, then filled, then not at all; history names each saver", async () => {
 		let doc = state.policy;
 		const STATEMENT = "We believe in one God, Father, Son and Holy Spirit.";
 		const headingText = (node: any) => (node.content ?? []).map((n: any) => n.text ?? "").join("");
@@ -525,7 +482,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(saved.savedTemplateName, docTemplateById("commitment-card").title);
 	});
 
-	test("WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
+	test("AC:DOC-022 AC:DOC-023 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
 		const budget = state.budget;
 		const library = ok(await documentsWriter.listChurch(db, await authority(MEMBER), {}));
 		assert.deepEqual(library.documents.map((d) => d.templateId).sort(), [
@@ -541,7 +498,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			assert.ok(bytesFrom(file).length > 1000, format);
 			assert.equal(file.downloadName, `budget-worksheet-revision-1.${format}`);
 		}
-		refused(await fileOf(MEMBER, state.card.id, "xlsx"), "unavailable");
+		refused(await fileOf(MEMBER, state.card.id, "xlsx"), "invalid_input");
 		const before = await counts();
 		refused(await create(MEMBER, "budget-worksheet", "wp036-member"), "access_denied");
 		refused(await save(MEMBER, budget.id, "1", budget.body), "access_denied");
@@ -556,7 +513,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(ok(await documentsWriter.listChurch(db, await authority(OTHER), {})).documents, []);
 	});
 
-	test("WP-036 an Owner deletes a Church Document with one audited statement and the library drops it", async () => {
+	test("AC:DOC-016 an Owner deletes a Church Document with one audited statement and the library drops it", async () => {
 		const sign = (await documentsWriter.listChurch(db, await authority(OWNER), {})).value.documents.find(
 			(d) => d.templateId === "guest-sign-in-sheet",
 		);
@@ -587,6 +544,14 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
 			"unavailable",
 		);
+		// BUG: a deleted document was still exported and its revisions still read by anyone who kept its id.
+		refused(await exportDoc(MEMBER, sign.id, 1, "pdf", "wp036-export-after-delete"), "unavailable");
+		refused(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: sign.id }), "unavailable");
+		refused(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: sign.id, revision: 1 }),
+			"unavailable",
+		);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 });
 	});
 
 	test("AC:CASE-DOC-020-EDIT a doctrinal slot saves blank, takes the church's words and deletes; history keeps each revision", async () => {
@@ -731,7 +696,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 	const objectOf = async (id) =>
 		(await rowsOf(sql`SELECT object_id::text FROM generated_document WHERE id = ${id}::uuid`))[0].object_id;
 
-	test("AC:CASE-DOC-023 T-54 an export of revision 2 lists first with its revision, format, time and author", async () => {
+	test("AC:CASE-DOC-023 an export of revision 2 lists first with its revision, format, time and author", async () => {
 		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
 		await admin.execute(sql`UPDATE auth_user SET name = 'Max Member' WHERE id = ${actors[MEMBER].user}::uuid`);
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t54-policy"));
@@ -766,7 +731,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.saved = { doc, pdf, word };
 	});
 
-	test("AC:CASE-DOC-023 T-54 after a new revision, the branding switch and a kit color change, a Member gets the identical file", async () => {
+	test("AC:CASE-DOC-023 after a new revision, the branding switch and a kit color change, a Member gets the identical file", async () => {
 		const { doc, pdf } = state.saved;
 		const owner = await authority(OWNER);
 		const fresh = ok(await fileOf(MEMBER, doc.id, "pdf", 2));
@@ -799,7 +764,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 	});
 
-	test("T-54 a saved-export download refuses another church plant, a seatless account and an unknown id", async () => {
+	test("AC:DOC-023 a saved-export download refuses another church plant, a seatless account and an unknown id", async () => {
 		const { doc, pdf } = state.saved;
 		refused(await exportFile(OTHER, doc.id, pdf.id), "unavailable");
 		refused(await exportFile(4, doc.id, pdf.id), "access_denied");
@@ -809,7 +774,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		refused(await listExports(4, doc.id), "access_denied");
 	});
 
-	test("T-54 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row and releases its file in the same statement", async () => {
+	test("AC:DOC-023 a Member's delete is refused and changes nothing; an Owner's delete writes one audit row and releases its file in the same statement", async () => {
 		const { doc, pdf, word } = state.saved;
 		const before = await counts();
 		refused(await deleteExport(MEMBER, doc.id, pdf.id), "access_denied");
@@ -838,7 +803,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal((await cleanups(pdf.id)).length, 1, "and queues no second cleanup");
 	});
 
-	test("T-54 a render failure saves no export and leaves the list unchanged", async () => {
+	test("AC:DOC-023 a render failure saves no export and leaves the list unchanged", async () => {
 		const { doc } = state.saved;
 		// A revision whose stored body cannot render, written beside the editor's revisions.
 		await admin.execute(
@@ -847,9 +812,53 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 		const before = await counts();
 		refused(await exportDoc(OWNER, doc.id, 99, "pdf", "t54-broken"), "render_failed");
-		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "unavailable");
+		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "invalid_input");
 		assert.deepEqual(await counts(), before, "no file and no saved export");
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
+	});
+
+	// T-189 (Nora, Nov 10, 2026): once a Church Document is deleted, none of its saved exports can be downloaded.
+	test("AC:DOC-023 a deleted Church Document's saved exports download for no seat and list nothing; its seats are told it was deleted", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t189-policy"));
+		const pdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t189-pdf"));
+		const word = ok(await exportDoc(MEMBER, doc.id, 1, "docx", "t189-docx"));
+		assert.equal(sha256(bytesFrom(ok(await exportFile(MEMBER, doc.id, pdf.id)))), pdf.digest, "before, it downloads");
+		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
+
+		const send = client.send.bind(client);
+		let reads = 0;
+		client.send = (command) => {
+			if (command.constructor.name === "GetObjectCommand") reads += 1;
+			return send(command);
+		};
+		try {
+			for (const who of [OWNER, ADMIN, MEMBER]) {
+				for (const saved of [pdf, word]) {
+					const reply = await exportFile(who, doc.id, saved.id);
+					refused(reply, "deleted", `seat ${who} gets no ${saved.format}`);
+					assert.equal("value" in reply, false);
+				}
+				const listed = await listExports(who, doc.id);
+				refused(listed, "deleted", `seat ${who} lists no export`);
+				assert.equal(JSON.stringify(listed).includes(pdf.id), false, "no export row comes back");
+				assert.equal(JSON.stringify(listed).includes(word.id), false);
+			}
+			// Outside the church plant the deleted document answers as an unknown id does.
+			for (const [deleted, unknown] of [
+				[await exportFile(OTHER, doc.id, pdf.id), await exportFile(OTHER, randomUUID(), randomUUID())],
+				[await listExports(OTHER, doc.id), await listExports(OTHER, randomUUID())],
+				[await exportFile(4, doc.id, pdf.id), await exportFile(4, randomUUID(), randomUUID())],
+				[await listExports(4, doc.id), await listExports(4, randomUUID())],
+			]) {
+				assert.equal(deleted.status, "refused");
+				assert.equal(deleted.error.code, unknown.error.code);
+				assert.notEqual(deleted.error.code, "deleted");
+			}
+			assert.equal(reads, 0, "no bytes are read from private storage");
+		} finally {
+			client.send = send;
+		}
+		assert.ok(await bytesOf(pdf), "the stored file is kept; only access is blocked");
 	});
 
 	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".
@@ -861,7 +870,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		"prayer-letter",
 	];
 
-	test("T-56 Save for your church makes one saved file of each text template and no Church Document", async () => {
+	test("AC:DOC-003 Save for your church makes one saved file of each text template and no Church Document", async () => {
 		const owner = await authority(OWNER);
 		for (const templateId of TEXT_TEMPLATES) {
 			const before = await counts();
@@ -895,7 +904,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		}
 	});
 
-	test("T-56 Create Church Document makes an editable Church Document of each text template with the church name", async () => {
+	test("AC:DOC-022 Create Church Document makes an editable Church Document of each text template with the church name", async () => {
 		for (const templateId of TEXT_TEMPLATES) {
 			const before = await counts();
 			const doc = ok(await create(OWNER, templateId, `t56-create-${templateId}`));
@@ -921,7 +930,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 	});
 
 	// D-129 (Sebastian, 2026-11-08): the Bylaws "Statement of faith" slot carries the key T-84 fills from the network.
-	test("D-129 a Church Document from Bylaws keeps the keyed Statement of faith slot; Save and the export print the marked blank", async () => {
+	test("AC:CASE-DOC-020-EDIT a Church Document from Bylaws keeps the keyed Statement of faith slot; Save and the export print the marked blank", async () => {
 		const doc = ok(await create(OWNER, "bylaws", "d129-bylaws"));
 		const slots = doc.body.body.content.filter((n) => n.type === "slot");
 		assert.deepEqual(slots, [{ type: "slot", attrs: { label: "Statement of faith", key: "statement-of-faith" } }]);
@@ -959,7 +968,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		}
 	});
 
-	test("AC:CASE-DOC-023 T-83 an older revision exports its own content once, keeps its bytes and refuses a revision it lacks", async () => {
+	test("AC:CASE-DOC-023 an older revision exports its own content once, keeps its bytes and refuses a revision it lacks", async () => {
 		const owner = await authority(OWNER);
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t83-policy"));
 		// Revision 2 rewrites the first line of text, so its first words are only in revision 1; revision 3 adds a line.
@@ -1042,7 +1051,7 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		);
 	});
 
-	test("T-86 each revision names its saver while they hold a seat here, else a former member (D-105)", async () => {
+	test("INV-privacy: each revision names its saver while they hold a seat here, else a former member", async () => {
 		await admin.execute(sql`UPDATE auth_user SET name = 'Olivia Owner' WHERE id = ${actors[OWNER].user}::uuid`);
 		await admin.execute(sql`UPDATE auth_user SET name = 'Ada Admin' WHERE id = ${actors[ADMIN].user}::uuid`);
 		await admin.execute(sql`UPDATE auth_user SET name = 'Quinn Elsewhere' WHERE id = ${actors[OTHER].user}::uuid`);
@@ -1113,7 +1122,35 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		}
 	});
 
-	test("T-55 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
+	test("INV-limits: history lists the newest 1000 revisions and says when older ones are left out", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t117-many"));
+		const list = async () =>
+			ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		// Copies of revision 1 numbered from..to, written beside it as saves would be.
+		const addRevisions = (from, to) =>
+			admin.execute(
+				sql`INSERT INTO document_revision (tenant_id, document_id, version_number, body, content_hash, recorded_at)
+					SELECT r.tenant_id, r.document_id, n, r.body, r.content_hash, clock_timestamp()
+					FROM document_revision r, generate_series(${from}::int, ${to}::int) n
+					WHERE r.document_id = ${doc.id}::uuid AND r.version_number = 1`,
+			);
+		const one = await list();
+		assert.deepEqual([one.revisions.length, one.truncated], [1, false], "one revision is the whole history");
+		await addRevisions(2, 1000);
+		const full = await list();
+		assert.equal(full.revisions.length, 1000);
+		assert.equal(full.truncated, false, "exactly 1000 revisions are all listed");
+		await addRevisions(1001, 1001);
+		const cut = await list();
+		assert.equal(cut.truncated, true, "a 1001st revision leaves the oldest out");
+		assert.deepEqual(
+			cut.revisions.map((r) => r.number),
+			Array.from({ length: 1000 }, (_, i) => i + 2),
+			"the newest 1000, oldest first, without revision 1",
+		);
+	});
+
+	test("AC:DOC-023 the branding switch: off and on again makes no revision, exports follow it, each change is audited", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t55-switch"));
 		const read = async (who) => ok(await documentsWriter.readChurch(db, await authority(who), { documentId: doc.id }));
 		const forEdit = async () =>
@@ -1173,11 +1210,75 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
 	});
 
-	test("T-55 a church with no brand kit has no church look; the document still starts with branding on", async () => {
+	test("AC:DOC-017 a church with no brand kit has no church look; the document still starts with branding on", async () => {
 		const doc = ok(await create(OTHER, "conflict-of-interest-policy", "t55-no-kit"));
 		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(OTHER), { documentId: doc.id }));
 		assert.equal(edit.useChurchBranding, true);
 		assert.equal(edit.brands.church, null, "no brand kit, so the page shows the note and paints the plain look");
 		assert.equal(edit.brands.plain.palette.themed, false);
+	});
+
+	test("AC:DOC-002 each revision offers its own formats; Excel for a revision without a budget table is refused before any asset read", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t124-policy"));
+		assert.deepEqual(doc.formats, ["pdf", "docx"]);
+		// Revision 2 adds the budget template's ledger table, as the editor's save does (Excel joins the export list).
+		const withTable = structuredClone(doc.body);
+		withTable.body.content.push(structuredClone(ledgerTables(docTemplateById("budget-worksheet").body)[0]));
+		withTable.exports = [...withTable.exports, "xlsx"];
+		ok(await save(OWNER, doc.id, "1", withTable));
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			history.revisions.map((r) => [r.number, r.formats]),
+			[
+				[1, ["pdf", "docx"]],
+				[2, ["pdf", "docx", "xlsx"]],
+			],
+		);
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.deepEqual(one.formats, ["pdf", "docx"]);
+
+		// A save that takes the table away stops offering Excel on that revision only.
+		ok(await save(OWNER, doc.id, "2", { ...doc.body, exports: ["pdf", "docx"] }));
+		const after = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			after.revisions.map((r) => r.formats),
+			[
+				["pdf", "docx"],
+				["pdf", "docx", "xlsx"],
+				["pdf", "docx"],
+			],
+		);
+
+		// The policy prints the church logo, so a branded render reads that asset from storage; count those reads.
+		const send = client.send.bind(client);
+		let reads = 0;
+		client.send = (command) => {
+			if (command.constructor.name === "GetObjectCommand") reads += 1;
+			return send(command);
+		};
+		try {
+			ok(await fileOf(MEMBER, doc.id, "pdf", 1));
+			assert.ok(reads > 0, "a format the revision offers reads its brand assets");
+			reads = 0;
+			const before = await counts();
+			for (const result of [
+				await fileOf(MEMBER, doc.id, "xlsx", 1),
+				await exportDoc(MEMBER, doc.id, 1, "xlsx", "t124-no-excel"),
+				await exportDoc(MEMBER, doc.id, 3, "xlsx", "t124-no-excel-3"),
+			]) {
+				const error = refused(result, "invalid_input");
+				assert.equal(
+					EXPORT_MESSAGES[error.code],
+					"That format is not offered for this document, so nothing was saved.",
+				);
+			}
+			assert.equal(reads, 0, "an unoffered format reads no brand asset");
+			assert.deepEqual(await counts(), before, "nothing is saved");
+		} finally {
+			client.send = send;
+		}
+		assert.ok(bytesFrom(ok(await fileOf(MEMBER, doc.id, "xlsx", 2))).length > 1000, "revision 2 still makes Excel");
 	});
 });

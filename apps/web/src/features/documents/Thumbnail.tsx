@@ -6,22 +6,24 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
-import { bytesOf, postPreview } from "./preview-client.ts";
+import { bytesOf, sharedPreview } from "./preview-client.ts";
 
 // A library thumbnail: page 1 of the renderer's own bytes for the template, drawn when the card scrolls into view.
-// Renders run one at a time and the picture is kept for the visit, so the library route stays quick.
+// Renders run one at a time and the picture is kept for the visit, by the render key of what it printed, so the
+// library route stays quick and a change to the template or the church's values draws a new one. The selected
+// template's preview shares the same render (sharedPreview).
 
 const WIDTH = 200;
 const pictures = new Map<string, Promise<string | null>>();
 let queue: Promise<unknown> = Promise.resolve();
 
-function picture(template: Template) {
-	let known = pictures.get(template.id);
+function picture(template: Template, key: string) {
+	let known = pictures.get(key);
 	if (!known) {
 		known = new Promise<string | null>((resolve) => {
 			queue = queue.then(async () => {
 				try {
-					const reply = await postPreview(template.id, "pdf", {});
+					const reply = await sharedPreview(key, template.id, "pdf", {});
 					const artifact = reply.status === "ok" ? reply.value.artifact : null;
 					if (!artifact) return resolve(null);
 					const doc = await openPdf(bytesOf(artifact));
@@ -34,13 +36,22 @@ function picture(template: Template) {
 				}
 			});
 		});
-		pictures.set(template.id, known);
-		void known.then((url) => url === null && pictures.delete(template.id));
+		pictures.set(key, known);
+		void known.then((url) => url === null && pictures.delete(key));
 	}
 	return known;
 }
 
-export function Thumbnail({ template, enabled }: { template: Template; enabled: boolean }) {
+export function Thumbnail({
+	template,
+	renderKey,
+	enabled,
+}: {
+	template: Template;
+	/** What the picture prints: model.ts `renderKey` for the template as a PDF with no overrides. */
+	renderKey: string;
+	enabled: boolean;
+}) {
 	const frame = useRef<HTMLSpanElement>(null);
 	const [url, setUrl] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -55,7 +66,7 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 				if (!entry?.isIntersecting) return;
 				observer.disconnect();
 				setLoading(true);
-				void picture(template).then((next) => {
+				void picture(template, renderKey).then((next) => {
 					if (!current) return;
 					setUrl(next);
 					setLoading(false);
@@ -68,7 +79,7 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 			current = false;
 			observer.disconnect();
 		};
-	}, [template, pdf, enabled]);
+	}, [template, renderKey, pdf, enabled]);
 
 	const size = template.pageSize;
 	return (

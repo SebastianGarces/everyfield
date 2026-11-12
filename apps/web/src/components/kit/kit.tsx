@@ -161,20 +161,6 @@ export function UiButton({
 	);
 }
 
-/** A thin rounded track (white with a hairline) and its fill; the caller styles and moves the fill. */
-export function Meter({ children, className }: { children: ReactNode; className?: string }) {
-	return (
-		<div
-			className={cn(
-				"relative mt-1.5 h-2.5 overflow-hidden bg-white shadow-[inset_0_0_0_1px_var(--color-line)]",
-				className,
-			)}
-		>
-			{children}
-		</div>
-	);
-}
-
 /** The play and pause glyphs of the scene controls: solid shapes, as in the prototype (not stroke icons). */
 export function PlaybackGlyph({ paused }: { paused: boolean }) {
 	return (

@@ -33,6 +33,7 @@ import {
 	otherPlant,
 	queries,
 	setup,
+	statements,
 	sql,
 	teardown,
 	work,
@@ -172,6 +173,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 				: [],
 		);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
+		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
 			"people.exportPeople",
 			"people.generateCsvTemplate",
@@ -188,7 +191,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			operations,
 			who === "owner"
 				? [
-						...peopleReads,
+						...ownerReads,
 						"people.exportPeople",
 						"people.generateCsvTemplate",
 						"people.getActivities",
@@ -209,7 +212,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	}
 });
 
-test("D77 every paid model call reserves its byte-bounded worst case before the provider sees it: the monthly limit holds for concurrent turns and multi-byte text; a cut-off call keeps its reservation; deleting a conversation keeps the charge", async () => {
+test("INV-spend-limit: every paid model call reserves its byte-bounded worst case before the provider sees it: the monthly limit holds for concurrent turns and multi-byte text; a cut-off call keeps its reservation; deleting a conversation keeps the charge", async () => {
 	const owner = await actor("owner");
 	const price = { input: 0.1, output: 0.5, longContextAbove: 272_000 };
 	const charged = async () =>
@@ -920,8 +923,17 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 
+/**
+ * Planner statistics as autovacuum leaves them partway through the suite: the tables the suite fills are analyzed, the
+ * empty household and tag tables are not. Without them the young tables plan cheaply, so a read that plans past
+ * jit_above_cost only shows when autovacuum happens to run first.
+ */
+const analyze = () => admin.execute(sql`ANALYZE conversation, conversation_event, job, person`);
+
 test("INV-run-recovery: a run whose worker was lost, that no worker took within 60 s or whose job ended without its end is closed once as interrupted by the open stream; a live run is not", async () => {
 	const owner = await actor("owner");
+	// The stream's reads plan as they do with statistics, where CI once spent about a second compiling each poll.
+	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
 	const observed = async (id: string, ms: number) => {
 		const seen = [];
@@ -983,6 +995,34 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		(e: { code?: string }) => e.code === "run_active",
 	);
 	await cancelTurn(db, owner, waiting);
+});
+
+test("INV-planning: the conversation read an open stream polls plans below the JIT threshold once the tables have statistics", async () => {
+	// Postgres compiles a statement whose planned cost passes jit_above_cost. The read once planned its card-row check
+	// for every event of a 200-event page (each row array planned at 100 rows), passed the threshold once autovacuum
+	// analyzed the suite's tables, and spent about a second compiling on every poll: a lost run's stream outran its wait.
+	const owner = await actor("owner");
+	const id = await ask(owner, "Show all people.");
+	assert.equal(await work(), "succeeded");
+	// A long conversation: a turn saves its streamed text as many assistant_text events, so a page fills with them.
+	await admin.execute(sql`INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+		SELECT c.id,c.last_sequence+n,(SELECT turn_id FROM conversation_event WHERE conversation_id=c.id AND kind='user_message'),'assistant_text',jsonb_build_object('text','More. ') FROM conversation c, generate_series(1,400) n WHERE c.id=${id}`);
+	await admin.execute(sql`UPDATE conversation SET last_sequence=last_sequence+400 WHERE id=${id}`);
+	const page = await readConversation(db, owner, id);
+	assert.ok(page.more && page.events.some((e) => e.kind === "tool_result"), "a full page with a result card");
+	await analyze();
+	const from = statements.length;
+	await readConversation(db, owner, id);
+	const read = statements.slice(from).find((q) => q.text.includes("AS run_live"));
+	assert.ok(read, "the conversation read was not captured");
+	// EXPLAIN takes no bind parameters: write each one into the text as a literal.
+	const literal = (v: unknown) =>
+		v === null ? "NULL" : Array.isArray(v) ? `'{${v.join(",")}}'` : `'${String(v).replaceAll("'", "''")}'`;
+	const text = read.text.replace(/\$(\d+)/g, (_, n) => literal(read.values[Number(n) - 1]));
+	const plan = await admin.$client.query(`EXPLAIN (FORMAT JSON) ${text}`);
+	const cost = plan.rows[0]["QUERY PLAN"][0].Plan["Total Cost"];
+	const threshold = Number((await admin.$client.query("SHOW jit_above_cost")).rows[0].jit_above_cost);
+	assert.ok(cost < threshold, `planned cost ${cost} passes jit_above_cost ${threshold}`);
 });
 
 test("AC:SEC-02 INV-tenancy: the turn's history read before each model call takes no session lock (C27)", async () => {

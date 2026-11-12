@@ -8,7 +8,7 @@ import { plantViewer, type PlantViewer } from "../documents/access.ts";
 
 type Code = BrandError["code"];
 
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object = {}) {
