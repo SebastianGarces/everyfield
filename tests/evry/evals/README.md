@@ -13,7 +13,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 
 | Suite                 | Cases                                                                                                                   | What it scores                                                                        |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (29 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (33 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
 | `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
 | `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
 | `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
@@ -53,8 +53,9 @@ Then the real system prompt runs with the tools the turn gives the actor, built 
 (`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
 `propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
 `golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 83 live people,
-2 removed people, 8 households, tags, skills, notes, photos, open tasks, an import receipt, and Owner, Admin, Member,
-organization-seat and empty-church actors with live sessions and seats. A selection re-checks its rows with the real
+2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
+open review pairs and one dismissed pair), and Owner, Admin, Member, organization-seat and empty-church actors with
+live sessions and seats. A selection re-checks its rows with the real
 `verifyPeople`. `propose_change` prepares a real review card with `prepareProposal` in an open conversation. Nothing is
 approved and no effect job runs.
 

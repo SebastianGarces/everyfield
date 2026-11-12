@@ -19,6 +19,7 @@ import {
 	goldenChurch,
 	HOUSEHOLDS,
 	IMPORT_KEY,
+	REVIEW_PAIRS,
 	PEOPLE,
 	byName,
 	live,
@@ -637,6 +638,13 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	] as const)
 		assert.deepEqual(labels(await read("people.listPeople", { search })), names, search);
 	assert.equal(labels(everyone).includes("Maria Lopez"), false, "GST-02 adds Maria Lopez");
+	// The open import review pairs; the pair marked "Not a duplicate" is not among them.
+	const pairs = await read("people.listDuplicatePairs", {});
+	assert.deepEqual(
+		pairs.rows.map((r) => [r.label, r.fields.mayDuplicate]),
+		REVIEW_PAIRS,
+	);
+	assert.deepEqual([pairs.total, pairs.completeness], [2, "complete"]);
 });
 
 test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read and prepare a review, never approve or run one", () => {

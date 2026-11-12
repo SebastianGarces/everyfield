@@ -31,6 +31,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.getPerson": { personId: JAMES },
 	"people.getPersonPhoto": { personId: JAMES },
 	"people.checkForDuplicates": { displayName: "James Okafor" },
+	"people.listDuplicatePairs": {},
 	"people.exportPeople": {},
 	"people.generateCsvTemplate": {},
 	// Kevin Walsh has notes on record; James Okafor has no history yet.
