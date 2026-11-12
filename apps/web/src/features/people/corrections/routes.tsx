@@ -5,17 +5,19 @@ import type { ReactNode } from "react";
 import { gate } from "../routes.tsx";
 import { canWrite } from "../../shared/seat-role.ts";
 import { read } from "../server.ts";
+import { DuplicatePairs } from "./DuplicatePairs.tsx";
 import { DuplicatesScreen } from "./DuplicatesScreen.tsx";
 import { pairHref } from "./model.ts";
-import { readPair } from "./server.ts";
+import { readPair, readPairs } from "./server.ts";
 
 export const duplicatesMetadata: Metadata = { title: "Possible duplicate", robots: { index: false, follow: false } };
 const crumbs = [{ label: "People", href: "/people" }, { label: "Possible duplicate" }];
+const listCrumbs = [{ label: "People", href: "/people" }, { label: "Possible duplicates" }];
 
 /**
  * /people/duplicates?person=<id>&with=<id>[&keep=<id>]: one pair of possible duplicates, reviewed side by side.
- * Owners and Admins review and merge; a Member sees why the page is closed to them. Without a pair the page says where
- * possible duplicates show.
+ * Owners and Admins review and merge; a Member sees why the page is closed to them. Without a pair the page lists the
+ * pairs CSV imports flagged with "Add, review later", each with its Review link.
  */
 export async function DuplicatesPage({
 	searchParams,
@@ -39,13 +41,23 @@ export async function DuplicatesPage({
 				duplicates on their page.
 			</Closed>
 		);
-	if (!q.person || !q.with)
+	if (!q.person || !q.with) {
+		const pairs = await read(viewer, readPairs);
 		return (
-			<Closed title="Choose a person first">
-				Possible duplicates show on each person&rsquo;s page. Open a person and choose Review next to a possible
-				duplicate.
-			</Closed>
+			<>
+				<PageHeader title="Possible duplicates" breadcrumb={listCrumbs} />
+				{pairs.status === "ok" ? (
+					<DuplicatePairs pairs={pairs.value} />
+				) : (
+					<Card>
+						<StatePanel tone="error" title="The pairs to review did not load" headingLevel="h2">
+							This is a loading problem, not an empty list. Nobody was changed. Try again in a moment.
+						</StatePanel>
+					</Card>
+				)}
+			</>
 		);
+	}
 	const pair = { person: q.person, with: q.with, keep: q.keep };
 	const r = await read(viewer, async (tx, ctx) => ({ status: "ok", value: await readPair(tx, ctx, pair) }));
 	return <DuplicatesScreen initial={r.status === "ok" ? r.value : { kind: "failed" }} query={pair} />;
