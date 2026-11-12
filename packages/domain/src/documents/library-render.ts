@@ -97,6 +97,16 @@ export async function libraryDoc(
 	return fillStatementSlots(await forkTemplate(template, { id: template.id, data }), statement);
 }
 
+/** A render whose failure is a RenderFailed. */
+async function rendering<T>(render: () => Promise<T>): Promise<T> {
+	try {
+		return await render();
+	} catch (error) {
+		if (error instanceof RenderFailed) throw error;
+		throw new RenderFailed(error);
+	}
+}
+
 const unsafeMeeting = (m: AgendaMeeting) =>
 	[
 		m.title,
@@ -128,18 +138,15 @@ export async function renderTemplatePdf(
 	)
 		throw new RenderFailed();
 	const file = docTemplateById(template.id);
-	const entry = file ? undefined : entryFor(template.id);
-	if (file ? libraryFormat(file) !== "pdf" : entry?.format !== "pdf") throw new RenderFailed();
-	try {
-		if (file) return await renderDocPdf(await libraryDoc(file, values, theme, statement), theme);
-		if (entry?.format !== "pdf") throw new RenderFailed();
-		return await renderPdfElement(
-			entry.build(renderContext(church, values, theme, entry.documentClass, meeting, statement)),
-		);
-	} catch (error) {
-		if (error instanceof RenderFailed) throw error;
-		throw new RenderFailed(error);
+	if (file) {
+		if (libraryFormat(file) !== "pdf") throw new RenderFailed();
+		return rendering(async () => renderDocPdf(await libraryDoc(file, values, theme, statement), theme));
 	}
+	const entry = entryFor(template.id);
+	if (entry?.format !== "pdf") throw new RenderFailed();
+	return rendering(() =>
+		renderPdfElement(entry.build(renderContext(church, values, theme, entry.documentClass, meeting, statement))),
+	);
 }
 
 const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
@@ -166,12 +173,9 @@ export async function renderPreview(
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
 	if (format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting, statement)).bytes;
 	const file = docTemplateById(template.id);
-	try {
+	return rendering(async () => {
 		if (!file) return finish(buildFirstYearBudget(values.church_name ?? "", theme));
 		const doc = await libraryDoc(file, values, theme, statement);
 		return finish(buildLedgerWorkbook(doc, fieldValues(doc), theme));
-	} catch (error) {
-		if (error instanceof RenderFailed) throw error;
-		throw new RenderFailed(error);
-	}
+	});
 }

@@ -218,14 +218,34 @@ test("T-205 the library facts of each twinned template are read from its file", 
 			assert.equal(view.category, "administrative", id);
 			assert.deepEqual(
 				view.mergeFields.map((f) => [f.key, f.required, f.autoFill]),
-				[
-					["church_name", true, "church_name"],
-					["pastor_name", false, "pastor_name"],
-				],
+				// Bylaws never print the pastor's name, so they offer no input for it.
+				id === "bylaws"
+					? [["church_name", true, "church_name"]]
+					: [
+							["church_name", true, "church_name"],
+							["pastor_name", false, "pastor_name"],
+						],
 				id,
 			);
 		}
 	}
+});
+
+test("T-205 every merge field the library offers for a twinned template prints its value", async () => {
+	// A template file prints only the merge values it declares, so the library offers no input that a render drops.
+	const { templates } = await library();
+	for (const id of TWINNED.filter((id) => docTemplateById(id)!.exports[0] === "pdf")) {
+		const view = templateView(templates.find((t) => t.id === id)!);
+		const values = Object.fromEntries(view.mergeFields.map((f) => [f.key, `Marker ${f.key.replace(/_/g, " ")}`]));
+		const text = (await renderTemplatePdf({ id }, values)).text.flat().join("\n");
+		for (const [key, value] of Object.entries(values)) assert.ok(text.includes(value), `${id} drops ${key}`);
+	}
+	const keys = (id: string) => templateView(templates.find((t) => t.id === id)!).mergeFields.map((f) => f.key);
+	// Main offered these, and the template files print none of them.
+	assert.deepEqual(keys("commitment-card"), ["church_name"]);
+	assert.deepEqual(keys("guest-sign-in-sheet"), ["church_name"]);
+	assert.deepEqual(keys("member-expectations"), ["church_name"]);
+	assert.deepEqual(keys("follow-up-letter"), ["church_name", "pastor_name"]);
 });
 
 test("AC:CASE-DOC-022 an unedited Church Document prints the same pages as its template's library preview", async () => {
