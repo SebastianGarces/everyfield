@@ -8,7 +8,7 @@ This report only reads data. It changes no script, check or CI step.
 - First local record: 2026-11-09T06:19:52.071Z
 - Last local record: 2026-11-12T10:41:59.078Z
 - Window length: 76.4 h (3.182 days)
-- Local records: 271, in `<git common dir>/evf-setup-steps` of the main checkout, read with `node scripts/setup-step.mjs report --json`
+- Local records: 271, in `<git common dir>/evf-setup-steps` of the main checkout, read with `node scripts/setup-step.mjs report --json` at 2026-11-12T16:29Z and again, unchanged, at 2026-11-12T16:54Z. Records written after that read are outside this window.
 - CI: `node tools/ci/ci-timing.ts --last 100 --json`, read at 2026-11-12T16:41:12Z. CI runs used: 72, created 2026-11-12T06:37:19Z to 2026-11-12T10:32:41Z
 
 ### How the CI runs were chosen
