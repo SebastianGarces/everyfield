@@ -185,12 +185,7 @@ test("AC:TARGET-TEAM-013 REQ-TEAM-013 a ministry's own linked leader schedules i
 	refused(await plan({ teamId: elsewhere.id }, 1));
 	refused(await plan({ type: "orientation", teamId: undefined }, 1));
 	refused(await plan({ type: "vision_meeting", teamId: undefined }, 1));
-	refused(
-		await plan(
-			{ teamId: w.team.id, venue: { kind: "new", venue: { name: "Hall", address: "1 Main" } } },
-			1,
-		),
-	);
+	refused(await plan({ teamId: w.team.id, venue: { kind: "new", venue: { name: "Hall", address: "1 Main" } } }, 1));
 	refused(await plan({ teamId: w.team.id, guests: [w.former] }, 1));
 	assert.equal(await meetings(), before + 1);
 

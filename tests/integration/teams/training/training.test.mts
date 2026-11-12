@@ -102,7 +102,7 @@ const teamMeeting = (teamId, fields = {}, who = 0) =>
 /** A held meeting: these people attended and it is completed. The attendance writer has its own tests. */
 async function held(meetingId, personIds) {
 	await admin.execute(sql`UPDATE participation SET presence='attended'
-		WHERE meeting_id=${meetingId} AND person_id = ANY(${personIds}::uuid[])`);
+		WHERE meeting_id=${meetingId} AND person_id = ANY(${sql.param(personIds)}::uuid[])`);
 	await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${meetingId}`);
 }
 
