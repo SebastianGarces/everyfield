@@ -20,5 +20,4 @@ Work from evidence, not guesses. Every task has its own stack, so what you see i
    then rerun the check that failed.
 
 Keep raw output out of your context. Read summaries first and open one trace or log at a time.
-`bin/dev traces` says what to read instead until the observability package lands. Use the logs,
-and say so in your report.
+No trace reader exists yet. Read `bin/dev logs` instead, and say so in your report.

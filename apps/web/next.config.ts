@@ -17,7 +17,7 @@ const config: NextConfig = {
 			"../../packages/domain/src/documents/fonts/*.ttf",
 		],
 	},
-	// `pnpm typecheck` checks every package before `pnpm build` in `pnpm check` and in the CI app job, so the build skips
+	// `pnpm typecheck` checks every package before `pnpm build` in the CI app job, so the build skips
 	// its own second pass over the same types (T-43: a third of the build's time).
 	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
