@@ -1,6 +1,7 @@
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
+import { rowsInOrder } from "../sections/wikiOrder";
 import { createFixtureBrand, type BrandFault, type BrandOperation, type PreviewKit } from "../brand/fixtures";
 import type {
 	OrderRead,
@@ -357,7 +358,6 @@ export function createFixturePort(
 			async read(): Promise<OrderRead> {
 				const fault = await tick("readWikiOrder");
 				if (fault) return { status: "lost" };
-				if (persona === "network") return { status: "denied" };
 				return canAdminPlant ? { status: "ok", ...wikiOrder } : { status: "denied" };
 			},
 			async save(_requestKey, expectedRevision, churches, networks): Promise<OrderSave> {
@@ -370,11 +370,10 @@ export function createFixturePort(
 				if (fault) return { status: "lost" };
 				if (!canAdminPlant) return { status: "denied" };
 				if (expectedRevision !== wikiOrder.revision) return { status: "conflict", revision: wikiOrder.revision };
-				const pick = (rows: OrderRow[], ids: string[]) => ids.flatMap((id) => rows.filter((row) => row.id === id));
 				wikiOrder = {
 					revision: bump(wikiOrder.revision),
-					churches: pick(wikiOrder.churches, churches),
-					networks: pick(wikiOrder.networks, networks),
+					churches: rowsInOrder(wikiOrder.churches, churches),
+					networks: rowsInOrder(wikiOrder.networks, networks),
 				};
 				return { status: "ok", revision: wikiOrder.revision };
 			},

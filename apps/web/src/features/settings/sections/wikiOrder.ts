@@ -21,7 +21,7 @@ export function rowsInOrder(rows: OrderRow[], ids: string[]): OrderRow[] {
 /** The list with the entry at `index` moved one place up (-1) or down (1); unchanged at either end. */
 export function moved(ids: string[], index: number, step: -1 | 1): string[] {
 	const to = index + step;
-	if (index < 0 || index >= ids.length || to < 0 || to >= ids.length) return ids;
+	if (to < 0 || to >= ids.length) return ids;
 	const next = ids.slice();
 	[next[index], next[to]] = [next[to]!, next[index]!];
 	return next;
