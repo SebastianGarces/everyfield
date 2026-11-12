@@ -188,7 +188,8 @@ function rowPersonId(importId: string, row: number): string {
 /**
  * The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. fileDigest
  * names the file's bytes, so a file uploaded again after the kept copy is deleted must be the same file (D-803); imports
- * saved before it was recorded have none.
+ * saved before it was recorded have none: while their kept copy lasts the button still retries from it, but once it is
+ * deleted no upload matches, and the remaining rows need a new import.
  */
 const savedPlan = z.object({
 	fileDigest: z.string().optional(),
@@ -303,8 +304,8 @@ const receiptOf = (importId: string, s: ReturnType<typeof loadState>) =>
 /**
  * Save the reviewed rows and queue the job that writes them, and return at once. The bytes are read before any
  * database work. The save is a People write (D70): the gate holds the importer's Owner/Admin seat until COMMIT, and
- * the shared request key answers a repeat. Repeating the request returns the import's current receipt; after a
- * partial import it queues the job again for the remaining rows.
+ * the shared request key answers a repeat. Repeating the request returns the import's current receipt and queues
+ * nothing; "Try N rows again" is retryStoredImport.
  */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
 	const read = await readReply(async () => {
