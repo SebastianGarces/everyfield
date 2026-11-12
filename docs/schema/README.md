@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 104 tables, 1207 columns, 366 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 104 tables, 1185 columns, 356 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -16,7 +16,7 @@ python3 docs/schema/render-diagram.py
 python3 docs/package-context.py --check-manifest
 ```
 
-[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this catalog. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
+`schema-diagram.html` is an offline ERD generated on demand from this catalog with `python3 docs/schema/render-diagram.py`; it is not committed. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
 
 The checker validates structural keys, FK existence/arity/types, unconditional referenced keys, owner pairs and named exceptions, UUID relations, literal closed sets, NULL guards, JSONB key documentation, catalog coverage, producer packages and Person registrations. It does not execute SQL, triggers, Better Auth, authorization races, storage, providers or application acceptance. Independent semantic review remains required.
 
@@ -337,7 +337,6 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `training_assignment(version_id, program_id) -> training_version(id, program_id)`: Same-program compound FK fixes the version to program_id; assignment and version inherit the same plant through their compound program FK. No cross-plant assignment is possible.
 - `training_assignment(selection_operation_id) -> operation(id)`: Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.
 - `task(launch_id) -> launch(plant_id)`: Launch uses plant_id as its primary key; task CHECK launch_id = plant_id enforces the same plant whenever this optional relation exists.
-- `task(import_operation_id) -> operation(id)`: Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.
 - `phase_transition(operation_id) -> operation(id)`: Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.
 - `reference_version(item_id) -> reference_item(id)`: Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership.
 - `reference_version(release_id) -> reference_release(id)`: Packaged reference versions are global-only; trusted subtype trigger binds the record to the global tenant and validates that both release and item are global approved definitions.
@@ -401,7 +400,6 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `residency_link(account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `residency_link(affiliation_id) -> affiliation(id)`: The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads.
 - `suppression(clear_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `task(import_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 
 ## Architecture alignment amendments
 

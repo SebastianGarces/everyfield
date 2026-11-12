@@ -87,7 +87,13 @@ export async function readPersonView(
 	return readOnPool(viewer, (db, ctx) => readPersonPage(db, ctx, personId, parts));
 }
 
-export async function loadPeople(viewer: Viewer, query: PeopleQuery) {
-	const result = await read(viewer, async (tx, ctx) => ({ status: "ok", value: await readPeoplePage(tx, ctx, query) }));
-	return result.status === "ok" ? result.value : { query, data: { kind: "failed" } as const, workspaceEmpty: false };
+/** With `pairs`, an Owner or Admin's page load, it also reads the header's pairs to review (readPeoplePage). */
+export async function loadPeople(viewer: Viewer, query: PeopleQuery, pairs = false) {
+	const result = await read(viewer, async (tx, ctx) => ({
+		status: "ok",
+		value: await readPeoplePage(tx, ctx, query, { pairs }),
+	}));
+	return result.status === "ok"
+		? result.value
+		: { query, data: { kind: "failed" } as const, workspaceEmpty: false, review: null };
 }

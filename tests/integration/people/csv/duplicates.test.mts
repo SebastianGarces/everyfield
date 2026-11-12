@@ -1,7 +1,8 @@
 // T-263 (D-789, D-790): "Not a duplicate" on a pair the CSV import flagged with "Add, review later". An Owner or Admin
 // dismisses it, it leaves the list and shows in the Dismissed view, each dismiss and restore writes one audit row, a
 // repeat writes nothing and a stale pair is refused with nothing written. T-268: the side-by-side review offers it for
-// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. Through the public operations, on a scratch
+// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. T-265: the
+// People page load counts the same pairs for its header link. Through the public operations, on a scratch
 // schema, the way the web mount runs them (withPeopleWrite with the request's resolved actor).
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
@@ -12,6 +13,8 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
 import { readPair } from "../../../../apps/web/src/features/people/corrections/server.ts";
+import { readPeoplePage } from "../../../../apps/web/src/features/people/page-data.ts";
+import { parseQuery } from "../../../../apps/web/src/features/people/model.ts";
 import {
 	dismissDuplicatePair,
 	executeBulkImport,
@@ -308,4 +311,166 @@ test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss afte
 	assert.deepEqual(await audits(pair), []);
 	// Reading again shows where they stand now: merged, with nothing to dismiss.
 	assert.equal((await review(pair.withPersonId, pair.personId)).kind, "merged");
+});
+
+test("AC:TARGET-PPL-016 INV-tenancy T-265 the People page load counts the church's listed pairs for an Owner or Admin, one lower after a dismiss", async () => {
+	const page = (who, pairs = true) =>
+		read(who, (t, c) => readPeoplePage(t, c, parseQuery(new URLSearchParams()), { pairs }));
+	const [one, two] = await flaggedPairs(["Quin", "Wes"]);
+	const n = (await listed()).length;
+	assert.ok(n >= 2);
+	const label = (k) => (k ? `${k} to review in Duplicates` : null);
+	assert.equal((await page(0)).review, label(n), "the Admin's count is the list's");
+	assert.equal((await page(3)).review, label(n), "the Owner's too");
+	// Church B's Admin never sees church A's pairs in its count.
+	assert.equal((await page(2)).review, label((await listed(2)).length));
+	assert.ok(!ids(await listed(2)).some((x) => x.personId === one.personId));
+	// A Member's page loads as before with no count, also if the pairs read were asked for and refused.
+	for (const pairs of [false, true]) {
+		const member = await page(1, pairs);
+		assert.equal(member.data.kind, "list");
+		assert.equal(member.review, null);
+	}
+	ok(await dismiss(one));
+	assert.equal((await page(0)).review, label(n - 1));
+	ok(await restore(one));
+	ok(await dismiss(two));
+	assert.equal((await page(0)).review, label(n - 1));
+	ok(await restore(two));
+});
+
+// T-269 (D-844, D-845): each dismiss and restore shows in the Activity of both people in the pair, naming the other one
+// by their current name.
+const feed = async (personId, who = 3) =>
+	ok(await read(who, (t, c) => peopleReader.getActivities(t, c, { personId, kinds: ["activity"], limit: 24 }))).items;
+const reviews = (items) =>
+	items
+		.filter((i) => i.action === "duplicate_dismissed" || i.action === "duplicate_restored")
+		.map((i) => ({ action: i.action, actor: i.actor, with: i.withPerson }));
+const by = (who) => ({ kind: "current_account", accountId: actors[who].id });
+async function retire(personId) {
+	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(personId)}`);
+	const { reviewRevision } = ok(await read(3, (t, c) => peopleReader.getStatusWarnings(t, c, { personId })));
+	ok(
+		await write(3, (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId, reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+}
+
+test("AC:TARGET-PPL-008 T-269 a dismiss and its restore show in both people's Activity, newest first, naming the other person", async () => {
+	const [pair] = await flaggedPairs(["Rue"]);
+	ok(await dismiss(pair, 0));
+	assert.deepEqual(ok(await dismiss(pair, 0)), { outcome: "noop" }, "a repeat writes nothing");
+	ok(await restore(pair, 3));
+	const imported = { id: pair.personId, displayName: "Rue Imported" };
+	const existing = { id: pair.withPersonId, displayName: "Rue Existing" };
+	assert.deepEqual(reviews(await feed(pair.personId)), [
+		{ action: "duplicate_restored", actor: by(3), with: existing },
+		{ action: "duplicate_dismissed", actor: by(0), with: existing },
+	]);
+	assert.deepEqual(reviews(await feed(pair.withPersonId)), [
+		{ action: "duplicate_restored", actor: by(3), with: imported },
+		{ action: "duplicate_dismissed", actor: by(0), with: imported },
+	]);
+	// The entries hold their place in the person's one time-and-ID order, after the import's "Added to People".
+	const items = await feed(pair.personId);
+	assert.deepEqual(
+		items.map((i) => i.action),
+		["duplicate_restored", "duplicate_dismissed", "created"],
+	);
+	const ordered = [...items].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.id.localeCompare(a.id));
+	assert.deepEqual(items, ordered);
+});
+
+test("AC:TARGET-PPL-008 T-269 the entry names the other person as they are now: renamed, retired or merged away", async () => {
+	const [renamed, merged] = await flaggedPairs(["Sol", "Tam"]);
+	ok(await dismiss(renamed));
+	ok(await dismiss(merged));
+	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(renamed.withPersonId)}`);
+	ok(
+		await write(3, (t, c) =>
+			people.updatePerson(t, c, {
+				requestKey: randomUUID(),
+				expectedRevision: revision,
+				input: { personId: renamed.withPersonId, patch: { displayName: "Sol Renamed" } },
+			}),
+		),
+	);
+	const named = async () => reviews(await feed(renamed.personId)).map((r) => r.with);
+	assert.deepEqual(await named(), [{ id: renamed.withPersonId, displayName: "Sol Renamed" }]);
+	await retire(renamed.withPersonId);
+	assert.deepEqual(
+		await named(),
+		[{ id: renamed.withPersonId, displayName: "Sol Renamed" }],
+		"still named once retired",
+	);
+
+	// Restore puts the pair back on the list, then a merge of the imported person into the other one: the survivor's
+	// feed shows the merged person's history too, and the entries still name them.
+	ok(await restore(merged));
+	const review = ok(
+		await read(3, (t, c) =>
+			peopleMerge.getMergeReview(t, c, { sourceId: merged.personId, survivorId: merged.withPersonId }),
+		),
+	);
+	ok(
+		await write(3, (t, c) =>
+			peopleMerge.mergePeople(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					sourceId: merged.personId,
+					survivorId: merged.withPersonId,
+					reviewDigest: review.reviewDigest,
+					fieldChoices: {},
+				},
+			}),
+		),
+	);
+	const gone = { id: merged.personId, displayName: "Tam Imported" };
+	assert.deepEqual(
+		reviews(await feed(merged.withPersonId)).map((r) => [r.action, r.with]),
+		[
+			["duplicate_restored", gone],
+			["duplicate_dismissed", gone],
+		],
+		"once each, though both sides of the pair are in the survivor's feed",
+	);
+});
+
+test("AC:TARGET-PPL-008 INV-tenancy T-269 the feed never shows or names another church's duplicate review", async () => {
+	const [pair] = await flaggedPairs(["Uma"]);
+	ok(await dismiss(pair));
+	const theirs = ok(
+		await write(2, (t, c) =>
+			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: "Vic Other" } }),
+		),
+	).person;
+	// Another church's dismissal that names this church's person, and this church's row that names theirs.
+	const [mine] = await rows(sql`SELECT id FROM audit_event WHERE subject_id=${sql.param(pair.personId)}::uuid
+ AND action='people.duplicate_dismissed'`);
+	await admin.execute(sql`INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
+ SELECT ${sql.param(plants[1])}::uuid,${sql.param(actors[2].id)}::uuid,actor_token,action,kind,subject_type,${sql.param(theirs.id)}::uuid,
+  jsonb_build_object('withPersonId',${sql.param(pair.withPersonId)}::text) FROM audit_event WHERE id=${sql.param(mine.id)}::uuid`);
+	await admin.execute(sql`INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
+ SELECT tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,jsonb_build_object('withPersonId',${sql.param(theirs.id)}::text)
+ FROM audit_event WHERE id=${sql.param(mine.id)}::uuid`);
+	assert.deepEqual(
+		reviews(await feed(pair.withPersonId)).map((r) => r.with),
+		[{ id: pair.personId, displayName: "Uma Imported" }],
+	);
+	assert.deepEqual(
+		reviews(await feed(pair.personId)).map((r) => r.with),
+		[{ id: pair.withPersonId, displayName: "Uma Existing" }],
+	);
+	assert.deepEqual(reviews(await feed(theirs.id, 2)), []);
 });

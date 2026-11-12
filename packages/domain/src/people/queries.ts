@@ -33,7 +33,7 @@ const activityRow = z.object({
 	occurred_at: z.coerce.date(),
 	recorded_at: z.coerce.date(),
 	actor_id: z.uuid().nullable(),
-	revision: z.string(),
+	revision: z.string().nullable(),
 	body: z.string().nullable(),
 	edited_at: z.coerce.date().nullable(),
 	removed_at: z.coerce.date().nullable(),
@@ -48,6 +48,7 @@ const activityRow = z.object({
 	obligation_id: z.uuid().nullable(),
 	outcome: z.string().nullable(),
 	record_id: z.uuid().nullable(),
+	with_person: z.object({ id: z.uuid(), displayName: z.string() }).nullable(),
 	actor_exists: z.boolean(),
 });
 const warningsRow = z.object({
@@ -376,15 +377,19 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
  * subquery: `personId` may name the outer `person`.
  */
 export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
+	// This person and the people merged into them (REQ-PPL-025).
+	const feed = sql`(SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)})`;
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
  'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
  'action',a.action,'before_value',a.before_value,'after_value',a.after_value,'obligation_id',a.obligation_id,'outcome',a.outcome,
- 'record_id',a.record_id,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
-      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
+ 'record_id',a.record_id,'with_person',a.with_person,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
+      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id,NULL::jsonb AS with_person FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
       UNION ALL
-      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN (SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)}) AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
+      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid,NULL FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN ${feed} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,notes,NULL,NULL,'follow_up','follow_up',contact_channel,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
+      SELECT h.id,h.occurred_at,h.recorded_at,h.actor_id,NULL,NULL,NULL,NULL,'activity','duplicate',h.action,NULL,NULL,NULL,NULL,NULL,jsonb_build_object('id',o.id,'displayName',o.display_name) FROM audit_event h JOIN person o ON o.tenant_id=h.tenant_id AND o.id=CASE WHEN h.metadata->>'withPersonId' IN (SELECT f::text FROM ${feed} f(f)) THEN h.subject_id ELSE (h.metadata->>'withPersonId')::uuid END WHERE h.tenant_id=${sql.param(ctx.selected.id)} AND h.kind<>'noop' AND h.action IN ('people.duplicate_dismissed','people.duplicate_restored') AND (h.subject_id IN ${feed} OR h.metadata->>'withPersonId' IN (SELECT f::text FROM ${feed} f(f)))
+      UNION ALL
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,notes,NULL,NULL,'follow_up','follow_up',contact_channel,NULL,NULL,obligation_id,outcome,NULL,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
     ) x WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at DESC,id DESC LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}) a)`;
 }
 export function activityFeed(ctx: Context, personId: string, input: z.infer<typeof c.activityRequest>, raw: unknown) {
@@ -398,6 +403,8 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 		"people.restored": "restored",
 		"people.recorded": "classification_recorded",
 		"people.corrected": "classification_corrected",
+		"people.duplicate_dismissed": "duplicate_dismissed",
+		"people.duplicate_restored": "duplicate_restored",
 	};
 	for (const r of rows) {
 		const base = {
@@ -441,7 +448,10 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				...(r.record_id ? { recordId: r.record_id } : {}),
 				...(from && to && from !== to ? { stage: { from, to } } : {}),
 			});
-		} else if (r.kind === "follow_up")
+		} else if (r.kind === "duplicate" && r.with_person)
+			// A "Not a duplicate" or its restore names the other person of the pair by their current name (D-844, D-845).
+			items.push({ ...base, kind: "activity", action: actions[r.action ?? ""], withPerson: r.with_person });
+		else if (r.kind === "follow_up")
 			items.push({
 				...base,
 				kind: "follow_up",

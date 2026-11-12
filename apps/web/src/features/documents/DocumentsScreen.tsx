@@ -21,13 +21,14 @@ import { generateDocument, resolveDocument } from "./actions.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
-import { RENDER_FAILED, bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
+import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview } from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
 	SOURCE_LABEL,
 	categoryLabel,
 	choose,
+	churchValues,
 	combinedTooLong,
 	documentProblem,
 	draftsFrom,
@@ -36,6 +37,7 @@ import {
 	offeredFormat,
 	overridesOf,
 	phaseText,
+	renderKey,
 	type DocumentsQuery,
 	type Format,
 	type Resolved,
@@ -55,6 +57,8 @@ type PreviewState =
 
 type Props = {
 	templates: Template[];
+	/** The library version: part of every render key, so a new library draws new thumbnails. */
+	version: string;
 	query: DocumentsQuery;
 	context: Resolved | null;
 	canPreview: boolean;
@@ -75,6 +79,7 @@ function failureText(code: string, problem?: string) {
 
 export function DocumentsScreen({
 	templates,
+	version,
 	query,
 	context,
 	canPreview,
@@ -97,6 +102,8 @@ export function DocumentsScreen({
 		return chosen ? offeredFormat(chosen, context?.format ?? query.format) : null;
 	});
 	const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
+	// The church's values as this page load read them: every render key of the visit names them.
+	const [church] = useState(() => churchValues(context));
 	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string } | null>(null);
 	const [resolving, startResolve] = useTransition();
 	const [previewing, startPreview] = useTransition();
@@ -171,8 +178,10 @@ export function DocumentsScreen({
 		}
 		const template = selected;
 		const nextFormat = activeFormat;
+		// The same template, format and values as its thumbnail share the thumbnail's render.
+		const key = renderKey({ templateId: template.id, version, format: nextFormat, overrides, church });
 		startPreview(async () => {
-			const result = await postPreview(template.id, nextFormat, overrides);
+			const result = await sharedPreview(key, template.id, nextFormat, overrides);
 			if (result.status !== "ok") {
 				setPreview({
 					kind: "message",
@@ -381,7 +390,17 @@ export function DocumentsScreen({
 											onClick={() => select(template.id)}
 											className="flex cursor-pointer flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
 										>
-											<Thumbnail template={template} enabled={canPreview} />
+											<Thumbnail
+												template={template}
+												renderKey={renderKey({
+													templateId: template.id,
+													version,
+													format: "pdf",
+													overrides: {},
+													church,
+												})}
+												enabled={canPreview}
+											/>
 											<span id={`template-${template.id}-name`} className="px-2 font-medium text-ink">
 												{template.name}
 											</span>

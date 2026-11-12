@@ -177,6 +177,8 @@ export const activity = z.discriminatedUnion("kind", [
 			"interview_corrected",
 			"person_merged",
 			"person_unmerged",
+			"duplicate_dismissed",
+			"duplicate_restored",
 		]),
 		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
 		recordId: recordId.optional(),
@@ -184,6 +186,8 @@ export const activity = z.discriminatedUnion("kind", [
 		// A household join, leave or role change: the membership before and after, with the household name recorded
 		// then, so the history still names a household after it is deleted (REQ-PPL-009).
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
+		// A pair marked "Not a duplicate" or restored names the other person, by their current name (D-844, D-845).
+		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
 		...activityBase,
