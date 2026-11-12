@@ -381,6 +381,7 @@ async function prepare(
 	mode: Mode,
 	/** The send time the email service holds for a scheduled handoff; null for send now. */
 	heldUntil: string | null,
+	leftOut: readonly string[],
 ): Promise<Batch[]> {
 	const { found } = loaded;
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
@@ -500,7 +501,7 @@ async function prepare(
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) THEN 'refused' ELSE ${waiting} END,
+					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
 					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
 					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
@@ -734,7 +735,7 @@ async function handoff(
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
-	const batches = await prepare(db, actor, opened, ready, mode, heldUntil);
+	const batches = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
 	// One provider call per batch, in order; every answer is stored in one statement after the last call.
 	const answered: Answered[] = [];
 	let providerCalls = 0;

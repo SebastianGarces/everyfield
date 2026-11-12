@@ -169,6 +169,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"communication.saveDraft",
+						"communication.scheduleReviewed",
+						"communication.rescheduleReviewed",
+						"communication.cancelScheduledReviewed",
+						"communication.replaceScheduledReviewed",
 					]
 				: [],
 		);
@@ -204,9 +209,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listHouseholds",
 						"people.listTags",
 						"people.previewImport",
+						"communication.list",
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads]
+					? [...peopleReads, ...organizationReads, "communication.list"]
 					: [],
 		);
 	}
@@ -370,7 +376,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });

@@ -5,7 +5,7 @@ export { meetingsWriter } from "./meetings.ts";
 export { meetingMailGrants, meetingNotice, planNotifications } from "./notifications.ts";
 export { meetingsReader } from "./queries.ts";
 export { rosterReader, rosterWriter } from "./roster.ts";
-export { answerRsvpToken, describeRsvpToken } from "./tokens.ts";
+export { answerRsvpToken, describeRsvpToken, meetingOpenSql } from "./tokens.ts";
 export { venuesReader, venuesWriter } from "./venues.ts";
 export { attendanceReader } from "./analytics.ts";
 export { createAttendanceWriter, type AttendanceWriter } from "./attendance.ts";

@@ -317,6 +317,9 @@
 	"communication.handOffScheduled": {
 		"limit": 3
 	},
+	"communication.list": {
+		"limit": 3
+	},
 	"communication.listDrafts": {
 		"limit": 1
 	},

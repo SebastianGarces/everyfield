@@ -1,3 +1,4 @@
+import { sendTimeShort } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
@@ -109,6 +110,13 @@ const VIEWS: Record<string, OpView> = {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
 	}),
+	"communication.list": {
+		title: "Messages",
+		noun: ["message", "messages"],
+		icon: "message",
+		counts: "message",
+		empty: "No draft or scheduled message in this church matches.",
+	},
 };
 /** An operation with no view of its own. A test fails while any installed read falls back to it. */
 export const FALLBACK = { title: "Records", noun: ["record", "records"] } as const;
@@ -331,6 +339,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		}
+		case "message":
+			// A draft or scheduled message: its send time in the church's zone, never its body or recipients.
+			return {
+				...plain,
+				name: row.label,
+				line:
+					typeof fields.sendsAtInstant === "string" && typeof fields.zone === "string"
+						? `Sends ${sendTimeShort({ at: fields.sendsAtInstant, zone: fields.zone })}`
+						: "Draft",
+				avatar: null,
+			};
 		case "person":
 			break;
 	}

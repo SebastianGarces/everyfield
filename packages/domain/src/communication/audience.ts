@@ -2,6 +2,7 @@ import type { AudienceInput } from "@everyfield/contracts/communication";
 import { audienceResult } from "@everyfield/contracts/communication";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
+import { hash } from "../operations/canonical.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 
 const personRow = z.object({
@@ -120,3 +121,6 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 		emails: rows.map((row) => row.email!.trim().toLowerCase()).sort(),
 	};
 }
+
+/** The people and addresses of one resolved audience: a review saves it, and the schedule compares it. */
+export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));

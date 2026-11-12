@@ -23,7 +23,7 @@ export type CommunicationContext = { session: RequestActor["session"]; selected:
 export type CommunicationReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.CommunicationError };
 type Code = c.CommunicationError["code"];
 
-class CommunicationRefusal extends Error {
+export class CommunicationRefusal extends Error {
 	readonly code: Code;
 	readonly details: Record<string, unknown>;
 	constructor(code: Code, details: Record<string, unknown> = {}) {
