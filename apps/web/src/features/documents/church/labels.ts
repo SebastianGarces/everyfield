@@ -46,20 +46,10 @@ export const BLOCK_NAME = {
 	table: "Table",
 } as const;
 
-const named = (type: keyof typeof BLOCK_NAME) => () => BLOCK_NAME[type];
-
-/** What a block is called: "Paragraph", "Heading 2", "3 columns". A heading with no level is the format's level 2. */
+/** The names that depend on a block's attributes. A heading with no level is the format's level 2. */
 const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
-	paragraph: named("paragraph"),
 	heading: (b) => `Heading ${(b.attrs as { level?: number } | undefined)?.level ?? 2}`,
-	bulletList: named("bulletList"),
-	orderedList: named("orderedList"),
-	quote: named("quote"),
-	divider: named("divider"),
-	spacer: named("spacer"),
-	pageBreak: named("pageBreak"),
 	columns: (b) => `${(b as { content?: unknown[] }).content?.length ?? 2} columns`,
-	box: named("box"),
 	image: (b) => {
 		const source = (b.attrs as { source?: string } | undefined)?.source ?? "logo";
 		return source === "mark" ? "Mark" : source === "photo" ? "Photo" : "Logo";
@@ -69,10 +59,11 @@ const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
 		return kind === "signature" ? "Signature line" : kind === "date" ? "Date line" : "Write-in line";
 	},
 	slot: (b) => (b.attrs as { label?: string } | undefined)?.label ?? "Section",
-	table: named("table"),
 };
 
-export const blockLabel = (block: BlockNode) => BLOCK_LABEL[block.type]?.(block) ?? "Block";
+/** What a block is called: "Paragraph", "Heading 2", "3 columns". */
+export const blockLabel = (block: BlockNode): string =>
+	(BLOCK_NAME as Record<string, string>)[block.type] ?? BLOCK_LABEL[block.type]?.(block) ?? "Block";
 
 /** "Letter" or "4 cards on one Letter sheet". */
 export function paperText(page: { width: number; height: number; perSheet: number }) {
