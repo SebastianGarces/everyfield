@@ -170,9 +170,9 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the same key
-			// returns the file saved earlier.
-			const bytes = await done.render();
+			// D-109, D-418: the network's statement and the brand kit print as they stand now and are not inputs, so a replay
+			// on the same key returns the file saved earlier.
+			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 			const file = await storeBytes(
