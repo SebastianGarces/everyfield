@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import { Archive02Icon, Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import {
 	CHURCH_REVISION_LIST_MAX,
 	exportsFor,
@@ -18,13 +18,15 @@ import { ChurchPdf } from "./ChurchPdf.tsx";
 import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
-import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL } from "./labels.ts";
+import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
+import { CLASS_LABEL, savedAt } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
 // one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
-// nothing. Any seat downloads (D-80). An Owner or Admin can edit and delete it, and delete a saved export (D-79).
+// nothing. Any seat downloads (D-80). An Owner or Admin can edit, archive and delete it, and delete a saved export (D-79).
+// An archived document is read-only for every seat: no editor, no branding switch and no Archive, while its revisions
+// and saved exports stay readable and downloadable, and an Owner or Admin can still delete it (T-9).
 // The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
 const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
@@ -158,6 +160,13 @@ export function ChurchDocumentScreen({
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
 	}
 
+	async function archive() {
+		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
+		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
+		if (result?.status === "refused") throw new Error(result.message);
+		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
+	}
+
 	return (
 		<>
 			<PageHeader
@@ -172,6 +181,7 @@ export function ChurchDocumentScreen({
 						<span>
 							from {doc.templateName ?? doc.templateId} v{templateVersion}
 						</span>
+						{doc.archived ? <Tag tone="amber">Archived</Tag> : null}
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {revision}</span>
 						{doc.page.perSheet > 1 ? <span>{doc.page.perSheet} cards on each sheet</span> : null}
@@ -191,6 +201,23 @@ export function ChurchDocumentScreen({
 								{d.label}
 							</Button>
 						))}
+						{canManage && !doc.archived ? (
+							<ConfirmDialog
+								trigger={
+									<Button variant="secondary" icon={Archive02Icon}>
+										Archive
+									</Button>
+								}
+								title={`Archive "${doc.title}"?`}
+								description="The document leaves your church plant's library and can no longer be edited."
+								consequences={[
+									"Its revisions and saved exports stay available to everyone in your church plant.",
+									"Its link still opens it, read-only.",
+								]}
+								confirmLabel="Archive document"
+								onConfirm={archive}
+							/>
+						) : null}
 						{canManage ? (
 							<ConfirmDialog
 								trigger={
@@ -212,6 +239,15 @@ export function ChurchDocumentScreen({
 					</>
 				}
 			/>
+			{doc.archived ? (
+				<p
+					role="status"
+					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
+				>
+					Archived by {doc.archived.by ?? "a former member"} on {savedAt(doc.archived.at)}. It is read-only; its revisions
+					and saved exports stay available.
+				</p>
+			) : null}
 			{exportError?.at === null ? (
 				<p
 					role="alert"
