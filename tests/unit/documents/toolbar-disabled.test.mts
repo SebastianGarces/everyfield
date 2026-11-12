@@ -4,7 +4,7 @@
 //
 // It renders the real vendored toolbar buttons in node with a real Tiptap editor of the Church Document schema, not
 // mounted (no browser, no database). Run it from packages/domain:
-// tsx --tsconfig ../../tests/ui/render.tsconfig.json --test ../../tests/ui/documents/toolbar-disabled.test.mts
+// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test ../../tests/unit/documents/toolbar-disabled.test.mts
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

@@ -1,6 +1,6 @@
 // Follow-up screen rules (WP-023/ui) that decide what a save sends and what the screen says while it runs. A silent
 // break would send a guessed contact time or count the wrong owner totals. They run in node against the real modules
-// the screens use; no browser. The save lane itself is tested once, in tests/ui/save/model.test.mjs.
+// the screens use; no browser. The save lane itself is tested once, in tests/unit/save/model.test.mjs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {

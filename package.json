@@ -11,7 +11,7 @@
 		"prepare": "bin/dev hooks install",
 		"lint": "pnpm -r --if-present lint && pnpm run lint:repo && pnpm run lint:tests",
 		"lint:repo": "packages/evry/node_modules/.bin/oxlint -c tools/.oxlintrc.json --max-warnings=0 tools && node scripts/lint/check-repo-files.mjs",
-		"lint:tests": "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 tests/integration tests/evry tests/ui tests/workflow",
+		"lint:tests": "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 tests/integration tests/evry tests/ui tests/unit tests/workflow",
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:tsc": "pnpm -r --if-present --no-bail typecheck:tsc",
 		"typecheck:tools": "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json",

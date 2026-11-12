@@ -1,7 +1,7 @@
 // T-260 (D-731 to D-733): a feed entry whose category has a subject page links to it, read or unread; any other entry is
 // a mark-read button while unread and plain text once read. It maps each subject the feed returns to its address and
 // renders the real entry in node. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/ui/render.tsconfig.json --test <this file>.
+// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

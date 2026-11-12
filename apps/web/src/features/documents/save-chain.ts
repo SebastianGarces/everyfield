@@ -1,7 +1,7 @@
 // The save order both document editors share (the written-document editor and the Church Document editor): at most
 // one save in flight, a later save that waits for it and then saves what was typed meanwhile, and "Save and leave",
 // which leaves only once everything on screen is saved. Plain code with no React, so a node test drives the same
-// module the editors call (tests/ui/documents/save-chain.test.mjs).
+// module the editors call (tests/unit/documents/save-chain.test.mjs).
 
 /** One editor's saves. The editor keeps one for its life and asks it, never its own flag. */
 export class SaveChain {

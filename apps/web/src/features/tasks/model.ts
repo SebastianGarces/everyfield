@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
 
 // The Tasks screen rules that need no React: the address, labels, due-date words, counts after a change and the
-// due-date form value. The screens and the server page share them, and tests/ui/tasks runs them in node.
+// due-date form value. The screens and the server page share them, and tests/unit/tasks runs them in node.
 
 export type Status = z.infer<typeof c.taskStatus>;
 export type Priority = z.infer<typeof c.priority>;
