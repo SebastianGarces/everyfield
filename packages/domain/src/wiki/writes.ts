@@ -117,8 +117,9 @@ async function saveReading(
 						WHEN ${mode} = 'progress' AND ${fraction}::numeric > 0.80 THEN ${fraction}::numeric
 						ELSE NULL END,
 					COALESCE(e.policy_version, 'wiki-reading-v1'),
+					-- Any read of a meaningful revision marks it read: opening the article clears "Updated since you read it".
 					CASE
-						WHEN ${mode} <> 'view' AND v.meaningful
+						WHEN v.meaningful
 							THEN GREATEST(COALESCE(e.last_read_meaningful_sequence, 0), v.meaningful_sequence)
 						ELSE COALESCE(e.last_read_meaningful_sequence, 0) END,
 					CASE WHEN ${mode} = 'bookmark' THEN ${desired}::boolean ELSE COALESCE(e.bookmarked, false) END,
