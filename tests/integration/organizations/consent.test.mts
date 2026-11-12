@@ -76,7 +76,7 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "2");
 });
-test("AC:WP007-MUL-016 AC:ADR1-016 AC:WP007-API-MUL-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
+test("AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
 	const n = await S.tenant("sending_network"),
 		na = await S.identity(n),
 		churches = [await S.tenant("sending_church"), await S.tenant("sending_church")],
@@ -144,7 +144,7 @@ async function resident() {
 	);
 	return { o, staff, r, link, person };
 }
-test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave preserve the current saved choices", async () => {
+test("AC:ADR1-003 resident category withdrawal and leave preserve the current saved choices", async () => {
 	const { r, link } = await resident();
 	const read = () => S.call("residency.readSharing", r, { linkId: link });
 	const initial = Q.residencySharingResult.parse(await read());
@@ -240,7 +240,7 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 		"1",
 	);
 });
-test("T-141 a sending church's page read gives each live network connection's pipeline choice, as readConsent does", async () => {
+test("AC:ADR1-016 a sending church's page read gives each live network connection's pipeline choice, as readConsent does", async () => {
 	const church = await S.tenant("sending_church"),
 		admin = await S.identity(church),
 		member = await S.identity(church, "member"),
@@ -268,7 +268,7 @@ test("T-141 a sending church's page read gives each live network connection's pi
 	await S.db.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(admin.account)}`);
 	assert.deepEqual(await readPipelineConsents(S.runtime, authority), []);
 });
-test("T-141 a resident's page read gives each own residency link's consent and revision, as readSharing does", async () => {
+test("AC:ADR1-003 a resident's page read gives each own residency link's consent and revision, as readSharing does", async () => {
 	const { r, link } = await resident(),
 		other = await resident();
 	const viewer = {
@@ -313,7 +313,7 @@ test("T-141 a resident's page read gives each own residency link's consent and r
 	assert.deepEqual(await S.call("residency.readSharing", removed, { linkId: removedLink }), { status: "unavailable" });
 	assert.deepEqual((await residencyLinks(S.runtime, removedViewer))[0].sharing, { status: "unavailable" });
 });
-test("T-141 only a plant pair has a disclosure", async () => {
+test("INV-consent: only a plant pair has a disclosure", async () => {
 	const church = await S.tenant("sending_church"),
 		ca = await S.identity(church),
 		network = await S.tenant("sending_network");

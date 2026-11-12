@@ -172,8 +172,8 @@ after(async () => {
 	await database.close();
 });
 
-describe("T-80 compare a document with the church's own template", { concurrency: 1 }, () => {
-	test("criteria 1, 3: a fresh document matches its church template; the compare names it as the church's own", async () => {
+describe("INV-doc-compare: compare a document with the church's own template", { concurrency: 1 }, () => {
+	test("INV-doc-compare: a fresh document matches its church template; the compare names it as the church's own", async () => {
 		const template = await churchTemplate(ADMIN, "Board policy");
 		const doc = await create(ADMIN, template.templateId);
 		assert.equal(doc.body.origin.template, template.templateId);
@@ -199,7 +199,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.equal(builtIn.churchTemplate, false);
 	});
 
-	test("criterion 2: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
+	test("INV-doc-compare: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
 		const template = await churchTemplate(OWNER, "Margins policy");
 		const v1 = await storedTemplate(template.id);
 		const doc = await create(OWNER, template.templateId);
@@ -223,7 +223,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(found.differences[2].template, v1.body.content[7]);
 	});
 
-	test("AC:DOC-COMPARE-CHURCH criteria 1, 4, 5, 6, 12: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
+	test("INV-doc-compare: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
 		const template = await churchTemplate(OWNER, "Our conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const other = await create(ADMIN, template.templateId);
@@ -319,7 +319,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(ok(await compare(OWNER, other.id)).differences, []);
 	});
 
-	test("criterion 6: a church with no value for a new field prints the template's fallback; a value is not a difference", async () => {
+	test("INV-doc-compare: a church with no value for a new field prints the template's fallback; a value is not a difference", async () => {
 		const template = await churchTemplate(OTHER, "Other policy");
 		const doc = await create(OTHER, template.templateId);
 		// Other Church's details change: a frozen value that differs is not a difference.
@@ -369,7 +369,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok((await pdfText(await file(OTHER, doc.id, "pdf"))).includes("Questions go to our pastor"));
 	});
 
-	test("criterion 7: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
+	test("AC:DOC-019 after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
 		const template = await churchTemplate(ADMIN, "Legal policy");
 		assert.equal(template.documentClass, "formal/legal");
 		const v1 = await storedTemplate(template.id);
@@ -400,7 +400,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok(docxText(await file(ADMIN, doc.id, "docx")).includes(LEGAL_NOTICE));
 	});
 
-	test("criterion 8: an accept after another save, or after the church template changed, is a conflict and writes nothing", async () => {
+	test("INV-doc-compare: an accept after another save, or after the church template changed, is a conflict and writes nothing", async () => {
 		const template = await churchTemplate(OWNER, "Conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const edited = structuredClone(doc.body);
@@ -438,7 +438,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.equal(ok(await compare(ADMIN, doc.id)).templateVersion, 2);
 	});
 
-	test("criterion 9: a deleted church template offers no compare; the document still opens, saves and exports", async () => {
+	test("AC:DOC-022 a deleted church template offers no compare; the document still opens, saves and exports", async () => {
 		const template = await churchTemplate(OWNER, "Gone policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));
@@ -466,7 +466,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok(docxText(await file(OWNER, doc.id, "docx")).length > 0);
 	});
 
-	test("AC:DOC-COMPARE-CHURCH-MEMBER criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
+	test("INV-tenancy: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
 		const template = await churchTemplate(OWNER, "Private board policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));

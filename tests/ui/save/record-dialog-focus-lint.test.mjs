@@ -28,7 +28,7 @@ async function refusals(body) {
 	return result.messages.filter((m) => m.ruleId === RULE).map((m) => m.line);
 }
 
-test("BUG-249: a bare autoFocus inside RecordDialog content fails the web lint", async () => {
+test("BUG-PR249: a bare autoFocus inside RecordDialog content fails the web lint", async () => {
 	const refused = {
 		bare: `<RecordDialog title="T" action="Save" onClose={() => {}} onSubmit={() => true}>
 			<Input autoFocus />
@@ -49,7 +49,7 @@ test("BUG-249: a bare autoFocus inside RecordDialog content fails the web lint",
 	}
 });
 
-test("BUG-249: state-driven autoFocus and autoFocus outside RecordDialog pass the web lint", async () => {
+test("BUG-PR249: state-driven autoFocus and autoFocus outside RecordDialog pass the web lint", async () => {
 	const allowed = {
 		switchedField: `<RecordDialog title="T" action="Save" onClose={() => {}} onSubmit={() => true}>
 			<Input autoFocus={switched} />

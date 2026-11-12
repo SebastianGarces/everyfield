@@ -33,7 +33,7 @@ function holdsLoader(file) {
 	return chunkHolds.get(file);
 }
 
-test("every route that bundles the reference loader traces freeze.json and artifacts.json", () => {
+test("INV-reference-trace: every route that bundles the reference loader traces freeze.json and artifacts.json", () => {
 	assert.ok(existsSync(app), `no production build at ${app}: run pnpm build first`);
 	const loaderRoutes = traces(app).filter(({ files }) =>
 		files.some(

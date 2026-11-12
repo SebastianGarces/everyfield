@@ -280,7 +280,7 @@ test("INV-onboarding-model: rules hold over 3000 random interleavings", () => {
 	assert.ok(created > 2500, `most runs create a church (${created})`);
 });
 
-test("INV-onboarding-model: a pending account creates only what it registered for (D42)", () => {
+test("INV-onboarding-model: a pending account creates only what it registered for", () => {
 	const start = (offer) => initialState({ kind: "start", offer, accountRevision: "1" }, null);
 	const key = () => "k";
 	assert.deepEqual(begin(start("discovery"), "createPlant", {}, key).hold, "locked");
@@ -334,7 +334,7 @@ test("INV-senior-pastor-fill: off by default, sent only with Yes, and summarized
 
 // BUG-T65 (Nora QA 2026-11-05 Ask C): a network Admin or a sending-church director reaches the organization screen, and the
 // address bar never shows a church-setup step for it. Screens with steps keep theirs, so planter routing is unchanged.
-test("BUG-T65: an organization login's onboarding address carries no church step; planter steps keep theirs", () => {
+test("BUG-58bc5acb8: an organization login's onboarding address carries no church step; planter steps keep theirs", () => {
 	for (const requested of [null, "church", "journey"]) {
 		const organization = initialState({ kind: "elsewhere", reason: "organization" }, requested);
 		assert.equal(addressStep(organization), null, `organization, requested ${requested}`);

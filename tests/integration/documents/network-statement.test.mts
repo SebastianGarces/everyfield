@@ -193,7 +193,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
+describe("AC:DOC-020 network text fills a doctrinal section at creation", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-020 network-fills-slot: revision 1 holds the network's exact text under the label, in both exports", async () => {
 		const who = await plantWithOwner("Filled Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
@@ -211,7 +211,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertMarkedBlank(who, await create(who));
 	});
 
-	test("DOC-020: a network that has not written it, or cleared it, or an ended affiliation gives the marked blank", async () => {
+	test("AC:DOC-020 a network that has not written it, or cleared it, or an ended affiliation gives the marked blank", async () => {
 		const unset = await plantWithOwner("Unset Plant");
 		await affiliate(unset.plant, await organization("sending_network"));
 		await assertMarkedBlank(unset, await create(unset));
@@ -228,7 +228,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertMarkedBlank(ended, await create(ended));
 	});
 
-	test("DOC-020: the text is read at creation only; a later change reaches only a later document", async () => {
+	test("AC:DOC-020 the text is read at creation only; a later change reaches only a later document", async () => {
 		const who = await plantWithOwner("Changing Plant");
 		const network = await organization("sending_network", TEXT);
 		await affiliate(who.plant, network);
@@ -245,7 +245,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		await assertNetworkText(who, second.id, [para("Our newer words.")]);
 	});
 
-	test("DOC-020, D-108: with two active networks, the earliest-accepted one with a statement fills the slot", async () => {
+	test("AC:DOC-020 with two active networks, the earliest-accepted one with a statement fills the slot", async () => {
 		const who = await plantWithOwner("Two Networks");
 		const earlier = await organization("sending_network");
 		const later = await organization("sending_network", "The later network's words.");
@@ -259,7 +259,7 @@ describe("DOC-020 network text fills a doctrinal section at creation", { concurr
 		assert.deepEqual(keyedSlot((await create(who)).body).content, [para("The earlier network's words.")]);
 	});
 
-	test("DOC-020, D-106: only a slot keyed statement-of-faith is filled; saveNative keeps the key", async () => {
+	test("AC:DOC-020 only a slot keyed statement-of-faith is filled; saveNative keeps the key", async () => {
 		const who = await plantWithOwner("Mixed Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
 		const doc = await create(who, MIXED);
@@ -339,7 +339,7 @@ function assertSectionBlank(text) {
 	assert.equal(text.includes("network's own"), false);
 }
 
-describe("DOC-020 network text in a Bylaws preview and a saved file", { concurrency: 1 }, () => {
+describe("AC:DOC-020 network text in a Bylaws preview and a saved file", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-020 network-fills-preview: preview and the saved file print the network's text in the section", async () => {
 		const who = await plantWithOwner("Preview Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
@@ -347,7 +347,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionHolds((await savedText(who)).text);
 	});
 
-	test("DOC-020: the preview's section text equals the PDF export of revision 1 of a document made from Bylaws", async () => {
+	test("AC:DOC-020 the preview's section text equals the PDF export of revision 1 of a document made from Bylaws", async () => {
 		const who = await plantWithOwner("Parity Plant");
 		await affiliate(who.plant, await organization("sending_network", TEXT));
 		const preview = sectionOf(await previewText(who));
@@ -362,7 +362,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionBlank((await savedText(who)).text);
 	});
 
-	test("DOC-020: an unset, a cleared or an ended network statement previews and saves the marked blank", async () => {
+	test("AC:DOC-020 an unset, a cleared or an ended network statement previews and saves the marked blank", async () => {
 		const unset = await plantWithOwner("Unset Preview Plant");
 		await affiliate(unset.plant, await organization("sending_network"));
 
@@ -381,7 +381,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		}
 	});
 
-	test("DOC-020, D-108: with two active networks, the earliest-accepted one with a statement fills preview and save", async () => {
+	test("AC:DOC-020 with two active networks, the earliest-accepted one with a statement fills preview and save", async () => {
 		const who = await plantWithOwner("Two Networks Preview");
 		const earlier = await organization("sending_network");
 		const later = await organization("sending_network", "The later network's words.");
@@ -398,7 +398,7 @@ describe("DOC-020 network text in a Bylaws preview and a saved file", { concurre
 		assertSectionHolds((await savedText(who)).text, earlierOnly);
 	});
 
-	test("DOC-020, D-109, D-418: the text is read when the action runs; a replay on the same key returns the earlier file", async () => {
+	test("AC:DOC-020 the text is read when the action runs; a replay on the same key returns the earlier file", async () => {
 		const who = await plantWithOwner("Changing Preview Plant");
 		const network = await organization("sending_network", TEXT);
 		await affiliate(who.plant, network);

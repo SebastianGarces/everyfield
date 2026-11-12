@@ -79,7 +79,7 @@ const words = (text: string) =>
 		.replace(/ ([.,;:])/g, "$1");
 
 test(
-	"WP-036 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
+	"AC:CASE-DOC-023 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
 	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const doc = await fork("conflict-of-interest-policy");
@@ -103,7 +103,7 @@ test(
 	},
 );
 
-test("WP-036 the Word file has heading styles, a footer with PAGE and NUMPAGES, and the notice only for formal/legal", async () => {
+test("AC:CASE-DOC-023 AC:CASE-DOC-019 the Word file has heading styles, a footer with PAGE and NUMPAGES, and the notice only for formal/legal", async () => {
 	const policy = docxParts(await renderDocFile(await fork("conflict-of-interest-policy"), "docx", THEME, SAVED));
 	const document = policy["word/document.xml"]!;
 	assert.equal((document.match(/<w:pStyle w:val="Heading1"\/>/g) ?? []).length, 9, "nine numbered headings");
@@ -150,7 +150,7 @@ test("WP-036 the Word file has heading styles, a footer with PAGE and NUMPAGES, 
 });
 
 test(
-	"WP-036 the card sheet opens in LibreOffice as one sheet and the sign-in sheet with its headings",
+	"AC:CASE-DOC-004 AC:CASE-DOC-006 the card sheet opens in LibreOffice as one sheet and the sign-in sheet with its headings",
 	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		for (const id of ["commitment-card", "guest-sign-in-sheet"]) {
@@ -184,7 +184,7 @@ function sheetsOf(xlsx: Uint8Array) {
 	};
 }
 
-test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals with fullCalcOnLoad", async () => {
+test("AC:CASE-DOC-013 the ledger workbook has typed inputs, live formulas and SUM totals with fullCalcOnLoad", async () => {
 	const { doc } = await seededBudget();
 	const { workbook, sheets } = sheetsOf(await renderDocFile(doc, "xlsx", THEME, SAVED));
 	assert.match(workbook, /<calcPr calcId="\d+" fullCalcOnLoad="1"\/>/);
@@ -208,7 +208,7 @@ test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals 
 	await assert.rejects(() => renderDocFile(policy, "xlsx", THEME, SAVED), /render_failed/);
 });
 
-test("T-124 docFormats offers the export list as the body corrects it: Excel only with a ledger table, nothing it omits", async () => {
+test("AC:CASE-DOC-023 docFormats offers the export list as the body corrects it: Excel only with a ledger table, nothing it omits", async () => {
 	const budget = await fork("budget-worksheet");
 	assert.deepEqual(docFormats(budget), ["pdf", "docx", "xlsx"], "a ledger body offers Excel, in a fixed order");
 	const policy = await fork("conflict-of-interest-policy");
@@ -224,7 +224,7 @@ test("T-124 docFormats offers the export list as the body corrects it: Excel onl
 });
 
 test(
-	"WP-036 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
+	"AC:CASE-DOC-013 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
 	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const { doc, table } = await seededBudget();
@@ -266,7 +266,7 @@ test(
 	},
 );
 
-test("AC:DOC-EDIT-PLACEHOLDERS the PDF paints a fill under each bracketed placeholder and the Word file shades its run", async () => {
+test("AC:CASE-DOC-023 the PDF paints a fill under each bracketed placeholder and the Word file shades its run", async () => {
 	const doc = await fork("conflict-of-interest-policy");
 	// A placeholder in a field value prints highlighted too; text outside the brackets does not.
 	doc.body.content.push({
@@ -345,7 +345,7 @@ async function budgetWith(rows: [string, string, number | null][], columns?: Tab
 	return { doc: docDocument.parse(doc), table: ledgerTables(docDocument.parse(doc).body)[0]! };
 }
 
-test("documents/doc-6 a subtotal after a second run of items sums only item rows, as computeTable does", async () => {
+test("AC:CASE-DOC-013 a subtotal after a second run of items sums only item rows, as computeTable does", async () => {
 	const { doc, table } = await budgetWith([
 		["group", "Income", null],
 		["item", "Tithes", 7],
@@ -369,7 +369,7 @@ test("documents/doc-6 a subtotal after a second run of items sums only item rows
 			for (const s of subtotals) assert.ok(!(Number(a) <= s && s <= Number(b)), `${f} spans the subtotal row ${s}`);
 });
 
-test("documents/doc-22 a workbook division by a zero or empty divisor shows 0, as evalTree gives", async () => {
+test("AC:CASE-DOC-013 a workbook division by a zero or empty divisor shows 0, as evalTree gives", async () => {
 	const { doc, table } = await budgetWith(
 		[
 			["group", "Costs", null, null],
@@ -439,7 +439,7 @@ function editedSheet(xlsx: Uint8Array, table: TableNode, title: string) {
 	return { sheet, cells, last: 3 + rows.length };
 }
 
-test("AC:WP-036-10 a forked budget, edited, gives an Excel file with the edits and computed totals; so does a budget in a blank document", async () => {
+test("AC:CASE-DOC-013 a forked budget, edited, gives an Excel file with the edits and computed totals; so does a budget in a blank document", async () => {
 	const doc: any = await forkTemplate(docTemplateById("budget-worksheet")!, { data: { church_name: "Harvest Point" } });
 	doc.body.content[0].content[1].text += " 2027";
 	let t = ledgerTables(doc.body)[0]!;
@@ -508,7 +508,7 @@ test("AC:WP-036-10 a forked budget, edited, gives an Excel file with the edits a
 	assert.ok(Math.abs(plan.cells.value(`C${plan.last}`) - (1200.25 + 800 - 900)) < 1e-9, "the money is in column C");
 });
 
-test("AC:WP-036-9 the PDF and the Word file print a budget's totals rounded to cents: 0.20 + 0.70 + 0.10 is $1", async () => {
+test("AC:CASE-DOC-023 the PDF and the Word file print a budget's totals rounded to cents: 0.20 + 0.70 + 0.10 is $1", async () => {
 	const doc = await fork("budget-worksheet");
 	const table = ledgerTables(doc.body)[0]!;
 	for (const [label, value] of [
@@ -580,7 +580,7 @@ function workbook(bytes: Uint8Array) {
 	};
 }
 
-test("AC:WP-036-11 Excel shows cents, no dollar sign on a number column, ticks, the header fill, the stripes and a sheet for each table", async () => {
+test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, ticks, the header fill, the stripes and a sheet for each table", async () => {
 	// Rows of the budget worksheet: row 3 is the header, 4 the first group, 5 and 6 the first two line items.
 	const build = async (change: (table: any, items: any[]) => void) => workbook(renderXlsx(await budgetDoc(change)));
 	const set = (items: any[], values: number[]) =>
@@ -720,7 +720,7 @@ async function everything() {
 	return docDocument.parse({ ...base, exports: ["xlsx", "pdf", "docx"], body });
 }
 
-test("AC:WP-036-13 the PDF and the Word file hold a table's text, numbers, row numbers, header labels and ticks", async () => {
+test("AC:CASE-DOC-023 the PDF and the Word file hold a table's text, numbers, row numbers, header labels and ticks", async () => {
 	const doc = await everything();
 	const pdfBytes = await renderDocFile(doc, "pdf", THEME, SAVED);
 	const pdf = (await pdfPages(pdfBytes)).join(" ");

@@ -501,7 +501,7 @@ test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or cha
 	ok(await history(owner));
 });
 
-test("T-159 AC:CASE-NTF-009 a phase notice mails no organization seat that has not accepted yet", async () => {
+test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not accepted yet", async () => {
 	const { plant, owner } = await church("Accepted Later");
 	const linked = await connect(plant, "sending_church");
 	const advance = ok(await move(owner, 2, "Core group is forming", await revisionOf(plant)));

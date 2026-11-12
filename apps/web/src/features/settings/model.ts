@@ -145,16 +145,19 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 };
 
 /**
- * The categories something sends today (D-517). Meeting announcements and reminders, connection, sharing and launch
- * milestones and wiki review requests wait for the notification worker, so Settings does not offer a choice that
- * nothing reads; their stored choices are kept.
+ * The categories something sends today. Connection and sharing milestones wait for a later slice (D-761) and nothing
+ * writes launch milestones yet (D-762), so Settings does not offer a choice that nothing reads; their stored choices
+ * are kept.
  */
 const SENT: ReadonlySet<Category> = new Set([
 	"task_due",
 	"task_overdue",
+	"meeting_announcement",
+	"meeting_reminder",
 	"planter_digest",
 	"oversight_digest",
 	"phase_milestone",
+	"wiki_upstream_review",
 	"scheduled_email_unsubscribe",
 ]);
 

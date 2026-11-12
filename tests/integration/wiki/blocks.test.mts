@@ -29,7 +29,7 @@ function firstFence(body: string): string {
 	return all.slice(open + 1, close).join("\n");
 }
 
-test("WP-034/ui: backtick and tilde fences, with or without an info string, become code with the body byte for byte", () => {
+test("AC:CASE-WIKI-001 backtick and tilde fences, with or without an info string, become code with the body byte for byte", () => {
 	const body = lines(
 		"Intro",
 		"```",
@@ -56,7 +56,7 @@ test("WP-034/ui: backtick and tilde fences, with or without an info string, beco
 	]);
 });
 
-test("WP-034/ui: a heading inside a fence adds no contents entry and an unterminated fence runs to the end", () => {
+test("AC:CASE-WIKI-001 AC:CASE-WIKI-002 a heading inside a fence adds no contents entry and an unterminated fence runs to the end", () => {
 	const blocks = markdownBlocks(lines("## Real", "````md", "## Inside", "```", "still inside"));
 	assert.deepEqual(blocks, [
 		{ kind: "heading", level: 2, text: "Real", id: "real" },
@@ -68,7 +68,7 @@ test("WP-034/ui: a heading inside a fence adds no contents entry and an untermin
 	);
 });
 
-test("WP-034/ui: a diagram fence becomes the parsed diagram", () => {
+test("AC:CASE-WIKI-001 a diagram fence becomes the parsed diagram", () => {
 	assert.deepEqual(
 		markdownBlocks(lines("```diagram flow", "title: Welcome", "- Greet | At the door", "- Follow up", "```")),
 		[
@@ -86,7 +86,7 @@ test("WP-034/ui: a diagram fence becomes the parsed diagram", () => {
 	);
 });
 
-test("WP-034/ui: a malformed diagram fence renders as code that shows its source and no parser message", () => {
+test("AC:CASE-WIKI-001 a malformed diagram fence renders as code that shows its source and no parser message", () => {
 	const source = lines("title: Broken", "- One | two | three | four");
 	const blocks = markdownBlocks(lines("Before", "```diagram flow", source, "```", "After"));
 	assert.deepEqual(blocks, [
@@ -100,7 +100,7 @@ test("WP-034/ui: a malformed diagram fence renders as code that shows its source
 	]);
 });
 
-test("WP-034/ui: counting-procedures keeps its rule lines as code text", async () => {
+test("AC:CASE-WIKI-001 counting-procedures keeps its rule lines as code text", async () => {
 	const body = await appBody("administrative/financial/counting-procedures");
 	const fence = firstFence(body);
 	assert.match(fence, /^ {2,}-{9}$/m);
@@ -109,7 +109,7 @@ test("WP-034/ui: counting-procedures keeps its rule lines as code text", async (
 	assert.deepEqual(code, [{ kind: "code", text: fence }]);
 });
 
-test("WP-034/ui: partner-organization-coordination keeps its dash lines as code text", async () => {
+test("AC:CASE-WIKI-001 partner-organization-coordination keeps its dash lines as code text", async () => {
 	const body = await appBody("launch-sunday/partner-organization-coordination");
 	const fence = firstFence(body);
 	assert.match(fence, /^- /m);
@@ -132,7 +132,7 @@ const pdfLines = (pdf: Uint8Array) =>
 			.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g),
 	].map((m) => m[1]!.replace(/\\([()\\])/g, "$1"));
 
-test("com-28: one body reads as the same blocks in the reader, the PDF text and the print HTML", () => {
+test("INV-wiki-blocks: one body reads as the same blocks in the reader, the PDF text and the print HTML", () => {
 	const body = lines(
 		"## Welcome",
 		"Greet every guest.",

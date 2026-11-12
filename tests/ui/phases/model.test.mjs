@@ -80,7 +80,7 @@ test("AC:PHASE-CASE-009 AC:PHASE-CASE-002 each reason problem has its own messag
 	assert.match(conflict(5), /Phase 5\b/);
 });
 
-test("BUG-551 (journey/com-17): a rejected write reads as lost, and the lost message promises no double change", async () => {
+test("BUG-PR551 (journey/com-17): a rejected write reads as lost, and the lost message promises no double change", async () => {
 	const offline = () => Promise.reject(new TypeError("Failed to fetch"));
 	assert.deepEqual(await sent(offline), { status: "lost" });
 	const ok = { status: "ok", value: 1 };
@@ -91,7 +91,7 @@ test("BUG-551 (journey/com-17): a rejected write reads as lost, and the lost mes
 	assert.match(text, /will not apply twice/);
 });
 
-test("BUG-551 (journey/com-17): a retry of the same intent replays its request key; a new intent or a settled one gets a fresh key", () => {
+test("BUG-PR551 (journey/com-17): a retry of the same intent replays its request key; a new intent or a settled one gets a fresh key", () => {
 	let n = 0;
 	const keys = requestKeys(() => `key-${++n}`);
 	const move = ["move", "7", 3, "Core group formed"];

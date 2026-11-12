@@ -183,7 +183,7 @@ async function dispatchAll() {
 	for (let claim = (await claimDue(runtime, ["mail"]))[0]; claim; claim = (await claimDue(runtime, ["mail"]))[0])
 		await mail.dispatch(claim);
 }
-test("com-28: the digest names an untitled meeting as the app does, for every meeting type", async () => {
+test("AC:CASE-NTF-007 the digest names an untitled meeting as the app does, for every meeting type", async () => {
 	const zone = "America/Chicago";
 	const plant = await church("Titles Church", zone, { weekday: 1, hour: 8 });
 	const who = await person("tia");
@@ -218,7 +218,7 @@ test("com-28: the digest names an untitled meeting as the app does, for every me
 
 const PRIVATE = ["Maria", "Lopez", "PRIVATE", "Hello", "$250", "note"];
 
-test("AC:NOTIFY47-004 WP-030 criteria 1-3: the church digest reaches the bell and email at the church's Monday 08:00 in Sydney, not before, and an empty church gets nothing", async () => {
+test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church's Monday 08:00 in Sydney, not before, and an empty church gets nothing", async () => {
 	// Sydney is ahead of the server's zone: Monday 2026-10-26 08:00 AEDT is Sunday 21:00 UTC.
 	const zone = "Australia/Sydney";
 	const harvest = await church("Harvest Church", zone, { weekday: 1, hour: 8 });
@@ -287,7 +287,7 @@ test("AC:NOTIFY47-004 WP-030 criteria 1-3: the church digest reaches the bell an
 	assert.equal((await mails(both.id)).length, 1);
 });
 
-test("AC:CASE-NTF-008 AC:NOTIFY47-005 WP-030 criteria 4, 8, 9: the 07:00 oversight digest shows the sharing plant's counts and dates only, in the bell by default and by email when chosen", async () => {
+test("AC:CASE-NTF-008 AC:NOTIFY47-005 the 07:00 oversight digest shows the sharing plant's counts and dates only, in the bell by default and by email when chosen", async () => {
 	const zone = "America/Chicago";
 	const network = await organization("Prairie Network", zone);
 	const sharing = await church("Riverbend Church", zone, { weekday: 0, hour: 16 });
@@ -342,7 +342,7 @@ test("AC:CASE-NTF-008 AC:NOTIFY47-005 WP-030 criteria 4, 8, 9: the 07:00 oversig
 	assert.equal((await mails(admin2.id))[0]?.state, "accepted");
 });
 
-test("AC:CASE-NTF-008 WP-030 criteria 5, 6: an organization without a saved zone gets its digest at 07:00 UTC for the previous UTC day, and one with no shared activity gets nothing", async () => {
+test("AC:CASE-NTF-008 an organization without a saved zone gets its digest at 07:00 UTC for the previous UTC day, and one with no shared activity gets nothing", async () => {
 	const utc = await organization("Harbor Network", "UTC");
 	const silent = await organization("Still Network", "UTC");
 	const plant = await church("Dockside Church", "America/Los_Angeles", { weekday: 0, hour: 16 });
@@ -369,7 +369,7 @@ test("AC:CASE-NTF-008 WP-030 criteria 5, 6: an organization without a saved zone
 	assert.deepEqual(await mails(quiet.id), []);
 });
 
-test("AC:CASE-NTF-008 WP-030 criterion 7: a plant that stops sharing after the digest was queued contributes nothing; alone, nothing is delivered", async () => {
+test("AC:CASE-NTF-008 a plant that stops sharing after the digest was queued contributes nothing; alone, nothing is delivered", async () => {
 	const zone = "UTC";
 	const solo = await organization("Solo Network", zone);
 	const pair = await organization("Pair Network", zone);
@@ -403,7 +403,7 @@ test("AC:CASE-NTF-008 WP-030 criterion 7: a plant that stops sharing after the d
 	assert.equal((await mails(p.id)).length, 1);
 });
 
-test("AC:CASE-NTF-008 WP-030 criterion 7: an oversight email queued before a plant stops sharing is withdrawn at dispatch", async () => {
+test("AC:CASE-NTF-008 an oversight email queued before a plant stops sharing is withdrawn at dispatch", async () => {
 	const network = await organization("Late Network", "UTC");
 	const a = await church("Early Church", "UTC", { weekday: 0, hour: 16 });
 	const b = await church("Withdrawn Church", "UTC", { weekday: 0, hour: 16 });
@@ -430,7 +430,7 @@ test("AC:CASE-NTF-008 WP-030 criterion 7: an oversight email queued before a pla
 	);
 });
 
-test("AC:CASE-NTF-008 WP-030 criterion 10: after three missed daily slots one catch-up digest covers every missed date and rechecks sharing", async () => {
+test("AC:CASE-NTF-008 after three missed daily slots one catch-up digest covers every missed date and rechecks sharing", async () => {
 	const zone = "America/Chicago";
 	const network = await organization("Catch-up Network", zone);
 	const open = await church("Open Door Church", zone, { weekday: 0, hour: 16 });
@@ -461,7 +461,7 @@ test("AC:CASE-NTF-008 WP-030 criterion 10: after three missed daily slots one ca
 	assert.equal((await notices(reader.id)).length, 1);
 });
 
-test("AC:CASE-NTF-008 WP-030 criterion 11: a person who lost their seat or whose account is no longer active gets nothing", async () => {
+test("AC:CASE-NTF-008 a person who lost their seat or whose account is no longer active gets nothing", async () => {
 	const network = await organization("Turnover Network", "UTC");
 	const plant = await church("Turnover Church", "UTC", { weekday: 0, hour: 16 });
 	await link(network, plant, true);
@@ -508,7 +508,7 @@ test("INV-budget: one delivered digest sends a fixed number of statements, howev
 	assert.deepEqual(counts, [9, 9]);
 });
 
-test("T-25 criterion 5: each digest email carries the Unsubscribe link and headers of its own digest, and unsubscribing stops that digest only", async () => {
+test("AC:CASE-NTF-007 AC:CASE-NTF-008 each digest email carries the Unsubscribe link and headers of its own digest, and unsubscribing stops that digest only", async () => {
 	const plant = await church("Unsubscribe Church", "UTC", { weekday: 1, hour: 8 });
 	const network = await organization("Unsubscribe Network", "UTC");
 	const linked = await church("Linked Church", "UTC", { weekday: 0, hour: 16 });

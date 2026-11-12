@@ -18,13 +18,14 @@ import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
-import { createMailService } from "../jobs/mail";
+import { createMailService, queueOnlyTransport, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { getViewer } from "../request-context";
 
 // The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
 // The session comes from the identity mount and the workspace from the seat service; every command runs through the
-// WP-007/api adapter in one transaction, which rechecks all authority. Mail and notices are enqueued only: WP-031
-// dispatches them. Domain reads supply names, waiting requests and residency links for the viewer's scope.
+// WP-007/api adapter in one transaction, which rechecks all authority. Commands queue mail and notices; the scheduled
+// runner sends the relationship mail with organizationMailPass. Domain reads supply names, waiting requests and
+// residency links for the viewer's scope.
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -38,26 +39,41 @@ export type Mount = NonNullable<ReturnType<typeof current>>;
 /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
-let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
-	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const mail = createMailService({
-		db,
+/** Organization mail keys: a relationship invitation to the typed address. */
+const ORGANIZATION_MAIL = ["relationship/"];
+
+/** The day an invitation stops working, as the mail prints it: a long date in UTC, labelled UTC. */
+const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
+
+function organizationMail(v: z.infer<typeof env>, transport: MailTransport) {
+	return createMailService({
+		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
 		// A relationship invitation goes to the typed address only; nothing else is sent from this mount.
 		authorize: async (_tx, mail) =>
 			new Set(mail.filter((m) => m.purpose === "relationship_invitation" && m.recipient === null).map((m) => m.id)),
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
+		transport,
 	});
+}
+
+/**
+ * The scheduled runner's relationship mail pass: one bounded batch of this mount's due mail through `transport`, each
+ * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
+ */
+export function organizationMailPass(transport: MailTransport): MailPass | null {
+	const v = env.safeParse(process.env);
+	if (!v.success) return null;
+	const db = database(v.data.IDENTITY_DATABASE_URL),
+		mail = organizationMail(v.data, transport);
+	return (limit, until) => runDueMail(db, mail, ORGANIZATION_MAIL, limit, until);
+}
+
+let mount: ReturnType<typeof create> | undefined;
+function create(v: z.infer<typeof env>) {
+	const db: Database = database(v.IDENTITY_DATABASE_URL);
+	const mail = organizationMail(v, queueOnlyTransport);
 	// Each effect is one or more rows the command runs inside its single write statement (D70).
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
@@ -73,7 +89,7 @@ function create(v: z.infer<typeof env>) {
 					address: input.recipientEmail,
 					content: {
 						subject: `${input.inviterDescription} asks to connect on Everyfield`,
-						text: `${input.inviterDescription} asks to connect on Everyfield. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
+						text: `${input.inviterDescription} asks to connect on Everyfield. Open this link to accept or decline. It works until ${expiryDay.format(new Date(input.expiresAt))} (UTC).\n\n${link}`,
 					},
 					operation: input.operationId,
 					notice: null,

@@ -91,7 +91,7 @@ async function seatedReader(role, selected) {
 	return { ...a, seat, selected, reader };
 }
 
-test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
+test("AC:TARGET-PPL-002 AC:LAUNCH46-003 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
 	const input = {
 		requestKey: randomUUID(),
 		input: {
@@ -229,7 +229,7 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	);
 });
 
-test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
+test("BUG-PR110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));
 	for (const id of ids)
@@ -257,7 +257,7 @@ test("BUG-110: people pages retain microseconds across 25 equal timestamp keys",
 	}
 });
 
-test("BUG-110: activity pages retain microseconds across equal timestamp keys", async () => {
+test("BUG-PR110: activity pages retain microseconds across equal timestamp keys", async () => {
 	const p = await create("Microsecond activities");
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	for (const id of ids)
@@ -283,7 +283,7 @@ test("BUG-110: activity pages retain microseconds across equal timestamp keys", 
 	assert.equal(last.completeness, "complete");
 });
 
-test("F14: person Activity is newest first and pages continue with older items without gaps or duplicates", async () => {
+test("AC:TARGET-PPL-008 person Activity is newest first and pages continue with older items without gaps or duplicates", async () => {
 	const p = await create("Newest first");
 	const notes = Array.from({ length: 30 }, (_, i) => ({
 		id: randomUUID(),
@@ -469,7 +469,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	);
 });
 
-test("AC:TARGET-PPL-006 F07b criterion 7: assigning a duty to someone already on it keeps them on it", async () => {
+test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on it", async () => {
 	const leaving = await create("Leaving"),
 		stays = await create("Stays");
 	await admin.execute(
@@ -773,7 +773,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 });
 
-test("AC:CA014 BUG-church-date explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
+test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
 	const p = await create("Historical commitment");
 	const commitment = randomUUID();
 	await admin.execute(
@@ -889,7 +889,7 @@ test("INV-people: concurrent edits serialize to one current revision and one con
 	);
 });
 
-test("BUG-124-conflict BUG-124-replay INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
+test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
 	await create("Order A");
 	await create("Order B");
 	const column = async () =>
@@ -955,7 +955,7 @@ test("BUG-124-conflict BUG-124-replay INV-pipeline: native moves place one perso
 	);
 });
 
-test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
+test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a move from the older view", async () => {
 	const revision = async (column) => (await tx(async (t) => (await readColumnOrders(t, ctx(), [column]))[0])).revision;
 	// A move with the given column revision; refused when the column changed since that view (verifier finding on 93cf953).
 	const moveWith = (rev, personId, afterId) =>
@@ -1044,7 +1044,7 @@ test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuse
 	assert.equal(moved.person.stage, "attendee");
 });
 
-test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
+test("BUG-25b8ac319: full People pages and pipeline use fixed database round trips", async (t) => {
 	const ids = Array.from({ length: 101 }, () => randomUUID()).sort();
 	t.after(async () => {
 		await admin.execute(sql`DELETE FROM task WHERE person_id=ANY(${sql.param(ids)}::uuid[])`);
@@ -1177,7 +1177,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	);
 });
 
-test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
+test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
 	// No cleanup: the disposable schema is dropped after the suite.
 	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
@@ -1500,7 +1500,7 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 
 // RT-3: a native People write sends no BEGIN, gate or request-key read on its first attempt. Its final statement checks
 // the actor's seat and repeats its reads with their locks, so these must hold with no explicit transaction.
-test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in its own statement, and a retry replays", async () => {
+test("INV-revocation INV-idempotency: a native write checks the seat in its own statement, and a retry replays", async () => {
 	const p = await create("Native write");
 	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
 	const authority = seated.reader.authority;
@@ -1539,7 +1539,7 @@ test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in i
 	}
 });
 
-test("INV-concurrency (RT-3): a change committed while a native write is in flight is never overwritten", async () => {
+test("INV-concurrency: a change committed while a native write is in flight is never overwritten", async () => {
 	const p = await create("Race");
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	let release, changed;
@@ -1572,7 +1572,7 @@ test("INV-concurrency (RT-3): a change committed while a native write is in flig
 	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Other");
 });
 
-test("INV-date (RT-3, C88): an assessment runs in the gate's transaction, so a church time zone change waits for it", async () => {
+test("INV-date: an assessment runs in the gate's transaction, so a church time zone change waits for it", async () => {
 	const p = await create("Zone race", { adultClassification: "adult" });
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);

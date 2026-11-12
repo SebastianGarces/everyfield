@@ -71,7 +71,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:PI-015 criterion 1: listDefinitions returns the seven keys of manual-signals.ts in order, with no answer or author", async () => {
+test("AC:PI-015 listDefinitions returns the seven keys of manual-signals.ts in order, with no answer or author", async () => {
 	const listed = ok(await signals.listDefinitions({}));
 	assert.deepEqual(
 		listed.map((d) => d.key),
@@ -90,7 +90,7 @@ test("AC:PI-015 criterion 1: listDefinitions returns the seven keys of manual-si
 	);
 });
 
-test("AC:PI-015 criterion 1: another key, including leadership_candidate and a WP-040 key, is refused and stores nothing", async () => {
+test("AC:PI-015 another key, including leadership_candidate and a later-package key, is refused and stores nothing", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	for (const key of [
@@ -108,7 +108,7 @@ test("AC:PI-015 criterion 1: another key, including leadership_candidate and a W
 	assert.deepEqual(await counts(w), { attestations: 0, revisions: 0, audits: 0 });
 });
 
-test("AC:PI-015 AC:WP-039-3 AC:WP-039-5 criterion 2: the page shows seven Unknown signals with counts; a Member, an ended seat and a foreign church get nothing", async () => {
+test("AC:PI-015 the page shows seven Unknown signals with counts; a Member, an ended seat and a foreign church get nothing", async () => {
 	const w = await f.workspace(),
 		other = await f.workspace();
 	const admin = await seated(w);
@@ -143,7 +143,7 @@ test("AC:PI-015 AC:WP-039-3 AC:WP-039-5 criterion 2: the page shows seven Unknow
 	assert.equal((await entry(stranger, "values_documented")).state, "unanswered");
 });
 
-test("AC:PI-015 AC:REQ-KNOW-050 criterion 3: a signal is answered with its name and date; detail and reference are never required; a retry replays", async () => {
+test("AC:PI-015 AC:REQ-KNOW-050 a signal is answered with its name and date; detail and reference are never required; a retry replays", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -186,7 +186,7 @@ test("AC:PI-015 AC:REQ-KNOW-050 criterion 3: a signal is answered with its name 
 	assert.equal((await entry(a, "prayer_in_gatherings")).value, "yes");
 });
 
-test("AC:PI-014 criterion 4: a correction to another value keeps history; the same value and a double retract are refused; Retracted is not Not answered", async () => {
+test("AC:PI-014 a correction to another value keeps history; the same value and a double retract are refused; Retracted is not Not answered", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -240,7 +240,7 @@ test("AC:PI-014 criterion 4: a correction to another value keeps history; the sa
 	);
 });
 
-test("AC:PI-014 criterion 5: history lists every revision newest first, and the runtime login cannot change or delete one", async () => {
+test("AC:PI-014 history lists every revision newest first, and the runtime login cannot change or delete one", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -289,7 +289,7 @@ test("AC:PI-014 criterion 5: history lists every revision newest first, and the 
 	assert.equal((await counts(w)).revisions, 3);
 });
 
-test("AC:B01-025 AC:B01-026 criterion 6: ages, renewal at 31 days, and funding that never expires", async () => {
+test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never expires", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	now = at(0);
@@ -335,7 +335,7 @@ test("AC:B01-025 AC:B01-026 criterion 6: ages, renewal at 31 days, and funding t
 	);
 });
 
-test("AC:B01-025 criterion 6: ages count the church's calendar days in its own zone", async () => {
+test("AC:B01-025 ages count the church's calendar days in its own zone", async () => {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='Pacific/Auckland' WHERE id=${w.id}`);
 	const a = await seated(w);
@@ -350,7 +350,7 @@ test("AC:B01-025 criterion 6: ages count the church's calendar days in its own z
 	assert.deepEqual((await entry(a, "prayer_rhythm_established")).renewal, { status: "needs_renewing" });
 });
 
-test("AC:B01-025 AC:B01-026 criterion 7: Still true refreshes only that signal; stale or wrong requests write nothing", async () => {
+test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wrong requests write nothing", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	now = at(0);
@@ -414,7 +414,7 @@ test("AC:B01-025 AC:B01-026 criterion 7: Still true refreshes only that signal; 
 	assert.equal((await entry(a, "prayer_rhythm_established")).revision, String(Number(current.revision) + 1));
 });
 
-test("AC:PI-014 AC:AUDIT-004 AC:WP-039-4 criterion 8: every accepted write has one audit row; refusals write nothing; two admins from one revision get one winner", async () => {
+test("AC:PI-014 AC:AUDIT-004 every accepted write has one audit row; refusals write nothing; two admins from one revision get one winner", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const other = await f.workspace();
@@ -483,7 +483,7 @@ test("AC:PI-014 AC:AUDIT-004 AC:WP-039-4 criterion 8: every accepted write has o
 	assert.equal(both.find((r) => r.status === "refused").error.code, "revision_conflict");
 });
 
-test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 inclusive days; shorter periods say why", async () => {
+test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive days; shorter periods say why", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -633,7 +633,7 @@ test("AC:PI-014 criterion 9: a leadership candidate needs both behaviors and 60 
 	);
 });
 
-test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and a retired Person keeps its row and history", async () => {
+test("AC:PI-014 a candidate corrects and retracts with history, and a retired Person keeps its row and history", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -723,7 +723,7 @@ test("AC:PI-014 criterion 9: a candidate corrects and retracts with history, and
 	);
 });
 
-test("WP-039 C2: a retired Person's candidate keeps its row and statement, marked retired, until a restore clears the mark", async () => {
+test("AC:PI-014 a retired Person's candidate keeps its row and statement, marked retired, until a restore clears the mark", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);
@@ -785,7 +785,7 @@ test("WP-039 C2: a retired Person's candidate keeps its row and statement, marke
 	assert.equal(fixed.statement, "Set up chairs every Sunday since August.");
 });
 
-test("AC:REQ-TEAM-017 criterion 10: recording, correcting and retracting a candidate changes no team, task, phase, notice or job", async () => {
+test("AC:REQ-TEAM-017 recording, correcting and retracting a candidate changes no team, task, phase, notice or job", async () => {
 	now = at(0);
 	const w = await f.workspace();
 	const a = await seated(w);

@@ -171,3 +171,44 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		[true],
 	);
 });
+
+test("INV-scheduled-steps: a throwing notification step names itself and the later steps still run", async () => {
+	let messages = 0;
+	const failing = scheduledJobs({
+		secret,
+		db: f.db,
+		storage: null,
+		cleanup: null,
+		reminders: null,
+		digests: null,
+		mail: null,
+		notifications: {
+			run: async () => {
+				throw Error("synthetic");
+			},
+		},
+		messages: async () => ++messages,
+	});
+	const logged: string[] = [];
+	const error = console.error;
+	console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+	let response: Response;
+	try {
+		response = await failing(
+			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
+		);
+	} finally {
+		console.error = error;
+	}
+	const body = await response.json();
+	assert.equal(response.status, 500);
+	assert.deepEqual(
+		[body.status, body.failed, body.steps.notification],
+		["failed", ["notification"], { status: "failed" }],
+	);
+	assert.deepEqual([body.steps.messages, body.messages, messages], [{ status: "ok", count: 1 }, 1, 1]);
+	assert.deepEqual(
+		logged.map((line) => JSON.parse(line)),
+		[{ component: "notification", runner: "scheduled-jobs", outcome: "error" }],
+	);
+});

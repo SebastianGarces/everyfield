@@ -41,7 +41,7 @@ const church = (k: BrandKitData | null) => ({ name: "Harvest Point", kit: k });
 const CLASSES: DocumentClass[] = ["formal/legal", "outward-facing", "operational", "email"];
 const ink = "#1A1A1A";
 
-describe("WP-104/api colors and contrast", () => {
+describe("AC:CASE-BRD-003 colors and contrast", () => {
 	test("AC:CASE-BRD-003 contrast follows WCAG 2.x against white, with the derived text color", () => {
 		assert.equal(colorView("#F2D74A").contrast, 1.44);
 		assert.deepEqual(colorView("#F2D74A"), {
@@ -61,7 +61,7 @@ describe("WP-104/api colors and contrast", () => {
 		assert.equal(colorView("#C9A227").badge, "fails_text");
 	});
 
-	test("the derived text color reaches 4.5:1 on any fill", () => {
+	test("AC:CASE-BRD-003 the derived text color reaches 4.5:1 on any fill", () => {
 		for (let r = 0; r < 256; r += 51)
 			for (let g = 0; g < 256; g += 51)
 				for (let b = 0; b < 256; b += 51) {
@@ -79,7 +79,7 @@ describe("WP-104/api colors and contrast", () => {
 	});
 });
 
-describe("WP-104/api resolveDocumentTheme", () => {
+describe("AC:CASE-BRD-006 resolveDocumentTheme", () => {
 	test("AC:CASE-BRD-006 formal/legal: small header logo, primary on rules and headings, neutral body, EIN footer, page numbers", () => {
 		const theme = resolveDocumentTheme(church(kit()), "formal/legal");
 		assert.equal(theme.kind, "church");
@@ -169,7 +169,7 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		);
 	});
 
-	test("every logo in a theme carries its alt text", () => {
+	test("AC:CASE-BRD-006 every logo in a theme carries its alt text", () => {
 		for (const documentClass of CLASSES) {
 			const layout = resolveDocumentTheme(church(kit()), documentClass).layout as Record<string, unknown>;
 			const logos = Object.values(layout).filter((value) => value && typeof value === "object" && "fileId" in value);

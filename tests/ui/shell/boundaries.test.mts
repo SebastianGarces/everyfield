@@ -68,7 +68,7 @@ function boundaryError() {
 	return Object.assign(new Error("db password=hunter2 at query.ts:42"), { digest: "4096123" });
 }
 
-test("BUG-551: the not-found pages name the page as not found, as the one h1, with a link to a start page", () => {
+test("BUG-PR551: the not-found pages name the page as not found, as the one h1, with a link to a start page", () => {
 	for (const [name, Page, home] of [
 		["frame", FrameNotFound, "/home"],
 		["root", RootNotFound, "/"],
@@ -81,7 +81,7 @@ test("BUG-551: the not-found pages name the page as not found, as the one h1, wi
 	}
 });
 
-test("BUG-551: an error boundary says something went wrong, shows the digest and never the error's message", () => {
+test("BUG-PR551: an error boundary says something went wrong, shows the digest and never the error's message", () => {
 	for (const [name, Boundary] of ERRORS) {
 		const html = renderToStaticMarkup(createElement(Boundary, { error: boundaryError(), reset: () => {} }));
 		const body = text(html);
@@ -94,7 +94,7 @@ test("BUG-551: an error boundary says something went wrong, shows the digest and
 	}
 });
 
-test("BUG-551: Try again calls the boundary's reset once", () => {
+test("BUG-PR551: Try again calls the boundary's reset once", () => {
 	for (const [name, Boundary] of ERRORS) {
 		let resets = 0;
 		const tree = Boundary({ error: boundaryError(), reset: () => resets++ });
@@ -105,7 +105,7 @@ test("BUG-551: Try again calls the boundary's reset once", () => {
 	}
 });
 
-test("BUG-551: global-error renders its own html and body, so it needs nothing from the root layout", () => {
+test("BUG-PR551: global-error renders its own html and body, so it needs nothing from the root layout", () => {
 	const html = renderToStaticMarkup(
 		createElement(GlobalErrorDocument, { error: boundaryError(), reset: () => {}, className: "fonts" }),
 	);
