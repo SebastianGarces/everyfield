@@ -3,7 +3,7 @@
 // controlled clock, frames on demand and pointermove events. The eyes turn toward the pointer on a damped spring, scale
 // with the pointer distance (full turn at 300 px), stay inside the outline, read the box once per pointer event, and
 // return to rest about 1.6 s after the pointer stops.
-//   node --test tests/ui/marketing/evry-follow.test.mjs
+//   node --test tests/unit/marketing/evry-follow.test.mjs
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";

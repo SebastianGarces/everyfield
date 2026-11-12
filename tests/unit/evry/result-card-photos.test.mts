@@ -1,7 +1,7 @@
 // T-274 Done 4-5 (REQ-IDN-006): an Evry result card draws each person row's photo from the photos the panel read for
 // it now, never from the saved result. A person row without one, and every household, tag, skill, activity or file
 // row, keeps its initials or icon. It renders the real ResultCard in node, with no browser and no database. It runs
-// from packages/domain's test:unit: tsx --tsconfig ../../tests/ui/render.tsconfig.json --test <this file>.
+// from packages/domain's test:unit: tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

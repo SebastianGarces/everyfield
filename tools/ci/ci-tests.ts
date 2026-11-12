@@ -135,7 +135,11 @@ export function checkCiTests(root: string): void {
 		);
 	const files = [
 		...globSync(
-			["tests/{integration,evry,reference,contracts}/**/*.{test,db}.mts", "packages/*/{src,test}/**/*.test.{ts,mts}"],
+			[
+				"tests/{integration,evry,reference,contracts}/**/*.{test,db}.mts",
+				"tests/unit/**/*.test.{mjs,mts}",
+				"packages/*/{src,test}/**/*.test.{ts,mts}",
+			],
 			{ cwd: root },
 		),
 		...globSync("tests/ui/**/*.test.{mjs,mts}", { cwd: root }).filter((file) => !browserSuite(file)),

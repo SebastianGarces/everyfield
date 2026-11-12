@@ -152,13 +152,14 @@ test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and mus
 	}
 });
 
-test("INV-ci-tests: an unlisted pure tests/ui model test fails the guard; a browser suite importing setup.mjs is not required", () => {
+test("INV-ci-tests: an unlisted tests/unit or pure tests/ui test fails the guard; a browser suite importing setup.mjs is not required", () => {
 	const f = fixture();
 	try {
 		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
 		mkdirSync(join(f.root, "apps/web"), { recursive: true });
 		mkdirSync(join(f.root, "packages/domain/test"), { recursive: true });
 		mkdirSync(join(f.root, "tests/ui/people"), { recursive: true });
+		mkdirSync(join(f.root, "tests/unit/people"), { recursive: true });
 		mkdirSync(join(f.root, "tests/reference/releases"), { recursive: true });
 		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
 		writeFileSync(
@@ -171,12 +172,12 @@ test("INV-ci-tests: an unlisted pure tests/ui model test fails the guard; a brow
 			JSON.stringify({
 				name: "@everyfield/web",
 				scripts: {
-					"test:unit": "node --test ../../tests/ui/people/model.test.mjs ../../tests/reference/releases/*.db.mts",
+					"test:unit": "node --test ../../tests/unit/people/model.test.mjs ../../tests/reference/releases/*.db.mts",
 				},
 			}),
 		);
 		writeFileSync(join(f.root, "tests/ui/setup.mjs"), "");
-		writeFileSync(join(f.root, "tests/ui/people/model.test.mjs"), 'import "node:test";\n');
+		writeFileSync(join(f.root, "tests/unit/people/model.test.mjs"), 'import "node:test";\n');
 		writeFileSync(join(f.root, "tests/ui/people/browser.test.mjs"), 'import { launch } from "../setup.mjs";\n');
 		writeFileSync(join(f.root, "tests/reference/releases/pin.db.mts"), "");
 		writeFileSync(
@@ -186,6 +187,14 @@ test("INV-ci-tests: an unlisted pure tests/ui model test fails the guard; a brow
 		let result = cli(f.root);
 		assert.equal(result.status, 0, result.stderr);
 		assert.match(result.stdout, /CI includes all 3 test files/);
+		writeFileSync(join(f.root, "tests/unit/people/new-model.test.mts"), 'import "node:test";\n');
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.match(
+			result.stderr,
+			/^ci-tests: Tests missing from CI commands:\ntests\/unit\/people\/new-model\.test\.mts\n/,
+		);
+		rmSync(join(f.root, "tests/unit/people/new-model.test.mts"));
 		writeFileSync(join(f.root, "tests/ui/people/new-model.test.mjs"), 'import "node:test";\n');
 		result = cli(f.root);
 		assert.equal(result.status, 1);

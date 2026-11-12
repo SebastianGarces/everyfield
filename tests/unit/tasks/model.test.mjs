@@ -12,7 +12,7 @@
 //   AC:TARGET-TSK-006 INV-badge-reads (BUG #196 round 3): only the newest badge read for the list still on screen
 //     applies; a newer read or a new list ends older reads and their retries; opening a task panel does not.
 //   BUG-31d611e R4-2: a refused edit opens again on the newest copy of the task with only the person's own changes on
-//     top. Request keys, replays and one save per card are the shared save lane's (tests/ui/save/model.test.mjs).
+//     top. Request keys, replays and one save per card are the shared save lane's (tests/unit/save/model.test.mjs).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
 //     confirmed rows stand when they fall away. AC:TARGET-TSK-005 (WP-025/ui): the same holds for a task's steps: a new
 //     step shows under its own task, a removed one hides and a tick shows.
