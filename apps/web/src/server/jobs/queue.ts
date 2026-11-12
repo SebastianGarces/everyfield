@@ -8,6 +8,7 @@ import { transaction } from "../platform/database.ts";
 
 export const jobKind = z.enum([
 	"mail",
+	"notification",
 	"digest",
 	"object_cleanup",
 	"lifecycle_purge",
@@ -23,6 +24,7 @@ export const claimSchema = z.object({
 	tenant_id: z.uuid(),
 	kind: jobKind,
 	subject_record_id: z.uuid().nullable(),
+	producer_key: z.string(),
 	source_revision: z.string().nullable(),
 	claim_generation: z.string(),
 	lease_owner: z.string(),

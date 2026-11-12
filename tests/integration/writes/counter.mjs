@@ -173,9 +173,7 @@ registerHooks({
 			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 				edits = [];
 			const names = standalone[path.slice(root.length)] ?? [];
-			const localAliases = path.endsWith("/jobs/notifications.ts")
-				? { enqueueMany: "notifications.enqueueMany", cancelForEntity: "notifications.cancelForEntity" }
-				: {};
+			const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 			function walk(n) {
 				if (ts.isReturnStatement(n) && n.expression) {
 					let ancestor = n.parent;

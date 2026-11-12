@@ -40,7 +40,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
 | WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 73 | 4 |
-| WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
+| WP-031 | Reliable background work and delivery recovery | 17 | 15 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
@@ -112,7 +112,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
 | WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
-| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 3 | 0 | 1.5 |
+| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 26 | 3 | 0 | 1.5 |
 | WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |
