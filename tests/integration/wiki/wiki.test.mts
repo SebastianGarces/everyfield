@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
@@ -46,6 +47,7 @@ const people = {
 	org: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
 };
 let renders = 0;
+const notices = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
 const api = createWikiProducer({
 	renderPdf() {
 		renders += 1;
@@ -1572,6 +1574,20 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(note.emailIntents, 0);
 			assert.equal(note.autoAdoptions, 0);
 			assert.deepEqual(note.recipientIds, [editor.id]);
+			// T-229: the notices carry the notification key shape, so the editor's bell shows them and links each to
+			// its published global revision's article, until the editor turns Wiki review requests off in the bell.
+			const bell = async () =>
+				ok(await notices.readFeed(db, await actor(editor), {}))
+					.items.filter((i) => i.category === "wiki_upstream_review")
+					.map((i) => [i.title, i.subject]);
+			const linked = { kind: "article", id: article.article, slug: "wp035/upstream/" + article.article };
+			assert.deepEqual(await bell(), [
+				["wp035/upstream", linked],
+				["wp035/upstream", linked],
+			]);
+			await admin.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
+				VALUES (${editor.id},'wiki_upstream_review','in_app',false,1)`);
+			assert.deepEqual(await bell(), []);
 			const kept = await current(people.owner, article.article);
 			assert.equal(kept.article.body, "S1 guidance.");
 			assert.equal(kept.article.sourceId, S2);

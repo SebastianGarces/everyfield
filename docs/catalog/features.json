@@ -2999,7 +2999,6 @@
       "REQ-TSK-018"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.syncTaskReminders",
       "tasks.applyManagedStatus",
       "tasks.ensureManagedTask",
@@ -4020,7 +4019,6 @@
       "REQ-NTF-001"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.enqueue"
     ],
     "acceptance_ids": [
@@ -4217,8 +4215,8 @@
       "REQ-NTF-006"
     ],
     "operations": [
-      "notifications.meetingAudience",
-      "notifications.syncMeetingReminders"
+      "meetings.planNotifications",
+      "notifications.meetingAudience"
     ],
     "acceptance_ids": [
       "AC-NTF-006--NTF-006"
