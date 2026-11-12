@@ -10,6 +10,9 @@
 // - Tags Worship team (3), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
 // - Two Marias, two Caseys, Jon and John Smith, a test record "asdf" and a person whose name is an instruction.
 // - An import receipt (5 created, 1 skipped, 2 failed) and open tasks on Mark Thompson (2), Ana Rivera and Sam Patel.
+// - An earlier import that added John Smith, Casey Brooks and Maria Delgado with "Add, review later": the open review
+//   pairs are John Smith with Jon Smith and Casey Brooks with Casey Morgan; Maria Delgado with Maria Santos was marked
+//   "Not a duplicate".
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
 //
@@ -197,6 +200,20 @@ export const byName = (name: string) => {
 /** A people import whose receipt the receipt read returns, and the request key that names it. */
 export const IMPORT_KEY = "import-2026-11-08-launch-interest";
 const IMPORT = { id: id(0xe1), job: id(0xe2), at: "2026-11-08T17:00:00.000Z", people: generated.slice(0, 5) };
+/** The earlier import's rows that matched an existing person, each added to review against that person. */
+const REVIEW_IMPORT = {
+	id: id(0xe3),
+	job: id(0xe4),
+	at: "2026-11-05T17:00:00.000Z",
+	key: "import-2026-11-05-guest-cards",
+	rows: [
+		{ person: "Casey Brooks", reviewWith: "Casey Morgan" },
+		{ person: "John Smith", reviewWith: "Jon Smith" },
+		{ person: "Maria Delgado", reviewWith: "Maria Santos", dismissed: true },
+	],
+};
+/** The open import review pairs, oldest imported person first, as people.listDuplicatePairs lists them. */
+export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((r) => [r.person, r.reviewWith]);
 
 type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
@@ -313,6 +330,34 @@ async function seedHope(admin: Database) {
 		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,after_revision,command_id,metadata)
 			VALUES(${id(0xe10 + i)},${PLANT},${owner},'people.created','create',${p.id},${IMPORT.at},${IMPORT.at},1,${IMPORT.id},
 				${JSON.stringify({ import: { row: i + 1, reviewWith: null } })}::jsonb)`);
+
+	// The earlier import, written as an import writes it: each created person's people.created audit row names the
+	// person to review it against (import.reviewWith). An Owner then marked one pair "Not a duplicate".
+	const review = REVIEW_IMPORT;
+	const reviewPlan = {
+		rows: review.rows.length,
+		skip: [],
+		invalid: [],
+		create: review.rows.map((r, i) => ({ row: i + 1, reviewWith: byName(r.reviewWith).id })),
+	};
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,request_identity)
+		VALUES(${review.id},${PLANT},${owner},'people.updated','edit','command',${PLANT},${review.at},${review.at},${review.key},
+			${JSON.stringify({ owner: { kind: "plant", id: PLANT }, actorId: owner, operation: "people.executeBulkImport", requestKey: review.key, digest: "golden-review" })}::jsonb)`);
+	await run(sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation,finished_at)
+		VALUES(${review.job},${PLANT},'people_import',${PLANT},${`people-import/${review.id}`},'succeeded',${review.at},1,4,1,${review.at})`);
+	await run(
+		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan) VALUES(${review.id},${PLANT},${review.job},${owner},${JSON.stringify(reviewPlan)}::jsonb)`,
+	);
+	for (const [i, r] of review.rows.entries()) {
+		const p = byName(r.person);
+		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_revision,after_value,command_id,metadata)
+			VALUES(${id(0xe20 + i)},${PLANT},${owner},'people.created','create','person',${p.id},${review.at},${review.at},1,
+				${JSON.stringify({ stage: p.stage })}::jsonb,${review.id},
+				${JSON.stringify({ import: { row: i + 1, reviewWith: byName(r.reviewWith).id } })}::jsonb)`);
+		if (r.dismissed)
+			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
+				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
+	}
 }
 
 /** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */

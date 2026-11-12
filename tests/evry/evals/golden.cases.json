@@ -1478,7 +1478,7 @@
 			"calls": [
 				{
 					"operation": "people.checkForDuplicates",
-					"alsoAccepted": ["people.listPeople"]
+					"alsoAccepted": ["people.listDuplicatePairs", "people.listPeople"]
 				}
 			],
 			"forbid": [
@@ -1524,10 +1524,6 @@
 						"operation": "people.checkForDuplicates"
 					}
 				]
-			},
-			"finding": {
-				"checks": ["calls people.checkForDuplicates"],
-				"note": "Compares the two Smiths with listPeople and getPerson, never the duplicate check, so no hint or signal is shown."
 			}
 		}
 	},
