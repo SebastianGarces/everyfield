@@ -16,7 +16,7 @@ export type Operation =
 
 export type Change = { field: string; before: unknown; after: unknown };
 
-/** evry.readReview, as the API sends it (packages/evry/src/proposals/store.ts, proposalRow). */
+/** evry.readReview, as the API sends it (packages/evry/src/proposals/review.ts, proposalRow). */
 export type Review = {
 	id: string;
 	conversationId: string;

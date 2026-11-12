@@ -54,7 +54,7 @@ function deployment() {
   } };
 }
 
-test('BUG-W5: repeated CI failure updates one incident even while the issue list is stale', async () => {
+test('BUG-3895651f9: repeated CI failure updates one incident even while the issue list is stale', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci() }), 1);
   const paginate = p.github.paginate;
@@ -163,7 +163,7 @@ test('INV-fail-forward: a CI run that never started is reported as an incident',
   assert.match(p.issues[0].body, /Source: https:\/\/github.com\/run\/3/);
 });
 
-test('OPS-52-P5: green main CI closes the open CI incident only when the green commit contains the failed one', async () => {
+test('INV-ci-incident: green main CI closes the open CI incident only when the green commit contains the failed one', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success' }) }), undefined);
   assert.equal(await report({ ...p, context: ci() }), 1);
@@ -188,7 +188,7 @@ test('OPS-52-P5: green main CI closes the open CI incident only when the green c
   assert.deepEqual(p.issues.map(i => i.state), ['closed', 'closed']);
 });
 
-test('T-41: a failed nightly scheduled CI run on main opens the CI incident, and a green scheduled run closes it', async () => {
+test('INV-ci-incident: a failed nightly scheduled CI run on main opens the CI incident, and a green scheduled run closes it', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci({ event: 'schedule' }) }), 1);
   assert.equal(p.issues.length, 1);

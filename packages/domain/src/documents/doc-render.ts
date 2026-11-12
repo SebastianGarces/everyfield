@@ -49,9 +49,17 @@ export async function renderDocPdf(source: EveryfieldDoc, theme: RenderTheme = N
 
 export type DocFormat = "pdf" | "docx" | "xlsx";
 
-/** The formats a document offers: PDF and Word always, Excel when the body holds a ledger table (a budget). */
+/**
+ * The formats a document offers, in a fixed order: its `exports` list as its body corrects it (`exportsFor`), so Excel
+ * only while the body holds a ledger table (a budget), and a format the list leaves out is never offered. `ledger` is
+ * whether the body holds one; a read that has no parsed body passes the flag it read.
+ */
+export function offeredFormats(exports: readonly DocFormat[], ledger: boolean): DocFormat[] {
+	return (["pdf", "docx", "xlsx"] as const).filter((format) => (format === "xlsx" ? ledger : exports.includes(format)));
+}
+
 export function docFormats(doc: EveryfieldDoc): DocFormat[] {
-	return ledgerTables(doc.body).length ? ["pdf", "docx", "xlsx"] : ["pdf", "docx"];
+	return offeredFormats(doc.exports, ledgerTables(doc.body).length > 0);
 }
 
 /**

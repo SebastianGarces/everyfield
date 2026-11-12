@@ -35,11 +35,11 @@ const kit = (patch: Partial<BrandKitData> = {}): BrandKitData =>
 		...patch,
 	}) as unknown as BrandKitData;
 
-test("WP-036 the brand of a document is the palette the PDF paints, and the kit's images it may show", () => {
+test("AC:CASE-BRD-006 the brand of a document is the palette the PDF paints, and the kit's images it may show", () => {
 	const themed = documentBrand(kit(), true);
 	const palette = makePalette({ name: "church", primary: "#1F4E6B", accent: "#D4731A" });
 	assert.equal(themed.palette.themed, true);
-	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "accentLine"] as const)
+	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "accentLine", "primaryText"] as const)
 		assert.equal(themed.palette[key], palette[key], key);
 	assert.equal(themed.palette.on.primary, palette.onPrimary);
 	assert.equal(themed.palette.on.accent, palette.onAccent);
@@ -76,7 +76,7 @@ const png = async (width: number, height: number, color: string): Promise<ThemeI
 	aspect: width / height,
 });
 
-test("WP-036 an image node prints the full logo, the mark or the cover photo, in the PDF and the Word file", async () => {
+test("AC:CASE-BRD-006 an image node prints the full logo, the mark or the cover photo, in the PDF and the Word file", async () => {
 	const logo = await png(600, 200, "#1F4E6B");
 	const mark = await png(360, 360, "#D4731A");
 	const photo = await png(900, 600, "#4D5361");
@@ -134,7 +134,7 @@ test("WP-036 an image node prints the full logo, the mark or the cover photo, in
 const MID_TONES = ["#E53935", "#E91E63", "#D9534F"] as const;
 const INK = makePalette(NEUTRAL_EXPORT_THEME.render).ink;
 
-test("documents/doc-3 text on a mid-tone brand fill reaches 4.5:1", () => {
+test("AC:CASE-BRD-003 text on a mid-tone brand fill reaches 4.5:1", () => {
 	for (const fill of MID_TONES) {
 		assert.ok(ratio("#FFFFFF", fill) < MIN_BODY && ratio(INK, fill) < MIN_BODY, `${fill} is a mid tone`);
 		const on = textOn(fill, INK);
@@ -146,7 +146,7 @@ test("documents/doc-3 text on a mid-tone brand fill reaches 4.5:1", () => {
 	assert.equal(textOn("#F4F1EA", INK), INK);
 });
 
-test("documents/doc-3 the commitment card and the budget worksheet render with a mid-tone brand color", async () => {
+test("AC:CASE-BRD-006 the commitment card and the budget worksheet render with a mid-tone brand color", async () => {
 	for (const color of MID_TONES)
 		for (const slot of ["accent", "primary"] as const)
 			for (const id of ["commitment-card", "budget-worksheet"]) {

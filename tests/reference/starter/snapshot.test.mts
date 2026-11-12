@@ -57,7 +57,7 @@ test("INV-wiki-snapshot: approved living seed bytes match the recorded checksums
 	assert.equal(bundle.passages.length, 0);
 });
 
-test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living seed, never the bootstrap payload", async () => {
+test("AC:CASE-WIKI-010 the pins and every packaged Wiki row follow the living seed, never the bootstrap payload", async () => {
 	const snapshot = await loadApprovedSnapshot();
 	const living = JSON.parse(
 		await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),

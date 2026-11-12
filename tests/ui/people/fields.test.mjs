@@ -37,7 +37,7 @@ test("AC:TARGET-PPL-009 a person who left reads as in no household, even though 
 	assert.equal(membershipOf({ status: "none" }, "maria"), null);
 });
 
-test("T-137 choosing the same refused photo twice reaches the check twice", () => {
+test("BUG-58bc5acb8: choosing the same refused photo twice reaches the check twice", () => {
 	// A browser picker fires change only when its value differs from the one it holds.
 	const picker = { files: null, value: "" };
 	const checked = [];

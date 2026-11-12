@@ -8,7 +8,7 @@ import {
 	type HexColor,
 	type ThemeLayout,
 } from "@everyfield/contracts/branding";
-import { contrastOnWhite, textOn } from "./color.ts";
+import { contrastOnWhite, DOCUMENT_INK, textOn } from "./color.ts";
 
 /** Body text in every class and theme. Never a brand color. */
 const INK = "#1A1A1A";
@@ -25,7 +25,8 @@ const stackOf = (id: string) => (FONTS.find((font) => font.id === id)?.style ===
 function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData | null, colors: Colors): ThemeLayout {
 	const asset = (slot: keyof BrandKitData["assets"]) => kit?.assets[slot] ?? null;
 	const { fill } = colors;
-	const fillText = textOn(fill);
+	// The text on a fill is the color the PDF prints there: the renderer's rule with the renderer's ink.
+	const fillText = textOn(fill, DOCUMENT_INK);
 	switch (documentClass) {
 		case "formal/legal":
 			return {

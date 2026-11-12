@@ -27,9 +27,9 @@ export async function atSendTime(
 	return minuteRunner(db, transport, keys);
 }
 
-/** One pass of the minute runner's Messages work, as the cron route runs it. */
+/** One pass of the minute runner's Messages work, as the cron route runs it, bounded by its limit, not a clock. */
 export async function minuteRunner(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
-	return scheduledMessages(db, transport, keys)(20, Date.now() + 60_000);
+	return scheduledMessages(db, transport, keys)(20, Infinity);
 }
 
 /**

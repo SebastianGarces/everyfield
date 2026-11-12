@@ -5,8 +5,10 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
-import { z } from "zod";
 import { liveRead } from "../access/session.ts";
+import { liveResidency } from "../access/pipeline.ts";
+import type { Reader } from "./core.ts";
+import { z } from "zod";
 
 /** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
  * links. */
@@ -89,7 +91,7 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 		ORDER BY i.created_at DESC LIMIT 50`,
 	);
 	return rows.rows.map((r) =>
-		C.invitationResult.omit({}).parse({
+		C.invitationResult.parse({
 			status: "pending",
 			invitationId: r.invitation_id,
 			pair: pairOf(viewer, { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind }),
@@ -161,33 +163,53 @@ export async function subjectFacts(db: Database, viewer: Viewer) {
 	return { revision: String(o?.revision ?? "0"), zone: o?.zone ?? "UTC" };
 }
 
-/** This account's own residency links, newest first, with the organization name. */
-export async function residencyLinks(db: Database, viewer: Viewer) {
-	return db
-		.select({ linkId: t.residency_link.id, organizationName: t.organization.name })
-		.from(t.residency_link)
-		.innerJoin(t.organization, eq(t.organization.id, t.residency_link.organization_id))
-		.where(and(eq(t.residency_link.account_id, viewer.accountId), live(viewer)))
-		.orderBy(sql`${t.residency_link.accepted_at} DESC`)
-		.limit(20);
-}
+const residencyRow = z.object({
+	id: z.uuid(),
+	organization_id: z.uuid(),
+	organization_kind: z.enum(["sending_church", "sending_network"]),
+	organization_name: z.string(),
+	revision: z.string(),
+	consent_revision: z.string(),
+	ended: z.boolean(),
+	own: z.boolean(),
+	share_foundations: z.boolean(),
+	share_milestones: z.boolean(),
+});
 
-/** The revision of one of this account's own residency links; null for any other link (ruling D16). */
-export async function residencyRevision(db: Database, viewer: Viewer, linkId: string) {
-	if (!z.uuid().safeParse(linkId).success) return null;
-	const [r] = await db
-		.select({ revision: t.residency_link.revision })
-		.from(t.residency_link)
-		.where(and(eq(t.residency_link.id, linkId), eq(t.residency_link.account_id, viewer.accountId), live(viewer)));
-	return r ? String(r.revision) : null;
-}
-
-/** The revision of one of this plant's own connections; null for anything else (ruling D17). */
-export async function connectionRevision(db: Database, viewer: Viewer, relationshipId: string) {
-	if (viewer.selected.kind !== "plant" || !z.uuid().safeParse(relationshipId).success) return null;
-	const [r] = await db
-		.select({ revision: t.affiliation.revision })
-		.from(t.affiliation)
-		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id), live(viewer)));
-	return r ? String(r.revision) : null;
+/**
+ * This account's own residency links, newest first: the organization's name, the consent as residency.readSharing
+ * answers it, and the link revision a change must carry (ruling D16). One statement on the pool with the live check
+ * (C13). `linkId` narrows the read to one link.
+ */
+export async function residencyLinks(db: Reader, viewer: Viewer, linkId?: string) {
+	if (linkId !== undefined && !z.uuid().safeParse(linkId).success) return [];
+	const rows = await db.execute(
+		sql`SELECT l.id, l.organization_id, o.kind AS organization_kind, o.name AS organization_name, l.revision::text AS revision,
+		l.consent_revision::text AS consent_revision, l.ended_at IS NOT NULL AS ended, ${liveResidency} AS own, l.share_foundations, l.share_milestones
+		FROM residency_link l JOIN organization o ON o.id=l.organization_id
+		WHERE l.account_id=${viewer.accountId}::uuid${linkId ? sql` AND l.id=${linkId}::uuid` : sql``} AND ${live(viewer)}
+		ORDER BY l.accepted_at DESC LIMIT 20`,
+	);
+	return rows.rows.map((raw) => {
+		const r = residencyRow.parse(raw);
+		const organization = { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind };
+		return {
+			linkId: r.id,
+			organizationName: r.organization_name,
+			linkRevision: r.revision,
+			sharing: C.residencySharingResult.parse(
+				r.ended
+					? { status: "ended", linkId: r.id }
+					: r.own
+						? {
+								status: "active",
+								linkId: r.id,
+								organization,
+								consentRevision: r.consent_revision,
+								choices: { shareFoundations: r.share_foundations, shareMilestones: r.share_milestones },
+							}
+						: { status: "unavailable" },
+			),
+		};
+	});
 }

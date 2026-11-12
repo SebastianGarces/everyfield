@@ -1,7 +1,8 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 const require = createRequire(new URL("../../../packages/domain/package.json", import.meta.url));
 
 export const id = randomUUID;
@@ -13,43 +14,19 @@ export async function transaction(pool, run) {
 	return pool.transaction(run);
 }
 export async function account(db, registration = "active") {
-	const a = id(),
-		user = id(),
-		session = id();
-	await db.execute(
-		querySql`INSERT INTO auth_user(id,name,email,email_verified) VALUES(${user},'Synthetic',${user + "@example.test"},true)`,
-	);
-	await db.execute(
-		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a},${user},${registration},'planter')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomBytes(32).toString("hex")},clock_timestamp()+interval '1 day')`,
-	);
-	return { id: a, user, session };
+	const a = await seeds(db).actor(null, "owner", {
+		account: { registration_state: registration, registration_kind: "planter" },
+	});
+	return { id: a.id, user: a.user, session: a.session };
 }
 export async function plant(db) {
-	const p = id();
-	await db.execute(
-		querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${p},'Synthetic','UTC',7,14,1,8,1,1)`,
-	);
-	return { kind: "plant", id: p };
+	return seeds(db).plant({ timezone: "UTC" });
 }
 export async function organization(db, kind = "sending_church") {
-	const o = id();
-	await db.execute(
-		querySql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${o},${kind},'Synthetic','UTC',1)`,
-	);
-	return { kind: "organization", id: o, organizationKind: kind };
+	return seeds(db).organization(kind);
 }
 export async function seat(db, actor, tenant, role = "admin") {
-	const s = id();
-	await db.execute(
-		statement(
-			`INSERT INTO seat(id,account_id,${tenant.kind === "plant" ? "plant_id" : "organization_id"},role,accepted_at) VALUES($1,$2,$3,$4,clock_timestamp())`,
-			[s, actor.id, tenant.id, role],
-		),
-	);
-	return s;
+	return seeds(db).seat(actor, tenant, role);
 }
 export async function person(db, tenant, linked = null) {
 	const p = id();

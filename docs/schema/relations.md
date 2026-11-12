@@ -158,6 +158,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `mail(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
 | `mail(original_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
 | `mail(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `mail(communication_id, tenant_id)` | `communication(id, plant_id)` | restrict |  |
 | `mail_attempt(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail_attempt(request_id, tenant_id)` | `mail_request(id, tenant_id)` | restrict |  |
 | `mail_attempt(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -216,6 +217,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
+| `person_duplicate_dismissal(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_duplicate_dismissal(plant_id)` | `plant(id)` | no_action |  |
+| `person_duplicate_dismissal(with_person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
 | `person_email_opt_out(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
 | `person_email_opt_out(plant_id)` | `plant(id)` | no_action |  |
 | `person_import(actor_id)` | `account(id)` | set_null |  |
@@ -391,6 +395,8 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |
 | `attestation` | `person_id, plant_id` | WP-004, WP-039 |
 | `attestation_revision` | `person_id, plant_id` | WP-039 |
+| `person_duplicate_dismissal` | `person_id, plant_id` | WP-015 |
+| `person_duplicate_dismissal` | `with_person_id, plant_id` | WP-015 |
 | `person_email_opt_out` | `person_id, plant_id` | WP-028 |
 | `mail` | `recipient_person_id, tenant_id` | WP-004, WP-028, WP-031 |
 | `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |

@@ -14,8 +14,9 @@ import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
-import { cleanOverrides, resolveMerge } from "./merge.ts";
-import { ARTIFACT_MAX, RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { cleanOverrides } from "./merge.ts";
+import { forSubject } from "./reads.ts";
+import { ARTIFACT_MAX, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
 	PAGE,
@@ -138,12 +139,9 @@ const generatedWriter = {
 			);
 			if (!plant.open) deny();
 			if (!plant.subjectOk) deny("invalid_subject");
-			const resolved = resolveMerge(
-				template,
-				{ churchName: plant.churchName, pastorName: plant.pastorName, launchDate: plant.launchDate },
-				cleaned.values,
-			);
-			if (!resolved.ok) rejectInput(resolved.path, resolved.problem);
+			// The preview's own resolve and render, so the file holds the bytes the preview showed for this subject.
+			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
+			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
 			const stored = await rowsOf<{
 				id: string;
@@ -172,15 +170,9 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			let bytes: Buffer | null;
-			try {
-				// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the
-				// same key returns the file saved earlier.
-				bytes = await renderPreview(template, input.format, resolved, undefined, undefined, plant.statement);
-			} catch (error) {
-				if (error instanceof RenderFailed) deny("render_failed");
-				throw error;
-			}
+			// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the same key
+			// returns the file saved earlier.
+			const bytes = await done.render();
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 			const file = await storeBytes(

@@ -34,6 +34,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { SaveChain } from "../../save-chain.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import type { RevisionRow } from "../server.ts";
@@ -108,7 +109,7 @@ export default function ChurchEditor({
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
 	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 
 	// The image blocks read the brand-kit images through this one object, so the branding switch can change the images
 	// without a new editor: its content, cursor and undo history stay, and only the image views draw again (below).
@@ -164,10 +165,7 @@ export default function ChurchEditor({
 		return saved.eq(doc);
 	}, []);
 	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
-	const unsaved = useCallback(
-		() => !!editor && (inflight.current !== null || !isSaved(editor.state.doc)),
-		[editor, isSaved],
-	);
+	const unsaved = useCallback(() => !!editor && (saves.busy || !isSaved(editor.state.doc)), [editor, isSaved, saves]);
 	useEffect(() => {
 		if (!editor) return;
 		savedDoc.current ??= editor.state.doc;
@@ -193,7 +191,7 @@ export default function ChurchEditor({
 		const doc = editor.state.doc;
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
-		const run = (async () => {
+		return saves.start(async () => {
 			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
 			if (result.status === "saved") {
@@ -216,28 +214,14 @@ export default function ChurchEditor({
 						: "The connection dropped. Your edits are still here.",
 			});
 			return false;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor, docId, onRevision]);
+	}, [editor, docId, onRevision, saves]);
 
-	/**
-	 * Saves the document on screen. A save already in flight sent the document as it was when it started, so after it
-	 * resolves, edits typed meanwhile get a save of their own. True only when what is on screen is saved; a failed save
-	 * keeps its reason on the page.
-	 */
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
 	const save = useCallback(async (): Promise<boolean> => {
 		if (!editor) return false;
-		let joined = false;
-		while (inflight.current) {
-			joined = true;
-			if (!(await inflight.current)) return false;
-		}
-		if (joined && isSaved(editor.state.doc)) return true;
-		return saveNow();
-	}, [editor, isSaved, saveNow]);
+		return saves.save(() => isSaved(editor.state.doc), saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -305,8 +289,9 @@ export default function ChurchEditor({
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
 		return {
-			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
-			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
+			// A card is its tile cell, padding inside, so its text column is the PDF's: the cell less twice the padding.
+			"--page-w": px(width),
+			"--page-h": px(height),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
 			...paletteVars(brand.palette),

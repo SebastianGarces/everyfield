@@ -20,13 +20,14 @@ export type ValidRow = Extract<PreviewRow, { status: "valid" }>;
 export type Choice = z.infer<typeof csv.importChoice>;
 export type ImportReceipt = z.infer<typeof csv.importReceipt>;
 export type RowProblem = z.infer<typeof csv.rowProblem>;
+export type ImportUpload = z.infer<typeof csv.importUpload>;
 
 /** The file size limit the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
 export const MAX_BYTES = importLimits.bytes;
 export const ROWS_PER_PAGE = 24;
 
 /** A valid row with an existing or earlier-row match: it needs a person's choice. */
-export const isDuplicate = (r: ValidRow) => r.existingDuplicates.length > 0 || r.withinFileDuplicateOf !== null;
+const isDuplicate = (r: ValidRow) => r.existingDuplicates.length > 0 || r.withinFileDuplicateOf !== null;
 
 export type Group = "check" | "fix" | "all";
 export function rowsIn(rows: PreviewRow[], group: Group): PreviewRow[] {
@@ -43,6 +44,21 @@ export function firstGroup(p: Preview): Group {
 /** Every valid row's suggested choice. The import sends exactly one choice per valid row. */
 export function suggestedChoices(p: Preview): Map<number, Choice> {
 	return new Map(p.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.suggested] as const] : [])));
+}
+/**
+ * Whether "Add, review later" has a Person to pair the row with (D-516): one already in Everyfield, or the earlier
+ * row it repeats when that row is not skipped. The import refuses the choice otherwise, so the screen does not offer it.
+ */
+export const canReview = (r: ValidRow, choices: Map<number, Choice>) =>
+	r.existingDuplicates.length > 0 ||
+	(r.withinFileDuplicateOf !== null && choices.get(r.withinFileDuplicateOf) !== "skip");
+/** The choices with "Add, review later" turned into "Add new" on every row that has nothing left to review against. */
+export function withReviewTargets(p: Preview, choices: Map<number, Choice>): Map<number, Choice> {
+	const next = new Map(choices);
+	for (const r of p.rows)
+		if (r.status === "valid" && next.get(r.row) === "create_and_review" && !canReview(r, choices))
+			next.set(r.row, "create");
+	return next;
 }
 export const choicesPayload = (choices: Map<number, Choice>) => [...choices].map(([row, choice]) => ({ row, choice }));
 export function addCount(choices: Map<number, Choice>): number {
@@ -160,7 +176,8 @@ export function describeFilters(q: PeopleQuery): string[] {
 // The import screen's state pieces and the notices it shows.
 
 export type FailedRow = Extract<ImportReceipt["rows"][number], { status: "failed" }>;
-export type Review = { file: File; preview: Preview; choices: Map<number, Choice> };
+/** A checked file: its bytes in memory, the stored upload the server previewed, and the person's choices. */
+export type Review = { file: File; uploadId: string; preview: Preview; choices: Map<number, Choice> };
 export type Notice = { title: string; text: string };
 export const NOT_FOUND: Notice = {
 	title: "We found no import for this link",

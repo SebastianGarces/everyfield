@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
-import { instant, localDate, timeZone } from "../common/time.ts";
+import { instant, localDate } from "../common/time.ts";
 import { csvError } from "./csv/index.ts";
 import { mergeErrors } from "./merge/errors.ts";
 import {
@@ -13,7 +13,6 @@ import {
 	adultClassification,
 	adultClassificationSource,
 	currentCommitment,
-	firstAcquisition,
 	noteBody,
 	pipelineColumn,
 } from "./values.ts";
@@ -129,6 +128,8 @@ export const noteMutationResult = z.strictObject({
 	receiptId: operationId,
 	noteId: recordId,
 	revision,
+	// The person's revision after the note change: a note moves the person revision on.
+	personRevision: revision,
 	outcome: z.enum(["changed", "noop"]),
 });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
@@ -193,25 +194,6 @@ export const activitiesResult = z.strictObject({
 	next: z.int().min(2).nullable(),
 	completeness: z.enum(["complete", "partial"]),
 });
-// Eligibility snapshot for the People-owned projection. Consumers freeze both
-// asOf and sourceRevision and resolve canonical lineage before counting.
-export const commitmentObservation = z.strictObject({
-	owner: plantOwner,
-	personId,
-	asOf: instant,
-	zone: timeZone,
-	sourceRevision: revision,
-	lifecycle: personLifecycle,
-	classification: adultClassification,
-	current: currentCommitment,
-	firstAcquisition,
-});
-
-export const classificationMutationResult = z.strictObject({
-	receiptId: operationId,
-	outcome: z.enum(["changed", "noop"]),
-	observation: commitmentObservation,
-});
 type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
@@ -228,9 +210,48 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
+	// A dismiss or restore named a pair that is not on the list: one of them was merged or retired, or no import flagged it.
+	defineSafeError("pair_unavailable", {}, "refresh"),
 	...csvError,
 	...mergeErrors,
 ]);
+/**
+ * people.listDuplicatePairs: the pairs a CSV import added with "Add, review later" whose two people are both still
+ * live, oldest first. `person` is the imported person, `with` the person it may duplicate.
+ */
+export const duplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: z.strictObject({ id: personId, displayName: z.string() }),
+				with: z.strictObject({ id: personId, displayName: z.string() }),
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
+/**
+ * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
+ * both still live, newest first, with who dismissed each one (null once that account is deleted) and when. `zone` is the
+ * church's time zone, the one the dates show in.
+ */
+export const dismissedDuplicatePairs = z.strictObject({
+	zone: z.string(),
+	items: z
+		.array(
+			z.strictObject({
+				person: pairPerson,
+				with: pairPerson,
+				dismissedBy: z.string().nullable(),
+				dismissedAt: instant,
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+/** people.dismissDuplicatePair and people.restoreDuplicatePair: "noop" when the pair was already in that state. */
+export const duplicatePairChange = z.strictObject({ outcome: z.enum(["changed", "noop"]) });
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z

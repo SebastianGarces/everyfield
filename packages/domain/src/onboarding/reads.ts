@@ -70,20 +70,3 @@ export async function readOnboardingEntry(
 	if (row.kind === "discovery") return { kind: "start", offer: "discovery", accountRevision: String(row.revision) };
 	return { kind: "elsewhere", reason: "organization" };
 }
-
-export async function readOnboardingNoticeRecipients(
-	tx: Transaction,
-	operationId: string,
-	organizationId: string,
-	creatorId?: string,
-) {
-	const creator =
-		creatorId ??
-		(await tx.select({ actor: t.audit_event.actor_id }).from(t.audit_event).where(eq(t.audit_event.id, operationId)))[0]
-			?.actor;
-	const owners = await tx
-		.select({ id: t.seat.account_id })
-		.from(t.seat)
-		.where(and(eq(t.seat.organization_id, organizationId), eq(t.seat.role, "owner"), sql`${t.seat.ended_at} IS NULL`));
-	return [creator, ...owners.map((s) => s.id)].filter((v): v is string => Boolean(v));
-}

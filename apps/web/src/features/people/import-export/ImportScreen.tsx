@@ -16,13 +16,15 @@ import {
 	RECONNECTING,
 	suggestedChoices,
 	type ImportReceipt,
+	type ImportUpload,
 	type Notice,
 	type Preview,
 	type Review,
 } from "./model.ts";
 
 // People CSV import (REQ-PPL-018): upload, review every row, import as one background job, then the receipt. The
-// file never leaves this page as parsed rows: the server reads the bytes itself, at preview and again at import.
+// file goes once into the private bucket with a signed PUT (REQ-PPL-014's private-file flow); the preview and the import
+// name that upload, and the server reads the stored bytes itself each time. No parsed row is ever sent back.
 // One import has one request key, made when the person presses Import. It lives in the address (?import=), so a
 // lost reply or a reload reads the same import's receipt instead of starting a second one.
 
@@ -45,6 +47,22 @@ async function call<T>(input: string, init?: RequestInit): Promise<Answer<T>> {
 		const res = await fetch(input, { ...init, cache: "no-store" });
 		const body = (await res.json().catch(() => null)) as Answer<T> | null;
 		return body && (body.status === "ok" || body.status === "refused") ? body : { status: "lost" };
+	} catch {
+		return { status: "lost" };
+	}
+}
+const post = (body: unknown): RequestInit => ({
+	method: "POST",
+	headers: { "Content-Type": "application/json" },
+	body: JSON.stringify(body),
+});
+/** Puts the file into the private bucket under a freshly signed upload: its id, or why not. */
+async function stage(file: File): Promise<Answer<string>> {
+	const signed = await call<ImportUpload>("/api/people/import/upload", post({ byteLength: file.size }));
+	if (signed.status !== "ok") return signed;
+	try {
+		const res = await fetch(signed.value.url, { method: "PUT", headers: signed.value.headers, body: file });
+		return res.ok ? { status: "ok", value: signed.value.uploadId } : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
@@ -89,43 +107,39 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 			return;
 		}
 		setState({ step: "upload", checking: picked, error: null });
-		// The reviewed bytes stay in memory, so the import sends exactly what was previewed even if the file on disk
-		// changes or moves afterwards.
+		// The chosen bytes stay in memory, so checking again uploads the same file even if the one on disk changes or
+		// moves afterwards. The import names the upload that was previewed, never new bytes.
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: "text/csv" });
-		const got = await call<Preview>("/api/people/import/preview", {
-			method: "POST",
-			headers: { "Content-Type": "text/csv" },
-			body: file,
-		});
-		if (got.status === "ok")
-			setState({
-				step: "review",
-				review: { file, preview: got.value, choices: suggestedChoices(got.value) },
-				refusal: null,
-			});
-		else
+		const refuse = (got: Exclude<Answer<unknown>, { status: "ok" }>) =>
 			setState({
 				step: "upload",
 				checking: null,
 				error: fileRefusal(got.status === "lost" ? "lost" : got.code, got.status === "refused" ? got.line : undefined),
 			});
+		const staged = await stage(file);
+		if (staged.status !== "ok") return refuse(staged);
+		const got = await call<Preview>("/api/people/import/preview", post({ uploadId: staged.value }));
+		if (got.status !== "ok") return refuse(got);
+		setState({
+			step: "review",
+			review: { file, uploadId: staged.value, preview: got.value, choices: suggestedChoices(got.value) },
+			refusal: null,
+		});
 	};
 
 	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply or a partial import. */
 	const send = async (review: Review, key: string) => {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
-		const form = new FormData();
-		form.set("file", review.file);
-		form.set(
-			"review",
-			JSON.stringify({
+		const got = await call<ImportReceipt>(
+			"/api/people/import",
+			post({
 				requestKey: key,
+				uploadId: review.uploadId,
 				fileDigest: review.preview.fileDigest,
 				reviewDigest: review.preview.reviewDigest,
 				choices: choicesPayload(review.choices),
 			}),
 		);
-		const got = await call<ImportReceipt>("/api/people/import", { method: "POST", body: form });
 		if (got.status === "ok") return settle(review, key, got.value);
 		if (got.status === "lost") return confirm(review, key);
 		address(null);

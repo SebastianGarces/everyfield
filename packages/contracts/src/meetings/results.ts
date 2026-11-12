@@ -7,6 +7,7 @@ import {
 	kitCategory,
 	meetingId,
 	meetingStatus,
+	meetingSubtype,
 	meetingType,
 	presence,
 	reminderSlot,
@@ -87,6 +88,8 @@ export const agendaResult = z.strictObject({
 });
 export const meetingDetail = z.strictObject({
 	...meetingSummary.shape,
+	/** A team meeting's subtype when one was chosen; other meetings have none. */
+	subtype: meetingSubtype.nullable(),
 	notes: z.string().nullable(),
 	agenda: agendaResult,
 	kit: z.strictObject({ version: z.int().min(1), checked: z.int().min(0), total: z.int().min(0) }).nullable(),
@@ -146,8 +149,21 @@ export const rosterUpdateResult = z.strictObject({
 	added: z.array(guest).max(500),
 	removedPersonIds: z.array(personId).max(500),
 });
-export const guestMutationResult = z.strictObject({ ...receipt, guest });
-export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean() });
+/** The meeting's attendance revision after the change: an attended guest joining or leaving the list moves it. */
+const attendanceRevision = revision;
+export const guestMutationResult = z.strictObject({ ...receipt, guest, attendanceRevision });
+export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean(), attendanceRevision });
+/**
+ * Everyone an Add guest submit put on the list, already listed ones included: the chosen People in the order sent,
+ * then the new contacts. notAdded names the chosen People who are no longer live in this church.
+ */
+export const addGuestsResult = z.strictObject({
+	...receipt,
+	meetingId,
+	guests: z.array(guest).max(150),
+	notAdded: z.array(personId).max(100),
+	attendanceRevision,
+});
 export const ownRsvp = z.strictObject({
 	meetingId,
 	guestId: recordId,
@@ -155,12 +171,12 @@ export const ownRsvp = z.strictObject({
 	responseAllowed: z.boolean(),
 	revision,
 });
-export const rsvpTokenIssued = z.strictObject({ token: z.string(), expiresAt: instant, guestId: recordId });
 /** What a public RSVP link may disclose: the invitation's meeting basics and the guest's own answer. */
 export const rsvpTokenView = z.discriminatedUnion("state", [
 	z.strictObject({ state: z.literal("unavailable") }),
 	z.strictObject({
-		state: z.enum(["pending", "answered", "expired"]),
+		/** closed: the meeting is cancelled or completed and takes no more answers. */
+		state: z.enum(["pending", "answered", "expired", "closed"]),
 		meeting: z.strictObject({
 			displayTitle: z.string(),
 			startsAt: instant,

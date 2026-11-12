@@ -6,17 +6,9 @@ import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, foreign;
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const read = (who, op, input) =>
@@ -204,7 +196,7 @@ test("AC:INH-COMMUNICATION-05 a preview drops a missing email and a repeated add
 	assert.equal(after.attempts, before.attempts);
 });
 
-test("forking a source whose church fork is archived brings the fork back with its edits (D-449)", async () => {
+test("AC:CASE-COM-007 forking a source whose church fork is archived brings the fork back with its edits", async () => {
 	const sourceKey = "vision-meeting-reminder";
 	const fork = ok(await write(owner, "forkTemplate", { requestKey: key(), input: { sourceKey } }));
 	const edited = ok(
@@ -808,4 +800,31 @@ test("AC:CASE-COM-003 a read-only member seat and a forged actor with another us
 	assert.equal(swappedSave.status, "refused", JSON.stringify(swappedSave));
 	assert.equal(swappedSave.error.code, "unavailable");
 	assert.deepEqual(await snapshot(), before);
+});
+
+test("AC:CASE-COM-012 a draft update that leaves out the subject keeps the stored subject; null clears it", async () => {
+	const saved = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: { subject: "Keep this subject", bodyHtml: "<p>First</p>" },
+		}),
+	);
+	const updated = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { communicationId: saved.communicationId, bodyHtml: "<p>Second</p>" },
+		}),
+	);
+	assert.equal(updated.subject, "Keep this subject");
+	const [kept] = await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${saved.communicationId}`);
+	assert.deepEqual([kept.subject, kept.body_html], ["Keep this subject", "<p>Second</p>"]);
+	const cleared = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: updated.revision,
+			input: { communicationId: saved.communicationId, subject: null },
+		}),
+	);
+	assert.equal(cleared.subject, null);
 });
