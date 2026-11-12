@@ -134,7 +134,9 @@ export function parseStatus(raw: unknown): Result<Status> {
 	const top = [
 		...(isInt(raw.now) ? [] : [`now:${typeOf(raw.now)}`]),
 		...(intOrNull(raw.heartbeat) ? [] : [`heartbeat:${typeOf(raw.heartbeat)}`]),
-		...(seatsBudget && isInt(seatsBudget.used) && isInt(seatsBudget.max) ? [] : [`budget.seats:${typeOf(seatsBudget ?? raw.budget)}`]),
+		...(seatsBudget && isInt(seatsBudget.used) && isInt(seatsBudget.max)
+			? []
+			: [`budget.seats:${typeOf(seatsBudget ?? raw.budget)}`]),
 	];
 	if (top.length || !seatsBudget) return bad(`list=top fields=${top.join(",")}`);
 	const tasks = list("tasks", raw.tasks, { id: isInt, phase: isStr, lifecycle: isStr, wait: strOrNull }, (t) => ({
@@ -200,7 +202,12 @@ export function parseCi(raw: unknown): Result<Ci | null> {
 			createdAt: isStr,
 			conclusion: (v) => v === undefined || v === null || isStr(v),
 		},
-		(r) => ({ sha: r.headSha as string, status: r.status as string, conclusion: (r.conclusion ?? "") as string, at: r.createdAt as string }),
+		(r) => ({
+			sha: r.headSha as string,
+			status: r.status as string,
+			conclusion: (r.conclusion ?? "") as string,
+			at: r.createdAt as string,
+		}),
 	);
 	if (!parsed.ok) return { ok: false, code: "gh_bad_shape" };
 	const runs = parsed.value;
@@ -285,10 +292,26 @@ export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[]
 		const c = curById.get(p.id);
 		if (c && c.phase === "running" && c.run === p.run && c.step === p.step) continue;
 		if (c?.error) continue; // a run that ends in error is reported once, as task-error
-		events.push({ key: `seat-finished:${p.id}:${p.run}:${p.step}`, kind: "seat-finished", level: false, task: p.id, label: p.label, step: p.step, run: p.run });
+		events.push({
+			key: `seat-finished:${p.id}:${p.run}:${p.step}`,
+			kind: "seat-finished",
+			level: false,
+			task: p.id,
+			label: p.label,
+			step: p.step,
+			run: p.run,
+		});
 	}
 	for (const c of cur.tasks) {
-		if (c.error) events.push({ key: `task-error:${c.id}:${c.error}`, kind: "task-error", level: true, task: c.id, label: c.label, step: c.step });
+		if (c.error)
+			events.push({
+				key: `task-error:${c.id}:${c.error}`,
+				kind: "task-error",
+				level: true,
+				task: c.id,
+				label: c.label,
+				step: c.step,
+			});
 	}
 	if (cur.tickError) events.push({ key: "tick-error", kind: "tick-error", level: true });
 	if (cur.heartbeatStale) events.push({ key: "stuck-heartbeat", kind: "stuck-heartbeat", level: true });
@@ -296,7 +319,15 @@ export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[]
 	for (const s of cur.deadSeats) {
 		if (!prevDead.has(s.run)) continue;
 		const t = curById.get(s.task);
-		events.push({ key: `stuck-seat:${s.run}`, kind: "stuck-seat", level: true, task: s.task, label: t?.label, step: t?.step, run: s.run });
+		events.push({
+			key: `stuck-seat:${s.run}`,
+			kind: "stuck-seat",
+			level: true,
+			task: s.task,
+			label: t?.label,
+			step: t?.step,
+			run: s.run,
+		});
 	}
 	if (cur.capacityFree) {
 		for (const c of cur.tasks) {
@@ -306,10 +337,22 @@ export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[]
 		}
 	}
 	if (cur.ci?.conclusion === "failure") {
-		events.push({ key: `ci-failed:${cur.ci.sha}`, kind: "ci-failed", level: true, sha: cur.ci.sha, conclusion: "failure" });
+		events.push({
+			key: `ci-failed:${cur.ci.sha}`,
+			kind: "ci-failed",
+			level: true,
+			sha: cur.ci.sha,
+			conclusion: "failure",
+		});
 	}
 	for (const d of cur.decisions) {
-		events.push({ key: `decision:${d.id}`, kind: "decision-open", level: true, decision: d.id, ...(d.task === null ? {} : { task: d.task }) });
+		events.push({
+			key: `decision:${d.id}`,
+			kind: "decision-open",
+			level: true,
+			decision: d.id,
+			...(d.task === null ? {} : { task: d.task }),
+		});
 	}
 	return events;
 }
@@ -321,7 +364,9 @@ export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[]
  */
 export function advance(state: State | null, cur: Snapshot): { next: State; due: WatchEvent[] } {
 	if (!state) {
-		const sent = deriveEvents(null, cur).filter((e) => e.level).map((e) => e.key);
+		const sent = deriveEvents(null, cur)
+			.filter((e) => e.level)
+			.map((e) => e.key);
 		return { next: { version: 1, snapshot: cur, sent, pending: [], sends: [] }, due: [] };
 	}
 	const events = deriveEvents(state.snapshot, cur);
@@ -358,7 +403,13 @@ export function buildPayload(events: WatchEvent[], nowMs: number) {
 
 /** The one-shot `--test-wake` payload: marked as a test, with no events and no dedup state. */
 export function buildTestPayload(nowMs: number) {
-	return { source: "everyfield-actionable-watch", version: 1, kind: "test", at: new Date(nowMs).toISOString(), events: [] };
+	return {
+		source: "everyfield-actionable-watch",
+		version: 1,
+		kind: "test",
+		at: new Date(nowMs).toISOString(),
+		events: [],
+	};
 }
 
 export function parseState(raw: unknown): State | null {
@@ -375,7 +426,8 @@ export function parseState(raw: unknown): State | null {
 		(s.ci === null || (isObj(s.ci) && isStr(s.ci.sha) && isStr(s.ci.conclusion)));
 	const okSent = Array.isArray(raw.sent) && raw.sent.every(isStr);
 	const okPending =
-		Array.isArray(raw.pending) && raw.pending.every((e) => isObj(e) && isStr(e.key) && isStr(e.kind) && typeof e.level === "boolean");
+		Array.isArray(raw.pending) &&
+		raw.pending.every((e) => isObj(e) && isStr(e.key) && isStr(e.kind) && typeof e.level === "boolean");
 	// Older state files have no `sends`; they read as no recent sends.
 	const okSends = raw.sends === undefined || (Array.isArray(raw.sends) && raw.sends.every(isInt));
 	return okSnapshot && okSent && okPending && okSends ? ({ ...raw, sends: raw.sends ?? [] } as State) : null;

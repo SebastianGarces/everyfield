@@ -19,8 +19,8 @@
 		"test:workflow": "node scripts/test-workflow.mjs",
 		"test:logs": "node --test ${EVF_NODE_TEST_FLAGS:-} tests/workflow/server-logs.test.mjs",
 		"test:ui": "node --test --test-concurrency=1 'tests/ui/**/*.test.mjs'",
-		"format": "prettier --write \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
-		"format:check": "prettier --check \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
+		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
+		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
 	},
 	"devDependencies": {
 		"bun": "1.4.4",

@@ -5,8 +5,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import {
-	acquireLock, classifySendError, COMMANDS, createLog, createTransport, deliver, readWebhookConfig, runAllowed, saveState,
-	WEBHOOK_SENDS_PER_HOUR, webhookRequest, type SendResult, type Transport,
+	acquireLock,
+	classifySendError,
+	COMMANDS,
+	createLog,
+	createTransport,
+	deliver,
+	readWebhookConfig,
+	runAllowed,
+	saveState,
+	WEBHOOK_SENDS_PER_HOUR,
+	webhookRequest,
+	type SendResult,
+	type Transport,
 } from "../io.mts";
 import { fakeRoutine, writeConfig } from "./fake-routine.mts";
 
@@ -28,8 +39,18 @@ describe("INV-watch-io: command allowlist", () => {
 		assert.equal(COMMANDS["gh-main-ci"].bin, "/opt/homebrew/bin/gh");
 		// D-588: main's push runs and its nightly schedule runs; --branch main alone keeps PR runs out.
 		assert.deepEqual(COMMANDS["gh-main-ci"].args, [
-			"run", "list", "--repo", "SebastianGarces/everyfield", "--branch", "main", "--workflow", "CI",
-			"--limit", "10", "--json", "headSha,status,conclusion,createdAt",
+			"run",
+			"list",
+			"--repo",
+			"SebastianGarces/everyfield",
+			"--branch",
+			"main",
+			"--workflow",
+			"CI",
+			"--limit",
+			"10",
+			"--json",
+			"headSha,status,conclusion,createdAt",
 		]);
 	});
 
@@ -41,7 +62,8 @@ describe("INV-watch-io: command allowlist", () => {
 		const sources = (await readdir(here)).filter((f) => f.endsWith(".mts"));
 		for (const f of sources) {
 			const text = await readFile(join(here, f), "utf8");
-			if (f !== "io.mts" && f !== "provision.mts") assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
+			if (f !== "io.mts" && f !== "provision.mts")
+				assert.doesNotMatch(text, /child_process|node:fs|node:http|node:net|fetch\(/, f);
 			assert.doesNotMatch(text, /fetch\(|node:http"|node:net|XMLHttpRequest/, `${f} makes no other network call`);
 			if (f !== "io.mts") assert.doesNotMatch(text, /node:https/, `${f} makes no network call`);
 		}
@@ -56,13 +78,28 @@ describe("INV-watch-io: command allowlist", () => {
 describe("INV-watch-io: command failures are classified, never thrown", () => {
 	test("INV-watch-io: missing, not executable, non-zero, timeout and success", async () => {
 		const dir = await tmp();
-		assert.deepEqual(await runAllowed("evf-status", { bin: join(dir, "nope"), cwd: dir }), { ok: false, code: "evf_missing" });
-		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, "echo {}", 0o644), cwd: dir }), { ok: false, code: "evf_not_executable" });
-		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, "echo secret-detail >&2; exit 3"), cwd: dir }), { ok: false, code: "evf_exit_3" });
+		assert.deepEqual(await runAllowed("evf-status", { bin: join(dir, "nope"), cwd: dir }), {
+			ok: false,
+			code: "evf_missing",
+		});
+		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, "echo {}", 0o644), cwd: dir }), {
+			ok: false,
+			code: "evf_not_executable",
+		});
+		assert.deepEqual(
+			await runAllowed("evf-status", { bin: await fake(dir, "echo secret-detail >&2; exit 3"), cwd: dir }),
+			{ ok: false, code: "evf_exit_3" },
+		);
 		const start = Date.now();
-		assert.deepEqual(await runAllowed("gh-main-ci", { bin: await fake(dir, "sleep 30"), cwd: dir, timeoutMs: 300 }), { ok: false, code: "gh_timeout" });
+		assert.deepEqual(await runAllowed("gh-main-ci", { bin: await fake(dir, "sleep 30"), cwd: dir, timeoutMs: 300 }), {
+			ok: false,
+			code: "gh_timeout",
+		});
 		assert.ok(Date.now() - start < 5000);
-		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, 'echo "$1 $2"'), cwd: dir }), { ok: true, stdout: "status --json\n" });
+		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, 'echo "$1 $2"'), cwd: dir }), {
+			ok: true,
+			stdout: "status --json\n",
+		});
 	});
 
 	test("INV-watch-io: the timeout cannot be raised past 20 s", async () => {
@@ -120,21 +157,35 @@ describe("INV-watch-io: transport", () => {
 	const fail = (result: string, retry: boolean): SendResult => ({ ok: false, result, retry });
 
 	test("INV-watch-io: unknown modes are refused", () => {
-		assert.deepEqual(createTransport("http", async () => {}), { ok: false, code: "transport_unknown" });
+		assert.deepEqual(
+			createTransport("http", async () => {}),
+			{ ok: false, code: "transport_unknown" },
+		);
 	});
 
 	test("INV-watch-io: dry-run logs the payload and counts as delivered", async () => {
 		const lines: string[] = [];
 		const t = createTransport("dry-run", async (l) => void lines.push(l));
 		assert.ok(t.ok);
-		assert.deepEqual(await deliver(t.transport, payload), { ok: true, tries: 1, result: "logged", capped: false, sends: [] });
+		assert.deepEqual(await deliver(t.transport, payload), {
+			ok: true,
+			tries: 1,
+			result: "logged",
+			capped: false,
+			sends: [],
+		});
 		assert.deepEqual(lines, [`dry-run wake payload=${JSON.stringify(payload)}`]);
 	});
 
 	test("INV-watch-io: only retryable results try again, up to 3 with exponential backoff", async () => {
 		for (const [result, retry, tries] of [
-			["connect_error", true, 3], ["dns_error", true, 3], ["http_503", true, 3],
-			["http_429", false, 1], ["http_401", false, 1], ["timeout", false, 1], ["network_error", false, 1],
+			["connect_error", true, 3],
+			["dns_error", true, 3],
+			["http_503", true, 3],
+			["http_429", false, 1],
+			["http_401", false, 1],
+			["timeout", false, 1],
+			["network_error", false, 1],
 		] as const) {
 			const sleeps: number[] = [];
 			let calls = 0;
@@ -166,7 +217,10 @@ describe("INV-watch-io: transport", () => {
 		const recent = Array.from({ length: WEBHOOK_SENDS_PER_HOUR - 1 }, (_, i) => now - 1000 - i);
 		const d = await deliver(t, payload, { sleep: async () => {}, cap: { sends: [...old, ...recent], now: () => now } });
 		assert.equal(calls, 1, "one POST fits under the cap, the retry does not");
-		assert.deepEqual({ ok: d.ok, capped: d.capped, result: d.result, n: d.sends.length }, { ok: false, capped: true, result: "capped", n: WEBHOOK_SENDS_PER_HOUR });
+		assert.deepEqual(
+			{ ok: d.ok, capped: d.capped, result: d.result, n: d.sends.length },
+			{ ok: false, capped: true, result: "capped", n: WEBHOOK_SENDS_PER_HOUR },
+		);
 	});
 });
 
@@ -238,7 +292,12 @@ describe("INV-watch-io: webhook config", () => {
 	});
 });
 
-const wakePayload = () => ({ source: "everyfield-actionable-watch", version: 1, at: "2026-11-08T00:00:00.000Z", events: [{ kind: "tick-error", key: "tick-error" }] });
+const wakePayload = () => ({
+	source: "everyfield-actionable-watch",
+	version: 1,
+	at: "2026-11-08T00:00:00.000Z",
+	events: [{ kind: "tick-error", key: "tick-error" }],
+});
 
 describe("INV-watch-io: webhook send", () => {
 	test("INV-watch-io: the request builder sets exactly the two headers and the payload body", () => {
@@ -254,7 +313,10 @@ describe("INV-watch-io: webhook send", () => {
 	test("INV-watch-io: one POST to the configured URL with exactly those headers; only 200 delivers", async () => {
 		const routine = await fakeRoutine([200]);
 		try {
-			const path = await writeConfig(await tmp(), { url: `${routine.origin}/routines/abc/trigger?x=1`, key: "the-key" });
+			const path = await writeConfig(await tmp(), {
+				url: `${routine.origin}/routines/abc/trigger?x=1`,
+				key: "the-key",
+			});
 			const t = createTransport("webhook", async () => {}, { configPath: path, ca: routine.ca });
 			assert.ok(t.ok);
 			const d = await deliver(t.transport, wakePayload());
@@ -266,14 +328,35 @@ describe("INV-watch-io: webhook send", () => {
 			assert.equal(req.headers.authorization, "Bearer the-key");
 			assert.equal(req.headers["content-type"], "application/json");
 			// Node adds only the protocol headers; the watcher adds nothing else (no user agent, no cookies).
-			assert.deepEqual(Object.keys(req.headers).sort(), ["authorization", "connection", "content-length", "content-type", "host"]);
+			assert.deepEqual(Object.keys(req.headers).sort(), [
+				"authorization",
+				"connection",
+				"content-length",
+				"content-type",
+				"host",
+			]);
 			assert.deepEqual(JSON.parse(req.body), wakePayload());
 
-			for (const [status, tries] of [[201, 1], [202, 1], [204, 1], [302, 1], [400, 1], [401, 1], [404, 1], [429, 1], [500, 3], [503, 3]] as const) {
+			for (const [status, tries] of [
+				[201, 1],
+				[202, 1],
+				[204, 1],
+				[302, 1],
+				[400, 1],
+				[401, 1],
+				[404, 1],
+				[429, 1],
+				[500, 3],
+				[503, 3],
+			] as const) {
 				routine.seen.length = 0;
 				routine.replies = [status];
 				const r = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
-				assert.deepEqual({ ok: r.ok, tries: r.tries, result: r.result }, { ok: false, tries, result: `http_${status}` }, String(status));
+				assert.deepEqual(
+					{ ok: r.ok, tries: r.tries, result: r.result },
+					{ ok: false, tries, result: `http_${status}` },
+					String(status),
+				);
 				assert.equal(routine.seen.length, tries, `${status} reached the server ${tries} times`);
 			}
 		} finally {
@@ -288,11 +371,17 @@ describe("INV-watch-io: webhook send", () => {
 			const t = createTransport("webhook", async () => {}, { configPath: path, ca: routine.ca });
 			assert.ok(t.ok);
 			const hung = await deliver(t.transport, wakePayload(), { sleep: async () => {}, timeoutMs: 300 });
-			assert.deepEqual({ ok: hung.ok, tries: hung.tries, result: hung.result }, { ok: false, tries: 1, result: "timeout" });
+			assert.deepEqual(
+				{ ok: hung.ok, tries: hung.tries, result: hung.result },
+				{ ok: false, tries: 1, result: "timeout" },
+			);
 			routine.replies = ["reset"];
 			routine.seen.length = 0;
 			const reset = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
-			assert.deepEqual({ ok: reset.ok, tries: reset.tries, result: reset.result }, { ok: false, tries: 1, result: "network_error" });
+			assert.deepEqual(
+				{ ok: reset.ok, tries: reset.tries, result: reset.result },
+				{ ok: false, tries: 1, result: "network_error" },
+			);
 			assert.equal(routine.seen.length, 1);
 		} finally {
 			await routine.close();
@@ -307,14 +396,22 @@ describe("INV-watch-io: webhook send", () => {
 		const t = createTransport("webhook", async () => {}, { configPath: path });
 		assert.ok(t.ok);
 		const refused = await deliver(t.transport, wakePayload(), { sleep: async () => {} });
-		assert.deepEqual({ ok: refused.ok, tries: refused.tries, result: refused.result }, { ok: false, tries: 3, result: "connect_error" });
+		assert.deepEqual(
+			{ ok: refused.ok, tries: refused.tries, result: refused.result },
+			{ ok: false, tries: 3, result: "connect_error" },
+		);
 
 		const live = await fakeRoutine([200]);
 		try {
-			const untrusted = createTransport("webhook", async () => {}, { configPath: await writeConfig(await tmp(), { url: `${live.origin}/hook`, key: "k" }) });
+			const untrusted = createTransport("webhook", async () => {}, {
+				configPath: await writeConfig(await tmp(), { url: `${live.origin}/hook`, key: "k" }),
+			});
 			assert.ok(untrusted.ok);
 			const tls = await deliver(untrusted.transport, wakePayload(), { sleep: async () => {} });
-			assert.deepEqual({ ok: tls.ok, tries: tls.tries, result: tls.result }, { ok: false, tries: 1, result: "tls_error" });
+			assert.deepEqual(
+				{ ok: tls.ok, tries: tls.tries, result: tls.result },
+				{ ok: false, tries: 1, result: "tls_error" },
+			);
 			assert.equal(live.seen.length, 0);
 		} finally {
 			await live.close();
@@ -327,14 +424,21 @@ describe("INV-watch-io: webhook send", () => {
 		assert.deepEqual(classifySendError(err("EAI_AGAIN")), { ok: false, result: "dns_error", retry: true });
 		assert.deepEqual(classifySendError(err("ECONNREFUSED")), { ok: false, result: "connect_error", retry: true });
 		assert.deepEqual(classifySendError(err("ECONNRESET")), { ok: false, result: "network_error", retry: false });
-		assert.deepEqual(classifySendError(err("DEPTH_ZERO_SELF_SIGNED_CERT")), { ok: false, result: "tls_error", retry: false });
+		assert.deepEqual(classifySendError(err("DEPTH_ZERO_SELF_SIGNED_CERT")), {
+			ok: false,
+			result: "tls_error",
+			retry: false,
+		});
 		assert.deepEqual(classifySendError(err("ABORT_ERR")), { ok: false, result: "timeout", retry: false });
 	});
 });
 
 /** The README's `plutil` lines that switch ProgramArguments.3: to webhook, then back to dry-run. */
 const readmeSwitches = (readme: string) =>
-	readme.split("\n").filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l)).map((l) => l.trim());
+	readme
+		.split("\n")
+		.filter((l) => /^\s*plutil -remove ProgramArguments\.3 /.test(l))
+		.map((l) => l.trim());
 
 describe("INV-watch-io: install docs", () => {
 	test("INV-watch-io: README rollback, plist and code agree on label and paths", async () => {
@@ -358,7 +462,11 @@ describe("INV-watch-io: install docs", () => {
 		const readme = await readFile(join(here, "README.md"), "utf8");
 		const plist = await readFile(join(here, "com.everyfield.actionable-watch.plist"), "utf8");
 		const run = await readFile(join(here, "run.mts"), "utf8");
-		const args = [...plist.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
+		const args = [
+			...plist
+				.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]
+				.matchAll(/<string>(.*?)<\/string>/g),
+		].map((m) => m[1]);
 		assert.deepEqual(args.slice(2), ["--transport", "dry-run"], "ProgramArguments.3 is the transport");
 		assert.equal(readmeSwitches(readme).length, 2, "one switch to webhook, one rollback to dry-run");
 		assert.ok(readme.includes("plutil -extract ProgramArguments.0 raw"));
@@ -372,21 +480,34 @@ describe("INV-watch-io: install docs", () => {
 	});
 
 	// plutil ships with macOS only; CI runs on Linux, where this one test is skipped and every other runs.
-	test("INV-watch-io: README switch and rollback lines flip the transport on a copy of the plist", {
-		skip: process.platform !== "darwin" && "plutil exists only on macOS",
-	}, async () => {
-		const readme = await readFile(join(here, "README.md"), "utf8");
-		const plist = await readFile(join(here, "com.everyfield.actionable-watch.plist"), "utf8");
-		const [toWebhook, toDryRun] = readmeSwitches(readme);
-		const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
-		await writeFile(copy, plist);
-		for (const [line, want] of [[toWebhook, "webhook"], [toDryRun, "dry-run"]]) {
-			await new Promise<void>((resolve, reject) =>
-				execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) => (e ? reject(e) : resolve())),
-			);
-			const now = await readFile(copy, "utf8");
-			const got = [...now.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]);
-			assert.deepEqual(got.slice(2), ["--transport", want], line);
-		}
-	});
+	test(
+		"INV-watch-io: README switch and rollback lines flip the transport on a copy of the plist",
+		{
+			skip: process.platform !== "darwin" && "plutil exists only on macOS",
+		},
+		async () => {
+			const readme = await readFile(join(here, "README.md"), "utf8");
+			const plist = await readFile(join(here, "com.everyfield.actionable-watch.plist"), "utf8");
+			const [toWebhook, toDryRun] = readmeSwitches(readme);
+			const copy = join(await mkdtemp(join(tmpdir(), "actionable-watch-plist-")), "p.plist");
+			await writeFile(copy, plist);
+			for (const [line, want] of [
+				[toWebhook, "webhook"],
+				[toDryRun, "dry-run"],
+			]) {
+				await new Promise<void>((resolve, reject) =>
+					execFile("/bin/sh", ["-c", line], { env: { PATH: "/usr/bin:/bin", PLIST: copy } }, (e) =>
+						e ? reject(e) : resolve(),
+					),
+				);
+				const now = await readFile(copy, "utf8");
+				const got = [
+					...now
+						.match(/<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/)![1]
+						.matchAll(/<string>(.*?)<\/string>/g),
+				].map((m) => m[1]);
+				assert.deepEqual(got.slice(2), ["--transport", want], line);
+			}
+		},
+	);
 });

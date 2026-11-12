@@ -4,7 +4,15 @@ import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { acquireLock, createTransport, WEBHOOK_SENDS_PER_HOUR, type CommandName, type ExecResult, type Payload, type Transport } from "../io.mts";
+import {
+	acquireLock,
+	createTransport,
+	WEBHOOK_SENDS_PER_HOUR,
+	type CommandName,
+	type ExecResult,
+	type Payload,
+	type Transport,
+} from "../io.mts";
 import { pollOnce, type Deps } from "../run.mts";
 import { fakeRoutine, writeConfig } from "./fake-routine.mts";
 import { ciRuns, NOW, running } from "./fixtures.mts";
@@ -58,7 +66,10 @@ test("INV-watch-run: a restart over the same state file and identical status doe
 	const restarted = { ...h.deps, exec: h.deps.exec };
 	assert.equal(await pollOnce(restarted), "no_change");
 	assert.equal(h.sent.length, 1);
-	assert.deepEqual(h.sent[0].events.map((e) => e.key), ["decision:D-4"]);
+	assert.deepEqual(
+		h.sent[0].events.map((e) => e.key),
+		["decision:D-4"],
+	);
 });
 
 test("INV-watch-run: missing or corrupt state re-baselines without a wake storm", async () => {
@@ -106,7 +117,12 @@ test("INV-watch-run: gh unavailable turns only the CI check off and keeps the la
 	await pollOnce(h.deps);
 	h.world.gh = red;
 	assert.equal(await pollOnce(h.deps), "woke");
-	for (const gh of [{ ok: false, code: "gh_missing" }, { ok: false, code: "gh_exit_4" }, { ok: true, stdout: "nope" }, ok({})] as ExecResult[]) {
+	for (const gh of [
+		{ ok: false, code: "gh_missing" },
+		{ ok: false, code: "gh_exit_4" },
+		{ ok: true, stdout: "nope" },
+		ok({}),
+	] as ExecResult[]) {
 		h.world.gh = gh;
 		assert.equal(await pollOnce(h.deps), "no_change");
 	}
@@ -115,7 +131,10 @@ test("INV-watch-run: gh unavailable turns only the CI check off and keeps the la
 	h.world.gh = { ok: false, code: "gh_missing" };
 	h.world.evf = ok(running({ decisions: [{ id: 8 }] }));
 	assert.equal(await pollOnce(h.deps), "woke", "evf events still flow without gh");
-	assert.deepEqual(h.sent.map((p) => p.events.map((e) => e.key)), [[`ci-failed:${"3".repeat(40)}`], ["decision:D-8"]]);
+	assert.deepEqual(
+		h.sent.map((p) => p.events.map((e) => e.key)),
+		[[`ci-failed:${"3".repeat(40)}`], ["decision:D-8"]],
+	);
 });
 
 test("INV-watch-run: a failed send stays pending, retries once per poll, and is sent once on success", async () => {
@@ -126,13 +145,19 @@ test("INV-watch-run: a failed send stays pending, retries once per poll, and is 
 	assert.equal(await pollOnce(h.deps), "wake_failed");
 	h.fail(3);
 	assert.equal(await pollOnce(h.deps), "wake_failed");
-	assert.deepEqual(h.lines.filter((l) => l.startsWith("wake_failed")), [
-		"wake_failed transport=dry-run tries=3 result=connect_error pending=1 keys=decision:D-6",
-		"wake_failed transport=dry-run tries=3 result=connect_error pending=1 keys=decision:D-6",
-	]);
+	assert.deepEqual(
+		h.lines.filter((l) => l.startsWith("wake_failed")),
+		[
+			"wake_failed transport=dry-run tries=3 result=connect_error pending=1 keys=decision:D-6",
+			"wake_failed transport=dry-run tries=3 result=connect_error pending=1 keys=decision:D-6",
+		],
+	);
 	assert.equal(await pollOnce(h.deps), "woke");
 	assert.equal(await pollOnce(h.deps), "no_change");
-	assert.deepEqual(h.sent.map((p) => p.events.map((e) => e.key)), [["decision:D-6"]]);
+	assert.deepEqual(
+		h.sent.map((p) => p.events.map((e) => e.key)),
+		[["decision:D-6"]],
+	);
 });
 
 test("INV-watch-run: a second concurrent instance exits without polling", async () => {
@@ -162,26 +187,57 @@ test("INV-watch-run: sensitive status text never reaches the payload, log or sta
 	await pollOnce(h.deps);
 	h.world.evf = ok(leaky(2));
 	assert.equal(await pollOnce(h.deps), "woke");
-	const everything = JSON.stringify(h.sent) + h.lines.join("\n") + (await readFile(join(h.stateDir, "state.json"), "utf8"));
-	for (const bit of ["example", "pw@", "LIVEKEY", "transcript", "nora"]) assert.ok(!everything.includes(bit), `leaks ${bit}`);
+	const everything =
+		JSON.stringify(h.sent) + h.lines.join("\n") + (await readFile(join(h.stateDir, "state.json"), "utf8"));
+	for (const bit of ["example", "pw@", "LIVEKEY", "transcript", "nora"])
+		assert.ok(!everything.includes(bit), `leaks ${bit}`);
 });
 
 test("INV-watch-run: the hourly send cap holds a pending event across a restart and lets it through an hour later", async () => {
 	const h = await harness({ evf: ok(running()), gh: green });
 	let posts = 0;
 	let answer = 503;
-	h.deps.transport = { mode: "webhook", capped: true, send: async () => (posts++, answer === 200 ? { ok: true, result: "http_200" } : { ok: false, result: `http_${answer}`, retry: true }) };
+	h.deps.transport = {
+		mode: "webhook",
+		capped: true,
+		send: async () => (
+			posts++,
+			answer === 200 ? { ok: true, result: "http_200" } : { ok: false, result: `http_${answer}`, retry: true }
+		),
+	};
 	await pollOnce(h.deps);
 	h.world.evf = ok(running({ decisions: [{ id: 11 }] }));
 	let t = NOW;
 	h.deps.now = () => t;
 	const outcomes: string[] = [];
-	for (let i = 0; i < 7; i++) outcomes.push(await pollOnce(h.deps), String((t += 90_000, posts)));
-	assert.deepEqual(outcomes, ["wake_failed", "3", "wake_failed", "6", "wake_failed", "9", "wake_failed", "12", "wake_failed", "15", "wake_failed", "18", "wake_capped", "20"]);
-	assert.deepEqual(h.lines.filter((l) => l.startsWith("wake_capped")), [`wake_capped transport=webhook sends_last_hour=20 cap=${WEBHOOK_SENDS_PER_HOUR} pending=1 keys=decision:D-11`]);
+	for (let i = 0; i < 7; i++) outcomes.push(await pollOnce(h.deps), String(((t += 90_000), posts)));
+	assert.deepEqual(outcomes, [
+		"wake_failed",
+		"3",
+		"wake_failed",
+		"6",
+		"wake_failed",
+		"9",
+		"wake_failed",
+		"12",
+		"wake_failed",
+		"15",
+		"wake_failed",
+		"18",
+		"wake_capped",
+		"20",
+	]);
+	assert.deepEqual(
+		h.lines.filter((l) => l.startsWith("wake_capped")),
+		[`wake_capped transport=webhook sends_last_hour=20 cap=${WEBHOOK_SENDS_PER_HOUR} pending=1 keys=decision:D-11`],
+	);
 	const saved = JSON.parse(await readFile(join(h.stateDir, "state.json"), "utf8"));
 	assert.equal(saved.sends.length, 20, "the send log is persisted");
-	assert.deepEqual(saved.pending.map((e: { key: string }) => e.key), ["decision:D-11"], "the event is kept, not dropped");
+	assert.deepEqual(
+		saved.pending.map((e: { key: string }) => e.key),
+		["decision:D-11"],
+		"the event is kept, not dropped",
+	);
 
 	// A restart: a fresh process over the same state dir is still capped, and sends nothing.
 	answer = 200;
@@ -201,7 +257,10 @@ test("INV-watch-run: the webhook URL and key never reach the log or the state fi
 	const routine = await fakeRoutine([200]);
 	try {
 		const h = await harness({ evf: ok(running()), gh: green });
-		const configPath = await writeConfig(h.stateDir, { url: `${routine.origin}/hooks/${urlToken}?token=${urlToken}`, key });
+		const configPath = await writeConfig(h.stateDir, {
+			url: `${routine.origin}/hooks/${urlToken}?token=${urlToken}`,
+			key,
+		});
 		const t = createTransport("webhook", h.deps.log, { configPath, ca: routine.ca });
 		assert.ok(t.ok);
 		h.deps.transport = t.transport;
@@ -231,7 +290,16 @@ test("INV-watch-run: the webhook URL and key never reach the log or the state fi
 			assert.ok(!log.includes(sentinel), `log leaks ${sentinel}`);
 			assert.ok(!state.includes(sentinel), `state leaks ${sentinel}`);
 		}
-		for (const code of ["result=http_200", "result=http_500", "result=http_401", "result=http_429", "result=network_error", "result=webhook_config_mode", "result=webhook_url_not_https", "result=webhook_config_invalid_json"]) {
+		for (const code of [
+			"result=http_200",
+			"result=http_500",
+			"result=http_401",
+			"result=http_429",
+			"result=network_error",
+			"result=webhook_config_mode",
+			"result=webhook_url_not_https",
+			"result=webhook_config_invalid_json",
+		]) {
 			assert.ok(log.includes(code), `log names ${code}`);
 		}
 	} finally {
@@ -240,7 +308,10 @@ test("INV-watch-run: the webhook URL and key never reach the log or the state fi
 });
 
 const runMts = new URL("../run.mts", import.meta.url).pathname;
-function cli(args: string[], env: Record<string, string> = {}): Promise<{ code: number; stdout: string; stderr: string }> {
+function cli(
+	args: string[],
+	env: Record<string, string> = {},
+): Promise<{ code: number; stdout: string; stderr: string }> {
 	return new Promise((resolve) => {
 		execFile(process.execPath, [runMts, ...args], { env: { ...process.env, ...env } }, (err, stdout, stderr) =>
 			resolve({ code: err ? Number((err as { code?: number }).code ?? 1) : 0, stdout, stderr }),
@@ -258,7 +329,9 @@ test("INV-watch-run: --test-wake sends one test payload and neither reads nor ch
 		const key = "SENTINELKEYcli";
 		await writeConfig(dir, { url: `${routine.origin}/hooks/SENTINELURLcli`, key });
 
-		const sent = await cli(["--test-wake", "--transport", "webhook", "--state-dir", dir, "--log-dir", dir], { NODE_EXTRA_CA_CERTS: routine.caPath });
+		const sent = await cli(["--test-wake", "--transport", "webhook", "--state-dir", dir, "--log-dir", dir], {
+			NODE_EXTRA_CA_CERTS: routine.caPath,
+		});
 		assert.deepEqual(sent, { code: 0, stdout: "test-wake transport=webhook result=http_200\n", stderr: "" });
 		assert.equal(routine.seen.length, 1);
 		const body = JSON.parse(routine.seen[0].body);
@@ -266,7 +339,9 @@ test("INV-watch-run: --test-wake sends one test payload and neither reads nor ch
 		assert.deepEqual(body.events, []);
 
 		routine.replies = [503];
-		const refused = await cli(["--test-wake", "--transport", "webhook", "--state-dir", dir, "--log-dir", dir], { NODE_EXTRA_CA_CERTS: routine.caPath });
+		const refused = await cli(["--test-wake", "--transport", "webhook", "--state-dir", dir, "--log-dir", dir], {
+			NODE_EXTRA_CA_CERTS: routine.caPath,
+		});
 		assert.deepEqual(refused, { code: 1, stdout: "test-wake transport=webhook result=http_503\n", stderr: "" });
 		assert.equal(routine.seen.length, 2, "one try only, even for a 5xx");
 
