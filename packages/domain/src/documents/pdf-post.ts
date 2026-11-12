@@ -1,17 +1,4 @@
-import {
-	BlendMode,
-	PDFArray,
-	PDFDict,
-	PDFDocument,
-	PDFName,
-	PDFNumber,
-	PDFOperator,
-	PDFOperatorNames,
-	PDFRef,
-	PDFString,
-	rgb,
-} from "pdf-lib";
-import { PLACEHOLDER_FILL } from "./doc-values.ts";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from "pdf-lib";
 
 /** Tooltip text for a field name. Names follow the layout files: `team_task_n`, `present_n` and plain keys. */
 const KNOWN: Record<string, string> = {
@@ -35,8 +22,6 @@ const KNOWN: Record<string, string> = {
 	meeting_place: "Meeting place",
 	facilitator: "Facilitator",
 	pastor_name: "Pastor name",
-	agreement_signature: "Signature: sign here",
-	agreement_date: "Date signed",
 };
 const INDEXED: Record<string, string> = {
 	present: "Check if present: attendee",
@@ -61,6 +46,9 @@ function tooltipFor(name: string) {
 }
 const title = (s: string) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
+/** A card sheet repeats each card's fields with a `_t<n>` suffix per card; the field is the same one without it. */
+const unsuffixed = (name: string) => name.replace(/_t\d+$/, "");
+
 /** Names that become signature fields (/FT /Sig): every place a person signs. */
 const isSignature = (name: string) => name === "signature" || name.endsWith("_signature");
 
@@ -69,17 +57,17 @@ const isSignature = (name: string) => name === "signature" || name.endsWith("_si
  * name becomes a /Sig field, and the AcroForm gets a /DR font entry that points at the embedded DM Sans.
  * `updateMetadata: false` keeps the creation and modification dates out, so the bytes stay deterministic.
  */
-export async function finishForm(pdf: Uint8Array, highlights: readonly Highlight[] = []) {
+export async function finishForm(pdf: Uint8Array) {
 	const doc = await PDFDocument.load(pdf, { updateMetadata: false });
-	paintHighlights(doc, highlights);
 	const form = doc.getForm();
 	const fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[] = [];
 	for (const field of form.getFields()) {
 		const name = field.getName();
-		const tooltip = tooltipFor(name);
+		const base = unsuffixed(name);
+		const tooltip = tooltipFor(base);
 		const dict = field.acroField.dict;
 		dict.set(PDFName.of("TU"), PDFString.of(tooltip));
-		const sig = isSignature(name);
+		const sig = isSignature(base);
 		if (sig) {
 			dict.set(PDFName.of("FT"), PDFName.of("Sig"));
 			for (const key of ["DA", "Ff", "Q", "V"]) dict.delete(PDFName.of(key));
@@ -101,37 +89,6 @@ export async function finishForm(pdf: Uint8Array, highlights: readonly Highlight
 		bytes: await doc.save({ useObjectStreams: false, addDefaultPage: false, updateFieldAppearances: false }),
 		fields,
 	};
-}
-
-/** A box to highlight: a 0-based page, then x and y from the top-left corner, in points. */
-export type Highlight = { page: number; x: number; y: number; width: number; height: number };
-
-/**
- * Forme 0.29 paints no background behind a text run, so a placeholder highlight is painted after layout: a fill over
- * each box in multiply blend, so the text under it stays as dark as it was and the paper turns the fill's color. Each
- * fill is marked as an artifact, so a screen reader and the tag tree skip it.
- */
-function paintHighlights(doc: PDFDocument, highlights: readonly Highlight[]) {
-	const pages = doc.getPages();
-	const [r, g, b] = [1, 3, 5].map((i) => parseInt(PLACEHOLDER_FILL.slice(i, i + 2), 16) / 255) as [
-		number,
-		number,
-		number,
-	];
-	for (const box of highlights) {
-		const page = pages[box.page];
-		if (!page) continue;
-		page.pushOperators(PDFOperator.of(PDFOperatorNames.BeginMarkedContent, [PDFName.of("Artifact")]));
-		page.drawRectangle({
-			x: box.x - 0.5,
-			y: page.getHeight() - box.y - box.height,
-			width: box.width,
-			height: box.height,
-			color: rgb(r, g, b),
-			blendMode: BlendMode.Multiply,
-		});
-		page.pushOperators(PDFOperator.of(PDFOperatorNames.EndMarkedContent));
-	}
 }
 
 /** The first embedded DM Sans font object in the page resources. */

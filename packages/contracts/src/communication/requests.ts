@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { recordId, requestKey, revision } from "../common/values.ts";
 import { instant } from "../common/time.ts";
-import { audienceInput, draftInput, mergeFields, templateDraft, templatePatch } from "./values.ts";
+import { audienceInput, draftInput, mergeFields, templateDraft } from "./values.ts";
 
 export const saveDraftRequest = z.strictObject({
 	requestKey,
@@ -16,7 +16,12 @@ export const deleteDraftRequest = z.strictObject({
 export const scheduleRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ communicationId: recordId, scheduledAt: instant }),
+	input: z.strictObject({
+		communicationId: recordId,
+		scheduledAt: instant,
+		/** What a review showed (recipientsDigest): the schedule is refused when the audience resolves differently. */
+		recipientsDigest: z.string().min(1).optional(),
+	}),
 });
 export const createTemplateRequest = z.strictObject({ requestKey, input: templateDraft });
 export const forkTemplateRequest = z.strictObject({
@@ -26,7 +31,7 @@ export const forkTemplateRequest = z.strictObject({
 export const updateTemplateRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ templateId: recordId, patch: templatePatch }),
+	input: z.strictObject({ templateId: recordId, patch: templateDraft }),
 });
 export const templateIdRequest = z.strictObject({
 	requestKey,
@@ -56,7 +61,11 @@ export const meetingTemplateRequest = z.strictObject({
 export const dispatchRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
-	input: z.strictObject({ communicationId: recordId }),
+	input: z.strictObject({
+		communicationId: recordId,
+		/** People a review showed as left out: they stay left out even if their address or choice changed since. */
+		leftOut: z.array(recordId).max(5_000).optional(),
+	}),
 });
 export const cancelScheduledRequest = z.strictObject({
 	requestKey,

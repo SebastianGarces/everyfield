@@ -1,5 +1,5 @@
 // Shared controls, surfaces and overlays (WP-089). Feature packages compose their screens from these exports.
-export { Button, buttonVariants, IconButton, iconButtonVariants, type ButtonVariant } from "./Button";
+export { Button, buttonVariants, IconButton, iconButtonVariants } from "./Button";
 export {
 	CalloutLabel,
 	CalloutText,
@@ -51,7 +51,6 @@ export {
 export {
 	Menu,
 	MenuContent,
-	MenuGroup,
 	MenuItem,
 	MenuLabel,
 	MenuRadioGroup,
@@ -60,6 +59,7 @@ export {
 	MenuTrigger,
 } from "./Menu";
 export { Breadcrumb, PageHeader, type Crumb } from "./PageHeader";
+export { usePortalContainer } from "./overlay-portal";
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger, Tooltip, TooltipSep } from "./Popover";
 export { Select, type SelectOption } from "./Select";
 export { Spinner } from "./Spinner";

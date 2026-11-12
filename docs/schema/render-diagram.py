@@ -68,7 +68,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--root', type=Path, default=HERE.parent.parent, help='repository root')
     parser.add_argument('--out', type=Path, help='output file; defaults to schema-diagram.html beside target.json')
-    parser.add_argument('--check', action='store_true', help='fail if the output differs from a fresh render; do not write')
+    parser.add_argument('--check', action='store_true',
+                        help='render and validate in memory; do not write (the output is not committed)')
     args = parser.parse_args()
     data = build_data(args.root)
     if TEMPLATE.count('__DATA__') != 1:
@@ -78,10 +79,7 @@ def main():
     html = TEMPLATE.replace('__DATA__', encoded(data))
     out = args.out or args.root / 'docs/schema/schema-diagram.html'
     if args.check:
-        if not out.exists() or out.read_bytes() != html.encode('utf-8'):
-            print(f'Stale schema diagram: {out}. Run python3 docs/schema/render-diagram.py.', file=sys.stderr)
-            return 1
-        print(f'Schema diagram matches current inputs: {out}')
+        print(f'Schema diagram renders from current inputs ({len(data["schema"]["tables"])} tables); not written')
         return 0
     out.write_bytes(html.encode('utf-8'))
     print(f'Wrote {out} ({len(data["schema"]["tables"])} tables, {len(data["errors"])} check problems)')

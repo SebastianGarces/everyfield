@@ -8,11 +8,11 @@ import type { AvatarMime, AvatarPort, AvatarResult, SectionResult } from "../por
 
 type Account = Extract<SectionResult, { section: "account" }>;
 
-export const AVATAR_TYPES: readonly AvatarMime[] = ["image/jpeg", "image/png", "image/webp"];
-export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+const AVATAR_TYPES: readonly AvatarMime[] = ["image/jpeg", "image/png", "image/webp"];
+const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
 
 /** The client check before an upload (REQ-IDN-006). The server verifies the bytes and type again. */
-export function avatarProblem(file: { size: number; type: string }): string | null {
+function avatarProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
 	if (!(AVATAR_TYPES as readonly string[]).includes(file.type)) return "Use a JPG, PNG or WebP photo.";
 	if (file.size > AVATAR_MAX_BYTES) return "Choose a photo smaller than 3 MB.";
@@ -51,8 +51,14 @@ export function AvatarControl({
 		try {
 			const staged = await port.requestAvatarUpload({ mime: file.type as AvatarMime, byteLength: file.size });
 			if (staged.status === "refused") return fail(`Your photo did not upload. ${refusalOf(staged.error).message}`);
-			const sent = await port.uploadAvatarBytes(staged.value.uploadId, file);
-			if (sent.status === "refused") return fail(`Your photo did not upload. ${refusalOf(sent.error).message}`);
+			const target = { accountId: account.accountId, versionId: staged.value.uploadId };
+			const sent = await port.uploadAvatarBytes(target, file);
+			if (sent.status === "refused")
+				return fail(
+					sent.error.code === "invalid_input"
+						? "This file is not a JPG, PNG or WebP photo of up to 3 MB. Choose another photo."
+						: `Your photo did not upload. ${refusalOf(sent.error).message}`,
+				);
 			const input = { uploadId: staged.value.uploadId };
 			const saved = await saving.run(input, (requestKey) =>
 				port.finalizeAvatar({ requestKey, expectedRevision: account.revision, input }),

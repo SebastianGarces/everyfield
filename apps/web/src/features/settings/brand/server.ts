@@ -3,7 +3,7 @@ import { brandError, type BrandKit, type BrandReply } from "@everyfield/contract
 import { eq } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { privateStorage } from "@everyfield/db/schema";
-import { brandReader, brandWriter, readBrandAsset, uploadBrandAsset } from "@everyfield/domain/branding";
+import { brandReader, brandWriter, readBrandAssetIfChanged, uploadBrandAsset } from "@everyfield/domain/branding";
 import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
@@ -79,7 +79,10 @@ export function storeBrandBytes(uploadId: string, bytes: Uint8Array) {
 	return run("upload_bytes_failed", (db, actor) => uploadBrandAsset(db, privateStorage(), actor, { uploadId, bytes }));
 }
 
-/** One stored asset's bytes, only while the kit references the file and the viewer holds an Owner or Admin seat now. */
-export function brandAssetBytes(fileId: string) {
-	return run("read_asset_failed", (db, actor) => readBrandAsset(db, privateStorage(), actor, fileId, "settings"));
+/**
+ * One stored asset's SHA-256 and type, only while the kit references the file and the viewer holds an Owner or Admin
+ * seat now. Its bytes are read from storage only when `current` rejects the stored SHA-256.
+ */
+export function brandAsset(fileId: string, current: (sha256: string) => boolean) {
+	return run("read_asset_failed", (db, actor) => readBrandAssetIfChanged(db, privateStorage(), actor, fileId, current));
 }

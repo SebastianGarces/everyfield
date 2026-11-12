@@ -2,7 +2,7 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
+import { notificationCategory, notificationChannels } from "../../../packages/contracts/src/settings/values.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
@@ -23,7 +23,7 @@ after(() => f?.close());
 
 /** The invitee turned off every update email they can turn off (Wiki upstream review has no email to turn off). */
 async function updatesOff(accountId) {
-	for (const category of notificationCategory.options.filter((name) => name !== "wiki_upstream_review"))
+	for (const category of notificationCategory.options.filter((name) => notificationChannels(name).includes("email")))
 		await f.admin
 			.execute(sql`INSERT INTO notification_preference (id, account_id, category, channel, enabled, unsubscribe_revision)
 			VALUES (${randomUUID()}, ${accountId}, ${category}, 'email', false, 1)`);
@@ -52,6 +52,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 		secret,
 		db: f.db,
 		storage: null,
+		cleanup: null,
 		reminders: null,
 		digests: null,
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),

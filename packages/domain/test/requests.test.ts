@@ -1,6 +1,7 @@
 import { early_access_request } from "@everyfield/db/tables";
 import { asc } from "@everyfield/db/query";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
+import { assertDevelopmentDatabase } from "@everyfield/db/development";
 import { sql as querySql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { migrate } from "../../db/src/schema/migrate.ts";
@@ -13,12 +14,7 @@ import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.j
 
 if (process.env.EARLY_ACCESS_TEST_DATABASE !== "1")
 	throw new Error("Use a disposable Neon branch and set EARLY_ACCESS_TEST_DATABASE=1");
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!);
-if (
-	source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" &&
-	!["localhost", "127.0.0.1"].includes(source.hostname)
-)
-	throw new Error("Development test database required");
+const source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
 const isolatedSchema = "db1_early_" + randomUUID().replaceAll("-", "");
 source.searchParams.set("options", `-c search_path=${isolatedSchema},pg_catalog,pg_temp`);
 process.env.DATABASE_URL = source.href;

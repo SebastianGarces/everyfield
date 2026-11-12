@@ -411,7 +411,7 @@
       "feature_ids": [
         "COM-012"
       ],
-      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before scheduling within 30 days; Everyfield holds the email and hands it to Resend at the send time. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [
         "communication.saveDraft",
@@ -801,7 +801,7 @@
         "COM-005",
         "COM-012"
       ],
-      "text": "Schedule through Resend native API within 30 days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
+      "text": "Everyfield holds a reviewed scheduled email (within 30 days) until its send time; the minute runner then hands it to Resend in one supported batch, deciding each recipient at that moment, so it can go out up to one minute late (Sebastian, D-610: hand off at send time so an opt-out holds when Resend cannot be reached). No SMTP scheduling. An email Resend already holds with a send time (scheduled before T-241) stays there and is cancelled there when its recipient unsubscribes. Church-local display/ISO Instant uses accepted entered-DST rules.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [],
       "acceptance_ids": [
@@ -902,7 +902,7 @@
         "COM-012",
         "NTF-010"
       ],
-      "text": "After provider handoff, ordinary material authority/address/suppression changes request native cancellation/reconciliation; do not claim application reauthorization at provider send time.",
+      "text": "Until the send time a scheduled email waits in Everyfield: cancel and time change apply there with no provider call, and the runner refuses at handoff a recipient who unsubscribed from the church or whose address is blocked. After provider handoff, ordinary material authority/address/suppression changes request native cancellation/reconciliation; do not claim application reauthorization at provider send time.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [],
       "acceptance_ids": [
@@ -1120,8 +1120,7 @@
       "text": "Typed plant or exact organization anchor, recipient and paired entity identity; one live occurrence key, renewed occurrence after cancellation only when legitimate. Commit only currently eligible category/audience. No generic unchecked organization UUID.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
-        "notifications.enqueue",
-        "notifications.cancelForEntity"
+        "notifications.enqueue"
       ],
       "acceptance_ids": [
         "AC-NTF-001--NTF-001"
@@ -1136,12 +1135,12 @@
       "title": "Tenant/organization anchored enqueue and deduplicated delivery intent",
       "behavior_rules": [
         {
-          "operation": "notifications.cancelForEntity",
+          "operation": "notifications.enqueue",
           "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant."
         },
         {
           "operation": "notifications.enqueue",
-          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
         }
       ]
     },
@@ -1185,7 +1184,7 @@
       "feature_ids": [
         "NTF-003"
       ],
-      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. The bell and the feed page share one read state: an entry marked read in either, singly or by mark-all, shows read in the other at once without a reload, the unread counts agree, and opening the bell marks nothing (Audit #551). Read does not complete work. Empty differs from unavailable.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.feed",
@@ -1218,7 +1217,11 @@
         },
         {
           "operation": "notifications.feed",
-          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
+        },
+        {
+          "operation": "notifications.feed",
+          "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state."
         },
         {
           "operation": "notifications.markAllVisibleRead",
@@ -1284,11 +1287,11 @@
         },
         {
           "operation": "notifications.preferences.set",
-          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
+          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor and scheduled email unsubscribe notices in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
         },
         {
           "operation": "notifications.preferences.set",
-          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
         },
         {
           "operation": "notifications.preferences.set",
@@ -1327,7 +1330,7 @@
       "text": "Scheduled meeting announcement to linked eligible core-group accounts; 7/3/1 day-offset reminders to eligible linked attendance/guest-list accounts plus creator. Edit cancels/rebuilds; canceled/completed/past meetings suppress obsolete reminders. CRM bulk guest invitations use Communication, not another address fallback.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
-        "notifications.syncMeetingReminders",
+        "meetings.planNotifications",
         "notifications.meetingAudience"
       ],
       "acceptance_ids": [
@@ -1659,6 +1662,40 @@
         {
           "operation": "notifications.retryAssociationReceipt",
           "rule": "Fenced existing ledger retry only actual authoritative refusal or identical-key allowed window; unknown reconciles, caller cannot supply a new provider key/recipient."
+        }
+      ]
+    },
+    {
+      "id": "REQ-NTF-016",
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "text": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. An email scheduled before the opt-out skips them too, whenever they opt out before its send time and whether or not the email service can be reached; one the email service already holds is cancelled there; the one-hour undo does not bring a skipped email back. At that moment the staff member who scheduled each skipped email, while they hold a current seat in that church, gets one in-app notice per email and per Person, written with the opt-out and naming the Person, the subject and the send time in the church's time zone, never the address, and opening that scheduled email in Messages; no email goes to staff, and an email the email service already held gets none. Staff see them as unsubscribed on the scheduled and the sent email and in compose with the date, and an email whose every recipient unsubscribed reads Not sent: unsubscribed, not a failure or a cancel. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "communication.describeMessagesOptOut",
+        "communication.applyMessagesOptOut",
+        "communication.undoMessagesOptOut"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-016--NTF-016"
+      ],
+      "case_ids": [
+        "CASE-NTF-016"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028"
+      ],
+      "title": "Per-church, per-person Messages email opt-out for CRM people",
+      "behavior_rules": [
+        {
+          "operation": "communication.applyMessagesOptOut",
+          "rule": "Messages opt-out requires an explicit native request bound to the disable purpose; only the Person's own token writes it."
+        },
+        {
+          "operation": "communication.undoMessagesOptOut",
+          "rule": "Undo requires the separate one-hour undo token of that exact opt-out; no staff or Admin operation clears or rewrites it."
         }
       ]
     }

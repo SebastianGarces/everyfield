@@ -34,6 +34,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { LocalDay, When } from "../people/parts.tsx";
 import { ownerText } from "../tasks/model.ts";
+import { outcomeSaved } from "../tasks/fresh.tsx";
 import { correctOutcome, recordOutcome } from "./actions.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
 import { loadDuties, loadHistory, loadObligations, loadPersonFollowUps, prefetchOwners, warmOn } from "./fetch.ts";
@@ -534,6 +535,7 @@ function OutcomeDialog({
 				editing.kind === "record" ? "The contact" : editing.kind === "correct" ? "The correction" : "The withdrawal",
 			send,
 			ok: (value) => {
+				outcomeSaved();
 				onSaved(value);
 				onClose();
 			},

@@ -12,13 +12,17 @@ export const maxDuration = 300;
  */
 export const GET = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
 	const { id } = await params;
-	const after = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? 0);
-	let db, actor;
+	const given = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? 0);
+	// One cursor for the check and the stream: a malformed value reads from the start instead of opening a stream that
+	// then fails.
+	const after = Number.isInteger(given) && given >= 0 ? given : 0;
+	let db, actor, first;
 	try {
 		db = evryDatabase();
 		actor = await requestActor();
-		// A foreign or missing conversation answers like any other refused read, before the stream opens.
-		await readConversation(db, actor, id, Number.isInteger(after) && after >= 0 ? after : 0);
+		// A foreign or missing conversation answers like any other refused read, before the stream opens. The page
+		// this check reads is the stream's first, so it is read once.
+		first = await readConversation(db, actor, id, after);
 	} catch (error) {
 		return errorResponse(error);
 	}
@@ -29,7 +33,7 @@ export const GET = async (request: Request, { params }: { params: Promise<{ id: 
 		async start(controller) {
 			const heartbeat = setInterval(() => controller.enqueue(encoder.encode(": keep-alive\n\n")), 15_000);
 			try {
-				for await (const item of observeRun(db, actor, id, after, request.signal))
+				for await (const item of observeRun(db, actor, id, after, request.signal, { first }))
 					controller.enqueue(
 						encoder.encode(
 							"event" in item

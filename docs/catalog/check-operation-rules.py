@@ -370,7 +370,8 @@ def audit(base, report):
     removed_ids = {r['id'] for r in removals}
     assert all(r['reason'].strip() for r in removals), 'Operation removal needs a ruling'
     assert {o['id'] for o in inventory} == ({o['id'] for o in before['operations']} - removed_ids) | added_ids, 'Operation lost or unreviewed addition'
-    assert all(set(o) in [INVENTORY_KEYS, INVENTORY_KEYS - {'changes'}] for o in inventory), 'Unexpected inventory contract field'
+    # implementation is optional; check-operation-references.py validates it.
+    assert all(set(o) - {'implementation'} in [INVENTORY_KEYS, INVENTORY_KEYS - {'changes'}] for o in inventory), 'Unexpected inventory contract field'
     tables = {t['name'] for t in json.loads((ROOT / 'docs/schema/target.json').read_text())['tables']}
     omitted = []
     for op in inventory:

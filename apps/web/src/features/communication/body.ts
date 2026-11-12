@@ -181,5 +181,3 @@ export function bodyToTextResult(html: string): BodyText {
 	});
 	return { text: out, lossy };
 }
-
-export const bodyToText = (html: string): string => bodyToTextResult(html).text;

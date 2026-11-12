@@ -135,7 +135,7 @@ const ALL_TYPES = [
 	"```",
 ].join("\n");
 
-test("WP-034/ui: bin/wiki render draws each diagram as a figure with its caption and nodes in order, and code as pre", async () => {
+test("INV-wiki-render: bin/wiki render draws each diagram as a figure with its caption and nodes in order, and code as pre", async () => {
 	const out = await mkdtemp(join(tmpdir(), "wiki-render-"));
 	try {
 		const payload = JSON.parse(await readFile(resolve(root, "docs/reference/wiki/seed.json"), "utf8"));

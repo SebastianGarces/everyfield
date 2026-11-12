@@ -5,7 +5,7 @@ import { renderMarkdown } from "../evry/conversation/view.ts";
 // A task description on screen (REQ-TSK-016). The task panel and the list row read the same canonical value, which
 // the server already normalized, and parse it with the one safe Markdown parser Evry's answers use: text becomes text
 // nodes and only http, https and mailto addresses become links. Nothing here produces HTML. Written with createElement
-// so tests/ui/tasks renders it in node.
+// so tests/unit/tasks renders it in node.
 
 const plain = (parts: Inline[]): string =>
 	parts.map((p) => (p.kind === "text" || p.kind === "code" ? p.text : plain(p.children))).join("");

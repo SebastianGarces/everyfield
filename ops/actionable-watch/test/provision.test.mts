@@ -5,7 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { readWebhookConfig } from "../io.mts";
-import { osascriptPrompt, promptScript, provision, PROMPT_GIVE_UP_S, type Field, type Prompt, type PromptResult } from "../provision.mts";
+import {
+	osascriptPrompt,
+	promptScript,
+	provision,
+	PROMPT_GIVE_UP_S,
+	type Field,
+	type Prompt,
+	type PromptResult,
+} from "../provision.mts";
 
 const here = new URL("..", import.meta.url).pathname;
 const provisionMts = join(here, "provision.mts");
@@ -15,22 +23,26 @@ const GOOD_URL = `https://routines.example/hooks/${URL_TOKEN}?t=${URL_TOKEN}`;
 const SENTINELS = [URL_TOKEN, KEY, "routines.example"];
 
 const tmp = () => mkdtemp(join(tmpdir(), "actionable-watch-provision-"));
-const answers = (a: Partial<Record<Field, PromptResult>>): Prompt => async (f) => a[f] ?? { ok: false, reason: "prompt_failed" };
+const answers =
+	(a: Partial<Record<Field, PromptResult>>): Prompt =>
+	async (f) =>
+		a[f] ?? { ok: false, reason: "prompt_failed" };
 const value = (v: string): PromptResult => ({ ok: true, value: v });
 const statusLine = async (dir: string) => (await readFile(join(dir, "provision.status"), "utf8")).trim();
 
 /** Every byte the helper left anywhere except webhook.json itself. */
 async function everythingButConfig(dir: string, extra: string[] = []): Promise<string> {
 	let all = extra.join("\n");
-	for (const f of await readdir(dir)) if (f !== "webhook.json") all += `\n${f}\n${await readFile(join(dir, f), "utf8")}`;
+	for (const f of await readdir(dir))
+		if (f !== "webhook.json") all += `\n${f}\n${await readFile(join(dir, f), "utf8")}`;
 	return all;
 }
 const assertNoLeak = (text: string, where: string) => {
 	for (const s of SENTINELS) assert.ok(!text.includes(s), `${where} leaks ${s}`);
 };
 
-describe("provision with an injected prompt", () => {
-	test("valid input writes an owner-only webhook.json the transport's loader accepts", async () => {
+describe("INV-watch-provision: provision with an injected prompt", () => {
+	test("INV-watch-provision: valid input writes an owner-only webhook.json the transport's loader accepts", async () => {
 		const dir = join(await tmp(), "state");
 		const asked: Field[] = [];
 		const r = await provision({
@@ -53,7 +65,7 @@ describe("provision with an injected prompt", () => {
 		assert.deepEqual((await readdir(dir)).sort(), ["provision.status", "webhook.json"], "no temp file left behind");
 	});
 
-	test("an existing directory with a wider mode is tightened to 0700", async () => {
+	test("INV-watch-provision: an existing directory with a wider mode is tightened to 0700", async () => {
 		const dir = await tmp();
 		await chmod(dir, 0o755);
 		await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) });
@@ -66,12 +78,17 @@ describe("provision with an injected prompt", () => {
 		["timeout", { url: value(GOOD_URL), key: { ok: false, reason: "timed_out" } }, "timed_out", "timed_out"],
 		["prompt failure", { url: { ok: false, reason: "prompt_failed" } }, "invalid", "prompt_failed"],
 		["invalid URL", { url: value(`not a url ${URL_TOKEN}`), key: value(KEY) }, "invalid", "webhook_config_invalid_url"],
-		["non-https URL", { url: value(`http://routines.example/hooks/${URL_TOKEN}`), key: value(KEY) }, "invalid", "webhook_url_not_https"],
+		[
+			"non-https URL",
+			{ url: value(`http://routines.example/hooks/${URL_TOKEN}`), key: value(KEY) },
+			"invalid",
+			"webhook_url_not_https",
+		],
 		["key with a space", { url: value(GOOD_URL), key: value(`${KEY} more`) }, "invalid", "webhook_config_invalid"],
 		["empty key", { url: value(GOOD_URL), key: value("   ") }, "invalid", "webhook_config_invalid"],
 	];
 	for (const [name, a, state, code] of refusals) {
-		test(`${name} writes nothing, keeps an existing config and reports ${code}`, async () => {
+		test(`INV-watch-provision: ${name} writes nothing, keeps an existing config and reports ${code}`, async () => {
 			const fresh = await tmp();
 			assert.deepEqual(await provision({ stateDir: fresh, prompt: answers(a) }), { state, code });
 			assert.deepEqual(await readdir(fresh), ["provision.status"], "no webhook.json written");
@@ -89,11 +106,16 @@ describe("provision with an injected prompt", () => {
 		});
 	}
 
-	test("replacing an existing config goes through the same 0600 temp-and-rename path", async () => {
+	test("INV-watch-provision: replacing an existing config goes through the same 0600 temp-and-rename path", async () => {
 		const dir = await tmp();
-		await writeFile(join(dir, "webhook.json"), JSON.stringify({ url: "https://old.example/x", key: "OLDKEY" }), { mode: 0o600 });
+		await writeFile(join(dir, "webhook.json"), JSON.stringify({ url: "https://old.example/x", key: "OLDKEY" }), {
+			mode: 0o600,
+		});
 		const before = await stat(join(dir, "webhook.json"));
-		assert.equal((await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) })).state, "ok");
+		assert.equal(
+			(await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) })).state,
+			"ok",
+		);
 		const after = await stat(join(dir, "webhook.json"));
 		assert.notEqual(after.ino, before.ino, "renamed into place, not edited in place");
 		assert.equal(after.mode & 0o777, 0o600);
@@ -101,7 +123,7 @@ describe("provision with an injected prompt", () => {
 		assert.deepEqual((await readdir(dir)).sort(), ["provision.status", "webhook.json"]);
 	});
 
-	test("sentinel values appear nowhere but webhook.json, on success and on every failure path", async () => {
+	test("INV-watch-provision: sentinel values appear nowhere but webhook.json, on success and on every failure path", async () => {
 		const paths: Partial<Record<Field, PromptResult>>[] = [
 			{ url: value(GOOD_URL), key: value(KEY) },
 			...refusals.map(([, a]) => a),
@@ -116,8 +138,8 @@ describe("provision with an injected prompt", () => {
 	});
 });
 
-describe("the real prompt", () => {
-	test("is a hidden-input dialog built from fixed text only", () => {
+describe("INV-watch-provision: the real prompt", () => {
+	test("INV-watch-provision: is a hidden-input dialog built from fixed text only", () => {
 		for (const f of ["url", "key"] as const) {
 			const s = promptScript(f);
 			assert.match(s, /display dialog "[^"]/);
@@ -131,7 +153,7 @@ describe("the real prompt", () => {
 		assert.match(promptScript("key"), /sender key/);
 	});
 
-	test("maps osascript's answer and exit to a result", async () => {
+	test("INV-watch-provision: maps osascript's answer and exit to a result", async () => {
 		const dir = await tmp();
 		const cases: [string, PromptResult][] = [
 			["printf 'C\\n'", { ok: false, reason: "cancelled" }],
@@ -149,17 +171,32 @@ describe("the real prompt", () => {
 		assert.deepEqual(await osascriptPrompt(join(dir, "missing"))("key"), { ok: false, reason: "prompt_failed" });
 	});
 
-	test("the helper reads no clipboard, keychain, environment or other secret source", async () => {
+	test("INV-watch-provision: the helper reads no clipboard, keychain, environment or other secret source", async () => {
 		// Code only: comments may name what the helper does not do.
 		const src = (await readFile(provisionMts, "utf8")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-		for (const banned of [/pbpaste/, /NSPasteboard/, /clipboard/i, /\bsecurity\b/, /keychain/i, /process\.argv/, /console\./, /node:https?"/, /node:net/, /fetch\(/, /readFile\(/]) {
+		for (const banned of [
+			/pbpaste/,
+			/NSPasteboard/,
+			/clipboard/i,
+			/\bsecurity\b/,
+			/keychain/i,
+			/process\.argv/,
+			/console\./,
+			/node:https?"/,
+			/node:net/,
+			/fetch\(/,
+			/readFile\(/,
+		]) {
 			assert.doesNotMatch(src, banned, String(banned));
 		}
 		assert.equal(src.match(/process\.env/g)?.length, 1, "only HOME is passed on, to the detached child");
 		assert.match(src, /env: \{ HOME: process\.env\.HOME \?\? "", PATH: "\/usr\/bin:\/bin" \}/);
 		assert.equal(src.match(/execFile\(/g)?.length, 1, "one prompt spawn site");
 		assert.equal(src.match(/spawn\(/g)?.length, 1, "one detach spawn site");
-		assert.match(src, /spawn\(process\.execPath, \[import\.meta\.filename, "--state-dir", stateDir, "--osascript", values\.osascript\]/);
+		assert.match(
+			src,
+			/spawn\(\s*process\.execPath,\s*\[import\.meta\.filename, "--state-dir", stateDir, "--osascript", values\.osascript\]/,
+		);
 		assert.match(src, /\["-e", promptScript\(field\)\]/, "osascript gets only the fixed script");
 	});
 });
@@ -200,8 +237,8 @@ async function until(check: () => Promise<boolean>, ms = 10_000) {
 	assert.fail("timed out waiting");
 }
 
-describe("the provision CLI", () => {
-	test("reports only a code and leaks no value through any argv, env, output or file", async () => {
+describe("INV-watch-provision: the provision CLI", () => {
+	test("INV-watch-provision: reports only a code and leaks no value through any argv, env, output or file", async () => {
 		const work = await tmp();
 		const state = join(work, "state");
 		const bin = await fakeOsascript(work, ` ${GOOD_URL} `, KEY);
@@ -218,11 +255,15 @@ describe("the provision CLI", () => {
 		await writeFile(join(work, "url.in"), `http://routines.example/${URL_TOKEN}`);
 		const bad = await cli(["--state-dir", state, "--osascript", bin]);
 		assert.deepEqual(bad, { code: 1, stdout: "webhook_url_not_https\n", stderr: "" });
-		assert.deepEqual(JSON.parse(await readFile(join(state, "webhook.json"), "utf8")), { url: GOOD_URL, key: KEY }, "the good config stays");
+		assert.deepEqual(
+			JSON.parse(await readFile(join(state, "webhook.json"), "utf8")),
+			{ url: GOOD_URL, key: KEY },
+			"the good config stays",
+		);
 		assertNoLeak(bad.stdout + (await everythingButConfig(state)), "failure output");
 	});
 
-	test("--detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
+	test("INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
 		const work = await tmp();
 		const state = join(work, "state");
 		const bin = await fakeOsascript(work, GOOD_URL, KEY);

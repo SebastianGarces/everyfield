@@ -2086,8 +2086,7 @@
       },
       "run_by": [
         "tests/integration/communication/opens.test.mts",
-        "tests/integration/meetings/meetings.test.mts",
-        "tests/ui/meetings/meetings.test.mjs"
+        "tests/integration/meetings/meetings.test.mts"
       ]
     },
     {
@@ -2307,9 +2306,7 @@
         "tests/integration/communication/communication.test.mts",
         "tests/integration/communication/held.test.mts",
         "tests/integration/communication/ui-reads.test.mts",
-        "tests/ui/communication/capture.test.mts",
-        "tests/ui/communication/communication.test.mjs",
-        "tests/ui/communication/drafts.test.mjs"
+        "tests/unit/communication/capture.test.mts"
       ]
     },
     {
@@ -3215,7 +3212,7 @@
           },
           "verified": true,
           "operation_ids": [
-            "notifications.syncMeetingReminders"
+            "notifications.enqueue"
           ],
           "environment": "isolated-test",
           "subject_actor": {
@@ -3235,7 +3232,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.syncMeetingReminders",
+        "operation": "notifications.enqueue",
         "arguments": {
           "meeting": "M"
         }
@@ -4637,6 +4634,116 @@
         "result": {
           "distinct_recipients": 1,
           "phantom_plant_created": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-NTF-016",
+      "requirement": "REQ-NTF-016",
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-016--NTF-016"
+      ],
+      "work_packages": [
+        "WP-028"
+      ],
+      "status": "future-not-run",
+      "description": "Person in plant P unsubscribes from P's Messages email by its one-click token; later P send to that Person and another, same address in Q, address change, merge, wrong-purpose and expired undo tokens.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "observed_state": "fixture-state-3"
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "mail-1": {
+          "fixture_type": "communication",
+          "id": "mail-1",
+          "plant": "P",
+          "status": "scheduled",
+          "recipients": [
+            "alex@example.test"
+          ],
+          "body": "Welcome Alex.",
+          "observed_state": "fixture-state-4"
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "now": "2026-10-13T16:00:00Z",
+          "method": "POST"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "communication.applyMessagesOptOut",
+        "arguments": {
+          "subject": "P",
+          "communication": "mail-1",
+          "method": "POST",
+          "one_click": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "later_send_refused_in_P": true,
+          "other_recipient_sent": true,
+          "same_address_in_Q_sent": true,
+          "address_change_lifts": false,
+          "staff_can_clear": false,
+          "unsubscribed_counted_separately": true,
+          "account_preference_changed": false,
+          "undo_after_one_hour_changes": false
         },
         "event": null
       }
@@ -8855,7 +8962,7 @@
           },
           "verified": true,
           "operation_ids": [
-            "notifications.cancelForEntity"
+            "notifications.syncTaskReminders"
           ],
           "environment": "isolated-test",
           "subject_actor": {
@@ -8875,7 +8982,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.cancelForEntity",
+        "operation": "notifications.syncTaskReminders",
         "arguments": {
           "entity": "T1"
         }

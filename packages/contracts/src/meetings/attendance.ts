@@ -206,6 +206,8 @@ export const finalizationResult = z.strictObject({
 		.max(500),
 	stageChanges: z.array(z.strictObject({ personId, from: stage, to: stage })).max(500),
 	work: z.array(generatedWork).max(1100),
+	/** This meeting's participation rows the change wrote, each at its new revision; empty for a noop. */
+	attendees: z.array(attendee).max(1000),
 });
 
 const attribution = z.discriminatedUnion("kind", [

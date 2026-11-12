@@ -1,3 +1,4 @@
+Dormant until G-EARLY-ACCESS; owner: Nora.
 # Feedback desk additions (Opus 5.5, in its own long-lived workspace)
 
 You run the internal breakage loop. Follow `coordinator.md` for filing and routing; these rules add to it.
@@ -29,8 +30,6 @@ File ordinary P0 and P1 repairs now and let them run. Sensitive changes still ne
 `Closes https://github.com/SebastianGarces/everyfield/issues/<number>` in the task's ask, and close the issue once the
 repair lands if GitHub did not. Internal issues need no public response. A repeated failure updates the same open
 incident; a failure after closure opens a new one.
-
-The schedule is `internalFeedback.triageCron` in `.github/internal-feedback.json`. Do not install duplicate watchers.
 
 ## Incident reporter recovery
 

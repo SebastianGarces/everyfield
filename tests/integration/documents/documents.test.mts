@@ -1,61 +1,36 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader } from "../../../packages/domain/src/documents/index.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
-import {
-	renderEngineVersion,
-	renderPreview,
-	renderTemplatePdf,
-} from "../../../packages/domain/src/documents/render.ts";
+import { renderEngineVersion } from "../../../packages/domain/src/documents/render.ts";
+import { renderPreview, renderTemplatePdf } from "../../../packages/domain/src/documents/library-render.ts";
 import { agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-meeting.ts";
 import { loadStarter, validateBundle } from "../../../packages/reference/src/index.ts";
 import { referenceArtifactSha256 } from "../../../packages/reference/src/playbook.ts";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp036_" + randomUUID().replaceAll("-", "");
-const roleName = "wp036_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-let db;
+const database = await fixture({ prefix: "wp036", plant: { name: "Harvest Point" } });
+const { admin } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
+];
 let canary: string;
 let foreignMeeting: string;
 let foreignTeam: string;
 const editedTitle = "Tenant edited copy";
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const authority = async (who = 0) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -70,45 +45,6 @@ const counts = async () => {
 const previewInput = (templateId: string, format: string, extra = {}) => ({ templateId, format, ...extra });
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${P},'Harvest Point','America/Chicago',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${Q},'Other Plant','America/New_York',7,14,1,8,1,1)`,
-	);
-	for (const [index, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	] as const)
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${seatRole},clock_timestamp())`,
-		);
 	const pastor = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
@@ -143,17 +79,11 @@ before(async () => {
 	await admin.execute(sql`INSERT INTO document(tenant_id,kind,title) VALUES(${P},'native',${editedTitle})`);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-describe("WP-036/api document templates", { concurrency: 1 }, () => {
-	test("CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
+describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
+	test("AC:CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve", async () => {
 		const owner = await authority(0);
 		const discovery = await authority(4);
 		assert.equal(discovery.actor.context.kind, "account");
@@ -222,7 +152,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		refused(await documentsReader["templates.list"](db, owner, { article: "g1" }), "invalid_input");
 	});
 
-	test("CASE-DOC-002 preview renders every format from the catalog and writes no rows", async () => {
+	test("AC:CASE-DOC-002 preview renders every format from the catalog and writes no rows", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
 		const before = await counts();
@@ -250,7 +180,8 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 					assert.equal(pdf.getTitle()?.includes("Harvest Point"), true);
 					assert.equal(pdf.getPageCount(), template.pageCount);
 					const size = pdf.getPage(0).getSize();
-					const card = ["commitment-card", "response-card"].includes(template.id);
+					// The response card is one card a page; the commitment card's file prints four to a Letter sheet.
+					const card = template.id === "response-card";
 					assert.deepEqual([size.width, size.height], card ? [306, 396] : [612, 792]);
 				} else {
 					assert.equal(bytes.subarray(0, 2).toString("latin1"), "PK");
@@ -260,6 +191,12 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 				}
 			}
 		}
+		// A format the template does not offer is refused, as a former Word template's docx is.
+		const word = refused(
+			await documentsReader.preview(db, owner, previewInput("vision-meeting-agenda", "docx")),
+			"invalid_input",
+		);
+		assert.equal(word.details.issues[0].problem, "Format is not on this template.");
 		const agenda = ok(await documentsReader.resolveContext(db, member, previewInput("vision-meeting-agenda", "pdf")));
 		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").value, "Pastor Ada");
 		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").source, "pastor_name");
@@ -352,7 +289,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal(await countOf("document"), 1);
 	});
 
-	test("GAP-REF-003 REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
+	test("AC:GAP-REF-003 AC:REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
 		const { templates, version } = await library();
 		// The 11 frozen catalog rows, then Bylaws and Prayer Letter, authored in code.
 		assert.equal(templates.length, 13);
@@ -389,7 +326,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal("rollbackActivation" in reference, false);
 	});
 
-	test("CASE-DOC-007 CASE-DOC-011 agendas print from the meeting itself and only from a live meeting of their kind", async () => {
+	test("AC:CASE-DOC-007 AC:CASE-DOC-011 agendas print from the meeting itself and only from a live meeting of their kind", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
 		const outsider = await authority(3);

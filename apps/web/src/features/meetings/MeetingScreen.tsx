@@ -13,7 +13,6 @@ import {
 	Undo02Icon,
 } from "@hugeicons/core-free-icons";
 import { localDate } from "@everyfield/contracts/common";
-import { statusTransitions } from "@everyfield/contracts/meetings";
 import {
 	Button,
 	buttonVariants,
@@ -93,6 +92,7 @@ import {
 	rsvpCounts,
 	RSVP_LABEL,
 	STATUS_ACTION,
+	statusMoves,
 	statusView,
 	TYPE_LABEL,
 	whenText,
@@ -105,7 +105,14 @@ import {
 import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { defaultTab, nextStep, pickTab, type Primary, type TabId } from "./next-step.ts";
 import { deleteFromList } from "./deletions.ts";
-import { applyChange, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
+import {
+	applyChange,
+	withAttendanceRevision,
+	withAttendees,
+	type Change,
+	type GuestRow,
+	type PageView,
+} from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import { RosterUpdate } from "./RosterUpdate.tsx";
 import type { MeetingPageData } from "./server.ts";
@@ -231,7 +238,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		onStale: () => stale(),
 	});
 	const final = data.attendance?.finalized != null;
-	// Owners, Admins and the leader of a team meeting mark attendance (C74); the server read says who may.
+	// Owners, Admins and the leader of a team meeting mark, finalize and correct attendance (C74, REQ-MTG-010, D-562);
+	// the server read says who may.
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
 	function submitSettle(input: SettleInput) {
 		const mode = settleLane.editing!.mode;
@@ -248,43 +256,48 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			form: { mode, input },
 			send: (key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
 			ok: ({ result, analytics }) => {
-				setData((d) => {
-					const next = d.attendance ? attendanceAfter(d.attendance, result) : null;
-					const present = new Map(next?.items.map((a) => [a.person.personId, a]));
-					return {
-						...d,
-						attendance: next,
-						analytics: analytics ?? d.analytics,
-						guests:
-							d.guests?.map((g) => {
-								const a = present.get(g.person.personId);
-								return a ? { ...g, presence: a.presence } : g;
-							}) ?? null,
-					};
-				});
+				// The rows the server wrote, at their new revisions, so the next save on any of them goes through.
+				setData((d) =>
+					withAttendees(
+						{
+							...d,
+							attendance: d.attendance && attendanceAfter(d.attendance, result),
+							analytics: analytics ?? d.analytics,
+						},
+						result.attendees,
+						result.attendanceRevision,
+					),
+				);
 				toast({ message: settledText(result, m.displayTitle, mode), tone: "success" });
 			},
-			// Out of date (F6): reload, then review again. A finalize starts from who is marked now; a correction keeps
-			// only the people this person added and removed, applied to the current list, and its reason.
-			refused: (code) => {
-				if (code !== "conflict") return;
-				const base = new Set(attended(attendance));
-				void stale().then((latest) => {
-					const now = latest?.attendance ? attended(latest.attendance) : null;
-					const ids =
-						mode === "reconcile" && now
-							? [
-									...now.filter((id) => !base.has(id) || input.attendeeIds.includes(id)),
-									...input.attendeeIds.filter((id) => !base.has(id) && !now.includes(id)),
-								]
-							: null;
-					settleLane.open({
-						mode,
-						input: ids ? { ...input, attendeeIds: ids } : null,
-						problem: !latest ? "conflict_unloaded" : ids ? "conflict_kept" : "conflict",
-					});
-				});
-			},
+			refused: (code) => code === "conflict" && settleConflict(mode, input, attendance),
+		});
+	}
+	/**
+	 * A finalize or correction, or its review, refused as out of date (F6): reload, then review again. A finalize starts
+	 * from who is marked now; a correction keeps only the people this person added and removed, applied to the current
+	 * list, and its reason.
+	 */
+	function settleConflict(
+		mode: SettleEditing["mode"],
+		input: SettleInput,
+		attendance: NonNullable<typeof data.attendance>,
+	) {
+		const base = new Set(attended(attendance));
+		void stale().then((latest) => {
+			const now = latest?.attendance ? attended(latest.attendance) : null;
+			const ids =
+				mode === "reconcile" && now
+					? [
+							...now.filter((id) => !base.has(id) || input.attendeeIds.includes(id)),
+							...input.attendeeIds.filter((id) => !base.has(id) && !now.includes(id)),
+						]
+					: null;
+			settleLane.open({
+				mode,
+				input: ids ? { ...input, attendeeIds: ids } : null,
+				problem: !latest ? "conflict_unloaded" : ids ? "conflict_kept" : "conflict",
+			});
 		});
 	}
 
@@ -371,7 +384,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const history = useEvaluationHistory(m.id);
 	const [historyOpen, setHistoryOpen] = useState(false);
 
-	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
+	const moves = statusMoves(m.type, m.status);
 	const held = m.occurrence.heldAt !== null;
 	// The next step (next-step.ts): one primary action and at most two secondary buttons.
 	const guestList = view.guests ?? [];
@@ -386,6 +399,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		status: m.status,
 		canWrite,
 		checkIn: marker && !final && canSettle,
+		canFinalize: marker,
 		guestCount: guestList.length,
 		final,
 		canSettle,
@@ -640,6 +654,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									meeting={m}
 									guests={view.guests && presence.shown(view.guests)}
 									emailOpens={data.emailOpens}
+									photos={data.photos}
 									cards={view.cards}
 									attendance={view.attendance}
 									presence={presence}
@@ -648,15 +663,24 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									project={project}
 									request={request}
 									invitesHref={next.toolbarInvites ? inviteHref : undefined}
-									onGuest={(g) =>
-										setData((d) => ({
-											...d,
-											guests: d.guests?.some((x) => x.id === g.id)
-												? d.guests.map((x) => (x.id === g.id ? g : x))
-												: [...(d.guests ?? []), g],
-										}))
+									onGuest={(g, revision) =>
+										setData((d) =>
+											withAttendanceRevision(
+												{
+													...d,
+													guests: d.guests?.some((x) => x.id === g.id)
+														? d.guests.map((x) => (x.id === g.id ? g : x))
+														: [...(d.guests ?? []), g],
+												},
+												revision,
+											),
+										)
 									}
-									onRemoved={(id) => setData((d) => ({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }))}
+									onRemoved={(id, revision) =>
+										setData((d) =>
+											withAttendanceRevision({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }, revision),
+										)
+									}
 									onCard={(personId, card) =>
 										setData((d) => ({
 											...d,
@@ -692,7 +716,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									meeting={m}
 									attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
 									analytics={data.analytics}
-									canWrite={canWrite}
+									canSettle={marker}
 									lane={settleLane}
 									blocked={presence.busy}
 									headerFinalize={next.primary === "finalize" || next.secondary.includes("finalize")}
@@ -740,6 +764,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								canWrite={canWrite}
 								printable={data.agendaTemplate !== null}
 								project={project}
+								onStale={stale}
 								onSaved={(agenda) =>
 									setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))
 								}
@@ -759,24 +784,30 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					onRetry={() => history.load(saved.revision)}
 				/>
 			) : null}
+			{marker && data.attendance && data.guests && settleLane.editing ? (
+				<NoticeInDialog {...settleLane.noticeProps}>
+					<SettleDialog
+						open
+						mode={settleLane.editing.mode}
+						meeting={m}
+						guests={data.guests}
+						attendance={data.attendance}
+						onSeats={warmSeats}
+						initial={settleLane.editing.input}
+						problem={settleLane.problem}
+						onClose={settleLane.close}
+						onSubmit={submitSettle}
+						onConflict={(input) => {
+							// The open review closes as a refused submit does, and opens again on the latest page.
+							const mode = settleLane.editing!.mode;
+							settleLane.close();
+							settleConflict(mode, input, data.attendance!);
+						}}
+					/>
+				</NoticeInDialog>
+			) : null}
 			{canWrite ? (
 				<>
-					{data.attendance && data.guests && settleLane.editing ? (
-						<NoticeInDialog {...settleLane.noticeProps}>
-							<SettleDialog
-								open
-								mode={settleLane.editing.mode}
-								meeting={m}
-								guests={data.guests}
-								attendance={data.attendance}
-								onSeats={warmSeats}
-								initial={settleLane.editing.input}
-								problem={settleLane.problem}
-								onClose={settleLane.close}
-								onSubmit={submitSettle}
-							/>
-						</NoticeInDialog>
-					) : null}
 					{vision && evaluationLane.editing ? (
 						<NoticeInDialog {...evaluationLane.noticeProps}>
 							<EvaluationDialog
@@ -798,6 +829,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						meeting={preview ?? data.meeting}
 						onSaved={setMeeting}
 						onPreview={setPreview}
+						onStale={stale}
 					/>
 					<NoticeInDialog {...meetingLane.noticeProps}>
 						{meetingLane.editing?.kind === "held" ? (

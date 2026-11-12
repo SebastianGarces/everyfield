@@ -94,7 +94,7 @@ const discoverySchema = z.object({
 	articles: z.array(z.object({ id: z.uuid() }).passthrough()).length(approvedWiki.discoveryArticles),
 });
 
-export interface ApprovedArticle {
+interface ApprovedArticle {
 	id: string;
 	slug: string;
 	title: string;
@@ -106,7 +106,7 @@ export interface ApprovedArticle {
 	contentSha256: string;
 	relatedSlugs: readonly string[];
 }
-export interface ApprovedSection {
+interface ApprovedSection {
 	id: string;
 	slug: string;
 	name: string;
@@ -115,7 +115,7 @@ export interface ApprovedSection {
 	position: number;
 	recordSha256: string;
 }
-export interface ApprovedTemplate {
+interface ApprovedTemplate {
 	name: string;
 	subject: string;
 	body: string;

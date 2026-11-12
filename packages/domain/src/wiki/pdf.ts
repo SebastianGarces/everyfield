@@ -1,23 +1,19 @@
 import "server-only";
-import { fenceAt, fenceContent, type Diagram, type HierarchyNode } from "@everyfield/contracts/wiki";
+import type { Diagram, HierarchyNode, WikiBlock as Block } from "@everyfield/contracts/wiki";
 
-export type PdfRenderMeta = { filename: string; source: string };
-export type PdfRenderer = (title: string, body: string, meta?: PdfRenderMeta) => Uint8Array;
+/** `credit` is a human credit (see `humanCredit`) or null, and never a source path or digest. */
+export type PdfRenderMeta = { filename: string; credit: string | null };
+export type PdfRenderer = (title: string, blocks: readonly Block[], meta?: PdfRenderMeta) => Uint8Array;
 
 const BODY_LINES = 46;
-const WRAP = 90;
+/** Helvetica at 11pt across the 468pt text width, in 1/1000 em. */
+const TEXT_WIDTH = (468 * 1000) / 11;
 /** Courier at 10pt is 6pt a character, so 78 characters fill the 468pt text width. Code lines break there. */
 const CODE_WIDTH = 78;
+/** Four spaces of Helvetica at 11pt, in 1/1000 em: a quote's indent. */
+const QUOTE_INDENT = 4 * 278;
 
-function escapePdf(text: string): string {
-	return text
-		.replace(/[^\n\x20-\x7e]/g, "?")
-		.replace(/\\/g, "\\\\")
-		.replace(/\(/g, "\\(")
-		.replace(/\)/g, "\\)");
-}
-
-export function escapeHtml(text: string): string {
+function escapeHtml(text: string): string {
 	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
@@ -26,98 +22,155 @@ export function pdfFilename(slug: string): string {
 	return `${clean || "article"}.pdf`;
 }
 
-type Block =
+/** cp1252 bytes 0x80 to 0x9f. NUL marks the five unassigned bytes. */
+const CP1252_HIGH = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0\0‘’“”•–—˜™š›œ\0žŸ";
+const WIN_ANSI = new Map<string, number>();
+for (let byte = 0x20; byte <= 0x7e; byte++) WIN_ANSI.set(String.fromCharCode(byte), byte);
+for (let byte = 0xa0; byte <= 0xff; byte++) WIN_ANSI.set(String.fromCharCode(byte), byte);
+[...CP1252_HIGH].forEach((char, index) => {
+	if (char !== "\0") WIN_ANSI.set(char, 0x80 + index);
+});
+
+/**
+ * Text as WinAnsi bytes, one char per byte. A letter outside WinAnsi prints as its base letter when it has one
+ * (ő as o), anything else as "?".
+ */
+function winAnsi(text: string): string {
+	let out = "";
+	for (const char of text.replace(/\t/g, "    ")) {
+		const byte = WIN_ANSI.get(char);
+		if (byte !== undefined) {
+			out += String.fromCharCode(byte);
+			continue;
+		}
+		const base = char.normalize("NFKD").replace(/\p{M}/gu, "");
+		const bytes = [...base].map((part) => WIN_ANSI.get(part));
+		out += base && bytes.every((part) => part !== undefined) ? String.fromCharCode(...(bytes as number[])) : "?";
+	}
+	return out;
+}
+
+/** A PDF string literal body for WinAnsi bytes. */
+function pdfString(text: string): string {
+	return winAnsi(text).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+/** Helvetica advance widths for bytes 0x20 to 0x7e (Adobe AFM). */
+const HELVETICA = [
+	278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556,
+	556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833,
+	722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556,
+	556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334,
+	260, 334, 584,
+];
+const HIGH_WIDTH: Record<string, number> = {
+	"…": 1000,
+	"—": 1000,
+	"™": 1000,
+	"‘": 222,
+	"’": 222,
+	"“": 333,
+	"”": 333,
+	"•": 350,
+};
+
+function byteWidth(char: string): number {
+	const code = char.charCodeAt(0);
+	if (code >= 0x20 && code <= 0x7e) return HELVETICA[code - 0x20] ?? 556;
+	const decoded = code >= 0x80 && code <= 0x9f ? (CP1252_HIGH[code - 0x80] ?? "") : char;
+	const known = HIGH_WIDTH[decoded];
+	if (known) return known;
+	const base = decoded.normalize("NFD")[0] ?? "";
+	const baseCode = base.charCodeAt(0);
+	return baseCode >= 0x20 && baseCode <= 0x7e ? (HELVETICA[baseCode - 0x20] ?? 556) : 556;
+}
+
+/** The printed width of text in Helvetica, in 1/1000 em. */
+export function helveticaWidth(text: string): number {
+	let width = 0;
+	for (const char of winAnsi(text)) width += byteWidth(char);
+	return width;
+}
+
+/** Prose broken at spaces into lines that fit the text width. A word longer than a line breaks inside it. */
+function wrapText(text: string, width = TEXT_WIDTH): string[] {
+	if (helveticaWidth(text) <= width) return [text];
+	const lines: string[] = [];
+	let line = "";
+	for (const word of text.split(" ")) {
+		const joined = line ? `${line} ${word}` : word;
+		if (helveticaWidth(joined) <= width) {
+			line = joined;
+			continue;
+		}
+		if (line) lines.push(line);
+		line = word;
+		while (helveticaWidth(line) > width) {
+			let cut = 1;
+			while (cut < line.length && helveticaWidth(line.slice(0, cut + 1)) <= width) cut++;
+			lines.push(line.slice(0, cut));
+			line = line.slice(cut);
+		}
+	}
+	if (line) lines.push(line);
+	return lines;
+}
+
+/**
+ * Inline markdown as the words a reader sees: code spans keep their text, links and images keep their label, bold,
+ * italic and strike markers and inline tags go.
+ */
+function plainInline(text: string): string {
+	return text
+		.split(/(`+[^`]*?`+)/)
+		.map((part, index) => {
+			if (index % 2 === 1) return part.replace(/^(`+)\s?([\s\S]*?)\s?\1$/, "$2");
+			return (
+				part
+					.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+					.replace(/<\/?[A-Za-z][^>]*>/g, "")
+					.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1")
+					.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
+					.replace(/(?<![\w*])\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, "$1")
+					// One underscore each side, so fill-in blanks (`____`) and `__dunder__` words stay as written.
+					.replace(/(?<![\w_])_(?=[^\s_])([\s\S]*?[^\s_])_(?![\w_])/g, "$1")
+					.replace(/\\([!-/:-@[-`{-~])/g, "$1")
+			);
+		})
+		.join("");
+}
+
+/** A block as the export shows it. Text keeps its inline markers; each writer strips them. */
+type Shown =
 	| { kind: "heading"; level: number; text: string }
-	| { kind: "paragraph"; text: string }
-	| { kind: "list"; items: string[] }
+	| { kind: "paragraph"; lines: string[] }
+	| { kind: "quote"; lines: string[] }
+	| { kind: "list"; ordered: boolean; items: string[] }
 	| { kind: "table"; rows: string[][] }
-	| { kind: "callout"; text: string }
+	| { kind: "callout"; lines: string[] }
 	| { kind: "code"; text: string }
 	| { kind: "diagram"; diagram: Diagram };
 
-function cells(line: string): string[] {
-	return line
-		.split("|")
-		.map((cell) => cell.trim())
-		.filter((cell) => cell.length > 0 && !/^:?-+:?$/.test(cell));
-}
-
-/** Rendered article blocks. Markdown markers become structure. Every content line stays. */
-export function articleBlocks(body: string): Block[] {
-	const blocks: Block[] = [];
-	const lines = body.split(/\n/);
-	let index = 0;
-	const pushParagraph = (text: string) => {
-		if (text.trim()) blocks.push({ kind: "paragraph", text: text.trim() });
-	};
-	while (index < lines.length) {
-		const line = lines[index] ?? "";
-		const fence = fenceAt(lines, index);
-		if (fence) {
-			// A fence is never markdown. A diagram that does not parse prints its source, like any code.
-			blocks.push(fenceContent(fence));
-			index = fence.end;
-			continue;
-		}
-		const trimmed = line.trim();
-		if (!trimmed) {
-			index += 1;
-			continue;
-		}
-		const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-		if (heading?.[1] && heading[2]) {
-			blocks.push({ kind: "heading", level: heading[1].length, text: heading[2].trim() });
-			index += 1;
-			continue;
-		}
-		if (/^<Callout\b/.test(trimmed)) {
-			const inline = trimmed
-				.replace(/^<Callout\b[^>]*>/, "")
-				.replace(/<\/Callout>\s*$/, "")
-				.trim();
-			const inner: string[] = inline ? [inline] : [];
-			if (!trimmed.includes("</Callout>")) {
-				index += 1;
-				while (index < lines.length && !(lines[index] ?? "").includes("</Callout>")) {
-					const text = (lines[index] ?? "").trim();
-					if (text) inner.push(text);
-					index += 1;
-				}
-			}
-			blocks.push({ kind: "callout", text: inner.join("\n") });
-			index += 1;
-			continue;
-		}
-		if (trimmed === "</Callout>" || trimmed === "---") {
-			index += 1;
-			continue;
-		}
-		if (trimmed.startsWith("|")) {
-			const rows: string[][] = [];
-			while (index < lines.length && (lines[index] ?? "").trim().startsWith("|")) {
-				const row = cells(lines[index] ?? "");
-				if (row.length) rows.push(row);
-				index += 1;
-			}
-			if (rows.length) blocks.push({ kind: "table", rows });
-			continue;
-		}
-		const item = /^(?:[-*]|\d+\.)\s+(.+)$/.exec(trimmed);
-		if (item?.[1]) {
-			const items: string[] = [];
-			while (index < lines.length) {
-				const next = /^(?:[-*]|\d+\.)\s+(.+)$/.exec((lines[index] ?? "").trim());
-				if (!next?.[1]) break;
-				items.push(next[1].trim());
-				index += 1;
-			}
-			blocks.push({ kind: "list", items });
-			continue;
-		}
-		pushParagraph(trimmed);
-		index += 1;
+/** The reader's blocks for export: blank lines, breaks and empty components drop out. */
+function shown(blocks: readonly Block[]): Shown[] {
+	const out: Shown[] = [];
+	const lines = (text: string) => text.split("\n").filter((line) => line.trim().length > 0);
+	for (const block of blocks) {
+		if (block.kind === "heading") out.push({ kind: "heading", level: block.level, text: block.text });
+		else if (block.kind === "paragraph") out.push({ kind: "paragraph", lines: block.paragraphs.flatMap(lines) });
+		else if (block.kind === "quote") out.push({ kind: "quote", lines: lines(block.text) });
+		else if (block.kind === "list") out.push({ kind: "list", ordered: block.ordered, items: block.items });
+		else if (block.kind === "table") {
+			if (block.rows.length) out.push({ kind: "table", rows: block.rows });
+		} else if (block.kind === "callout") {
+			if (block.text) out.push({ kind: "callout", lines: lines(block.text) });
+		} else if (block.kind === "component") {
+			// Any other component prints what it says without its tags.
+			if (block.text) out.push({ kind: "paragraph", lines: lines(block.text) });
+		} else if (block.kind === "code") out.push({ kind: "code", text: block.text });
+		else if (block.kind === "diagram") out.push({ kind: "diagram", diagram: block.diagram });
 	}
-	return blocks;
+	return out;
 }
 
 /** One printed line. Code lines print in Courier, every other line in Helvetica. */
@@ -145,19 +198,22 @@ function diagramText(diagram: Diagram): string[] {
 	return lines;
 }
 
-function visibleLines(title: string, body: string, filename: string): Line[] {
+function visibleLines(title: string, blocks: readonly Block[], filename: string): Line[] {
 	const lines: Line[] = [{ text: filename }, { text: title }];
-	const prose = (text: string) => lines.push(...wrap(text).map((part) => ({ text: part })));
-	for (const block of articleBlocks(body)) {
-		if (block.kind === "heading" || block.kind === "paragraph" || block.kind === "callout") {
-			for (const line of block.text.split("\n")) prose(line);
-		} else if (block.kind === "list") {
-			for (const item of block.items) prose(item);
-		} else if (block.kind === "table") {
-			for (const row of block.rows) prose(row.join(" | "));
-		} else if (block.kind === "diagram") {
-			for (const line of diagramText(block.diagram)) prose(line);
-		} else {
+	const raw = (text: string) => lines.push(...wrapText(text).map((part) => ({ text: part })));
+	const prose = (text: string) => raw(plainInline(text));
+	for (const block of shown(blocks)) {
+		if (block.kind === "heading") prose(block.text);
+		else if (block.kind === "paragraph" || block.kind === "callout") block.lines.forEach(prose);
+		// A quote is indented under the text around it.
+		else if (block.kind === "quote")
+			for (const line of block.lines)
+				lines.push(...wrapText(plainInline(line), TEXT_WIDTH - QUOTE_INDENT).map((part) => ({ text: `    ${part}` })));
+		else if (block.kind === "list")
+			block.items.forEach((item, index) => prose(block.ordered ? `${index + 1}. ${item}` : `• ${item}`));
+		else if (block.kind === "table") for (const row of block.rows) raw(row.map(plainInline).join(" | "));
+		else if (block.kind === "diagram") diagramText(block.diagram).forEach(raw);
+		else {
 			// Code keeps its leading spaces and breaks only at the page width.
 			for (const line of block.text.split("\n"))
 				for (let i = 0; i === 0 || i < line.length; i += CODE_WIDTH)
@@ -165,13 +221,6 @@ function visibleLines(title: string, body: string, filename: string): Line[] {
 		}
 	}
 	return lines;
-}
-
-function wrap(line: string): string[] {
-	if (line.length <= WRAP) return [line];
-	const parts: string[] = [];
-	for (let i = 0; i < line.length; i += WRAP) parts.push(line.slice(i, i + WRAP));
-	return parts;
 }
 
 function pageStream(lines: Line[], footer: string): string {
@@ -182,13 +231,14 @@ function pageStream(lines: Line[], footer: string): string {
 			code = !!line.code;
 			commands.push(code ? "/F2 10 Tf" : "/F1 11 Tf");
 		}
-		const text = `(${escapePdf(line.text)}) Tj`;
+		const text = `(${pdfString(line.text)}) Tj`;
 		commands.push(index === 0 ? text : `T* ${text}`);
 	});
-	commands.push("ET", "BT", "/F1 9 Tf", `72 40 Td (${escapePdf(footer)}) Tj`, "ET");
+	commands.push("ET", "BT", "/F1 9 Tf", `72 40 Td (${pdfString(footer)}) Tj`, "ET");
 	return commands.join("\n");
 }
 
+/** The file as bytes. Every string holds one char per byte, so it is written as latin1. */
 function pdfBytes(streams: string[], filename: string): Uint8Array {
 	const fontObject = 3 + streams.length * 2;
 	const codeFont = fontObject + 1;
@@ -200,56 +250,60 @@ function pdfBytes(streams: string[], filename: string): Uint8Array {
 		objects.push(
 			`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${content} 0 R /Resources << /Font << /F1 ${fontObject} 0 R /F2 ${codeFont} 0 R >> >> >>`,
 		);
-		objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+		objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
 	});
-	objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-	objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>");
-	objects.push(`<< /Title (${escapePdf(filename)}) /Producer (Everyfield) >>`);
-	let pdf = "%PDF-1.4\n";
+	objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+	objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
+	objects.push(`<< /Title (${pdfString(filename)}) /Producer (Everyfield) >>`);
+	let pdf = "%PDF-1.4\n%\xe2\xe3\xcf\xd3\n";
 	const offsets = [0];
 	objects.forEach((object, index) => {
-		offsets.push(Buffer.byteLength(pdf));
+		offsets.push(pdf.length);
 		pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
 	});
-	const xref = Buffer.byteLength(pdf);
+	const xref = pdf.length;
 	pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
 	for (let index = 1; index < offsets.length; index += 1)
 		pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
 	pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info ${infoObject} 0 R >>\nstartxref\n${xref}\n%%EOF`;
-	return Buffer.from(pdf);
+	return Buffer.from(pdf, "latin1");
 }
 
-/** Paginated PDF. Helvetica and Courier are standard. Each page keeps a filename, the article lines, and a source footer. */
-export function helveticaPdf(title: string, body: string, meta?: PdfRenderMeta): Uint8Array {
+/**
+ * Paginated PDF in the standard Helvetica and Courier with WinAnsi text. Each page keeps the filename, the article
+ * lines, and a footer with the human credit, when there is one, and the page number.
+ */
+export function helveticaPdf(title: string, blocks: readonly Block[], meta?: PdfRenderMeta): Uint8Array {
 	const filename = meta?.filename ?? "article.pdf";
-	const source = meta?.source ?? "";
-	const lines = visibleLines(title, body, filename);
+	const credit = meta?.credit ?? null;
+	const lines = visibleLines(title, blocks, filename);
+	const pages = Math.ceil(lines.length / BODY_LINES);
 	const streams: string[] = [];
 	for (let start = 0; start < lines.length; start += BODY_LINES) {
-		const page = Math.floor(start / BODY_LINES) + 1;
-		const pages = Math.ceil(lines.length / BODY_LINES);
-		streams.push(pageStream(lines.slice(start, start + BODY_LINES), `${source}  ${page}/${pages}`));
+		const page = `${Math.floor(start / BODY_LINES) + 1}/${pages}`;
+		streams.push(pageStream(lines.slice(start, start + BODY_LINES), credit ? `${credit}  ${page}` : page));
 	}
 	return pdfBytes(streams, filename);
 }
 
-function htmlBlock(block: Block): string {
+const text = (value: string) => escapeHtml(plainInline(value));
+
+function htmlBlock(block: Shown): string {
 	if (block.kind === "heading") {
 		const level = Math.min(Math.max(block.level, 1), 6);
-		return `<h${level}>${escapeHtml(block.text)}</h${level}>`;
+		return `<h${level}>${text(block.text)}</h${level}>`;
 	}
-	if (block.kind === "paragraph") return `<p>${escapeHtml(block.text)}</p>`;
-	if (block.kind === "callout")
-		return `<aside>${block.text
-			.split("\n")
-			.map((line) => `<p>${escapeHtml(line)}</p>`)
-			.join("")}</aside>`;
-	if (block.kind === "list") return `<ul>${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+	if (block.kind === "paragraph") return block.lines.map((line) => `<p>${text(line)}</p>`).join("");
+	if (block.kind === "quote")
+		return `<blockquote>${block.lines.map((line) => `<p>${text(line)}</p>`).join("")}</blockquote>`;
+	if (block.kind === "callout") return `<aside>${block.lines.map((line) => `<p>${text(line)}</p>`).join("")}</aside>`;
+	if (block.kind === "list") {
+		const tag = block.ordered ? "ol" : "ul";
+		return `<${tag}>${block.items.map((item) => `<li>${text(item)}</li>`).join("")}</${tag}>`;
+	}
 	if (block.kind === "code") return `<pre><code>${escapeHtml(block.text)}</code></pre>`;
 	if (block.kind === "diagram") return diagramHtml(block.diagram);
-	const rows = block.rows
-		.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
-		.join("");
+	const rows = block.rows.map((row) => `<tr>${row.map((cell) => `<td>${text(cell)}</td>`).join("")}</tr>`).join("");
 	return `<table>${rows}</table>`;
 }
 
@@ -267,9 +321,9 @@ function diagramHtml(diagram: Diagram): string {
 }
 
 /** The same rendered article as the PDF, as HTML. The body is not raw MDX in a pre element. */
-export function printHtml(title: string, body: string, meta?: PdfRenderMeta): string {
+export function printHtml(title: string, blocks: readonly Block[], meta?: PdfRenderMeta): string {
 	const filename = meta?.filename ?? "article.pdf";
-	const source = meta?.source ?? "";
-	const rendered = articleBlocks(body).map(htmlBlock).join("");
-	return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body><p>${escapeHtml(filename)}</p><h1>${escapeHtml(title)}</h1>${rendered}<footer>${escapeHtml(source)}</footer></body></html>`;
+	const credit = meta?.credit ?? null;
+	const rendered = shown(blocks).map(htmlBlock).join("");
+	return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body><p>${escapeHtml(filename)}</p><h1>${escapeHtml(title)}</h1>${rendered}<footer>${credit ? escapeHtml(credit) : ""}</footer></body></html>`;
 }

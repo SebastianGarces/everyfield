@@ -1,4 +1,5 @@
-// WP-036 criterion 1: the zod parser for everyfield.doc/1 in packages/contracts ports schema.json and format.js.
+// WP-036 criterion 1: the zod parser for everyfield.doc/1 in packages/contracts ports the retired approach-a prototype.
+// Its schema.json, examples and invalid samples now live in fixtures/format/.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
@@ -14,7 +15,7 @@ import {
 	tileBox,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 
-const design = new URL("../../../design/doc-format/approach-a/", import.meta.url);
+const design = new URL("./fixtures/format/", import.meta.url);
 const read = (rel: string) => JSON.parse(readFileSync(new URL(rel, design), "utf8"));
 const issues = (doc: unknown) => {
 	const parsed = everyfieldDoc.safeParse(doc);
@@ -22,12 +23,14 @@ const issues = (doc: unknown) => {
 };
 const ledgerOf = (doc: any) => doc.body.content.find((b: any) => b.type === "table" && b.attrs.style === "ledger");
 
-test("the schema object is the design schema.json", () => {
+test("INV-doc-format: the schema object is the design schema.json plus the later `if` node the design names", () => {
 	const { $comment: _comment, ...file } = read("schema.json");
-	assert.deepEqual(JSON.parse(JSON.stringify(FORMAT_SCHEMA)), file);
+	const { if: conditional, ...nodes } = JSON.parse(JSON.stringify(FORMAT_SCHEMA.nodes));
+	assert.deepEqual({ ...JSON.parse(JSON.stringify(FORMAT_SCHEMA)), nodes }, file);
+	assert.deepEqual(Object.keys(conditional.attrs), ["field", "test", "value"]);
 });
 
-test("the four examples parse and each invalid sample fails with its exact message", () => {
+test("INV-doc-format: the four examples parse and each invalid sample fails with its exact message", () => {
 	const names = readdirSync(new URL("examples/", design)).sort();
 	assert.deepEqual(names, [
 		"budget-worksheet.json",
@@ -55,13 +58,13 @@ test("the four examples parse and each invalid sample fails with its exact messa
 	]);
 });
 
-test("the card sheet puts four 4.25 x 5.5 in cards on one Letter page", () => {
+test("AC:CASE-DOC-004 the card sheet puts four 4.25 x 5.5 in cards on one Letter page", () => {
 	const card = read("examples/commitment-card-sheet.json");
 	assert.equal(card.page.tile.across * card.page.tile.down, 4);
 	assert.deepEqual(tileBox(card.page), { width: 306, height: 396 });
 });
 
-test("a changed amount updates its category total and the grand total", () => {
+test("AC:CASE-DOC-013 a changed amount updates its category total and the grand total", () => {
 	const budget = structuredClone(read("examples/budget-worksheet.json"));
 	const table = ledgerOf(budget);
 	const rows = table.content;
@@ -82,7 +85,7 @@ test("a changed amount updates its category total and the grand total", () => {
 	assert.deepEqual(issues(budget), []);
 });
 
-test("formulas follow arithmetic order, sum a column range and name their faults", () => {
+test("INV-doc-format: formulas follow arithmetic order, sum a column range and name their faults", () => {
 	const money = (id: string) => ({ id, label: id, type: "money" as const, width: 0 });
 	const table = {
 		type: "table" as const,
@@ -114,7 +117,7 @@ test("formulas follow arithmetic order, sum a column range and name their faults
 	assert.throws(() => parseFormula("a b"), /extra text after a complete expression/);
 });
 
-test("a fork records its template, version and hash, freezes its data and survives a full wipe", async () => {
+test("AC:CASE-DOC-022 a fork records its template, version and hash, freezes its data and survives a full wipe", async () => {
 	const template = read("examples/conflict-of-interest-policy.json");
 	const doc = await forkTemplate(template, { data: { church_name: "Harbor City Church", unknown: "x" } });
 	assert.equal(doc.kind, "document");
@@ -136,7 +139,7 @@ test("a fork records its template, version and hash, freezes its data and surviv
 	assert.notEqual(await templateHash({ ...template, version: 2 }), doc.origin!.hash);
 });
 
-test("the kind parsers refuse the other kind", async () => {
+test("INV-doc-format: the kind parsers refuse the other kind", async () => {
 	const template = read("examples/guest-sign-in-sheet.json");
 	assert.match(docDocument.safeParse(template).error?.issues[0]?.message ?? "", /takes a document, not a template/);
 	const doc = await forkTemplate(template, {});
@@ -145,7 +148,7 @@ test("the kind parsers refuse the other kind", async () => {
 	assert.equal(everyfieldDoc.safeParse([{ kind: "paragraph", text: "old body" }]).success, false);
 });
 
-test("the validator names each structural fault and each size limit", () => {
+test("INV-doc-format: the validator names each structural fault and each size limit", () => {
 	const base = read("examples/guest-sign-in-sheet.json");
 	const long = "x".repeat(20_001);
 	const cases: [(d: any) => void, RegExp][] = [
@@ -219,5 +222,22 @@ test("the validator names each structural fault and each size limit", () => {
 			found.some((e) => message.test(e)),
 			`${message}: got ${JSON.stringify(found).slice(0, 400)}`,
 		);
+	}
+});
+
+test("AC:CASE-DOC-020 a slot takes an optional key, a lowercase slug, and keeps it through a parse and a fork", async () => {
+	const template = read("examples/conflict-of-interest-policy.json");
+	const keyed = { type: "slot", attrs: { label: "Statement of faith", key: "statement-of-faith" }, content: [] };
+	const unkeyed = { type: "slot", attrs: { label: "Statement of faith" }, content: [] };
+	template.body.content.push(keyed, unkeyed);
+	assert.deepEqual(issues(template), []);
+	const doc = await forkTemplate(template, { data: { church_name: "Harbor City Church" } });
+	const parsed = docDocument.parse(JSON.parse(JSON.stringify(doc)));
+	const slots = parsed.body.content!.filter((b) => b.type === "slot");
+	assert.deepEqual(slots, [keyed, unkeyed], "the key stays as stored, and no key is added where none was");
+	for (const bad of ["Statement of faith", "statement_of_faith", ""]) {
+		const withBad = read("examples/conflict-of-interest-policy.json");
+		withBad.body.content.push({ type: "slot", attrs: { key: bad }, content: [] });
+		assert.match(issues(withBad).join("\n"), /is not an id \(lowercase letters, digits and hyphens\)/, bad);
 	}
 });

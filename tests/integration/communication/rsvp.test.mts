@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src/meetings/index.ts";
 import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 // REQ-COM-010, REQ-MTG-018: an invitation email carries each guest's own RSVP link, minted when the send is handed off.
 
@@ -17,15 +18,6 @@ const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
 const key = () => randomUUID();
 const sha = (token) => createHash("sha256").update(token).digest("hex");
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (op, input) =>
 	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
@@ -216,13 +208,16 @@ test("AC:COM-010 a link lasts to the later of seven days and the meeting start",
 	await guest(far, farGuest);
 	await guest(near, nearGuest);
 	ok(await (await send(far, [farGuest])).dispatch());
-	const before = Date.now();
+	const dbNow = async () => Date.parse((await rows(sql`SELECT clock_timestamp()::text AS t`))[0].t);
+	const earliest = await dbNow();
 	ok(await (await send(near, [nearGuest])).dispatch());
+	const latest = await dbNow();
 	const [farMeeting] = await rows(sql`SELECT starts_at FROM meeting WHERE id = ${far}`);
 	const farExpiry = (await guestRow(far, farGuest)).rsvp_token_expires_at;
 	assert.equal(farExpiry.getTime(), new Date(farMeeting.starts_at).getTime());
 	const nearExpiry = (await guestRow(near, nearGuest)).rsvp_token_expires_at.getTime();
-	assert.ok(Math.abs(nearExpiry - (before + 7 * day)) < 60_000, String(nearExpiry - before));
+	// Seven days from the send, by the database clock read around it.
+	assert.ok(nearExpiry >= earliest + 7 * day && nearExpiry <= latest + 7 * day + 1, String(nearExpiry - earliest));
 });
 
 test("INV-idempotency: a repeated handoff mints nothing and a new send supersedes the older link", async () => {
