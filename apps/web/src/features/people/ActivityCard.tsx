@@ -1,16 +1,6 @@
 "use client";
 
-import {
-	ArrowTurnBackwardIcon,
-	Delete02Icon,
-	Edit02Icon,
-	GitMergeIcon,
-	Home01Icon,
-	Note01Icon,
-	Route01Icon,
-	TaskDone01Icon,
-	UserEdit01Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowTurnBackwardIcon, Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
 	Button,
@@ -28,15 +18,15 @@ import {
 	StatePanel,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { TINT, type Tone } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { TINT } from "@everyfield/ui/display";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
 import { CHANNEL_LABEL } from "../followups/model.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
-import { householdChange } from "./fields/model.ts";
-import { runSave, STAGE_LABEL, type PersonStore } from "./model.ts";
+import { describe } from "./activity.ts";
+import { runSave, type PersonStore } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
@@ -59,31 +49,6 @@ const savedAt =
 		revision: v.personRevision,
 	});
 type NoteEdit = { body: string; reason: string };
-
-const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
-	created: "Added to People",
-	updated: "Details changed",
-	retired: "Retired",
-	restored: "Restored",
-	classification_recorded: "Adult or child recorded",
-	classification_corrected: "Adult or child corrected",
-	assessment_recorded: "4 C's assessment recorded",
-	interview_recorded: "Interview recorded",
-	commitment_recorded: "Commitment recorded",
-	commitment_withdrawn: "Commitment withdrawn",
-	commitment_reactivated: "Commitment reactivated",
-	commitment_corrected: "Commitment corrected",
-	assessment_corrected: "4 C's assessment edited",
-	interview_corrected: "Interview edited",
-	person_merged: "A duplicate was merged into this person",
-	person_unmerged: "A merge was undone",
-};
-const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
-	contacted: "Follow-up: contacted",
-	attempted_no_contact: "Follow-up: tried, no contact",
-	administrative_completion: "Follow-up closed by an administrator",
-	no_longer_needed: "Follow-up no longer needed",
-};
 
 /**
  * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, newest first, in the
@@ -432,36 +397,6 @@ function Row({
 			</div>
 		</li>
 	);
-}
-
-function describe(item: Item, by: string): { title: string; icon: IconSvgElement; tone: Tone } {
-	switch (item.kind) {
-		case "note":
-			return { title: "Note", icon: Note01Icon, tone: "violet" };
-		case "note_removed":
-			return { title: `Note deleted by ${by === "You" ? "you" : by.toLowerCase()}`, icon: Delete02Icon, tone: "ink" };
-		case "stage_changed":
-			return {
-				title: `Stage changed from ${STAGE_LABEL[item.from].toLowerCase()} to ${STAGE_LABEL[item.to].toLowerCase()}`,
-				icon: Route01Icon,
-				tone: "green",
-			};
-		case "activity":
-			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
-			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
-			if (item.action === "person_merged" || item.action === "person_unmerged")
-				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
-			return {
-				// A record that advanced the stage says so in the same entry (REQ-PPL-020).
-				title: item.stage
-					? `${ACTION[item.action]}. Stage moved from ${STAGE_LABEL[item.stage.from].toLowerCase()} to ${STAGE_LABEL[item.stage.to].toLowerCase()}`
-					: ACTION[item.action],
-				icon: UserEdit01Icon,
-				tone: "blue",
-			};
-		case "follow_up":
-			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
-	}
 }
 
 function DeleteNoteDialog({
