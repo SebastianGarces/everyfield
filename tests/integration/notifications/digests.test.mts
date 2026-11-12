@@ -4,7 +4,12 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
+import {
+	compilePlanterDigest,
+	createNotificationProducer,
+	issueEmailOptOutToken,
+} from "../../../packages/domain/src/notifications/index.ts";
+import { defaultTitle } from "../../../packages/contracts/src/common/index.ts";
 import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../apps/web/src/server/jobs/digest.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
@@ -178,6 +183,39 @@ async function dispatchAll() {
 	for (let claim = (await claimDue(runtime, ["mail"]))[0]; claim; claim = (await claimDue(runtime, ["mail"]))[0])
 		await mail.dispatch(claim);
 }
+test("com-28: the digest names an untitled meeting as the app does, for every meeting type", async () => {
+	const zone = "America/Chicago";
+	const plant = await church("Titles Church", zone, { weekday: 1, hour: 8 });
+	const who = await person("tia");
+	await seat(who.id, { plant });
+	const team = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${plant},'Hospitality','active',1)`,
+	);
+	const meetings = [
+		{ type: "vision_meeting", visionNumber: 4 },
+		{ type: "vision_meeting", visionNumber: null },
+		{ type: "orientation", visionNumber: null },
+		{ type: "team_meeting", visionNumber: null },
+		{ type: "prelaunch_practice", visionNumber: null },
+	] as const;
+	for (const [n, m] of meetings.entries())
+		await admin.execute(sql`INSERT INTO meeting(plant_id,type,title,vision_number,team_id,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+			VALUES(${plant},${m.type},${n === 2 ? "  " : null},${m.visionNumber},${m.type === "team_meeting" ? team : null},${`2026-12-0${n + 1}`}::date,'19:00',${zone},${`2026-12-0${n + 1}T01:00:00Z`}::timestamptz,'v1','planning',1)`);
+	const digest = await compilePlanterDigest(admin, {
+		plant,
+		recipient: who.id,
+		asOf: "2026-11-30T00:00:00Z",
+		through: "2026-12-31",
+	});
+	assert.deepEqual(
+		digest.lines.map((l) => l.title),
+		meetings.map((m) => defaultTitle(m)),
+	);
+	assert.deepEqual(digest.lines.map((l) => l.title).slice(0, 1), ["Vision Meeting #4"]);
+	assert.equal(digest.lines.at(-1)?.title, "Pre-launch Practice");
+});
+
 const PRIVATE = ["Maria", "Lopez", "PRIVATE", "Hello", "$250", "note"];
 
 test("AC:NOTIFY47-004 WP-030 criteria 1-3: the church digest reaches the bell and email at the church's Monday 08:00 in Sydney, not before, and an empty church gets nothing", async () => {

@@ -9,7 +9,7 @@ import {
 	markSelectedReadRequest,
 } from "@everyfield/contracts/notifications";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 import {
 	PAGE,
@@ -40,6 +40,7 @@ const itemRow = z.object({
 	cursorAt: z.string(),
 });
 const pageRow = z.object({ account_id: z.uuid().nullable(), items: z.array(itemRow) });
+const headRow = z.object({ unread: z.number().int(), revision: z.string() });
 const countRow = z.object({ account_id: z.uuid().nullable(), count: z.number().int() });
 const markRow = z.object({
 	me: z.uuid().nullable(),
@@ -74,9 +75,10 @@ function feedSql(
 	cursorId: string | null,
 	asOf: string,
 	unread: boolean,
+	extra: SQL = sql``,
 ) {
 	return sql`WITH ${selfSql(session, accountId)}
-		SELECT (SELECT account_id FROM me) AS account_id,
+		SELECT (SELECT account_id FROM me) AS account_id, ${extra}
 			COALESCE((SELECT json_agg(item ORDER BY sort_at DESC, sort_id DESC) FROM (
 				SELECT json_build_object(
 					'id', n.id,
@@ -98,6 +100,26 @@ function feedSql(
 				ORDER BY n.eligible_at DESC, n.id DESC
 				LIMIT ${PAGE + 1}
 			) page), '[]'::json) AS items`;
+}
+
+function feedValue(items: z.infer<typeof itemRow>[]) {
+	const more = items.length > PAGE;
+	const visible = more ? items.slice(0, PAGE) : items;
+	const last = visible.at(-1);
+	return feedResult.parse({
+		items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue, subject }) => ({
+			id,
+			category,
+			title,
+			body,
+			eligibleAt,
+			read,
+			dueLocalDate,
+			overdue,
+			subject,
+		})),
+		nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
+	});
 }
 
 export async function readFeed(
@@ -123,23 +145,41 @@ export async function readFeed(
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
 		if (!row.account_id) deny();
-		const more = row.items.length > PAGE;
-		const visible = more ? row.items.slice(0, PAGE) : row.items;
-		const last = visible.at(-1);
-		return feedResult.parse({
-			items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue, subject }) => ({
-				id,
+		return feedValue(row.items);
+	});
+}
+
+/**
+ * The feed's first page, the unread count of the same category and the account revision that marks carry, in one
+ * statement (REQ-NTF-003). The feed page and the bell open read this.
+ */
+export async function readFeedPage(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	now: () => Date = () => new Date(),
+) {
+	return readReply(async () => {
+		const input = parse(readFeedRequest.omit({ cursor: true }), raw);
+		const category = input.category ?? null;
+		const result = await db.execute(
+			feedSql(
+				authority.session,
+				authority.actor.accountId,
 				category,
-				title,
-				body,
-				eligibleAt,
-				read,
-				dueLocalDate,
-				overdue,
-				subject,
-			})),
-			nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
-		});
+				null,
+				null,
+				now().toISOString(),
+				input.unread === true,
+				sql`(SELECT count(*)::int FROM notice n WHERE ${noticeVisible()} AND n.read_at IS NULL
+					AND (${category}::text IS NULL OR split_part(n.logical_key,'/',2) = ${category})) AS unread,
+				(SELECT revision::text FROM account WHERE id = (SELECT account_id FROM me)) AS revision,`,
+			),
+		);
+		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
+		if (!row.account_id) deny();
+		const head = headRow.parse(result.rows[0]);
+		return { feed: feedValue(row.items), unread: head.unread, revision: head.revision };
 	});
 }
 
