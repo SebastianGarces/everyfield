@@ -27,9 +27,9 @@
 		"replaces_id": "8425459b-533f-4dce-8ac2-ca95c4cd1598",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: slide asks 'Pray with us on [date]' and drops the time; church-leader email and sample email ask partner congregations to pray on Launch Sunday and visit on the second or third Sunday; step 1 invites one partner representative 6–8 weeks ahead (D9/F32). No new facts or numbers; no sources needed. No line invites partner congregations in general to attend Launch Sunday. Standing rules clean. Scripture Philippians 1:3-5 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: email code block, table and checklist render; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D9 Launch Sunday invitations, Sebastian Oct 31: 'partner leader on Launch Sunday, other supporters visit weeks 2–3'.",

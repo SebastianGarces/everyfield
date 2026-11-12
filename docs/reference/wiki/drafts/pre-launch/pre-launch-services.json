@@ -28,9 +28,9 @@
 		"replaces_id": "f1d60e57-f7dc-4982-b0c8-05392a26c2c2",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: 'One common approach' / 'Many teams' method language; three services, one per membership-class part, with a make-up session (D4); 'Database entry' becomes 'Entering guests in Everyfield' (meeting guests supported by docs/product/meetings-follow-up.md REQ-MTG-007; practice meetings may record guests, launch.md). No new facts needing sources. Scripture Proverbs 16:3 byte-identical to seed and matches lsbible.org word for word. Lint: PASS, 0 errors. No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present."
 		},
 		"rulings": [
 			"Method presented as universal (Launch Team-only pre-launch services): the audit's 'One common approach is to hold a few practice services for the Launch Team.' introduces the schedule; three services stay as what many teams do, one per membership-class part, and 'Launch Team only' becomes what many teams do.",

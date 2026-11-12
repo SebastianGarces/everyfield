@@ -28,9 +28,9 @@
 		"replaces_id": "4b9d1ad2-b4f3-4c5b-b523-ae32bd4f643e",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: only two added sentences with body links to the published rows pre-launch/responding-to-online-reviews-and-comments and pre-launch/boosted-posts-ads-and-retargeting (F55). 'People will comment and leave reviews once you are visible online' is a framing sentence, not a statistic. No sources needed. Scripture Romans 10:14 byte-identical to seed and matches lsbible.org word for word. Lint: PASS, 0 errors. No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present. Unchanged seed content noted for a later pass, not blocking this correction: the insight 'Most people need to encounter a message 7+ times' is an unsourced number."
 		},
 		"rulings": [
 			"F55 (slice part, ruling D-216): adds body links to the orphans pre-launch/boosted-posts-ads-and-retargeting (from Paid Advertising) and pre-launch/responding-to-online-reviews-and-comments (from the social media section). This promotion plan is their nearest parent; related_article_slugs is unchanged.",

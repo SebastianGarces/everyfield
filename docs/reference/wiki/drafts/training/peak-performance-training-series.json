@@ -28,9 +28,9 @@
 		"replaces_id": "c406460d-3391-47c2-96f1-ae3d2aa4cde8",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: neutral gloss 'a three-part membership class (some churches call it Peak Performance)'; Worship/Walk/Work/Witness in all three places; Church Government row 'How your church is governed'; Launch Team teaches I–III in the pre-launch services with make-ups and links pre-launch/pre-launch-services; unsourced 'Most churches offer' softened. No new facts; no sources needed. Scripture Colossians 1:28 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: tables, checklist and callouts render; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D4 Peak Performance, Sebastian Oct 31: 'Keep name with neutral gloss'; timing 'go with your suggestion'. First use reads 'a three-part membership class (some churches call it Peak Performance)', and Peak Performance I–III are taught in the pre-launch services, one part per service, with make-ups.",

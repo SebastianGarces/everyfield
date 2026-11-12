@@ -36,9 +36,9 @@
 			}
 		],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "One added factual claim, sourced. I re-fetched https://research.lifeway.com/2016/06/28/unchurched-will-talk-about-faith-not-interested-in-going-to-church/ (HTTP 200). The quote 'Half (51 percent) of unchurched Americans say a personal invitation from a friend or family member would be effective in getting them to visit a church.' appears verbatim. The page dates the survey to 2016 (fieldwork May 23 to June 1, 2016; 2,000 unchurched Americans, online panel) and says door knocking (21%), TV commercial (23%), postcard (23%) and Facebook ad (18%) 'are less effective'. That supports the draft's 'about half' sentence and 'one of the most effective ways' (softened from 'the most effective'). The unsourced 'Studies consistently show' sentence is gone. Scripture Luke 14:23 byte-identical to seed; its words match a contiguous span of the lsbible.org verse exactly (the quote starts at 'Go out', omitting the verse's opening 'And the master said to the slave'; unchanged from the published seed). Lint: PASS, 0 errors (warning: 13 H2s). No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present."
 		},
 		"rulings": [
 			"F46: the unsourced 'Studies consistently show that the majority of first-time church visitors come because someone they know invited them' becomes the Lifeway sentence, sourced in draft.sources (Lifeway Research, June 28, 2016; online panel of 2,000 unchurched Americans, May 23 to June 1, 2016).",

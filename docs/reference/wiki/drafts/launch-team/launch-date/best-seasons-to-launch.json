@@ -27,9 +27,9 @@
 		"replaces_id": "fecc2b63-14db-43ab-8d53-0671cefce564",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: unsourced 'experience across hundreds of church plants' and 'psychologists call fresh start effect' removed; 'Best/Second Best Option' and 'worst time' neutralized to method language; Easter regulars softened; fall timeline sets the date 6-9 months out (consistent with setting-your-launch-date and building-your-gantt-chart; facility search 9-12 months matches variables-that-drive-your-launch-date); 'Keep growing your Core Group' (no size target). Claims removed rather than added; no sources needed. Scripture Ecclesiastes 3:11a byte-identical to seed and an exact prefix of the lsbible.org verse. Lint: PASS, 0 errors. No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present."
 		},
 		"rulings": [
 			"Method presented as universal (seasons): the audit's 'Many church plants launch in the fall; spring before Easter is another common window.' replaces the unsourced 'Experience across hundreds of church plants has identified two optimal seasons'; 'Best Option' and 'Second Best Option' are dropped from the headings, and 'the worst time', 'widely considered the best time' and 'The seasonal boost … is significant' become neutral wording.",

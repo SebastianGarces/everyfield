@@ -28,9 +28,9 @@
 		"replaces_id": "83eff2ba-9b5c-41ba-a5db-f647ea166abe",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: Peak Performance and Boot Camp neutral glosses; Before Launch timing sentence (4–6 weekly sessions in Phase 3 or one weekend 3–6 weeks before launch) matches both remaining table rows; 'Combined' row dropped; format options scoped to the ongoing post-launch Boot Camp; 'Experienced leaders in your church'; pipeline ends 'Elder, deacon or staff candidate, as your bylaws define'; ASCII pipeline converted to a diagram flow block with the same four steps. Timing numbers are re-stated from the seed row, not new facts; no sources needed. Scripture 2 Timothy 2:2 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: the flow diagram renders with four steps, tables readable; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D4 Boot Camp, Sebastian Oct 31: 'Keep name with neutral gloss'; timing 'go with your suggestion'. First use reads 'an intensive discipleship track (some teams call it Boot Camp)'. Boot Camp timing and length are stated only in training/boot-camp-overview. This is that article.",

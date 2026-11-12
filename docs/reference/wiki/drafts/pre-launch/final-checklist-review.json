@@ -28,9 +28,9 @@
 		"replaces_id": "3673a3fa-fe69-4d23-a0ba-59d582d8875e",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: 'Assimilation software configured' becomes the F51 line (Everyfield guest follow-up, supported by docs/product/meetings-follow-up.md; ChMS for check-in and giving); 'Guest entry in Everyfield tested'. No unsupported Everyfield claims; no new facts needing sources. Background-check and check-in items are church tasks, not Everyfield claims. Scripture Jeremiah 29:11 byte-identical to seed and matches lsbible.org word for word. Lint: PASS, 0 errors (warning: 13 H2s, unchanged structure). No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present."
 		},
 		"rulings": [
 			"F51: 'Guest follow-up set up in Everyfield; choose a ChMS for check-in and giving if needed.' replaces the assimilation software or database line. Everyfield covers guests, response cards and follow-up tasks (docs/product/meetings-follow-up.md); it does not do check-in or giving. 'Database tested and ready' becomes 'Guest entry in Everyfield tested'.",

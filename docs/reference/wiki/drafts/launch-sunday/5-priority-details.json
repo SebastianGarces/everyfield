@@ -29,9 +29,9 @@
 		"replaces_id": "74d95d7d-6801-4809-93be-a4bc086f4735",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: changes are the D9/F33 invitation lines (date 'so they can pray for it'; visit on the second or third Sunday; one partner representative invited 6–8 weeks ahead, matching partner-organization-coordination) and a wording change; no new facts, numbers or Everyfield claims, so no sources needed (draft.sources empty is correct). Standing rules: no playbook, no bare 'plant', no internal ids, no outside-tool or unsupported Everyfield claims. Scripture Psalm 118:24 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: tables, checklists and callouts render; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D9 Launch Sunday invitations, Sebastian Oct 31: 'partner leader on Launch Sunday, other supporters visit weeks 2–3'.",

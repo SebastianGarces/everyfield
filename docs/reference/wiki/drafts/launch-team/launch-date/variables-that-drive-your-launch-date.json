@@ -28,9 +28,9 @@
 		"replaces_id": "99950edb-5c7f-4641-be03-ea5418cd62a0",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: Minimum/Target size table and 30-40/25/40+ thresholds removed; D5 benchmark sentence (50–100 'not a requirement') in place, size no longer a gate (moved to 'Important but workable'); Red/Yellow/Green bands become Needs work/Developing/Strong; Cohesion names the success factor (ordinary 'unity' kept); 'church plant' replaces bare 'plant'; 'meeting' replaces 'gathering'. Changes remove claims rather than add them; no sources needed. Scripture Proverbs 16:3 byte-identical to seed and matches lsbible.org (site runs poetic lines together; words identical). Supplied desktop and mobile previews viewed: readiness matrix and tables readable, numbered lists render; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",

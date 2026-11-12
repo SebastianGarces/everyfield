@@ -27,9 +27,9 @@
 		"replaces_id": null,
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "failed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Tier C, not promotable as is (bin/wiki promote refuses tier C). Wording: content is exactly the four required paragraphs, word for word (checked programmatically after unlinking), with the only addition a link on 'Partner Organization Coordination' to /wiki/launch-sunday/partner-organization-coordination (a published row). New slug; related slugs exist. Standing rules: 'church plants' (no bare 'plant'), neutral 'not a rule' framing, no playbook, ids, outside tools or Everyfield claims; consistent with the D9 changes in partner-organization-coordination and 5-priority-details. No scripture, so nothing to verify. Lint fails only the minimums, as expected: 159 words (500–2,500), 0 H2s, 0 callouts, no scripture callout. bin/wiki shot/render refuse to render it for that reason, so there is no preview. Why 'failed': 'Many church plants see attendance dip in the weeks after launch, and a visit then encourages your team when it helps most.' is a factual claim with no draft.sources entry. It is phrased as an observation, not 'research shows', and it is the owner's own wording. It still needs a source, or Sebastian's explicit confirmation as human author that it stands as his general observation, before it can pass. Apart from that sentence and the tier C minimums, the draft holds."
 		},
 		"rulings": [
 			"D9 Launch Sunday invitations, Sebastian Oct 31: 'partner leader on Launch Sunday, other supporters visit weeks 2–3'. The content is exactly the four paragraphs of the audit's D9 'Suggested wording', word for word; the only change is a /wiki/ link on 'Partner Organization Coordination'. Nothing else is written.",

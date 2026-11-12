@@ -29,9 +29,9 @@
 		"replaces_id": "9cefbea7-d44f-456a-b34d-f224c6f39e32",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: fasting presented as one pattern (D-217); Boot Camp and Peak Performance glosses; self-contradiction about Peak Performance timing removed (I–III taught in the pre-launch services, make-ups scheduled); assimilation software lines replaced by the F51 Everyfield/ChMS line (Everyfield guest follow-up supported by docs/product/meetings-follow-up.md; check-in/giving left to a ChMS); rented-space conditional; links resolve. No new facts; no sources needed. Observation, not blocking: the 'should already be in place' checklist now says key leaders completed the pre-launch Boot Camp, while Boot Camp Overview allows the weekend option as late as 3 weeks before launch, which can fall inside this 3–4 week window. Consider 'completed or scheduled' in a later pass. Scripture Psalm 127:1 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: the paragraph above the Training checklist renders cleanly; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"Wording choice: 'flows seamlessly' becomes 'flows smoothly' to clear a lint style warning.",

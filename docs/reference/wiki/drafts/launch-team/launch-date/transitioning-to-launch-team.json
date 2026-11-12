@@ -29,9 +29,9 @@
 		"replaces_id": "3e797703-d0ec-475d-b98c-7480654a9309",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: Worship/Walk/Work/Witness with Ministry Funnel link; 'Once the launch date is set: Launch Team meetings are weekly' (the remaining 'twice per month' line is the Core Group phase, so no contradiction); pacing warning now about extra ministry meetings. No new facts needing sources. Scripture Galatians 6:9 byte-identical to seed and matches lsbible.org word for word. Lint: PASS, 0 errors. No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present. Pre-existing, unchanged: the 'Meeting Format Transforms' table header wraps 'Objectiv/e' on desktop; not introduced by this draft."
 		},
 		"rulings": [
 			"D6 Add the 4th W, Sebastian Oct 31: Worship/Walk/Work/Witness everywhere.",

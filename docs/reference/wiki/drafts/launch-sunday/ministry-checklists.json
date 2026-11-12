@@ -27,9 +27,9 @@
 		"replaces_id": "34062df8-3422-4f18-84c9-3637155078da",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: 'Enter every new guest in Everyfield' (Launch attendance links named guests, docs/product/launch.md); team checklists as an Everyfield task with checklist items (REQ-TSK-005) and Everyfield's printable Launch Sunday Checklists (knowledge-documents.md DOC-014). Both Everyfield claims are supported; no new facts needing sources. Check-in mentions are church practice, not Everyfield claims. Scripture Colossians 3:23 byte-identical to seed and matches lsbible.org word for word (exact prefix of the verse). Lint: PASS, 0 errors (1 style warning: 'unlock'). No preview supplied; I rendered desktop and mobile with bin/wiki shot and viewed them: content complete, tables/checklists readable, LSB notice present."
 		},
 		"rulings": [
 			"Outside-tools row (printed checklists): team checklists live in Everyfield as tasks with checklist items (docs/product/tasks.md TSK-005), and Everyfield's generated Launch Sunday Checklists PDF replaces home-printed copies (docs/product/knowledge-documents.md, the Launch Sunday Checklists document). 'Update database with all new contacts' becomes 'Enter every new guest in Everyfield' (Launch attendance records named guests, docs/product/launch.md).",

@@ -28,9 +28,9 @@
 		"replaces_id": "ba9f4117-05f6-4234-b9e7-83cf05d7c38c",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Diffed against seed row: 'reports regularly to the elders or the governing body your bylaws name' replaces 'Elder board' (D1/F38), heading 'Reporting to Your Governing Body', pronouns neutral; Peak Performance gloss; 'Launch Team meetings'. No new facts; no sources needed. Standing rules clean (no elder-polity assumption remains). Scripture Acts 20:28 byte-identical to seed and matches lsbible.org word for word. Supplied desktop and mobile previews viewed: content complete, table readable; LSB notice present. Lint: PASS, 0 errors."
 		},
 		"rulings": [
 			"D1 Elder polity, Sebastian Oct 31: 'Yes to proposed default'. Elders appear only as 'the elders or the governing body your bylaws name' or as one example; church government in general is 'the form of church government your bylaws name' (coordinator note, Nov 1).",
