@@ -410,8 +410,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
 			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
-			// A status change moves a series' open occurrence; a successor (below) names the new one.
-			const occurrence = moved ? null : cur.occurrence;
+			// A status change moves a series' open occurrence; a successor (below) names the new one. A task that starts a
+			// new series (Make it repeat on a stopped one) leaves its old series' open occurrence behind.
+			const occurrence = moved || cur.task.recurrence?.seriesId !== task.recurrence?.seriesId ? null : cur.occurrence;
 			const history =
 				moved && cur.history.status === "ok" && cur.history.value.next === null
 					? {
