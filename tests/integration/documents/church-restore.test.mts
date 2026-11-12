@@ -159,7 +159,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("AC:DOC-022 archived Church Documents list and restore (T-284)", { concurrency: 1 }, () => {
+describe("AC:DOC-022 archived Church Documents list and restore", { concurrency: 1 }, () => {
 	test("AC:DOC-022 the archived list holds this church plant's archived documents only, newest archive first", async () => {
 		const live = await create(OWNER);
 		const older = await create(OWNER);
