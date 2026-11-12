@@ -7,7 +7,6 @@ import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
-	createSettingsProducer,
 	createLifecycleCleanup,
 	issueRestrictedDeletionSession,
 	createAccountCredentials,
@@ -15,6 +14,7 @@ import {
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
@@ -213,7 +213,7 @@ before(async () => {
 		},
 		credentials,
 	};
-	api = createSettingsProducer(producerDeps);
+	api = settingsApi(producerDeps);
 	onboarding = createOnboardingProducer({
 		relationships: (tx, inputs) => sendOnboardingRelationships(tx, inputs, mail),
 		enqueue: async (tx, i, command) => {
@@ -376,7 +376,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
-	const producer = createSettingsProducer({
+	const producer = settingsApi({
 		...producerDeps,
 		personalCalendar: {
 			preview: async () => {
@@ -1522,7 +1522,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	]) {
 		const f = await plant();
 		ok(await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "daily", hour } }), f.p));
-		const frozen = createSettingsProducer({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
+		const frozen = settingsApi({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
 		const preview = ok(
 			await db.transaction((tx) =>
 				frozen.previewPlantTimezone(tx, ctx(f.a, f.p), { plant: f.p, timeZone: "America/New_York" }),

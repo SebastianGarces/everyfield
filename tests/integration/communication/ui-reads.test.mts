@@ -6,7 +6,8 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { chainSendNow } from "../../../apps/web/src/features/communication/sendNowChain.ts";
-import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
+import { sealAddress } from "./sealed-address.mts";
 import { ok } from "../../support/fixture.mts";
 
 let f, plant, owner;
@@ -112,7 +113,7 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 	await f.admin
 		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, communication_id, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at)
-		VALUES(${mailId}, ${plant.id}, ${target}, ${sealText(keys.encryptionKey, "receiver@aud.test", addressAad(plant.id, mailId))},
+		VALUES(${mailId}, ${plant.id}, ${target}, ${sealAddress(keys.encryptionKey, "receiver@aud.test", addressAad(plant.id, mailId))},
 		'communication', ${sent}, ${`communication/${sent}/${target}`}, 'p', 'a', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, 'sent',
 		${mailAddressHash(keys.addressKey, "receiver@aud.test")}, clock_timestamp(), '2026-11-01T15:00:00Z'::timestamptz)`);
 	const page = ok(await read("listHistory", { query: "T-" }));

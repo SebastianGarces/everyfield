@@ -11,7 +11,6 @@ import { protectedTemplate } from "../../../apps/web/src/server/jobs/templates.t
 import { claimDue, recoverLease } from "../../../apps/web/src/server/jobs/queue.ts";
 import {
 	receiveMailCallback,
-	replayStoredCallbacks,
 	mailCallbackHandler,
 	callbackVisibility,
 } from "../../../apps/web/src/server/jobs/webhook.ts";
@@ -331,7 +330,6 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	await db.execute(
 		querySql`UPDATE mail SET provider_message_id=${querySql.param(unknown)} WHERE id=${querySql.param(id)}`,
 	);
-	assert.equal(await replayStoredCallbacks(runtime), 1);
 	const handler = mailCallbackHandler(runtime, "whsec_" + randomBytes(32).toString("base64"));
 	const response = await handler(await callback(out.id, "sent"));
 	assert.equal(response.status, 404);
@@ -353,10 +351,9 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	const pending = await genuine(await callback(unknown, "sent"));
 	assert.equal(pending.status, 202);
 	assert.deepEqual(await pending.json(), { stored: true, result: "pending" });
-	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 1, unmatched: 0 });
+	// Both receipts for the late-matched message stay pending: the unmatched one and the one whose apply failed.
+	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 2, unmatched: 0 });
 	await db.execute(querySql`DROP TRIGGER reject_projection ON mail; DROP FUNCTION reject_projection()`);
-	assert.equal(await replayStoredCallbacks(runtime), 1);
-	assert.deepEqual(await callbackVisibility(runtime), { endpoint: "unverified", pending: 0, unmatched: 0 });
 	assert.equal(requests.length, count);
 });
 test("INV-recovery: only a freshly authorized operator can attach provider evidence after the replay window", async () => {

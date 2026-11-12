@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
 import { systemTemplates } from "../../../packages/contracts/src/communication/catalog.ts";
-import { bodyToText, bodyToTextResult, textToBody } from "../../../apps/web/src/features/communication/body.ts";
+import { bodyToTextResult, textToBody } from "../../../apps/web/src/features/communication/body.ts";
 import {
 	fieldProblem,
 	fieldProblemText,
@@ -29,19 +29,19 @@ test("INV-communication-editor: typed text is stored as HTML the sanitizer keeps
 	for (const t of texts) {
 		const html = textToBody(t);
 		assert.equal(sanitizeHtml(html), html, t);
-		assert.equal(bodyToText(html), t, t);
+		assert.equal(bodyToTextResult(html).text, t, t);
 	}
 });
 
 test("INV-communication-editor: every system template body survives the editor", () => {
 	for (const template of systemTemplates) {
 		const html = template.bodyHtml;
-		assert.equal(sanitizeHtml(textToBody(bodyToText(html))), sanitizeHtml(html), template.name);
+		assert.equal(sanitizeHtml(textToBody(bodyToTextResult(html).text)), sanitizeHtml(html), template.name);
 	}
 });
 
 test("INV-communication-editor: b and i read as bold and italic, u and span keep text and flag it", () => {
-	assert.equal(bodyToText("<p><b>a</b> <i>b</i></p>"), "**a** *b*");
+	assert.equal(bodyToTextResult("<p><b>a</b> <i>b</i></p>").text, "**a** *b*");
 	const lossy = bodyToTextResult("<p><u>under</u> <span>span</span></p>");
 	assert.equal(lossy.text, "under span");
 	assert.equal(lossy.lossy, true);

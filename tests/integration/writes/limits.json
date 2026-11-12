@@ -620,9 +620,6 @@
 	"jobs/queue.enqueueJobs": {
 		"limit": 2
 	},
-	"jobs/queue.extendLease": {
-		"limit": 1
-	},
 	"jobs/queue.finishClaim": {
 		"limit": 1
 	},
@@ -636,10 +633,6 @@
 		"limit": 15,
 		"retry": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 2 read, 6 write."
-	},
-	"jobs/webhook.replayStoredCallbacks": {
-		"limit": 10,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 4 write."
 	},
 	"lifecycle.purge": {
 		"limit": 28,

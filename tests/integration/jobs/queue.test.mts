@@ -9,7 +9,6 @@ import {
 	finishJob,
 	recoverLease,
 	checkpoint,
-	extendLease,
 } from "../../../apps/web/src/server/jobs/queue.ts";
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
 before(setup);
@@ -35,7 +34,6 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	const claim = groups.flat()[0];
 	assert.equal(claim.id, id);
 	assert.equal(claim.claim_generation, "1");
-	assert.equal(await extendLease(runtime, claim, 30), true);
 	await db.execute(
 		querySql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${querySql.param(id)}`,
 	);
@@ -53,7 +51,6 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 		assert.equal(await transaction(runtime, (tx) => finishClaim(tx, stale, { state: "succeeded" })), false);
 		assert.equal(await finishJob(runtime, stale, { state: "succeeded" }), false);
 		assert.equal(await transaction(runtime, (tx) => checkpoint(tx, stale, "stale-output")), false);
-		assert.equal(await extendLease(runtime, stale, 30), false);
 	}
 	assert.equal(await finishJob(runtime, newClaim, { state: "succeeded" }), true);
 	assert.equal(
@@ -82,16 +79,7 @@ test("INV-jobs: default and explicit leases meet the execution limits", async ()
 			const [c] = await claimDue(runtime, [kind], 1, seconds);
 			return c;
 		}, expected);
-		if (seconds !== 1)
-			for (const extension of [300, 1])
-				await bracket(async () => {
-					assert.equal(await extendLease(runtime, claim, extension), true);
-					return claim;
-				}, extension);
-		for (const invalid of [0, 301, 1.5]) {
-			await assert.rejects(claimDue(runtime, [kind], 1, invalid));
-			await assert.rejects(extendLease(runtime, claim, invalid));
-		}
+		for (const invalid of [0, 301, 1.5]) await assert.rejects(claimDue(runtime, [kind], 1, invalid));
 		await db.execute(
 			querySql`UPDATE job SET state='cancelled',lease_owner=NULL,lease_until=NULL WHERE id=${querySql.param(claim.id)}`,
 		);

@@ -17,7 +17,9 @@ const read =
 	/^(?:get|read|list|describe|registrationEligible|addressHash|jobVisibility|append|current|registrationIntent|checkAggregateAccess)/;
 const factories = {
 	createOrganizationAdapter: "organizations",
-	createSettingsProducer: "settings",
+	// The settings suites call every settings operation through one composition of the factories the app mounts. It is
+	// labelled there, not on each factory, so other suites that build one factory keep their own budgets.
+	settingsApi: "settings",
 	createAccountCredentials: "settings",
 	createOnboardingProducer: "onboarding",
 	createInvitationService: "invitations",
@@ -68,13 +70,12 @@ const standalone = {
 		"enqueueJobs",
 		"claimDue",
 		"claimUnknownMail",
-		"extendLease",
 		"finishClaim",
 		"recoverLease",
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "replayStoredCallbacks"],
+	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
@@ -174,7 +175,8 @@ registerHooks({
 		} else if (
 			path.includes("/packages/reference/src/") ||
 			path.includes("/packages/domain/src/") ||
-			path.includes("/apps/web/src/server/jobs/")
+			path.includes("/apps/web/src/server/jobs/") ||
+			path === root + "/tests/integration/settings/settings-api.mts"
 		) {
 			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 				edits = [];
