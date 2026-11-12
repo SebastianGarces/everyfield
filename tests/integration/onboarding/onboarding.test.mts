@@ -722,12 +722,8 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 		.where(and(eq(t.mail.recipient_account_id, unselectedOwner.id), eq(t.mail.purpose, "discovery_receipt")));
 	assert.equal(notices.length, 1);
 	assert.equal(notices[0].state, "pending");
-	const invalidations = await admin
-		.select()
-		.from(t.job)
-		.where(and(eq(t.job.kind, "assessment"), eq(t.job.subject_record_id, second.relationshipId)));
-	assert.equal(invalidations.length, 1);
-	assert.equal(invalidations[0].source_revision, "2");
+	// No worker runs assessments yet, so the conversion queues no job for the link (D-530).
+	assert.deepEqual(await admin.select().from(t.job).where(eq(t.job.subject_record_id, second.relationshipId)), []);
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
 	assert.equal(replay.status, "existing");
@@ -1113,7 +1109,6 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 
 test("INV-discovery-race: a conversion and an organization ending its link serialize without deadlock", async () => {
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
-	const { queueJobs } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
 		link = await relationship(d.a, "sending_church", false),
 		orgActor = await actor("sending_church");
@@ -1125,30 +1120,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 			async invitation() {
 				throw Error("Invitation is outside this race");
 			},
-			notice(tx, input) {
-				return queueJobs(tx, [
-					{
-						tenant: input.pair.organization.id,
-						kind: "notification",
-						subject: input.relationshipId,
-						key: "race/" + input.eventId,
-						revision: input.revision,
-						eligibleAt: new Date().toISOString(),
-					},
-				]);
-			},
-			invalidate(tx, input) {
-				return queueJobs(
-					tx,
-					input.owners.map((owner) => ({
-						tenant: owner.id,
-						kind: "assessment",
-						subject: input.sourceId,
-						key: "race/" + input.sourceId,
-						revision: input.revision,
-						eligibleAt: new Date().toISOString(),
-					})),
-				);
+			invalidate(_tx, input) {
+				return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state='ready'`;
 			},
 		},
 		{

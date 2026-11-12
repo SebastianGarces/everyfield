@@ -19,7 +19,6 @@ import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
 import { createMailService } from "../jobs/mail";
-import { queueJobs } from "../jobs/queue";
 import { getViewer } from "../request-context";
 
 // The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
@@ -83,23 +82,9 @@ function create(v: z.infer<typeof env>) {
 				writes,
 			);
 		},
-		notice(tx, input) {
-			// The coarse notice goes to the plant (REQ-NTF-009); the notification job reads only the event.
-			const tenant = input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id;
-			return queueJobs(tx, [
-				{
-					tenant,
-					kind: "notification",
-					subject: input.relationshipId,
-					key: `${input.kind}/${input.eventId}`,
-					revision: input.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]);
-		},
 		invalidate(_tx, input) {
 			// Ending or changing a link stops queued work that read the old grant (REQ-IDN-021).
-			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
+			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 		},
 	};
 	// No reporting-location screen here; the plant settings owner supplies the reference (WP-010).

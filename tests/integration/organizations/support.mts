@@ -86,27 +86,11 @@ export const effects = {
 			writes,
 		);
 	},
-	notice(
-		c: import("../../../packages/db/src/client.ts").Transaction,
-		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["notice"]>[1],
-	) {
-		const target = v.pair.kind === "plant" ? v.pair.subject.id : v.pair.organization.id;
-		return queueJobs(c, [
-			{
-				tenant: target,
-				kind: "notification",
-				subject: v.relationshipId,
-				key: v.kind + "/" + v.eventId,
-				revision: v.revision,
-				eligibleAt: new Date().toISOString(),
-			},
-		]);
-	},
 	invalidate(
 		_c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invalidate"]>[1],
 	) {
-		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
+		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 	},
 };
 export const api = createOrganizationAdapter(effects, { candidates: async () => [] });

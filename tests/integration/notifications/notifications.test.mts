@@ -20,7 +20,6 @@ const api = createNotificationProducer({ optOutKey, now: () => clock.at });
 const orgs = createOrganizationAdapter(
 	{
 		invitation: async () => {},
-		notice: () => sql`UPDATE account SET id = id WHERE false`,
 		invalidate: () => sql`UPDATE account SET id = id WHERE false`,
 	},
 	{ candidates: async () => [] },
