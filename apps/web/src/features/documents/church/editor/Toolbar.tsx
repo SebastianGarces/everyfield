@@ -67,7 +67,8 @@ import { BUTTON_ICON, MENU_ITEM, MENU_ITEM_BASE } from "./tiptap/styles.ts";
 // The main toolbar. The primitives, the mark buttons, the Undo and Redo buttons and the link popover are Tiptap's free
 // ready-made parts (see tiptap/README.md); the text-style, list, block and insert controls use the same primitives.
 // Every control has a name and a tooltip. A control that cannot apply is disabled, not hidden. A plain document (no
-// `church` prop) gets the prose controls only: text style, marks, link, lists, quote, divider, move and delete block.
+// `church` prop) gets the prose controls (text style, marks, link, lists, quote, divider, move and delete block) and an
+// Insert menu with a table and checklist rows only (T-100).
 
 const glyph = (icon: IconSvgElement) => <Icon icon={icon} size={18} className={BUTTON_ICON} />;
 
@@ -164,6 +165,10 @@ const PAGE_NUMBERS = [
 	{ format: "page-of-total", label: "Page N of M" },
 ] as const;
 
+/** What a plain document's Insert offers besides the divider button: a table and checklist rows, never a budget. */
+const PLAIN_TABLES = INSERT_KINDS.filter((k) => k.kind === "table" || k.kind === "checklist");
+const PLAIN_INSERTS: InsertKind[] = ["divider", ...PLAIN_TABLES.map((k) => k.kind)];
+
 /** The text styles a plain document offers: body text and the three heading levels. */
 const NATIVE_STYLES = new Set<string>(["body", "h1", "h2", "h3"]);
 
@@ -195,11 +200,9 @@ export function EditorToolbar({
 		selector: ({ editor: e }) => {
 			const state = e.state;
 			const empty = currentBlock(state) === null;
-			// A plain document's schema has no layout, slot or field nodes, so only the divider can be inserted.
-			const insertable = (
-				church
-					? Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)]))
-					: { divider: canInsert(state, "divider") }
+			// A plain document's schema has no layout, slot or field nodes: it inserts a divider, a table and checklist rows.
+			const insertable = Object.fromEntries(
+				(church ? INSERT_KINDS.map((k) => k.kind) : PLAIN_INSERTS).map((kind) => [kind, canInsert(state, kind)]),
 			) as Record<InsertKind, boolean>;
 			return {
 				style: currentTextStyle(state),
@@ -447,7 +450,34 @@ export function EditorToolbar({
 							) : null}
 						</DropdownMenuContent>
 					</DropdownMenu>
-				) : null}
+				) : (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								aria-label="Insert block"
+								tooltip="Insert block after this one"
+								onMouseDown={(event) => event.preventDefault()}
+							>
+								{glyph(Add01Icon)}
+								<span>Insert</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent portal align="start" aria-label="Insert block" collisionPadding={8}>
+							<MenuLabel>{GROUP_LABEL.tables}</MenuLabel>
+							{PLAIN_TABLES.map((k) => (
+								<DropdownMenuItem
+									key={k.kind}
+									className={MENU_ITEM}
+									disabled={!s.insertable[k.kind]}
+									onSelect={() => insertBlock(editor, k.kind)}
+								>
+									{k.label}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 				<Action
 					editor={editor}
 					label="Move block up"

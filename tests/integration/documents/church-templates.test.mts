@@ -11,7 +11,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 
 const database = await fixture({ prefix: "t18tpl", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;

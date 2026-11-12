@@ -1,9 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID } from "node:crypto";
-import { createRequire } from "node:module";
 import { searchPath, testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
-const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 
 // The schema exists from import on; `setup` adds the tenant and `teardown` drops everything.
 const database = await testDatabase({ prefix: "wp031", max: 6 });

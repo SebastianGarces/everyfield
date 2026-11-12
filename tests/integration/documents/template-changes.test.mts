@@ -91,7 +91,7 @@ function ownEdits(body) {
 }
 
 const database = await fixture({ prefix: "t81chg", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;

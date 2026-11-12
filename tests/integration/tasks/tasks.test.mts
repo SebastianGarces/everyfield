@@ -1020,7 +1020,7 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 		const seat = await f.seat(a, plant, role);
 		return { ...a, seat, actor: await f.actor(a.session) };
 	};
-	const reads = (who) => [
+	const reads = () => [
 		["get", { taskId: t.id }],
 		["list", {}],
 		["count", {}],

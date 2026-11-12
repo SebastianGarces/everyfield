@@ -20,7 +20,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
 import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
@@ -283,7 +283,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 
 test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
-	let current = ok(await section(a, { section: "notifications" }));
+	const current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 20);
 	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
 	assert.deepEqual(
@@ -321,7 +321,7 @@ test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices 
 			command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "daily" } }, "2"),
 		),
 	);
-	const f = await plant();
+	await plant();
 	const cadence = ok(
 		await call(
 			"saveSection",
@@ -611,7 +611,10 @@ test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retr
 	});
 	const input = { subject, requestId: p.requestId, revision: p.revision };
 	assert.deepEqual(await purge(input), { status: "purging" });
-	let [w] = await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
 	assert.equal(w.state, "purging");
 	assert.equal(w.live_purged_at, null);
 	const [shared] = await admin.select().from(t.person).where(eq(t.person.id, f.result.ownerSeat.personId));

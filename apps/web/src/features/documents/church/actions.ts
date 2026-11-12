@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
 
-// The Church Documents actions: create from a template, save, branding, delete, the church templates (save as,
+// The Church Documents actions: create from a template, save, branding, delete, archive, restore, the church templates (save as,
 // list, update, rename, delete), deleting a saved export, and comparing with or accepting a template's changes. The
 // actor is read again here; the server refuses a Member, whatever the page showed. Create and delete move to the next
 // page on the server, so the library is fresh without a client refresh.
@@ -115,6 +115,44 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 	}
 	revalidatePath("/documents/church");
 	redirect("/documents/church?deleted=1");
+}
+
+/**
+ * Archives a Church Document after the person confirmed, then returns to the library without it. Its page, revisions
+ * and saved exports stay readable and downloadable; an Owner or Admin can still delete it later.
+ */
+export async function archiveChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.archiveChurch(db, actor, { documentId, expectedRevision });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "archive_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+	revalidatePath("/documents/church");
+	redirect("/documents/church?archived=1");
+}
+
+/**
+ * Restores an archived Church Document after the person confirmed, then returns to the library, where it is listed and
+ * editable again with its revisions and saved exports as they were.
+ */
+export async function restoreChurchDocument(documentId: string): Promise<ChurchActionResult> {
+	const actor = await documentActor();
+	const db = requestDatabase();
+	if (!actor || !db) return { status: "lost" };
+	try {
+		const reply = await documentsWriter.restoreChurch(db, actor, { documentId });
+		if (reply.status !== "ok") return refusedWith(reply.error.code);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "restore_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+	revalidatePath("/documents/church");
+	redirect("/documents/church?restored=1");
 }
 
 export type TemplateSaveResult =
