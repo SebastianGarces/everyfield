@@ -1446,7 +1446,8 @@
 	},
 	"settings.cancelWorkspaceDeletion": {
 		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 1 read, 1 write."
+		"retry": 6,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 1 read, 1 write. A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements."
 	},
 	"settings.changePassword": {
 		"limit": 13,
@@ -1461,11 +1462,13 @@
 	},
 	"settings.openAccountDeletion": {
 		"limit": 10,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write."
+		"retry": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write. Credentials that open no personal request (a workspace-only requester, T-195) are refused and roll back: 7 statements."
 	},
 	"settings.openWorkspaceDeletion": {
 		"limit": 11,
-		"reason": "The account open plus the workspace seat lock, which a workspace request takes before its witness (T-195). Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 4 write."
+		"retry": 7,
+		"reason": "The account open plus the workspace seat lock, which a workspace request takes before its witness (T-195). Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 4 write. A different account's credentials, or no pending request, get the wrong-credentials refusal and roll back: 7 statements."
 	},
 	"settings.previewPersonalTimezone": {
 		"limit": 7,
