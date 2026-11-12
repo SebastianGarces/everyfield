@@ -10,13 +10,14 @@ dashboard live outside the checkout. `bin/` here holds product tools only.
 
 1. A seat starts in its own worktree with a brief that holds the full ask and spec. Your role's prompt comes from
    `.agents/role-prompts/`. Use the brief and linked current clauses as the contract.
-2. Build inside the scope. Commit. Do not push or open a PR: evf runs the checks, the PR, the review and the landing.
+2. Build inside the scope. Commit. Do not push or open a PR: after simplify, evf runs the checks, the PR, the review, CI,
+   the owner gate and the landing, in that order (`docs/build-agent-workflow.md`).
 3. Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
    `evf proof add <n> --status met --evidence <path>` per `verifier` criterion, after your last commit.
 4. Close with `evf run done --status passed --summary-file <file>`. Your summary becomes the what and why of the PR.
 5. A fresh Opus 5.5 medium session that never shared context with the author (D82) reads the full diff, spot-checks the
    proof with `verify-preview` and records `evf review submit --verdict approved|changes --report-file <file>`.
-6. evf lands the exact head once required GitHub CI is green and the review approved it.
+6. evf lands the exact head once required GitHub CI is green, the review approved it and any owner gate passed.
 
 A path in an `evf.toml` owner class also waits for Sebastian. The classes are `document-templates`, `landing-marketing`,
 `wiki`, `brand-prototype` and `workflow-gates`. Decide reversible things yourself and record them with

@@ -7,7 +7,9 @@ state. `evf status` and the dashboard at `http://localhost:4384` show them.
 the frozen record of what evf v1 shipped, because the explorer reads it. Do not read it as current state, and do not edit
 it to record new work.
 
-Each task runs plan, implement, simplify, the repo's checks, verify, a pull request and landing. The base branch's
+Each task runs these steps in order: plan, implement, simplify, the repo's checks, the pull request (evf pushes the branch
+and opens or updates the PR), review, required GitHub CI, the owner gate where a path in an owner class applies, and
+landing. The base branch's
 `evf.toml` sets the roles, each role's prompt file and the owner classes. The implementer proves its own work: tests,
 390 and 1440 px screenshots of each UI state it changed, and `evf proof add <n> --status met --evidence <path>` per
 `verifier` criterion. The verifier is a fresh session that did not write the change. It reads the full diff, spot-checks
