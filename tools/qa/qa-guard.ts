@@ -1,10 +1,18 @@
 /**
  * OPS-106: the database rules every QA preview step obeys. A QA preview owns a Neon branch made off the shared
- * development branch (endpoint ep-autumn-dew). It must never write to that branch itself, nor to production
- * (endpoint ep-gentle-dust). Pure functions, so `qa`, the QA seed and the tests share one rule.
+ * development branch (endpoint DEV_ENDPOINT, from `@everyfield/db`'s development hosts). It must never write to that
+ * branch itself, nor to production (endpoint PROD_ENDPOINT). Pure functions, so `qa`, the QA seed and the tests share
+ * one rule.
  */
+import { developmentHosts } from "../../packages/db/src/development.ts";
+
+/** A Neon host's endpoint id: its first label, without the pooler suffix. */
+const endpointOf = (host: string) => host.split(".")[0]!.replace(/-pooler$/, "");
+
 export const NEON_PROJECT = "cool-math-76767811";
-export const DEV_ENDPOINT = "ep-autumn-dew";
+const devEndpoints = new Set([...developmentHosts].map(endpointOf));
+if (devEndpoints.size !== 1) throw Error("The development hosts must name one Neon endpoint.");
+export const DEV_ENDPOINT: string = [...devEndpoints][0]!;
 export const PROD_ENDPOINT = "ep-gentle-dust";
 
 /** One full mail address, as mailRecipientAllowed compares them: a local part, an @ and a dotted domain, no wildcard. */
@@ -41,8 +49,6 @@ export function roleUrl(source: string, role: string, password: string): string 
 
 const HEX_KEY = /^[a-f0-9]{64}$/;
 
-const endpointOf = (host: string) => host.split(".")[0]!.replace(/-pooler$/, "");
-
 /** Why the QA seed must not run against this environment, or null when it may. Never echoes a value. */
 export function seedRefusal(env: Readonly<Record<string, string | undefined>>): string | null {
 	if (env.NODE_ENV === "production") return "NODE_ENV is production.";
@@ -69,7 +75,7 @@ export type NeonEndpoint = { id: string; branch_id: string };
 export type NeonBranch = { id: string; name: string };
 
 /**
- * The branch a QA branch is made from: the one that owns the ep-autumn-dew endpoint. Refuses when no such endpoint
+ * The branch a QA branch is made from: the one that owns the DEV_ENDPOINT endpoint. Refuses when no such endpoint
  * exists, or when that branch also serves the production endpoint.
  */
 export function devParent(endpoints: NeonEndpoint[], branches: NeonBranch[]): NeonBranch | string {
