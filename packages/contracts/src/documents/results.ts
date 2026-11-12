@@ -8,10 +8,14 @@ const issue = z.strictObject({ path: z.string().max(200), problem: z.string().ma
 const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
 	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
-/** Refusals a document-template read can return. An unknown template is "unavailable". */
+/**
+ * Refusals a document-template read can return. An unknown template is "unavailable". "deleted" goes only to a seat of
+ * the church plant whose Church Document was deleted; anyone else gets "unavailable" for it, as for an unknown id.
+ */
 export const documentsError = z.discriminatedUnion("code", [
 	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
 	error("unavailable", {}, "never"),
+	error("deleted", {}, "never"),
 	error("invalid_subject", {}, "never"),
 	error("render_failed", {}, "never"),
 	error("conflict", {}, "refresh"),
