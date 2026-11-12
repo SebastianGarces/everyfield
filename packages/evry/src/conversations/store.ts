@@ -7,6 +7,7 @@ import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
+import { reviewMap, reviewsOf } from "../proposals/review.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
 // one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
@@ -119,7 +120,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 
 /**
  * evry.readConversation and evry.openConversation: the conversation and its saved events after a cursor, with the
- * active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
+ * current review of each review card among them and the active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
  * saved yet (closeLostRun saves it). A foreign or missing conversation is not_found, with no metadata. One statement.
  */
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
@@ -143,15 +144,17 @@ export async function openLatestConversation(db: Database, actor: EvryActor) {
 }
 
 async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor: number) {
+	const page = sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`;
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation,
 			${liveRun("c")} AS run_live,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
-				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
+				FROM (${retainedEvents(page)}) e), '[]'::jsonb) AS events,
+			${reviewsOf(actor, sql`SELECT DISTINCT (e.body->'result'->>'proposalId')::uuid FROM (${page}) e WHERE e.kind='tool_result' AND e.body->'result'->>'proposalId' IS NOT NULL`)} AS reviews
 		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) return null;
 	const row = z
-		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow) })
+		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow), reviews: reviewMap })
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
@@ -159,6 +162,8 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 			? { turnId: row.conversation.activeTurnId, state: row.run_live ? ("running" as const) : ("lost" as const) }
 			: null,
 		events: row.events,
+		/** The current review of each review card in this page, as readReview reads it; null when it is unavailable. */
+		reviews: row.reviews,
 		more: row.events.length === EVENT_PAGE,
 	};
 }

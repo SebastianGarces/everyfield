@@ -1,7 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
-import { liveRead } from "@everyfield/domain/access";
 import { photoMediaType } from "@everyfield/domain/people";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -10,24 +9,28 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
+import {
+	allowedWrites,
+	currentReview,
+	mine,
+	operation,
+	projection,
+	proposalRow,
+	readable,
+	REVIEWED_WRITES,
+	type Operation,
+	type Proposal,
+} from "./review.ts";
+
+export { allowedWrites, proposalRow, REVIEWED_WRITES, type Proposal } from "./review.ts";
 
 // Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
 // together, and zero changed rows means refused, changed or not found. A refusal reads the current review once more to
 // say which, so a repeated approve or cancel returns the known state instead of failing.
 
-/** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = PEOPLE_COMMANDS;
-type Operation = keyof typeof REVIEWED_WRITES;
-const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
-
 /** REQ-EVR-012: approval lapses 15 minutes after the review revision was published. */
 export const REVIEW_MINUTES = 15;
-
-export function allowedWrites(actor: EvryActor) {
-	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.allowed(actor));
-}
 
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const r = schema.safeParse(raw);
@@ -39,18 +42,8 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 	if (!write.allowed(actor)) throw new EvryRefusal("access_denied");
 	return write;
 }
-/** The actor's own proposal in this exact context, for an operation the actor may still use natively. */
-const mine = (actor: EvryActor) =>
-	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.owner.id}::uuid
-		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /** Proposal commands: the actor's own proposal under write authority. */
 const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
-/**
- * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
- */
-const readable = (actor: EvryActor) =>
-	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
@@ -62,55 +55,10 @@ const audit = (action: string, kind: string, alias: string) =>
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
 
-/**
- * A proposal as its owner may see it now. The review status (pending, approved, cancelled, expired) is separate from
- * the recorded outcome of the approved revision. An approved revision without a saved outcome is executing while its
- * effect job can still make progress (runtime/job.ts) and unknown once it cannot. A review whose target is no longer
- * available withholds its fields; a saved receipt stays as it was. `now` is the database time the status was decided
- * at, so a card counts the approval down from the server's clock, never the browser's.
- */
-const projection = (alias: string) =>
-	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
-		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
-		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
-		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb OR EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live')
-			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
-		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
-			AND NOT ${liveJob("j")})),
-		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
-			AND ${liveJob("j")}),
-		'receipt',${alias}.receipt,'now',clock_timestamp())`);
-
-const review = z.object({
-	target: z.object({ kind: z.literal("person"), id: z.uuid(), label: z.string() }).nullable(),
-	changes: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
-	withheld: z.literal(true).optional(),
-});
-export const proposalRow = z.object({
-	id: z.uuid(),
-	conversationId: z.uuid(),
-	operation,
-	revision: z.number().int(),
-	digest: z.string(),
-	expiresAt: z.coerce.date(),
-	approvedAt: z.coerce.date().nullable(),
-	status: z.enum(["pending", "approved", "cancelled", "expired"]),
-	review,
-	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
-	executing: z.boolean(),
-	receipt: z
-		.object({ receiptId: z.uuid().optional(), revision: z.string().optional(), code: z.string().optional() })
-		.nullable(),
-	now: z.coerce.date(),
-});
-export type Proposal = z.infer<typeof proposalRow>;
-
 /** evry.readReview: the actor's proposal with its current review status and recorded outcome. One lock-free statement. */
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
-	const r = await db.execute(
-		sql`SELECT ${projection("p")} AS proposal FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)}`,
-	);
+	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	return proposalRow.parse(r.rows[0]!.proposal);
 }
