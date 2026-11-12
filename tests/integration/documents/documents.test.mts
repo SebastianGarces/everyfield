@@ -4,11 +4,8 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader } from "../../../packages/domain/src/documents/index.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
-import {
-	renderEngineVersion,
-	renderPreview,
-	renderTemplatePdf,
-} from "../../../packages/domain/src/documents/render.ts";
+import { renderEngineVersion } from "../../../packages/domain/src/documents/render.ts";
+import { renderPreview, renderTemplatePdf } from "../../../packages/domain/src/documents/library-render.ts";
 import { agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-meeting.ts";
 import { loadStarter, validateBundle } from "../../../packages/reference/src/index.ts";
 import { referenceArtifactSha256 } from "../../../packages/reference/src/playbook.ts";
@@ -183,7 +180,8 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 					assert.equal(pdf.getTitle()?.includes("Harvest Point"), true);
 					assert.equal(pdf.getPageCount(), template.pageCount);
 					const size = pdf.getPage(0).getSize();
-					const card = ["commitment-card", "response-card"].includes(template.id);
+					// The response card is one card a page; the commitment card's file prints four to a Letter sheet.
+					const card = template.id === "response-card";
 					assert.deepEqual([size.width, size.height], card ? [306, 396] : [612, 792]);
 				} else {
 					assert.equal(bytes.subarray(0, 2).toString("latin1"), "PK");

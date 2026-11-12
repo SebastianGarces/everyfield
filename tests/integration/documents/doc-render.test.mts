@@ -13,14 +13,24 @@ import {
 import {
 	docDocument,
 	forkTemplate,
+	type BlockNode,
 	type DocDocument,
 	type DocTemplate,
 } from "../../../packages/contracts/src/documents/format/index.ts";
-import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
+import {
+	DOC_TEMPLATES,
+	docTemplateById,
+	loadTemplate,
+	sheetOf,
+} from "../../../packages/domain/src/documents/doc-templates.ts";
 import { renderDocFile, renderDocPdf } from "../../../packages/domain/src/documents/doc-render.ts";
-import { renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
+import { library, templateView } from "../../../packages/domain/src/documents/catalog.ts";
+import { SLOT_BLANK_NOTE, fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
+import { libraryDoc, renderPreview, renderTemplatePdf } from "../../../packages/domain/src/documents/library-render.ts";
+import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
+import { fillStatementSlots } from "../../../packages/domain/src/documents/network-statement.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
-import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
+import { buildLedgerWorkbook } from "../../../packages/domain/src/documents/xlsx.ts";
 import { docxParts, pdfPages, wordText } from "./fixtures/readers.mts";
 
 const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -108,25 +118,142 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 	assert.equal(sha(again.bytes), sha(pdf.bytes), "a second render gives the same bytes");
 });
 
-test("AC:CASE-DOC-022 each text template's Church Document prints the same pages as its template preview on Documents", async () => {
-	// The Documents preview and "Save for your church" print the code template; "Create Church Document" forks the
-	// everyfield.doc/1 file. An unedited fork reads the same, page for page, with its fill-in fields.
-	const values = { church_name: "Harbor City Church", pastor_name: "Pastor Ada" };
-	for (const id of ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"]) {
-		const preview = await renderTemplatePdf({ id }, values);
-		const doc = await renderDocPdf(
-			await forkTemplate(docTemplateById(id)!, { data: { ...values, church_legal_name: values.church_name } }),
+// T-205: the eight library templates with a template file. The library renders each from that file alone.
+const TWINNED = [
+	"commitment-card",
+	"guest-sign-in-sheet",
+	"member-expectations",
+	"launch-team-commitment",
+	"follow-up-letter",
+	"bylaws",
+	"prayer-letter",
+	"budget-worksheet",
+];
+const STATEMENT = "We believe what our sending network wrote.\n\nA second paragraph.";
+const resolvedFor = async (id: string, pastor: string | null) => {
+	const template = (await library()).templates.find((t) => t.id === id)!;
+	const resolved = resolveMerge(
+		template,
+		{ churchName: "Harbor City Church", pastorName: pastor, launchDate: null },
+		{},
+	);
+	assert.ok(resolved.ok);
+	return { template, resolved };
+};
+
+test("T-205 the library preview of each twinned template is the everyfield.doc/1 render of its file", async () => {
+	for (const id of TWINNED) {
+		const { template, resolved } = await resolvedFor(id, "Pastor Ada");
+		const format = template.formats[0]!;
+		assert.deepEqual(template.formats, [docTemplateById(id)!.exports[0]], id);
+		const preview = await renderPreview(template, format, resolved, NEUTRAL_THEME, undefined, STATEMENT);
+		const doc = await libraryDoc(
+			docTemplateById(id)!,
+			{ church_name: "Harbor City Church", pastor_name: "Pastor Ada" },
+			NEUTRAL_THEME,
+			STATEMENT,
 		);
-		assert.equal(doc.pages, preview.pages, id);
-		// The text in reading order without the page footer, which each engine places in its own order.
-		const footer = /Harbor City Church \| [^|]*?(?= Page| Template|$)|Page \d+ of \d+|Template, not legal advice/g;
-		const text = async (bytes: Uint8Array) =>
-			(await pdfPages(bytes)).join(" ").replace(footer, " ").replace(/\s+/g, " ").trim();
-		const printed = await text(doc.bytes);
-		assert.equal(printed, await text(preview.bytes), id);
-		assert.ok(printed.includes("Harbor City Church"), id);
-		assert.equal(doc.fields.length, preview.fields.length, id);
+		const own =
+			format === "pdf"
+				? (await renderDocPdf(doc)).bytes
+				: Buffer.from(buildLedgerWorkbook(doc, fieldValues(doc), NEUTRAL_THEME));
+		assert.equal(sha(preview!), sha(own), id);
+		// The merge values fill the file's own fields; the brand fields fall back as the file says.
+		assert.equal(fieldValues(doc).church_name, "Harbor City Church", id);
+		if (doc.fields.some((f) => f.key === "pastor_name")) assert.equal(fieldValues(doc).pastor_name, "Pastor Ada", id);
+		if (doc.fields.some((f) => f.key === "church_legal_name"))
+			assert.equal(fieldValues(doc).church_legal_name, "Harbor City Church", id);
 	}
+	const bylaws = await renderTemplatePdf(
+		{ id: "bylaws" },
+		{ church_name: "Harbor City Church" },
+		NEUTRAL_THEME,
+		undefined,
+		STATEMENT,
+	);
+	const text = (await pdfPages(bylaws.bytes)).join(" ");
+	assert.ok(text.includes("We believe what our sending network wrote."), "the network statement fills the slot");
+	assert.equal(text.includes(SLOT_BLANK_NOTE), false);
+});
+
+/** The text of each heading in a body, merge fields left out. */
+const headingTexts = (nodes: readonly BlockNode[] | undefined): string[] =>
+	(nodes ?? []).flatMap((node): string[] => {
+		if (node.type === "heading") {
+			const text = (node.content ?? [])
+				.map((n) => (n.type === "text" ? n.text : ""))
+				.join("")
+				.trim();
+			return text ? [text] : [];
+		}
+		if (node.type === "columns") return node.content.flatMap((column) => headingTexts(column.content));
+		if (node.type === "box") return headingTexts(node.content);
+		return [];
+	});
+
+test("T-205 the library facts of each twinned template are read from its file", async () => {
+	const { templates } = await library();
+	for (const id of TWINNED) {
+		const file = docTemplateById(id)!;
+		const template = templates.find((t) => t.id === id)!;
+		const view = templateView(template);
+		const pdf = file.exports[0] === "pdf" ? await renderDocPdf(file) : null;
+		assert.equal(view.documentClass, file.class, id);
+		assert.deepEqual(
+			view.pageSize,
+			pdf ? { width: sheetOf(file.page).width, height: sheetOf(file.page).height } : null,
+			id,
+		);
+		assert.equal(view.pageCount, pdf ? pdf.pages : 1, id);
+		assert.deepEqual(view.outline, headingTexts(file.body.content), id);
+		assert.equal(view.fillable, (pdf?.fields.length ?? 0) > 0, id);
+		assert.deepEqual(
+			template.facts.fields,
+			(pdf?.fields ?? []).map((f) => f.name),
+			id,
+		);
+		if (id === "bylaws" || id === "prayer-letter") {
+			assert.equal(view.name, file.title, id);
+			assert.equal(view.description, file.description, id);
+			assert.equal(view.category, "administrative", id);
+			assert.deepEqual(
+				view.mergeFields.map((f) => [f.key, f.required, f.autoFill]),
+				[
+					["church_name", true, "church_name"],
+					["pastor_name", false, "pastor_name"],
+				],
+				id,
+			);
+		}
+	}
+});
+
+test("AC:CASE-DOC-022 an unedited Church Document prints the same pages as its template's library preview", async () => {
+	// One renderer: "Save for your church" and "Create Church Document" both render the template file. The document is
+	// made as documents.createFromTemplate makes it: the church's values frozen, the network's statement in its slot.
+	for (const id of TWINNED.filter((id) => docTemplateById(id)!.exports[0] === "pdf"))
+		for (const pastor of ["Pastor Ada", null]) {
+			const values: Record<string, string> = {
+				church_name: "Harbor City Church",
+				...(pastor ? { pastor_name: pastor } : {}),
+			};
+			const preview = await renderTemplatePdf({ id }, values, NEUTRAL_THEME, undefined, STATEMENT);
+			const template = docTemplateById(id)!;
+			const { data } = frozenData(template.fields, {
+				churchName: "Harbor City Church",
+				pastorName: pastor,
+				tagline: null,
+				legalName: null,
+				contactLine: null,
+				meetingDate: null,
+			});
+			const created = fillStatementSlots(await forkTemplate(template, { id: "doc-church-1", data }), STATEMENT);
+			const doc = await renderDocPdf(created);
+			assert.equal(doc.pages, preview.pages, id);
+			assert.deepEqual(doc.text, preview.text, id);
+			assert.deepEqual(doc.fields, preview.fields, id);
+			assert.ok(doc.text.flat().join(" ").includes("Harbor City Church"), id);
+		}
 });
 
 test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with suffixed field names and cut marks", async () => {

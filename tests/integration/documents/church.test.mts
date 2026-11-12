@@ -10,7 +10,7 @@ import { docTemplateById } from "../../../packages/domain/src/documents/doc-temp
 import { forkTemplate, ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { EXPORT_MESSAGES, refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";

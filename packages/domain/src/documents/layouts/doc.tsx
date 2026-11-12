@@ -23,8 +23,7 @@ import type { ReactNode } from "react";
 import { Cell, Fixed, H1, H2, H3, Page, PageBreak, Row, Svg, Table, Text, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
 import { MIN_BODY, MIN_NONTEXT, textOn } from "../contrast.ts";
-import { listValues } from "../doc-values.ts";
-import { SLOT_BLANK_NOTE } from "../templates/church.ts";
+import { listValues, SLOT_BLANK_NOTE } from "../doc-values.ts";
 import { FONT, SIZE, SP, tokenColor, type Palette } from "../theme.ts";
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 import { Box, Cellfield, Field, LogoSlot, PhotoSlot, type Ctx } from "./blocks.tsx";
@@ -926,5 +925,5 @@ export function docElement(ctx: Ctx, doc: EveryfieldDoc, mode: FlowMode = { kind
 	ctx.log.pair("page text", ctx.p.ink, ctx.p.white, MIN_BODY);
 	ctx.log.pair("field border", ctx.p.fieldBorder, ctx.p.white, MIN_NONTEXT);
 	const pages = doc.page.tile ? tiledPage(r, size) : flowPages(r, size, mode);
-	return Doc(ctx, `${doc.title}, ${ctx.church}`, `${doc.title}, ${ctx.church}`, pages, doc.page.margin.left);
+	return Doc(ctx, `${doc.title}, ${ctx.church}`, `${doc.title}, ${ctx.church}`, pages);
 }

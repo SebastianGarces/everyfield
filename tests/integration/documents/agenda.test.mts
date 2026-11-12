@@ -7,7 +7,7 @@ import type { MeetingRead } from "../../../packages/domain/src/documents/meeting
 import { addMinutes, durationText } from "../../../packages/contracts/src/common/meeting-text.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
-import { renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
+import { renderTemplatePdf } from "../../../packages/domain/src/documents/library-render.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
 import { entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { sampleKit } from "./fixtures/sample-kit.ts";

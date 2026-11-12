@@ -16,16 +16,16 @@ import {
 	type PlantRead,
 	type Reader,
 } from "./access.ts";
-import { library, templateView, type CatalogTemplate } from "./catalog.ts";
+import { library, templateView, type CatalogTemplate, type LibraryTemplate } from "./catalog.ts";
 import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, type AgendaKind } from "./agenda-meeting.ts";
 import { readAgendaKind, type MeetingRead } from "./meeting-read.ts";
 import { cleanOverrides, resolveMerge, type ResolvedMerge } from "./merge.ts";
-import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { renderPreview } from "./library-render.ts";
+import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import { templateTheme } from "./church-theme.ts";
-import { entryFor } from "./templates/registry.ts";
 import type { RenderTheme } from "./theme.ts";
 
-function pageOf(version: string, templates: CatalogTemplate[]) {
+function pageOf(version: string, templates: LibraryTemplate[]) {
 	const views = templates.map(templateView);
 	return c.templatePage.parse({
 		version,
@@ -36,7 +36,7 @@ function pageOf(version: string, templates: CatalogTemplate[]) {
 }
 
 function listed(
-	templates: CatalogTemplate[],
+	templates: LibraryTemplate[],
 	input: { category?: CatalogTemplate["category"]; phase?: number; format?: CatalogTemplate["formats"][number] },
 ) {
 	return templates.filter((template) => {
@@ -55,7 +55,7 @@ type Contextual = {
 	teamId?: string;
 };
 
-function matched(templates: CatalogTemplate[], input: Contextual, kind: AgendaKind | null) {
+function matched(templates: LibraryTemplate[], input: Contextual, kind: AgendaKind | null) {
 	// A meeting offers the one agenda that prints from it.
 	if (input.meetingId && !input.teamId)
 		return kind ? templates.filter((template) => template.id === AGENDA_TEMPLATE[kind]) : [];
@@ -174,7 +174,7 @@ type OpenRead = Extract<PlantRead, { subjectOk: true }>;
  */
 export function forSubject(
 	loaded: Loaded,
-	template: CatalogTemplate,
+	template: LibraryTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	overrides: Record<string, string>,
 	plantId: string,
@@ -187,14 +187,12 @@ export function forSubject(
 	return {
 		...done,
 		render: async (db: Database, storage: PrivateStorage | null, authority: RequestActor) => {
-			const entry = entryFor(template.id);
-			if (!entry) deny("render_failed");
 			const theme = await templateTheme(
 				db,
 				storage,
 				authority,
 				{ name: row.churchName ?? "", kit: row.kit },
-				entry.documentClass,
+				template.facts.documentClass,
 			);
 			return rendered(template, format, done.merge, agendaFor ? row.meeting : null, row.statement, theme);
 		},
