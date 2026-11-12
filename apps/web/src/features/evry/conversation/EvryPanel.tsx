@@ -41,6 +41,7 @@ import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useConversation } from "./useConversation.ts";
+import { useRowPhotos } from "./useRowPhotos.ts";
 
 // The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
 // opened from Ask Evry or with Cmd+J (Ctrl+J). It is non-modal, so the page stays usable and the conversation stays the
@@ -191,6 +192,7 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 	const end = useRef<HTMLDivElement>(null);
 	const { turns, state } = c;
 	const lastTurn = turns.at(-1);
+	const photos = useRowPhotos(state.conversation?.id ?? null, turns);
 
 	// Keep the newest message in view while Evry answers, unless the person scrolled up to read. A new message from the
 	// person always scrolls to the end.
@@ -272,6 +274,7 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						canRetry={turn === lastTurn && retryable(state, turns)}
 						retrying={c.retrying}
 						reviews={state.reviews}
+						photos={photos}
 						onSeen={c.seen}
 						onRetry={() => {
 							void c.retry(turn.id);
@@ -343,6 +346,7 @@ function TurnView({
 	canRetry,
 	retrying,
 	reviews,
+	photos,
 	onSeen,
 	onRetry,
 }: {
@@ -352,6 +356,7 @@ function TurnView({
 	canRetry: boolean;
 	retrying: boolean;
 	reviews: State["reviews"];
+	photos: Readonly<Record<string, string>>;
 	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
@@ -394,6 +399,7 @@ function TurnView({
 									operation={block.operation}
 									result={block.result}
 									originalTotal={block.originalTotal}
+									photos={photos}
 								/>
 							) : (
 								<ReviewCard

@@ -1,7 +1,8 @@
 import { getViewer } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
-import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChurchDocumentScreen } from "./ChurchDocumentScreen.tsx";
 import { ChurchLibrary } from "./ChurchLibrary.tsx";
@@ -49,6 +50,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	const loaded = await loadChurchDocument(authority, id.data);
 	if (loaded.status === "failed") return <Failed />;
 	if (loaded.status === "refused") return <Missing />;
+	if (loaded.status === "deleted") return <Deleted />;
 	// The stored document goes to the browser only for an Owner or Admin, who can edit it. A Member gets the preview.
 	const canManage = canManageChurch(authority);
 	const { brands, template, mergeValues } = loaded.value;
@@ -85,6 +87,29 @@ function Missing() {
 			<Card>
 				<StatePanel tone="neutral" title="This document is not available" headingLevel="h2">
 					It may have been deleted, or it belongs to another church plant.
+				</StatePanel>
+			</Card>
+		</>
+	);
+}
+
+/** A seat of the church plant opened a deleted document or one of its saved exports: nothing of it shows. */
+function Deleted() {
+	return (
+		<>
+			<PageHeader breadcrumb={[{ label: "Church documents", href: "/documents/church" }]} title="Document deleted" />
+			<Card>
+				<StatePanel
+					tone="neutral"
+					title="This document was deleted"
+					headingLevel="h2"
+					actions={
+						<Button asChild variant="primary">
+							<Link href="/documents/church">Back to Church documents</Link>
+						</Button>
+					}
+				>
+					Its saved exports can no longer be opened or downloaded.
 				</StatePanel>
 			</Card>
 		</>

@@ -24,7 +24,7 @@ import type { RequestActor } from "../access/session.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { columnStages, committedStagesSql, openDutiesOf } from "./pipeline.ts";
-import { workspaceAvatar } from "../settings/photo-visibility.ts";
+import { listPhotoSql } from "./photos.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
 const obligation_o = alias(tables.obligation, "o");
@@ -106,7 +106,13 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	const result = await tx
 		.select({
 			...personColumns,
-			account_avatar: workspaceAvatar(tables.person.linked_account_id, tables.person.plant_id).as("account_avatar"),
+			list_photo: listPhotoSql({
+				id: tables.person.id,
+				state: tables.person.state,
+				photo: tables.person.photo_object_id,
+				account: tables.person.linked_account_id,
+				plant: tables.person.plant_id,
+			}).as("list_photo"),
 		})
 		.from(tables.person)
 		.where(and(...filters))
@@ -129,16 +135,8 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	return c.peoplePage.parse({
 		owner: ctx.selected,
 		items,
-		// A live person's own People photo wins over the photo of the account it links to.
 		photos: page.flatMap((r) => {
-			const photo =
-				r.state !== "live"
-					? null
-					: r.photo_object_id
-						? { kind: "person" as const, personId: r.id, versionId: r.photo_object_id }
-						: r.account_avatar && r.linked_account_id
-							? { kind: "account" as const, accountId: r.linked_account_id, versionId: r.account_avatar }
-							: null;
+			const photo = c.listPhoto.nullable().parse(r.list_photo);
 			return photo ? [{ personId: r.id, photo }] : [];
 		}),
 		total,

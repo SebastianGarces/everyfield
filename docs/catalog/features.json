@@ -4677,7 +4677,7 @@
     "id": "DOC-003",
     "title": "Saved generated-document history and fresh signed re-download",
     "module": "documents",
-    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion. Once a Church Document is deleted, none of its saved exports lists or downloads for any seat; its seats are told it was deleted, and anyone outside the church plant gets the unknown-id answer.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-003",

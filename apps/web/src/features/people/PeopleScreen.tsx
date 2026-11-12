@@ -13,7 +13,7 @@ import {
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
-import { avatarRoute } from "@everyfield/contracts/settings";
+import { listPhotoRoute } from "@everyfield/contracts/people";
 import {
 	Button,
 	buttonVariants,
@@ -58,11 +58,6 @@ import type { PeopleData, PeopleView } from "./server.ts";
 type PlantPerson = z.infer<typeof people.plantPerson>;
 /** A list row: the person and the photo it shows, when there is one (REQ-PPL-005, REQ-IDN-006). */
 type ListRow = PlantPerson & { photo?: string };
-/** The app's own route for a list photo's exact version. */
-const listPhotoSrc = (photo: z.infer<typeof people.listPhoto>) =>
-	photo.kind === "person"
-		? `/people/${photo.personId}/photo/${photo.versionId}`
-		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
 /** List and cards show the same loaded rows; the pipeline is its own load. */
 type Kind = "rows" | "pipeline";
 const kindOf = (view: ViewValue): Kind => (view === "pipeline" ? "pipeline" : "rows");
@@ -367,7 +362,7 @@ function Results({
 		);
 	if (data.kind === "pipeline") return <PipelineBoard query={query} pipeline={data.pipeline} canWrite={canWrite} />;
 	const page = data.page;
-	const photos = new Map(page.photos.map((p) => [p.personId, listPhotoSrc(p.photo)]));
+	const photos = new Map(page.photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	const rows: ListRow[] = page.items.map((p) => ({ ...p, photo: photos.get(p.id) }));
 	const clear = (
 		<Button

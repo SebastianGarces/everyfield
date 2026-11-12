@@ -37,6 +37,7 @@ import {
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
+import { listPhotoRoute, type PersonPhoto } from "@everyfield/contracts/people";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
 import { flushSync } from "react-dom";
 import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -129,6 +130,7 @@ export function GuestList({
 	meeting,
 	guests,
 	emailOpens,
+	photos,
 	cards,
 	attendance,
 	presence,
@@ -150,6 +152,8 @@ export function GuestList({
 	guests: GuestRow[] | null;
 	/** When a guest first opened an email of this meeting, from the email service. Never an RSVP or attendance. */
 	emailOpens: readonly { personId: string; openedAt: string }[];
+	/** Each guest's photo as the People list shows it; a guest with none keeps the initials. */
+	photos: readonly PersonPhoto[];
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
@@ -173,6 +177,7 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
+	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const table = useRef<HTMLDivElement>(null);
@@ -391,7 +396,7 @@ export function GuestList({
 			header: "Guest",
 			cell: (g) => (
 				<div className="flex items-center gap-3">
-					<Avatar name={g.person.displayName} size="sm" decorative />
+					<Avatar name={g.person.displayName} src={photoOf.get(g.person.personId)} size="sm" decorative />
 					<div className="min-w-0">
 						{g.person.state === "live" && !isPending(g) ? (
 							<IntentLink
