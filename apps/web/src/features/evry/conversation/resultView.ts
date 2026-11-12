@@ -48,6 +48,10 @@ const VIEWS: Record<string, OpView> = {
 	"people.getPerson": people("Person"),
 	"people.getPersonPhoto": people("Photo"),
 	"people.checkForDuplicates": people("Possible duplicates"),
+	// One row per import review pair: the imported person, with the person it may duplicate on its line.
+	"people.listDuplicatePairs": people("Duplicates to review", {
+		empty: "No import has flagged a possible duplicate that still needs review.",
+	}),
 	"people.getPipelineData": people("Pipeline"),
 	"evry.selectReturnedRows": people("Selected people"),
 	"people.listHouseholds": {
@@ -336,6 +340,15 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: fields.photo === "available" ? "Open the person's page to see it" : null,
 			mark: null,
 			avatar: null,
+			href,
+		};
+	if (operation === "people.listDuplicatePairs")
+		return {
+			key,
+			name: row.label,
+			line: typeof fields.mayDuplicate === "string" ? `May duplicate ${fields.mayDuplicate}` : null,
+			mark: null,
+			avatar: "person",
 			href,
 		};
 	if (typeof fields.match === "string")
