@@ -10,7 +10,7 @@ type Stage = z.infer<typeof c.stage>;
 type Column = z.infer<typeof c.pipelineColumn>;
 
 /** The committed stages: one "Core group" column on the board (REQ-PPL-007), and a handoff when a person leaves it. */
-export const COMMITTED_STAGES = ["core_group", "launch_team", "leader"] as const satisfies readonly Stage[];
+const COMMITTED_STAGES = ["core_group", "launch_team", "leader"] as const satisfies readonly Stage[];
 
 export const isCommitted = (stage: string | null | undefined): boolean =>
 	stage != null && (COMMITTED_STAGES as readonly string[]).includes(stage);

@@ -188,7 +188,7 @@ const HISTORY_KIND: Record<string, string> = {
 	remove: "Left the ministry",
 	retire: "Role retired",
 };
-export const FIELD_LABEL: Record<string, string> = {
+const FIELD_LABEL: Record<string, string> = {
 	name: "Name",
 	description: "Description",
 	icon: "Icon",

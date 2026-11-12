@@ -39,7 +39,7 @@ function formOf(values: Available): Form {
 	return Object.fromEntries(FIELDS.map((k) => [k, values.profile[k] ?? ""])) as Form;
 }
 
-export function validateOrganization(form: Form): Partial<Record<keyof Form, string>> {
+function validateOrganization(form: Form): Partial<Record<keyof Form, string>> {
 	const errors: Partial<Record<keyof Form, string>> = {};
 	if (!form.name.trim()) errors.name = "Enter the organization's name.";
 	for (const k of FIELDS)

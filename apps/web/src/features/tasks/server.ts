@@ -20,7 +20,7 @@ import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } fr
 // statement rechecks the live seat itself (C13), and every write rechecks authority inside its own statement (D70).
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
-export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
+const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
 /** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function taskViewer(): Promise<TaskViewer | null> {

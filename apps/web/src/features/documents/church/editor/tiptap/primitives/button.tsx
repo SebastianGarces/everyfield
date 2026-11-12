@@ -14,7 +14,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 	shortcutKeys?: string;
 }
 
-export const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({ shortcuts }) => {
+const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({ shortcuts }) => {
 	if (shortcuts.length === 0) return null;
 
 	return (

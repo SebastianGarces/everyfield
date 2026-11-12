@@ -1,5 +1,4 @@
 import { owner, type Owner } from "@everyfield/contracts/common";
-import type { OrganizationOperations } from "@everyfield/contracts/organizations";
 import * as C from "@everyfield/contracts/organizations";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
@@ -33,7 +32,6 @@ const env = z.object({
 	...mailEnv,
 });
 
-export type Operation = keyof OrganizationOperations;
 export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
 export type Mount = NonNullable<ReturnType<typeof current>>;
 /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
@@ -115,7 +113,7 @@ export function current() {
 	return mount;
 }
 
-export type { Kind, Viewer } from "@everyfield/domain/organizations";
+export type { Viewer } from "@everyfield/domain/organizations";
 /** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
 export async function viewerOf(): Promise<
 	| { kind: "signed_out" }
@@ -243,7 +241,6 @@ export async function invitationFor(
 export {
 	idsIn,
 	namesFor,
-	pairOf,
 	pendingFor,
 	readHistory,
 	readPipelineConsents,

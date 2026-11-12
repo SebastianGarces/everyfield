@@ -8,9 +8,9 @@ import {
 	type TextDocumentSpec,
 } from "./text-content.ts";
 
-export type SignatureSlot = { label: string; name: string; width: number };
+type SignatureSlot = { label: string; name: string; width: number };
 /** The fixed frame of a Church Document: what export prints around the editable body, in the PDF and the DOCX. */
-export type Frame =
+type Frame =
 	| { kind: "sign"; closing: string; slots: SignatureSlot[] }
 	| { kind: "adopt"; closing: string; signers: number }
 	| { kind: "letter"; signOff: string };
@@ -35,7 +35,7 @@ export type ChurchTemplate = {
 	body: ChurchBlock[];
 };
 
-export const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
+const MERGE_FIELDS: ChurchTemplate["mergeFields"] = [
 	{ key: "church_name", label: "Church name", required: true, autoFill: "church_name" },
 	{ key: "pastor_name", label: "Pastor name", required: false, autoFill: "pastor_name" },
 ];

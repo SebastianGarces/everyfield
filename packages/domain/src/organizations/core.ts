@@ -21,13 +21,13 @@ import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, getTableColumns, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { currentActor, liveOwner } from "@everyfield/domain/access";
+import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { canonical } from "../operations/canonical.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
-export { currentActor, liveOwner, sameOwner };
+export { currentActor, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
 export const administrator = (a: Actor) => a.context.kind === "seat" && a.context.role !== "member";
 export const unavailable = () => ({ status: "unavailable" }) as const;

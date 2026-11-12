@@ -31,7 +31,7 @@ export const VIEWERS = ["owner", "member"] as const;
 export type Viewer = (typeof VIEWERS)[number];
 export const VIEWER_LABEL: Record<Viewer, string> = { owner: "Owner or Admin", member: "Member" };
 
-export const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused"] as const;
+const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused"] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 export const SCENARIO_LABEL: Record<Scenario, string> = {
 	connected: "Normal",

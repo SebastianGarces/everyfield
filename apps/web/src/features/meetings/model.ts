@@ -95,7 +95,7 @@ export const STATUS_LABEL: Record<MeetingStatus, string> = {
 	completed: "Completed",
 	cancelled: "Cancelled",
 };
-export const STATUS_TONE: Record<MeetingStatus, Status> = {
+const STATUS_TONE: Record<MeetingStatus, Status> = {
 	planning: "measured",
 	ready: "positive",
 	in_progress: "attention",
@@ -199,7 +199,7 @@ export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
 export const WINDOW_LABEL: Record<Window, string> = { all: "All", upcoming: "Upcoming", past: "Past" };
-export const PAGE_SIZE = 24;
+const PAGE_SIZE = 24;
 
 export type MeetingsQuery = { window: Window; type: MeetingType | null; status: MeetingStatus | null; page: number };
 export const DEFAULT_QUERY: MeetingsQuery = { window: "all", type: null, status: null, page: 1 };

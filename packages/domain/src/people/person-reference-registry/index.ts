@@ -81,9 +81,9 @@ export const registry: readonly Registration[] = [
 	r("training_credit", "training_credit", "person_id", "plant_id", "keep", "id", false),
 ];
 /** The references that decide whether a reviewed state is still current: everything except kept lineage and evidence. */
-export const tracked = registry.filter((e) => e.treatment !== "keep");
+const tracked = registry.filter((e) => e.treatment !== "keep");
 
-export const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable() });
+const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable() });
 export type Reference = { kind: Kind; id: string; revision: string | null };
 const kindOf = new Map(tracked.map((e) => [`${e.table}.${e.column}`, e.kind]));
 

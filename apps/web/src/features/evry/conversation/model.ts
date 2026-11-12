@@ -5,7 +5,7 @@
 import type { Review } from "../review/model.ts";
 
 /** The four exact contexts a conversation belongs to. */
-export type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
+type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
 
 export type Conversation = {
 	id: string;
@@ -16,7 +16,7 @@ export type Conversation = {
 	updatedAt: string;
 };
 
-export type ErrorCode =
+type ErrorCode =
 	| "not_found"
 	| "access_denied"
 	| "invalid_input"
@@ -60,7 +60,7 @@ export type SourceResult = {
 	proposalId?: string;
 };
 
-export type StopReason =
+type StopReason =
 	| "completed"
 	| "policy_boundary"
 	| "tool_budget"
@@ -183,7 +183,7 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 // Turns: what the panel draws. One turn is the person's message, then Evry's text and result cards in the order they
 // were saved, then how the turn ended.
 
-export type Block =
+type Block =
 	| { kind: "text"; sequence: number; text: string; withheld: boolean }
 	| { kind: "result"; sequence: number; operation: string; result: SourceResult; originalTotal: number | null }
 	| { kind: "review"; sequence: number; proposalId: string; target: string | null };

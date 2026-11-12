@@ -65,7 +65,7 @@ const chartOf = (teams: readonly ListedTeam[]): ChartNode[] =>
 		})),
 	);
 /** Owners and Admins change every ministry; the linked leader changes their own (the producer decides again). */
-export const canChange = (viewer: Viewer, team: Pick<Team, "leaderPersonId">) =>
+const canChange = (viewer: Viewer, team: Pick<Team, "leaderPersonId">) =>
 	isAdmin(viewer) || (viewer.ownPersonId !== null && team.leaderPersonId === viewer.ownPersonId);
 
 export type TeamsView = Awaited<ReturnType<typeof loadTeams>>;

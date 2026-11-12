@@ -106,7 +106,7 @@ const order = c.stage.options;
  * the merge so both say the same thing (REQ-PPL-025): differing fields, the survivor's new values and the prior values
  * Unmerge restores, the stage and commitment the survivor keeps, the references that move and any blockers.
  */
-export function plan(
+function plan(
 	kind: "plant" | "organization",
 	source: Facts,
 	survivor: Facts,

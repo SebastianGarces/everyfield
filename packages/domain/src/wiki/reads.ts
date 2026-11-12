@@ -83,7 +83,7 @@ function displayBody(contentType: unknown, hidden: unknown, body: unknown): stri
 		return text;
 	}
 }
-export function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
+function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
 	if (!body) return [];
 	if (contentType === "safe_nodes") {
 		try {

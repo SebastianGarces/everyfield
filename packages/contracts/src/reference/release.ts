@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { revision } from "../common/values.ts";
-export const digest = z.string().regex(/^[a-f0-9]{64}$/);
-export const referenceId = z.uuid();
+const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const referenceId = z.uuid();
 export const profile = z.strictObject({
 	chunker: z.literal("fixed-codepoints-1200-v1"),
 	model: z.string().min(1).max(100),
 	dimensions: z.number().int().min(1).max(4096),
 });
-export const entry = z.strictObject({
+const entry = z.strictObject({
 	id: referenceId,
 	revisionId: referenceId,
 	kind: z.enum([
@@ -34,7 +34,7 @@ export const entry = z.strictObject({
 	sectionId: referenceId.optional(),
 	parentId: referenceId.nullable().optional(),
 });
-export const passage = z.strictObject({
+const passage = z.strictObject({
 	key: z.string().min(1).max(100),
 	revisionId: referenceId,
 	ordinal: z.number().int().min(0),

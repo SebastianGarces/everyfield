@@ -129,7 +129,7 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
 /** The person's open tasks a stage change or removal hands back as needing an owner, from the review. */
-export const handedBack = (changes: readonly Change[]) =>
+const handedBack = (changes: readonly Change[]) =>
 	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
 
 /** The changes the card lists as before and after; the task count is said once in words instead. */

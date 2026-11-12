@@ -63,7 +63,7 @@ const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
  * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
  * read into memory. A declared Content-Length above the limit is refused without reading at all.
  */
-export async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
+async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
 	if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
 	const chunks: Uint8Array[] = [];
 	let size = 0;
@@ -216,7 +216,7 @@ export async function receiptRoute(request: Request) {
 }
 
 /** The export request for a People address: the directory's own filters, without paging or view. */
-export function exportFilters(search: URLSearchParams) {
+function exportFilters(search: URLSearchParams) {
 	const r = listRequest(parseQuery(search));
 	return exportPeopleRequest.parse({
 		...(r.search ? { search: r.search } : {}),
