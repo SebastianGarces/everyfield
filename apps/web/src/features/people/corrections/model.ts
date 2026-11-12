@@ -295,8 +295,7 @@ export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unkno
 		if (pending) return null;
 		pending = true;
 		try {
-			const input = { personId: listed.personId, withPersonId: listed.withPersonId };
-			return reviewDismissed(await sendTwice(() => send(input)));
+			return reviewDismissed(await sendTwice(() => send(listed)));
 		} finally {
 			pending = false;
 		}
