@@ -418,7 +418,7 @@ for (const [engine, launcher] of ENGINES) {
 			await d.rows(
 				d.sql`UPDATE mail SET state='unknown' WHERE tenant_id=${d.plant}::uuid AND logical_key LIKE ${"communication/" + message.id + "/%"} AND state='scheduled'`,
 			);
-			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
+			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Can't move this email");
 			assert.match(await card.innerText(), /has not answered about every recipient of this message/);
 			assert.equal(await card.getByRole("button", { name: "Approve" }).count(), 0, "nothing to approve");
 			assert.doesNotMatch(await card.innerText(), /Approve by|Recipients and content stay the same/);
