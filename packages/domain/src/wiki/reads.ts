@@ -24,6 +24,7 @@ import {
 	tocRequest,
 	tocResult,
 	wikiArticle,
+	wikiBlocks,
 	type SourceView,
 	type WikiArticle,
 	type WikiReply,
@@ -42,7 +43,7 @@ import {
 	visibleBodySql,
 	type CorpusAccess,
 } from "./corpus.ts";
-import { bodyBlocks, sectionExcerpt } from "./excerpt.ts";
+import { sectionExcerpt } from "./excerpt.ts";
 import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
@@ -485,7 +486,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
-					SELECT json_agg(${articleJson()} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
 					FROM recent p
 					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
@@ -594,7 +595,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where, { body: false }));
 		const row = z
 			.object({
 				allowed: z.boolean(),
@@ -707,7 +708,7 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
-		const blocks = bodyBlocks(article.contentType, article.body!);
+		const blocks = wikiBlocks(article.contentType, article.body!);
 		try {
 			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return exportResult.parse({
@@ -733,7 +734,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, bodyBlocks(article.contentType, article.body!), meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		});

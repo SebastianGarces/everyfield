@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -124,14 +124,32 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
  */
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
-	const cursor = parse(z.int().min(0), after);
+	const read = await conversationPage(db, actor, sql`${conversationId}::uuid`, parse(z.int().min(0), after));
+	if (!read) throw new EvryRefusal("not_found");
+	return read;
+}
+
+/**
+ * evry.openConversation for the launcher and the panel: the actor's most recent conversation in this exact context and
+ * its first page of saved events with the active run, in one statement. Null when the actor has none.
+ */
+export async function openLatestConversation(db: Database, actor: EvryActor) {
+	return conversationPage(
+		db,
+		actor,
+		sql`(SELECT l.id FROM conversation l WHERE ${owned(actor, "l")} ORDER BY l.updated_at DESC, l.id DESC LIMIT 1)`,
+		0,
+	);
+}
+
+async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor: number) {
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation,
 			${liveRun("c")} AS run_live,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
 				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
-		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
-	if (!r.rows.length) throw new EvryRefusal("not_found");
+		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+	if (!r.rows.length) return null;
 	const row = z
 		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow) })
 		.parse(r.rows[0]);
@@ -143,14 +161,6 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 		events: row.events,
 		more: row.events.length === EVENT_PAGE,
 	};
-}
-
-/** The actor's most recent conversation in this exact context, so the launcher and the panel reopen the same one. */
-export async function latestConversation(db: Database, actor: EvryActor): Promise<Conversation | null> {
-	const r = await db.execute(sql`
-		SELECT ${conversationJson("c")} AS conversation FROM conversation c
-		WHERE ${owned(actor, "c")} AND ${liveAuthority(actor)} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
-	return r.rows.length ? conversationRow.parse(r.rows[0]!.conversation) : null;
 }
 
 const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });

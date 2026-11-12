@@ -1,3 +1,4 @@
+import { meetingTitle } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
@@ -47,14 +48,8 @@ export const meetingRow = z.object({
 });
 export type MeetingRow = z.infer<typeof meetingRow>;
 
-const labels: Record<z.infer<typeof c.meetingType>, string> = {
-	vision_meeting: "Vision Meeting",
-	orientation: "Orientation",
-	team_meeting: "Team Meeting",
-	prelaunch_practice: "Pre-launch Practice",
-};
 export function displayTitle(m: Pick<MeetingRow, "title" | "type" | "vision_number">) {
-	return m.title?.trim() || labels[m.type] + (m.vision_number ? ` #${m.vision_number}` : "");
+	return meetingTitle({ title: m.title, type: m.type, visionNumber: m.vision_number });
 }
 export function summary(m: MeetingRow): z.infer<typeof c.meetingSummary> {
 	return c.meetingSummary.parse({

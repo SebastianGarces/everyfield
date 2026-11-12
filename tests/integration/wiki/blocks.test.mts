@@ -1,9 +1,13 @@
 // WP-034/ui criteria 4 and 9: the app reads fenced blocks as code or diagrams, and fence lines never become markdown.
-// No database: markdownBlocks is the pure reader the article page renders.
+// No database: articleBlocks is the pure reader the article page renders, over wikiBlocks, the one block parser.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { markdownBlocks } from "../../../apps/web/src/features/wiki/model.ts";
+import { wikiBlocks } from "../../../packages/contracts/src/wiki/index.ts";
+import { articleBlocks } from "../../../apps/web/src/features/wiki/model.ts";
+import { helveticaPdf, printHtml } from "../../../packages/domain/src/wiki/pdf.ts";
+
+const markdownBlocks = (body: string) => articleBlocks("safe_mdx", body);
 
 const lines = (...text: string[]) => text.join("\n");
 
@@ -118,4 +122,67 @@ test("WP-034/ui: partner-organization-coordination keeps its dash lines as code 
 	const inside = new Set(fence.split("\n").map((line) => line.replace(/^- /, "").trim()));
 	for (const block of blocks)
 		if (block.kind === "list") for (const item of block.items) assert.equal(inside.has(item), false, item);
+});
+
+/** Every Tj string of the PDF, in page order. The fixture is ASCII, so latin1 reads it as written. */
+const pdfLines = (pdf: Uint8Array) =>
+	[
+		...Buffer.from(pdf)
+			.toString("latin1")
+			.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g),
+	].map((m) => m[1]!.replace(/\\([()\\])/g, "$1"));
+
+test("com-28: one body reads as the same blocks in the reader, the PDF text and the print HTML", () => {
+	const body = lines(
+		"## Welcome",
+		"Greet every guest.",
+		"",
+		"> Love your neighbor.",
+		"> Every week.",
+		"",
+		"1. Pray",
+		"2. Invite",
+		"",
+		"| Week | Goal |",
+		"|---|---|",
+		"| 1 | Pray |",
+		"",
+		'<Callout type="tip">',
+		"Smile first.",
+		"</Callout>",
+	);
+	assert.deepEqual(articleBlocks("safe_mdx", body), [
+		{ kind: "heading", level: 2, text: "Welcome", id: "welcome" },
+		{ kind: "paragraph", text: "Greet every guest." },
+		{ kind: "quote", text: "Love your neighbor. Every week." },
+		{ kind: "list", ordered: true, items: ["Pray", "Invite"] },
+		{
+			kind: "table",
+			rows: [
+				["Week", "Goal"],
+				["1", "Pray"],
+			],
+		},
+		{ kind: "callout", label: "Tip", text: "Smile first." },
+	]);
+	const blocks = wikiBlocks("safe_mdx", body);
+	assert.deepEqual(pdfLines(helveticaPdf("Plan", blocks)).slice(2, -1), [
+		"Welcome",
+		"Greet every guest.",
+		"    Love your neighbor. Every week.",
+		"1. Pray",
+		"2. Invite",
+		"Week | Goal",
+		"1 | Pray",
+		"Smile first.",
+	]);
+	const html = printHtml("Plan", blocks);
+	assert.ok(
+		html.includes(
+			"<h2>Welcome</h2><p>Greet every guest.</p><blockquote><p>Love your neighbor. Every week.</p></blockquote>" +
+				"<ol><li>Pray</li><li>Invite</li></ol><table><tr><td>Week</td><td>Goal</td></tr><tr><td>1</td><td>Pray</td></tr></table>" +
+				"<aside><p>Smile first.</p></aside>",
+		),
+		html,
+	);
 });
