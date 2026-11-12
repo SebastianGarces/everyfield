@@ -20,8 +20,9 @@ const kinds = [
 	"clicked",
 	"cancelled",
 ] as const;
+const handled = z.enum(kinds.map((k) => `email.${k}` as const));
 const wire = z.object({
-	type: z.enum(kinds.map((k) => `email.${k}` as const)),
+	type: handled,
 	created_at: z.iso.datetime(),
 	data: z.object({ email_id: z.string().min(1).max(128), bounce: z.object({ type: z.string() }).optional() }),
 });
@@ -118,9 +119,16 @@ export async function receiveMailCallback(db: Database, request: Request, secret
 	const raw = await boundedBytes(request, 16_384);
 	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
 }
-/** Store a durable safe receipt for already verified callback bytes, then try to apply it. */
+/**
+ * Store a durable safe receipt for already verified callback bytes, then try to apply it. A verified event of a type
+ * this app does not handle (such as `email.delivery_delayed`) is acknowledged and stored nowhere, so the provider does
+ * not retry it.
+ */
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
-	const v = wire.parse(JSON.parse(new TextDecoder().decode(raw)));
+	const body: unknown = JSON.parse(new TextDecoder().decode(raw));
+	const type = z.object({ type: z.string().min(1).max(64) }).parse(body).type;
+	if (!handled.safeParse(type).success) return { stored: false, result: "ignored" as const };
+	const v = wire.parse(body);
 	const kind = z.enum(kinds).parse(v.type.slice(6));
 	const hash = createHash("sha256").update(raw).digest("hex");
 	// Commit the safe receipt before attempting application, including unknown message IDs.

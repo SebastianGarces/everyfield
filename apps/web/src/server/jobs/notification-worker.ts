@@ -8,13 +8,23 @@ import {
 	planMilestoneNotice,
 	relationshipMailGrants,
 } from "@everyfield/domain/organizations";
+import { authorizePhaseNotices } from "@everyfield/domain/phases";
+import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
-import { mailUnsubscribe, type createMailService } from "./mail.ts";
+import {
+	MAIL_PASSES,
+	mailUnsubscribe,
+	runDueMail,
+	type AuthorizeMail,
+	type createMailService,
+	type MailPass,
+	type MailTransport,
+} from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, recoverLease, type Claim, type JobResult } from "./queue.ts";
-import { queuedMailService, seatedNotificationService } from "./seated-notifications.ts";
+import { mountMailService, seatedNotificationService } from "./seated-notifications.ts";
 
 // The notification worker (NTF-006, NTF-009), run by the scheduled runner. Meeting writes queue one `notification` job
 // per announcement and reminder slot (syncReminderJobs in packages/domain/src/meetings); approving or ending a plant's
@@ -165,12 +175,41 @@ export async function authorizeNotificationMail(
 }
 
 let mounted: NotificationWorker | undefined;
-/** The runner's notification worker, or null when the deployment has no mail configuration. Mail is queued here only. */
+/** The runner's notification worker, or null when the deployment has no mail configuration. Mail is queued here only: `noticeMailPass` sends it. */
 export function notificationsMount(db: Database | null): NotificationWorker | null {
 	const v = z.object(mailEnv).safeParse(process.env);
 	if (!db || !v.success) return null;
 	mounted ??= createNotificationWorker({
-		mail: queuedMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
+		mail: mountMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
 	});
 	return mounted;
+}
+
+/**
+ * Which notice email may go out, each under its own source's rule: a task reminder (authorizeTaskReminders), a phase
+ * advance (authorizePhaseNotices), a meeting notice or a milestone (authorizeNotificationMail). Each rule grants only
+ * notices of its own purposes, so a mail passes under at most one.
+ */
+export const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
+	const granted = new Set<string>();
+	for (const rule of [authorizeTaskReminders, authorizePhaseNotices, authorizeNotificationMail])
+		for (const id of await rule(tx, mail)) granted.add(id);
+	return granted;
+};
+
+/**
+ * The scheduled runner's notice mail pass (`notice/` keys): one bounded batch through `transport`, each mail rechecked
+ * under its notice's own rule and email preference just before the handoff. Null without mail configuration.
+ */
+export function noticeMailPass(db: Database | null, transport: MailTransport): MailPass | null {
+	const v = z.object(mailEnv).safeParse(process.env);
+	if (!db || !v.success) return null;
+	const mail = mountMailService({
+		db,
+		env: v.data,
+		authorize: authorizeNoticeMail,
+		unsubscribe: mailUnsubscribe(),
+		transport,
+	});
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.notice, limit, until);
 }

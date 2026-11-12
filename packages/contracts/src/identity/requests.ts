@@ -2,6 +2,12 @@ import { z } from "zod";
 import { safeReturn } from "./navigation.ts";
 import { requestKey } from "../common/values.ts";
 
+/**
+ * How long a password-reset or sign-up verification link works. The scheduled runner expires queued link mail older
+ * than this, so a backlog never sends a dead link.
+ */
+export const IDENTITY_LINK_SECONDS = 3600;
+
 export const normalizedEmail = z.string().trim().toLowerCase().pipe(z.email());
 // Native secrets are never trimmed, normalized or placed in durable contracts.
 export const nativePassword = z.string().min(8).max(1024);

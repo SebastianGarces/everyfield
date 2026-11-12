@@ -4,12 +4,12 @@ import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
-import { queuedMailService, seatedNotificationService } from "../jobs/seated-notifications";
+import { mountMailService, seatedNotificationService } from "../jobs/seated-notifications";
 import { taskReminders } from "./reminders";
 
 // The tasks mount (WP-024). Task screens reach the writer through their server actions and run each command in
 // withTaskWrite, which binds the request's verified actor. Every task write that changes owed reminders queues them
-// in the same transaction through WP-031's notification service; the mail worker dispatches them later.
+// in the same transaction through WP-031's notification service; the runner's notice mail pass sends them later.
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -19,7 +19,7 @@ const env = z.object({
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const notifications = seatedNotificationService(queuedMailService({ db, env: v, authorize: authorizeTaskReminders }));
+	const notifications = seatedNotificationService(mountMailService({ db, env: v, authorize: authorizeTaskReminders }));
 	// Meeting finalization passes `reminders` to the generated-work producers in its own command.
 	const reminders = taskReminders(notifications);
 	return { db, reminders, writer: createTaskWriter({ reminders }) };
