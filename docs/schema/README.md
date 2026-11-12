@@ -16,7 +16,7 @@ python3 docs/schema/render-diagram.py
 python3 docs/package-context.py --check-manifest
 ```
 
-[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this catalog. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
+`schema-diagram.html` is an offline ERD generated on demand from this catalog with `python3 docs/schema/render-diagram.py`; it is not committed. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
 
 The checker validates structural keys, FK existence/arity/types, unconditional referenced keys, owner pairs and named exceptions, UUID relations, literal closed sets, NULL guards, JSONB key documentation, catalog coverage, producer packages and Person registrations. It does not execute SQL, triggers, Better Auth, authorization races, storage, providers or application acceptance. Independent semantic review remains required.
 

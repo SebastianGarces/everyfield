@@ -29,6 +29,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Generated on demand by python3 docs/schema/render-diagram.py (T-221)
+docs/schema/schema-diagram.html
+
 # evf task worktrees
 .worktrees/
 
