@@ -161,11 +161,10 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	}
 }
 /**
- * Applies up to `limit` stored callbacks that are still pending and whose message id now names an email: an event that
+ * Applies up to 100 stored callbacks that are still pending and whose message id now names an email: an event that
  * arrived before its email had a provider id. The scheduled runner calls it each tick (`mail-callbacks`).
  */
-export async function replayStoredCallbacks(db: Database, limit = 100) {
-	z.number().int().min(1).max(100).parse(limit);
+export async function replayStoredCallbacks(db: Database) {
 	const rows = await db
 		.select({ id: provider_event_e.id })
 		.from(provider_event_e)
@@ -176,7 +175,7 @@ export async function replayStoredCallbacks(db: Database, limit = 100) {
 			),
 		)
 		.orderBy(asc(provider_event_e.received_at), asc(provider_event_e.id))
-		.limit(limit);
+		.limit(100);
 	let applied = 0;
 	for (const row of rows) {
 		try {
