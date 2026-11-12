@@ -3,7 +3,7 @@
 // knip is not a dependency and does not run in CI or `pnpm lint`. Every test, script and tool is an entry point, so an
 // export that only they use counts as used. The package.json `exports` maps count as public entry points (knip's
 // default mode, without --include-entry-exports). The sweep covers packages/contracts, packages/domain, packages/ui,
-// apps/web (T-188), and packages/db, packages/evry and packages/reference (T-278).
+// apps/web (T-188), packages/db, packages/evry and packages/reference (T-278), and the landing-marketing paths (T-279).
 {
 	"$schema": "https://unpkg.com/knip@6.43.0/schema-jsonc.json",
 	"workspaces": {
@@ -41,12 +41,6 @@
 	"ignoreIssues": {
 		// rescheduleReviewed: planned operation communication.rescheduleReviewed. The server action exists; no screen calls it yet.
 		"apps/web/src/features/communication/actions.ts": ["exports"],
-		// shareAlt: excluded path (landing-marketing owner class).
-		"apps/web/src/marketing/meta.ts": ["exports"],
-		// SectionHead: excluded path (landing-marketing owner class).
-		"apps/web/src/marketing/sections/SectionHead.tsx": ["exports"],
-		// FieldCopy, AccessCopy, Outcome: excluded path (landing-marketing owner class).
-		"apps/web/src/marketing/copy.ts": ["types"],
 		// Block: excluded path (document-templates owner class).
 		"packages/domain/src/documents/templates/text-content.ts": ["types"],
 	},
