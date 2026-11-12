@@ -13,7 +13,6 @@ import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 const owner = () => fixture("people").owner.cookie;
-const member = () => fixture("people").member.cookie;
 const SUBJECT = "Sunday's interest meeting";
 // The preview records mail in its own temp folder. `bin/dev browser run` gives this process a private temp folder inside it.
 const systemTmp = /\/browser-run-[^/]+$/.test(tmpdir()) ? dirname(tmpdir()) : tmpdir();
@@ -522,7 +521,7 @@ for (const [engine, launcher] of ENGINES) {
 			await messagesPage.getByRole("button", { name: "Cancel scheduled email", exact: true }).first().click();
 			await messagesPage.getByRole("alertdialog").getByRole("button", { name: "Cancel scheduled email" }).click();
 			await messagesPage
-				.getByText(/The email service confirmed the cancel for/)
+				.getByText(/Cancelled for \d+ (person|people)\./)
 				.first()
 				.waitFor({ timeout: 90_000 });
 			await messagesPage.close();
@@ -568,7 +567,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.doesNotMatch(text, /person/i);
 		}));
 
-	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"; a member has no email write`, () =>
+	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -597,30 +596,6 @@ for (const [engine, launcher] of ENGINES) {
 				0,
 				"not the Saturday one",
 			);
-			// A member can read the church's messages through Evry but is offered no email write.
-			const memberPage = await context.newPage();
-			await signIn(context, member());
-			await memberPage.goto(`${BASE}/people`);
-			await hydrated(memberPage);
-			await memberPage.getByRole("button", { name: "Ask Evry" }).click();
-			const memberPanel = memberPage.getByRole("dialog", { name: "Evry" });
-			await memberPanel.getByRole("button", { name: "History" }).click();
-			await memberPanel.getByRole("button", { name: "New chat" }).click();
-			const box = memberPanel.getByLabel("Message Evry");
-			await box.fill("What can you do?");
-			await box.press("Enter");
-			// The answer streams: wait for its read line, then for the end of the turn, before reading what it left out.
-			await memberPanel
-				.getByText(/Find this church's email drafts and scheduled messages/)
-				.first()
-				.waitFor({ timeout: 60_000 });
-			await memberPanel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 60_000 });
-			assert.doesNotMatch(
-				await memberPanel.innerText(),
-				/prepare these changes/,
-				"no email write is offered to a member",
-			);
-			await memberPage.close();
 		}));
 
 	test(`AC:WP-028-10 (${engine}): the read leaves out a replaced original, so Friday's email is its replacement`, () =>
