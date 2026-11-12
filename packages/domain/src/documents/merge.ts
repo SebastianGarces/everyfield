@@ -8,7 +8,7 @@ export type FieldSources = {
 	/** The date of the meeting a render is built from, as the meeting screen words it. */
 	meetingDate?: string | null;
 };
-export type ResolvedField = {
+type ResolvedField = {
 	key: string;
 	label: string;
 	required: boolean;

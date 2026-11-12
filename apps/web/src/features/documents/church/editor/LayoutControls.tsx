@@ -1,195 +1,44 @@
 "use client";
 
-import type { DocBrand, Token } from "@everyfield/contracts/documents";
+import { FORMAT_LIMITS, type DocBrand, type Token } from "@everyfield/contracts/documents";
 import { cn } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
-import {
-	ALIGNS,
-	layoutTargets,
-	setBlockAttrs,
-	setColumnCount,
-	TOKEN_NAMES,
-	TOKENS,
-	WEIGHTS,
-	type Target,
-} from "./layout.ts";
-import { Button } from "./tiptap/primitives/button.tsx";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./tiptap/primitives/tooltip.tsx";
-import { TOOLBAR } from "./tiptap/styles.ts";
+import { useId, useState } from "react";
+import { Group, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
+import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, WEIGHTS, type Target } from "./layout.ts";
+import { TOOLBAR_BASE } from "./tiptap/styles.ts";
 import { setFieldValue } from "./blocks.ts";
+import { ConditionControls } from "./ConditionControls.tsx";
 import { fieldDecl, writeInKindLabel } from "./extensions.ts";
+import { TableControls } from "./TableControls.tsx";
 
 // The settings of the block the cursor is in or on: the number of columns, a box's fill and border, a divider's weight
 // and color, an image's height and alignment. Each color control is a row of swatches, one for each token of the format,
 // painted in the color the PDF prints for this document. No control takes a hex value or opens a color picker.
 
-/** The color a token paints in this document, as the PDF prints it on white. `none` has no color. */
-const swatchColor = (palette: DocBrand["palette"], token: Token) =>
-	token === "none" ? null : palette[token === "muted-text" ? "mutedText" : token];
+const HEIGHT = FORMAT_LIMITS.imageHeight;
 
-/** A hover and focus tooltip for a control that has no tooltip of its own (an input, a select, a switch). */
-export function Tip({ text, children, className }: { text: string; children: ReactNode; className?: string }) {
-	return (
-		<Tooltip delay={300}>
-			<TooltipTrigger asChild>
-				<div className={className}>{children}</div>
-			</TooltipTrigger>
-			<TooltipContent>{text}</TooltipContent>
-		</Tooltip>
-	);
-}
-
-const keepSelection = (event: { preventDefault: () => void }) => event.preventDefault();
-
-/** Arrow keys in a radio group: choose the next or previous value and move focus to it. */
-function rove<T>(event: KeyboardEvent, index: number, values: readonly T[], choose: (value: T) => void) {
-	const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-	if (!step) return;
-	event.preventDefault();
-	const at = (index + step + values.length) % values.length;
-	choose(values[at] as T);
-	const group = (event.currentTarget as HTMLElement).parentElement;
-	requestAnimationFrame(() => (group?.children[at] as HTMLElement | undefined)?.focus());
-}
-
-/** One choice from a short list, as a radio group: arrow keys move and choose, Tab enters and leaves. */
-export function Segmented<T extends string | number>({
-	label,
-	value,
-	options,
-	onChange,
-}: {
-	label: string;
-	value: T;
-	options: { value: T; label: string; tooltip?: string }[];
-	onChange: (value: T) => void;
-}) {
-	return (
-		<div
-			role="radiogroup"
-			aria-label={label}
-			className="flex items-center gap-0.5 rounded-sm bg-surface p-0.5 shadow-[0_0_0_1px_var(--ef-line)]"
-		>
-			{options.map((option, index) => (
-				<Button
-					key={String(option.value)}
-					type="button"
-					role="radio"
-					aria-checked={option.value === value}
-					aria-label={option.tooltip ?? option.label}
-					tooltip={option.tooltip ?? option.label}
-					tabIndex={option.value === value ? 0 : -1}
-					data-active-state={option.value === value ? "on" : "off"}
-					className="h-8 min-w-8 px-2.5"
-					onMouseDown={keepSelection}
-					onKeyDown={(event) =>
-						rove(
-							event,
-							index,
-							options.map((o) => o.value),
-							onChange,
-						)
-					}
-					onClick={() => onChange(option.value)}
-				>
-					{option.label}
-				</Button>
-			))}
-		</div>
-	);
-}
-
-/** A row of swatches, one for each token, each named by the token's readable name. */
-function Swatches({
-	label,
-	value,
-	palette,
-	onChange,
-}: {
-	label: string;
-	value: Token;
-	palette: DocBrand["palette"];
-	onChange: (token: Token) => void;
-}) {
-	return (
-		<div role="radiogroup" aria-label={label} className="flex items-center gap-1">
-			{TOKENS.map((token, index) => {
-				const color = swatchColor(palette, token);
-				const on = token === value;
-				return (
-					<Button
-						key={token}
-						type="button"
-						role="radio"
-						aria-checked={on}
-						aria-label={TOKEN_NAMES[token]}
-						tooltip={TOKEN_NAMES[token]}
-						tabIndex={on ? 0 : -1}
-						data-token={token}
-						data-active-state={on ? "on" : "off"}
-						className={cn("!size-8 !min-w-8 !rounded-full !p-0", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
-						onMouseDown={keepSelection}
-						onKeyDown={(event) => rove(event, index, TOKENS, onChange)}
-						onClick={() => onChange(token)}
-					>
-						<span
-							aria-hidden="true"
-							className="block size-5 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
-							style={
-								color
-									? { background: color }
-									: {
-											background:
-												"linear-gradient(135deg, transparent 45%, var(--ef-magenta-500) 45% 55%, transparent 55%)",
-										}
-							}
-						/>
-					</Button>
-				);
-			})}
-		</div>
-	);
-}
-
-function Group({ label, children }: { label: string; children: ReactNode }) {
-	return (
-		<div role="group" aria-label={label} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
-			<span className="text-sm font-semibold text-ink-2">{label}</span>
-			{children}
-		</div>
-	);
-}
-
-function Labeled({ label, children }: { label: string; children: ReactNode }) {
-	return (
-		<span className="flex items-center gap-2">
-			<span className="text-sm text-text-2">{label}</span>
-			{children}
-		</span>
-	);
-}
-
-/** Height of an image in points: the format takes 8 to 1440. A value outside it is refused with the format's words. */
+/** Height of an image in points, in the format's range. A value outside it is refused with the format's words. */
 function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 	const id = useId();
 	const current = typeof target.node.attrs.height === "number" ? target.node.attrs.height : 34;
 	const [draft, setDraft] = useState<string | null>(null);
-	const inRange = (text: string) => text !== "" && Number(text) >= 8 && Number(text) <= 1440;
-	const problem = draft !== null && !inRange(draft) ? `${draft || "(empty)"} is outside 8 to 1440` : null;
+	const inRange = (text: string) => text !== "" && Number(text) >= HEIGHT.min && Number(text) <= HEIGHT.max;
+	const problem =
+		draft !== null && !inRange(draft) ? `${draft || "(empty)"} is outside ${HEIGHT.min} to ${HEIGHT.max}` : null;
 	return (
 		<span className="flex flex-wrap items-center gap-2">
 			<label htmlFor={id} className="text-sm text-text-2">
 				Height (pt)
 			</label>
-			<Tip text="Image height in points, 8 to 1440">
+			<Tip text={`Image height in points, ${HEIGHT.min} to ${HEIGHT.max}`}>
 				<input
 					id={id}
 					type="number"
 					inputMode="numeric"
-					min={8}
-					max={1440}
+					min={HEIGHT.min}
+					max={HEIGHT.max}
 					step={1}
 					value={draft ?? String(current)}
 					aria-invalid={problem ? true : undefined}
@@ -281,6 +130,10 @@ function ControlsFor({ editor, target, palette }: { editor: Editor; target: Targ
 					/>
 				</Group>
 			);
+		case "table":
+			return <TableControls editor={editor} palette={palette} />;
+		case "if":
+			return <ConditionControls editor={editor} target={target} />;
 		case "writeIn":
 			return (
 				<Group label={writeInKindLabel(attrs.kind)}>
@@ -324,7 +177,7 @@ function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) 
 					<input
 						id={id}
 						type="text"
-						maxLength={500}
+						maxLength={FORMAT_LIMITS.fieldValue}
 						value={draft ?? stored}
 						placeholder={`[${label.toLowerCase()}]`}
 						className="h-9 w-[min(280px,60vw)] rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none placeholder:text-text-3 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
@@ -359,11 +212,7 @@ export function BlockControls({ editor, palette }: { editor: Editor; palette: Do
 	});
 	if (!targets || targets.length === 0) return null;
 	return (
-		<div
-			role="group"
-			aria-label="Block settings"
-			className={cn(TOOLBAR, "flex-wrap overflow-visible border-t border-b-0 border-line")}
-		>
+		<div role="group" aria-label="Block settings" className={cn(TOOLBAR_BASE, "flex-wrap border-t")}>
 			{targets.map((target) => (
 				<ControlsFor key={`${target.kind}-${target.pos}`} editor={editor} target={target} palette={palette} />
 			))}

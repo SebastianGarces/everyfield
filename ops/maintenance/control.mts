@@ -1,6 +1,7 @@
 import { lstat, readFile } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { createRequire } from 'node:module';
+import { developmentHosts } from '../../packages/db/src/development.ts';
 const require=createRequire(new URL('../../packages/domain/package.json',import.meta.url));
 const {z}=require('zod');
 const operations=z.enum(['migration-inspect','migration-apply','migration-adopt','backup-check']);
@@ -20,6 +21,6 @@ export async function loadControl(path,operation) {
 }
 export function developmentConnection(c,raw) {
   const u=new URL(raw);
-  if(!c.database||u.hostname!=='ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech'||u.hostname!==c.database.host||decodeURIComponent(u.username)!==c.database.role||decodeURIComponent(u.pathname.slice(1))!==c.database.name)throw Error('target_mismatch');
+  if(!c.database||!developmentHosts.has(u.hostname)||u.hostname!==c.database.host||decodeURIComponent(u.username)!==c.database.role||decodeURIComponent(u.pathname.slice(1))!==c.database.name)throw Error('target_mismatch');
   u.searchParams.set('sslmode','verify-full');return u.href;
 }

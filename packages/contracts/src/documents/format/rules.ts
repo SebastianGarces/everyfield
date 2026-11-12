@@ -1,4 +1,5 @@
-// A port of design/doc-format/approach-a/format.js: the validator, the table math, the canonical form and forking.
+// Ported from the retired approach-a prototype (fixtures in tests/integration/documents/fixtures/format/): the
+// validator, the table math, the canonical form and forking.
 // The schema (schema.ts) says which nodes, attributes and children exist. This file adds the rules a content model
 // cannot say: declared fields, table shape, formulas, unique write-in keys and page fit. Every message is the
 // design module's message, so a file that fails there fails here with the same words.
@@ -6,7 +7,8 @@ import { FORMAT_SCHEMA } from "./schema.ts";
 import type { AnyNode, DocDocument, DocTemplate, FormatSchema, PageSetup, TableNode, ValueSpec } from "./types.ts";
 
 const SLUG = /^[a-z][a-z0-9-]{0,79}$/;
-const KEY = /^[a-z][a-z0-9_]{0,59}$/;
+/** A field or write-in key: a lowercase letter, then letters, digits or underscores, 60 at most. */
+export const KEY = /^[a-z][a-z0-9_]{0,59}$/;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const NUMERIC = new Set(["number", "money"]);
 
@@ -138,6 +140,45 @@ function formulaRefs(tree: Formula, columnIds: string[]) {
 	return out;
 }
 
+type FormulaDep = {
+	/** The formula column. */
+	column: TableNode["attrs"]["columns"][number];
+	/** Every column id the formula reads, a sum range expanded. */
+	reads: string[];
+	/** The column index spans of its sum ranges: a column added inside one would join the sum. */
+	spans: [number, number][];
+};
+
+/** What each formula column of a table reads. A formula that does not parse reads nothing. */
+export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[] {
+	const ids = columns.map((c) => c.id);
+	const out: FormulaDep[] = [];
+	columns.forEach((column) => {
+		if (column.type !== "formula") return;
+		let tree: Formula;
+		try {
+			tree = parseFormula(column.formula ?? "");
+		} catch {
+			return;
+		}
+		const spans: [number, number][] = [];
+		const walk = (n: Formula) => {
+			if (n.op === "sum") {
+				const a = ids.indexOf(n.first);
+				const b = ids.indexOf(n.last);
+				if (a >= 0 && b >= 0) spans.push([Math.min(a, b), Math.max(a, b)]);
+			} else if (n.op === "neg") walk(n.a);
+			else if (n.op !== "num" && n.op !== "col") {
+				walk(n.a);
+				walk(n.b);
+			}
+		};
+		walk(tree);
+		out.push({ column, reads: formulaRefs(tree, ids), spans });
+	});
+	return out;
+}
+
 function evalTree(n: Formula, get: (id: string) => number, columnIds: string[]): number {
 	switch (n.op) {
 		case "num":
@@ -264,22 +305,40 @@ type Ctx = {
 	fieldRefs: { key: unknown; path: string; list?: boolean }[];
 	ledgers: number;
 	region: string | null;
+	/** The node types around the node being checked, outermost first. */
+	ancestors: string[];
 };
+
+const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
+	schema,
+	fail,
+	nodes: 0,
+	fields: new Map(),
+	writeIns: new Map(),
+	fieldRefs: [],
+	ledgers: 0,
+	region: null,
+	ancestors: [],
+});
+
+/** The first fault the format finds in one table, or null. The editor asks this before it applies a change to a table. */
+export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | null {
+	const errors: string[] = [];
+	const node = table as unknown as Rec;
+	checkTable(
+		node,
+		node.attrs as Rec,
+		"table",
+		newCtx(schema, (_path, message) => errors.push(message)),
+	);
+	return errors[0] ?? null;
+}
 
 /** Validate one document or template. Returns every fault found, each as "<path>: <message>". */
 export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; errors: string[] } {
 	const errors: string[] = [];
 	const fail = (path: string, message: string) => errors.push(`${path}: ${message}`);
-	const ctx: Ctx = {
-		schema,
-		fail,
-		nodes: 0,
-		fields: new Map(),
-		writeIns: new Map(),
-		fieldRefs: [],
-		ledgers: 0,
-		region: null,
-	};
+	const ctx = newCtx(schema, fail);
 	if (!isRec(doc)) {
 		fail("(root)", "the file is not a JSON object");
 		return { ok: false, errors };
@@ -351,6 +410,7 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 		fail("exports", "XLSX export needs at least one ledger table (a budget) in the body");
 	if (ctx.nodes > schema.limits.nodes)
 		fail("body", `the document holds ${ctx.nodes} nodes; the limit is ${schema.limits.nodes}`);
+	// The limit counts UTF-16 code units of the JSON (string length), not UTF-8 bytes; the words are the prototype's.
 	const bytes = JSON.stringify(doc).length;
 	if (bytes > schema.limits.jsonBytes)
 		fail("(root)", `the document is ${bytes} bytes; the limit is ${schema.limits.jsonBytes}`);
@@ -379,6 +439,13 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 	}
 	const type = String(node.type);
 	const where = `${path} (${type})`;
+	if (type === "if" && !allowed.includes("block")) {
+		fail(
+			where,
+			`conditional text can sit only in the body, a column or a box, not in a ${ctx.ancestors.at(-1) ?? "page"}`,
+		);
+		return;
+	}
 	if (!allowed.includes(spec.group) && !allowed.includes(type)) {
 		fail(where, `a ${type} node is not allowed here; this place takes ${allowed.join(" or ")}`);
 		return;
@@ -440,9 +507,12 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 			const { min = 0, max } = spec.content;
 			if (content.length < min) fail(where, `a ${type} node needs at least ${min} child node${min === 1 ? "" : "s"}`);
 			if (max !== undefined && content.length > max) fail(where, `a ${type} node holds at most ${max} child nodes`);
-			const childDeny = [...(spec.content.deny ?? []), ...(type === "column" || type === "box" ? deny : [])];
+			const passDeny = type === "column" || type === "box" || type === "if";
+			const childDeny = [...(spec.content.deny ?? []), ...(passDeny ? deny : [])];
 			const allow = spec.content.allow;
+			ctx.ancestors.push(type);
 			content.forEach((child, i) => checkNode(child, `${path}.content[${i}]`, ctx, allow, childDeny));
+			ctx.ancestors.pop();
 		}
 	}
 
@@ -456,6 +526,34 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 		else ctx.writeIns.set(attrs.key, where);
 	}
 	if (type === "table" && Array.isArray(attrs.columns)) checkTable(node, attrs, where, ctx);
+	if (type === "if") checkCondition(node, attrs, where, ctx);
+	if (ctx.ancestors.includes("if")) {
+		if (type === "slot") fail(where, "a section slot cannot sit inside conditional text");
+		if (type === "table" && attrs.style === "ledger")
+			fail(where, "a budget table cannot sit inside conditional text; the Excel file prints no conditions");
+	}
+}
+
+/** The rules of conditional text: where it sits, what it holds, and a condition on a declared field that fits its type. */
+function checkCondition(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
+	const { fail } = ctx;
+	if (ctx.region) fail(where, `conditional text cannot sit in the page ${ctx.region}; it prints in the body only`);
+	if (ctx.ancestors.includes("if")) fail(where, "conditional text cannot hold another conditional text");
+	if (list(node.content).length === 0) fail(where, "conditional text holds at least one block");
+	const field = ctx.fields.get(attrs.field);
+	if (typeof attrs.field === "string" && !field)
+		fail(where, `the condition reads the field "${attrs.field}", which is not declared in "fields"`);
+	if (attrs.test === "more-than") {
+		if (field && field.type !== "number" && field.type !== "list")
+			fail(
+				where,
+				`a more-than condition compares a number or a list; "${String(attrs.field)}" is a ${String(field.type)} field`,
+			);
+		if (attrs.value === undefined) fail(where, "a more-than condition needs a value: a whole number from 0");
+		else if (typeof attrs.value === "number" && attrs.value < 0)
+			fail(where, `the condition's value is ${attrs.value}; a more-than condition compares with a whole number from 0`);
+	} else if (attrs.value !== undefined)
+		fail(where, `only a more-than condition has a value; this condition tests "${String(attrs.test)}"`);
 }
 
 function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
@@ -609,6 +707,21 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 			if (!value || typeof value !== "object") fail(path, "must be a node");
 			return; // the body is checked by checkNode.
 	}
+}
+
+/** What the format says about one attribute value of a node type, in its words, or null when the value is fine. */
+export function attrIssue(node: string, attribute: string, value: unknown): string | null {
+	const spec = FORMAT_SCHEMA.nodes[node]?.attrs[attribute];
+	if (!spec) return null;
+	let message: string | null = null;
+	const ctx = {
+		schema: FORMAT_SCHEMA,
+		fail: (_path: string, text: string) => {
+			message ??= text;
+		},
+	} as Ctx;
+	checkValue(value, spec, attribute, ctx);
+	return message;
 }
 
 function checkObject(value: unknown, props: Record<string, ValueSpec>, path: string, ctx: Ctx, root = false) {

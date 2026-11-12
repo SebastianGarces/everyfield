@@ -22,7 +22,7 @@ export type Operation =
 
 export type Change = { field: string; before: unknown; after: unknown };
 
-/** evry.readReview, as the API sends it (packages/evry/src/proposals/store.ts, proposalRow). */
+/** evry.readReview, as the API sends it (packages/evry/src/proposals/review.ts, proposalRow). */
 export type Review = {
 	id: string;
 	conversationId: string;
@@ -139,7 +139,7 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
 /** The person's open tasks a stage change or removal hands back as needing an owner, from the review. */
-export const handedBack = (changes: readonly Change[]) =>
+const handedBack = (changes: readonly Change[]) =>
 	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
 
 /** The changes the card lists as before and after; the task count is said once in words instead. */
@@ -246,7 +246,7 @@ export function audienceText(value: unknown) {
 export const LEFT_OUT_REASON: Record<string, string> = {
 	no_address: "No email address",
 	blocked: "Blocked after a bounce",
-	updates_off: "Turned off update emails",
+	unsubscribed: "Unsubscribed",
 };
 
 /** The report is not confirmed and the email service can be asked again. */
@@ -266,7 +266,8 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.scheduleReviewed": "You closed this review. The draft stays saved and is not scheduled.",
 	"communication.rescheduleReviewed": "You closed this review. The message still sends at its set time.",
 	"communication.cancelScheduledReviewed": "You closed this review. The message still sends at its set time.",
-	"communication.replaceScheduledReviewed": "You closed this review. The message still sends as it was, at its set time.",
+	"communication.replaceScheduledReviewed":
+		"You closed this review. The message still sends as it was, at its set time.",
 };
 /** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
 export function mailHead(

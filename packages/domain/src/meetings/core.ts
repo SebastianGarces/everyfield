@@ -25,7 +25,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = MeetingsError["code"];
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object) {
@@ -162,6 +162,13 @@ export async function read<T>(
 }
 export type Viewer = { plantId: string; accountId: string; access: Parameters<typeof liveRead>[0] };
 /**
+ * Access for a meetings statement that runs with no session, such as a public RSVP link (C13): no lifecycle witness hides
+ * the plant. A session read checks the same witness through `one` (access.liveRead). `plant` is a column, never input.
+ */
+export const plantVisible = (plant: SQL) =>
+	sql`NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = ${plant}
+		AND w.state NOT IN ('active', 'cancelled'))`;
+/**
  * One statement of a tenant read: the first row of `query`, returned only while the reader's session, seat, role
  * (Owner or Admin when `admin`) and lifecycle are live in that same statement (C13, C27). A reader who lost access
  * reads nothing. `admin` is the live role, which decides what a privileged field shows; `row` is undefined when the
@@ -182,7 +189,7 @@ export type Writer = {
 	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
 };
 /** The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. */
-export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
+async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
@@ -190,7 +197,6 @@ export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
-export { hash };
 type AuditInsert = typeof tables.audit_event.$inferInsert;
 export type Change<T> = {
 	value: T;
@@ -221,6 +227,7 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 /** Every meeting and venue write name. The wrapper declares each write established (C88), so one declaration decides the path. */
 export type MeetingWrite =
 	| "meetings.addAttendeeNote"
+	| "meetings.addGuests"
 	| "meetings.captureAttendanceBatch"
 	| "meetings.changeStatus"
 	| "meetings.checkIn"
@@ -309,4 +316,3 @@ export async function command<T>(
 }
 /** Revisions cross the boundary as decimal strings. */
 export const next = (revision: string) => String(BigInt(revision) + 1n);
-export const uuid = (value: string) => sql`${sql.param(value)}::uuid`;

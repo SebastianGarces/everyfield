@@ -42,7 +42,7 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 				size="xl"
 				breadcrumb={[{ label: "Documents", href: "/documents" }, { label: "Church documents" }]}
 				title="Church documents"
-				subtitle="Your church plant's own copies of Everyfield templates and of your church's templates. Each one previews as the real PDF and downloads as PDF and Word."
+				subtitle="Your church plant's own copies of Everyfield templates and of your church's templates. Each one previews as the real PDF and downloads as PDF and Word, and a budget as Excel too."
 				actions={canManage ? <TemplatePicker templates={templates} churchTemplates={churchTemplates} /> : null}
 			/>
 			{deleted ? (

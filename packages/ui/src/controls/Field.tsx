@@ -88,7 +88,7 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 export const inputBox =
 	"flex h-11 w-full min-w-0 items-center gap-2.5 rounded-md bg-surface-raised px-3.5 text-md text-ink shadow-[0_0_0_1px_var(--control-edge,var(--ef-line-2))] transition-[box-shadow] duration-150";
 /** Focus on the whole box (foundations.md: text inputs show focus on the whole field). */
-export const inputFocus =
+const inputFocus =
 	"has-[:focus-visible]:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]";
 export const inputInvalid =
 	"shadow-[0_0_0_1px_var(--ef-magenta-500),0_0_0_4px_color-mix(in_srgb,var(--ef-magenta-500)_18%,transparent)]";

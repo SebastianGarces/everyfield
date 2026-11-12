@@ -1,6 +1,6 @@
 import path from "node:path";
+import { BODY_JSON_MAX, IMPORT_BYTES_MAX } from "@everyfield/contracts/documents";
 import type { NextConfig } from "next";
-import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const config: NextConfig = {
 	// The marketing copy lives in design/marketing-copy.json at the repository root.
@@ -17,24 +17,62 @@ const config: NextConfig = {
 			"../../packages/domain/src/documents/fonts/*.ttf",
 		],
 	},
+	// `pnpm typecheck` checks every package before `pnpm build` in the CI app job, so the build skips
+	// its own second pass over the same types (T-43: a third of the build's time).
+	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
-	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199).
-	logging: { serverFunctions: false },
+	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and
+	// each request URL with its query. An email opt-out, Messages unsubscribe or RSVP path carries its token (REQ-NTF-012,
+	// REQ-NTF-016, REQ-COM-010), and the confirm-email, verify-email and reset-password links carry theirs as
+	// `?token=`, also inside the encoded `returnTo` of the sign-in redirect a signed-out confirm-email visit gets. None of
+	// those requests is logged. The invitation link keeps its proof in the fragment, which no request carries (D54).
+	logging: {
+		serverFunctions: false,
+		incomingRequests: {
+			ignore: [/\/email-preferences\//, /\/unsubscribe\//, /\/rsvp\//, /(?:[?&]|%3F|%26)token(?:=|%3D)/i],
+		},
+	},
 	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
 	// optimized copies (their URLs carry the content hash of the source file).
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
 	// Forme's WASM layout engine runs from node_modules: bundling it builds a renderer that returns 0 pages (WP-036/api).
 	serverExternalPackages: ["@formepdf/core", "@formepdf/react"],
-	transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui", "@everyfield/evry"],
+	transpilePackages: [
+		"@everyfield/domain",
+		"@everyfield/db",
+		"@everyfield/ui",
+		"@everyfield/evry",
+		"@everyfield/contracts",
+	],
 	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
 	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
 	experimental: {
 		optimizePackageImports: ["@hugeicons/core-free-icons"],
+		// The largest valid server action is a Church Document or written-document save: a body of at most BODY_JSON_MAX
+		// JSON characters, at most 3 UTF-8 bytes each, plus the title and the action's request envelope (64 KiB). Next's
+		// default of 1 MB refused saves the editor allows. A file import is not an action: it posts raw bytes to its own
+		// route (/documents/written/import).
+		// It also covers a person photo, sent to its action as form data up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005, peo-51).
+		serverActions: { bodySizeLimit: 3 * BODY_JSON_MAX + 64 * 1024 },
+		// The proxy (src/proxy.ts) runs on /documents/* and buffers at most this much of a request body, cutting the rest.
+		// An import of IMPORT_BYTES_MAX passes whole, and a file just over it still reaches the import route, which
+		// counts its bytes and answers with the stated limit.
+		proxyClientMaxBodySize: IMPORT_BYTES_MAX + 64 * 1024,
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
-	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.
+	// Every response refuses framing and MIME sniffing and sends a cross-origin Referer as the origin only. The invitation
+	// page handles a proof (WP-008/ui ruling D54): no Referer leaves it. Its rule comes after the global one, because Next
+	// sends the last matching value of a header.
 	async headers() {
 		return [
+			{
+				source: "/:path*",
+				headers: [
+					{ key: "X-Frame-Options", value: "DENY" },
+					{ key: "X-Content-Type-Options", value: "nosniff" },
+					{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+				],
+			},
 			{
 				source: "/invitation",
 				headers: [
@@ -46,10 +84,4 @@ const config: NextConfig = {
 	},
 };
 
-export default function nextConfig(phase: string): NextConfig {
-	return {
-		...config,
-		// Proof handlers must not exist in a production route manifest.
-		pageExtensions: [...(phase === PHASE_DEVELOPMENT_SERVER ? ["dev.ts"] : []), "tsx", "ts", "jsx", "js"],
-	};
-}
+export default config;

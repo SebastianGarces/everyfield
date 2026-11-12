@@ -21,6 +21,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.getPerson",
 		"people.getPersonPhoto",
 		"people.checkForDuplicates",
+		"people.listDuplicatePairs",
 		"people.exportPeople",
 		"people.generateCsvTemplate",
 		"people.getActivities",

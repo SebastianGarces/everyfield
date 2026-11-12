@@ -1,11 +1,13 @@
-// The shapes the Messages screens share. They match the WP-027 contract results. The client does not import the
-// sanitizer.
+// The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
+// type and `@everyfield/contracts/communication/values`, which loads no sanitizer; the client's preview (preview.ts)
+// imports the contract renderer, which runs the sanitizer in the browser.
 
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
+import { audienceGroups } from "@everyfield/contracts/communication/values";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
-export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
+export { audienceGroups };
 type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {
@@ -65,7 +67,8 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-export type Recipient = { id: string; displayName: string; email: string | null };
+/** `unsubscribedAt`: when they unsubscribed from this church's Messages email. They cannot be added then. */
+export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
@@ -73,10 +76,11 @@ export type AudienceSummary = {
 	duplicateAddressesRemoved: number;
 	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
+	/** People who unsubscribed from this church's email. Not in eligibleRecipients; they get nothing. */
+	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 };
 
 export type PageData = {
-	drafts: Draft[];
 	templates: Template[];
 	teams: Team[];
 	churchName: string;
@@ -87,7 +91,7 @@ export type PageData = {
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 /** What the person can do about a refusal. The code stays the server's word. */
-export function refusalText(code: string): string {
+function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
@@ -139,6 +143,8 @@ export type DeliveryReport = {
 	acceptedCount: number;
 	rejectedCount: number;
 	unknownCount: number;
+	/** Refused by Everyfield because the person unsubscribed from this church's email. Not in rejectedCount. */
+	unsubscribedCount: number;
 };
 
 /** Per recipient, what the email service confirmed for a cancel or time change. */
@@ -150,32 +156,48 @@ export type RescheduleReport = ProviderTally & {
 	scheduledAt: string;
 	heldAt: string | null;
 };
-export type Restore = { at: string; actorName: string | null; reason: string };
+type Restore = { at: string; actorName: string | null; reason: string };
 export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
 /** The counts every handoff result names. */
 const counts = (report: DeliveryReport) =>
-	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.`;
+	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
+	unsubscribedNote(report.unsubscribedCount);
+
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+
+/** The count of people who unsubscribed from this church's email, when there are any. */
+export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
+
+/** Why nobody got it: the email service refused them, they unsubscribed from this church's email, or both. */
+export function refusedAllText(unsubscribed: number, refused: number): string {
+	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
+	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
+	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
+}
+
+const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
+	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
 
 /** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
 export function deliveryText(report: DeliveryReport): string {
 	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} It was not sent again.`;
-	return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
+	return `${refusedAll(report, "sent")} ${counts(report)} The message stays saved in Messages.`;
 }
 
 /**
- * A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. With no answer
- * the email service may still hold it, so that is "Not confirmed"; "Not scheduled" is a refusal for everyone.
+ * A scheduled handoff result. Everyfield keeps a scheduled email until its send time, so "Scheduled" counts the people
+ * it goes to then; anyone who unsubscribes before then gets nothing. "Not scheduled" is a refusal for everyone.
  */
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
+		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
-	return `Not scheduled. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
+	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
 }
 
 const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;
@@ -193,7 +215,7 @@ export function cancelText(report: CancelReport): string {
 			? `${wentOut(report.sentCount)} Nothing was cancelled.`
 			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
 	if (report.confirmedCount === 0) return "Not cancelled.";
-	return `Cancelled. The email service confirmed the cancel for ${report.confirmedCount}.`;
+	return `Cancelled for ${people(report.confirmedCount)}. No email went out.`;
 }
 
 export function replaceText(report: ReplaceReport): string {
@@ -222,6 +244,7 @@ export const hubStates = [
 	"draft",
 	"scheduled",
 	"not_scheduled",
+	"unsubscribed",
 	"sending",
 	"sent",
 	"logged",
@@ -236,6 +259,7 @@ export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
 	not_scheduled: "Not scheduled",
+	unsubscribed: "Not sent: unsubscribed",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",
@@ -286,6 +310,8 @@ export type DeliveryTotals = {
 	bounced: number;
 	failed: number;
 	suppressed: number;
+	/** Refused because the person unsubscribed from this church's email. Not in failed. */
+	unsubscribed: number;
 	unknown: number;
 	cancelled: number;
 	cancelOpen: number;
@@ -373,6 +399,8 @@ export type ContactRow = {
 export type PersonHistory = HistoryPage & {
 	personId: string;
 	lastConfirmedContactAt: string | null;
+	/** When the person unsubscribed from this church's email. Only an Owner or Admin sees it. */
+	emailOptOutAt: string | null;
 	contacts: ContactRow[];
 };
 
@@ -415,7 +443,7 @@ export type Route =
 	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
 	| { kind: "templates"; template: string | "new" | null }
 	| { kind: "address" };
-export const steps = ["who", "write", "review"] as const;
+const steps = ["who", "write", "review"] as const;
 export type Step = (typeof steps)[number];
 export type Handoff = { meeting: string; template: string | null; recipients: "guests" | null };
 

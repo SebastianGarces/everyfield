@@ -1,4 +1,4 @@
-import type { BrandKitData, DocumentClass, DocumentTheme } from "@everyfield/contracts/branding";
+import type { BrandKitData, DocumentClass } from "@everyfield/contracts/branding";
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
@@ -7,7 +7,14 @@ import { readBrandAsset } from "../branding/files.ts";
 import { resolveDocumentTheme } from "../branding/theme.ts";
 import type { DocBrand } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
-import { makePalette, NEUTRAL_THEME, type RenderClass, type RenderTheme, type ThemeImage } from "./theme.ts";
+import {
+	makePalette,
+	NEUTRAL_THEME,
+	type Letterhead,
+	type RenderClass,
+	type RenderTheme,
+	type ThemeImage,
+} from "./theme.ts";
 
 /** A theme for a render: what the PDF paints, what the DOCX names, and what the record keeps. */
 export type ExportTheme = {
@@ -49,20 +56,6 @@ function imageAspect(bytes: Uint8Array): number | null {
 	return null;
 }
 
-/** The one asset a class prints in the header slot: the full logo, or the mark for an operational document. */
-function logoRef(layout: DocumentTheme["layout"]) {
-	switch (layout.documentClass) {
-		case "formal/legal":
-			return layout.headerLogo;
-		case "outward-facing":
-			return layout.coverLogo;
-		case "operational":
-			return layout.mark;
-		case "email":
-			return layout.headerLogo;
-	}
-}
-
 /** The image nodes' sources a document uses, so the render reads only those brand assets. */
 export type ImageSource = "logo" | "mark" | "photo";
 const KIT_SLOT = { logo: "full_logo", mark: "mark", photo: "cover_photo" } as const;
@@ -87,6 +80,7 @@ export function documentBrand(kit: BrandKitData | null, useChurchBranding: boole
 			primary: p.primary,
 			accent: p.accent,
 			accentLine: p.accentLine,
+			primaryText: p.primaryText,
 			// The renderer's own rule for text on a fill: the palette's ink on white or muted, else the legible one.
 			on: {
 				ink: textOn(p.ink, p.ink),
@@ -104,7 +98,8 @@ export function documentBrand(kit: BrandKitData | null, useChurchBranding: boole
 
 /**
  * `resolveDocumentTheme(church, documentClass)` picks the church theme or the Everyfield-neutral theme; this adds the
- * logo bytes the church theme points at. With the toggle off, or with no brand kit, the neutral theme renders.
+ * bytes of the brand-kit images the document's image nodes show. With the toggle off, or with no brand kit, the
+ * neutral theme renders.
  */
 export async function exportTheme(
 	db: Database,
@@ -118,31 +113,24 @@ export async function exportTheme(
 	const theme = resolveDocumentTheme(church, documentClass as DocumentClass, { useChurchBranding });
 	const kit = church.kit;
 	if (theme.kind !== "church" || !kit || !theme.colors.primary) return NEUTRAL_EXPORT_THEME;
-	const ref = logoRef(theme.layout);
-	let logo: ThemeImage | undefined;
-	if (ref && storage) {
-		const read = await readBrandAsset(db, storage, authority, ref.fileId, "theme");
-		const aspect = read.status === "ok" ? imageAspect(read.value.bytes) : null;
-		if (read.status === "ok" && aspect)
-			logo = { bytes: read.value.bytes, mediaType: read.value.mediaType, alt: ref.alt, aspect };
-	}
-	// The format's image node reads the kit's own assets: the full logo, the mark and the cover photo. Only the ones the
-	// document uses are read, and an asset the class slot already read is not read twice.
+	// Only the assets the document uses are read, and a file two sources share is read once. The reads run one after
+	// another: each checks the seat in the request's transaction, which runs one statement at a time.
 	const own: NonNullable<RenderTheme["images"]> = {};
+	const read = new Map<string, Omit<ThemeImage, "alt"> | null>();
 	for (const source of images) {
 		const asset = kit.assets[KIT_SLOT[source]];
 		if (!asset || !storage) continue;
-		if (ref && ref.fileId === asset.fileId && logo) {
-			own[source] = logo;
-			continue;
+		if (!read.has(asset.fileId)) {
+			const r = await readBrandAsset(db, storage, authority, asset.fileId, "theme");
+			const aspect = r.status === "ok" ? imageAspect(r.value.bytes) : null;
+			read.set(
+				asset.fileId,
+				r.status === "ok" && aspect ? { bytes: r.value.bytes, mediaType: r.value.mediaType, aspect } : null,
+			);
 		}
-		const read = await readBrandAsset(db, storage, authority, asset.fileId, "theme");
-		const aspect = read.status === "ok" ? imageAspect(read.value.bytes) : null;
-		if (read.status === "ok" && aspect)
-			own[source] = { bytes: read.value.bytes, mediaType: read.value.mediaType, alt: asset.alt, aspect };
+		const image = read.get(asset.fileId);
+		if (image) own[source] = { ...image, alt: asset.alt };
 	}
-	const serif = (id: string) =>
-		["DM Serif Display", "Playfair Display", "Lora", "Merriweather", "Source Serif 4"].includes(id);
 	return {
 		kind: "church",
 		primary: theme.colors.primary,
@@ -151,20 +139,45 @@ export async function exportTheme(
 			name: "church",
 			primary: theme.colors.primary,
 			accent: theme.colors.accent ?? theme.colors.primary,
-			// Only the embedded families can print in the PDF; a serif choice maps to the serif face.
-			headingFont: serif(theme.fonts.heading) ? "DM Serif Display" : "DM Sans",
-			bodyFont: serif(theme.fonts.body) ? "DM Serif Display" : "DM Sans",
-			...(logo ? { logo } : {}),
 			images: own,
-			...(kit.tagline ? { tagline: kit.tagline } : {}),
-			letterhead: {
-				...(kit.legalName ? { legalName: kit.legalName } : {}),
-				...(kit.address ? { address: kit.address } : {}),
-				...(kit.ein ? { ein: kit.ein } : {}),
-				...(kit.phone ? { phone: kit.phone } : {}),
-				...(kit.email ? { email: kit.email } : {}),
-				...(kit.website ? { web: kit.website } : {}),
-			},
 		},
+	};
+}
+
+/**
+ * The theme a library template renders with (preview and "Save for your church"): the church theme when the plant has
+ * a brand kit with a primary color, else the Everyfield-neutral theme. `exportTheme` picks it with branding on. The
+ * template layouts take the full logo in their logo slot, the kit's letterhead and, on outward-facing cards, the cover
+ * photo and tagline. A brand asset that cannot be read leaves its slot to the church name in type.
+ */
+export async function templateTheme(
+	db: Database,
+	storage: PrivateStorage | null,
+	authority: RequestActor,
+	church: { name: string; kit: BrandKitData | null },
+	documentClass: RenderClass,
+): Promise<RenderTheme> {
+	const outward = documentClass === "outward-facing";
+	const images = new Set<ImageSource>(outward ? ["logo", "photo"] : ["logo"]);
+	const theme = await exportTheme(db, storage, authority, church, documentClass, true, images);
+	const kit = church.kit;
+	if (theme.kind !== "church" || !kit) return theme.render;
+	const { images: own, ...colors } = theme.render;
+	const letterhead = Object.fromEntries(
+		Object.entries({
+			legalName: kit.legalName,
+			address: kit.address,
+			ein: kit.ein,
+			phone: kit.phone,
+			email: kit.email,
+			web: kit.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+		}).filter(([, value]) => value),
+	) as Letterhead;
+	return {
+		...colors,
+		...(own?.logo ? { logo: own.logo } : {}),
+		...(outward && own?.photo ? { photo: own.photo } : {}),
+		...(outward && kit.tagline ? { tagline: kit.tagline } : {}),
+		...(Object.keys(letterhead).length ? { letterhead } : {}),
 	};
 }

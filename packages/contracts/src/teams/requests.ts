@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { localDate } from "../common/time.ts";
-import { digest, personId, recordId, requestKey } from "../common/values.ts";
+import { personId, recordId, requestKey } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { roleKey, teamIcon, teamName, teamState, teamText, templateKey } from "./values.ts";
 
@@ -76,31 +76,21 @@ export const correctTenureRequest = commandEnvelope(
 const selection = z.strictObject({
 	teamKey: templateKey,
 	roleKeys: z.array(roleKey).max(20),
-	label: teamName.optional(),
-	personId: personId.optional(),
 	destinationTeamId: recordId.optional(),
-});
-const responsibilityLine = z.strictObject({
-	teamId: recordId,
-	sourceVersionId: recordId,
-	sourceLine: z.string().trim().min(1).max(120),
-	text: teamText,
-	selected: z.boolean(),
 });
 export const initializeRequest = z.strictObject({
 	requestKey,
 	input: z.strictObject({
 		expectedVersion: z.string().trim().min(1).max(40),
-		reviewDigest: digest,
 		mode: z.enum(["import", "read", "skip", "cancel"]),
 		selections: z.array(selection).max(20),
-		lines: z.array(responsibilityLine).max(20).optional(),
 	}),
 });
 
 export const listTeamsRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const teamHistoryRequest = z.strictObject({ teamId: recordId });
 export const listRolesRequest = z.strictObject({ teamId: recordId });
+export const teamRevisionRequest = z.strictObject({ teamId: recordId });
 export const listMembersRequest = z.strictObject({ teamId: recordId });
 export const personAssignmentsRequest = z.strictObject({ personId });
 export const listLeaderCandidatesRequest = z.strictObject({

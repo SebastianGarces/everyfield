@@ -19,6 +19,7 @@ import {
 	type ReferenceType,
 	FloatingDelayGroup,
 } from "@floating-ui/react";
+import { usePortalContainer } from "@everyfield/ui/controls";
 import { TOOLTIP } from "../styles.ts";
 
 interface TooltipProviderProps {
@@ -151,23 +152,18 @@ export const TooltipTrigger = React.forwardRef<HTMLElement, TooltipTriggerProps>
 	const ref = useMergeRefs([context.refs.setReference, propRef, childrenRef]);
 
 	if (asChild && React.isValidElement(children)) {
-		const dataAttributes = {
-			"data-tooltip-state": context.open ? "open" : "closed",
-		};
-
 		return React.cloneElement(
 			children,
 			context.getReferenceProps({
 				ref,
 				...props,
 				...(typeof children.props === "object" ? children.props : {}),
-				...dataAttributes,
 			}),
 		);
 	}
 
 	return (
-		<button ref={ref} data-tooltip-state={context.open ? "open" : "closed"} {...context.getReferenceProps(props)}>
+		<button ref={ref} {...context.getReferenceProps(props)}>
 			{children}
 		</button>
 	);
@@ -179,6 +175,8 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 ) {
 	const context = useTooltipContext();
 	const ref = useMergeRefs([context.refs.setFloating, propRef]);
+	// Everyfield change: portal into the product root, not <body>, so the product font and tokens apply.
+	const container = usePortalContainer();
 
 	if (!context.open) return null;
 
@@ -197,7 +195,11 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 	);
 
 	if (portal) {
-		return <FloatingPortal {...portalProps}>{content}</FloatingPortal>;
+		return (
+			<FloatingPortal root={container} {...portalProps}>
+				{content}
+			</FloatingPortal>
+		);
 	}
 
 	return content;

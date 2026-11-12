@@ -70,9 +70,16 @@ type Notice = { text: string; tone: "error" | "neutral" };
  */
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
-function useReview(proposalId: string) {
-	const [review, setReview] = useState<Review | null>(null);
-	const [load, setLoad] = useState<"loading" | "ready" | "lost" | "unavailable">("loading");
+/**
+ * `seed` is the review the conversation's open read brought (null: unavailable to this person). A card with one shows it
+ * at once and sends no read; a card without one, such as a review from a live turn, reads its review on mount.
+ */
+function useReview(proposalId: string, seed: Review | null | undefined, onSeen: (proposalId: string) => void) {
+	const [seeded] = useState(seed !== undefined);
+	const [review, setReview] = useState<Review | null>(seed ?? null);
+	const [load, setLoad] = useState<"loading" | "ready" | "lost" | "unavailable">(
+		seed === undefined ? "loading" : seed ? "ready" : "unavailable",
+	);
 	const [busy, setBusy] = useState<Action | "check" | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
 	/** The server's last refusal of an action, for the revision it refused. */
@@ -107,6 +114,7 @@ function useReview(proposalId: string) {
 	};
 
 	useEffect(() => {
+		if (seeded) return onSeen(proposalId);
 		let live = true;
 		void api.readReview(proposalId).then((reply) => {
 			if (!live) return;
@@ -116,7 +124,7 @@ function useReview(proposalId: string) {
 		return () => {
 			live = false;
 		};
-	}, [proposalId]);
+	}, [proposalId, seeded, onSeen]);
 
 	/** The review whose approval ran out on the card's timer. A newer review from the server starts its own count. */
 	const [ranOut, setRanOut] = useState<Review | null>(null);
@@ -445,8 +453,18 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
 }
 
-export function ReviewCard({ proposalId, target }: { proposalId: string; target: string | null }) {
-	const r = useReview(proposalId);
+export function ReviewCard({
+	proposalId,
+	target,
+	seed,
+	onSeen,
+}: {
+	proposalId: string;
+	target: string | null;
+	seed?: Review | null;
+	onSeen: (proposalId: string) => void;
+}) {
+	const r = useReview(proposalId, seed, onSeen);
 	// The revision being revised: a new revision, or a change of state, closes the form on its own.
 	const [editing, setEditing] = useState<number | null>(null);
 	const headId = useId();

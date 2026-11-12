@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { generateDrizzleJson, generateMigration } from "drizzle-kit/api";
 import { sql } from "drizzle-orm";
@@ -76,22 +76,12 @@ export const definitions = (snapshot: Record<string, unknown>): Record<string, u
 	Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId", "_meta"].includes(key)));
 
 /**
- * Kit's diff base: the declared schema after every migration in the folder. Timestamped migrations
+ * Kit's diff base: the declared schema after every migration in the folder. All migrations
  * share one snapshot file, migrations/meta/current.json, which two branches change in separate hunks
- * unless they change the same table (D78). Until the first timestamped migration, a numbered branch
- * that D76 allowed may still extend the numbered chain, so its latest snapshot is the base.
+ * unless they change the same table (D78).
  */
 export async function currentSnapshot(): Promise<Record<string, unknown>> {
-	const meta = new URL("meta/", migrationDirectory);
-	const timestamped = (await readdir(migrationDirectory)).some((name) => /^\d{14}_/.test(name));
-	const name = timestamped
-		? "current.json"
-		: (await readdir(meta))
-				.filter((name) => /^\d{4}_snapshot\.json$/.test(name))
-				.sort()
-				.at(-1);
-	if (!name) throw Error("Missing Drizzle baseline snapshot");
-	return definitions(JSON.parse(await readFile(new URL(name, meta), "utf8")));
+	return definitions(JSON.parse(await readFile(new URL("meta/current.json", migrationDirectory), "utf8")));
 }
 
 export async function verifySnapshotBaseline(): Promise<void> {

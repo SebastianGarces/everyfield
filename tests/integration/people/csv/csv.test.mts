@@ -1,21 +1,23 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
 import {
 	executeBulkImport,
+	listDuplicatePairs,
 	peopleCsv as csv,
+	peopleMerge,
 	runPeopleImport,
 	peopleReader,
 	peopleWriter as people,
 	personFields as fields,
+	retryStoredImport,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 
@@ -26,40 +28,18 @@ const noReminders = async () => {
 };
 
 // People CSV import and export through their public operations on a scratch schema.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp013_" + randomUUID().replaceAll("-", ""),
-	role = "wp013_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await fixture({ prefix: "wp013" });
+const { admin, schema } = database;
+const db = database.pools.runtime;
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 3 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plants = [database.tenant.id, (await database.plant()).id],
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+	];
 // 0: plant A owner, 1: plant A member, 2: plant B admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result).slice(0, 500));
-	assert.equal(result.error.code, code);
-	return result.error;
-};
 const rows = async (query) => (await admin.execute(query)).rows;
 const count = async (table) => (await rows(sql.raw(`SELECT count(*)::int n FROM ${table}`)))[0].n;
 const bytes = (text) => new TextEncoder().encode(text);
@@ -98,50 +78,8 @@ async function person(name, input = {}) {
 	).person;
 }
 
-before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
-		);
-});
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates without writing and refuses capped or malformed files", async () => {
@@ -233,7 +171,7 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	]);
 });
 
-test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
+test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
 	// The literal case: Noah's row fails in the database before it commits; Mara and Lia are still saved.
 	const file =
 		"\ufeff" +
@@ -280,12 +218,14 @@ test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost 
 	assert.deepEqual(first.counts, { created: 2, skipped: 0, failed: 1, remaining: 1 });
 	assert.equal(await count("person"), peopleBefore + 2);
 
-	// A changed review under the same key is refused; the same request retries only the unfinished row.
+	// A changed review under the same key is refused; the same request again only answers the receipt.
 	refused(
 		await submit(file, p, [{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey),
 		"review_digest_conflict",
 	);
-	const again = ok(await submit(file, p, choices, requestKey));
+	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), first);
+	// "Try 1 row again" from the server's kept copy retries only the unfinished row.
+	const again = ok(await retryStoredImport(db, null, await actor(), { requestKey }));
 	assert.equal(again.status, "in_progress");
 	assert.deepEqual(outcome(again), [
 		[1, "created"],
@@ -428,6 +368,20 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	assert.equal(done.status, "complete");
 	assert.deepEqual(done.counts, { created: 1001, skipped: 0, failed: 0, remaining: 0 });
 	assert.equal(await count("person"), peopleBefore + 1001);
+	// BUG-551 (people/peo-6): the directory lists an import in file order, by each Person's created_at. Within one run
+	// that holds across batches of 500: the resumed run wrote rows 501 to 1000, then row 1001 in a batch of its own.
+	const at = new Map(
+		(
+			await rows(
+				sql`SELECT display_name, created_at FROM person WHERE id=ANY(${sql.param(done.rows.map((r) => (r.status === "created" ? r.personId : null)))}::uuid[])`,
+			)
+		).map((r) => [Number(String(r.display_name).slice("Lease".length)), new Date(r.created_at).getTime()]),
+	);
+	assert.equal(at.size, 1001);
+	const outOfOrder = (first, last) =>
+		Array.from({ length: last - first }, (_, i) => first + i + 1).filter((n) => !(at.get(n) > at.get(n - 1)));
+	assert.deepEqual(outOfOrder(1, 500), [], "the first run's rows keep file order");
+	assert.deepEqual(outOfOrder(501, 1001), [], "the resumed run's rows keep file order across its two batches");
 });
 
 test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progress waits for its retry after a transient error, then finishes", async () => {
@@ -474,7 +428,7 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 	assert.deepEqual(ok(await receiptOf(requestKey)).counts, { created: 498, skipped: 0, failed: 3, remaining: 3 });
 	assert.equal(await count("person"), peopleBefore + 498);
 });
-test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
+test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
 	const existing = await person("Rae Existing", { phone: "(555) 010-2030" });
 	const file =
 		"first_name,last_name,phone,email\r\nRae,Import,555-010-2030,\r\nSam,One,,sam@example.test\r\nSam,Two,,SAM@example.test\r\nUma,,,uma@example.test\r\n,,,bad\r\n";
@@ -557,23 +511,15 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 		locked(r.rows[0].pid);
 		await done;
 	});
-	const pid = await ready;
+	await ready;
 	const pending = submit(
 		late,
 		lp,
 		choose(lp, () => "create"),
 		lateKey,
 	);
-	let settled = false;
-	pending.finally(() => (settled = true)).catch(() => {});
-	// Release the seat once the import waits on it, or once it answered without waiting.
-	for (let waited = 0; !settled; waited++) {
-		const [{ n }] = await rows(
-			sql`SELECT count(*)::int n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`,
-		);
-		if (n > 0 || waited > 200) break;
-		await new Promise((resolve) => setTimeout(resolve, 25));
-	}
+	// Release the seat once the import waits on it.
+	await waitingOnLock(db);
 	release();
 	await holder;
 	try {
@@ -584,7 +530,123 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 	}
 });
 
-test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy the export matches the directory's filters as formula-safe CSV without private fields", async () => {
+test("AC:TARGET-PPL-018 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
+	const tag = randomUUID().slice(0, 8);
+	const file = `first_name,last_name,email\r\nVi,One,vi-${tag}@example.test\r\nVi,Two,VI-${tag}@example.test\r\n`;
+	const p = ok(await preview(file));
+	assert.deepEqual(
+		p.rows.map((r) => [r.row, r.existingDuplicates.length, r.withinFileDuplicateOf]),
+		[
+			[1, 0, null],
+			[2, 0, 1],
+		],
+	);
+	const peopleBefore = await count("person"),
+		importsBefore = await count("person_import");
+	// The review screen hides "Add, review later" here; the server still refuses it and writes nothing.
+	refused(
+		await importFile(file, p, [
+			{ row: 1, choice: "skip" },
+			{ row: 2, choice: "create_and_review" },
+		]),
+		"invalid_input",
+	);
+	assert.equal(await count("person"), peopleBefore);
+	assert.equal(await count("person_import"), importsBefore);
+
+	const receipt = ok(
+		await importFile(file, p, [
+			{ row: 1, choice: "skip" },
+			{ row: 2, choice: "create" },
+		]),
+	);
+	assert.deepEqual(
+		receipt.rows.map((r) => [r.row, r.status, r.reviewWith ?? null]),
+		[
+			[1, "skipped", null],
+			[2, "created", null],
+		],
+	);
+	assert.deepEqual(receipt.counts, { created: 1, skipped: 1, failed: 0, remaining: 0 });
+	assert.equal(await count("person"), peopleBefore + 1);
+});
+
+test("AC:TARGET-PPL-018 T-193 each review-later row is a pair to review until a merge or retirement, only in its own church", async () => {
+	const tag = randomUUID().slice(0, 8);
+	const pairs = async (who = 0) => ok(await read(who, (t, c) => listDuplicatePairs(t, c)));
+	const pia = await person(`Pia ${tag}`, { email: `pia-${tag}@example.test` });
+	const quin = await person(`Quin ${tag}`, { email: `quin-${tag}@example.test` });
+	await person(`Ross ${tag}`, { email: `ross-${tag}@example.test` });
+	await person(`Uma ${tag}`, { email: `uma-${tag}@example.test` });
+	const quinOther = await person(`Quin Other ${tag}`);
+	// Rows 1 and 2 match existing people, row 5 repeats row 4; Ross is added new and Uma skipped, so neither pairs.
+	const file =
+		`first_name,last_name,email\r\nPia,Imported,pia-${tag}@example.test\r\nQuin,Imported,quin-${tag}@example.test\r\n` +
+		`Ross,Imported,ross-${tag}@example.test\r\nTess,One,tess-${tag}@example.test\r\nTess,Two,tess-${tag}@example.test\r\n` +
+		`Uma,Imported,uma-${tag}@example.test\r\n`;
+	const p = ok(await preview(file));
+	const before = new Set((await pairs()).items.map((x) => x.person.id));
+	const receipt = ok(
+		await importFile(file, p, [
+			{ row: 1, choice: "create_and_review" },
+			{ row: 2, choice: "create_and_review" },
+			{ row: 3, choice: "create" },
+			{ row: 4, choice: "create" },
+			{ row: 5, choice: "create_and_review" },
+			{ row: 6, choice: "skip" },
+		]),
+	);
+	const id = (row) => receipt.rows.find((r) => r.row === row).personId;
+	const fresh = async (who = 0) => (await pairs(who)).items.filter((x) => !before.has(x.person.id));
+	// The read uses the import's own audit rows: no backfill or migration step runs between the import and the list.
+	assert.deepEqual(await fresh(), [
+		{ person: { id: id(1), displayName: "Pia Imported" }, with: { id: pia.id, displayName: `Pia ${tag}` } },
+		{ person: { id: id(2), displayName: "Quin Imported" }, with: { id: quin.id, displayName: `Quin ${tag}` } },
+		{ person: { id: id(5), displayName: "Tess Two" }, with: { id: id(4), displayName: "Tess One" } },
+	]);
+
+	// INV-tenancy: another church's Admin sees none of them, and a Member of this church is refused.
+	assert.deepEqual((await pairs(2)).items, []);
+	refused(await read(1, (t, c) => listDuplicatePairs(t, c)));
+
+	// A merge of the pair, or of either one into someone else, removes it; so does retiring either one.
+	const merge = async (sourceId, survivorId) => {
+		const r = ok(await read(0, (t, c) => peopleMerge.getMergeReview(t, c, { sourceId, survivorId })));
+		ok(
+			await write(0, (t, c) =>
+				peopleMerge.mergePeople(t, c, {
+					requestKey: randomUUID(),
+					input: { sourceId, survivorId, reviewDigest: r.reviewDigest, fieldChoices: {} },
+				}),
+			),
+		);
+	};
+	await merge(id(1), pia.id);
+	await merge(quin.id, quinOther.id);
+	assert.deepEqual(
+		(await fresh()).map((x) => x.person.id),
+		[id(5)],
+	);
+	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(id(4))}`);
+	const { reviewRevision } = ok(await read(0, (t, c) => peopleReader.getStatusWarnings(t, c, { personId: id(4) })));
+	ok(
+		await write(0, (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId: id(4), reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+	assert.deepEqual(await fresh(), []);
+});
+
+test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy INV-filters the export matches the directory's filters as formula-safe CSV without private fields", async () => {
 	const plant = (who) =>
 		write(who, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Choir" } }));
 	const choir = ok(await plant(0)).tag;
@@ -794,7 +856,7 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	}
 });
 
-test("AC:TARGET-PPL-019 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
+test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
 	const maria = await person("Maria Santos");
 	const mary = await person("Mary Ann  Smith");
 	const grace = await person("Grace");
@@ -834,7 +896,7 @@ test("AC:TARGET-PPL-019 the export derives first_name and last_name from the dis
 	void uma;
 });
 
-test("INV-C32 a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
+test("INV-session-lock: a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
 	const file = "first_name\r\nLockfree\r\n";
 	const p = ok(await preview(file));
 	const requestKey = randomUUID();

@@ -18,6 +18,7 @@ import {
 } from "./agenda-content.ts";
 import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
+import { fillStatementBlocks } from "../network-statement.ts";
 import { CHURCH_TEMPLATES, churchTemplate, resolveBody } from "./church.ts";
 import { FOLLOW_UP_LETTER, LAUNCH_TEAM_COMMITMENT, MEMBER_EXPECTATIONS } from "./text-content.ts";
 
@@ -69,7 +70,8 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 
 /**
  * A text-heavy template's preview. It renders the template's revision 1 through the Church Document render path, so the
- * preview and the export of an unedited revision 1 show the same page text and outline.
+ * preview and the export of an unedited revision 1 show the same page text and outline. The network's statement of
+ * faith fills a `statement-of-faith` slot after the merge tokens resolve, so its text prints as the network wrote it.
  */
 const textEntry = (id: string, pageCount = 1): PdfEntry => {
 	const template = churchTemplate(id);
@@ -94,7 +96,10 @@ const textEntry = (id: string, pageCount = 1): PdfEntry => {
 			churchDocument(
 				ctx,
 				template,
-				resolveBody(template.body, { church_name: ctx.church, pastor_name: ctx.values.pastor_name ?? null }),
+				fillStatementBlocks(
+					resolveBody(template.body, { church_name: ctx.church, pastor_name: ctx.values.pastor_name ?? null }),
+					ctx.statement ?? null,
+				),
 			),
 	};
 };

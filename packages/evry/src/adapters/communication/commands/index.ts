@@ -3,11 +3,10 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import {
 	audiencePeople,
-	BATCH_LIMIT,
 	communicationWriter,
 	mailAddressHash,
+	optedOutSql,
 	recipientsDigest,
-	updatesOff,
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
@@ -182,16 +181,15 @@ const classifiedPeople = (plantId: string, facts: AudienceFacts) =>
 	), hashes AS (SELECT key AS email,value AS hash FROM jsonb_each_text(${JSON.stringify(facts.hashes)}::jsonb)),
 	classified AS (
 		SELECT p.id,p."displayName" AS name,
+			-- The handoff's own refusals, in its order: the person's opt-out from this church decides before the address.
 			CASE WHEN btrim(coalesce(p.email,''))='' THEN 'no_address'
+				WHEN ${optedOutSql(sql`${plantId}::uuid`, sql`p.id`)} THEN 'unsubscribed'
 				WHEN EXISTS(SELECT 1 FROM suppression s JOIN hashes h ON h.hash=s.address_hash
-					WHERE h.email=lower(btrim(p.email)) AND s.cleared_at IS NULL) THEN 'blocked'
-				WHEN ${updatesOff(sql`p.id`)} THEN 'updates_off' END AS reason
+					WHERE h.email=lower(btrim(p.email)) AND s.cleared_at IS NULL) THEN 'blocked' END AS reason
 		FROM people p
 	)`;
 /** What the handoff would refuse about the `classified` audience, said on the review so nothing is approved in vain. */
-const audienceRefusal = sql`CASE WHEN (SELECT count(*) FROM classified WHERE reason IS NULL)=0 THEN 'Nobody in this audience can get this email.'
-	WHEN (SELECT count(*) FROM classified WHERE reason IS DISTINCT FROM 'no_address')>${BATCH_LIMIT}::int
-		THEN ${`The email service takes at most ${BATCH_LIMIT} people at a time. Choose a smaller audience.`}::text END`;
+const audienceRefusal = sql`CASE WHEN (SELECT count(*) FROM classified WHERE reason IS NULL)=0 THEN 'Nobody in this audience can get this email.' END`;
 const leftOutIds = sql`coalesce((SELECT jsonb_agg(id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`;
 
 type Handoff = Awaited<ReturnType<typeof communicationWriter.handOffScheduled>>;

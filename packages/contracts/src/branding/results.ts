@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { correlationId, recordId, revision } from "../common/values.ts";
+import { defineSafeError, recordId, revision, sha256Text, type Reply } from "../common/values.ts";
 import {
 	ASSET_SLOTS,
 	altText,
@@ -14,24 +14,22 @@ import {
 } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
 /** Every refusal a brand operation returns. */
 export const brandError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("access_denied", {}, "never"),
-	error("unavailable", {}, "never"),
-	error("conflict", {}, "refresh"),
-	error("primary_required", {}, "never"),
-	error("unsupported_font", {}, "never"),
-	error("invalid_ein", {}, "never"),
-	error("alt_text_required", {}, "never"),
-	error("unsupported_media_type", {}, "never"),
-	error("invalid_file", {}, "never"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError("conflict", {}, "refresh"),
+	defineSafeError("primary_required", {}, "never"),
+	defineSafeError("unsupported_font", {}, "never"),
+	defineSafeError("invalid_ein", {}, "never"),
+	defineSafeError("alt_text_required", {}, "never"),
+	defineSafeError("unsupported_media_type", {}, "never"),
+	defineSafeError("invalid_file", {}, "never"),
 ]);
 export type BrandError = z.infer<typeof brandError>;
-export type BrandReply<T> = { status: "ok"; value: T } | { status: "refused"; error: BrandError };
+export type BrandReply<T> = Reply<T, BrandError>;
 
 export const colorView = z.strictObject({
 	hex: hexColor,
@@ -77,7 +75,7 @@ export const uploadTicket = z.strictObject({ uploadId: recordId, expiresAt: z.is
 export const uploadedAsset = z.strictObject({
 	uploadId: recordId,
 	byteCount: z.int().min(1),
-	sha256: z.string().regex(/^[a-f0-9]{64}$/),
+	sha256: sha256Text,
 });
 export const suggestedColors = z.strictObject({
 	suggestedPrimary: hexColor,

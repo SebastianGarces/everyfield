@@ -534,7 +534,10 @@ for (const [engine, launcher] of ENGINES) {
 			await page.reload();
 			await hydrated(page);
 			await page.getByRole("button", { name: "Ask Evry" }).click();
-			const gone = page.getByRole("dialog", { name: "Evry" }).getByRole("region", { name: "No longer available" }).last();
+			const gone = page
+				.getByRole("dialog", { name: "Evry" })
+				.getByRole("region", { name: "No longer available" })
+				.last();
 			await gone.waitFor({ timeout: 90_000 });
 			const text = await gone.innerText();
 			assert.match(text, /The message in this change is no longer available to you/);

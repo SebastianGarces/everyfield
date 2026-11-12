@@ -21,7 +21,7 @@ export const COMMANDS = {
 		bin: "/opt/homebrew/bin/gh",
 		args: [
 			"run", "list", "--repo", "SebastianGarces/everyfield", "--branch", "main", "--workflow", "CI",
-			"--event", "push", "--limit", "10", "--json", "headSha,status,conclusion,createdAt",
+			"--limit", "10", "--json", "headSha,status,conclusion,createdAt",
 		],
 	},
 } as const;

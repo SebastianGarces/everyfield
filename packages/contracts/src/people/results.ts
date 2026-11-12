@@ -1,24 +1,23 @@
 import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
-import { instant, localDate, timeZone } from "../common/time.ts";
+import { instant, localDate } from "../common/time.ts";
 import { csvError } from "./csv/index.ts";
 import { mergeErrors } from "./merge/errors.ts";
 import {
 	contactFields,
 	plantOwner,
 	organizationOwner,
-	tenantOwner,
 	personLifecycle,
 	stage,
 	recruitmentSource,
 	adultClassification,
 	adultClassificationSource,
 	currentCommitment,
-	firstAcquisition,
-	noteBody,
+	longText,
 	pipelineColumn,
 } from "./values.ts";
 import { householdMembership } from "./fields/index.ts";
+import { avatarRoute } from "../settings/results.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -46,10 +45,30 @@ export const personResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({ status: z.literal("available"), person: personProjection }),
 ]);
+/**
+ * The photo a list row shows: a live person's own People photo (REQ-PPL-005), else the photo of the account the person
+ * links to while that account holds a live seat in this church (REQ-IDN-006). Each names only its route's version.
+ */
+export const listPhoto = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
+	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
+]);
+/** The app's own route for a list photo's exact version. Never a storage key or bearer URL. */
+export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
+	return photo.kind === "person"
+		? `/people/${photo.personId}/photo/${photo.versionId}`
+		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
+}
+/** One person's list photo. A person with none has no entry. */
+export const personPhoto = z.strictObject({ personId, photo: listPhoto });
+export type PersonPhoto = z.infer<typeof personPhoto>;
+/** The current photos of the people a screen already shows, as the People list would show them. */
+export const personPhotos = z.strictObject({ photos: z.array(personPhoto).max(100) });
 export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
+		photos: z.array(personPhoto).max(100),
 		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),
@@ -130,10 +149,11 @@ export const noteMutationResult = z.strictObject({
 	receiptId: operationId,
 	noteId: recordId,
 	revision,
+	// The person's revision after the note change: a note moves the person revision on.
+	personRevision: revision,
 	outcome: z.enum(["changed", "noop"]),
 });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
-export const organizationPersonMutationResult = personMutationResult.extend({ person: organizationPerson });
 // A verified email may propose candidates but never selects a human identity.
 // This output belongs only to the owning authenticated provisioning workflow.
 export const accountPersonResolution = z.discriminatedUnion("status", [
@@ -144,15 +164,9 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("current_account"), accountId }),
 	z.strictObject({ kind: z.literal("former_account"), scopeLocalToken: z.string().min(1).max(200) }),
 ]);
-export const retainedPersonHistory = z.strictObject({
-	owner: tenantOwner,
-	personId,
-	receiptId: operationId,
-	attribution: actorAttribution,
-});
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
-	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: noteBody, editedAt: instant.nullable() }),
+	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: longText, editedAt: instant.nullable() }),
 	z.strictObject({ ...activityBase, kind: z.literal("note_removed"), revision }),
 	z.strictObject({ ...activityBase, kind: z.literal("stage_changed"), from: stage, to: stage }),
 	z.strictObject({
@@ -175,6 +189,8 @@ export const activity = z.discriminatedUnion("kind", [
 			"interview_corrected",
 			"person_merged",
 			"person_unmerged",
+			"duplicate_dismissed",
+			"duplicate_restored",
 		]),
 		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
 		recordId: recordId.optional(),
@@ -182,6 +198,8 @@ export const activity = z.discriminatedUnion("kind", [
 		// A household join, leave or role change: the membership before and after, with the household name recorded
 		// then, so the history still names a household after it is deleted (REQ-PPL-009).
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
+		// A pair marked "Not a duplicate" or restored names the other person, by their current name (D-844, D-845).
+		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
 		...activityBase,
@@ -201,54 +219,6 @@ export const activitiesResult = z.strictObject({
 	next: z.int().min(2).nullable(),
 	completeness: z.enum(["complete", "partial"]),
 });
-// Eligibility snapshot for the People-owned projection. Consumers freeze both
-// asOf and sourceRevision and resolve canonical lineage before counting.
-export const commitmentObservation = z.strictObject({
-	owner: plantOwner,
-	personId,
-	asOf: instant,
-	zone: timeZone,
-	sourceRevision: revision,
-	lifecycle: personLifecycle,
-	classification: adultClassification,
-	current: currentCommitment,
-	firstAcquisition,
-});
-
-export const classificationMutationResult = z.strictObject({
-	receiptId: operationId,
-	outcome: z.enum(["changed", "noop"]),
-	observation: commitmentObservation,
-});
-const count = z.int().min(0);
-const transition = z
-	.strictObject({ from: stage, to: stage, distinctPeople: count })
-	.refine((v) => stage.options.indexOf(v.to) === stage.options.indexOf(v.from) + 1);
-export const conversion = z.discriminatedUnion("status", [
-	z.strictObject({ status: z.literal("unknown"), reason: z.enum(["cohort_unavailable", "empty_cohort"]) }),
-	z
-		.strictObject({ status: z.literal("known"), cohortPeople: z.int().positive(), cohortTransitionPeople: count })
-		.refine((v) => v.cohortTransitionPeople <= v.cohortPeople),
-]);
-export const pipelineMetricsResult = z
-	.strictObject({
-		owner: plantOwner,
-		asOf: instant,
-		zone: timeZone,
-		sourceRevision: revision,
-		from: localDate,
-		through: localDate,
-		unit: z.literal("distinct_canonical_people"),
-		currentStages: z
-			.array(z.strictObject({ stage, distinctPeople: count }))
-			.length(7)
-			.refine((v) => new Set(v.map((r) => r.stage)).size === 7),
-		transitions: z
-			.array(transition.safeExtend({ conversion }))
-			.max(6)
-			.refine((v) => new Set(v.map((r) => r.from)).size === v.length),
-	})
-	.refine((v) => v.from <= v.through);
 type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
@@ -265,9 +235,48 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
+	// A dismiss or restore named a pair that is not on the list: one of them was merged or retired, or no import flagged it.
+	defineSafeError("pair_unavailable", {}, "refresh"),
 	...csvError,
 	...mergeErrors,
 ]);
+/**
+ * people.listDuplicatePairs: the pairs a CSV import added with "Add, review later" whose two people are both still
+ * live, oldest first. `person` is the imported person, `with` the person it may duplicate.
+ */
+export const duplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: z.strictObject({ id: personId, displayName: z.string() }),
+				with: z.strictObject({ id: personId, displayName: z.string() }),
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
+/**
+ * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
+ * both still live, newest first, with who dismissed each one (null once that account is deleted) and when. `zone` is the
+ * church's time zone, the one the dates show in.
+ */
+export const dismissedDuplicatePairs = z.strictObject({
+	zone: z.string(),
+	items: z
+		.array(
+			z.strictObject({
+				person: pairPerson,
+				with: pairPerson,
+				dismissedBy: z.string().nullable(),
+				dismissedAt: instant,
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+/** people.dismissDuplicatePair and people.restoreDuplicatePair: "noop" when the pair was already in that state. */
+export const duplicatePairChange = z.strictObject({ outcome: z.enum(["changed", "noop"]) });
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z

@@ -1,24 +1,30 @@
 import type { AudienceInput } from "@everyfield/contracts/communication";
 import { audienceResult } from "@everyfield/contracts/communication";
-import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 import { hash } from "../operations/canonical.ts";
+import { optedOutAtSql } from "./opt-out.ts";
 
 const personRow = z.object({
 	id: z.uuid(),
 	displayName: z.string(),
 	email: z.string().nullable(),
 	n: z.number().int(),
+	/** When they unsubscribed from this church's Messages email, or null. */
+	optedOutAt: z.string().nullable(),
 });
 
-/** One set-based audience. Duplicate person ids stay. Paused teams and unknown groups add nobody. */
+/**
+ * One set-based audience. Duplicate person ids stay. Paused teams and unknown groups add nobody. Each person carries
+ * when they unsubscribed from this church's email; a review still freezes them, and a send refuses them.
+ */
 export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	const groups = JSON.stringify(audience.groups);
 	const teamIds = JSON.stringify(audience.teamIds);
 	const personIds = JSON.stringify(audience.personIds);
 	return sql`coalesce((
-		SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email, 'n', n))
+		SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email, 'n', n,
+			'optedOutAt', ${optedOutAtSql(sql`${plantId}::uuid`, sql`counted.id`)}))
 		FROM (
 			SELECT id, display_name, email, count(*)::int AS n
 			FROM (
@@ -78,7 +84,11 @@ export function summarizeAudience(raw: unknown) {
 		.filter((row) => !row.email?.trim())
 		.map((row) => row.displayName)
 		.sort((a, b) => a.localeCompare(b));
-	const withEmail = rows.filter((row) => row.email?.trim());
+	const addressed = rows.filter((row) => row.email?.trim());
+	const unsubscribed = addressed
+		.filter((row) => row.optedOutAt)
+		.sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
+	const withEmail = addressed.filter((row) => !row.optedOutAt);
 	const named = [...withEmail].sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
 	const emails = new Set(withEmail.map((row) => row.email!.trim().toLowerCase()));
 	const occurrences = withEmail.reduce((sum, row) => sum + row.n, 0);
@@ -94,11 +104,10 @@ export function summarizeAudience(raw: unknown) {
 			.slice(0, NAMED_CAP)
 			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email!.trim() })),
 		complete: named.length <= NAMED_CAP,
+		unsubscribedExclusions: unsubscribed
+			.slice(0, NAMED_CAP)
+			.map((row) => ({ id: row.id, displayName: row.displayName, unsubscribedAt: row.optedOutAt! })),
 	});
-}
-
-export function eligibleIds(raw: unknown): string[] {
-	return reviewedParts(raw).people;
 }
 
 /** Person ids and addresses a review freezes. Both lists are sorted the same way at schedule and at handoff. */
@@ -115,26 +124,3 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 
 /** The people and addresses of one resolved audience: a review saves it, and the schedule compares it. */
 export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));
-
-/** The email categories a person can switch, each with its state for a person who never saved a choice. */
-const UPDATE_CATEGORIES = notificationCategory.options.filter((name) => name !== "wiki_upstream_review");
-const UPDATE_DEFAULTS = UPDATE_CATEGORIES.map((name) => defaultChannelEnabled(name, "email"));
-/**
- * True for a person whose linked account has every email category it can switch turned off, by the same rule Settings
- * shows: a saved choice, else the default. Settings offers the oversight digest only to an account with an organization
- * seat. Planter email skips these people at handoff, and a review names them, so a review shows what the handoff does.
- */
-export function updatesOff(person: SQL): SQL {
-	return sql`EXISTS (
-		SELECT 1 FROM person up WHERE up.id = ${person} AND up.linked_account_id IS NOT NULL
-		AND NOT EXISTS (
-			SELECT 1 FROM unnest(${sql.param(UPDATE_CATEGORIES)}::text[], ${sql.param(UPDATE_DEFAULTS)}::boolean[]) c(category, by_default)
-			LEFT JOIN notification_preference np
-				ON np.account_id = up.linked_account_id AND np.category = c.category AND np.channel = 'email'
-			WHERE coalesce(np.enabled, c.by_default)
-				AND (c.category <> 'oversight_digest' OR EXISTS (
-					SELECT 1 FROM seat s WHERE s.account_id = up.linked_account_id AND s.ended_at IS NULL AND s.organization_id IS NOT NULL
-				))
-		)
-	)`;
-}

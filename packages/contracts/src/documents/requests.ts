@@ -1,20 +1,30 @@
 import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
+import { phaseNumber } from "../phases/index.ts";
 import { docDocument } from "./format/index.ts";
-import { MERGE_KEY_MAX, MERGE_VALUE_MAX, documentCategory, documentFormat, templateId } from "./values.ts";
+import { nativeBody } from "./native.ts";
+import {
+	IMPORT_BYTES_MAX,
+	IMPORT_TOO_LARGE,
+	MERGE_KEY_MAX,
+	MERGE_VALUE_MAX,
+	documentCategory,
+	documentFormat,
+	templateId,
+} from "./values.ts";
 
 const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERGE_VALUE_MAX)).optional();
 
 export const listTemplatesRequest = z.strictObject({
 	category: documentCategory.optional(),
-	phase: z.int().min(0).max(6).optional(),
+	phase: phaseNumber.optional(),
 	format: documentFormat.optional(),
 });
 export const getTemplateRequest = z.strictObject({ templateId });
 export const contextualTemplatesRequest = z.strictObject({
 	wikiSlug: z.string().trim().min(1).max(200).optional(),
 	category: documentCategory.optional(),
-	phase: z.int().min(0).max(6).optional(),
+	phase: phaseNumber.optional(),
 	meetingId: recordId.optional(),
 	teamId: recordId.optional(),
 });
@@ -39,15 +49,19 @@ function oneSubject(
 		ctx.addIssue({ code: "custom", path: ["overrides"], message: "Too many merge fields." });
 }
 export const resolveContextRequest = z.strictObject(contextInput).superRefine(oneSubject);
-export const previewRequest = resolveContextRequest;
 export const generateRequest = z
 	.strictObject({ ...contextInput, requestKey: z.string().trim().min(1).max(80) })
 	.superRefine(oneSubject);
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
-const documentTitle = z.string().trim().min(1).max(200);
+/** A document title or church template name holds at most this many characters. */
+export const TEMPLATE_NAME_MAX = 200;
+/** A church template description holds at most this many characters. */
+export const TEMPLATE_DESCRIPTION_MAX = 500;
+const documentTitle = z.string().trim().min(1).max(TEMPLATE_NAME_MAX);
+/** A plain native document saves its title and one native body node (D-209). Any other body is refused. */
 export const saveNativeRequest = z.strictObject({
 	title: documentTitle,
-	body: z.string().max(2_000_000),
+	body: nativeBody,
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 });
@@ -65,7 +79,7 @@ export const saveChurchTemplateRequest = z.strictObject({
 	documentId: recordId,
 	revision: z.int().min(1).max(1_000_000),
 	name: documentTitle,
-	description: z.string().trim().max(500).optional(),
+	description: z.string().trim().max(TEMPLATE_DESCRIPTION_MAX).optional(),
 	requestKey: z.string().trim().min(1).max(80),
 });
 /**
@@ -87,7 +101,7 @@ export const updateChurchTemplateRequest = z.strictObject({
 export const editChurchTemplateRequest = z.strictObject({
 	templateId: recordId,
 	name: documentTitle,
-	description: z.string().trim().max(500),
+	description: z.string().trim().max(TEMPLATE_DESCRIPTION_MAX),
 	requestKey: z.string().trim().min(1).max(80),
 });
 /** Delete a church template from "New from template". Documents made from it keep their content. */
@@ -125,38 +139,51 @@ export const listExportsRequest = z.strictObject({ documentId: recordId });
 export const exportRequest = z.strictObject({ documentId: recordId, exportId: recordId });
 /** Compare a Church Document's current revision with the current version of its template. */
 export const churchCompareRequest = z.strictObject({ documentId: recordId });
+/** The compare's two lists (D-423): "Template changes" since the document's base, and "All differences". */
+export const compareView = z.enum(["changes", "all"]);
+export type CompareView = z.infer<typeof compareView>;
 /**
- * Accept differences from the current template as the next revision. The ids are the compare's numbers, which hold for
- * the expected revision and the template hash the compare named; a newer revision or template is a conflict.
+ * Accept items of one list from the current template as the next revision. The ids are the numbers of the list `view`
+ * names, which hold for the expected revision and the template hash the compare named; a newer revision or template
+ * is a conflict. `key` is the key the compare gave that list, so ids from the other list are a conflict too.
  */
 export const acceptTemplateRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
 	templateHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+	view: compareView,
+	key: z.string().regex(/^sha256:[0-9a-f]{64}$/),
 	accept: z.union([z.literal("all"), z.array(z.int().min(0).max(100_000)).min(1).max(10_000)]),
 });
 /** Delete a Church Document from the library. The expected revision guards against a stale page. */
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
-export const archiveDocumentRequest = z.strictObject({
+export const documentRevisionRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
 });
-export const designateCoreValuesRequest = archiveDocumentRequest;
+/** The import route's input: the file's raw bytes, at most IMPORT_BYTES_MAX, and where they go. */
 export const importDocumentRequest = z.strictObject({
 	title: documentTitle,
 	format: z.enum(["text", "docx"]),
-	bytes: z.string().min(1).max(14_000_000),
+	bytes: z
+		.instanceof(Uint8Array)
+		.refine((bytes) => bytes.length > 0, "The file is empty.")
+		.refine((bytes) => bytes.length <= IMPORT_BYTES_MAX, IMPORT_TOO_LARGE),
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 	requestKey: z.string().trim().min(1).max(80),
 });
+/** Copy the current revision of one of your account documents into the church plant. The same key makes one copy. */
 export const useForChurchRequest = z.strictObject({
 	documentId: recordId,
 	revisionId: recordId,
+	requestKey: z.string().trim().min(1).max(80),
 });
 export const ownedDocumentRequest = z.strictObject({ documentId: recordId });
 export const generatedDocumentRequest = z.strictObject({ documentId: recordId });
 export const listOwnedRequest = z.strictObject({});
+/** Your own account documents that Use for this church can copy. */
+export const listCopySourcesRequest = z.strictObject({});
 export const listHistoryRequest = z.strictObject({});
 export const readEvidenceRequest = z.strictObject({});
 export const purgeOwnedRequest = z.strictObject({ witnessId: recordId });

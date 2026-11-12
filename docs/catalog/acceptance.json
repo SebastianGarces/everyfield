@@ -2367,7 +2367,6 @@
       "TARGET-TSK-018"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.syncTaskReminders",
       "tasks.applyManagedStatus",
       "tasks.ensureManagedTask",
@@ -3161,7 +3160,6 @@
       "WIKI52-002"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.enqueue"
     ],
     "work_packages": [
@@ -3323,8 +3321,8 @@
       "NOTIFY47-007"
     ],
     "operations": [
-      "notifications.meetingAudience",
-      "notifications.syncMeetingReminders"
+      "meetings.planNotifications",
+      "notifications.meetingAudience"
     ],
     "work_packages": [
       "WP-020",
@@ -3592,6 +3590,25 @@
     "work_packages": [
       "WP-030",
       "WP-031"
+    ]
+  },
+  {
+    "id": "AC-NTF-016--NTF-016",
+    "shared_gate_id": "AC-NTF-016",
+    "feature_id": "NTF-016",
+    "requirement_ids": [
+      "REQ-NTF-016"
+    ],
+    "case_ids": [
+      "CASE-NTF-016"
+    ],
+    "operations": [
+      "communication.applyMessagesOptOut",
+      "communication.describeMessagesOptOut",
+      "communication.undoMessagesOptOut"
+    ],
+    "work_packages": [
+      "WP-028"
     ]
   },
   {

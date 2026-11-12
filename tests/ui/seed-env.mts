@@ -3,9 +3,17 @@
 // keys. The first seed creates the schema, applies every migration and writes the env file (git-ignored, mode 0600);
 // later seeds read it back and add their own data. Each seed writes its own fixture; `dropSeed` deletes that fixture and
 // drops the schema, roles and env file once no other seed's fixture still uses the schema. It refuses any database host
-// other than the shared development database.
+// other than the shared development database, through the shared test-database guard.
 import { createDatabase, closeDatabase, type Database } from "../../packages/db/src/client.ts";
-import { sql } from "../../packages/db/node_modules/drizzle-orm/index.js";
+import {
+	createLoginRole,
+	createSchema,
+	dropRole,
+	dropSchema,
+	loginUrl,
+	searchPath,
+	testDatabaseUrl,
+} from "../support/test-database.mts";
 import { migrate } from "../../packages/db/src/schema/migrate.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -14,16 +22,7 @@ import { fixturePath } from "./setup.mjs";
 
 const ENV_FILE = fileURLToPath(new URL("../../apps/web/.env.local", import.meta.url));
 /** Every seed that writes a fixture. The position gives each seed its own loopback block for admission limits. */
-export const SEEDS = [
-	"people",
-	"invitation",
-	"meetings",
-	"followups",
-	"communication",
-	"settings",
-	"intelligence",
-	"evry",
-] as const;
+export const SEEDS = ["people", "invitation", "meetings", "evry"] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
 const ROLE = /^ui_[a-f0-9]{12}(_auth)?$/;
@@ -52,15 +51,15 @@ export type SeedEnvironment = Omit<Saved, "mailKey" | "addressKey"> & {
 	close(): Promise<void>;
 };
 
-function adminUrl() {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved shared development database required");
-	source.searchParams.set("sslmode", "verify-full");
-	return source;
+/**
+ * The development bucket's settings from the seed's own environment, so the preview can store brand images and saved
+ * exports (Download saves one first). None when any is missing; the production bucket is never copied.
+ */
+function devStorage(): string[] {
+	const names = ["AWS_BUCKET_NAME", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3", "AWS_REGION"];
+	const bucket = process.env.AWS_BUCKET_NAME;
+	if (!bucket || bucket === "everyfield" || names.slice(0, 4).some((name) => !process.env[name])) return [];
+	return names.filter((name) => process.env[name]).map((name) => `${name}=${process.env[name]}`);
 }
 
 /** The environment a previous seed wrote, or null when there is none. Refuses an env file this module did not write. */
@@ -93,7 +92,7 @@ function readSaved(): Saved | null {
 /** Opens the shared environment for `origin`, creating the schema, roles and env file on the first call. */
 export async function openSeedEnvironment(origin: string): Promise<SeedEnvironment> {
 	if (!/^https?:\/\/[a-z0-9.-]+\.localhost(:\d+)?$/.test(origin)) throw Error("Give the local preview URL");
-	const source = adminUrl();
+	const source = testDatabaseUrl({ ci: false });
 	const saved = readSaved();
 	if (saved && saved.origin !== origin)
 		throw Error(`${ENV_FILE} seeds ${saved.origin}. Run a seed's down first, or seed that preview.`);
@@ -108,14 +107,7 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 		mailKey: randomBytes(32).toString("hex"),
 		addressKey: randomBytes(32).toString("hex"),
 	};
-	const options = `-c search_path=${env.schema},pg_catalog,pg_temp`;
-	const url = (name: string) => {
-		const u = new URL(source);
-		u.username = name;
-		u.password = env.password;
-		u.searchParams.set("options", options);
-		return u.href;
-	};
+	const url = (name: string) => loginUrl(source, name, env.password, env.schema).href;
 	if (!saved) {
 		// The env file first, so a failed creation still leaves what `dropSeed` needs.
 		writeFileSync(
@@ -128,26 +120,18 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_MAIL_KEY=${env.mailKey}`,
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
+				...devStorage(),
 				"",
 			].join("\n"),
 			{ mode: 0o600 },
 		);
 	}
-	const admin = createDatabase({ connectionString: source.href, max: 4, options });
+	const admin = createDatabase({ connectionString: source.href, max: 4, options: searchPath(env.schema) });
 	if (!saved) {
-		await admin.execute(sql.raw(`CREATE SCHEMA ${env.schema}`));
+		await createSchema(admin, env.schema);
 		await migrate(admin, env.schema);
-		for (const [name, grant] of [
-			[env.role, "everyfield_runtime"],
-			[env.authRole, "everyfield_auth"],
-		] as const) {
-			await admin.execute(
-				sql.raw(
-					`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${env.password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-				),
-			);
-			await admin.execute(sql.raw(`GRANT ${grant} TO ${name}`));
-		}
+		await createLoginRole(admin, env.role, env.password, ["runtime"]);
+		await createLoginRole(admin, env.authRole, env.password, ["auth"]);
 	}
 	const runtime = createDatabase({ connectionString: url(env.role), max: 4 });
 	const authDb = createDatabase({ connectionString: url(env.authRole), max: 4 });
@@ -190,11 +174,10 @@ export async function dropSeed(name: SeedName): Promise<{ dropped: string | null
 	if (!saved) return { dropped: null, kept: [] };
 	const kept = SEEDS.filter((other) => other !== name && fixtureSchema(other) === saved.schema);
 	if (kept.length) return { dropped: null, kept };
-	const admin = createDatabase({ connectionString: adminUrl().href, max: 1 });
+	const admin = createDatabase({ connectionString: testDatabaseUrl({ ci: false }).href, max: 1 });
 	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${saved.schema} CASCADE`));
-		for (const r of [saved.role, saved.authRole])
-			if (ROLE.test(r)) await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${r}`));
+		await dropSchema(admin, saved.schema);
+		for (const r of [saved.role, saved.authRole]) if (ROLE.test(r)) await dropRole(admin, r);
 	} finally {
 		await closeDatabase(admin);
 	}

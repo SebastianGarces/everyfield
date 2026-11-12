@@ -1,8 +1,11 @@
-// OPS-102: every Evry adapter operation ships with recorded eval cases. Operations are discovered from the adapter
-// source (reads and commands), never from a hand-kept list. An operation is covered when a case object in
+// OPS-102: every Evry adapter operation and catalog tool ships with recorded eval cases. Operations are discovered from
+// the adapter source (reads and commands) and catalog tools from packages/evry/src/catalog/catalog.ts, never from a
+// hand-kept list. This is the only test that asserts operation coverage. An operation is covered when a case object in
 // tests/evry/evals/*.cases.json has "operation": "<name>". The baseline lists operations uncovered today and only
-// shrinks (rule: .agents/skills/test-standard/SKILL.md). Source-text parse: no database, env, network or build.
+// shrinks (rule: .agents/skills/test-standard/SKILL.md). Discovery is held to what the package itself registers: its
+// read domains, its reviewed writes and the catalog's exported tool names. No database, env, network or build.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -10,7 +13,6 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 const path = (relative) => fileURLToPath(new URL(relative, root));
 const NAME = "[a-z][A-Za-z]*\\.[a-z][A-Za-z]*";
-const EXPECTED_TODAY = 28;
 
 // An operation is a string in an `operation: "x.y",` property or a factory call such as `readHousehold("x.y")`
 // inside an exported declaration. A union type (`"a" | "b"`) and non-exported helpers add nothing by themselves.
@@ -35,6 +37,28 @@ function discoverOperations() {
 		}
 	}
 	return [...found].sort();
+}
+
+// A catalog tool is an exported `"evry.x"` string constant in catalog.ts, such as SELECT_RETURNED_ROWS.
+function discoverCatalogTools() {
+	const source = readFileSync(path("packages/evry/src/catalog/catalog.ts"), "utf8");
+	return [...source.matchAll(/^export const \w+\s*=\s*"(evry\.[a-z][A-Za-z]*)"/gm)].map((m) => m[1]).sort();
+}
+
+// What the package registers: every read adapter in READ_DOMAINS, every reviewed write in REVIEWED_WRITES and every
+// exported "evry.…" string in catalog.ts. The package needs the react-server condition, so a child process reads it.
+function registered() {
+	const script = `
+		const catalog = await import(${JSON.stringify(path("packages/evry/src/catalog/catalog.ts"))});
+		const writes = await import(${JSON.stringify(path("packages/evry/src/proposals/store.ts"))});
+		console.log(JSON.stringify({
+			operations: [...Object.values(catalog.READ_DOMAINS).flat().map((a) => a.operation), ...Object.keys(writes.REVIEWED_WRITES)].sort(),
+			tools: Object.values(catalog).filter((v) => typeof v === "string" && v.startsWith("evry.")).sort(),
+		}));`;
+	const out = execFileSync(process.execPath, ["--conditions=react-server", "--input-type=module", "-e", script], {
+		encoding: "utf8",
+	});
+	return JSON.parse(out);
 }
 
 function coveredOperations() {
@@ -69,22 +93,28 @@ function coverageProblems(operations, covered, baseline) {
 
 const baseline = JSON.parse(readFileSync(path("tests/workflow/evry-evals-baseline.json"), "utf8"));
 
-test(`INV-OPS102: discovery finds the ${EXPECTED_TODAY} adapter operations on main`, () => {
-	assert.equal(discoverOperations().length, EXPECTED_TODAY);
+test("INV-OPS102: discovery finds exactly the operations and catalog tools the package registers", () => {
+	const { operations, tools } = registered();
+	assert.deepEqual(discoverOperations(), operations);
+	assert.deepEqual(discoverCatalogTools(), tools);
 });
 
 test("INV-OPS102: the baseline is sorted, unique and one name each", () => {
 	assert.deepEqual(baseline, [...new Set(baseline)].sort());
 });
 
-test("INV-OPS102: every adapter operation has an eval case or sits in the shrinking baseline", () => {
-	assert.deepEqual(coverageProblems(discoverOperations(), coveredOperations(), baseline), []);
+test("INV-OPS102: every adapter operation and catalog tool has an eval case or sits in the shrinking baseline", () => {
+	const names = [...discoverOperations(), ...discoverCatalogTools()];
+	assert.deepEqual(coverageProblems(names, coveredOperations(), baseline), []);
 });
 
-test("INV-OPS102: an uncovered operation, a covered baseline entry and a vanished baseline entry each fail by name", () => {
+test("INV-OPS102: an uncovered operation or catalog tool, a covered baseline entry and a vanished baseline entry each fail by name", () => {
 	const ops = ["people.a", "people.b"];
 	assert.deepEqual(coverageProblems(ops, new Set(["people.a"]), []), [
 		"people.b has no eval case in tests/evry/evals/*.cases.json and is not in the baseline",
+	]);
+	assert.deepEqual(coverageProblems(["people.a", "evry.pickRows"], new Set(["people.a"]), []), [
+		"evry.pickRows has no eval case in tests/evry/evals/*.cases.json and is not in the baseline",
 	]);
 	assert.deepEqual(coverageProblems(ops, new Set(["people.a", "people.b"]), ["people.b"]), [
 		"people.b now has an eval case: remove it from the baseline",

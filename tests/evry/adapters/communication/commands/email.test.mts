@@ -1007,7 +1007,10 @@ test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads 
 		["Friday volunteer reminder"],
 	);
 	assert.equal(byDate.rows[0]!.fields.zone, "America/Chicago");
-	assert.equal(new Date(byDate.rows[0]!.fields.sendsAtInstant as string).toISOString().slice(0, 10), friday.slice(0, 10));
+	assert.equal(
+		new Date(byDate.rows[0]!.fields.sendsAtInstant as string).toISOString().slice(0, 10),
+		friday.slice(0, 10),
+	);
 	const bySubject = await db.transaction((tx) =>
 		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }),
 	);
@@ -1190,7 +1193,9 @@ test("AC:WP-028-11 a retry that runs after the approval lapsed reports what the 
 		sql`UPDATE job SET state='failed' WHERE id=(SELECT job_id FROM proposal WHERE id=${proposal!.id})`,
 	);
 	await retryUnresolvedEffects(db, owner, proposal!.id);
-	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=${proposal!.id}`);
+	await admin.execute(
+		sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=${proposal!.id}`,
+	);
 	assert.equal(await runNext(service.port), "completed");
 	const review = await readReview(db, owner, proposal!.id);
 	assert.equal(review.status, "approved");
