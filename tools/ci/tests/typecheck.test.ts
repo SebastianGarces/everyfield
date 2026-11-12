@@ -265,7 +265,7 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 	t.after(() => rmSync(copy, { recursive: true, force: true }));
 	const before = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout;
 	copyWorkspace(repo, copy, PACKAGES);
-	const run = () => spawnSync(process.execPath, [tool], { cwd: copy, encoding: "utf8", env: env({ CI: undefined }) });
+	const run = () => spawnSync(process.execPath, [tool], { cwd: copy, encoding: "utf8" });
 	const clean = run();
 	assert.equal(clean.status, 0, `control: the unseeded copy passes\n${clean.stdout}${clean.stderr}`);
 	const seeded = "src/__seeded__/t110.ts";
@@ -281,7 +281,7 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 	}
 	// The backstop: tsc fails a seeded copy as well.
 	writeFileSync(join(copy, "packages/ui", "src/t110-seeded.ts"), 'export const seeded: number = "seeded";\n');
-	const tsc = spawnSync("pnpm", ["run", "typecheck:tsc"], { cwd: copy, encoding: "utf8", env: env({ CI: undefined }) });
+	const tsc = spawnSync("pnpm", ["run", "typecheck:tsc"], { cwd: copy, encoding: "utf8" });
 	assert.notEqual(tsc.status, 0, tsc.stdout + tsc.stderr);
 	assert.match(tsc.stdout, /packages\/ui typecheck:tsc: src\/t110-seeded\.ts\(1,14\): error TS2322/);
 	assert.equal(
