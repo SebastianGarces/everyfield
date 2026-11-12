@@ -1,4 +1,5 @@
-// A port of design/doc-format/approach-a/format.js: the validator, the table math, the canonical form and forking.
+// Ported from the retired approach-a prototype (fixtures in tests/integration/documents/fixtures/format/): the
+// validator, the table math, the canonical form and forking.
 // The schema (schema.ts) says which nodes, attributes and children exist. This file adds the rules a content model
 // cannot say: declared fields, table shape, formulas, unique write-in keys and page fit. Every message is the
 // design module's message, so a file that fails there fails here with the same words.
