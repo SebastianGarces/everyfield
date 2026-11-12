@@ -226,6 +226,7 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 /** Every meeting and venue write name. The wrapper declares each write established (C88), so one declaration decides the path. */
 export type MeetingWrite =
 	| "meetings.addAttendeeNote"
+	| "meetings.addGuests"
 	| "meetings.captureAttendanceBatch"
 	| "meetings.changeStatus"
 	| "meetings.checkIn"
