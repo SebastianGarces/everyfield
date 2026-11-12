@@ -96,105 +96,123 @@ export const meetingsWriter = {
 	async schedule(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.scheduleMeetingRequest, raw);
-			return command(tx, ctx, "meetings.schedule", input, async (w, audit) => {
-				const i = input.input,
-					zone = w.plant.timezone,
-					startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
-				const plant = sql`${w.plant.id}::uuid`;
-				// A team meeting's ministry, locked while its people are copied; an archived one is refused.
-				const team = i.teamId
-					? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
+			return command(
+				tx,
+				ctx,
+				"meetings.schedule",
+				input,
+				async (w, audit) => {
+					const i = input.input,
+						zone = w.plant.timezone,
+						startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
+					const plant = sql`${w.plant.id}::uuid`;
+					// REQ-TEAM-013: a Member schedules only their own ministry's team meeting, with its copied roster and no new
+					// venue or hand-picked guests, which stay with an Owner or Admin.
+					if (!w.admin && (i.type !== "team_meeting" || i.venue.kind === "new" || i.guests.length)) deny();
+					// A team meeting's ministry, locked while its people are copied; an archived one is refused. `leads` is the
+					// attendance rule (REQ-MTG-010, D-562): the ministry's leader is a live Person linked to the writer.
+					const team = i.teamId
+						? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
+						'leads', EXISTS (SELECT FROM person lp WHERE lp.id = t.leader_person_id AND lp.tenant_id = t.plant_id
+							AND lp.state = 'live' AND lp.linked_account_id = ${w.accountId}::uuid),
 						'people', (SELECT coalesce(json_agg(s.id ORDER BY s.id), '[]') FROM (${servingPeople(sql`t.id`, plant)}) s))
 						FROM team t WHERE t.id = ${sql.param(i.teamId)}::uuid AND t.plant_id = ${plant} FOR SHARE)`
-					: sql`NULL::json`;
-				const r = await tx.execute(sql`SELECT
+						: sql`NULL::json`;
+					const r = await tx.execute(sql`SELECT
 					(SELECT coalesce(max(vision_number), 0) + 1 FROM meeting WHERE plant_id = ${plant}) AS vision_number,
 					${chosenVenue(w.plant.id, i.venue)} AS venue,
 					ARRAY(SELECT id FROM person WHERE id = ANY(${sql.param(i.guests)}::uuid[]) AND tenant_id = ${plant}
 						AND state = 'live' ORDER BY id FOR SHARE) AS guests,
 					${team} AS team,
 					clock_timestamp() AS now`);
-				const f = z
-					.object({
-						vision_number: z.number().int(),
-						venue: venueFacts,
-						guests: z.array(z.uuid()),
-						team: z.object({ name: z.string(), archived: z.boolean(), people: z.array(z.uuid()) }).nullable(),
-						now: z.coerce.date(),
-					})
-					.parse(r.rows[0]);
-				if (f.guests.length !== i.guests.length) deny("invalid_subject");
-				if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
-				// The ministry's people join as copied guests; a person also chosen by hand stays a hand-added guest.
-				const chosen = new Set<string>(i.guests);
-				const roster = (f.team?.people ?? []).filter((p) => !chosen.has(p));
-				const vision = i.type === "vision_meeting",
-					id = randomUUID();
-				const place = location(w, i.venue, f.venue, null, audit.writes);
-				const agenda = vision ? c.visionAgenda.sections.map((s) => ({ id: randomUUID(), ...s })) : [];
-				const m: MeetingRow = {
-					id,
-					plant_id: w.plant.id,
-					revision: "1",
-					type: i.type,
-					subtype: null,
-					status: "planning",
-					title: i.title?.trim() || null,
-					notes: i.notes?.trim() || null,
-					local_date: i.date,
-					local_time: i.time,
-					timezone: zone,
-					starts_at: startsAt,
-					vision_number: vision ? f.vision_number : null,
-					...place,
-					agenda,
-					agenda_version: vision ? c.visionAgenda.version : null,
-					kit_version: vision ? c.visionKit.version : null,
-					actual_occurrence_at: null,
-					occurrence_voided_at: null,
-					retired_at: null,
-					creator_id: w.accountId,
-					team_id: i.teamId ?? null,
-					team_name: f.team?.name ?? null,
-					guest_count: i.guests.length + roster.length,
-					confirmed_count: 0,
-					kit_total: vision ? c.visionKit.items.length : 0,
-					kit_checked: 0,
-				};
-				// The meeting, its copied venue, agenda, kit, guests and reminders commit together or not at all.
-				audit.writes
-					.push(sql`INSERT INTO meeting (id, plant_id, type, team_id, title, notes, creator_id, local_date, local_time,
-					timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
+					const f = z
+						.object({
+							vision_number: z.number().int(),
+							venue: venueFacts,
+							guests: z.array(z.uuid()),
+							team: z
+								.object({ name: z.string(), archived: z.boolean(), leads: z.boolean(), people: z.array(z.uuid()) })
+								.nullable(),
+							now: z.coerce.date(),
+						})
+						.parse(r.rows[0]);
+					if (!w.admin && (!f.team?.leads || f.team.archived)) deny();
+					if (f.guests.length !== i.guests.length) deny("invalid_subject");
+					if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
+					// The ministry's people join as copied guests; a person also chosen by hand stays a hand-added guest.
+					const chosen = new Set<string>(i.guests);
+					const roster = (f.team?.people ?? []).filter((p) => !chosen.has(p));
+					const vision = i.type === "vision_meeting",
+						id = randomUUID();
+					const place = location(w, i.venue, f.venue, null, audit.writes);
+					const agenda = vision ? c.visionAgenda.sections.map((s) => ({ id: randomUUID(), ...s })) : [];
+					const m: MeetingRow = {
+						id,
+						plant_id: w.plant.id,
+						revision: "1",
+						type: i.type,
+						subtype: i.subtype ?? null,
+						status: "planning",
+						title: i.title?.trim() || null,
+						notes: i.notes?.trim() || null,
+						local_date: i.date,
+						local_time: i.time,
+						timezone: zone,
+						starts_at: startsAt,
+						vision_number: vision ? f.vision_number : null,
+						...place,
+						agenda,
+						agenda_version: vision ? c.visionAgenda.version : null,
+						kit_version: vision ? c.visionKit.version : null,
+						actual_occurrence_at: null,
+						occurrence_voided_at: null,
+						retired_at: null,
+						creator_id: w.accountId,
+						team_id: i.teamId ?? null,
+						team_name: f.team?.name ?? null,
+						guest_count: i.guests.length + roster.length,
+						confirmed_count: 0,
+						kit_total: vision ? c.visionKit.items.length : 0,
+						kit_checked: 0,
+					};
+					// The meeting, its copied venue, agenda, kit, guests and reminders commit together or not at all.
+					audit.writes
+						.push(sql`INSERT INTO meeting (id, plant_id, type, subtype, team_id, title, notes, creator_id, local_date,
+					local_time, timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
 					attendance_revision, agenda, agenda_version, kit_version)
-					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.team_id}::uuid, ${m.title}, ${m.notes}, ${w.accountId}::uuid,
+					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.subtype}, ${m.team_id}::uuid, ${m.title}, ${m.notes},
+						${w.accountId}::uuid,
 						${m.local_date}::date, ${m.local_time}::time, ${zone}, ${startsAt.toISOString()}::timestamptz, '1',
 						${m.venue_id}::uuid, ${m.venue_name}, ${m.venue_address}, ${m.vision_number}::int, 'planning', 1,
 						${JSON.stringify(agenda)}::jsonb, ${m.agenda_version}::int, ${m.kit_version}::int)`);
-				if (vision) audit.writes.push(seedKit(w.plant.id, id));
-				if (i.guests.length || roster.length)
-					audit.writes
-						.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
+					if (vision) audit.writes.push(seedKit(w.plant.id, id));
+					if (i.guests.length || roster.length)
+						audit.writes
+							.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
 						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p
 						UNION ALL SELECT ${w.plant.id}::uuid, ${id}::uuid, p, true, 'pending', 'absent'
 							FROM unnest(${sql.param(roster)}::uuid[]) p`);
-				audit.writes.push(...syncReminderJobs(m, f.now));
-				return {
-					value: result(m, "changed", audit.id),
-					subject: id,
-					subjectType: "meeting",
-					meetingId: id,
-					action: "meetings.changed",
-					kind: "create",
-					before: null,
-					after: {
-						type: m.type,
-						visionNumber: m.vision_number,
-						guests: m.guest_count,
-						...(m.team_id ? { teamId: m.team_id } : {}),
-						...facts(m),
-					},
-				};
-			});
+					audit.writes.push(...syncReminderJobs(m, f.now));
+					return {
+						value: result(m, "changed", audit.id),
+						subject: id,
+						subjectType: "meeting",
+						meetingId: id,
+						action: "meetings.changed",
+						kind: "create",
+						before: null,
+						after: {
+							type: m.type,
+							visionNumber: m.vision_number,
+							guests: m.guest_count,
+							...(m.team_id ? { teamId: m.team_id } : {}),
+							...(m.subtype ? { subtype: m.subtype } : {}),
+							...facts(m),
+						},
+					};
+				},
+				{ member: true },
+			);
 		});
 	},
 	async edit(tx: Tx, ctx: MeetingsContext, raw: unknown) {

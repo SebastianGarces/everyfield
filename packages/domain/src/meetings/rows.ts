@@ -20,7 +20,7 @@ export const meetingRow = z.object({
 	plant_id: z.uuid(),
 	revision: z.string(),
 	type: c.meetingType,
-	subtype: z.string().nullable(),
+	subtype: c.meetingSubtype.nullable(),
 	status: c.meetingStatus,
 	title: z.string().nullable(),
 	notes: z.string().nullable(),
@@ -88,6 +88,7 @@ export function agendaOf(m: MeetingRow): z.infer<typeof c.agendaResult> {
 export function detail(m: MeetingRow): z.infer<typeof c.meetingDetail> {
 	return c.meetingDetail.parse({
 		...summary(m),
+		subtype: m.subtype,
 		notes: m.notes,
 		agenda: agendaOf(m),
 		kit: m.kit_version === null ? null : { version: m.kit_version, checked: m.kit_checked, total: m.kit_total },

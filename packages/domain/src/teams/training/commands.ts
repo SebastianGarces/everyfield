@@ -3,12 +3,11 @@ import { sql } from "@everyfield/db/query";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
+import type { AuditWrite } from "../../operations/writes.ts";
 import { command, deny, next, parse, reply, type Change, type TeamsContext, type Tx, type Writer } from "../core.ts";
 import { unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
 
-const nil = "00000000-0000-0000-0000-000000000000";
 const programRow = z.object({
 	id: z.string().uuid(),
 	teamId: z.string().uuid().nullable(),
@@ -445,139 +444,6 @@ async function recomplete(
 	};
 }
 
-const guestRow = z.object({
-	id: z.string().uuid(),
-	member: z.boolean(),
-});
-async function schedule(
-	tx: Tx,
-	w: Writer,
-	audit: AuditWrite,
-	input: z.infer<typeof c.scheduleTeamMeetingRequest>,
-): Promise<Change<z.infer<typeof c.meetingResult>>> {
-	const teamId = input.input.teamId;
-	const team = await oneRow(
-		tx,
-		sql`SELECT revision::text AS revision, (archived_at IS NOT NULL) AS archived, name
-			FROM team WHERE id = ${teamId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE`,
-	);
-	if (!team) deny();
-	if (team.revision !== input.expectedRevision) deny("conflict");
-	if (team.archived === true) deny();
-	const guests = unique(input.input.guestIds);
-	const found = guests.length
-		? await tx.execute(sql`SELECT p.id AS id, (p.id IS NOT NULL) AS live, EXISTS (
-			SELECT 1 FROM team_tenure tn
-			JOIN team_role r ON r.id = tn.role_id AND r.retired_at IS NULL AND r.team_id = ${teamId}::uuid
-			WHERE tn.person_id = p.id AND tn.ended_on IS NULL AND tn.plant_id = p.tenant_id
-		) AS member
-		FROM unnest(${sql.param(guests)}::uuid[]) WITH ORDINALITY AS u(id, ord)
-		LEFT JOIN person p ON p.id = u.id AND p.tenant_id = ${w.plant.id}::uuid AND p.state = 'live'
-		ORDER BY u.ord`)
-		: { rows: [] as Record<string, unknown>[] };
-	if (guests.length && found.rows.some((row) => (row as { live?: boolean }).live !== true)) {
-		const other = await oneRow(
-			tx,
-			sql`SELECT 1 AS n FROM person WHERE id = ANY(${sql.param(guests)}::uuid[]) AND tenant_id <> ${w.plant.id}::uuid`,
-		);
-		if (other) deny("access_denied");
-		deny("invalid_subject");
-	}
-	const rows = z.array(guestRow.extend({ live: z.boolean() })).parse(found.rows);
-	const id = randomUUID();
-	const members = rows.filter((row) => row.member).map((row) => row.id);
-	const meeting = sql`INSERT INTO meeting (id, plant_id, type, subtype, team_id, creator_id, local_date, local_time, timezone,
-			starts_at, resolver_version, status, attendance_revision, agenda)
-		VALUES (${id}::uuid, ${w.plant.id}::uuid, 'team_meeting', ${input.input.subtype}, ${teamId}::uuid, ${w.accountId}::uuid,
-			${input.input.date}::date, ${input.input.time}::time, ${w.plant.timezone},
-			((${input.input.date}::date + ${input.input.time}::time) AT TIME ZONE ${w.plant.timezone}), '1', 'planning', 1, '[]'::jsonb)`;
-	await tx.execute(meeting);
-	if (guests.length)
-		audit.writes.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
-			SELECT ${w.plant.id}::uuid, ${id}::uuid, u.id, u.id = ANY(${sql.param(members.length ? members : [nil])}::uuid[]), 'pending', 'absent'
-			FROM unnest(${sql.param(guests)}::uuid[]) AS u(id)`);
-	return {
-		value: c.meetingResult.parse({
-			receiptId: audit.id,
-			outcome: "changed",
-			meetingId: id,
-			teamId,
-			subtype: input.input.subtype,
-			guestIds: guests,
-		}),
-		subject: id,
-		subjectType: "meeting",
-		action: "meetings.changed",
-		kind: "create",
-		before: null,
-		after: { meetingId: id, teamId, subtype: input.input.subtype, guestIds: guests },
-	};
-}
-async function attend(
-	tx: Tx,
-	w: Writer,
-	audit: AuditWrite,
-	input: z.infer<typeof c.recordTeamAttendanceRequest>,
-): Promise<Change<z.infer<typeof c.attendanceResult>>> {
-	const meetingId = input.input.meetingId;
-	const people = unique(input.input.personIds);
-	const meeting = await oneRow(
-		tx,
-		sql`SELECT revision::text AS revision, status, team_id AS "teamId" FROM meeting
-			WHERE id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND type = 'team_meeting' FOR UPDATE`,
-	);
-	if (!meeting) deny();
-	if (meeting.revision !== input.expectedRevision) deny("conflict");
-	const counts = await oneRow(
-		tx,
-		sql`SELECT count(*) FILTER (WHERE plant_id = ${w.plant.id}::uuid AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[]) AND ${people.length > 0})::int AS known,
-			count(*) FILTER (WHERE presence = 'attended' AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[]))::int AS already
-			FROM participation WHERE meeting_id = ${meetingId}::uuid AND removed_at IS NULL`,
-	);
-	const known = z
-		.number()
-		.int()
-		.parse(counts?.known ?? 0);
-	const already = z
-		.number()
-		.int()
-		.parse(counts?.already ?? 0);
-	if (known !== people.length) deny("invalid_subject");
-	const done = meeting.status === "completed" && already === people.length;
-	if (!done && people.length) {
-		audit.writes.push(sql`UPDATE participation SET presence = 'attended', revision = revision + 1
-			WHERE meeting_id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND removed_at IS NULL
-				AND person_id = ANY(${sql.param(people)}::uuid[])`);
-		const marked = lastWrite(audit);
-		audit.writes
-			.push(sql`UPDATE meeting SET status = 'completed', revision = revision + 1, attendance_revision = attendance_revision + 1
-			WHERE id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND revision = ${String(meeting.revision)}::bigint
-				AND (SELECT count(*)::int FROM ${marked}) = ${people.length}::int`);
-	} else if (!done)
-		audit.writes
-			.push(sql`UPDATE meeting SET status = 'completed', revision = revision + 1, attendance_revision = attendance_revision + 1
-			WHERE id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND revision = ${String(meeting.revision)}::bigint`);
-	return {
-		value: c.attendanceResult.parse({
-			receiptId: audit.id,
-			outcome: done ? "noop" : "changed",
-			meetingId,
-			personIds: people,
-		}),
-		subject: meetingId,
-		subjectType: "meeting",
-		action: "meetings.changed",
-		kind: "complete",
-		outcome: done ? "noop" : "changed",
-		before: { status: meeting.status },
-		after: { status: done ? meeting.status : "completed", personIds: people },
-		revision: {
-			before: String(meeting.revision),
-			after: done ? String(meeting.revision) : next(String(meeting.revision)),
-		},
-	};
-}
-
 export const trainingWriter = {
 	async createProgram(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
@@ -669,32 +535,6 @@ export const trainingWriter = {
 			);
 		});
 	},
-	async scheduleMeeting(tx: Tx, ctx: TeamsContext, raw: unknown) {
-		return reply(tx, async () => {
-			const input = parse(c.scheduleTeamMeetingRequest, raw);
-			return command(
-				tx,
-				ctx,
-				"teams.scheduleMeeting",
-				input,
-				(w, audit) => schedule(tx, w, audit, input),
-				input.input.teamId,
-			);
-		});
-	},
-	async recordAttendance(tx: Tx, ctx: TeamsContext, raw: unknown) {
-		return reply(tx, async () => {
-			const input = parse(c.recordTeamAttendanceRequest, raw);
-			return command(
-				tx,
-				ctx,
-				"teams.recordAttendance",
-				input,
-				(w, audit) => attend(tx, w, audit, input),
-				(t, w) => meetingTeam(t, w, input.input.meetingId),
-			);
-		});
-	},
 };
 
 async function serviceTeam(tx: Tx, w: Writer, personId: string) {
@@ -709,12 +549,4 @@ async function serviceTeam(tx: Tx, w: Writer, personId: string) {
 			LIMIT 1`,
 	);
 	return typeof row?.id === "string" ? row.id : undefined;
-}
-async function meetingTeam(tx: Tx, w: Writer, meetingId: string) {
-	const row = await oneRow(
-		tx,
-		sql`SELECT team_id AS "teamId" FROM meeting
-			WHERE id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND type = 'team_meeting'`,
-	);
-	return typeof row?.teamId === "string" ? row.teamId : undefined;
 }
