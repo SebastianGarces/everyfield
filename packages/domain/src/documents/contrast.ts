@@ -4,7 +4,7 @@ export { ratio, textOn };
 
 // WCAG 2.x contrast. Every text/background pair in a document goes through `pair()`,
 // so the logged ratios match what the page actually uses.
-export const hex = (c: string) => {
+const hex = (c: string) => {
 	const m = /^#?([0-9a-f]{6})$/i.exec(c);
 	if (!m) throw new Error(`not a #rrggbb colour: ${c}`);
 	const n = parseInt(m[1]!, 16);

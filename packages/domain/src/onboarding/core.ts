@@ -52,7 +52,6 @@ export function deny(code?: Refusal["code"]): never {
 	throw new Refusal(code);
 }
 export const now = sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value));
-export { hash };
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));

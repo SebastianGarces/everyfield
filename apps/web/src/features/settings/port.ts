@@ -30,10 +30,7 @@ export type OrganizationOwner = {
 	organizationKind: "sending_church" | "sending_network";
 };
 export type PlantSettings = z.infer<typeof S.plantSettings>;
-export type PlantProfile = z.infer<typeof S.plantProfile>;
-export type Inactivity = z.infer<typeof S.inactivity>;
 export type DigestSchedule = z.infer<typeof S.digestSchedule>;
-export type NotificationSettings = z.infer<typeof S.notificationSettings>;
 export type NotificationChoice = z.infer<typeof S.notificationChoice>;
 export type NotificationPatch = z.input<typeof S.notificationPatch>;
 export type AffiliationPatch = z.input<typeof S.affiliationPatch>;
@@ -48,7 +45,7 @@ export type PersonalTimezonePreview = z.infer<typeof N.personalTimezonePreview>;
 export type PersonalTimezoneResult = z.infer<typeof N.personalTimezoneResult>;
 export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
-export type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
+type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
 
 // The church brand kit (WP-104). Its operations and refusals come from the branding contract.
 export type BrandKit = B.BrandKit;

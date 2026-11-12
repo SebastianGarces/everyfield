@@ -11,31 +11,31 @@ import { BlockquoteIcon } from "../icons.tsx";
 import { isNodeInSchema, isNodeTypeSelected } from "../tiptap-utils.ts";
 
 // Everyfield change: the node is named `quote` in the format, and the toggle is one chain, so one Undo reverts it.
-export const BLOCKQUOTE_SHORTCUT_KEY = "mod+shift+b";
+const BLOCKQUOTE_SHORTCUT_KEY = "mod+shift+b";
 
 export interface UseBlockquoteConfig {
 	/** The Tiptap editor instance. */
 	editor?: Editor | null;
 }
 
-export function canToggleBlockquote(editor: Editor | null): boolean {
+function canToggleBlockquote(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!isNodeInSchema("quote", editor) || isNodeTypeSelected(editor, ["image"])) return false;
 	return editor.can().toggleBlockquote();
 }
 
-export function isBlockquoteActive(editor: Editor | null): boolean {
+function isBlockquoteActive(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.isActive("quote");
 }
 
-export function toggleBlockquote(editor: Editor | null): boolean {
+function toggleBlockquote(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!canToggleBlockquote(editor)) return false;
 	return editor.chain().setMeta("closeHistory", true).focus().toggleBlockquote().run();
 }
 
-export function shouldShowButton(props: { editor: Editor | null }): boolean {
+function shouldShowButton(props: { editor: Editor | null }): boolean {
 	const { editor } = props;
 	if (!editor || !editor.isEditable) return false;
 	return isNodeInSchema("quote", editor);

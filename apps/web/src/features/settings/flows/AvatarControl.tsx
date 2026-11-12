@@ -8,11 +8,11 @@ import type { AvatarMime, AvatarPort, AvatarResult, SectionResult } from "../por
 
 type Account = Extract<SectionResult, { section: "account" }>;
 
-export const AVATAR_TYPES: readonly AvatarMime[] = ["image/jpeg", "image/png", "image/webp"];
-export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+const AVATAR_TYPES: readonly AvatarMime[] = ["image/jpeg", "image/png", "image/webp"];
+const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
 
 /** The client check before an upload (REQ-IDN-006). The server verifies the bytes and type again. */
-export function avatarProblem(file: { size: number; type: string }): string | null {
+function avatarProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
 	if (!(AVATAR_TYPES as readonly string[]).includes(file.type)) return "Use a JPG, PNG or WebP photo.";
 	if (file.size > AVATAR_MAX_BYTES) return "Choose a photo smaller than 3 MB.";

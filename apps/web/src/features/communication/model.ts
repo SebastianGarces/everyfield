@@ -89,7 +89,7 @@ export type PageData = {
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 /** What the person can do about a refusal. The code stays the server's word. */
-export function refusalText(code: string): string {
+function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
@@ -154,7 +154,7 @@ export type RescheduleReport = ProviderTally & {
 	scheduledAt: string;
 	heldAt: string | null;
 };
-export type Restore = { at: string; actorName: string | null; reason: string };
+type Restore = { at: string; actorName: string | null; reason: string };
 export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
@@ -441,7 +441,7 @@ export type Route =
 	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
 	| { kind: "templates"; template: string | "new" | null }
 	| { kind: "address" };
-export const steps = ["who", "write", "review"] as const;
+const steps = ["who", "write", "review"] as const;
 export type Step = (typeof steps)[number];
 export type Handoff = { meeting: string; template: string | null; recipients: "guests" | null };
 

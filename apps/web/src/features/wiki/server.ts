@@ -116,7 +116,7 @@ async function editorRevision(mount: Mount, organizationId: string, articleId: s
 }
 
 /** The reading row revision. "0" means this account has no row yet. */
-export async function readingRevision(actor: RequestActor, articleId: string): Promise<string> {
+async function readingRevision(actor: RequestActor, articleId: string): Promise<string> {
 	const mount = wikiMount();
 	if (!mount) return "0";
 	try {
@@ -203,9 +203,9 @@ async function articleOf(
 	}
 }
 
-export type ArticleBlock = "denied" | "hidden" | "order" | null;
+type ArticleBlock = "denied" | "hidden" | "order" | null;
 
-export type ArticleView = {
+type ArticleView = {
 	article: WikiArticle;
 	sources: SourceRow[];
 	currentSourceId: string;
@@ -239,7 +239,7 @@ export type WikiPageData = {
 	draftLost: boolean;
 };
 
-export type WikiDraft = {
+type WikiDraft = {
 	organizationId: string;
 	revision: string;
 	state: "published" | "hide" | "draft" | "inherited" | null;

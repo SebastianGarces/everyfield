@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover.t
 import { Separator } from "../primitives/separator.tsx";
 import { Input, InputGroup } from "../primitives/input.tsx";
 
-export interface LinkMainProps {
+interface LinkMainProps {
 	/**
 	 * The URL to set for the link.
 	 */
@@ -66,7 +66,7 @@ export interface LinkPopoverProps extends Omit<ButtonProps, "type">, UseLinkPopo
 /**
  * Link button component for triggering the link popover
  */
-export const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, children, ...props }, ref) => {
+const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, children, ...props }, ref) => {
 	return (
 		<Button
 			type="button"

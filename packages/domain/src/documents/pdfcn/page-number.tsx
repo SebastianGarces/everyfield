@@ -4,8 +4,8 @@ import type { Style } from "./primitives.tsx";
 import type { PDFComponentProps } from "./components-types.ts";
 import type { PdfcnTheme } from "./types.ts";
 
-export type PageNumberAlign = "left" | "center" | "right";
-export type PageNumberSize = "xs" | "sm" | "md";
+type PageNumberAlign = "left" | "center" | "right";
+type PageNumberSize = "xs" | "sm" | "md";
 
 /**
  * Auto page number rendered with a configurable format string at a or inline position.

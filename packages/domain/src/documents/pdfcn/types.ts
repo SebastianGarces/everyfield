@@ -1,4 +1,4 @@
-export interface TypographyScale {
+interface TypographyScale {
 	/** 10pt — Captions, footnotes */
 	xs: number;
 	/** 12pt — Body text (PDF standard) */
@@ -16,7 +16,7 @@ export interface TypographyScale {
 }
 
 /** Spacing scale based on a 4pt grid system */
-export interface SpacingScale {
+interface SpacingScale {
 	/** 0pt */
 	0: number;
 	/** 2pt */
@@ -44,7 +44,7 @@ export interface SpacingScale {
 }
 
 /** Font weight scale */
-export interface FontWeights {
+interface FontWeights {
 	regular: number;
 	medium: number;
 	semibold: number;
@@ -52,7 +52,7 @@ export interface FontWeights {
 }
 
 /** Line height scale */
-export interface LineHeights {
+interface LineHeights {
 	/** 1.2 — Tight, for headings */
 	tight: number;
 	/** 1.4 — Normal, for body text */
@@ -62,7 +62,7 @@ export interface LineHeights {
 }
 
 /** Border radius scale for rounded corners */
-export interface BorderRadiusScale {
+interface BorderRadiusScale {
 	/** 0pt — Sharp corners */
 	none: number;
 	/** 2pt — Subtle rounding */
@@ -76,7 +76,7 @@ export interface BorderRadiusScale {
 }
 
 /** Letter spacing scale for typography adjustments */
-export interface LetterSpacingScale {
+interface LetterSpacingScale {
 	/** -0.025em — Tighter spacing */
 	tight: number;
 	/** 0em — Normal spacing */
@@ -105,7 +105,7 @@ export interface PrimitiveTokens {
  * All values must be hex strings (e.g., '#1a1a1a').
  * react-pdf supports hex, rgb(), and hsl() — but NOT oklch.
  */
-export interface ColorTokens {
+interface ColorTokens {
 	/** Primary text and content color */
 	foreground: string;
 	/** Page background color */
@@ -133,7 +133,7 @@ export interface ColorTokens {
 }
 
 /** Typography semantic tokens — what fonts and sizes to use where */
-export interface TypographyTokens {
+interface TypographyTokens {
 	/** Body text settings */
 	body: {
 		/** Font family for body text (e.g., 'Helvetica') */
@@ -164,7 +164,7 @@ export interface TypographyTokens {
 }
 
 /** Spacing semantic tokens — consistent spacing across the document */
-export interface SpacingTokens {
+interface SpacingTokens {
 	/** Page margin settings in points */
 	page: {
 		marginTop: number;
@@ -181,7 +181,7 @@ export interface SpacingTokens {
 }
 
 /** Page layout defaults */
-export interface PageTokens {
+interface PageTokens {
 	/** Default page size */
 	size: "A4" | "LETTER" | "LEGAL";
 	/** Default page orientation */

@@ -24,7 +24,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type TeamsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = TeamsError["code"];
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object) {
@@ -126,7 +126,7 @@ export type Writer = {
 	admin: boolean;
 	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
 };
-export async function writer(tx: Tx, ctx: TeamsContext): Promise<Writer> {
+async function writer(tx: Tx, ctx: TeamsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
@@ -165,7 +165,7 @@ export type Change<T> = {
 	reason?: string | null;
 	metadata?: Record<string, unknown>;
 };
-export function delta(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
+function delta(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
 	const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].filter(
 		(key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]),
 	);
@@ -263,4 +263,3 @@ export async function command<T>(
 	return change.value;
 }
 export const next = (revision: string) => String(BigInt(revision) + 1n);
-export const uuid = (value: string) => sql`${value}::uuid`;

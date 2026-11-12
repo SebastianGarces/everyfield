@@ -459,7 +459,7 @@ function Pager({
 }
 
 /** Retired, committed and launch-team or leader badges: the facts a list row says in words. */
-export function PersonBadges({ person }: { person: PlantPerson }) {
+function PersonBadges({ person }: { person: PlantPerson }) {
 	return (
 		<span className="flex flex-wrap items-center gap-1.5">
 			<StageChip stage={STAGE_KEY[person.stage]}>{STAGE_LABEL[person.stage]}</StageChip>

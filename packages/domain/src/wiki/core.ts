@@ -19,7 +19,7 @@ import {
 
 export const GLOBAL = "00000000-0000-0000-0000-000000000000";
 export const PAGE = 20;
-export class WikiRefusal extends Error {
+class WikiRefusal extends Error {
 	readonly code: WikiError["code"];
 	constructor(code: WikiError["code"]) {
 		super(code);
@@ -56,7 +56,7 @@ function refused(error: WikiRefusal): WikiReply<never> {
 		}),
 	};
 }
-export function refusal(error: unknown): WikiReply<never> {
+function refusal(error: unknown): WikiReply<never> {
 	if (error instanceof WriteUnavailable) return refused(new WikiRefusal("unavailable"));
 	if (error instanceof WikiRefusal) return refused(error);
 	throw error;
@@ -66,7 +66,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!result.success) deny("invalid_input");
 	return result.data;
 }
-export function accountOwner(accountId: string): Owner {
+function accountOwner(accountId: string): Owner {
 	return owner.parse({ kind: "account", id: accountId });
 }
 export function selectedOwner(authority: RequestActor): Owner {

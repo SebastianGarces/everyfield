@@ -7,7 +7,7 @@ import { useTiptapEditor } from "../use-tiptap-editor.ts";
 // --- Icons ---
 import { Redo2Icon, Undo2Icon } from "../icons.tsx";
 
-export type UndoRedoAction = "undo" | "redo";
+type UndoRedoAction = "undo" | "redo";
 
 /**
  * Configuration for the history functionality
@@ -23,17 +23,17 @@ export interface UseUndoRedoConfig {
 	action: UndoRedoAction;
 }
 
-export const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
+const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
 	undo: "mod+z",
 	redo: "mod+shift+z",
 };
 
-export const historyActionLabels: Record<UndoRedoAction, string> = {
+const historyActionLabels: Record<UndoRedoAction, string> = {
 	undo: "Undo",
 	redo: "Redo",
 };
 
-export const historyIcons = {
+const historyIcons = {
 	undo: Undo2Icon,
 	redo: Redo2Icon,
 };
@@ -41,7 +41,7 @@ export const historyIcons = {
 /**
  * Checks if a history action can be executed
  */
-export function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
 	if (!editor || !editor.isEditable) return false;
 
 	return action === "undo" ? editor.can().undo() : editor.can().redo();
@@ -50,7 +50,7 @@ export function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedo
 /**
  * Executes a history action on the editor
  */
-export function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!canExecuteUndoRedoAction(editor, action)) return false;
 
@@ -61,7 +61,7 @@ export function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAct
 /**
  * Determines if the history button should be shown
  */
-export function shouldShowButton(props: { editor: Editor | null }): boolean {
+function shouldShowButton(props: { editor: Editor | null }): boolean {
 	const { editor } = props;
 
 	return !!editor && editor.isEditable;

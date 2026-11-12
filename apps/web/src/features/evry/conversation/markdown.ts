@@ -30,7 +30,7 @@ export function safeHref(raw: string): { href: string; external: boolean } | nul
 const ESCAPABLE = "\\`*[]()_";
 
 /** `text` is the whole inline source; `open` marks the answer as still streaming. */
-export function parseInline(text: string, open = false): Inline[] {
+function parseInline(text: string, open = false): Inline[] {
 	const out: Inline[] = [];
 	let buffer = "";
 	const flush = () => {

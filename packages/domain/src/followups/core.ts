@@ -12,7 +12,7 @@ export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused";
 type Code = c.FollowUpError["code"];
 
 /** The follow-up refusals that task refusals do not have. Task helpers keep throwing their own. */
-export class FollowUpRefusal extends Error {
+class FollowUpRefusal extends Error {
 	readonly code: Code;
 	readonly details: Record<string, unknown>;
 	constructor(code: Code, details: Record<string, unknown> = {}) {

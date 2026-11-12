@@ -20,7 +20,7 @@ const payload = z.strictObject({
 type Payload = z.infer<typeof payload>;
 const DAY = 86_400_000;
 const HOUR = 60 * 60 * 1000;
-export const OPT_OUT_DISABLE_MS = 180 * DAY;
+const OPT_OUT_DISABLE_MS = 180 * DAY;
 export type OptOutKeyRing = { current: Buffer; previous?: readonly Buffer[] };
 
 function asRing(key: Buffer | OptOutKeyRing): OptOutKeyRing {

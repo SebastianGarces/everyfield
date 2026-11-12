@@ -13,7 +13,6 @@ export type FirstAcquisition = z.infer<typeof c.commitmentsResult>["firstAcquisi
 export type Assessments = z.infer<typeof c.assessmentsResult>;
 export type Interviews = z.infer<typeof c.interviewsResult>;
 export type Commitments = z.infer<typeof c.commitmentsResult>;
-export type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type Lens = (typeof c.fourCs)[number];
 export type CriterionKey = (typeof c.interviewCriteria)[number];
 export type Rating = z.infer<typeof c.criterionRating>;

@@ -40,14 +40,14 @@ export function sourceInput(choice: SourceChoice): SourceInput {
 	return choice.kind === "current" ? { kind: "current" } : choice;
 }
 
-export function sourceQuery(choice: SourceChoice): string | null {
+function sourceQuery(choice: SourceChoice): string | null {
 	if (choice.kind === "global") return "global";
 	if (choice.kind === "organization") return choice.organizationId;
 	return null;
 }
 
 /** Catch-all params back into the slug the producer stored. */
-export function slugFromParts(parts: string[] | undefined): string {
+function slugFromParts(parts: string[] | undefined): string {
 	if (!parts?.length) return "";
 	return parts
 		.map((part) => {
@@ -100,7 +100,7 @@ export function pdfFilename(slug: string): string {
 	return `${clean || "article"}.pdf`;
 }
 
-export type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
+type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
 
 export type TreeModel = {
 	phases: { number: number; name: string; items: NavItem[] }[];
@@ -257,7 +257,7 @@ export function articleBlocks(contentType: string, body: string): Block[] {
 export type Inline =
 	{ kind: "text"; text: string } | { kind: "strong"; text: string } | { kind: "link"; text: string; href: string };
 
-export function safeHref(raw: string): string | null {
+function safeHref(raw: string): string | null {
 	if (raw.startsWith("/wiki/") || raw.startsWith("#")) return raw;
 	try {
 		const url = new URL(raw);
@@ -406,7 +406,7 @@ function contractBlock(block: EditorBlock): unknown {
 	return { type: "paragraph", children: text };
 }
 
-export function editorDocumentJson(blocks: EditorBlock[]): string {
+function editorDocumentJson(blocks: EditorBlock[]): string {
 	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
 }
 
