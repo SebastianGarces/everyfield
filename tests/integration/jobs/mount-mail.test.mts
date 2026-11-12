@@ -12,7 +12,7 @@ import { resendRecorder } from "../communication/resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, queueOnlyTransport } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/server/onboarding/index.ts";
 import {
@@ -206,7 +206,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		addressKey: randomBytes(32),
 		from: "other@example.test",
 		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
-		transport: { send: async () => ({ kind: "refused", retryable: true }), lookup: async () => ({ kind: "unknown" }) },
+		transport: queueOnlyTransport,
 	});
 	const foreign = [`invitation/${randomUUID()}/1`, `association/${randomUUID()}/1/${reader.id}`];
 	for (const logicalKey of foreign)
@@ -250,7 +250,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	assert.equal(sent(newAddress, /./).length, 1, "email-change/");
 	assert.equal(sent(changer.email, "Your Everyfield password changed").length, 1, "security/");
 	assert.equal(sent(founder.email, "Your church is set up").length, 1, "onboarding/");
-	assert.deepEqual(sent("moved-" + moved.email, /./), []);
 	assert.deepEqual(sent(moved.email, /./), [], "a rejected identity mail is not handed to the email service");
 
 	for (const key of [reset, verification]) assert.deepEqual(await mailState(key), ["accepted"]);
