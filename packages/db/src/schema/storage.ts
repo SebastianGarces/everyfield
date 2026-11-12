@@ -271,12 +271,25 @@ export async function signPrivatePut(storage: PrivateStorage, key: string, media
 }
 /** An uploaded object's bytes and stored type, or null when it is missing, larger than `maxBytes` or incomplete. */
 export async function readPrivateObject(storage: PrivateStorage, key: string, maxBytes: number) {
+	const object = await readPrivateUpload(storage, key, maxBytes);
+	return typeof object === "string" ? null : object;
+}
+/**
+ * An uploaded object's bytes and stored type, "too_large" when the bucket holds more than `maxBytes` (its body is never
+ * read), or "missing" when it is absent or arrives incomplete.
+ */
+export async function readPrivateUpload(
+	storage: PrivateStorage,
+	key: string,
+	maxBytes: number,
+): Promise<{ bytes: Uint8Array; mediaType: string } | "missing" | "too_large"> {
 	const object = await storage.client
 		.send(new GetObjectCommand({ Bucket: storage.bucket, Key: key }))
 		.catch(() => null);
-	if (!object?.Body || !object.ContentLength || object.ContentLength > maxBytes) return null;
+	if (!object?.Body || !object.ContentLength) return "missing";
+	if (object.ContentLength > maxBytes) return "too_large";
 	const bytes = await object.Body.transformToByteArray().catch(() => null);
-	return bytes && bytes.length === object.ContentLength ? { bytes, mediaType: object.ContentType ?? "" } : null;
+	return bytes && bytes.length === object.ContentLength ? { bytes, mediaType: object.ContentType ?? "" } : "missing";
 }
 export async function readAuthorizedObject(
 	db: Database,
@@ -284,7 +297,33 @@ export async function readAuthorizedObject(
 	authorize: ResourceAuthorizer,
 	id: string,
 ): Promise<Uint8Array> {
+	return fetchAuthorized(db, storage, authorize, await authorized(db, authorize, id, "read"));
+}
+/**
+ * The authorized file's stored SHA-256 and media type from the authorizing statement, and its bytes only when `current`
+ * says the caller does not hold that version. `bytes` is null when the caller's copy is current: no storage read runs.
+ */
+export async function readAuthorizedObjectIfChanged(
+	db: Database,
+	storage: PrivateStorage,
+	authorize: ResourceAuthorizer,
+	id: string,
+	current: (sha256: string) => boolean,
+): Promise<{ sha256: string; mediaType: string; bytes: Uint8Array | null }> {
 	const file = await authorized(db, authorize, id, "read");
+	// A ready file always has its SHA-256 (file_object_ck_4).
+	if (!file.sha256) throw unavailable();
+	const stored = { sha256: file.sha256, mediaType: file.media_type };
+	if (current(file.sha256)) return { ...stored, bytes: null };
+	return { ...stored, bytes: await fetchAuthorized(db, storage, authorize, file) };
+}
+/** One storage read of an authorized file, checked against its stored size and SHA-256, then authorized again. */
+async function fetchAuthorized(
+	db: Database,
+	storage: PrivateStorage,
+	authorize: ResourceAuthorizer,
+	file: FileObjectRow,
+): Promise<Uint8Array> {
 	const result = await storage.client
 		.send(new GetObjectCommand({ Bucket: storage.bucket, Key: file.opaque_key }))
 		.catch(providerFailure);
@@ -292,7 +331,7 @@ export async function readAuthorizedObject(
 	const bytes = await result.Body.transformToByteArray();
 	if (bytes.length !== Number(file.byte_count) || hash(bytes) !== file.sha256) throw unavailable();
 	// Revocation while bytes are in flight must still deny delivery.
-	await authorized(db, authorize, id, "read");
+	await authorized(db, authorize, file.id, "read");
 	return bytes;
 }
 export async function createAuthorizedDownload(

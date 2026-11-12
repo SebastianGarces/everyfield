@@ -10,7 +10,7 @@ const errors = (info: string, text: string) => {
 	return result.ok ? [] : result.errors;
 };
 
-test("WP-034/ui: a flow parses with its loop, optional detail and note, and blank lines ignored", () => {
+test("INV-wiki-diagram: a flow parses with its loop, optional detail and note, and blank lines ignored", () => {
 	const result = parseDiagram(
 		"diagram flow",
 		body(
@@ -39,7 +39,7 @@ test("WP-034/ui: a flow parses with its loop, optional detail and note, and blan
 	});
 });
 
-test("WP-034/ui: stages parse without a loop", () => {
+test("INV-wiki-diagram: stages parse without a loop", () => {
 	assert.deepEqual(
 		parseDiagram("diagram stages", body("title: Launch phases", "- Discovery | Pray and study", "- Core group")),
 		{
@@ -53,7 +53,7 @@ test("WP-034/ui: stages parse without a loop", () => {
 	);
 });
 
-test("WP-034/ui: a cycle parses with two nodes and a loop", () => {
+test("INV-wiki-diagram: a cycle parses with two nodes and a loop", () => {
 	assert.deepEqual(
 		parseDiagram("diagram cycle", body("title: Weekly rhythm", "loop: Every week", "- Plan", "- Gather | Sunday")),
 		{
@@ -68,7 +68,7 @@ test("WP-034/ui: a cycle parses with two nodes and a loop", () => {
 	);
 });
 
-test("WP-034/ui: a hierarchy nests three levels deep under one root", () => {
+test("INV-wiki-diagram: a hierarchy nests three levels deep under one root", () => {
 	const result = parseDiagram(
 		"diagram hierarchy",
 		body(
@@ -102,7 +102,7 @@ test("WP-034/ui: a hierarchy nests three levels deep under one root", () => {
 	});
 });
 
-test("WP-034/ui: a timeline keeps the note as its time marker", () => {
+test("INV-wiki-diagram: a timeline keeps the note as its time marker", () => {
 	assert.deepEqual(
 		parseDiagram(
 			"diagram timeline",
@@ -214,11 +214,11 @@ const cases: [string, string, string, { line: number; message: string }[]][] = [
 ];
 
 for (const [name, info, text, expected] of cases)
-	test(`WP-034/ui: ${name} is an error with its line`, () => {
+	test(`INV-wiki-diagram: ${name} is an error with its line`, () => {
 		assert.deepEqual(errors(info, text), expected);
 	});
 
-test("WP-034/ui: a block with three faults reports all three in line order", () => {
+test("INV-wiki-diagram: a block with three faults reports all three in line order", () => {
 	assert.deepEqual(errors("diagram stages", body("- | x", "loop: L", "- A | B | C | D")), [
 		{ line: 1, message: "Missing title: the first line must be title: <text>" },
 		{ line: 1, message: "Node label is empty" },
@@ -232,7 +232,7 @@ test("WP-034/ui: a block with three faults reports all three in line order", () 
 	]);
 });
 
-test("WP-034/ui: fencedBlocks reads backtick and tilde fences and runs an open fence to the end", () => {
+test("INV-wiki-diagram: fencedBlocks reads backtick and tilde fences and runs an open fence to the end", () => {
 	assert.deepEqual(
 		fencedBlocks(body("Intro", "```diagram flow", "title: T", "```", "~~~", "  kept", "~~~", "````", "open")),
 		[

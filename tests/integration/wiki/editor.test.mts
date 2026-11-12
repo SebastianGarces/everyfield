@@ -15,9 +15,10 @@ import {
 	articleBlocks,
 	editorBlocksFromBody,
 	editorWriteBody,
-	markdownBlocks,
 	type EditorBlock,
 } from "../../../apps/web/src/features/wiki/model.ts";
+
+const markdownBlocks = (body: string) => articleBlocks("safe_mdx", body);
 
 const seed = JSON.parse(await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8")) as {
 	articles: { slug: string; content: string | null }[];
@@ -36,7 +37,7 @@ function editOne(blocks: EditorBlock[]): EditorBlock[] {
 	);
 }
 
-test("T-156: a one-character edit then save passes the contract on every seed article and keeps its tables, callouts and code", () => {
+test("AC:CASE-WIKI-001 a one-character edit then save passes the contract on every seed article and keeps its tables, callouts and code", () => {
 	assert.ok(articles.length > 100);
 	let tables = 0;
 	for (const article of articles) {
@@ -59,7 +60,7 @@ test("T-156: a one-character edit then save passes the contract on every seed ar
 	assert.ok(tables > 100);
 });
 
-test("T-156: the editor shows tables, callouts, diagrams and code read-only, in place", () => {
+test("AC:CASE-WIKI-001 the editor shows tables, callouts, diagrams and code read-only, in place", () => {
 	const body = [
 		"## Plan",
 		"Intro text.",
@@ -116,7 +117,7 @@ test("T-156: the editor shows tables, callouts, diagrams and code read-only, in 
 	assert.ok(visibleBodyLength(saved) < saved.length / 2);
 });
 
-test("T-156: an unchanged save keeps the loaded body byte for byte", () => {
+test("AC:CASE-WIKI-001 an unchanged save keeps the loaded body byte for byte", () => {
 	for (const article of articles.slice(0, 20)) {
 		const content = article.content!;
 		assert.equal(editorWriteBody(content, "safe_mdx", editorBlocksFromBody("safe_mdx", content)), content);
@@ -125,7 +126,7 @@ test("T-156: an unchanged save keeps the loaded body byte for byte", () => {
 	assert.equal(editorWriteBody(draft, "safe_nodes", editorBlocksFromBody("safe_nodes", draft)), draft);
 });
 
-test("T-156: the visible-text cap and the stored bound refuse a body past either", () => {
+test("AC:CASE-WIKI-001 the visible-text cap and the stored bound refuse a body past either", () => {
 	const doc = (text: string) =>
 		JSON.stringify({
 			format: "everyfield-editor-v1",
@@ -137,7 +138,7 @@ test("T-156: the visible-text cap and the stored bound refuse a body past either
 	assert.equal(visibleBodyLength('{"not":"editor"}'), 16);
 });
 
-test("T-156: humanCredit keeps a person or church name and drops paths, ids and digests", () => {
+test("AC:CASE-WIKI-007 humanCredit keeps a person or church name and drops paths, ids and digests", () => {
 	assert.equal(humanCredit("Ana Torres"), "Ana Torres");
 	assert.equal(humanCredit("Grace Church"), "Grace Church");
 	for (const credit of [

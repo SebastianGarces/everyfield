@@ -14,22 +14,22 @@ Only a configured machine credential may invoke the periodic executor. Missing/e
 
 ## Closed kinds and uniqueness
 
-The inventory below defines ordinary work and the logical identity that must not execute twice. These identities describe product outcomes, not required key encodings, tables or database constraints. A scan must preserve owed tail work rather than dropping records beyond a page.
+The inventory below defines ordinary work and the logical identity that must not execute twice. These identities describe product outcomes, not required key encodings, tables or database constraints. A scan must preserve owed tail work rather than dropping records beyond a page. Only kinds that a worker claims are listed, and the `job` table's kind check allows exactly these.
 
-| Kind | Work and duplicate-prevention outcome |
-|---|---|
-| mail | Dispatch or reconcile one immutable reviewed mail intent. Preserve the original provider correlation and actual outcome across retries. |
-| notification | Deliver each logical task or meeting reminder once. Apply current audience, source state and cancellation rules. |
-| digest | Cover each owed recipient/category interval once in its confirmed zone. Advance coverage only when owed mail is saved; empty catch-up sends nothing. |
-| assessment | Complete each captured material, daily, manual or operator demand without duplicate publication. Recheck source, reference and execution eligibility. |
-| reference_generation | Build one reviewed reference candidate completely. Resuming partial work never mutates an active generation. |
-| feedback_publication | Publish one safe issue at its reviewed destination. Resolve unknown creation using the original correlation and verified repository before retrying. |
-| object_cleanup | Finish or reconcile upload cleanup without deleting bytes concurrently finalized for authorized use. |
-| lifecycle_purge | Complete the exact eligible deletion request. Interrupted cleanup stays hidden until coherent completion. |
-| assistant_turn | Resume the initiating account's authorized turn. Reconnect cannot approve or execute new effects. |
-| document_render | Produce the reviewed artifact from frozen inputs, template and rendering profile. Retry preserves output identity; failure leaves the prior artifact intact. |
-| people_import | Write the reviewed People CSV rows from the frozen plan and saved upload. Each row's Person identity is fixed, so a resumed or repeated run never creates it twice; a failing row fails alone. |
-| evry_effect | Run one approved Evry proposal revision once through its owning domain write, under the approver's live authority and before the review expires. A retry with the same effect key returns the saved receipt. |
+| Kind | Worker | Work and duplicate-prevention outcome |
+|---|---|---|
+| mail | The mail worker; the scheduled runner sends church invitation mail | Dispatch or reconcile one immutable reviewed mail intent. Preserve the original provider correlation and actual outcome across retries. |
+| notification | The notification worker, in the scheduled runner | Send each meeting's announcement and its 7, 3 and 1 day reminders once per slot. Meeting writes queue one job per slot and supersede a moved meeting's old slots; the worker reads the meeting's plan when the job is due and writes a planned slot's notices and email to its current recipients. A passed, suppressed or stale slot sends nothing, and a sent slot is never queued again. |
+| digest | The digest worker, after digest planning | Cover each owed recipient/category interval once in its confirmed zone. Advance coverage only when owed mail is saved; empty catch-up sends nothing. |
+| object_cleanup | The object cleanup worker | Finish or reconcile upload cleanup without deleting bytes concurrently finalized for authorized use. |
+| lifecycle_purge | The purge worker, on the cleanup login | Complete the exact eligible deletion request once its cancellation deadline passes. Interrupted cleanup stays hidden until coherent completion. |
+| assistant_turn | The Evry turn worker | Resume the initiating account's authorized turn. Reconnect cannot approve or execute new effects. |
+| people_import | The People import worker | Write the reviewed People CSV rows from the frozen plan and saved upload. Each row's Person identity is fixed, so a resumed or repeated run never creates it twice; a failing row fails alone. |
+| evry_effect | The Evry effect worker | Run one approved Evry proposal revision once through its owning domain write, under the approver's live authority and before the review expires. A retry with the same effect key returns the saved receipt. |
+
+The scheduled runner runs each worker in its own step, so one step that fails leaves the others to run in the same tick, and its response reports each step's status.
+
+Relationship and sharing milestone notices are a later slice of the notification worker (D-761), and nothing writes launch milestones yet (D-762), so their Settings categories stay hidden. The assessment, reference generation, feedback publication and document render kinds were dropped because no worker claimed them (D-530); a kind returns with the worker that runs it.
 
 Authenticated mail callbacks retain and apply actual provider delivery evidence. Duplicate or out-of-order events never resend mail or rewind facts. Dispatch and reconciliation stay correlated with the original reviewed mail and its known outcome. Restricted backup, witness sync, copy expiry and restore are outside ordinary job dispatch and ordinary application secrets.
 

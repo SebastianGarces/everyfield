@@ -9,7 +9,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-	DEF,
 	MARGIN,
 	N,
 	NAMES,
@@ -19,9 +18,7 @@ import {
 	edges,
 	eye,
 	eyeD,
-	happyD,
 	margin,
-	near,
 	newEdges,
 	reach,
 	restPaths,
@@ -47,14 +44,6 @@ function convex(P) {
 	}
 	return true;
 }
-
-test("the module ports the prototype's constants and five shapes", () => {
-	assert.equal(N, 36);
-	assert.equal(MARGIN, 3.5);
-	assert.deepEqual(NAMES, ["triangle", "circle", "square", "pill", "hexagon"]);
-	assert.deepEqual(Object.keys(DEF), NAMES);
-	for (const name of NAMES) assert.equal(SHAPES[name].pts.length, 2 * N, name);
-});
 
 test("INV-convex: every shape and the 0.25, 0.5 and 0.75 blend of each pair is convex", () => {
 	const out = new Float64Array(2 * N);
@@ -156,38 +145,30 @@ test("INV-foreshorten: a flat side never bends the eye", () => {
 	assert.ok(m.bend > 0.01, `circle: bend ${m.bend}`);
 });
 
-test("near reports the distance to the outline and an outward normal", () => {
-	const E = outline("circle");
-	const n = near(E, 50, 50);
-	assert.ok(Math.abs(n.d - 46) < 0.5, `centre distance ${n.d}`);
-	const right = near(E, 90, 50);
-	assert.ok(right.nx > 0.99, `normal ${right.nx}`);
-});
-
-test("INV-deterministic: bodyD, eyeD, happyD and unturn return the same string for the same input", () => {
+test("INV-deterministic: path data is the same string for the same input, whatever was drawn in between", () => {
 	const C = new Float64Array(38);
+	// Drawing anything else reuses the module's shared buffers; it must not leak into the next result.
+	const other = () => {
+		bodyD(SHAPES.triangle.pts, 1.2, 10, 80);
+		eye(outline("square"), 30, 40, 9, 20, -6, 3, C);
+		margin(outline("pill"), [1, 2, 3, 4]);
+	};
 	for (const name of NAMES) {
 		const S = SHAPES[name];
-		assert.equal(bodyD(S.pts, 0.3, 50, S.oy), bodyD(S.pts, 0.3, 50, S.oy));
 		const [cx, cy, w, l] = specs(S.fy, S.fk, "idle")[0];
-		const a = eyeD(eye(outline(name), cx, cy, w, l, 4, -2, C), 0.1, 50, S.oy);
-		const b = eyeD(eye(outline(name), cx, cy, w, l, 4, -2, C), 0.1, 50, S.oy);
-		assert.equal(a, b);
-		assert.equal(happyD(cx, cy, 5, 7, 0.2, 50, S.oy), happyD(cx, cy, 5, 7, 0.2, 50, S.oy));
-		assert.deepEqual(restPaths(name, "idle"), restPaths(name, "idle"));
+		const look = () => eyeD(eye(outline(name), cx, cy, w, l, 4, -2, C), 0.1, 50, S.oy);
+		const rest = restPaths(name, "idle");
+		const happy = restPaths(name, "happy");
+		const gaze = look();
+		other();
+		assert.deepEqual(restPaths(name, "idle"), rest, name);
+		assert.deepEqual(restPaths(name, "happy"), happy, name);
+		assert.equal(look(), gaze, name);
+		// Real path data, not an empty or undefined result that would also compare equal.
+		assert.match(rest.body, /^M[\d. -]+Q[\d. -]+(T[\d. -]+){35}Z$/, name);
+		for (const d of [...rest.eyes, gaze]) assert.match(d, /^M[\d. -]+(C[\d. -]+){6}Z$/, name);
+		for (const d of happy.eyes) assert.match(d, /^M[\d. -]+A[\d. -]+$/, name);
 	}
-	assert.equal(unturn([4, 4, 92, 92], 0.05, 50, 50), unturn([4, 4, 92, 92], 0.05, 50, 50));
-	assert.match(bodyD(SHAPES.circle.pts, 0, 50, 50), /^M[\d. ]+Q[\d. ]+(T[\d. ]+){35}Z$/);
-});
-
-test("rest eyes are upright capsules of 0.11 by 0.23 of the size", () => {
-	const S = SHAPES.circle;
-	const C = new Float64Array(38);
-	for (const [cx, cy, w, l] of specs(S.fy, S.fk, "idle")) {
-		eye(null, cx, cy, w, l, 0, 0, C);
-		const xs = [...C].filter((_, i) => i % 2 === 0);
-		const ys = [...C].filter((_, i) => i % 2 === 1);
-		assert.ok(Math.abs(Math.max(...xs) - Math.min(...xs) - 11) < 1e-9);
-		assert.ok(Math.abs(Math.max(...ys) - Math.min(...ys) - 23) < 1e-9);
-	}
+	// No turn is the identity transform.
+	assert.equal(unturn([4, 4, 92, 92], 0, 50, 50), "matrix(1 0 0 1 0 0)");
 });

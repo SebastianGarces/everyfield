@@ -29,8 +29,8 @@ const assertNoLeak = (text: string, where: string) => {
 	for (const s of SENTINELS) assert.ok(!text.includes(s), `${where} leaks ${s}`);
 };
 
-describe("provision with an injected prompt", () => {
-	test("valid input writes an owner-only webhook.json the transport's loader accepts", async () => {
+describe("INV-watch-provision: provision with an injected prompt", () => {
+	test("INV-watch-provision: valid input writes an owner-only webhook.json the transport's loader accepts", async () => {
 		const dir = join(await tmp(), "state");
 		const asked: Field[] = [];
 		const r = await provision({
@@ -53,7 +53,7 @@ describe("provision with an injected prompt", () => {
 		assert.deepEqual((await readdir(dir)).sort(), ["provision.status", "webhook.json"], "no temp file left behind");
 	});
 
-	test("an existing directory with a wider mode is tightened to 0700", async () => {
+	test("INV-watch-provision: an existing directory with a wider mode is tightened to 0700", async () => {
 		const dir = await tmp();
 		await chmod(dir, 0o755);
 		await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) });
@@ -71,7 +71,7 @@ describe("provision with an injected prompt", () => {
 		["empty key", { url: value(GOOD_URL), key: value("   ") }, "invalid", "webhook_config_invalid"],
 	];
 	for (const [name, a, state, code] of refusals) {
-		test(`${name} writes nothing, keeps an existing config and reports ${code}`, async () => {
+		test(`INV-watch-provision: ${name} writes nothing, keeps an existing config and reports ${code}`, async () => {
 			const fresh = await tmp();
 			assert.deepEqual(await provision({ stateDir: fresh, prompt: answers(a) }), { state, code });
 			assert.deepEqual(await readdir(fresh), ["provision.status"], "no webhook.json written");
@@ -89,7 +89,7 @@ describe("provision with an injected prompt", () => {
 		});
 	}
 
-	test("replacing an existing config goes through the same 0600 temp-and-rename path", async () => {
+	test("INV-watch-provision: replacing an existing config goes through the same 0600 temp-and-rename path", async () => {
 		const dir = await tmp();
 		await writeFile(join(dir, "webhook.json"), JSON.stringify({ url: "https://old.example/x", key: "OLDKEY" }), { mode: 0o600 });
 		const before = await stat(join(dir, "webhook.json"));
@@ -101,7 +101,7 @@ describe("provision with an injected prompt", () => {
 		assert.deepEqual((await readdir(dir)).sort(), ["provision.status", "webhook.json"]);
 	});
 
-	test("sentinel values appear nowhere but webhook.json, on success and on every failure path", async () => {
+	test("INV-watch-provision: sentinel values appear nowhere but webhook.json, on success and on every failure path", async () => {
 		const paths: Partial<Record<Field, PromptResult>>[] = [
 			{ url: value(GOOD_URL), key: value(KEY) },
 			...refusals.map(([, a]) => a),
@@ -116,8 +116,8 @@ describe("provision with an injected prompt", () => {
 	});
 });
 
-describe("the real prompt", () => {
-	test("is a hidden-input dialog built from fixed text only", () => {
+describe("INV-watch-provision: the real prompt", () => {
+	test("INV-watch-provision: is a hidden-input dialog built from fixed text only", () => {
 		for (const f of ["url", "key"] as const) {
 			const s = promptScript(f);
 			assert.match(s, /display dialog "[^"]/);
@@ -131,7 +131,7 @@ describe("the real prompt", () => {
 		assert.match(promptScript("key"), /sender key/);
 	});
 
-	test("maps osascript's answer and exit to a result", async () => {
+	test("INV-watch-provision: maps osascript's answer and exit to a result", async () => {
 		const dir = await tmp();
 		const cases: [string, PromptResult][] = [
 			["printf 'C\\n'", { ok: false, reason: "cancelled" }],
@@ -149,7 +149,7 @@ describe("the real prompt", () => {
 		assert.deepEqual(await osascriptPrompt(join(dir, "missing"))("key"), { ok: false, reason: "prompt_failed" });
 	});
 
-	test("the helper reads no clipboard, keychain, environment or other secret source", async () => {
+	test("INV-watch-provision: the helper reads no clipboard, keychain, environment or other secret source", async () => {
 		// Code only: comments may name what the helper does not do.
 		const src = (await readFile(provisionMts, "utf8")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 		for (const banned of [/pbpaste/, /NSPasteboard/, /clipboard/i, /\bsecurity\b/, /keychain/i, /process\.argv/, /console\./, /node:https?"/, /node:net/, /fetch\(/, /readFile\(/]) {
@@ -200,8 +200,8 @@ async function until(check: () => Promise<boolean>, ms = 10_000) {
 	assert.fail("timed out waiting");
 }
 
-describe("the provision CLI", () => {
-	test("reports only a code and leaks no value through any argv, env, output or file", async () => {
+describe("INV-watch-provision: the provision CLI", () => {
+	test("INV-watch-provision: reports only a code and leaks no value through any argv, env, output or file", async () => {
 		const work = await tmp();
 		const state = join(work, "state");
 		const bin = await fakeOsascript(work, ` ${GOOD_URL} `, KEY);
@@ -222,7 +222,7 @@ describe("the provision CLI", () => {
 		assertNoLeak(bad.stdout + (await everythingButConfig(state)), "failure output");
 	});
 
-	test("--detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
+	test("INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
 		const work = await tmp();
 		const state = join(work, "state");
 		const bin = await fakeOsascript(work, GOOD_URL, KEY);

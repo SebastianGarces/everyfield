@@ -16,7 +16,7 @@ import { PUBLISHED, SUPERSEDED } from "../../../packages/domain/src/documents/te
 const folder = new URL("../../../packages/domain/src/documents/templates/published/", import.meta.url);
 const POLICY = "conflict-of-interest-policy";
 
-test("T-81 criterion 1: the store holds the current version of every built-in template, with its hash", async () => {
+test("INV-template-changes: the store holds the current version of every built-in template, with its hash", async () => {
 	assert.deepEqual(await publishedProblems(DOC_TEMPLATES, PUBLISHED, SUPERSEDED), []);
 	assert.deepEqual(Object.keys(PUBLISHED).sort(), DOC_TEMPLATES.map((t) => t.id).sort());
 	// Today: version 1 of all nine, and no superseded body.
@@ -31,14 +31,14 @@ test("T-81 criterion 1: the store holds the current version of every built-in te
 	assert.deepEqual(bodies, Object.keys(SUPERSEDED).sort());
 });
 
-test("T-81 criterion 1: a published version is found by its id and hash; an unknown hash has no base", async () => {
+test("INV-template-changes: a published version is found by its id and hash; an unknown hash has no base", async () => {
 	const v1 = docTemplateById(POLICY)!;
 	assert.equal(publishedTemplate(POLICY, await templateHash(v1)), v1);
 	assert.equal(publishedTemplate(POLICY, `sha256:${"0".repeat(64)}`), undefined);
 	assert.equal(publishedTemplate("bylaws", await templateHash(v1)), undefined, "the hash of another template");
 });
 
-test("T-81 criterion 1: an edit without a new version, a gap and a missing superseded body each fail", async () => {
+test("INV-template-changes: an edit without a new version, a gap and a missing superseded body each fail", async () => {
 	const v1 = docTemplateById(POLICY)!;
 	const h1 = await templateHash(v1);
 	const others = DOC_TEMPLATES.filter((t) => t.id !== POLICY);

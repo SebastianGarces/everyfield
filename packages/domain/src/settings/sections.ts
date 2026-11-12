@@ -19,7 +19,7 @@ import {
 	type OrganizationEffects,
 	type Reader,
 } from "../organizations/core.ts";
-import { preferenceUpsert } from "../notifications/preferences.ts";
+import { preferenceUpsert, readPreferences } from "../notifications/preferences.ts";
 import { applyOrganizationProfile, profileValue } from "../organizations/profile.ts";
 import { applySharingMutation } from "../organizations/sharing.ts";
 import {
@@ -51,7 +51,6 @@ export interface SettingsEffects {
 			kind: "plant_timezone" | "personal_timezone" | "digest";
 		},
 	): Promise<string>;
-	invalidate(tx: Tx, input: { owner: Context["selected"]; revision: string; operationId: string }): Promise<void>;
 }
 export interface SectionDependencies {
 	organizations: OrganizationAdapter<Transaction>;
@@ -122,48 +121,18 @@ function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionReque
 		},
 	});
 }
-const preferenceRows = z.array(
-	z.object({ category: z.string(), channel: z.string(), enabled: z.boolean(), cadence: z.string().nullable() }),
-);
-/** The account's notification choices: one statement for its revision, stored choices and organization seat. */
+/** The account's notification choices (the one preference read) and the suppression lookup. */
 async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
-	const [account] = await db
-		.select({
-			id: t.account.id,
-			revision: t.account.revision,
-			rows: sql`(SELECT coalesce(json_agg(json_build_object('category',p.category,'channel',p.channel,'enabled',p.enabled,'cadence',p.cadence)),'[]') FROM ${t.notification_preference} p WHERE p.account_id=${v.actor.accountId}::uuid)`,
-			organization: sql<boolean>`EXISTS(SELECT FROM ${t.seat} s WHERE s.account_id=${v.actor.accountId}::uuid AND s.ended_at IS NULL AND s.organization_id IS NOT NULL)`,
-		})
-		.from(t.account)
-		.where(and(eq(t.account.id, v.actor.accountId), live(v, own(v))));
-	if (!account) deny();
-	const rows = preferenceRows.parse(account.rows);
-	const categories = q.notificationCategory.options.filter((c) => c !== "oversight_digest" || account.organization);
-	const choices = categories.flatMap((category) =>
-		(category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const)).map((channel) => ({
-			category,
-			channel,
-			enabled:
-				rows.find((r) => r.category === category && r.channel === channel)?.enabled ??
-				q.defaultChannelEnabled(category, channel),
-		})),
-	);
+	const read = await readPreferences(db, v);
+	if (!read) deny();
 	const suppression = await deps.suppression(db, v.principal.email);
 	return {
-		stored: rows,
+		stored: read.stored,
 		result: q.sectionResult.parse({
 			section: "notifications",
-			accountId: account.id,
-			revision: account.revision,
-			values: {
-				choices,
-				planterCadence:
-					rows.find((r) => r.category === "planter_digest")?.cadence ?? q.defaultDigestCadence.planter_digest,
-				oversightCadence: account.organization
-					? (rows.find((r) => r.category === "oversight_digest")?.cadence ?? q.defaultDigestCadence.oversight_digest)
-					: null,
-				suppression,
-			},
+			accountId: read.accountId,
+			revision: read.revision,
+			values: { ...read.values, suppression },
 		}),
 	};
 }
@@ -423,7 +392,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 							})
 							.where(eq(t.plant.id, i.plant.id)),
 					);
-					await deps.effects.invalidate(tx, { owner: i.plant, revision: next.revision, operationId: c.id });
 					if (canonical(old.values.digest) !== canonical(next.values.digest))
 						await deps.effects.replan(tx, {
 							owner: i.plant,

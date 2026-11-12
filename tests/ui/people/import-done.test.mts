@@ -46,7 +46,7 @@ const text = (html: string) =>
 		.replace(/\s+/g, " ")
 		.trim();
 
-test("BUG-551 (people/peo-20): the progress bar counts every row once, a failed-and-remaining row included", () => {
+test("BUG-PR551 (people/peo-20): the progress bar counts every row once, a failed-and-remaining row included", () => {
 	assert.deepEqual(progressOf(receipt as never), { done: 4, total: 6 });
 	const running = {
 		...receipt,
@@ -56,7 +56,7 @@ test("BUG-551 (people/peo-20): the progress bar counts every row once, a failed-
 	assert.deepEqual(progressOf(running as never), { done: 0, total: 6 });
 });
 
-test("BUG-551 (people/peo-7): a partial Done screen lists every row that did not save, unreached rows included", () => {
+test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did not save, unreached rows included", () => {
 	const html: string = renderToStaticMarkup(
 		createElement(
 			AppRouterContext.Provider,
@@ -90,4 +90,51 @@ test("BUG-551 (people/peo-7): a partial Done screen lists every row that did not
 		"Row 4 Not saved Not reached. Try it again.",
 		"Row 5 Not saved Not reached. Try it again.",
 	]);
+});
+
+// T-193 (people/peo-24): a complete import with flagged rows says how many to review and links to Duplicates; one with
+// none keeps its plain line, and a partial import keeps its retry message.
+const done = (r: unknown) =>
+	renderToStaticMarkup(
+		createElement(
+			AppRouterContext.Provider,
+			{ value: router },
+			createElement(DoneStep, {
+				heading: { current: null },
+				receipt: r,
+				review: null,
+				onRetry: () => {},
+				onStartOver: () => {},
+			}),
+		),
+	) as string;
+const complete = (reviewWith: (string | null)[]) => ({
+	importId: receipt.importId,
+	status: "complete",
+	rows: reviewWith.map((w, i) => ({ row: i + 1, status: "created", personId: PERSON, reviewWith: w })),
+	remaining: [],
+	counts: { created: reviewWith.length, skipped: 0, failed: 0, remaining: 0 },
+});
+
+test("T-193 (people/peo-24): the Done screen says how many to review in Duplicates, or that everyone is in People", () => {
+	const none = text(done(complete([null, null])));
+	assert.match(none, /2 people added Everyone you chose is in People now\./);
+	assert.doesNotMatch(none, /to review/);
+
+	const one = done(complete([PERSON]));
+	assert.match(text(one), /1 person added 1 to review in Duplicates ?\./);
+	assert.match(one, /<a[^>]*href="\/people\/duplicates"[^>]*>Duplicates<\/a>\./);
+
+	const three = text(done(complete([PERSON, PERSON, null, PERSON])));
+	assert.match(three, /4 people added 3 to review in Duplicates ?\./);
+
+	const partial = text(
+		done({
+			...receipt,
+			rows: [{ row: 1, status: "created", personId: PERSON, reviewWith: PERSON }, ...receipt.rows.slice(1)],
+		}),
+	);
+	assert.match(partial, /The other rows are saved\. Try the rows that did not save again; nobody is added twice\./);
+	assert.doesNotMatch(partial, /to review|with a note/);
+	for (const page of [none, text(one), three, partial]) assert.doesNotMatch(page, /with a note/);
 });

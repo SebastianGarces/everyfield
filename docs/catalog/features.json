@@ -2999,7 +2999,6 @@
       "REQ-TSK-018"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.syncTaskReminders",
       "tasks.applyManagedStatus",
       "tasks.ensureManagedTask",
@@ -4020,7 +4019,6 @@
       "REQ-NTF-001"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.enqueue"
     ],
     "acceptance_ids": [
@@ -4217,8 +4215,8 @@
       "REQ-NTF-006"
     ],
     "operations": [
-      "notifications.meetingAudience",
-      "notifications.syncMeetingReminders"
+      "meetings.planNotifications",
+      "notifications.meetingAudience"
     ],
     "acceptance_ids": [
       "AC-NTF-006--NTF-006"
@@ -4578,7 +4576,7 @@
     "id": "NTF-016",
     "title": "Per-church, per-person Messages email opt-out for CRM people",
     "module": "notifications",
-    "behavior": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. An email scheduled before the opt-out skips them too, whenever they opt out before its send time and whether or not the email service can be reached; one the email service already holds is cancelled there; the one-hour undo does not bring a skipped email back. Staff see them as unsubscribed on the scheduled and the sent email and in compose with the date, and an email whose every recipient unsubscribed reads Not sent: unsubscribed, not a failure or a cancel. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
+    "behavior": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. An email scheduled before the opt-out skips them too, whenever they opt out before its send time and whether or not the email service can be reached; one the email service already holds is cancelled there; the one-hour undo does not bring a skipped email back. At that moment the staff member who scheduled each skipped email, while they hold a current seat in that church, gets one in-app notice per email and per Person, written with the opt-out and naming the Person, the subject and the send time in the church's time zone, never the address, and opening that scheduled email in Messages; no email goes to staff, and an email the email service already held gets none. Staff see them as unsubscribed on the scheduled and the sent email and in compose with the date, and an email whose every recipient unsubscribed reads Not sent: unsubscribed, not a failure or a cancel. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-NTF-016"

@@ -194,6 +194,7 @@ function Flow({
 					<ResidencySharing
 						linkId={backend.residencyLink}
 						read={backend.readResidency}
+						save={backend.saveResidency}
 						organizationName={NAMES_FOR_PREVIEW.network}
 						run={backend.run}
 					/>
@@ -210,7 +211,8 @@ function Flow({
 						relationshipId="00000021-1b3d-4f5a-8c7e-9d0f1a2b3c4d"
 						networkName={NAMES_FOR_PREVIEW.network}
 						canManage={canManage}
-						run={backend.run}
+						read={backend.readConsent}
+						save={backend.saveConsent}
 					/>
 				</>
 			);

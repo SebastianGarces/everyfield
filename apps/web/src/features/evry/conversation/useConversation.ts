@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import * as api from "./api.ts";
 import {
 	cursor,
@@ -31,7 +31,8 @@ type Action =
 	| { type: "sent"; key: string; patch: Partial<Send> }
 	| { type: "drop"; key: string }
 	| { type: "active"; turnId: string | null }
-	| { type: "stopping"; value: boolean };
+	| { type: "stopping"; value: boolean }
+	| { type: "seen"; proposalId: string };
 
 function reduce(state: State, action: Action): State {
 	switch (action.type) {
@@ -57,6 +58,12 @@ function reduce(state: State, action: Action): State {
 			return { ...state, activeTurnId: action.turnId, stopping: action.turnId ? state.stopping : false };
 		case "stopping":
 			return { ...state, stopping: action.value };
+		case "seen": {
+			if (!(action.proposalId in state.reviews)) return state;
+			const { [action.proposalId]: _, ...reviews } = state.reviews;
+			void _;
+			return { ...state, reviews };
+		}
 	}
 }
 
@@ -86,6 +93,7 @@ async function readAll(
 		const next = await api.readConversation(id, read.events.at(-1)?.sequence ?? 0);
 		if (next.status !== "ok") return next;
 		read.events.push(...next.value.events);
+		Object.assign(read.reviews, next.value.reviews);
 		read.more = next.value.more;
 		read.run = next.value.run;
 	}
@@ -312,6 +320,8 @@ export function useConversation(open: boolean) {
 		setLoad("ready");
 	};
 
+	/** A review card showed the review the open read brought; it reads its own from now on. */
+	const seen = useCallback((proposalId: string) => dispatch({ type: "seen", proposalId }), []);
 	const turns = useMemo(() => turnsOf(state.events, state.live), [state.events, state.live]);
 	return {
 		state,
@@ -325,6 +335,7 @@ export function useConversation(open: boolean) {
 		send,
 		resend: (s: Send) => void deliver(s),
 		discard: (key: string) => dispatch({ type: "drop", key }),
+		seen,
 		cancel,
 		retry,
 		reconnect: () => setAttempt((n) => n + 1),

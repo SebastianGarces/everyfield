@@ -10,25 +10,21 @@ export const jobKind = z.enum([
 	"mail",
 	"notification",
 	"digest",
-	"assessment",
-	"reference_generation",
-	"feedback_publication",
 	"object_cleanup",
 	"lifecycle_purge",
 	"assistant_turn",
-	"document_render",
 	"people_import",
 	"evry_effect",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;
-const ASSESSMENT_LEASE_SECONDS = 120;
 const leaseDuration = z.number().int().min(1).max(DEFAULT_LEASE_SECONDS);
 export const claimSchema = z.object({
 	id: z.uuid(),
 	tenant_id: z.uuid(),
 	kind: jobKind,
 	subject_record_id: z.uuid().nullable(),
+	producer_key: z.string(),
 	source_revision: z.string().nullable(),
 	claim_generation: z.string(),
 	lease_owner: z.string(),
@@ -121,7 +117,6 @@ export async function enqueueJob(tx: Transaction, input: JobInput): Promise<stri
 	return id;
 }
 
-// The duration override applies to ordinary jobs; assessment claims always use 120 seconds.
 /**
  * Claims up to `limit` due jobs of these kinds, oldest first, skipping rows another claim holds. One round trip: the
  * claim and its 5-second statement bound are one simple-protocol message, which Postgres runs as one implicit
@@ -159,7 +154,7 @@ WITH due AS (
 	}
   ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT ${config.limit}
 ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
-  lease_owner='${owner}',lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS} ELSE ${config.lease} END),revision=revision+1
+  lease_owner='${owner}',lease_until=clock_timestamp()+make_interval(secs=>${config.lease}),revision=revision+1
   FROM due WHERE j.id=due.id RETURNING j.*`)) as { rows: unknown[] }[];
 	return results[1]!.rows.map((row) => claimSchema.parse(row));
 }
@@ -171,8 +166,7 @@ export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean>
 }
 export async function extendLease(db: Database, claim: Claim, seconds: number): Promise<boolean> {
 	leaseDuration.parse(seconds);
-	const r =
-		await db.execute(sql`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS}::int ELSE ${seconds}::int END)
+	const r = await db.execute(sql`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>${seconds}::int)
     WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner}
     AND state='claimed' AND lease_until>clock_timestamp() AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint`);
 	return r.rowCount === 1;

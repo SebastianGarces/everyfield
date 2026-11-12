@@ -1,7 +1,7 @@
-import { testDatabase } from "../../../support/test-database.mts";
+import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
@@ -38,25 +38,24 @@ const noReminders = async () => {
 };
 
 // Four Cs assessments, interviews and commitments through their public operations on a scratch schema.
-const database = await testDatabase({ prefix: "wp014" });
+const database = await fixture({ prefix: "wp014" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let today;
 // A church-local date `n` days before today.
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plants = [database.tenant.id, (await database.plant()).id],
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		database.actors.admin,
+	];
 // 0: plant A owner, 1: plant A member, 2: plant B admin, 3: plant A admin.
+today = (await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))
+	.rows[0].d;
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-};
 const tx = (body) => db.transaction(body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
@@ -129,38 +128,11 @@ const interview = (personId, result, occurredOn = day(3), requestKey = key()) =>
 		}),
 	);
 
-before(async () => {
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-		[3, plants[0], "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
-		);
-	today = (await rows(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`))[0].d;
-});
 after(async () => {
 	await database.close();
 });
 
-test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-249-focus Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
+test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-PR249 Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
 	const alex = await person("Alex Rivera");
 	const warnings = async () =>
 		ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
@@ -539,7 +511,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
 });
 
-test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 RT-2 design B: the browser puts the document straight into the bucket; the save checks the file and attaches it to the card through the shared write with one audit row", async () => {
+test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the browser puts the document straight into the bucket; the save checks the file and attaches it to the card through the shared write with one audit row", async () => {
 	const storage = privateStorage();
 	const sam = await person("Sam Direct"),
 		witness = await person("Jordan Witness", "leader"),
@@ -684,7 +656,14 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 RT-2 
 	// An Owner or Admin gets a five-minute link to that exact object; a member, another church or an ended seat gets none.
 	const link = ok(await getCommitmentDownload(db, storage, ctx(), { commitmentId: saved.commitment.id }));
 	assert.ok(link.url.includes(keyOf(signed.uploadId)) && link.expiresInSeconds === 300, link.url);
-	assert.equal(Date.parse(link.expiresAt) - Date.now() <= 300_000, true);
+	// The link expires 300 s after the signing date it carries, read back from the URL, not from the wall clock.
+	const signedQuery = new URL(link.url).searchParams;
+	assert.equal(signedQuery.get("X-Amz-Expires"), "300");
+	const signedAt = Date.parse(
+		signedQuery.get("X-Amz-Date").replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, "$1-$2-$3T$4:$5:$6Z"),
+	);
+	const ttl = Date.parse(link.expiresAt) - signedAt;
+	assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
 	refused(await getCommitmentDownload(db, storage, ctx(1), { commitmentId: saved.commitment.id }));
 	refused(await getCommitmentDownload(db, storage, ctx(2), { commitmentId: saved.commitment.id }));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[3].id)}`);
@@ -1000,7 +979,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 	assert.deepEqual(await backfill(admin, [commitmentCacheBackfill(2)], schema), []);
 });
 
-test("C88 RT-2: a save that meets a held lock waits the established way and sees what the holder committed", async () => {
+test("INV-concurrency: a save that meets a held lock waits the established way and sees what the holder committed", async () => {
 	const storage = privateStorage();
 	const lee = await person("Lee Concurrent", "attendee");
 	const signed = ok(
@@ -1026,7 +1005,7 @@ test("C88 RT-2: a save that meets a held lock waits the established way and sees
 		requestKey: key(),
 		input: { personId: lee.id, kind: "core_group", occurredOn: day(1), documentUploadId: signed.uploadId },
 	});
-	await new Promise((r) => setTimeout(r, 300));
+	await waitingOnLock(db);
 	release();
 	await other;
 	const saved = ok(await saving);
@@ -1064,7 +1043,7 @@ test("C88 RT-2: a save that meets a held lock waits the established way and sees
 		requestKey: key(),
 		input: { personId: lee.id, kind: "launch_team", occurredOn: day(1), documentUploadId: next.uploadId },
 	});
-	await new Promise((r) => setTimeout(r, 300));
+	await waitingOnLock(db);
 	commit();
 	await deletion;
 	refused(await refusedSave);
