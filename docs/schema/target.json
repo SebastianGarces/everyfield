@@ -6816,7 +6816,7 @@
         "tenant_id"
       ],
       "consumer_work_packages": [
-        "WP-013"
+        "WP-015"
       ],
       "meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
       "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
@@ -6840,7 +6840,7 @@
         "tenant_id"
       ],
       "consumer_work_packages": [
-        "WP-013"
+        "WP-015"
       ],
       "meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
       "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
@@ -28026,14 +28026,14 @@
       ],
       "replaces": [],
       "producer_work_packages": [
-        "WP-013"
+        "WP-015"
       ],
       "producer_derivation": {
         "old_target_tables": [],
         "additional_producers": [
-          "WP-013"
+          "WP-015"
         ],
-        "rule": "WP-013 People duplicates list records a dismissal from an Owner or Admin."
+        "rule": "WP-015 People duplicates list records a dismissal from an Owner or Admin."
       },
       "feature_ids": [
         "PPL-018"

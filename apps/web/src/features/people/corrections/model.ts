@@ -1,6 +1,7 @@
 // Pure rules of the duplicate review, merge, Unmerge and record correction screens (WP-015/ui). No React and no server
 // code, so the rules run the same in the browser, on the server and in node tests.
 
+import type { Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
 export const MERGE_FIELDS = [
@@ -211,6 +212,45 @@ export function pairHref(personId: string, withId: string, keep?: string): strin
 	const q = new URLSearchParams({ person: personId, with: withId });
 	if (keep) q.set("keep", keep);
 	return `/people/duplicates?${q.toString()}`;
+}
+/** The Dismissed view: the pairs marked "Not a duplicate", each with Restore (D-790). */
+export const DISMISSED_HREF = "/people/duplicates?view=dismissed";
+
+// ---------------------------------------------------------------------------------------------------------------
+// "Not a duplicate" on the list and Restore in the Dismissed view (D-789). The row leaves at once; a refused or lost
+// answer puts it back where it was with a notice that says what happened. A repeat writes nothing, so Try again is safe.
+
+export type PairAction = "dismiss" | "restore";
+export const pairKey = (p: { person: { id: string }; with: { id: string } }) => `${p.person.id}:${p.with.id}`;
+/** The rows sent away and not answered yet or saved (`gone`), and each row's notice after a failed answer. */
+export type PairState = { gone: readonly string[]; notices: Readonly<Record<string, string>> };
+export const pairsAtStart: PairState = { gone: [], notices: {} };
+
+/** The row leaves the list as its action is sent; its earlier notice goes with it. */
+export function pairSent(s: PairState, key: string): PairState {
+	const notices = { ...s.notices };
+	delete notices[key];
+	return { gone: s.gone.includes(key) ? s.gone : [...s.gone, key], notices };
+}
+/** A saved answer keeps the row gone. Any other answer puts it back in its place with its notice. */
+export function pairAnswered(s: PairState, key: string, action: PairAction, answer: Outcome<unknown>): PairState {
+	if (answer.status === "ok") return s;
+	return { gone: s.gone.filter((k) => k !== key), notices: { ...s.notices, [key]: pairNotice(action, answer) } };
+}
+/** The rows still shown, in their original order. */
+export const pairsShown = <P extends { person: { id: string }; with: { id: string } }>(items: readonly P[], s: PairState) =>
+	items.filter((p) => !s.gone.includes(pairKey(p)));
+
+export function pairNotice(action: PairAction, answer: Exclude<Outcome<unknown>, { status: "ok" }>): string {
+	if (answer.status === "lost")
+		return action === "dismiss"
+			? "We could not confirm this. It may have saved. Reload to check, or try again."
+			: "We could not confirm the restore. It may have saved. Reload to check, or try again.";
+	if (answer.code === "pair_unavailable")
+		return "Nothing changed. One of them was merged or retired, so this pair is no longer listed. Reload to see the list as it is now.";
+	return action === "dismiss"
+		? "Nothing changed. The pair was not marked. Try again."
+		: "Nothing changed. The pair was not restored. Try again.";
 }
 
 // ---------------------------------------------------------------------------------------------------------------

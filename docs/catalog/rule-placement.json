@@ -4701,6 +4701,16 @@
       "requirement": "REQ-NTF-016",
       "operation": "communication.undoMessagesOptOut",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-PPL-016",
+      "operation": "people.dismissDuplicatePair",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "requirement": "REQ-PPL-016",
+      "operation": "people.restoreDuplicatePair",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
     }
   ],
   "rule_additions": [
@@ -5050,6 +5060,16 @@
       "id": "communication.undoMessagesOptOut",
       "requirement": "REQ-NTF-016",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "people.dismissDuplicatePair",
+      "requirement": "REQ-PPL-016",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
+    },
+    {
+      "id": "people.restoreDuplicatePair",
+      "requirement": "REQ-PPL-016",
+      "reason": "Sebastian, D-789 and D-790 (T-263, later slice 2 of T-193): \"Not a duplicate\" on a listed pair: an Owner or Admin dismisses it, it leaves the list, and the dismissal is audited and reversible. REQ-PPL-016 names the dismiss and restore operations of the duplicate-pair directory."
     }
   ],
   "shared_rewrites": {

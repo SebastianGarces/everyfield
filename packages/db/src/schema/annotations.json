@@ -2191,7 +2191,7 @@
 				"table": "person_duplicate_dismissal",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-013"],
+				"consumer_work_packages": ["WP-015"],
 				"meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
 				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
 				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
@@ -2205,7 +2205,7 @@
 				"table": "person_duplicate_dismissal",
 				"columns": ["with_person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-013"],
+				"consumer_work_packages": ["WP-015"],
 				"meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
 				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
 				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
@@ -17202,11 +17202,11 @@
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-030"],
 				"replaces": [],
-				"producer_work_packages": ["WP-013"],
+				"producer_work_packages": ["WP-015"],
 				"producer_derivation": {
 					"old_target_tables": [],
-					"additional_producers": ["WP-013"],
-					"rule": "WP-013 People duplicates list records a dismissal from an Owner or Admin."
+					"additional_producers": ["WP-015"],
+					"rule": "WP-015 People duplicates list records a dismissal from an Owner or Admin."
 				},
 				"feature_ids": ["PPL-018"],
 				"acceptance_ids": ["AC-PPL-018--PPL-018"],

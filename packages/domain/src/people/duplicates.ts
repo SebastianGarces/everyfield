@@ -174,6 +174,7 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 
 const dismissedRows = z.object({
 	allowed: z.boolean(),
+	zone: z.string().nullable(),
 	pairs: z.array(
 		z.object({
 			person: z.object({ id: z.uuid(), displayName: z.string() }),
@@ -204,11 +205,13 @@ export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
   JOIN person p ON p.id=d.person_id AND p.tenant_id=d.plant_id AND p.state='live'
   JOIN person m ON m.id=d.with_person_id AND m.tenant_id=d.plant_id AND m.state='live'
   WHERE g.allowed AND d.plant_id=${plant}::uuid
-  ORDER BY d.dismissed_at DESC,d.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs
+  ORDER BY d.dismissed_at DESC,d.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs,
+ (SELECT pl.timezone FROM plant pl WHERE g.allowed AND pl.id=${plant}::uuid) AS zone
  FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
 		const row = dismissedRows.parse(r.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed || !row.zone) deny();
 		return c.dismissedDuplicatePairs.parse({
+			zone: row.zone,
 			items: row.pairs.slice(0, PAIRS),
 			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
 		});

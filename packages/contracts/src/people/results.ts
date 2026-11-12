@@ -233,9 +233,11 @@ export const duplicatePairs = z.strictObject({
 const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
 /**
  * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
- * both still live, newest first, with who dismissed each one (null once that account is deleted) and when.
+ * both still live, newest first, with who dismissed each one (null once that account is deleted) and when. `zone` is the
+ * church's time zone, the one the dates show in.
  */
 export const dismissedDuplicatePairs = z.strictObject({
+	zone: z.string(),
 	items: z
 		.array(
 			z.strictObject({
