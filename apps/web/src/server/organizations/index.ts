@@ -40,7 +40,7 @@ export type Mount = NonNullable<ReturnType<typeof current>>;
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
 /** Organization mail keys: a relationship invitation to the typed address. */
-export const ORGANIZATION_MAIL = ["relationship/"];
+const ORGANIZATION_MAIL = ["relationship/"];
 
 /** The day an invitation stops working, as the mail prints it: a long date in UTC, labelled UTC. */
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });

@@ -26,7 +26,7 @@ const env = z.object({
 });
 
 /** Settings mail keys: an email-change confirmation link and a security notice. */
-export const SETTINGS_MAIL = ["email-change/", "security/"];
+const SETTINGS_MAIL = ["email-change/", "security/"];
 
 function settingsMailService(v: z.infer<typeof env>, transport: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");

@@ -20,7 +20,7 @@ const env = z.object({
 });
 
 /** Identity mail keys: a password-reset link and an email-verification link, each to the account's own contact. */
-export const IDENTITY_MAIL = ["password_reset/", "email_verification/"];
+const IDENTITY_MAIL = ["password_reset/", "email_verification/"];
 
 /**
  * The identity mount's mail service. Its rule holds at enqueue and again just before the handoff: a reset or

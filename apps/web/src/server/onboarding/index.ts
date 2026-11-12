@@ -25,7 +25,7 @@ const env = z.object({
 });
 
 /** Onboarding mail keys: the set-up and Discovery receipts and the relationship receipts after a conversion. */
-export const ONBOARDING_MAIL = ["onboarding/"];
+const ONBOARDING_MAIL = ["onboarding/"];
 
 function onboardingMail(v: z.infer<typeof env>, transport: MailTransport) {
 	return createMailService({
