@@ -427,7 +427,10 @@ export const meetingsWriter = {
 					? before
 					: changed(before, { kit_version: c.visionKit.version, kit_total: c.visionKit.items.length, kit_checked: 0 });
 				if (!noop)
-					audit.writes.push(...update(before, m, now, sql`kit_version = ${c.visionKit.version}::int`), seedKit(w.plant.id, m.id));
+					audit.writes.push(
+						...update(before, m, now, sql`kit_version = ${c.visionKit.version}::int`),
+						seedKit(w.plant.id, m.id),
+					);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",
