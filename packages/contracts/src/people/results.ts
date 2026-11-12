@@ -213,6 +213,21 @@ export const peopleError = z.discriminatedUnion("code", [
 	...csvError,
 	...mergeErrors,
 ]);
+/**
+ * people.listDuplicatePairs: the pairs a CSV import added with "Add, review later" whose two people are both still
+ * live, oldest first. `person` is the imported person, `with` the person it may duplicate.
+ */
+export const duplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: z.strictObject({ id: personId, displayName: z.string() }),
+				with: z.strictObject({ id: personId, displayName: z.string() }),
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z

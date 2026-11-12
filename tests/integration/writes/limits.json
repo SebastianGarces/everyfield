@@ -27,10 +27,10 @@
 		"limit": 3
 	},
 	"GET /meetings/[meetingId]": {
-		"limit": 10
+		"limit": 8
 	},
 	"GET /meetings/[meetingId] (leadership team meeting)": {
-		"limit": 9
+		"limit": 7
 	},
 	"GET /meetings/[meetingId]/agenda": {
 		"limit": 2
@@ -60,7 +60,7 @@
 		"limit": 2
 	},
 	"GET /notifications": {
-		"limit": 4
+		"limit": 2
 	},
 	"GET /notifications/read?what=count": {
 		"limit": 2
@@ -92,11 +92,35 @@
 	"GET /signin (signed out)": {
 		"limit": 0
 	},
+	"GET /wiki": {
+		"limit": 6
+	},
+	"GET /wiki/[slug]": {
+		"limit": 6
+	},
+	"GET /wiki/[slug] (crawler)": {
+		"limit": 1
+	},
+	"GET /api/evry/open": {
+		"limit": 2
+	},
+	"GET /api/evry/conversations/[id]": {
+		"limit": 2
+	},
 	"GET /tasks": {
 		"limit": 6
 	},
 	"GET /tasks?task=<follow-up>": {
 		"limit": 9
+	},
+	"GET /tasks/follow-ups": {
+		"limit": 5
+	},
+	"GET /tasks/read?what=blocking": {
+		"limit": 4
+	},
+	"GET /tasks/read?what=rows": {
+		"limit": 4
 	},
 	"GET /tasks (phase offer)": {
 		"limit": 7
@@ -109,6 +133,9 @@
 	},
 	"POST notifications.markSelectedRead": {
 		"limit": 6
+	},
+	"POST communication.readMeetingContext": {
+		"limit": 2
 	},
 	"POST people.addNote": {
 		"limit": 3
@@ -227,9 +254,6 @@
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 5
-	},
-	"accountPerson.ensureGuest": {
 		"limit": 5
 	},
 	"communication.archiveTemplate": {
@@ -933,6 +957,9 @@
 	"native.people.getPersonTags": {
 		"limit": 3
 	},
+	"native.people.listDuplicatePairs": {
+		"limit": 3
+	},
 	"native.people.listHouseholds": {
 		"limit": 3
 	},
@@ -1379,9 +1406,6 @@
 		"retry": 4,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write."
 	},
-	"people/references.detachAccountPersonLinks": {
-		"limit": 4
-	},
 	"reference.exportApprovedWiki": {
 		"limit": 1
 	},
@@ -1664,9 +1688,6 @@
 	"teams.listResponsibilities": {
 		"limit": 1
 	},
-	"teams.listTeamMeetings": {
-		"limit": 1
-	},
 	"teams.listTraining": {
 		"limit": 1
 	},
@@ -1689,9 +1710,6 @@
 	"teams.readStaffingFacts": {
 		"limit": 1
 	},
-	"teams.readTrainingHealth": {
-		"limit": 1
-	},
 	"teams.readTrainingHistory": {
 		"limit": 1
 	},
@@ -1702,10 +1720,6 @@
 		"limit": 7,
 		"retry": 5,
 		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
-	},
-	"teams.recordAttendance": {
-		"limit": 9,
-		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
 	},
 	"teams.restore": {
 		"limit": 6
@@ -1719,11 +1733,6 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
-	},
-	"teams.scheduleMeeting": {
-		"limit": 9,
-		"retry": 5,
-		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,

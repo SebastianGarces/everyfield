@@ -2152,6 +2152,8 @@ export const mail = pgTable(
 		address_hash: text("address_hash"),
 		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
 		refusal: text("refusal", { enum: ["unsubscribed"] }),
+		/** The Messages message this recipient send belongs to; null for every other purpose. */
+		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
@@ -2193,6 +2195,13 @@ export const mail = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
+			name: "mail_fk_8",
+			columns: [table.communication_id, table.tenant_id],
+			foreignColumns: [communication.id, communication.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
 			name: "mail_fk_7",
 			columns: [table.id, table.tenant_id],
 			foreignColumns: [record.id, record.tenant_id],
@@ -2225,6 +2234,11 @@ export const mail = pgTable(
 		index("mail_ref_4").using("btree", table.notice_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_5").using("btree", table.job_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_6").using("btree", table.original_mail_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		index("mail_communication").using(
+			"btree",
+			table.tenant_id.asc().nullsLast(),
+			table.communication_id.asc().nullsLast(),
+		),
 		// The minute runner reads Messages email that waits for its send time, and held email it may have to cancel (T-241).
 		index("mail_waiting")
 			.using("btree", table.scheduled_at.asc().nullsLast())
@@ -5347,6 +5361,10 @@ export const audit_event = pgTable(
 		),
 		index("audit_subject_history").on(table.tenant_id, table.subject_id, table.occurred_at, table.id),
 		index("audit_command").on(table.command_id),
+		// The newest event of one action in one tenant: the Wiki's source order (wiki/corpus.ts).
+		index("audit_tenant_action_latest").on(table.tenant_id, table.action, table.occurred_at, table.id),
+		// One actor's events of one action in order: the Wiki feedback a reader gave (wiki/editorial.ts getMine).
+		index("audit_actor_action").on(table.actor_id, table.action, table.occurred_at, table.id),
 	],
 );
 /**

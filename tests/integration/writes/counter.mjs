@@ -57,7 +57,6 @@ const standalone = {
 		"saveCommitmentDocument",
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
-	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/apps/web/src/server/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",

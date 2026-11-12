@@ -29,6 +29,7 @@ import {
 	getAccountLink,
 	getCommitmentDownload,
 	interviews,
+	listDuplicatePairs,
 	peopleCsv,
 	peopleMerge,
 	peopleReader,
@@ -45,6 +46,7 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
@@ -330,7 +332,10 @@ async function seedChurchA() {
 	);
 	a.merge = (await rows(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0].id;
 
-	const file = new TextEncoder().encode(`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n`);
+	// Row 2 repeats row 1 and is added to review later, so church A has a pair for people.listDuplicatePairs.
+	const file = new TextEncoder().encode(
+		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n`,
+	);
 	const preview = ok(
 		await f.db.transaction((t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
 	);
@@ -341,7 +346,9 @@ async function seedChurchA() {
 			file,
 			fileDigest: preview.fileDigest,
 			reviewDigest: preview.reviewDigest,
-			choices: preview.rows.filter((r) => r.status === "valid").map((r) => ({ row: r.row, choice: "create" })),
+			choices: preview.rows
+				.filter((r) => r.status === "valid")
+				.map((r) => ({ row: r.row, choice: r.row === 2 ? "create_and_review" : "create" })),
 		}),
 	);
 	await runDueImports(f.db, 10);
@@ -454,8 +461,15 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
+	// A meetings read this file's own seed meeting covers.
+	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
+		area(
+			"meetings:meetingsReader.pageGuests",
+			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			unavailable,
+		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
 		}),
@@ -463,6 +477,7 @@ function cases(who) {
 			value: {
 				resolvedDistinctPeople: 0,
 				eligibleRecipients: 0,
+				cappedRecipients: 0,
 				missingEmailExclusions: [],
 				unsubscribedExclusions: [],
 				duplicateAddressesRemoved: 0,
@@ -532,6 +547,9 @@ function cases(who) {
 			() => reads((t, c) => checkForDuplicates(t, c, { displayName: `${MARK} Avery`, email: AVERY_EMAIL })),
 			{ value: { items: [], completeness: "complete" } },
 		),
+		ppl("listDuplicatePairs", () => reads((t, c) => listDuplicatePairs(t, c)), {
+			value: { items: [], completeness: "complete" },
+		}),
 		ppl("searchPeople", () => reads((t, c) => searchPeople(t, c, MARK)), { value: [] }),
 		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
 			check: (value) => {

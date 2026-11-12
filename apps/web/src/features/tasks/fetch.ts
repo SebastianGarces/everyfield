@@ -9,6 +9,7 @@ import type {
 	Prerequisites,
 	TaskDetail,
 	TaskHistory,
+	TaskItem,
 	TemplateCatalog,
 	TemplatePreview,
 } from "./model.ts";
@@ -33,12 +34,14 @@ export type Loaded = {
 	occurrence: Occurrence | null;
 };
 export const loadTask = (id: string) => get<Loaded>({ what: "task", id });
-/** The derived "Blocked by" count of each task on the page the query names (the address's own search). */
-export function loadBlocking(search: string) {
-	const params = new URLSearchParams(search);
-	params.set("what", "blocking");
-	return get<{ id: string; openPrerequisites: number }[]>(params);
-}
+/** The derived "Blocked by" count of each named task on the page. */
+export const loadBlocking = (ids: readonly string[]) =>
+	get<{ id: string; openPrerequisites: number }[]>(
+		new URLSearchParams([["what", "blocking"], ...ids.map((id) => ["id", id])]),
+	);
+/** The list rows of the named tasks, read together in one statement. */
+export const loadRows = (ids: readonly string[]) =>
+	get<{ items: TaskItem[] }>(new URLSearchParams([["what", "rows"], ...ids.map((id) => ["id", id])]));
 export const prerequisiteCandidates = (id: string, search: string) =>
 	get<{ items: Candidate[] }>({ what: "candidates", id, search });
 export const loadHistory = (id: string, page: number) => get<TaskHistory>({ what: "history", id, page: String(page) });
