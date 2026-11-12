@@ -5,14 +5,16 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import {
 	executeBulkImport,
 	PeopleReadContext,
+	listDuplicatePairs,
 	peopleCsv,
 	peopleWriter,
 	runPeopleImport,
@@ -82,14 +84,7 @@ try {
 		const pid = await locked;
 		try {
 			const result = body();
-			for (let waited = 0; ; waited++) {
-				const r = await f.db.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`,
-				);
-				if (r.rows[0].n > 0) break;
-				if (waited > 200) throw Error("no write waited for the church row");
-				await new Promise((resolve) => setTimeout(resolve, 25));
-			}
+			await waitingOnLock(f.db, { blockedBy: pid });
 			release();
 			return await result;
 		} finally {
@@ -614,8 +609,17 @@ try {
 		);
 		assert.equal(receipt.counts.created, n);
 		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
+		// The duplicates list (T-193) reads every flagged pair in one statement, however many people there are.
+		value(await view("listDuplicatePairs", (tx, ctx) => listDuplicatePairs(tx, ctx)));
 	}
-	for (const name of ["previewImport", "executeBulkImport", "runPeopleImport", "getImportReceipt", "exportPeople"])
+	for (const name of [
+		"previewImport",
+		"executeBulkImport",
+		"runPeopleImport",
+		"getImportReceipt",
+		"exportPeople",
+		"listDuplicatePairs",
+	])
 		await fixed(name);
 	// WP-015 merge, Unmerge and record corrections at the native boundary. Each runs on a pair whose source holds one
 	// skill and on a pair whose source holds twenty, and must use the same statement count.
@@ -945,19 +949,8 @@ try {
 					writes,
 				);
 			},
-			notice: (tx, i) =>
-				queueJobs(tx, [
-					{
-						tenant: i.pair.kind === "plant" ? i.pair.subject.id : i.pair.organization.id,
-						kind: "notification",
-						subject: i.relationshipId,
-						key: i.kind + "/" + i.eventId,
-						revision: i.revision,
-						eligibleAt: new Date().toISOString(),
-					},
-				]),
 			invalidate: (_tx, i) =>
-				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${i.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
+				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${i.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 		},
 		{ candidates: unused },
 	);
@@ -1031,16 +1024,6 @@ try {
 		organizations: {},
 		organizationEffects: {},
 		effects: {
-			invalidate: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.owner.id,
-					kind: "assessment",
-					subject: i.owner.id,
-					key: "native/" + i.operationId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				});
-			},
 			replan: unexpected,
 		},
 		suppression: unexpected,
@@ -1157,22 +1140,19 @@ try {
 		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${s.w.id},'orientation','Synthetic meeting','2099-01-15','10:00','UTC','2099-01-15T10:00:00Z','temporal-v1','ready',1)`,
 	);
 	const reminders = await f.db.transaction((tx) =>
-		notifications.syncMeetingReminders(tx, {
-			base: {
+		notifications.enqueueMany(tx, [
+			{
 				owner: s.w,
 				recipient: s.sender.id,
 				source: { kind: "meeting", id: meeting, revision: "1" },
+				category: "meeting_reminder",
+				occurrence: "day_7",
+				eligibleAt: "2099-01-08T10:00:00Z",
 				title: "Meeting reminder",
 				text: "Synthetic reminder",
 				operation: null,
 			},
-			date: "2099-01-15",
-			time: "10:00:00",
-			zone: "UTC",
-			scheduled: true,
-			startsAt: "2099-01-15T10:00:00Z",
-			asOf: "2099-01-01T00:00:00Z",
-		}),
+		]),
 	);
 	assert.ok(reminders.length > 0);
 	const mailId = reminders[0].mail;
@@ -1181,12 +1161,6 @@ try {
 		sql`UPDATE mail SET state='unknown',provider_message_id='synthetic-provider' WHERE id=${mailId}`,
 	);
 	assert.deepEqual(await mail.reconcileUnknownOutcome(mailId), { kind: "accepted", id: "synthetic-provider" });
-
-	await f.admin.execute(sql`UPDATE meeting SET revision=2,status='cancelled' WHERE id=${meeting}`);
-	const cancelledNotices = await f.db.transaction((tx) =>
-		notifications.cancelForEntity(tx, s.w.id, { kind: "meeting", id: meeting, revision: "2" }),
-	);
-	assert.equal(cancelledNotices, undefined);
 
 	const onboarding = createOnboardingProducer({
 		relationships: (tx, inputs) => sendOnboardingRelationships(tx, inputs, f.mail),

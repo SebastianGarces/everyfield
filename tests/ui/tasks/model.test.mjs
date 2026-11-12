@@ -28,6 +28,8 @@ import {
 	problemText,
 	matches,
 	ownerLabel,
+	assigneeNames,
+	assigneeSummary,
 	NO_PENDING,
 	shownRows,
 	shownSteps,
@@ -42,7 +44,7 @@ import {
 
 const parse = (s) => parseQuery(new URLSearchParams(s));
 
-test("BUG-551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
+test("BUG-PR551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
 	// A loose uuid test accepts both; the contract's recordId refuses version nibble 0 and variant c.
 	for (const team of ["0b6c3f1e-2a7d-0c3b-9f5e-1d2c3b4a5f60", "0b6c3f1e-2a7d-4c3b-cf5e-1d2c3b4a5f60"]) {
 		const q = parse(`team=${team}&status=blocked&q=call&page=2`);
@@ -126,14 +128,21 @@ test("INV-counts: a confirmed change moves one task between tallies; a deleted t
 	};
 	const before = { status: "not_started", priority: "medium", category: "general" };
 	const done = countsAfter(counts, before, { ...before, status: "complete" });
-	assert.equal(done.topLevelTotal, 2);
-	assert.deepEqual(done.byStatus, [
-		{ value: "not_started", count: 1 },
-		{ value: "complete", count: 1 },
-	]);
+	assert.deepEqual(done, {
+		...counts,
+		byStatus: [
+			{ value: "not_started", count: 1 },
+			{ value: "complete", count: 1 },
+		],
+	});
 	const gone = countsAfter(done, { ...before, status: "complete" }, null);
-	assert.equal(gone.topLevelTotal, 1);
-	assert.deepEqual(gone.byStatus, [{ value: "not_started", count: 1 }]);
+	assert.deepEqual(gone, {
+		...counts,
+		topLevelTotal: 1,
+		byStatus: [{ value: "not_started", count: 1 }],
+		byPriority: [{ value: "medium", count: 1 }],
+		byCategory: [{ value: "general", count: 1 }],
+	});
 });
 
 test("INV-optimistic: changes in flight show at once; the confirmed rows stand when they fall away", () => {
@@ -300,6 +309,9 @@ test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed
 	assert.equal(ownerLabel({ displayName: "  " }), "Unnamed member", "a member with no name");
 	assert.equal(ownerLabel({ displayName: "" }), "Unnamed member", "a former member whose deleted account has no name");
 	assert.equal(ownerLabel(null), "Needs owner", "no owner");
+	// The task row and the assignee summary read an empty name the same way as the panel and the picker.
+	assert.deepEqual(assigneeNames([{ displayName: "Ana Lee" }, { displayName: " " }]), ["Ana Lee", "Unnamed member"]);
+	assert.equal(assigneeSummary([{ displayName: "" }, { displayName: "Ana Lee" }]), "Unnamed member +1");
 });
 
 test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
@@ -313,7 +325,7 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
 
-test("com-21: an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
+test("BUG-PR551 (messages/com-21): an owner_ineligible refusal names the assignee, not the viewer's seat", () => {
 	const text = problemText("owner_ineligible", "Ana Lee");
 	assert.match(text, /^Ana Lee cannot own follow-ups now/);
 	assert.doesNotMatch(text, /Your seat/);
@@ -321,7 +333,7 @@ test("com-21: an owner_ineligible refusal names the assignee, not the viewer's s
 	assert.match(problemText("access_denied"), /Your seat may have changed/);
 });
 
-test("com-21: an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
+test("BUG-PR551 (messages/com-21): an owner_ineligible refusal forgets the cached assignee lists and hands on who it named", async () => {
 	const refusal = {
 		status: "refused",
 		code: "owner_ineligible",
@@ -345,7 +357,7 @@ test("com-21: an owner_ineligible refusal forgets the cached assignee lists and 
 	assert.deepEqual(calls, [], "another refusal keeps the cached lists");
 });
 
-test("com-21: every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
+test("BUG-PR551 (messages/com-21): every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
 	const viewer = "acc-viewer";
 	// A new follow-up starts with the viewer, who is on no task yet.
 	assert.deepEqual(heldAssignees([viewer], { [viewer]: "Daniel Reyes" }, [], []), [

@@ -72,6 +72,14 @@ export const listTasksRequest = z.strictObject({
 });
 export const countTasksRequest = z.strictObject(filters);
 export const getTaskRequest = z.strictObject({ taskId: recordId, asOf: instant.optional() });
+/** The list rows of up to one page of named tasks: a bulk change's stale rows, or the page's "Blocked by" badges. */
+export const taskRowsRequest = z.strictObject({
+	taskIds: z
+		.array(recordId)
+		.min(1)
+		.max(100)
+		.refine((ids) => new Set(ids).size === ids.length),
+});
 export const statusHistoryRequest = z.strictObject({
 	taskId: recordId,
 	limit: z.int().min(1).max(100).default(50),

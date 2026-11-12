@@ -29,6 +29,7 @@ import {
 	getAccountLink,
 	getCommitmentDownload,
 	interviews,
+	listDuplicatePairs,
 	peopleCsv,
 	peopleMerge,
 	peopleReader,
@@ -36,6 +37,7 @@ import {
 	peopleViewer,
 	peopleWriter,
 	personFields,
+	previewStoredImport,
 	readColumnOrders,
 	readPersonPage,
 	readPersonPhoto,
@@ -44,10 +46,26 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import {
+	guestsWriter,
+	meetingsReader,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
+import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { ok } from "../../support/fixture.mts";
+import { accessCases, seedAccess } from "./tenancy-access.mts";
+import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
+import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
+import { organizationsCases, seedOrganizations } from "./tenancy-organizations.mts";
+import { phasesCases, seedPhases } from "./tenancy-phases.mts";
+import { seedSettings, settingsCases } from "./tenancy-settings.mts";
+import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
+import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -154,10 +172,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
@@ -323,7 +337,10 @@ async function seedChurchA() {
 	);
 	a.merge = (await rows(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0].id;
 
-	const file = new TextEncoder().encode(`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n`);
+	// Row 2 repeats row 1 and is added to review later, so church A has a pair for people.listDuplicatePairs.
+	const file = new TextEncoder().encode(
+		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n`,
+	);
 	const preview = ok(
 		await f.db.transaction((t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
 	);
@@ -334,7 +351,9 @@ async function seedChurchA() {
 			file,
 			fileDigest: preview.fileDigest,
 			reviewDigest: preview.reviewDigest,
-			choices: preview.rows.filter((r) => r.status === "valid").map((r) => ({ row: r.row, choice: "create" })),
+			choices: preview.rows
+				.filter((r) => r.status === "valid")
+				.map((r) => ({ row: r.row, choice: r.row === 2 ? "create_and_review" : "create" })),
 		}),
 	);
 	await runDueImports(f.db, 10);
@@ -447,8 +466,15 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
+	// A meetings read this file's own seed meeting covers.
+	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
+		area(
+			"meetings:meetingsReader.pageGuests",
+			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			unavailable,
+		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
 		}),
@@ -525,6 +551,9 @@ function cases(who) {
 			() => reads((t, c) => checkForDuplicates(t, c, { displayName: `${MARK} Avery`, email: AVERY_EMAIL })),
 			{ value: { items: [], completeness: "complete" } },
 		),
+		ppl("listDuplicatePairs", () => reads((t, c) => listDuplicatePairs(t, c)), {
+			value: { items: [], completeness: "complete" },
+		}),
 		ppl("searchPeople", () => reads((t, c) => searchPeople(t, c, MARK)), { value: [] }),
 		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
 			check: (value) => {
@@ -640,6 +669,12 @@ function cases(who) {
 			{ refused: "unavailable", control: null },
 		),
 		ppl(
+			"previewStoredImport",
+			() => previewStoredImport(f.db, storage, who.actor, { uploadId: key() }),
+			// An upload id names a staged file of the caller's own church only; the seed stages none.
+			{ refused: "file_changed", control: null },
+		),
+		ppl(
 			"peopleCsv.previewImport",
 			() =>
 				reads((t, c) =>
@@ -667,9 +702,26 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
+		// Only a sending church's own Owner or Admin has pipeline choices; a church's owner, even naming a church A id as
+		// the connection, gets none, and church A has no sending-church connection for the control to read.
+		[
+			"organizations:readPipelineConsents",
+			{
+				run: () => plain(() => readPipelineConsents(f.db, who.actor, a.avery)),
+				expected: { value: [], control: null },
+			},
+		],
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
+		...teamsCases(t, who),
+		...tasksCases(t, who),
+		...phasesCases(t, who),
+		...organizationsCases(t, who),
+		...accessCases(t, who),
+		...onboardingCases(t, who),
+		...brandingCases(t, who),
+		...settingsCases(t, who),
 	]);
 }
 
@@ -689,6 +741,14 @@ before(async () => {
 	await seedMeetings(t);
 	await seedFollowUps(t);
 	await seedDocuments(t);
+	await seedTeams(t);
+	await seedTasks(t);
+	await seedPhases(t);
+	await seedOrganizations(t);
+	await seedAccess(t);
+	await seedOnboarding(t);
+	await seedBranding(t);
+	await seedSettings(t);
 });
 after(() => f?.close());
 
@@ -752,4 +812,32 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 		}
 	}
 	assert.deepEqual(blind, [], "church A's own owner must see the seeded data, or the case proves nothing");
+});
+
+// T-232: Add guest's one write takes a meeting and People only from the writer's own church.
+test("INV-tenancy: meetings.addGuests refuses another church's meeting and adds no Person of another church", async () => {
+	const add = (input) =>
+		withMeetingsWrite(f.db, ownerB.actor, (tx, c) => guestsWriter.addGuests(tx, c, { requestKey: key(), input }));
+	const guests = (meetingId) =>
+		rows(sql`SELECT person_id, removed_at FROM participation WHERE meeting_id=${meetingId} ORDER BY person_id`);
+	const people = async () => (await rows(sql`SELECT count(*)::int AS n FROM person`))[0].n;
+	const aGuests = await guests(a.vision);
+	const before = await people();
+	// Church B's owner names church A's meeting, with church A's People and a new contact.
+	const onA = await add({ meetingId: a.vision, people: [a.avery, a.blair], contacts: [{ displayName: `${MARK} B` }] });
+	assert.deepEqual([onA.status, onA.status === "refused" && onA.error.code], ["refused", "unavailable"]);
+	// Church B's own meeting with only church A's People: none of them is a Person of church B.
+	const own = ok(
+		await withMeetingsWrite(f.db, ownerB.actor, (tx, c) =>
+			meetingsWriter.schedule(tx, c, {
+				requestKey: key(),
+				input: { type: "orientation", date: occurredOn, time: "18:00" },
+			}),
+		),
+	).meeting;
+	const onB = await add({ meetingId: own.id, people: [a.avery, a.blair] });
+	assert.deepEqual([onB.status, onB.status === "refused" && onB.error.code], ["refused", "invalid_subject"]);
+	assert.deepEqual(await guests(a.vision), aGuests);
+	assert.deepEqual(await guests(own.id), []);
+	assert.equal(await people(), before);
 });

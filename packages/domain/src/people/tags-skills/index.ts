@@ -102,18 +102,6 @@ export const personSkills = (raw: unknown) =>
 		.parse(raw)
 		.map((r) => skillView(r))
 		.sort(skillOrder);
-/** Every current skill of one Person, found by the Person or by one of its skills. One query. */
-async function skillsOf(tx: Tx, plant: string, by: { personId: string } | { skillId: string }) {
-	const person =
-		"personId" in by
-			? sql`${by.personId}::uuid`
-			: sql`(SELECT person_id FROM person_skill WHERE id=${by.skillId}::uuid AND plant_id=${plant}::uuid)`;
-	const rows = await tx
-		.select()
-		.from(tables.person_skill)
-		.where(and(eq(tables.person_skill.plant_id, plant), sql`${tables.person_skill.person_id}=${person}`));
-	return rows.map((row) => skillView(skillRow.parse(row))).sort(skillOrder);
-}
 const skillFacts = (s: Skill | null) =>
 	s && { id: s.id, name: s.name, category: s.category, proficiency: s.proficiency, notes: s.notes };
 
@@ -273,9 +261,10 @@ export const tagsAndSkills = {
 			return f.skillMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.addSkill", input, async (_actor, receiptId, audit) => {
 					const { personId, ...fields } = input.input;
-					const p = await personFacts(tx, plant, personId);
+					// The Person and its current skills in one read.
+					const p = await personFacts(tx, plant, personId, personSkillsJson(plant));
 					livePerson(p);
-					const current = await skillsOf(tx, plant, { personId });
+					const current = personSkills(p.extra);
 					const added = f.skill.parse({ id: randomUUID(), personId, ...fields, revision: "1" });
 					audit.writes.push(
 						tx.insert(tables.person_skill).values({ id: added.id, plant_id: plant, person_id: personId, ...fields }),
@@ -365,11 +354,13 @@ export const tagsAndSkills = {
 	},
 };
 
+/** The skill's Person and all of that Person's skills, found by the skill in one read. A missing skill is unavailable. */
 async function currentSkill(tx: Tx, plant: string, skillId: string) {
-	const skills = await skillsOf(tx, plant, { skillId });
+	const owner = sql`(SELECT person_id FROM person_skill WHERE id=${skillId}::uuid AND plant_id=${plant}::uuid)`;
+	const p = await personFacts(tx, plant, owner, personSkillsJson(plant));
+	const skills = personSkills(p.extra);
 	const before = skills.find((s) => s.id === skillId);
 	if (!before) deny();
-	const p = await personFacts(tx, plant, before.personId);
 	livePerson(p);
 	return { skills, before, p };
 }

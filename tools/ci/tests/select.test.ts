@@ -109,14 +109,14 @@ function assertFull(s: Selection, reasons: string[]) {
 	});
 }
 
-test("T-41 selection table: docs, one package, tools, lockfile, workflow file, unknown path, empty diff", async (t) => {
-	await t.test("a docs-only change runs only the documentation check", () =>
+test("INV-ci-select: selection table: docs, one package, tools, lockfile, workflow file, unknown path, empty diff", async (t) => {
+	await t.test("INV-ci-select: a docs-only change runs only the documentation check", () =>
 		assertSelected(selectChecks(["docs/plan/context.md"], map, context), {
 			checks: { docs: "documentation: docs/plan/context.md" },
 			tests: {},
 		}),
 	);
-	await t.test("a change in one package runs the package checks for it and its dependents", () =>
+	await t.test("INV-ci-select: a change in one package runs the package checks for it and its dependents", () =>
 		assertSelected(selectChecks(["packages/ui/src/controls/Button.tsx"], map, context), {
 			checks: {
 				lint: "package source: packages/ui/src/controls/Button.tsx",
@@ -127,19 +127,19 @@ test("T-41 selection table: docs, one package, tools, lockfile, workflow file, u
 			filters: ["...@everyfield/ui"],
 		}),
 	);
-	await t.test("a tools/qa source change runs only the tests that reached it", () =>
+	await t.test("INV-ci-select: a tools/qa source change runs only the tests that reached it", () =>
 		assertSelected(selectChecks(["tools/qa/store.ts"], map, context), {
 			checks: { "tools-qa": "runs tools/qa/tests/qa.test.ts" },
 			tests: { "tools/qa/tests/qa.test.ts": "reached tools/qa/store.ts" },
 		}),
 	);
-	await t.test("a tools/ci support file runs its suite", () =>
+	await t.test("INV-ci-select: a tools/ci support file runs its suite", () =>
 		assertSelected(selectChecks(["tools/ci/tests/fixture.json"], map, context), {
 			checks: { "tools-ci": "runs tools/ci/tests/select.test.ts" },
 			tests: { "tools/ci/tests/select.test.ts": "CI tool test support: tools/ci/tests/fixture.json" },
 		}),
 	);
-	await t.test("an actionable watcher source change runs the whole ops-watch suite and nothing else", () =>
+	await t.test("INV-ci-select: an actionable watcher source change runs the ops-watch suite and nothing else", () =>
 		assertSelected(selectChecks(["ops/actionable-watch/io.mts"], map, context), {
 			checks: {
 				"ops-watch": "runs ops/actionable-watch/test/io.test.mts; runs ops/actionable-watch/test/observe.test.mts",
@@ -151,24 +151,24 @@ test("T-41 selection table: docs, one package, tools, lockfile, workflow file, u
 			},
 		}),
 	);
-	await t.test("the lockfile runs everything", () =>
+	await t.test("INV-ci-select: the lockfile runs everything", () =>
 		assertFull(selectChecks(["pnpm-lock.yaml"], map, context), ["pnpm-lock.yaml is a shared input"]),
 	);
-	await t.test("a workflow file runs everything", () =>
+	await t.test("INV-ci-select: a workflow file runs everything", () =>
 		assertFull(selectChecks([".github/workflows/ci.yml"], map, context), [
 			".github/workflows/ci.yml is a shared input",
 		]),
 	);
-	await t.test("a path no rule covers runs everything", () =>
+	await t.test("INV-ci-select: a path no rule covers runs everything", () =>
 		assertFull(selectChecks(["ops/maintenance/cli.mts"], map, context), ["no rule covers ops/maintenance/cli.mts"]),
 	);
-	await t.test("an empty diff runs everything", () =>
+	await t.test("INV-ci-select: an empty diff runs everything", () =>
 		assertFull(selectChecks([], map, context), ["the diff is empty, so nothing narrows the run"]),
 	);
 });
 
-test("T-41 the map selects through child-process coverage and package tests reach their owners", async (t) => {
-	await t.test("a changed source file selects every test file that reached it", () =>
+test("INV-ci-select: the map selects through child-process coverage and package tests reach their owners", async (t) => {
+	await t.test("INV-ci-select: a changed source file selects every test file that reached it", () =>
 		assertSelected(selectChecks(["scripts/dev.ts", ".github/scripts/fail-forward.cjs"], map, context), {
 			checks: {
 				workflow: "runs tests/workflow/dev.test.mjs",
@@ -180,14 +180,14 @@ test("T-41 the map selects through child-process coverage and package tests reac
 			},
 		}),
 	);
-	await t.test("a test file the map has never seen always runs", () => {
+	await t.test("INV-ci-select: a test file the map has never seen always runs", () => {
 		const { "tests/workflow/dev.test.mjs": _, ...older } = map.tests;
 		assertSelected(selectChecks(["docs/a.md"], { ...map, tests: older }, context), {
 			checks: { docs: "documentation: docs/a.md", workflow: "runs tests/workflow/dev.test.mjs" },
 			tests: { "tests/workflow/dev.test.mjs": "not in the coverage map from 0123456789ab" },
 		});
 	});
-	await t.test("a package test outside its package runs the owning package's checks", () =>
+	await t.test("INV-ci-select: a package test outside its package runs the owning package's checks", () =>
 		assertSelected(selectChecks(["tests/integration/db/unit.test.mts"], map, context), {
 			checks: {
 				lint: "package test outside its package: tests/integration/db/unit.test.mts",
@@ -201,8 +201,8 @@ test("T-41 the map selects through child-process coverage and package tests reac
 	);
 });
 
-test("T-41 tests that read files as text are selected when those files change", async (t) => {
-	await t.test("an adapter operation runs the eval coverage guard as well as its package checks", () =>
+test("INV-ci-select: tests that read files as text are selected when those files change", async (t) => {
+	await t.test("INV-ci-select: an adapter operation runs the eval coverage guard as well as its package checks", () =>
 		assertSelected(selectChecks(["packages/evry/src/adapters/people/reads/list.ts"], map, context), {
 			checks: {
 				lint: "package source: packages/evry/src/adapters/people/reads/list.ts",
@@ -217,12 +217,12 @@ test("T-41 tests that read files as text are selected when those files change", 
 			filters: ["...@everyfield/evry"],
 		}),
 	);
-	await t.test("an eval case file no package script names runs everything, the guard included", () =>
+	await t.test("INV-ci-select: an eval case file no package script names runs everything, the guard included", () =>
 		assertFull(selectChecks(["tests/evry/evals/classify.cases.json"], map, context), [
 			"no package owns tests/evry/evals/classify.cases.json",
 		]),
 	);
-	await t.test("the preview config runs both tests that read it", () =>
+	await t.test("INV-ci-select: the preview config runs both tests that read it", () =>
 		assertSelected(selectChecks(["scripts/preview.json"], map, context), {
 			checks: { workflow: "runs tests/workflow/setup-step.test.mjs; runs tests/workflow/stack.test.mjs" },
 			tests: {
@@ -231,7 +231,7 @@ test("T-41 tests that read files as text are selected when those files change", 
 			},
 		}),
 	);
-	await t.test("a web app change runs the dev-server log test", () =>
+	await t.test("INV-ci-select: a web app change runs the dev-server log test", () =>
 		assertSelected(selectChecks(["apps/web/src/features/settings/actions.ts"], map, context), {
 			checks: {
 				lint: "package source: apps/web/src/features/settings/actions.ts",
@@ -245,7 +245,7 @@ test("T-41 tests that read files as text are selected when those files change", 
 			filters: ["...@everyfield/web"],
 		}),
 	);
-	await t.test("a file read as text, or under a listed directory, reaches the test through the map", () =>
+	await t.test("INV-ci-select: a file read as text, or under a listed directory, reaches the test via the map", () =>
 		assertSelected(
 			selectChecks(
 				["tools/qa/qa-preview.md", "tools/qa/fixtures/new.json"],
@@ -265,7 +265,7 @@ test("T-41 tests that read files as text are selected when those files change", 
 	);
 });
 
-test("T-41 fail safe: each doubt runs every check, with the reason", async (t) => {
+test("INV-ci-select: fail safe: each doubt runs every check, with the reason", async (t) => {
 	const cases: [string, string[] | null, Parameters<typeof selectChecks>[1], string][] = [
 		["an unreadable diff", null, map, "the diff could not be read"],
 		["a path with no rule", [".claude/settings.json"], map, "no rule covers .claude/settings.json"],
@@ -311,15 +311,15 @@ test("T-41 fail safe: each doubt runs every check, with the reason", async (t) =
 	];
 	for (const [name, changed, m, reason] of cases)
 		await t.test(name, () => assertFull(selectChecks(changed, m, context), [reason]));
-	await t.test("a map exactly 7 days old still selects", () =>
+	await t.test("INV-ci-select: a map exactly 7 days old still selects", () =>
 		assert.equal(selectChecks(["docs/a.md"], { ...map, createdAt: "2026-11-02T12:00:00Z" }, context).mode, "selected"),
 	);
-	await t.test("one doubtful path among narrow ones still runs everything", () =>
+	await t.test("INV-ci-select: one doubtful path among narrow ones still runs everything", () =>
 		assertFull(selectChecks(["docs/a.md", "ops/x.mts", "scripts/dev.ts"], map, context), ["no rule covers ops/x.mts"]),
 	);
 });
 
-test("T-41 reachability lint: every selectable test file and configured check can be reached", () => {
+test("INV-ci-select: reachability lint: every selectable test file and configured check can be reached", () => {
 	const root = fileURLToPath(new URL("../../..", import.meta.url));
 	const listed = spawnSync("git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
 		encoding: "utf8",
@@ -333,6 +333,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 			"tests/workflow/sub/deep.test.mjs",
 			"tests/workflow/dev.test.mjs",
 			"tests/workflow/evry-evals-coverage.test.mjs",
+			"tests/workflow/integration-timing.test.mjs",
 			"tests/workflow/lint-rule-coverage.test.mjs",
 			"tests/workflow/nightly.test.ts",
 			"tests/workflow/role-prompts.test.mjs",
@@ -347,7 +348,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 	);
 	assert.deepEqual(
 		unreachable(
-			[...TESTS, "tests/workflow/lint-rule-coverage.test.mjs"],
+			[...TESTS, "tests/workflow/integration-timing.test.mjs", "tests/workflow/lint-rule-coverage.test.mjs"],
 			RULES.filter((rule) => !rule.checks?.includes("docs")),
 		),
 		["check docs is selected by no rule"],
@@ -360,6 +361,7 @@ test("T-41 reachability lint: every selectable test file and configured check ca
 		'rule "adapter operations and their eval cases" names tests/workflow/evry-evals-coverage.test.mjs, which no suite runs',
 		'rule "web app under a dev server" names tests/workflow/server-logs.test.mjs, which no suite runs',
 		'rule "lint rule coverage" names tests/workflow/lint-rule-coverage.test.mjs, which no suite runs',
+		'rule "integration timing guard" names tests/workflow/integration-timing.test.mjs, which no suite runs',
 		'rule "coverage read tracer" names tests/workflow/nightly.test.ts, which no suite runs',
 	]);
 });

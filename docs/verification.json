@@ -78,8 +78,6 @@
     "existing_external_backup": true,
     "progress_source": "docs/build-progress.json"
   },
-  "implementation_tests_run": 0,
-  "provider_changes": 0,
   "new_archive": false,
   "future_gates": [
     "G-DESIGN",

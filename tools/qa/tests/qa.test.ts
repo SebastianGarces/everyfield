@@ -176,7 +176,7 @@ function files(dir: string): Array<[string, string]> {
 		.map((p) => [p, readFileSync(p).toString("latin1")]);
 }
 
-test("OPS-106: qa up refuses before it creates anything when the parent is missing or production", () => {
+test("INV-qa-preview: qa up refuses before it creates anything when the parent is missing or production", () => {
 	for (const [endpoints, reason] of [
 		[[PROD], /No single ep-autumn-dew endpoint/],
 		[[DEV, { ...PROD, branch_id: "br-dev" }], /production database/],
@@ -204,7 +204,7 @@ test("OPS-106: qa up refuses before it creates anything when the parent is missi
 	}
 });
 
-test("OPS-106: qa up, list and down keep every secret out of output, the store and files; down twice is a no-op", () => {
+test("INV-qa-secrets: qa up, list and down keep every secret out of output, the store and files; down twice is a no-op", () => {
 	const s = setup();
 	try {
 		const up = s.qa("up", "feature/nora-qa");
@@ -306,7 +306,7 @@ test("OPS-106: qa up, list and down keep every secret out of output, the store a
 	}
 });
 
-test("OPS-106: a failed qa up shows redacted output and removes the Neon branch it made", () => {
+test("INV-qa-preview: a failed qa up shows redacted output and removes the Neon branch it made", () => {
 	const s = setup();
 	try {
 		writeFileSync(join(s.state, "FAIL_MIGRATE"), "");
@@ -335,7 +335,7 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 	}
 });
 
-test("a branch with no tools/qa/qa-seed.ts refuses", () => {
+test("INV-qa-preview: a branch with no tools/qa/qa-seed.ts refuses", () => {
 	const none = setup([DEV, PROD], "docs/no-seed.txt");
 	try {
 		const up = none.qa("up", "feature/nora-qa");
@@ -347,7 +347,7 @@ test("a branch with no tools/qa/qa-seed.ts refuses", () => {
 	}
 });
 
-test("a previews file with a key an older qa wrote still loads, and the next write drops the key", () => {
+test("INV-qa-preview: a previews file with a key an older qa wrote still loads, and the next write drops the key", () => {
 	const s = setup();
 	const preview = {
 		id: "qa-main-b24e",
@@ -373,7 +373,7 @@ test("a previews file with a key an older qa wrote still loads, and the next wri
 	}
 });
 
-test("every worktree of a repository shares one preview file, and bad usage exits 2", () => {
+test("INV-qa-preview: every worktree of a repository shares one preview file, and bad usage exits 2", () => {
 	const s = setup();
 	const linked = join(s.dir, "linked");
 	try {
@@ -394,7 +394,7 @@ test("every worktree of a repository shares one preview file, and bad usage exit
 	}
 });
 
-test("OPS-106: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL AC:OPS-125-7", () => {
+test("INV-qa-seed: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL", () => {
 	const neon = (endpoint: string) =>
 		`postgres://u:${NEON_PASSWORD}@${endpoint}-x1.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require`;
 	assert.match(seedRefusal({ DATABASE_URL: neon(PROD_ENDPOINT).replace("-x1.", "-x1-pooler.") })!, /production/);
@@ -505,7 +505,7 @@ const NOTES = [
 	LAST_WEEK.note,
 ];
 
-test("OPS-106: the QA seed fills a fresh database, and a second run changes no table's row count AC:OPS-125-7", async () => {
+test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
 	assert.match(first, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
 	assert.equal(second, "QA seed: the branch is already complete.");
@@ -542,7 +542,7 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 	);
 });
 
-test("OPS-126: eight QA logins; the seed makes both organization logins verified and active, and each signs in (AC:OPS-126-1)", async () => {
+test("INV-qa-seed: eight QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -576,7 +576,7 @@ test("OPS-126: eight QA logins; the seed makes both organization logins verified
 	assert.equal(QA_PASSWORD, "Everyfield-QA-preview-1");
 });
 
-test("OPS-126: the network login holds an admin seat and the sending-church login an owner seat, none on the church (AC:OPS-126-2)", async () => {
+test("INV-qa-seed: the network login holds an admin seat and the sending-church login an owner seat, none on the church", async () => {
 	const { query, seen } = await fresh();
 	assert.deepEqual(
 		await query(`SELECT u.email, o.name, o.kind, s.role, s.accepted_at IS NOT NULL AS accepted, s.ended_at IS NULL AS live,
@@ -623,7 +623,7 @@ test("OPS-126: the network login holds an admin seat and the sending-church logi
 	});
 });
 
-test("OPS-126: each organization has one active connection to the church, made by invitation and acceptance, with the build's defaults (AC:OPS-126-3)", async () => {
+test("INV-qa-seed: each organization has one active connection to the church, made by invitation and acceptance, with the build's defaults", async () => {
 	const { query } = await fresh();
 	// Each link names the invitation it came from. The request went to the organization login's own address and was
 	// answered by that login. Acceptance wrote the approval event. The sharing choices are the ones acceptance applies
@@ -667,7 +667,7 @@ test("OPS-126: each organization has one active connection to the church, made b
 	);
 });
 
-test("OPS-126: the sharing-page reads list Harvest Point (QA) for the network Admin and the sending-church director (AC:OPS-126-4)", async () => {
+test("INV-qa-seed: the sharing-page reads list Harvest Point (QA) for the network Admin and the sending-church director", async () => {
 	const { seen } = await fresh();
 	assert.deepEqual(seen.network.connections, [
 		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.network },
@@ -677,7 +677,7 @@ test("OPS-126: the sharing-page reads list Harvest Point (QA) for the network Ad
 	]);
 });
 
-test("OPS-126: the seed writes the Owner's check-ins through the private-care writer, and he reads them back as his own (AC:OPS-126-5)", async () => {
+test("INV-qa-seed: the seed writes the Owner's check-ins through the private-care writer, and he reads them back as his own", async () => {
 	const { query, seen } = await fresh();
 	// OPS-125's history is the Owner's check-in data: 13 answered past weeks, all his, all in the church.
 	assert.deepEqual(
@@ -699,7 +699,7 @@ test("OPS-126: the seed writes the Owner's check-ins through the private-care wr
 	assert.deepEqual([last.ordinal, last.answer.answers, last.answer.note], [13, LAST_WEEK.answers, LAST_WEEK.note]);
 });
 
-test("OPS-126: the organization logins read no check-in and no person of the church (AC:OPS-126-6)", async () => {
+test("INV-privacy: the QA organization logins read no check-in and no person of the church", async () => {
 	const { seen } = await fresh();
 	const refused = (code: string) => ({
 		status: "refused",
@@ -716,7 +716,7 @@ test("OPS-126: the organization logins read no check-in and no person of the chu
 	}
 });
 
-test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gains only the new parts (AC:OPS-126-7)", async () => {
+test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the organization logins gains only the new parts", async () => {
 	const { second, seeded, after } = await fresh();
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
@@ -802,7 +802,7 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	]);
 });
 
-test("OPS-126: the runbook's login table lists exactly the QA logins and says what the organization logins see (AC:OPS-126-8)", () => {
+test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and says what the organization logins see", () => {
 	const runbook = readFileSync(join(source, "docs/runbooks/qa-preview.md"), "utf8");
 	const section = runbook.slice(
 		runbook.indexOf("### Logins on every QA preview"),
@@ -848,7 +848,7 @@ test("OPS-126: the runbook's login table lists exactly the QA logins and says wh
 // Nora QA 2026-11-04 (T-51): a removable Member seat, a sign-up login, a refused recipient, the Admin's suppressed
 // address with a past restore. The wiki order case is in qa-wiki.test.ts.
 
-test("T-51: a second Member, Owen Price, holds a seat on the church and signs in to it; Ruth Allen's seat is unchanged", async () => {
+test("INV-qa-seed: a second Member, Owen Price, holds a seat on the church and signs in to it; Ruth Allen's seat is unchanged", async () => {
 	const { query, seen } = await fresh();
 	assert.deepEqual(
 		await query(`SELECT u.email, u.email_verified, a.registration_state, s.role, s.ended_at IS NULL AS live,
@@ -884,7 +884,7 @@ test("T-51: a second Member, Owen Price, holds a seat on the church and signs in
 	assert.deepEqual(seen.member2.context.owner, seen.owner.selected);
 });
 
-test("T-51: the sign-up login is verified, holds no seat or organization, and signs in with church setup still to do", async () => {
+test("INV-qa-seed: the sign-up login is verified, holds no seat or organization, and signs in with church setup still to do", async () => {
 	const { query, seen } = await fresh();
 	assert.deepEqual(
 		await query(`SELECT u.email_verified, a.registration_state, a.registration_kind,
@@ -897,7 +897,7 @@ test("T-51: the sign-up login is verified, holds no seat or organization, and si
 	assert.equal(seen.signup.actor.status, "pending_domain");
 });
 
-test("T-51: the sent delivery message has one refused recipient, counted as failed and not delivered", async () => {
+test("INV-qa-seed: the sent delivery message has one refused recipient, counted as failed and not delivered", async () => {
 	const { seen } = await fresh();
 	assert.equal(seen.delivery.recipients.status, "ok");
 	// The seed sealed each address under the keys the preview gets, so the Owner's read opens it.
@@ -922,7 +922,7 @@ test("T-51: the sent delivery message has one refused recipient, counted as fail
 	);
 });
 
-test("T-51: the Admin's own address is suppressed and has one past restore by Lena Park with a reason", async () => {
+test("INV-qa-seed: the Admin's own address is suppressed and has one past restore by Lena Park with a reason", async () => {
 	const { seen } = await fresh();
 	assert.equal(seen.address.status, "ok");
 	const { address, active, restores } = seen.address.value;
@@ -933,7 +933,7 @@ test("T-51: the Admin's own address is suppressed and has one past restore by Le
 	assert.ok(days > 20 && days < 22, restores[0].at);
 });
 
-test("T-51: the first run names each new part once; the second writes nothing", async () => {
+test("INV-qa-seed: the first run names each new part once; the second writes nothing", async () => {
 	const { first, second, seeded, after } = await fresh();
 	const parts = first
 		.replace(/^QA seed wrote: /, "")
@@ -957,7 +957,7 @@ test("T-51: the first run names each new part once; the second writes nothing", 
 const ANA = "ana.qa@example.com",
 	OTHER = "second.qa@example.org";
 
-test("T-255: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one deployment and the seed, and stores no address", () => {
+test("INV-qa-preview: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one deployment and the seed, and stores no address", () => {
 	const s = setup();
 	try {
 		const up = s.qa("up", "feature/nora-qa", "--test-recipients", ` ${ANA}, ${OTHER}`);
@@ -1023,7 +1023,7 @@ const alive = (pid: number) => {
 	}
 };
 
-test("T-255: qa up runs the preview's /api/cron/jobs with its own cron secret until qa down stops the driver", () => {
+test("INV-qa-cron: qa up runs the preview's /api/cron/jobs with its own cron secret until qa down stops the driver", () => {
 	const s = setup();
 	try {
 		const up = s.qa("up", "feature/nora-qa");
@@ -1070,7 +1070,7 @@ test("T-255: qa up runs the preview's /api/cron/jobs with its own cron secret un
 	}
 });
 
-test("T-255: a failed first cron run keeps the preview and says so; a driver whose record is gone stops itself", () => {
+test("INV-qa-cron: a failed first cron run keeps the preview and says so; a driver whose record is gone stops itself", () => {
 	const s = setup();
 	try {
 		writeFileSync(join(s.state, "FAIL_CRON"), "");
@@ -1094,7 +1094,7 @@ test("T-255: a failed first cron run keeps the preview and says so; a driver who
 	}
 });
 
-test("T-255: a bad --test-recipients list exits 2 and says what to fix before anything is made; help lists the flag", () => {
+test("INV-qa-preview: a bad --test-recipients list exits 2 and says what to fix before anything is made; help lists the flag", () => {
 	for (const value of [
 		"",
 		" , ",
@@ -1154,7 +1154,7 @@ const given = () =>
 		return { first: r.stdout.trim(), seen: churches(q.env), query: q.query };
 	})());
 
-test("T-255: Riverside (QA) is a church plant with its own Owner login, whose session lands on it", async () => {
+test("INV-qa-seed: Riverside (QA) is a church plant with its own Owner login, whose session lands on it", async () => {
 	const { query, first } = await fresh();
 	assert.ok(first.includes(`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA)`), first);
 	assert.deepEqual(
@@ -1183,7 +1183,7 @@ test("T-255: Riverside (QA) is a church plant with its own Owner login, whose se
 	assert.deepEqual(seen.owner.context, { kind: "seat", selected: "plant", church: "Harvest Point (QA)" });
 });
 
-test("T-255: with no test recipients, Ana Lee is in both churches at her resend.dev address, and each Owner sees only its church", async () => {
+test("INV-qa-seed: with no test recipients, Ana Lee is in both churches at her resend.dev address, and each Owner sees only its church", async () => {
 	const seen = churches((await fresh()).env);
 	const ana = { name: "Ana Lee", email: "delivered+qa-ana@resend.dev" };
 	assert.ok(
@@ -1201,7 +1201,7 @@ test("T-255: with no test recipients, Ana Lee is in both churches at her resend.
 	assert.ok(!seen.riverside.people.some((p: any) => p.name === "Daniel Reyes" || p.name === "Maria Santos"));
 });
 
-test("T-255: given test recipients, Ana Lee has the first address in both churches and no one else has a given address", async () => {
+test("INV-qa-seed: given test recipients, Ana Lee has the first address in both churches and no one else has a given address", async () => {
 	const { seen, query, first } = await given();
 	assert.ok(first.includes("person Ana Lee in Riverside (QA)"), first);
 	const ana = { name: "Ana Lee", email: ANA };

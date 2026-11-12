@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { localDate } from "../../common/time.ts";
 import { operationId, personId, recordId, revision } from "../../common/values.ts";
-import { creditKind, meetingSubtype, programName } from "./values.ts";
+import { creditKind, programName } from "./values.ts";
 
 const outcome = z.enum(["changed", "noop"]);
 const receipt = { receiptId: operationId, outcome };
@@ -40,18 +40,6 @@ export const creditResult = z.strictObject({
 	candidate: z.boolean(),
 	verifierAccountId: recordId,
 	earnedOn: localDate.nullable(),
-});
-export const meetingResult = z.strictObject({
-	...receipt,
-	meetingId: recordId,
-	teamId: recordId,
-	subtype: meetingSubtype,
-	guestIds: z.array(personId).max(200),
-});
-export const attendanceResult = z.strictObject({
-	...receipt,
-	meetingId: recordId,
-	personIds: z.array(personId).max(200),
 });
 const programRow = trainingProgram.extend({
 	requiredPeople: z.int().min(0),
@@ -101,14 +89,4 @@ export const teamFacts = z.strictObject({
 	attendanceRate: z.number().nullable(),
 	weights: z.tuple([z.number(), z.number(), z.number()]),
 	composite: z.number().nullable(),
-});
-const teamMeetingRow = z.strictObject({
-	id: recordId,
-	subtype: meetingSubtype.nullable(),
-	status: z.string().min(1).max(40),
-	guestIds: z.array(personId).max(200),
-});
-export const teamMeetingList = z.strictObject({
-	teamId: recordId,
-	meetings: z.array(teamMeetingRow).max(100),
 });

@@ -5,6 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
 const keys = {
@@ -12,15 +13,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
 };
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
@@ -66,12 +58,13 @@ async function mail(communicationId, personId, address, patch = {}) {
 	const sealed = sealText(keys.encryptionKey, address, addressAad(tenant, id));
 	const addressHash = mailAddressHash(keys.addressKey, address);
 	const hours = patch.sentHours ?? null;
+	const created = patch.createdHours ?? null;
 	await f.admin
-		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
+		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, communication_id, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at, delivered_at, opened_at, clicked_at, accepted_at)
-		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${`communication/${communicationId}/${personId}`},
+		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${communicationId}, ${`communication/${communicationId}/${personId}`},
 			'payload', 'audience', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, ${patch.state ?? "sent"}, ${addressHash},
-			clock_timestamp(),
+			clock_timestamp() - make_interval(hours => coalesce(${created}::int, 0)),
 			CASE WHEN ${hours}::int IS NULL THEN NULL ELSE clock_timestamp() - make_interval(hours => ${hours}::int) END,
 			CASE WHEN ${Boolean(patch.delivered)} THEN clock_timestamp() - make_interval(hours => coalesce(${hours}::int, 0)) END,
 			CASE WHEN ${Boolean(patch.opened)} THEN clock_timestamp() END,
@@ -398,7 +391,7 @@ test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps deli
 	refused(await read(owner, "listResendCandidates", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
+test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
 	const nora = await person("Nora", { email: "nora@example.test" });
 	const owen = await person("Owen", { email: "owen@example.test" });
 	const sent = await message({
@@ -565,4 +558,64 @@ test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective cont
 		}),
 		"not_found",
 	);
+});
+
+test("INV-history-search: history search for an ampersand phrase matches the message body and subject as typed", async () => {
+	const inBody = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Sunday lunch",
+				bodyHtml: "<p>Food &amp; fellowship after the service.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const inSubject = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Food & fellowship night",
+				bodyHtml: "<p>Bring a dish.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const page = ok(await read(owner, "listHistory", { query: "Food & fellowship" }));
+	assert.deepEqual(
+		page.items.map((item) => item.id).sort(),
+		[inBody.communicationId, inSubject.communicationId].sort(),
+	);
+});
+
+test("AC:CASE-COM-002 meeting tracking lists a person emailed by two of the meeting's messages once, with the latest mail", async () => {
+	const twice = await person("Twice Tracked", { email: "twice@example.test" });
+	const once = await person("Once Tracked", { email: "once@example.test" });
+	const meet = await meeting("Tracked twice");
+	const invite = await message({ meeting: meet, subject: "Invitation" });
+	const reminder = await message({ meeting: meet, subject: "Reminder" });
+	// The reminder's mail is the later one by its own created_at, set in the row.
+	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30, createdHours: 30 });
+	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, createdHours: 30, delivered: true });
+	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, createdHours: 2, delivered: true });
+	const tracked = ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
+	const ids = tracked.items.map((row) => row.personId);
+	assert.deepEqual(ids.sort(), [once, twice].sort());
+	assert.equal(new Set(ids).size, ids.length, "one row per person, so the list has unique keys");
+	assert.equal(tracked.items.find((row) => row.personId === twice).deliveryStatus, "delivered");
+});
+
+test("AC:RECOVERY-DELETE-001 a pending-deletion witness on the plant hides communication history reads", async () => {
+	const meet = await meeting("Hidden");
+	const witness = randomUUID();
+	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant.id},${plant.id},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		refused(await read(owner, "listMeetingTracking", { meetingId: meet }), "access_denied");
+		refused(await read(owner, "listHistory", {}), "access_denied");
+	} finally {
+		await f.admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
 });

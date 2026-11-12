@@ -209,7 +209,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	}
 });
 
-test("D77 every paid model call reserves its byte-bounded worst case before the provider sees it: the monthly limit holds for concurrent turns and multi-byte text; a cut-off call keeps its reservation; deleting a conversation keeps the charge", async () => {
+test("INV-spend-limit: every paid model call reserves its byte-bounded worst case before the provider sees it: the monthly limit holds for concurrent turns and multi-byte text; a cut-off call keeps its reservation; deleting a conversation keeps the charge", async () => {
 	const owner = await actor("owner");
 	const price = { input: 0.1, output: 0.5, longContextAbove: 272_000 };
 	const charged = async () =>

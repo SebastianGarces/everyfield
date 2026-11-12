@@ -214,8 +214,8 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			const plant = await bump(tx, a.plant.id, { lead_answer: q.input.answer }),
 				lead = savedLead.parse({ ...answer, savedAt: plant.at });
 			await tx.update(t.onboarding_setup).set({ lead }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
-			const ids = [await event(tx, cx, a.plant.id, "attestation.recorded")];
-			if (lead.answer === "yes") ids.push(await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign"));
+			await event(tx, cx, a.plant.id, "attestation.recorded");
+			if (lead.answer === "yes") await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign");
 			return finish(tx, cx, c.leadAnswerResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
@@ -230,14 +230,13 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				cx = await begin(tx, ctx, a.account.id, "onboarding.declareJourney", q);
 			if (cx.kind === "replay") return c.journeyResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
-			const ids = [];
 			if (q.input.journey.answer === "existing") {
 				// The one declaration writer (phases.declare): an empty `declared` means the slot or an ordinary move is used.
 				const { rows } = await tx.execute(sql`WITH src AS (SELECT id,phase FROM plant WHERE id=${a.plant.id}::uuid),
  ${declaration(sql`src`, q.input.journey.phase, cx.id)},
  moved AS (UPDATE plant p SET phase=d.to_phase FROM declared d WHERE p.id=d.plant_id) SELECT d.id FROM declared d`);
 				if (!rows[0]) deny("already_declared");
-				ids.push(await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration"));
+				await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration");
 			}
 			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id)).for("update");
 			let written: { revision: string } | undefined;
@@ -252,7 +251,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 						set: { target_date: q.input.launch.date, status: "scheduled", revision: sql`${t.launch.revision}+1` },
 					})
 					.returning({ revision: t.launch.revision });
-				ids.push(await event(tx, cx, a.plant.id, "launch.changed"));
+				await event(tx, cx, a.plant.id, "launch.changed");
 			}
 			const plant = await bump(tx, a.plant.id, {
 				journey_answer: q.input.journey.answer,
@@ -261,7 +260,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			const journey = savedJourney.parse({ status: "saved", value: q.input.journey, savedAt: plant.at }),
 				launch = savedLaunch.parse({ status: "saved", value: q.input.launch, savedAt: plant.at });
 			await tx.update(t.onboarding_setup).set({ journey, launch }).where(eq(t.onboarding_setup.plant_id, a.plant.id));
-			ids.push(await event(tx, cx, a.plant.id, "attestation.recorded"));
+			await event(tx, cx, a.plant.id, "attestation.recorded");
 			return finish(tx, cx, c.journeyResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,

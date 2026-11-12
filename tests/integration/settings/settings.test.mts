@@ -22,6 +22,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 import { insertTasks } from "../task-assignees.mts";
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 const database = await testDatabase({
 	prefix: "wp010",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -37,15 +38,7 @@ const ingress = new Map();
 const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const denied = (r, code = "unavailable") => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	assert.deepEqual(r.error.details, {});
-};
+const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	input,
 	expectedRevision,
@@ -105,7 +98,7 @@ const effect = async (tx, input) => {
 	if (faults) throw Error("intent_fault");
 	return enqueueJob(tx, {
 		tenant: input.owner.id,
-		kind: "notification",
+		kind: "digest",
 		subject: input.owner.id,
 		key: `settings/${input.kind}/${input.operationId}/${input.revision}`,
 		revision: input.revision,
@@ -130,31 +123,10 @@ before(async () => {
 	});
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx, i) => {
-			if (faults) throw Error("notice_fault");
-			return queueJobs(tx, [
-				{
-					tenant: i.pair.organization.id,
-					kind: "notification",
-					subject: i.relationshipId,
-					key: "sharing/" + i.eventId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]);
+		invalidate: (tx, i) => {
+			if (faults) throw Error("grant_fault");
+			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
-		invalidate: (tx, i) =>
-			queueJobs(
-				tx,
-				i.owners.map((owner) => ({
-					tenant: owner.id,
-					kind: "assessment",
-					subject: i.sourceId,
-					key: "invalidate/" + i.sourceId + "/" + i.revision,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				})),
-			),
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
 	const credentials = createAccountCredentials({
@@ -202,17 +174,6 @@ before(async () => {
 		organizationEffects,
 		effects: {
 			replan: effect,
-			invalidate: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.owner.id,
-					kind: "assessment",
-					subject: i.owner.id,
-					key: "settings-material/" + i.operationId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				});
-				if (faults) throw Error("invalidate_fault");
-			},
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
@@ -305,7 +266,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	faults = true;
 	await assert.rejects(
 		call("saveSection", f.a, command({ ...v.input, change: { kind: "digest", value: { cadence: "off" } } }, "2"), f.p),
-		/invalidate_fault/,
+		/intent_fault/,
 	);
 	faults = false;
 	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
@@ -315,10 +276,15 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	assert.equal(name.current.name, "Member Updated");
 });
 
-test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
+test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
 	let current = ok(await section(a, { section: "notifications" }));
-	assert.equal(current.values.choices.length, 19);
+	assert.equal(current.values.choices.length, 20);
+	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
+	assert.deepEqual(
+		current.values.choices.filter((c) => c.category === "scheduled_email_unsubscribe"),
+		[{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true }],
+	);
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
 	const saved = ok(
@@ -494,7 +460,7 @@ async function restricted(a, subject, status) {
 		})),
 	);
 }
-test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:WP010-KNOW-069 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
+test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:DEL58-004 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
 	const f = await plant(),
 		member = await seat(f.p, "member");
 	const ordinaryAdmin = await seat(f.p, "admin");
@@ -572,19 +538,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 	);
 	const settled = Promise.allSettled(edits);
 	try {
-		let waiting = false;
-		for (let i = 0; i < 100; i++) {
-			const rows = (
-				await admin.execute(
-					sql`SELECT pid FROM pg_stat_activity WHERE pid IN (${pids[0] ?? 0},${pids[1] ?? 0}) AND wait_event_type='Lock'`,
-				)
-			).rows;
-			if (rows.length === 2) {
-				waiting = true;
-				break;
-			}
-		}
-		assert.equal(waiting, true, "both real edits reached their lock wait");
+		assert.equal(await waitingOnLock(admin, { pids, count: 2 }), true, "both real edits reached their lock wait");
 	} finally {
 		release();
 	}
@@ -634,7 +588,7 @@ async function overdue(a, subject) {
 		cancelUntil: w.cancel_until.toISOString(),
 	};
 }
-test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
+test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
 	const f = await plant();
 	const subject = { kind: "account", id: f.a.id };
 	const p = await overdue(f.a, subject);
@@ -676,7 +630,7 @@ test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancella
 	assert.equal(church.name, "Harvest Point");
 });
 
-test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
+test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
 	const f = await plant(),
 		other = await plant();
 	const subject = { kind: "plant", id: f.p.id };
@@ -753,11 +707,12 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	});
 	await locked;
 	try {
-		const read = await Promise.race([
-			readAvatar(db, storage, ctx(a), upload.uploadId),
-			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
-		]);
-		assert.deepEqual(read, bytes);
+		// The read races Postgres lock state: it must finish before any session of the runtime role waits for a lock.
+		const done = new AbortController();
+		const read = readAvatar(db, storage, ctx(a), upload.uploadId).finally(() => done.abort());
+		const waited = await waitingOnLock(db, { signal: done.signal });
+		assert.equal(waited, false, "photo read waited for the session lock");
+		assert.deepEqual(await read, bytes);
 	} finally {
 		release();
 		await holder;
@@ -812,14 +767,18 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(requested.status, "verification_requested");
 	const first = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", b, { proof: first.token })).status, "refused");
+	const dbNow = async () => Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
+	const earliest = await dbNow();
 	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	const latest = await dbNow();
 	const second = deliveries.at(-1);
 	assert.equal((await call("confirmEmailChange", a, { proof: first.token })).status, "refused");
 	const proofs = await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id));
 	assert.equal(proofs.filter((p) => p.superseded_at !== null).length, 1);
 	const active = proofs.find((p) => p.superseded_at === null);
 	const expiry = active.expires_at.getTime();
-	assert.equal(Math.round((expiry - Date.now()) / 3600_000), 24);
+	// The proof lives 24 hours from its request, read against the database clock around that request.
+	assert.ok(expiry >= earliest + 86_400_000 && expiry <= latest + 86_400_000 + 1, String(expiry - earliest));
 	const result = await call("confirmEmailChange", a, { proof: second.token });
 	assert.equal(result.status, "succeeded");
 	assert.equal(result.action, "email_changed");
@@ -889,7 +848,7 @@ async function organization() {
 	await admin.insert(t.seat).values({ account_id: a.id, organization_id: id, role: "owner", accepted_at: new Date() });
 	return { o, a };
 }
-test("AC:CASE-NTF-004 WP-030 D-a: an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
+test("AC:CASE-NTF-004 an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
 	const { a } = await organization();
 	const current = ok(await section(a, { section: "notifications" }));
 	const oversight = (channel) =>
@@ -948,7 +907,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	denied(await call("saveSection", f.a, command(input, "2"), f.p), "conflict");
 	const next = { ...input, expectedConsentRevision: "2", patch: { people: false } };
 	faults = true;
-	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /notice_fault/);
+	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /grant_fault/);
 	faults = false;
 	assert.equal(
 		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
@@ -994,29 +953,20 @@ test("INV-lifecycle: an account root read serializes first-witness deletion even
 		await gate;
 	});
 	await ready;
-	let pid,
-		started,
-		done = false;
+	let pid, started;
+	const done = new AbortController();
 	const running = new Promise((r) => (started = r));
 	const deletion = db.transaction(async (tx) => {
 		pid = (await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id;
 		started();
 		const result = await api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }));
-		done = true;
+		done.abort();
 		return result;
 	});
 	await running;
 	try {
-		let blocked = false;
-		for (let i = 0; i < 60 && !done; i++) {
-			const [state] = (await admin.execute(sql`SELECT wait_event_type FROM pg_stat_activity WHERE pid=${pid}`)).rows;
-			if (state?.wait_event_type === "Lock") {
-				blocked = true;
-				break;
-			}
-		}
-		assert.equal(blocked, true);
-		assert.equal(done, false);
+		assert.equal(await waitingOnLock(admin, { pids: [pid], signal: done.signal }), true);
+		assert.equal(done.signal.aborted, false);
 	} finally {
 		release();
 	}
@@ -1160,7 +1110,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	}
 });
 
-test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
+test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
 	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
 	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
 	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
@@ -1250,7 +1200,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	const [outbox] = await admin.select().from(t.mail).where(eq(t.mail.id, overdue.mail));
 	await admin
 		.update(t.job)
-		.set({ eligible_at: new Date(Date.now() - 1000) })
+		.set({ eligible_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.job.id, outbox.job_id));
 	const claims = await claimDue(db, ["mail"], 100);
 	const claim = claims.find((c) => c.id === outbox.job_id);
@@ -1291,7 +1241,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
-test("people/peo-31 an email change whose send throws is unknown and gives its try back", async () => {
+test("AC:TARGET-IDN-007 an email change whose send throws is unknown and gives its try back", async () => {
 	const a = await credentialActor();
 	trustedIps.set(a.session, "198.51.100.31");
 	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
@@ -1303,7 +1253,7 @@ test("people/peo-31 an email change whose send throws is unknown and gives its t
 	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
 });
 
-test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
+test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
 		subject = { kind: "account", id: f.a.id };
@@ -1407,7 +1357,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const plantPreview = ok(await call("previewPlantTimezone", f.a, { plant: f.p, timeZone: "America/New_York" }, f.p));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, plantPreview.previewId));
 	denied(
 		await call(
@@ -1421,7 +1371,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 	const personal = ok(await call("previewPersonalTimezone", f.a, { timeZone: "America/New_York" }));
 	await admin
 		.update(t.settings_preview)
-		.set({ expires_at: new Date(Date.now() - 1000) })
+		.set({ expires_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.settings_preview.id, personal.previewId));
 	denied(
 		await call(
