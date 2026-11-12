@@ -278,7 +278,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			await documentsWriter.generate(
 				db,
 				owner,
-				{ templateId: card.id, format: "pdf", requestKey: "make-pdf", overrides: { pastor_name: "Other Pastor" } },
+				{ templateId: card.id, format: "pdf", requestKey: "make-pdf", overrides: { church_name: "Other Church" } },
 				storage,
 			),
 			"conflict",
