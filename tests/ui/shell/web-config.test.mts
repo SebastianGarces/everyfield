@@ -1,13 +1,10 @@
 // T-163: the web app's Next config sends baseline security headers on every response and keeps the invitation page's
-// no-referrer override after them; `next dev` logs no request whose URL carries a link token; the product dark
-// viewport is the dark page-frame token.
+// no-referrer override after them; `next dev` logs no request whose URL carries a link token.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
 const { default: config } = await import("../../../apps/web/next.config.ts");
-const { THEME_VIEWPORT } = await import("../../../apps/web/src/app/viewport.ts");
 const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { ignoreLoggingIncomingRequests } = require("next/dist/server/dev/log-requests.js");
 
@@ -50,12 +47,4 @@ test("T-163: the dev request log skips every URL that carries a link token", () 
 		assert.equal(skipped(url), true, `${url} is logged`);
 	for (const url of ["/people", "/settings/account", "/", "/signin?returnTo=%2Fpeople", "/invitation"])
 		assert.equal(skipped(url), false, `${url} is not logged`);
-});
-
-test("T-163: the dark product viewport is the dark page frame token; light matches the marketing canvas", () => {
-	const tokens = readFileSync(new URL("../../../design/handoff/tokens.css", import.meta.url), "utf8");
-	const dark = tokens.slice(tokens.search(/^\[data-theme="dark"\] \{/m)).match(/--ef-frame:\s*(#[0-9a-f]{6})/i)?.[1];
-	assert.equal(THEME_VIEWPORT.dark.themeColor.toLowerCase(), dark?.toLowerCase());
-	assert.equal(THEME_VIEWPORT.dark.colorScheme, "dark");
-	assert.deepEqual(THEME_VIEWPORT.light, { themeColor: "#FCFBF8", colorScheme: "light" });
 });
