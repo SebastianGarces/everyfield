@@ -643,7 +643,7 @@ try {
 		},
 	]);
 	assert.equal(tried.status, "ok", JSON.stringify(tried));
-	const corrected = await act("POST followups.correctOutcome", `/people/${maria.id}`, followups, "correctOutcome", [
+	const outcomeCorrected = await act("POST followups.correctOutcome", `/people/${maria.id}`, followups, "correctOutcome", [
 		randomUUID(),
 		tried.value.record.revision,
 		{
@@ -652,7 +652,7 @@ try {
 			reason: "She answered on the second ring",
 		},
 	]);
-	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
+	assert.equal(outcomeCorrected.status, "ok", JSON.stringify(outcomeCorrected));
 	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
 		randomUUID(),
 		{ displayName: "Reachable guest", email: "guest@example.com" },
