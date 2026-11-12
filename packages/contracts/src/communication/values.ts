@@ -44,9 +44,6 @@ export const templateDraft = z.strictObject({
 });
 export type TemplateDraft = z.infer<typeof templateDraft>;
 
-export const templatePatch = templateDraft;
-export type TemplatePatch = z.infer<typeof templatePatch>;
-
 /** An incomplete draft may omit subject and body. `scheduledAt` is not part of a draft. */
 export const draftInput = z.strictObject({
 	communicationId: z.uuid().optional(),

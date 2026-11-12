@@ -33,8 +33,7 @@ export const adultClassificationSource = z.enum(["birth_date", "recorded", "not_
 export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 export const displayName = z.string().trim().min(1).max(255);
 export const shortText = z.string().trim().max(255);
-export const noteBody = z.string().trim().min(1).max(5000);
-export const reason = noteBody;
+export const longText = z.string().trim().min(1).max(5000);
 export const contactFields = {
 	displayName,
 	firstName: shortText.nullable().optional(),
