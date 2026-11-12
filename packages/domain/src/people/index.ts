@@ -17,6 +17,7 @@ export { recordCorrections } from "./corrections/index.ts";
 
 export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, photoMediaType, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
+export { readPersonPhotos } from "./photos.ts";
 export { assessments } from "./assessments/index.ts";
 export { interviews } from "./interviews/index.ts";
 export {

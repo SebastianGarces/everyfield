@@ -7,6 +7,7 @@ import { deny, one, parse, read, type Reader } from "./core.ts";
 import { attendanceColumns, attendanceValue } from "./analytics.ts";
 import { card, guest, guestColumns, guestRow } from "./guests.ts";
 import { kitColumns, kitItem, kitRow } from "./meetings.ts";
+import { personAliasPhoto } from "../people/photos.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
 
 // Every read is one statement that checks the reader's live access (C13) after the request's verified viewer names
@@ -18,6 +19,12 @@ const current = (plantId: string, meetingId: string) =>
 const guests = (where: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT ${guestColumns}
 		WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND ${where}) x)`;
+
+/** Each current guest's photo, as the People list shows it (REQ-PPL-005, REQ-IDN-006). Guests with none are left out. */
+const guestPhotos = sql`(SELECT coalesce(json_agg(json_build_object('personId', x.person_id, 'photo', x.photo)
+		ORDER BY x.person_id), '[]') FROM (SELECT p.id AS person_id, ${personAliasPhoto} AS photo
+		FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL) x
+	WHERE x.photo IS NOT NULL)`;
 
 /** Per Person, the first open of any email sent from this meeting's messages, as the email service reported it. */
 const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
@@ -140,7 +147,7 @@ export const meetingsReader = {
 			const { row, admin } = await one(
 				db,
 				v,
-				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos
 					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -148,6 +155,7 @@ export const meetingsReader = {
 				meetingId: i.meetingId,
 				guests: z.array(guestRow).parse(row.guests).map(guest),
 				emailOpens: admin ? row.email_opens : [],
+				photos: row.photos,
 			});
 		});
 	},
@@ -163,7 +171,7 @@ export const meetingsReader = {
 			const { row, admin } = await one(
 				db,
 				v,
-				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens,
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos,
 					${attendanceColumns(list, v.accountId)} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -173,6 +181,7 @@ export const meetingsReader = {
 					meetingId: i.meetingId,
 					guests: rows.map(guest),
 					emailOpens: admin ? row.email_opens : [],
+					photos: row.photos,
 				}),
 				cards: c.cardList.parse({
 					meetingId: i.meetingId,
