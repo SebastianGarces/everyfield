@@ -2152,6 +2152,8 @@ export const mail = pgTable(
 		address_hash: text("address_hash"),
 		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
 		refusal: text("refusal", { enum: ["unsubscribed"] }),
+		/** The Messages message this recipient send belongs to; null for every other purpose. */
+		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
@@ -2193,6 +2195,13 @@ export const mail = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
+			name: "mail_fk_8",
+			columns: [table.communication_id, table.tenant_id],
+			foreignColumns: [communication.id, communication.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
 			name: "mail_fk_7",
 			columns: [table.id, table.tenant_id],
 			foreignColumns: [record.id, record.tenant_id],
@@ -2225,6 +2234,11 @@ export const mail = pgTable(
 		index("mail_ref_4").using("btree", table.notice_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_5").using("btree", table.job_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_6").using("btree", table.original_mail_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		index("mail_communication").using(
+			"btree",
+			table.tenant_id.asc().nullsLast(),
+			table.communication_id.asc().nullsLast(),
+		),
 		// The minute runner reads Messages email that waits for its send time, and held email it may have to cancel (T-241).
 		index("mail_waiting")
 			.using("btree", table.scheduled_at.asc().nullsLast())

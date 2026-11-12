@@ -9,6 +9,7 @@ import {
 	enteredTime,
 	meetingId,
 	meetingStatus,
+	meetingSubtype,
 	meetingType,
 	meetingWindow,
 	pageInput,
@@ -31,12 +32,16 @@ export const venueChoice = z.discriminatedUnion("kind", [
 ]);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
-/** A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). */
+/**
+ * A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). Only a
+ * team meeting carries a subtype (REQ-TEAM-013).
+ */
 export const scheduleMeetingRequest = create(
 	z
 		.strictObject({
 			type: meetingType,
 			teamId: recordId.optional(),
+			subtype: meetingSubtype.optional(),
 			title: optionalText(200),
 			notes: optionalText(5000),
 			...enteredTime,
@@ -50,6 +55,10 @@ export const scheduleMeetingRequest = create(
 		.refine((v) => (v.type === "team_meeting") === (v.teamId !== undefined), {
 			path: ["teamId"],
 			message: "team_meeting_needs_one_team",
+		})
+		.refine((v) => v.subtype === undefined || v.type === "team_meeting", {
+			path: ["subtype"],
+			message: "subtype_only_for_team_meeting",
 		}),
 );
 // Type and team are fixed at creation, so an edit cannot name them.
