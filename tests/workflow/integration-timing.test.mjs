@@ -3,7 +3,7 @@
 // places seeded data passes, and so does any word in a comment or string, except pg_sleep, which lives in SQL strings.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -15,7 +15,7 @@ const SOURCE = /\.(mts|mjs|ts|js)$/;
  * The only real-time uses the test standard allows. Each is bound to its file and to the source lines it hits today,
  * so another sleep or clock read in the same file still fails. A new entry needs the owner's agreement.
  */
-export const EXEMPT = {
+const EXEMPT = {
 	"tests/integration/identity/timing.production.mts": {
 		why: "the production latency proof: its pg_sleep stall, performance.now timings and polling deadline are the measurement",
 		hits: [
@@ -202,7 +202,7 @@ const PATTERNS = [
 ];
 
 /** Every real-time shape in one file's source, as `{ line, rule }` in source order. */
-export function scan(source) {
+function scan(source) {
 	const views = lex(source);
 	const { code } = views;
 	const lineOf = (index) => source.slice(0, index).split("\n").length;
@@ -236,7 +236,7 @@ export function scan(source) {
 }
 
 /** The findings no exemption covers, and the exemptions no finding uses, across `files` (`{ path, source }`). */
-export function check(files, exempt = EXEMPT) {
+function check(files, exempt = EXEMPT) {
 	const violations = [];
 	const stale = [];
 	for (const { path, source } of files) {
@@ -259,12 +259,7 @@ function integrationFiles() {
 	return readdirSync(join(repo, ROOT), { recursive: true })
 		.filter((name) => SOURCE.test(name))
 		.sort()
-		.map((name) => {
-			const path = relative(repo, join(repo, ROOT, name))
-				.split("\\")
-				.join("/");
-			return { path, source: readFileSync(join(repo, path), "utf8") };
-		});
+		.map((name) => ({ path: `${ROOT}/${name}`, source: readFileSync(join(repo, ROOT, name), "utf8") }));
 }
 
 test("T-261: no file under tests/integration sleeps, polls the clock or asserts on wall-clock time", () => {
