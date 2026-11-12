@@ -1,7 +1,8 @@
 // T-263 (D-789, D-790): "Not a duplicate" on a pair the CSV import flagged with "Add, review later". An Owner or Admin
 // dismisses it, it leaves the list and shows in the Dismissed view, each dismiss and restore writes one audit row, a
 // repeat writes nothing and a stale pair is refused with nothing written. T-268: the side-by-side review offers it for
-// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. Through the public operations, on a scratch
+// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. T-265: the
+// People page load counts the same pairs for its header link. Through the public operations, on a scratch
 // schema, the way the web mount runs them (withPeopleWrite with the request's resolved actor).
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
@@ -12,6 +13,8 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
 import { readPair } from "../../../../apps/web/src/features/people/corrections/server.ts";
+import { readPeoplePage } from "../../../../apps/web/src/features/people/page-data.ts";
+import { parseQuery } from "../../../../apps/web/src/features/people/model.ts";
 import {
 	dismissDuplicatePair,
 	executeBulkImport,
@@ -308,6 +311,32 @@ test("AC:TARGET-PPL-016 T-268 a hint-only pair is not listed, and a dismiss afte
 	assert.deepEqual(await audits(pair), []);
 	// Reading again shows where they stand now: merged, with nothing to dismiss.
 	assert.equal((await review(pair.withPersonId, pair.personId)).kind, "merged");
+});
+
+test("AC:TARGET-PPL-016 INV-tenancy T-265 the People page load counts the church's listed pairs for an Owner or Admin, one lower after a dismiss", async () => {
+	const page = (who, pairs = true) =>
+		read(who, (t, c) => readPeoplePage(t, c, parseQuery(new URLSearchParams()), { pairs }));
+	const [one, two] = await flaggedPairs(["Quin", "Wes"]);
+	const n = (await listed()).length;
+	assert.ok(n >= 2);
+	const label = (k) => (k ? `${k} to review in Duplicates` : null);
+	assert.equal((await page(0)).review, label(n), "the Admin's count is the list's");
+	assert.equal((await page(3)).review, label(n), "the Owner's too");
+	// Church B's Admin never sees church A's pairs in its count.
+	assert.equal((await page(2)).review, label((await listed(2)).length));
+	assert.ok(!ids(await listed(2)).some((x) => x.personId === one.personId));
+	// A Member's page loads as before with no count, also if the pairs read were asked for and refused.
+	for (const pairs of [false, true]) {
+		const member = await page(1, pairs);
+		assert.equal(member.data.kind, "list");
+		assert.equal(member.review, null);
+	}
+	ok(await dismiss(one));
+	assert.equal((await page(0)).review, label(n - 1));
+	ok(await restore(one));
+	ok(await dismiss(two));
+	assert.equal((await page(0)).review, label(n - 1));
+	ok(await restore(two));
 });
 
 // T-269 (D-844, D-845): each dismiss and restore shows in the Activity of both people in the pair, naming the other one

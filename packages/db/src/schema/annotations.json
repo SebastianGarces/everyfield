@@ -1622,7 +1622,6 @@
 				"identity.credential_observed",
 				"identity.domain_accepted",
 				"identity.credential_changed",
-				"identity.credential_reconciled",
 				"identity.email_changed",
 				"identity.sessions_revoked",
 				"membership.created",
@@ -1668,10 +1667,6 @@
 				"attestation.recorded",
 				"attestation.corrected",
 				"launch.changed",
-				"launch.outcome_recorded",
-				"launch.debrief_submitted",
-				"launch.summary_published",
-				"launch.corrected",
 				"wiki.published",
 				"wiki.hidden",
 				"wiki.source_order_changed",
@@ -1679,11 +1674,6 @@
 				"documents.saved",
 				"documents.copied",
 				"files.finalized",
-				"intelligence.requested",
-				"intelligence.published",
-				"intelligence.superseded",
-				"intelligence.feedback_recorded",
-				"communication.approved",
 				"communication.send_intended",
 				"mail.accepted",
 				"mail.delivered",
@@ -1691,25 +1681,12 @@
 				"mail.reconciled",
 				"mail.cancelled",
 				"feedback.received",
-				"feedback.publication_intended",
-				"feedback.published",
-				"feedback.reconciled",
-				"execution.started",
-				"execution.completed",
-				"execution.partial",
-				"execution.cancelled",
-				"execution.reconciled",
 				"account.deletion_requested",
 				"plant.deletion_requested",
 				"deletion.cancelled",
 				"deletion.live_purge_completed",
 				"recovery.copy_expired",
-				"recovery.restored",
-				"security.access_denied",
-				"security.bulk_export",
-				"security.audit_inspected",
-				"security.audit_exported",
-				"security.operator_accessed"
+				"recovery.restored"
 			],
 			"early_access_request.kind": ["planter", "network"],
 			"early_access_request.data.phase": [
@@ -5832,9 +5809,6 @@
 				"voided_at": {
 					"note": ""
 				},
-				"corrected_commitment_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				}
@@ -5859,12 +5833,6 @@
 					}
 				},
 				"object_id,plant_id->file_object(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"corrected_commitment_id,plant_id->commitment(id,plant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7060,18 +7028,6 @@
 				"deleted_at": {
 					"note": ""
 				},
-				"source_template_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"import_operation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"milestone_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"seed_key": {
-					"note": ""
-				},
 				"revision": {
 					"note": ""
 				}
@@ -7138,33 +7094,7 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"source_template_id->reference_version(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"import_operation_id->operation(id)": {
-					"scope_exception": "Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"milestone_id,plant_id->launch_milestone(id,plant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"id,plant_id->record(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"import_operation_id->audit_event(id)": {
-					"scope_exception": "D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7749,9 +7679,6 @@
 				"operation_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
-				"criterion_version_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"offer_answer": {
 					"note": ""
 				},
@@ -7768,12 +7695,6 @@
 				},
 				"operation_id->operation(id)": {
 					"scope_exception": "Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"criterion_version_id->reference_version(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -8050,16 +7971,7 @@
 				"decisions": {
 					"note": ""
 				},
-				"outcome_notes": {
-					"note": ""
-				},
-				"outcome_recorded_at": {
-					"note": ""
-				},
 				"reference_version_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"summary_document_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"revision": {
@@ -8074,12 +7986,6 @@
 					}
 				},
 				"reference_version_id->reference_version(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"summary_document_id,plant_id->document(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -8150,9 +8056,6 @@
 				},
 				"source_version_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"seed_key": {
-					"note": ""
 				},
 				"title": {
 					"note": ""
@@ -8463,9 +8366,6 @@
 				},
 				"source_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"failure_code": {
-					"note": ""
 				},
 				"expected_passages": {
 					"note": ""
@@ -9790,9 +9690,6 @@
 				"observed_fraction": {
 					"note": ""
 				},
-				"resume_position": {
-					"note": ""
-				},
 				"last_viewed_at": {
 					"note": ""
 				},
@@ -10137,9 +10034,6 @@
 					"note": ""
 				},
 				"claim_generation": {
-					"note": ""
-				},
-				"retention_until": {
 					"note": ""
 				},
 				"purge_requested_at": {
@@ -11121,9 +11015,6 @@
 				"job_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
-				"original_mail_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				},
@@ -11172,12 +11063,6 @@
 					}
 				},
 				"job_id,tenant_id->job(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"original_mail_id,tenant_id->mail(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -11418,13 +11303,7 @@
 				"domain": "communication",
 				"purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
 				"library_owned": false,
-				"jsonb_keys": {
-					"provider_payload": [
-						"request_id: provider diagnostic correlation",
-						"status: provider response status",
-						"error: sanitized transport error detail; per-member authoritative state lives in mail and provider_event"
-					]
-				},
+				"jsonb_keys": {},
 				"capabilities": ["CAP-B-037"],
 				"replaces": ["email_attempt"],
 				"producer_work_packages": ["WP-004", "WP-028", "WP-031"],
@@ -11517,13 +11396,7 @@
 				"safe_error": {
 					"note": ""
 				},
-				"retry_at": {
-					"note": ""
-				},
 				"retryable": {
-					"note": ""
-				},
-				"provider_payload": {
 					"note": ""
 				}
 			},
@@ -12385,9 +12258,6 @@
 				"schedule_date": {
 					"note": ""
 				},
-				"schedule_time": {
-					"note": ""
-				},
 				"timezone": {
 					"note": ""
 				},
@@ -12522,12 +12392,6 @@
 				"covered_through": {
 					"note": ""
 				},
-				"last_mail_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"last_operation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				}
@@ -12545,25 +12409,7 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"last_mail_id,tenant_id->mail(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"last_operation_id,tenant_id->operation(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"id,tenant_id->record(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"last_operation_id,tenant_id->audit_event(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -13021,12 +12867,6 @@
 				"witness_checkpoint": {
 					"note": ""
 				},
-				"byte_manifest_hash": {
-					"note": ""
-				},
-				"cancellation_manifest_hash": {
-					"note": ""
-				},
 				"cleanup_state": {
 					"note": ""
 				},
@@ -13038,9 +12878,6 @@
 				},
 				"requester_opaque_id": {
 					"note": "Historical non-content subject key; retained after the live requester FK is cleared."
-				},
-				"counterparty_organization_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"cancel_until": {
 					"note": "Immutable original cancellation deadline, requested_at plus 30 days; never reset by restore."
@@ -13077,12 +12914,6 @@
 				},
 				"affiliation_id->affiliation(id)": {
 					"scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"counterparty_organization_id->organization(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."

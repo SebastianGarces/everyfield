@@ -10,8 +10,7 @@ Audit records changed fields and their permitted before/after values, safe statu
 
 | Action family | Safe metadata examples | Producer/meaning |
 |---|---|---|
-| audit.imported | original kind, time and attribution | Historical event without a typed action or linked operation; never emitted for a new business change |
-| identity.credential_observed, identity.domain_accepted, identity.credential_changed, identity.credential_reconciled, identity.email_changed, identity.sessions_revoked | result code, revoked-session count | Domain activation and truthful significant credential outcomes; no secret, address or proof token |
+| identity.credential_observed, identity.domain_accepted, identity.credential_changed, identity.email_changed, identity.sessions_revoked | result code, revoked-session count | Domain activation and truthful significant credential outcomes; no secret, address or proof token |
 | membership.created, membership.role_changed, membership.ended, invitation.changed, invitation.claimed, invitation.revoked | old/new role/status, invitation revision | Exact seat lifecycle; not an inferred CRM/title grant |
 | plant.created, plant.profile_changed, organization.profile_changed | changed non-sensitive field names, profile revision | Owned roots/settings; organization kind and scope remain immutable |
 | branding.changed | changed field names with their before and after values; no file bytes | Owner or Admin brand kit save, asset attach, asset removal and reset; the church plant owns the kit |
@@ -22,17 +21,20 @@ Audit records changed fields and their permitted before/after values, safe statu
 | meetings.changed, meetings.finalized, meetings.corrected, meetings.rsvp_recorded, meetings.response_recorded | meeting type, participation revision, generated-effect manifest hash, bounded counts | Cards and RSVP remain distinct; token/body omitted |
 | tasks.changed, tasks.completed, tasks.waived, followup.recorded, followup.corrected | task/outcome type, successor or obligation IDs | Complete, no longer needed and actual contact remain distinct |
 | phase.created, phase.declared, phase.transitioned, attestation.recorded, attestation.corrected | phase/criterion/source version and type | Human ownership; no private-care or pastoral narrative |
-| launch.changed, launch.outcome_recorded, launch.debrief_submitted, launch.summary_published, launch.corrected | domain revision, summary hash/category provenance | Canonical aggregate+typed history; raw answers remain domain-private |
+| launch.changed | domain revision | Canonical aggregate+typed history; raw answers remain domain-private |
 | wiki.published, wiki.hidden, wiki.source_order_changed, wiki.reading_recorded, wiki.bookmark_changed, reference.activated, documents.generated, documents.saved, documents.imported, documents.designated, documents.archived, documents.copied, documents.created_from_template, documents.branding_changed, documents.exported, documents.export_deleted, documents.purged, documents.template_saved, documents.template_updated, documents.template_details_changed, documents.template_deleted, files.finalized | logical/source/version IDs, content hash, format/byte count where permitted | Body/attachment bytes and signed URL omitted; reading progress and bookmarks stay on the account |
-| intelligence.requested, intelligence.published, intelligence.superseded, intelligence.feedback_recorded | run/asOf/source/reference/execution ownership and safe status | Not raw snapshot/contributor inputs/model prompts |
-| communication.approved, communication.send_intended, mail.accepted, mail.delivered, mail.refused, mail.reconciled, mail.cancelled | payload/audience hash, provider receipt ID, safe result | Accepted is not delivered; addresses/body omitted; unknown remains unknown |
+| communication.send_intended, mail.accepted, mail.delivered, mail.refused, mail.reconciled, mail.cancelled | payload/audience hash, provider receipt ID, safe result | Accepted is not delivered; addresses/body omitted; unknown remains unknown |
 | communication.draft_saved, communication.draft_deleted, communication.scheduled, communication.rescheduled, communication.template_created, communication.template_forked, communication.template_updated, communication.template_archived, communication.template_deleted | state, subject, audience ids, meeting, template, schedule time, review digest, body hash | One action per write. Body text and addresses stay out. Send handoff stays communication.send_intended |
-| feedback.received, feedback.publication_intended, feedback.published, feedback.reconciled | safe publication hash, actual repository/issue locator, result | Private original/body/identity/screenshots/logs omitted |
+| feedback.received | safe status | Private original/body/identity/screenshots/logs omitted |
 | evry.conversation_created, evry.turn_submitted, evry.turn_cancelled, evry.turn_retried | conversation and turn IDs, message sequence | The initiating account's private Evry activity; no message text, read results or model output |
 | evry.proposal_prepared, evry.proposal_revised, evry.proposal_approved, evry.proposal_cancelled, evry.proposal_retried | proposal ID, revision and review digest | The initiating account's review decisions; the executed change writes its own domain audit row with the change, keyed by the proposal and revision |
-| execution.started, execution.completed, execution.partial, execution.cancelled, execution.reconciled | exact effect manifest hash/result IDs, safe status | Actual initiator/reviewer and immutable plan digest retained |
 | account.deletion_requested, plant.deletion_requested, deletion.cancelled, deletion.live_purge_completed, recovery.copy_expired, recovery.restored | request revision/deadline/completion/copy expiry and manifest hash | No private-care subject/count metadata; no new org-deletion product |
-| security.access_denied, security.bulk_export, security.audit_inspected, security.audit_exported, security.operator_accessed | allowed purpose, scope/resource class, reason code | Bounded significant security activity; no per-request or bot-event flood |
+
+Planned packages add their own actions when they are built (D72):
+
+- Launch outcomes (WP-046) adds outcome, debrief, summary and correction actions to the launch family.
+- Intelligence publication (WP-043, WP-044) adds the intelligence request, publication, supersession and feedback actions.
+- Feedback publication (WP-049) adds publication intent, publication and reconciliation actions to the feedback family.
 
 
 Each action has its own safe field projection. Raw interviews/four Cs, notes, photos, contact/address values, model prompts, mail bodies/attachments, secrets, headers and signed URLs are excluded from platform audit. Action/resource types cannot come from a URL or untrusted user/model instruction.

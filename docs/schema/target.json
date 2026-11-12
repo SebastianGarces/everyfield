@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 104,
-  "column_count": 1207,
-  "foreign_key_count": 366,
+  "column_count": 1185,
+  "foreign_key_count": 356,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -1360,9 +1360,7 @@
       "affiliation.ended",
       "attestation.corrected",
       "attestation.recorded",
-      "audit.imported",
       "branding.changed",
-      "communication.approved",
       "communication.draft_deleted",
       "communication.draft_saved",
       "communication.rescheduled",
@@ -1399,36 +1397,19 @@
       "evry.turn_cancelled",
       "evry.turn_retried",
       "evry.turn_submitted",
-      "execution.cancelled",
-      "execution.completed",
-      "execution.partial",
-      "execution.reconciled",
-      "execution.started",
-      "feedback.publication_intended",
-      "feedback.published",
       "feedback.received",
-      "feedback.reconciled",
       "files.finalized",
       "followup.corrected",
       "followup.recorded",
       "identity.credential_changed",
       "identity.credential_observed",
-      "identity.credential_reconciled",
       "identity.domain_accepted",
       "identity.email_changed",
       "identity.sessions_revoked",
-      "intelligence.feedback_recorded",
-      "intelligence.published",
-      "intelligence.requested",
-      "intelligence.superseded",
       "invitation.changed",
       "invitation.claimed",
       "invitation.revoked",
       "launch.changed",
-      "launch.corrected",
-      "launch.debrief_submitted",
-      "launch.outcome_recorded",
-      "launch.summary_published",
       "mail.accepted",
       "mail.cancelled",
       "mail.delivered",
@@ -1442,7 +1423,6 @@
       "membership.created",
       "membership.ended",
       "membership.role_changed",
-      "note_correction",
       "organization.profile_changed",
       "people.corrected",
       "people.created",
@@ -1465,11 +1445,6 @@
       "recovery.restored",
       "reference.activated",
       "roles.changed",
-      "security.access_denied",
-      "security.audit_exported",
-      "security.audit_inspected",
-      "security.bulk_export",
-      "security.operator_accessed",
       "settings.changed",
       "sharing.changed",
       "tasks.changed",
@@ -11783,7 +11758,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -13369,12 +13344,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "corrected_commitment_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -13465,24 +13434,6 @@
             "columns": [
               "id",
               "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "corrected_commitment_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "commitment",
-            "columns": [
-              "id",
-              "plant_id"
             ]
           },
           "on_delete": "restrict"
@@ -13590,27 +13541,6 @@
           "method": "btree",
           "with": {}
         },
-        "commitment_ref_4": {
-          "name": "commitment_ref_4",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "corrected_commitment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "commitment_object_uq": {
           "name": "commitment_object_uq",
           "isUnique": true,
@@ -13639,7 +13569,6 @@
           "commitment_fk_1",
           "commitment_fk_2",
           "commitment_fk_3",
-          "commitment_fk_4",
           "commitment_fk_5"
         ],
         "checks": [
@@ -16353,18 +16282,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "last_mail_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "last_operation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -16429,42 +16346,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "last_mail_id",
-            "tenant_id"
-          ],
-          "references": {
-            "table": "mail",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "last_operation_id",
-            "tenant_id"
-          ],
-          "references": {
-            "table": "audit_event",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "tenant_id"
           ],
@@ -16500,48 +16381,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "digest_coverage_ref_2": {
-          "name": "digest_coverage_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "last_mail_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "digest_coverage_ref_3": {
-          "name": "digest_coverage_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "last_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -16555,8 +16394,6 @@
         "foreign": [
           "digest_coverage_fk_0",
           "digest_coverage_fk_1",
-          "digest_coverage_fk_2",
-          "digest_coverage_fk_3",
           "digest_coverage_fk_4"
         ],
         "checks": [
@@ -18174,12 +18011,6 @@
           "name": "claim_generation",
           "type": "bigint",
           "nullable": false
-        },
-        {
-          "note": "",
-          "name": "retention_until",
-          "type": "timestamptz",
-          "nullable": true
         },
         {
           "note": "",
@@ -20893,26 +20724,8 @@
           "nullable": true
         },
         {
-          "note": "",
-          "name": "outcome_notes",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "outcome_recorded_at",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "reference_version_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "summary_document_id",
           "type": "uuid",
           "nullable": true
         },
@@ -20960,24 +20773,6 @@
             ]
           },
           "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "summary_document_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "document",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
         }
       ],
       "checks": [
@@ -21002,27 +20797,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "launch_ref_2": {
-          "name": "launch_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "summary_document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -21032,8 +20806,7 @@
         "unique": [],
         "foreign": [
           "launch_fk_0",
-          "launch_fk_1",
-          "launch_fk_2"
+          "launch_fk_1"
         ],
         "checks": [
           "launch_ck_0",
@@ -21138,12 +20911,6 @@
         },
         {
           "note": "",
-          "name": "seed_key",
-          "type": "text",
-          "nullable": false
-        },
-        {
-          "note": "",
           "name": "title",
           "type": "text",
           "nullable": false
@@ -21194,12 +20961,6 @@
           "columns": [
             "id",
             "plant_id"
-          ]
-        },
-        {
-          "columns": [
-            "plant_id",
-            "seed_key"
           ]
         }
       ],
@@ -21280,8 +21041,7 @@
           "launch_milestone_pkey"
         ],
         "unique": [
-          "launch_milestone_uq_0",
-          "launch_milestone_uq_1"
+          "launch_milestone_uq_0"
         ],
         "foreign": [
           "launch_milestone_fk_0",
@@ -21490,18 +21250,6 @@
         },
         {
           "note": "",
-          "name": "byte_manifest_hash",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "cancellation_manifest_hash",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "cleanup_state",
           "type": "text",
           "nullable": false
@@ -21521,12 +21269,6 @@
         {
           "note": "Historical non-content subject key; retained after the live requester FK is cleared.",
           "name": "requester_opaque_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "counterparty_organization_id",
           "type": "uuid",
           "nullable": true
         },
@@ -21631,22 +21373,6 @@
           ],
           "references": {
             "table": "affiliation",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "counterparty_organization_id"
-          ],
-          "references": {
-            "table": "organization",
             "columns": [
               "id"
             ]
@@ -21766,21 +21492,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_5": {
-          "name": "lifecycle_witness_ref_5",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "counterparty_organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -21796,7 +21507,6 @@
           "lifecycle_witness_fk_2",
           "lifecycle_witness_fk_3",
           "lifecycle_witness_fk_4",
-          "lifecycle_witness_fk_5",
           "lifecycle_witness_fk_6"
         ],
         "checks": [
@@ -22189,12 +21899,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "original_mail_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -22354,24 +22058,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "original_mail_id",
-            "tenant_id"
-          ],
-          "references": {
-            "table": "mail",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "tenant_id"
           ],
@@ -22514,27 +22200,6 @@
           "method": "btree",
           "with": {}
         },
-        "mail_ref_6": {
-          "name": "mail_ref_6",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "original_mail_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "mail_communication": {
           "name": "mail_communication",
           "isUnique": false,
@@ -22588,7 +22253,6 @@
           "mail_fk_3",
           "mail_fk_4",
           "mail_fk_5",
-          "mail_fk_6",
           "mail_fk_8",
           "mail_fk_7"
         ],
@@ -22612,13 +22276,7 @@
       "domain": "communication",
       "purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
       "library_owned": false,
-      "jsonb_keys": {
-        "provider_payload": [
-          "request_id: provider diagnostic correlation",
-          "status: provider response status",
-          "error: sanitized transport error detail; per-member authoritative state lives in mail and provider_event"
-        ]
-      },
+      "jsonb_keys": {},
       "capabilities": [
         "CAP-B-037"
       ],
@@ -22760,20 +22418,8 @@
         },
         {
           "note": "",
-          "name": "retry_at",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "retryable",
           "type": "boolean",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "provider_payload",
-          "type": "jsonb",
           "nullable": true
         }
       ],
@@ -24732,12 +24378,6 @@
           "note": "",
           "name": "schedule_date",
           "type": "date",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "schedule_time",
-          "type": "time",
           "nullable": true
         },
         {
@@ -29803,12 +29443,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "criterion_version_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "offer_answer",
           "type": "text",
@@ -29889,22 +29523,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "criterion_version_id"
-          ],
-          "references": {
-            "table": "reference_version",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "plant_id"
           ],
@@ -29928,21 +29546,6 @@
         "((offer_answer IS NULL) = (answered_at IS NULL))"
       ],
       "indexes": {
-        "phase_transition_ref_2": {
-          "name": "phase_transition_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "criterion_version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "phase_transition_uq_2": {
           "name": "phase_transition_uq_2",
           "isUnique": true,
@@ -29987,7 +29590,6 @@
         "foreign": [
           "phase_transition_fk_0",
           "phase_transition_fk_1",
-          "phase_transition_fk_2",
           "phase_transition_fk_3"
         ],
         "checks": [
@@ -33051,12 +32653,6 @@
         },
         {
           "note": "",
-          "name": "resume_position",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "last_viewed_at",
           "type": "timestamptz",
           "nullable": true
@@ -35663,12 +35259,6 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "source_revision_id",
           "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "failure_code",
-          "type": "text",
           "nullable": true
         },
         {
@@ -38457,30 +38047,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "source_template_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "import_operation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "milestone_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "seed_key",
-          "type": "text",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -38530,13 +38096,6 @@
             "obligation_id"
           ],
           "where": "((obligation_id IS NOT NULL) AND (deleted_at IS NULL))"
-        },
-        {
-          "columns": [
-            "milestone_id",
-            "seed_key"
-          ],
-          "where": "(seed_key IS NOT NULL)"
         }
       ],
       "foreign_keys": [
@@ -38583,57 +38142,6 @@
           ],
           "references": {
             "table": "obligation",
-            "columns": [
-              "id",
-              "plant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "source_template_id"
-          ],
-          "references": {
-            "table": "reference_version",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "scope_exception": "D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "import_operation_id"
-          ],
-          "references": {
-            "table": "audit_event",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "milestone_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "launch_milestone",
             "columns": [
               "id",
               "plant_id"
@@ -38837,57 +38345,6 @@
           "columns": [
             {
               "expression": "obligation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_11": {
-          "name": "task_ref_11",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "source_template_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_12": {
-          "name": "task_ref_12",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "import_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_13": {
-          "name": "task_ref_13",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "milestone_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -39119,28 +38576,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "task_uq_5": {
-          "name": "task_uq_5",
-          "isUnique": true,
-          "where": "(seed_key IS NOT NULL)",
-          "columns": [
-            {
-              "expression": "milestone_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "seed_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -39154,9 +38589,6 @@
           "task_fk_0",
           "task_fk_1",
           "task_fk_10",
-          "task_fk_11",
-          "task_fk_12",
-          "task_fk_13",
           "task_fk_14",
           "task_fk_3",
           "task_fk_4",

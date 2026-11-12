@@ -55,7 +55,7 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 			assertQualifiedVectorTypes(bytes.toString("utf8"));
 		}
 	}
-	assertAdditiveAuditActions(auditActions);
+	assertAdditiveAuditActions(auditActions, await retiredAuditActions(directory));
 }
 const auditActionCheck = /ADD CONSTRAINT "audit_action" CHECK \(\(action IN \(([^)]*)\)\)\)/g;
 /** The allowed actions of the last `audit_action` CHECK a migration sets, if it sets one. */
@@ -63,13 +63,39 @@ function lastAuditActionList(sql: string): string[] | undefined {
 	const list = [...sql.matchAll(auditActionCheck)].at(-1)?.[1];
 	return list === undefined ? undefined : [...list.matchAll(/'([^']*)'/g)].map((match) => match[1] ?? "");
 }
-/** Audit rows outlive the code that wrote them, so a later list may add actions but never drop one (pac-9). */
-function assertAdditiveAuditActions(lists: { name: string; actions: string[] }[]): void {
+type Retirement = { migration: string; actions: string[] };
+/** Deliberate drops of writer-less actions, each owner-ruled (T-200). A missing file retires nothing. */
+async function retiredAuditActions(directory: URL): Promise<Retirement[]> {
+	try {
+		return JSON.parse(await readFile(new URL("retired-audit-actions.json", directory), "utf8")).retirements;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+		throw error;
+	}
+}
+/**
+ * Audit rows outlive the code that wrote them, so a later list may add actions but never drop one (pac-9).
+ * The one exception is a committed retirement: it names a migration and exactly the actions that migration drops.
+ */
+function assertAdditiveAuditActions(lists: { name: string; actions: string[] }[], retirements: Retirement[]): void {
 	const last = lists.at(-1);
 	if (!last) return;
+	const position = new Map(lists.map((list, index) => [list.name, index]));
+	for (const retirement of retirements) {
+		const index = position.get(retirement.migration) ?? 0;
+		const current = new Set(lists[index]?.actions);
+		const dropped = index ? (lists[index - 1]?.actions ?? []).filter((action) => !current.has(action)) : [];
+		if (!index || [...new Set(retirement.actions)].sort().join() !== dropped.sort().join())
+			throw Error(`Retirement ${retirement.migration} must name exactly the audit actions that migration drops`);
+	}
 	const kept = new Set(last.actions);
-	for (const earlier of lists.slice(0, -1)) {
-		const dropped = earlier.actions.filter((action) => !kept.has(action));
+	for (const [index, earlier] of lists.slice(0, -1).entries()) {
+		const retired = new Set(
+			retirements
+				.filter((retirement) => (position.get(retirement.migration) ?? 0) > index)
+				.flatMap((retirement) => retirement.actions),
+		);
+		const dropped = earlier.actions.filter((action) => !kept.has(action) && !retired.has(action));
 		if (dropped.length) throw Error(`${last.name} drops audit actions ${earlier.name} allowed: ${dropped.join(", ")}`);
 	}
 }
