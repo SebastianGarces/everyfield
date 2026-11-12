@@ -387,6 +387,9 @@ export const mailReport = z.discriminatedUnion("kind", [
 		accepted: count,
 		refused: count,
 		unknown: count,
+		/** Set when the handoff left the email waiting in Everyfield (D-927): who waits, and who the review left out. */
+		waiting: count.optional(),
+		leftOut: count.optional(),
 		code: z.string().optional(),
 	}),
 	z.object({
@@ -411,6 +414,8 @@ export const mailReport = z.discriminatedUnion("kind", [
 		accepted: count,
 		refused: count,
 		unknown: count,
+		waiting: count.optional(),
+		leftOut: count.optional(),
 	}),
 	/** No new send: a cancel is open or too late, or the new one was refused after the old one was cancelled. */
 	z.object({

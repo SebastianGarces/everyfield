@@ -301,10 +301,14 @@ for (const [engine, launcher] of ENGINES) {
 			const message = await scheduledFriday(panel, d, false);
 			const card = done(panel, /^Scheduled for Fri, 9:00 AM/);
 			const text = await card.innerText();
-			assert.match(text, /Accepted\s*3/);
-			// Priya's blocked address is refused; Dana unsubscribed, which Messages counts apart from refusals.
-			assert.match(text, /Refused\s*1/);
-			assert.match(text, /Unknown\s*0/);
+			// The email waits in Everyfield (D-927): the card counts who waits and who the review left out.
+			assert.match(text, /Waiting\s*3/);
+			assert.match(text, /Left out\s*3/);
+			assert.match(
+				text,
+				/Everyfield keeps this email until Fri, 9:00 AM C[SD]T, then hands it to the email service\. Anyone who unsubscribes before then doesn't get it\./,
+			);
+			assert.doesNotMatch(text, /email service accepted|Accepted|Refused|Unknown/, "the email service was not asked yet");
 			assert.doesNotMatch(text, /delivered/i, "the card never says delivered");
 			assert.equal(message.state, "scheduled");
 			assert.equal(await d.requests(message.id), 1, "one frozen send request");
@@ -500,7 +504,11 @@ for (const [engine, launcher] of ENGINES) {
 			await done(panel, /^Not replaced/)
 				.getByRole("button", { name: "Check again" })
 				.click();
-			await done(panel, /^Replacement scheduled for Fri, 9:00 AM/).waitFor({ timeout: 120_000 });
+			const replaced = done(panel, /^Replacement scheduled for Fri, 9:00 AM/);
+			await replaced.waitFor({ timeout: 120_000 });
+			const replacedText = await replaced.innerText();
+			assert.match(replacedText, /The old send is cancelled\. Everyfield keeps this email until Fri, 9:00 AM/);
+			assert.doesNotMatch(replacedText, /email service accepted|delivered/i);
 			assert.equal((await d.mail(original.id)).filter((m) => m.state === "cancelled").length, 3);
 			const replacement = await d.rows(
 				d.sql`SELECT id,state,body_text FROM communication WHERE plant_id=${d.plant}::uuid AND subject=${SUBJECT} AND id<>${original.id}::uuid ORDER BY created_at DESC LIMIT 1`,
@@ -616,7 +624,11 @@ for (const [engine, launcher] of ENGINES) {
 			const card = await ask(panel, "Replace the body of the Friday email with: New words", "Review the replacement");
 			const before = await offered();
 			await approve(card);
-			await done(panel, /^Replacement scheduled for Fri, 9:00 AM/).waitFor({ timeout: 120_000 });
+			const replaced = done(panel, /^Replacement scheduled for Fri, 9:00 AM/);
+			await replaced.waitFor({ timeout: 120_000 });
+			const replacedText = await replaced.innerText();
+			assert.match(replacedText, /The old send is cancelled\. Everyfield keeps this email until Fri, 9:00 AM/);
+			assert.doesNotMatch(replacedText, /email service accepted|delivered/i);
 			const replacement = await d.message();
 			assert.notEqual(replacement.id, original.id);
 			const cancel = await ask(panel, "Cancel the Friday email", "Review before cancelling");

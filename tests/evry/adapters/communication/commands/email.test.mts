@@ -445,7 +445,17 @@ test("AC:WP-028-5 approving a schedule saves it scheduled, reports counts withou
 	assert.deepEqual(
 		{ ...review.receipt!.report, scheduledAt: undefined },
 		// Casey's blocked address is refused; Dana unsubscribed, which Messages counts apart from refusals (D-284).
-		{ kind: "schedule", confirmation: "confirmed", accepted: 2, refused: 1, unknown: 0, scheduledAt: undefined },
+		{
+			kind: "schedule",
+			confirmation: "confirmed",
+			accepted: 2,
+			refused: 1,
+			unknown: 0,
+			// No email service call yet: two wait in Everyfield, and the review left Casey, Dana and Member 001 out (D-927).
+			waiting: 2,
+			leftOut: 3,
+			scheduledAt: undefined,
+		},
 	);
 	assert.equal(review.receipt!.report!.scheduledAt, expected!.at);
 	assert.doesNotMatch(JSON.stringify(review.receipt), /delivered/i);

@@ -194,7 +194,7 @@ const leftOutIds = sql`coalesce((SELECT jsonb_agg(id) FROM classified WHERE reas
 
 type Handoff = Awaited<ReturnType<typeof communicationWriter.handOffScheduled>>;
 /** The message is saved as scheduled. Only an accepted recipient is called scheduled; unknown ones are counted, never called delivered. */
-function scheduleReport(sent: Handoff, scheduledAt: string): MailReport {
+function scheduleReport(sent: Handoff, scheduledAt: string, leftOut?: number): MailReport {
 	if (sent.status !== "ok")
 		return {
 			kind: "schedule",
@@ -213,8 +213,14 @@ function scheduleReport(sent: Handoff, scheduledAt: string): MailReport {
 		accepted: v.acceptedCount,
 		refused: v.rejectedCount,
 		unknown: v.unknownCount,
+		...(leftOut === undefined ? {} : waitingIn(v.acceptedCount, leftOut)),
 	};
 }
+/**
+ * A scheduled handoff makes no email service call (D-927): every recipient it accepts waits in Everyfield until the send
+ * time. Only the handoff itself says so; a later check may find mail the email service already took.
+ */
+const waitingIn = (accepted: number, leftOut: number) => ({ waiting: accepted, leftOut });
 
 export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	operation: "communication.scheduleReviewed",
@@ -280,7 +286,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 			mail.transport,
 			mail.keys,
 		);
-		return { ...first, report: scheduleReport(sent, scheduledAt) };
+		return { ...first, report: scheduleReport(sent, scheduledAt, saved.leftOut.length) };
 	},
 	async check(db, authority, args, keys, mail): Promise<EffectResult> {
 		const saved = savedSchedule.parse(args);
@@ -551,6 +557,7 @@ async function replaceStep(
 			accepted: v.acceptedCount,
 			refused: v.rejectedCount,
 			unknown: v.unknownCount,
+			...waitingIn(v.acceptedCount, saved.leftOut.length),
 		},
 	};
 }

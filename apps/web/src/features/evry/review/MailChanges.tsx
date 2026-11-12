@@ -215,8 +215,28 @@ const cancelTally = (report: { cancelled: number; sent: number; open: number }) 
 	/>
 );
 
-/** What the email service said about one request, in words that never go past what it said. */
-function handoffText(report: { confirmation: string; unknown: number }, at: string | null): string {
+type Handoff = { confirmation: string; unknown: number; waiting?: number | undefined; leftOut?: number | undefined };
+/** The email waits in Everyfield until its send time (D-927); the email service has not been asked yet. */
+const waits = (report: Handoff) => report.confirmation === "confirmed" && report.waiting !== undefined;
+
+/** The counts of one handoff: who waits in Everyfield, or what the email service answered. */
+function handoffCounts(report: Handoff & { accepted: number; refused: number }) {
+	return waits(report) ? (
+		<Tally
+			items={[
+				["Waiting", report.waiting ?? 0],
+				["Left out", report.leftOut ?? 0],
+			]}
+		/>
+	) : (
+		handoffTally(report)
+	);
+}
+
+/** What one handoff means, in words that never go past what is known. */
+function handoffText(report: Handoff, at: string | null): string {
+	if (waits(report))
+		return `Everyfield keeps this email until ${at}, then hands it to the email service. Anyone who unsubscribes before then doesn't get it.`;
 	return report.confirmation === "confirmed"
 		? `The email service accepted these for ${at}. Accepted does not mean the email arrived. The email service reports what happens next.`
 		: `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email at ${at}. Check again asks it again.`;
@@ -239,7 +259,7 @@ export function MailResult({ review }: { review: Review }) {
 		case "schedule":
 			lines = (
 				<>
-					{handoffTally(report)}
+					{handoffCounts(report)}
 					<p className="text-text-2">
 						{report.confirmation === "refused"
 							? report.code
@@ -253,7 +273,7 @@ export function MailResult({ review }: { review: Review }) {
 		case "replace":
 			lines = (
 				<>
-					{handoffTally(report)}
+					{handoffCounts(report)}
 					<p className="text-text-2">
 						The old send is cancelled. {handoffText(report, reportTime(report.scheduledAt, review))}
 					</p>
