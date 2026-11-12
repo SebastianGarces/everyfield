@@ -36,8 +36,11 @@ export class RenderFailed extends Error {
 export function engineVersionOf(content: unknown) {
 	return hash({ profile: RENDER_PROFILE, fonts: fontDigests(), theme: themeTokensDigest(), content });
 }
+let engineVersion: ReturnType<typeof engineVersionOf> | undefined;
+/** The version of this process's engine: its pins, fonts, tokens and template content never change while it runs. */
 export function renderEngineVersion() {
-	return engineVersionOf(contentSnapshot());
+	engineVersion ??= engineVersionOf(contentSnapshot());
+	return engineVersion;
 }
 
 export function unsafe(value: string) {

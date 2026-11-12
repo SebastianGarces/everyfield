@@ -2,7 +2,7 @@
 
 import { requestDatabase } from "@/server/database";
 import {
-	saveChurchRequest,
+	type saveChurchRequest,
 	type ChurchCompare,
 	type CompareView,
 	type ChurchTemplateSummary,
@@ -10,6 +10,7 @@ import {
 } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
+import type { z } from "zod";
 import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
@@ -44,6 +45,8 @@ export async function createChurchDocument(
 	redirect(`/documents/church/${id}`);
 }
 
+type ChurchSaveInput = z.input<typeof saveChurchRequest>;
+
 export type SaveResult =
 	{ status: "saved"; revision: string } | { status: "refused"; code: string; message: string } | { status: "lost" };
 
@@ -59,20 +62,21 @@ export async function saveChurchDocument(
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
-	const request = saveChurchRequest.safeParse({ documentId, expectedRevision, body });
-	if (!request.success) {
-		const first = request.error.issues[0]?.message ?? "";
-		return { status: "refused", code: "invalid_input", message: `The document is not valid: ${first}` };
-	}
 	try {
-		const reply = await documentsWriter.saveNative(db, actor, request.data);
+		// The writer parses the request, body included, once; a body it refuses names its first problem.
+		const reply = await documentsWriter.saveNative(db, actor, {
+			documentId,
+			expectedRevision,
+			body,
+		} as ChurchSaveInput);
 		if (reply.status !== "ok") {
-			const refused = refusedWith(reply.error.code);
-			return {
-				status: "refused",
-				code: reply.error.code,
-				message: refused.message,
-			};
+			if (reply.error.code === "invalid_input")
+				return {
+					status: "refused",
+					code: "invalid_input",
+					message: `The document is not valid: ${reply.error.details.issues[0]?.problem ?? ""}`,
+				};
+			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
 		}
 		return { status: "saved", revision: reply.value.revision };
 	} catch (error) {

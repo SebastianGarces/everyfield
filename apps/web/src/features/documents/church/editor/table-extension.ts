@@ -13,8 +13,9 @@ import { Extension, mergeAttributes, Node as TiptapNode, type Editor } from "@ti
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type EditorView, type ViewMutationRecord } from "@tiptap/pm/view";
+import { Decoration, type EditorView, type ViewMutationRecord } from "@tiptap/pm/view";
 import { attrsOfSpec, BLOCKS, px } from "./attrs.ts";
+import { docDecorations } from "./doc-decorations.ts";
 import {
 	focusPlace,
 	newTyping,
@@ -642,14 +643,10 @@ export const TableRules = Extension.create({
 	addProseMirrorPlugins() {
 		return [
 			tableFocusPlugin(),
+			docDecorations("efTableDisplay", (doc) => tablesIn(doc).flatMap(({ node, pos }) => decorationsFor(node, pos))),
 			new Plugin({
-				key: new PluginKey("efTableDisplay"),
+				key: new PluginKey("efTableRules"),
 				props: {
-					decorations: ({ doc }) =>
-						DecorationSet.create(
-							doc,
-							tablesIn(doc).flatMap(({ node, pos }) => decorationsFor(node, pos)),
-						),
 					// A selection inside a table stays in one cell: a drag or Shift+arrows cannot span cells.
 					createSelectionBetween: (_view, $anchor, $head) => {
 						const doc = $anchor.doc;

@@ -13,12 +13,13 @@ import { UndoRedo } from "@tiptap/extensions";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type ViewMutationRecord } from "@tiptap/pm/view";
+import { Decoration, type ViewMutationRecord } from "@tiptap/pm/view";
 import type { DocBrand, EveryfieldDoc, FieldDecl } from "@everyfield/contracts/documents";
 import { fieldValues as printedValues, PLACEHOLDER, SLOT_BLANK_NOTE } from "@everyfield/domain/documents/values";
 import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, insideColumn, regionAt } from "./blocks.ts";
 import { ConditionRules, EfIf } from "./condition-extension.ts";
+import { docDecorations } from "./doc-decorations.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
@@ -284,20 +285,15 @@ export const EfField = Node.create({
 	},
 	addProseMirrorPlugins() {
 		return [
-			new Plugin({
-				key: new PluginKey("efFieldValues"),
-				props: {
-					decorations: (state) => {
-						const values = liveValues(state.doc);
-						const found: Decoration[] = [];
-						state.doc.descendants((node, pos) => {
-							if (node.type.name !== "field") return;
-							const value = values[String(node.attrs.key ?? "")] ?? "";
-							found.push(Decoration.node(pos, pos + node.nodeSize, {}, { fieldValue: value }));
-						});
-						return DecorationSet.create(state.doc, found);
-					},
-				},
+			docDecorations("efFieldValues", (doc) => {
+				const values = liveValues(doc);
+				const found: Decoration[] = [];
+				doc.descendants((node, pos) => {
+					if (node.type.name !== "field") return;
+					const value = values[String(node.attrs.key ?? "")] ?? "";
+					found.push(Decoration.node(pos, pos + node.nodeSize, {}, { fieldValue: value }));
+				});
+				return found;
 			}),
 		];
 	},
@@ -628,7 +624,7 @@ function placeholderDecorations(doc: PMNode) {
 				Decoration.inline(pos + match.index, pos + match.index + match[0].length, { class: "ef-placeholder" }),
 			);
 	});
-	return DecorationSet.create(doc, found);
+	return found;
 }
 
 /**
@@ -638,17 +634,7 @@ function placeholderDecorations(doc: PMNode) {
 export const Placeholders = Extension.create({
 	name: "placeholders",
 	addProseMirrorPlugins() {
-		const key = new PluginKey<DecorationSet>("efPlaceholders");
-		return [
-			new Plugin({
-				key,
-				state: {
-					init: (_config, state) => placeholderDecorations(state.doc),
-					apply: (tr, old) => (tr.docChanged ? placeholderDecorations(tr.doc) : old),
-				},
-				props: { decorations: (state) => key.getState(state) },
-			}),
-		];
+		return [docDecorations("efPlaceholders", placeholderDecorations)];
 	},
 });
 
@@ -672,37 +658,31 @@ export function headingNumbers(doc: PMNode) {
 	return numbers;
 }
 
-const numberKey = new PluginKey("efHeadingNumbers");
 export const HeadingNumbers = Extension.create({
 	name: "headingNumbers",
 	addProseMirrorPlugins() {
 		return [
-			new Plugin({
-				key: numberKey,
-				props: {
-					decorations: (state) => {
-						const decorations: Decoration[] = [];
-						for (const [pos, text] of headingNumbers(state.doc)) {
-							decorations.push(
-								Decoration.widget(
-									pos + 1,
-									() => {
-										const span = document.createElement("span");
-										span.className = "ef-heading-number";
-										span.contentEditable = "false";
-										span.textContent = text;
-										return span;
-									},
-									{ side: -1, ignoreSelection: true, key: `n${pos}${text}` },
-								),
-							);
-							// The number sits in front of the text, so the heading itself also carries the numbered look.
-							const node = state.doc.nodeAt(pos);
-							if (node) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "ef-heading-numbered" }));
-						}
-						return DecorationSet.create(state.doc, decorations);
-					},
-				},
+			docDecorations("efHeadingNumbers", (doc) => {
+				const decorations: Decoration[] = [];
+				for (const [pos, text] of headingNumbers(doc)) {
+					decorations.push(
+						Decoration.widget(
+							pos + 1,
+							() => {
+								const span = document.createElement("span");
+								span.className = "ef-heading-number";
+								span.contentEditable = "false";
+								span.textContent = text;
+								return span;
+							},
+							{ side: -1, ignoreSelection: true, key: `n${pos}${text}` },
+						),
+					);
+					// The number sits in front of the text, so the heading itself also carries the numbered look.
+					const node = doc.nodeAt(pos);
+					if (node) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "ef-heading-numbered" }));
+				}
+				return decorations;
 			}),
 		];
 	},
