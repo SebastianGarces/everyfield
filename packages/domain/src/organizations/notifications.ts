@@ -18,12 +18,9 @@ export const milestoneCategory = {
 	sharing: "sharing_milestone",
 } as const satisfies Record<Milestone, string>;
 
-/** The job key of one occurrence: the milestone and the affiliation revision its write produced. */
-export const milestoneKey = (occurrence: Milestone, revision: string) => `affiliation/${occurrence}/${revision}`;
-
 /**
- * The milestone's `notification` job, as one statement for the command's write (D70). Keyed by the occurrence and the
- * revision it wrote, so a later re-approval queues its own job and a replay never reaches here.
+ * The milestone's `notification` job, as one statement for the command's write (D70). Keyed
+ * `affiliation/<occurrence>/<revision>` by the occurrence and the revision it wrote, so a later re-approval queues its own job and a replay never reaches here.
  */
 export function queueMilestoneJob(input: {
 	plantId: string;
@@ -34,7 +31,7 @@ export function queueMilestoneJob(input: {
 	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, source_revision, state, eligible_at,
 		attempt_count, max_attempts, claim_generation)
 		VALUES (${sql.param(input.plantId)}::uuid, 'notification', ${sql.param(input.affiliationId)}::uuid,
-			${milestoneKey(input.occurrence, input.revision)}, ${sql.param(input.revision)}::bigint, 'ready', clock_timestamp(), 0, 4, 0)
+			${`affiliation/${input.occurrence}/${input.revision}`}, ${sql.param(input.revision)}::bigint, 'ready', clock_timestamp(), 0, 4, 0)
 		ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`;
 }
 
@@ -51,7 +48,7 @@ const planRow = z.object({
 	recipients: z.array(z.uuid()),
 });
 /** What a milestone's notice says. It names the organization and the plant's own committed event, nothing more. */
-export function milestoneNotice(occurrence: Milestone, organization: string) {
+function milestoneNotice(occurrence: Milestone, organization: string) {
 	const name = organization.slice(0, 400);
 	return {
 		approved: { title: `Connection approved: ${name}`, text: `${name} is now connected with your church.` },
