@@ -246,7 +246,7 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 			IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY,
 			IDENTITY_ADDRESS_KEY: env.IDENTITY_ADDRESS_KEY,
 		});
-		for (const k of Object.values(seedKeys)) assert.match(k, /^[a-f0-9]{64}$/);
+		for (const k of Object.values(seedKeys)) assert.match(k!, /^[a-f0-9]{64}$/);
 		assert.notEqual(seedKeys.IDENTITY_MAIL_KEY, seedKeys.IDENTITY_ADDRESS_KEY);
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
 		assert.ok(s.calls("vercel").some((c) => c.includes("--target") && c.includes("preview")));
@@ -783,9 +783,9 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	assert.deepEqual(
 		(await logins()).filter(
 			(l) =>
-				![QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside].includes(
-					String(l.email),
-				),
+				!(
+					[QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside] as string[]
+				).includes(String(l.email)),
 		),
 		beforeLogins,
 	);

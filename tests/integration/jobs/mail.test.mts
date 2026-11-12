@@ -418,7 +418,7 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 	mode = "accepted";
 });
 test("INV-mail: hard bounce suppresses even security mail; soft bounce does not", async () => {
-	const id = await enqueue();
+	await enqueue();
 	const [c] = await claimDue(runtime, ["mail"]);
 	const out = await service.dispatch(c);
 	assert.equal(out.kind, "accepted");

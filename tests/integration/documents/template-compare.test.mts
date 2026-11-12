@@ -140,7 +140,7 @@ describe("INV-template-compare: compare a document with its template (no databas
 // ---------------------------------------------------------------- the read and the accept, on the database
 
 const database = await fixture({ prefix: "t19cmp", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
