@@ -79,6 +79,17 @@ export function updatedText(iso: string) {
 	return `Updated ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
 }
 
+/** "Archived Nov 8, 2026 by Dana Reyes", or "by a former member" once the archiver's seat ended (D-105). */
+export function archivedText(iso: string, by: string | null) {
+	const date = new Date(iso).toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+	return `Archived ${date} by ${by ?? "a former member"}`;
+}
+
 /** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
 export function savedAt(iso: string) {
 	return new Date(iso).toLocaleString("en-US", {

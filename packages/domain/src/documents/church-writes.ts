@@ -1703,6 +1703,92 @@ export const churchWriter = {
 		});
 	},
 
+	/**
+	 * The church plant's archived Church Documents for an Owner or Admin (T-284): the latest 200 by archive, newest first,
+	 * each with who archived it while they hold a seat here (D-105). A deleted document never lists, archived or not. A
+	 * Member is refused before any statement. One statement.
+	 */
+	async listArchivedChurch(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			parse(c.listArchivedChurchRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{
+				ok: boolean;
+				documents: {
+					id: string;
+					title: string;
+					document_class: ChurchRow["document_class"];
+					archived_at: string;
+					archived_by: string | null;
+				}[];
+			}>(
+				db,
+				sql`SELECT g.ok,
+					(SELECT coalesce(json_agg(x ORDER BY x.archived_at DESC, x.id), '[]'::json) FROM (
+						SELECT d.id, d.title, d.document_class, d.church_archived_at AS archived_at,
+							${seatedName(sql`d.church_archived_by`)} AS archived_by
+						FROM document d
+						WHERE g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document' AND d.archived_at IS NULL
+							AND d.church_archived_at IS NOT NULL AND d.current_revision_id IS NOT NULL
+						ORDER BY d.church_archived_at DESC, d.id
+						LIMIT 200
+					) x) AS documents
+				FROM (SELECT ${gateSql(scope, true)} AS ok) g`,
+			);
+			if (found[0]?.ok !== true) deny("access_denied");
+			return c.archivedChurchList.parse({
+				documents: found[0].documents.map((row) => ({
+					id: row.id,
+					title: row.title,
+					documentClass: row.document_class,
+					archivedAt: iso(row.archived_at),
+					archivedBy: row.archived_by || null,
+				})),
+			});
+		});
+	},
+
+	/**
+	 * An Owner or Admin restores an archived Church Document (T-284), the reverse of archive only: it returns to the library
+	 * and to every read and write archive hid it from, with its revision, revisions and saved exports as they were. One
+	 * statement checks the seat, clears both archive columns and writes one `documents.church_restored` audit row. A
+	 * document that is not archived, or is deleted, is refused as unavailable and writes nothing, so a second restore of
+	 * the same document writes nothing more.
+	 */
+	async restoreChurch(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.restoreChurchRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{ ok: boolean; restored: string | null }>(
+				db,
+				sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+				upd AS (
+					UPDATE document SET church_archived_at = NULL, church_archived_by = NULL
+					FROM gate
+					WHERE gate.ok AND document.id = ${input.documentId}::uuid AND document.tenant_id = ${scope.tenantId}::uuid
+						AND document.kind = 'church_document' AND document.archived_at IS NULL
+						AND document.church_archived_at IS NOT NULL
+					RETURNING document.id, document.revision
+				),
+				aud AS (
+					INSERT INTO audit_event (
+						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, after_revision, metadata
+					)
+					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.church_restored', 'restore', upd.id,
+						clock_timestamp(), clock_timestamp(), 'church-document-restored:' || upd.id::text || ':' || ${randomUUID()}::text,
+						upd.revision, '{}'::jsonb
+					FROM upd
+					RETURNING id
+				)
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM upd) AS restored`,
+			);
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (!row.restored) deny("unavailable");
+			return c.restoredChurch.parse({ documentId: row.restored, restored: true });
+		});
+	},
+
 	async "history.list.church"(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.churchHistoryRequest, raw);

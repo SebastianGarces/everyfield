@@ -159,6 +159,10 @@ export const acceptTemplateRequest = z.strictObject({
 export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
 /** Archive a Church Document: it leaves the library and stays readable. The expected revision guards a stale page. */
 export const archiveChurchRequest = deleteChurchRequest;
+/** The church plant's archived Church Documents, newest archive first (T-284). */
+export const listArchivedChurchRequest = z.strictObject({});
+/** Restore an archived Church Document to the library (T-284). Archive keeps the revision, so none is expected. */
+export const restoreChurchRequest = z.strictObject({ documentId: recordId });
 export const documentRevisionRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
