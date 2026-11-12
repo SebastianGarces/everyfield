@@ -295,6 +295,7 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	const mail = calls[0]!.body as { to: string; text: string };
 	assert.equal(mail.to, invitee);
 	assert.ok(mail.text.includes(`It works until ${day.format(original)} (UTC).`), mail.text);
-	// Not day 29 + 30.
-	assert.ok(!mail.text.includes(day.format(new Date(Date.now() + 30 * 86_400_000))));
+	// Not day 29 + 30: the row was created 29 days before the resend, so that date is created_at + 59 days.
+	const extended = new Date(new Date(created_at).getTime() + 59 * 86_400_000);
+	assert.ok(!mail.text.includes(day.format(extended)), mail.text);
 });
