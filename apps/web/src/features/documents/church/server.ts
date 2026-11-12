@@ -100,17 +100,17 @@ export async function loadChurchDocument(
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
+		const readOnly = () =>
+			documentsWriter
+				.readChurch(db, authority, { documentId })
+				.then((r) =>
+					r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
+				);
 		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
 		// a Member reads the document alone, with its branding value, and gets no editor and no template status, so a
 		// Member's page never learns of a template update. Every seat reads the saved exports and the revisions (D-141).
 		const [first, saved, history] = await Promise.all([
-			canManageChurch(authority)
-				? documentsWriter.readChurchForEdit(db, authority, { documentId })
-				: documentsWriter
-						.readChurch(db, authority, { documentId })
-						.then((r) =>
-							r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
-						),
+			canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
 			documentsWriter.listExports(db, authority, { documentId }),
 			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
@@ -119,11 +119,7 @@ export async function loadChurchDocument(
 		// the document is archived (or deleted since), and an Owner or Admin reads it as a Member does: read-only.
 		const reply =
 			first.status !== "ok" && first.error.code === "unavailable" && saved.status === "ok" && canManageChurch(authority)
-				? await documentsWriter
-						.readChurch(db, authority, { documentId })
-						.then((r) =>
-							r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
-						)
+				? await readOnly()
 				: first;
 		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
