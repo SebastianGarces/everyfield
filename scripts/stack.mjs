@@ -6,10 +6,10 @@ import { parseArgs } from "node:util";
 import { recordsDir, wrapSetupCommands } from "./setup-step.mjs";
 
 const help = `Local preview commands, Node 24 and managed Portless required:
-  corepack pnpm stack:up [--mode development|production]
-  corepack pnpm stack:status
-  corepack pnpm stack:check
-  corepack pnpm stack:down
+  bin/dev stack up [--mode development|production]
+  bin/dev stack status
+  bin/dev stack check
+  bin/dev stack down
 Optional --project PATH selects another worktree. Production requires a clean commit.
 Status and check print JSON. Down preserves the worktree. See apps/web/README.md.`;
 
@@ -70,7 +70,7 @@ async function main() {
 		? Object.fromEntries(["id", "project", "head", "branch", "mode", "state", "url"].map((key) => [key, preview[key]]))
 		: { project, state: "stopped" };
 	if (action === "check") {
-		if (preview?.state !== "ready") throw new Error("This worktree has no ready preview. Run stack:up first.");
+		if (preview?.state !== "ready") throw new Error("This worktree has no ready preview. Run bin/dev stack up first.");
 		const git = spawnSync("git", ["-C", project, "rev-parse", "HEAD"], { encoding: "utf8" });
 		if (git.status !== 0 || git.stdout.trim() !== preview.head)
 			throw new Error("Preview commit differs from HEAD. Stop and recreate the preview.");

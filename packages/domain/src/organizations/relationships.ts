@@ -38,6 +38,7 @@ import {
 	type Affiliation,
 	type OrganizationEffects,
 } from "./core.ts";
+import { queueMilestoneJob } from "./notifications.ts";
 
 const DAY = 86400000;
 const invitationFacts = z.object({
@@ -377,6 +378,10 @@ export function relationshipCommands(
 			);
 			setAuditDetails(c, event, { pair: pair, sourceInvitationId: i.id }, null);
 			invalidate(tx, effects, c, pair, a.id, a.revision);
+			if (a.plant_id)
+				c.writes.push(
+					queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "approved", revision: a.revision }),
+				);
 			return finishCommand(tx, c, () =>
 				Q.invitationDecisionResult.parse({ status: "accepted", relationship: projection(a) }),
 			);
@@ -482,6 +487,10 @@ export function relationshipCommands(
 			const event = await appendEvent(tx, c, a.id, "remove", "affiliation.ended", a.revision, next);
 			setAuditDetails(c, event, { pair, sourceInvitationId: a.invitation_id }, q.input.reason);
 			invalidate(tx, effects, c, pair, a.id, next);
+			if (a.plant_id)
+				c.writes.push(
+					queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "ended", revision: next }),
+				);
 			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 		});
 	}

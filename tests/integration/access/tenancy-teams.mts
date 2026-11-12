@@ -7,7 +7,6 @@ import {
 	TEMPLATES,
 	responsibilityReader,
 	responsibilityWriter,
-	reviewDigest,
 	teamsReader,
 	teamsWriter,
 	trainingReader,
@@ -32,7 +31,7 @@ export async function seedTeams(t) {
 	ok(
 		await write(teamsWriter.initialize, {
 			requestKey: key(),
-			input: { ...setup, reviewDigest: reviewDigest({ ...setup, lines: [] }) },
+			input: setup,
 		}),
 	);
 	a.ministry = (await read(teamsReader.list, {})).items.find((team) => team.templateKey === "worship").id;

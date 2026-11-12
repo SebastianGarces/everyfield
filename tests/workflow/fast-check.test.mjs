@@ -26,7 +26,14 @@ const temp = (prefix) => {
 	return dir;
 };
 
-const DEV = ["bin/dev", "scripts/dev.ts", "scripts/browser.ts", "scripts/fast-check.ts", "scripts/package.json"];
+const DEV = [
+	"bin/dev",
+	"bin/lib/node24.sh",
+	"scripts/dev.ts",
+	"scripts/browser.ts",
+	"scripts/fast-check.ts",
+	"scripts/package.json",
+];
 const copyDev = (dir) => {
 	for (const file of DEV) {
 		mkdirSync(dirname(join(dir, file)), { recursive: true });

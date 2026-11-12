@@ -1,7 +1,7 @@
 "use server";
 
 import { getViewer } from "@/server/request-context";
-import { reviewDigest, teamsWriter } from "@everyfield/domain/teams";
+import { teamsWriter } from "@everyfield/domain/teams";
 import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Outcome } from "./model.ts";
@@ -156,10 +156,7 @@ export async function templateCatalog() {
 }
 
 type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
-/**
- * Adds the templates the person just reviewed. The digest is computed here from those choices, so the browser never
- * computes it and cannot send a review for a different choice. The answer says how many ministries and roles are new.
- */
+/** Adds the templates the person just reviewed. The answer says how many ministries and roles are new. */
 export async function importTemplates(
 	requestKey: string,
 	version: string,
@@ -167,11 +164,10 @@ export async function importTemplates(
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;
-	const digest = reviewDigest({ expectedVersion: version, mode: "import", selections, lines: [] });
 	const done = await write(v, (tx, ctx) =>
 		teamsWriter.initialize(tx, ctx, {
 			requestKey,
-			input: { expectedVersion: version, reviewDigest: digest, mode: "import", selections },
+			input: { expectedVersion: version, mode: "import", selections },
 		}),
 	);
 	if (done.status !== "ok") return done;
