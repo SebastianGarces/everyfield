@@ -19,6 +19,7 @@ import {
 	type ReferenceType,
 	FloatingDelayGroup,
 } from "@floating-ui/react";
+import { usePortalContainer } from "@everyfield/ui/controls";
 import { TOOLTIP } from "../styles.ts";
 
 interface TooltipProviderProps {
@@ -179,6 +180,8 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 ) {
 	const context = useTooltipContext();
 	const ref = useMergeRefs([context.refs.setFloating, propRef]);
+	// Everyfield change: portal into the product root, not <body>, so the product font and tokens apply.
+	const container = usePortalContainer();
 
 	if (!context.open) return null;
 
@@ -197,7 +200,11 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 	);
 
 	if (portal) {
-		return <FloatingPortal {...portalProps}>{content}</FloatingPortal>;
+		return (
+			<FloatingPortal root={container} {...portalProps}>
+				{content}
+			</FloatingPortal>
+		);
 	}
 
 	return content;

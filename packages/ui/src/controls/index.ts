@@ -59,6 +59,7 @@ export {
 	MenuTrigger,
 } from "./Menu";
 export { Breadcrumb, PageHeader, type Crumb } from "./PageHeader";
+export { usePortalContainer } from "./overlay-portal";
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger, Tooltip, TooltipSep } from "./Popover";
 export { Select, type SelectOption } from "./Select";
 export { Spinner } from "./Spinner";
