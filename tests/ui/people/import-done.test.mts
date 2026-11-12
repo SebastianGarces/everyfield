@@ -97,7 +97,7 @@ test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did n
 
 // T-193 (people/peo-24): a complete import with flagged rows says how many to review and links to Duplicates; one with
 // none keeps its plain line, and a partial import keeps its retry message.
-const done = (r: unknown) =>
+const done = (r: unknown, problem: unknown = null) =>
 	renderToStaticMarkup(
 		createElement(
 			AppRouterContext.Provider,
@@ -107,7 +107,7 @@ const done = (r: unknown) =>
 				receipt: r,
 				review: null,
 				working: false,
-				problem: null,
+				problem,
 				onRetry: () => {},
 				onStartOver: () => {},
 			}),
@@ -147,22 +147,7 @@ test("T-193 (people/peo-24): the Done screen says how many to review in Duplicat
 
 // T-194 (people/peo-48): a partial import offers "Try N rows again" while the server keeps its file. Once the file is
 // deleted, it says to upload the file again and offers the file chooser instead; a refused file shows why there.
-const partialDone = (fileKept: boolean, problem: unknown = null) =>
-	renderToStaticMarkup(
-		createElement(
-			AppRouterContext.Provider,
-			{ value: router },
-			createElement(DoneStep, {
-				heading: { current: null },
-				receipt: { ...receipt, fileKept },
-				review: null,
-				working: false,
-				problem,
-				onRetry: () => {},
-				onStartOver: () => {},
-			}),
-		),
-	) as string;
+const partialDone = (fileKept: boolean, problem: unknown = null) => done({ ...receipt, fileKept }, problem);
 
 test("T-194 (people/peo-48): the expired Done screen says to upload the file again and offers the file, not the button", () => {
 	const kept = text(partialDone(true));
