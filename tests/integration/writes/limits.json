@@ -11,6 +11,13 @@
 	"GET /documents/church/[documentId]": {
 		"limit": 4
 	},
+	"GET /documents/church/[documentId] (archived)": {
+		"limit": 5,
+		"reason": "T-9: an Owner or Admin's page reads the document for the editor, its saved exports and its revisions together, as for any document. The editor's read never opens an archived document, so the page then reads it once more the way a Member's page does, read-only."
+	},
+	"GET /documents/church/[documentId] (archived, member)": {
+		"limit": 4
+	},
 	"GET /documents/church/[documentId]/file": {
 		"limit": 2
 	},
@@ -413,6 +420,9 @@
 		"limit": 3
 	},
 	"documents.archive": {
+		"limit": 1
+	},
+	"documents.archiveChurch": {
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
