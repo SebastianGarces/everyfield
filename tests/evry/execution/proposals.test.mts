@@ -292,7 +292,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	await approveProposal(db, owner, proposal.id, witness(again), null);
-	let start = queries.length;
+	const start = queries.length;
 	const cancelled = await cancelProposal(db, owner, proposal.id);
 	assert.equal(counted(start), 1);
 	assert.deepEqual([cancelled.cancelled, cancelled.proposal.status], [true, "cancelled"]);

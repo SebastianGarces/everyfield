@@ -5,7 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { readWebhookConfig } from "../io.mts";
-import { osascriptPrompt, promptScript, provision, PROMPT_GIVE_UP_S, type Field, type Prompt, type PromptResult } from "../provision.mts";
+import {
+	osascriptPrompt,
+	promptScript,
+	provision,
+	PROMPT_GIVE_UP_S,
+	type Field,
+	type Prompt,
+	type PromptResult,
+} from "../provision.mts";
 
 const here = new URL("..", import.meta.url).pathname;
 const provisionMts = join(here, "provision.mts");
@@ -15,14 +23,18 @@ const GOOD_URL = `https://routines.example/hooks/${URL_TOKEN}?t=${URL_TOKEN}`;
 const SENTINELS = [URL_TOKEN, KEY, "routines.example"];
 
 const tmp = () => mkdtemp(join(tmpdir(), "actionable-watch-provision-"));
-const answers = (a: Partial<Record<Field, PromptResult>>): Prompt => async (f) => a[f] ?? { ok: false, reason: "prompt_failed" };
+const answers =
+	(a: Partial<Record<Field, PromptResult>>): Prompt =>
+	async (f) =>
+		a[f] ?? { ok: false, reason: "prompt_failed" };
 const value = (v: string): PromptResult => ({ ok: true, value: v });
 const statusLine = async (dir: string) => (await readFile(join(dir, "provision.status"), "utf8")).trim();
 
 /** Every byte the helper left anywhere except webhook.json itself. */
 async function everythingButConfig(dir: string, extra: string[] = []): Promise<string> {
 	let all = extra.join("\n");
-	for (const f of await readdir(dir)) if (f !== "webhook.json") all += `\n${f}\n${await readFile(join(dir, f), "utf8")}`;
+	for (const f of await readdir(dir))
+		if (f !== "webhook.json") all += `\n${f}\n${await readFile(join(dir, f), "utf8")}`;
 	return all;
 }
 const assertNoLeak = (text: string, where: string) => {
@@ -66,7 +78,12 @@ describe("INV-watch-provision: provision with an injected prompt", () => {
 		["timeout", { url: value(GOOD_URL), key: { ok: false, reason: "timed_out" } }, "timed_out", "timed_out"],
 		["prompt failure", { url: { ok: false, reason: "prompt_failed" } }, "invalid", "prompt_failed"],
 		["invalid URL", { url: value(`not a url ${URL_TOKEN}`), key: value(KEY) }, "invalid", "webhook_config_invalid_url"],
-		["non-https URL", { url: value(`http://routines.example/hooks/${URL_TOKEN}`), key: value(KEY) }, "invalid", "webhook_url_not_https"],
+		[
+			"non-https URL",
+			{ url: value(`http://routines.example/hooks/${URL_TOKEN}`), key: value(KEY) },
+			"invalid",
+			"webhook_url_not_https",
+		],
 		["key with a space", { url: value(GOOD_URL), key: value(`${KEY} more`) }, "invalid", "webhook_config_invalid"],
 		["empty key", { url: value(GOOD_URL), key: value("   ") }, "invalid", "webhook_config_invalid"],
 	];
@@ -91,9 +108,14 @@ describe("INV-watch-provision: provision with an injected prompt", () => {
 
 	test("INV-watch-provision: replacing an existing config goes through the same 0600 temp-and-rename path", async () => {
 		const dir = await tmp();
-		await writeFile(join(dir, "webhook.json"), JSON.stringify({ url: "https://old.example/x", key: "OLDKEY" }), { mode: 0o600 });
+		await writeFile(join(dir, "webhook.json"), JSON.stringify({ url: "https://old.example/x", key: "OLDKEY" }), {
+			mode: 0o600,
+		});
 		const before = await stat(join(dir, "webhook.json"));
-		assert.equal((await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) })).state, "ok");
+		assert.equal(
+			(await provision({ stateDir: dir, prompt: answers({ url: value(GOOD_URL), key: value(KEY) }) })).state,
+			"ok",
+		);
 		const after = await stat(join(dir, "webhook.json"));
 		assert.notEqual(after.ino, before.ino, "renamed into place, not edited in place");
 		assert.equal(after.mode & 0o777, 0o600);
@@ -152,14 +174,29 @@ describe("INV-watch-provision: the real prompt", () => {
 	test("INV-watch-provision: the helper reads no clipboard, keychain, environment or other secret source", async () => {
 		// Code only: comments may name what the helper does not do.
 		const src = (await readFile(provisionMts, "utf8")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-		for (const banned of [/pbpaste/, /NSPasteboard/, /clipboard/i, /\bsecurity\b/, /keychain/i, /process\.argv/, /console\./, /node:https?"/, /node:net/, /fetch\(/, /readFile\(/]) {
+		for (const banned of [
+			/pbpaste/,
+			/NSPasteboard/,
+			/clipboard/i,
+			/\bsecurity\b/,
+			/keychain/i,
+			/process\.argv/,
+			/console\./,
+			/node:https?"/,
+			/node:net/,
+			/fetch\(/,
+			/readFile\(/,
+		]) {
 			assert.doesNotMatch(src, banned, String(banned));
 		}
 		assert.equal(src.match(/process\.env/g)?.length, 1, "only HOME is passed on, to the detached child");
 		assert.match(src, /env: \{ HOME: process\.env\.HOME \?\? "", PATH: "\/usr\/bin:\/bin" \}/);
 		assert.equal(src.match(/execFile\(/g)?.length, 1, "one prompt spawn site");
 		assert.equal(src.match(/spawn\(/g)?.length, 1, "one detach spawn site");
-		assert.match(src, /spawn\(process\.execPath, \[import\.meta\.filename, "--state-dir", stateDir, "--osascript", values\.osascript\]/);
+		assert.match(
+			src,
+			/spawn\(\s*process\.execPath,\s*\[import\.meta\.filename, "--state-dir", stateDir, "--osascript", values\.osascript\]/,
+		);
 		assert.match(src, /\["-e", promptScript\(field\)\]/, "osascript gets only the fixed script");
 	});
 });
@@ -218,7 +255,11 @@ describe("INV-watch-provision: the provision CLI", () => {
 		await writeFile(join(work, "url.in"), `http://routines.example/${URL_TOKEN}`);
 		const bad = await cli(["--state-dir", state, "--osascript", bin]);
 		assert.deepEqual(bad, { code: 1, stdout: "webhook_url_not_https\n", stderr: "" });
-		assert.deepEqual(JSON.parse(await readFile(join(state, "webhook.json"), "utf8")), { url: GOOD_URL, key: KEY }, "the good config stays");
+		assert.deepEqual(
+			JSON.parse(await readFile(join(state, "webhook.json"), "utf8")),
+			{ url: GOOD_URL, key: KEY },
+			"the good config stays",
+		);
 		assertNoLeak(bad.stdout + (await everythingButConfig(state)), "failure output");
 	});
 

@@ -1,7 +1,8 @@
 // fast-check: format, lint and typecheck over only the files a branch changes, in seconds and with no database, stack or
 // network. The tracked pre-push hook (tools/git-hooks/pre-push) runs it; GitHub CI's full run over the whole repo stays
 // required. Each step reads its scope from the script it stands in for, so it follows them when they change: the root
-// `format:check` globs, each workspace package's `lint` and `typecheck` scripts and pnpm-workspace.yaml.
+// `format:check` globs, each workspace package's `lint` and `typecheck` scripts, the root lint scripts the root `lint`
+// runs with `pnpm run`, the root `typecheck:tools` script and its tsconfig's `include`, and pnpm-workspace.yaml.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, matchesGlob, relative, resolve, sep } from "node:path";
@@ -81,6 +82,26 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 		if (!lint.roots.length) lint.roots = roots;
 	}
 	return lint.linters.length ? lint : undefined;
+}
+
+/** The root lint scripts the root `lint` runs with `pnpm run <name>`, each as a package rooted at the repo. */
+function rootLints(root: string): Pkg[] {
+	const scripts: Record<string, string> = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts ?? {};
+	const names = [...(scripts.lint ?? "").matchAll(/\bpnpm run ([\w:-]+)/g)].map((match) => match[1]!);
+	return names.flatMap((name) => {
+		const lint = parseLint(root, scripts[name]);
+		return lint ? [{ name: `root ${name}`, dir: root, lint, typecheck: false }] : [];
+	});
+}
+
+/** The root `typecheck:tools` script and the `include` globs of the tsconfig it names with `-p`. */
+function toolsProject(root: string): { script: string; include: string[] } | undefined {
+	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
+	const project = typeof script === "string" ? / -p (\S+)/.exec(script)?.[1] : undefined;
+	if (typeof script !== "string" || !project || !existsSync(join(root, project))) return undefined;
+	// tsconfig allows whole-line // comments, which JSON.parse does not.
+	const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
+	return { script, include: config.include ?? [] };
 }
 
 /** Workspace packages from the `- <dir>/*` entries of pnpm-workspace.yaml. */
@@ -288,7 +309,59 @@ async function lint(root: string, packages: Pkg[], changed: string[]): Promise<S
 	};
 }
 
+/** The tools config over the tool folders, when a changed file matches its `include`. */
+async function typecheckTools(root: string, changed: string[]): Promise<Step | undefined> {
+	const tools = toolsProject(root);
+	if (!tools || !changed.some((file) => tools.include.some((glob) => matchesGlob(file, glob)))) return undefined;
+	const started = Date.now();
+	const ran = await run(root, "sh", ["-c", tools.script]);
+	// The shell's "not found": node_modules is not installed.
+	if (ran.status === 127) return missing("typecheck", "tsc", started);
+	const ms = Date.now() - started;
+	if (ran.status === 0) return { name: "typecheck", status: "passed", ms, files: [] };
+	const output = ran.stdout + ran.stderr;
+	const files = [...new Set([...output.matchAll(/^(.+?)\(\d+,\d+\): error TS\d+/gm)].map(([, file]) => file!))];
+	const lines = output.split("\n").filter((line) => /error TS\d+/.test(line));
+	return {
+		name: "typecheck",
+		status: "failed",
+		ms,
+		files,
+		fix: "pnpm run typecheck:tools",
+		detail: (lines.join("\n") || output).trim(),
+	};
+}
+
+/** The package typecheck and the tools config, run side by side and reported as one step. */
 async function typecheck(root: string, packages: Pkg[], changed: string[]): Promise<Step> {
+	const [inPackages, inTools] = await Promise.all([
+		typecheckPackages(root, packages, changed),
+		typecheckTools(root, changed),
+	]);
+	if (!inTools) return inPackages;
+	if (inPackages.status === "skipped") return inTools;
+	const failed = [inPackages, inTools].filter((step) => step.status === "failed");
+	return {
+		name: "typecheck",
+		status: failed.length ? "failed" : "passed",
+		ms: Math.max(inPackages.ms, inTools.ms),
+		files: failed.flatMap((step) => step.files),
+		...(failed.length
+			? {
+					fix: failed
+						.map((step) => step.fix)
+						.filter(Boolean)
+						.join(" && "),
+					detail: failed
+						.map((step) => step.detail)
+						.filter(Boolean)
+						.join("\n"),
+				}
+			: {}),
+	};
+}
+
+async function typecheckPackages(root: string, packages: Pkg[], changed: string[]): Promise<Step> {
 	// A package owns its folder and the outside roots its lint script names (the tests its tsconfig includes).
 	const owned = packages.filter(
 		(pkg) =>
@@ -327,7 +400,11 @@ export async function fastCheck(root: string, baseRef?: string): Promise<Report>
 	const started = Date.now();
 	const { ref, sha, files } = changedFiles(root, baseRef);
 	const packages = workspacePackages(root);
-	const steps = await Promise.all([format(root, files), lint(root, packages, files), typecheck(root, packages, files)]);
+	const steps = await Promise.all([
+		format(root, files),
+		lint(root, [...packages, ...rootLints(root)], files),
+		typecheck(root, packages, files),
+	]);
 	return {
 		ok: steps.every((step) => step.status !== "failed"),
 		base: { ref, sha },

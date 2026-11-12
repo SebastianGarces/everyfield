@@ -1,7 +1,6 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { z } from "../../../packages/domain/node_modules/zod/index.js";
 import { currentActor, readPipelinePerson, readOwnResidency } from "../../../packages/domain/src/access/index.ts";
 import { database, transaction, id, account, plant, organization, seat, person } from "./support.mts";
 let db;
@@ -13,17 +12,6 @@ after(async () => {
 });
 const unavailable = { status: "unavailable" };
 const own = (a) => ({ kind: "account", id: a.id });
-const checkInput = (
-	operation,
-	tenant,
-	kind = "write",
-	expectedRevision = "1",
-	subjectKind = tenant.kind,
-	subjectId = tenant.id,
-) =>
-	kind === "write"
-		? { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant }, expectedRevision }
-		: { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant } };
 
 test("AC:TARGET-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
 	const a = await account(db.admin),

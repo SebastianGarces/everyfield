@@ -17,8 +17,10 @@ import { plantViewer } from "../documents/access.ts";
 
 type Code = c.SignalError["code"];
 class Refusal extends Error {
-	constructor(readonly code: Code) {
+	readonly code: Code;
+	constructor(code: Code) {
 		super(code);
+		this.code = code;
 	}
 }
 function deny(code: Code): never {

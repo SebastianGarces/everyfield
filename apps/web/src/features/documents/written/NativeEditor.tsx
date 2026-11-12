@@ -30,6 +30,9 @@ import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type D
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
+import { BlockControls } from "../church/editor/LayoutControls.tsx";
+import { TABLE_REFUSED } from "../church/editor/TableControls.tsx";
+import { blocksFromEditor, blocksToEditor } from "../church/editor/table-json.ts";
 import {
 	BlockShortcuts,
 	LeaveDialog,
@@ -42,11 +45,20 @@ import { documentProblem, type WrittenView } from "../model.ts";
 import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
 
-// A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools only: no
-// page setup, merge fields, slots, template compare, branding, preview or export (D-211). Save sends the title and the
-// editor's body node with the expected revision; the domain parses the body again.
+// A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools and T-16's
+// table editor in its plain form (T-100): no page setup, merge fields, slots, template compare, branding, preview or
+// export (D-211). Save sends the title and the editor's body node with the expected revision; the domain parses the
+// body again.
 
 const EMPTY: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
+
+/** A stored body as the editor holds it: a table's amount and check box cells are the editor's value cells. */
+const toEditor = (body: DocNode) => ({ ...body, content: blocksToEditor(body.content ?? []) });
+/** The editor's document as the stored body node. */
+const fromEditor = (doc: PMNode): DocNode => {
+	const json = clean(doc.toJSON()) as DocNode;
+	return json.content ? { ...json, content: blocksFromEditor(json.content) as DocNode["content"] } : json;
+};
 
 function fileFormat(file: File): "text" | "docx" | null {
 	const name = file.name.toLowerCase();
@@ -121,7 +133,7 @@ export default function NativeEditor({
 
 	const editor = useEditor({
 		extensions: [...nativeExtensions(), BlockShortcuts],
-		content: doc?.body ?? EMPTY,
+		content: toEditor(doc?.body ?? EMPTY),
 		immediatelyRender: true,
 		editorProps: {
 			attributes: {
@@ -179,7 +191,7 @@ export default function NativeEditor({
 	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
 		const current = editor.state.doc;
-		const body = clean(current.toJSON()) as DocNode;
+		const body = fromEditor(current);
 		const nextTitle = titleRef.current.trim();
 		const found = {
 			...(nextTitle ? {} : { title: "Enter a title." }),
@@ -240,6 +252,22 @@ export default function NativeEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
+	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
+	const [refused, setRefused] = useState(false);
+	useEffect(() => {
+		if (!editor) return;
+		const table = () => setRefused(true);
+		const hide = () => setRefused(false);
+		editor.on("tableChangeRefused", table);
+		editor.on("update", hide);
+		editor.on("selectionUpdate", hide);
+		return () => {
+			editor.off("tableChangeRefused", table);
+			editor.off("update", hide);
+			editor.off("selectionUpdate", hide);
+		};
+	}, [editor]);
+
 	const leave = useLeaveGuard(editor, unsaved);
 
 	function reload() {
@@ -283,7 +311,7 @@ export default function NativeEditor({
 			const value = result.value;
 			created(value.id);
 			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists and links.
-			editor.chain().setMeta("addToHistory", false).setContent(value.body).run();
+			editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 			savedDoc.current = editor.state.doc;
 			setBodyChanged(false);
 			setSaved({ id: value.id, revision: value.revision, title: value.title, kind: value.kind });
@@ -453,7 +481,19 @@ export default function NativeEditor({
 					</p>
 				) : null}
 				<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 w-full max-w-[816px] self-center overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
-					{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}
+					{editor ? (
+						<>
+							<EditorToolbar editor={editor} />
+							<BlockControls editor={editor} palette={null} />
+							{refused ? (
+								<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
+									{TABLE_REFUSED}
+								</p>
+							) : null}
+						</>
+					) : (
+						<div className="h-[49px]" />
+					)}
 				</div>
 				{errors.body ? (
 					<p role="alert" className="w-full max-w-[816px] self-center text-sm text-magenta-600">
