@@ -152,23 +152,18 @@ export const TooltipTrigger = React.forwardRef<HTMLElement, TooltipTriggerProps>
 	const ref = useMergeRefs([context.refs.setReference, propRef, childrenRef]);
 
 	if (asChild && React.isValidElement(children)) {
-		const dataAttributes = {
-			"data-tooltip-state": context.open ? "open" : "closed",
-		};
-
 		return React.cloneElement(
 			children,
 			context.getReferenceProps({
 				ref,
 				...props,
 				...(typeof children.props === "object" ? children.props : {}),
-				...dataAttributes,
 			}),
 		);
 	}
 
 	return (
-		<button ref={ref} data-tooltip-state={context.open ? "open" : "closed"} {...context.getReferenceProps(props)}>
+		<button ref={ref} {...context.getReferenceProps(props)}>
 			{children}
 		</button>
 	);

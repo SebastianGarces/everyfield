@@ -21,15 +21,6 @@ export interface UseUndoRedoConfig {
 	 * The history action to perform (undo or redo).
 	 */
 	action: UndoRedoAction;
-	/**
-	 * Whether the button should hide when action is not available.
-	 * @default false
-	 */
-	hideWhenUnavailable?: boolean;
-	/**
-	 * Callback function called after a successful action execution.
-	 */
-	onExecuted?: () => void;
 }
 
 export const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
@@ -70,20 +61,10 @@ export function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAct
 /**
  * Determines if the history button should be shown
  */
-export function shouldShowButton(props: {
-	editor: Editor | null;
-	hideWhenUnavailable: boolean;
-	action: UndoRedoAction;
-}): boolean {
-	const { editor, hideWhenUnavailable, action } = props;
+export function shouldShowButton(props: { editor: Editor | null }): boolean {
+	const { editor } = props;
 
-	if (!editor || !editor.isEditable) return false;
-
-	if (hideWhenUnavailable && !editor.isActive("code")) {
-		return canExecuteUndoRedoAction(editor, action);
-	}
-
-	return true;
+	return !!editor && editor.isEditable;
 }
 
 /**
@@ -105,8 +86,6 @@ export function shouldShowButton(props: {
  *   const { isVisible, handleAction, label } = useHistory({
  *     editor: myEditor,
  *     action: "redo",
- *     hideWhenUnavailable: true,
- *     onExecuted: () => console.log('Action executed!')
  *   })
  *
  *   if (!isVisible) return null
@@ -123,7 +102,7 @@ export function shouldShowButton(props: {
  * ```
  */
 export function useUndoRedo(config: UseUndoRedoConfig) {
-	const { editor: providedEditor, action, hideWhenUnavailable = false, onExecuted } = config;
+	const { editor: providedEditor, action } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
 	const [isVisible, setIsVisible] = React.useState<boolean>(true);
@@ -133,7 +112,7 @@ export function useUndoRedo(config: UseUndoRedoConfig) {
 		if (!editor) return;
 
 		const handleUpdate = () => {
-			setIsVisible(shouldShowButton({ editor, hideWhenUnavailable, action }));
+			setIsVisible(shouldShowButton({ editor }));
 		};
 
 		handleUpdate();
@@ -143,17 +122,13 @@ export function useUndoRedo(config: UseUndoRedoConfig) {
 		return () => {
 			editor.off("transaction", handleUpdate);
 		};
-	}, [editor, hideWhenUnavailable, action]);
+	}, [editor]);
 
 	const handleAction = React.useCallback(() => {
 		if (!editor) return false;
 
-		const success = executeUndoRedoAction(editor, action);
-		if (success) {
-			onExecuted?.();
-		}
-		return success;
-	}, [editor, action, onExecuted]);
+		return executeUndoRedoAction(editor, action);
+	}, [editor, action]);
 
 	return {
 		isVisible,

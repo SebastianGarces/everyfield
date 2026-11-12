@@ -93,7 +93,6 @@ function Action({
 	return (
 		<Button
 			type="button"
-			data-style="ghost"
 			data-active-state={active ? "on" : "off"}
 			aria-label={label}
 			aria-pressed={active === undefined ? undefined : active}
@@ -134,7 +133,11 @@ function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | 
 	);
 }
 
-const GROUP_LABEL = {
+type InsertItem = (typeof INSERT_KINDS)[number];
+/** The Insert menu's groups. The doctrinal section (group `sections`) has its own button, not a menu item. */
+type MenuGroup = Exclude<InsertItem["group"], "sections">;
+
+const GROUP_LABEL: Record<MenuGroup, string> = {
 	text: "Text",
 	rules: "Rules and spacing",
 	layout: "Layout",
@@ -142,8 +145,7 @@ const GROUP_LABEL = {
 	images: "Brand kit images",
 	tables: "Tables",
 	conditions: "Conditions",
-	sections: "Sections",
-} as const;
+};
 
 /** A heading over a group of Insert menu items. */
 function MenuLabel({ children }: { children: string }) {
@@ -236,7 +238,6 @@ export function EditorToolbar({
 					<DropdownMenuTrigger asChild>
 						<Button
 							type="button"
-							data-style="ghost"
 							aria-label="Text style"
 							tooltip="Text style"
 							disabled={s.style === null}
@@ -333,7 +334,6 @@ export function EditorToolbar({
 						<DropdownMenuTrigger asChild>
 							<Button
 								type="button"
-								data-style="ghost"
 								aria-label="Insert block"
 								tooltip="Insert block after this one"
 								onMouseDown={(event) => event.preventDefault()}
@@ -351,7 +351,9 @@ export function EditorToolbar({
 							// down the page the toolbar sits, and its notes wrap on a narrow screen.
 							className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
 						>
-							{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
+							{INSERT_KINDS.filter(
+								(k): k is InsertItem & { group: MenuGroup } => k.group !== "sections" && s.insertable[k.kind],
+							).map((k, i, shown) => {
 								const image = k.group === "images" ? (k.kind as ImageKind) : null;
 								const asset = image ? church.brand.assets[image] : null;
 								const divide = i > 0 && shown[i - 1]?.group !== k.group;
@@ -487,7 +489,6 @@ export function EditorToolbar({
 					<ToolbarGroup>
 						<Button
 							type="button"
-							data-style="ghost"
 							data-active-state={church.pageSetup.open ? "on" : "off"}
 							aria-label="Page setup"
 							aria-expanded={church.pageSetup.open}

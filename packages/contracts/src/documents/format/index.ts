@@ -21,6 +21,7 @@ export {
 	computeTable,
 	forkTemplate,
 	formulaDeps,
+	KEY as FORMAT_KEY,
 	pageBox,
 	parseFormula,
 	templateFromDocument,

@@ -19,13 +19,6 @@ export interface UseListConfig {
 	editor?: Editor | null;
 	/** The type of list to toggle. */
 	type: ListType;
-	/**
-	 * Whether the button should hide when the list is not available.
-	 * @default false
-	 */
-	hideWhenUnavailable?: boolean;
-	/** Callback function called after a successful toggle. */
-	onToggled?: () => void;
 }
 
 export const listIcons = {
@@ -61,34 +54,26 @@ export function toggleList(editor: Editor | null, type: ListType): boolean {
 	return (type === "bulletList" ? chain.toggleBulletList() : chain.toggleOrderedList()).run();
 }
 
-export function shouldShowButton(props: {
-	editor: Editor | null;
-	type: ListType;
-	hideWhenUnavailable: boolean;
-}): boolean {
-	const { editor, type, hideWhenUnavailable } = props;
+export function shouldShowButton(props: { editor: Editor | null; type: ListType }): boolean {
+	const { editor, type } = props;
 	if (!editor || !editor.isEditable) return false;
-	if (!isNodeInSchema(type, editor)) return false;
-	if (hideWhenUnavailable) return canToggleList(editor, type);
-	return true;
+	return isNodeInSchema(type, editor);
 }
 
 /** Custom hook that provides list functionality for a Tiptap editor. */
 export function useList(config: UseListConfig) {
-	const { editor: providedEditor, type, hideWhenUnavailable = false, onToggled } = config;
+	const { editor: providedEditor, type } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
 	const canToggle = canToggleList(editor, type);
 	const isActive = isListActive(editor, type);
 	// Everyfield change: derived on every render, not set in an effect (see use-mark.ts).
-	const isVisible = shouldShowButton({ editor, type, hideWhenUnavailable });
+	const isVisible = shouldShowButton({ editor, type });
 
 	const handleToggle = React.useCallback(() => {
 		if (!editor) return false;
-		const success = toggleList(editor, type);
-		if (success) onToggled?.();
-		return success;
-	}, [editor, type, onToggled]);
+		return toggleList(editor, type);
+	}, [editor, type]);
 
 	return {
 		isVisible,

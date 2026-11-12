@@ -7,10 +7,6 @@ import { useComposedRef } from "../use-composed-ref.ts";
 
 type BaseProps = React.HTMLAttributes<HTMLDivElement>;
 
-interface ToolbarProps extends BaseProps {
-	variant?: "floating" | "fixed";
-}
-
 // Everyfield change: the toolbar is one Tab stop (WAI-ARIA toolbar pattern). Tab and Shift+Tab move in and out of it,
 // the arrow keys move between its enabled buttons from the one that has focus, and Enter or Space reaches the focused
 // button natively. Only the remembered button has tabindex 0; the list follows buttons that mount, unmount or turn
@@ -55,24 +51,10 @@ const useToolbarNavigation = (toolbarRef: React.RefObject<HTMLDivElement | null>
 			if (index !== -1) setSelectedIndex(index);
 		};
 
-		const handleFocus = (e: FocusEvent) => {
-			const target = e.target as HTMLElement;
-			if (toolbar.contains(target)) target.setAttribute("data-focus-visible", "true");
-		};
-
-		const handleBlur = (e: FocusEvent) => {
-			const target = e.target as HTMLElement;
-			if (toolbar.contains(target)) target.removeAttribute("data-focus-visible");
-		};
-
 		toolbar.addEventListener("focusin", handleFocusIn);
-		toolbar.addEventListener("focus", handleFocus, true);
-		toolbar.addEventListener("blur", handleBlur, true);
 
 		return () => {
 			toolbar.removeEventListener("focusin", handleFocusIn);
-			toolbar.removeEventListener("focus", handleFocus, true);
-			toolbar.removeEventListener("blur", handleBlur, true);
 		};
 	}, [toolbarRef, items, setSelectedIndex]);
 
@@ -90,26 +72,23 @@ const useToolbarNavigation = (toolbarRef: React.RefObject<HTMLDivElement | null>
 	}, [selectedIndex, items, toolbarRef]);
 };
 
-export const Toolbar = React.forwardRef<HTMLDivElement, ToolbarProps>(
-	({ children, className, variant = "fixed", ...props }, ref) => {
-		const toolbarRef = React.useRef<HTMLDivElement>(null);
-		const composedRef = useComposedRef(toolbarRef, ref);
-		useToolbarNavigation(toolbarRef);
+export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => {
+	const toolbarRef = React.useRef<HTMLDivElement>(null);
+	const composedRef = useComposedRef(toolbarRef, ref);
+	useToolbarNavigation(toolbarRef);
 
-		return (
-			<div
-				ref={composedRef}
-				role="toolbar"
-				aria-label="Document formatting"
-				data-variant={variant}
-				className={cn(TOOLBAR, className)}
-				{...props}
-			>
-				{children}
-			</div>
-		);
-	},
-);
+	return (
+		<div
+			ref={composedRef}
+			role="toolbar"
+			aria-label="Document formatting"
+			className={cn(TOOLBAR, className)}
+			{...props}
+		>
+			{children}
+		</div>
+	);
+});
 Toolbar.displayName = "Toolbar";
 
 export const ToolbarGroup = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => (

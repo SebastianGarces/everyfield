@@ -66,7 +66,7 @@ export function SaveStatusText({
 }
 
 /** A way out of the page that waits for an answer: `go` leaves, `stay` (if any) puts back what the way out undid. */
-export type LeaveRequest = { go: () => void; stay?: () => void };
+type LeaveRequest = { go: () => void; stay?: () => void };
 
 /**
  * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page

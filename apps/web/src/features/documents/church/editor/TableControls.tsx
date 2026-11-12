@@ -46,7 +46,6 @@ function Act({ label, reason, run }: { label: string; reason: string | null; run
 	return (
 		<Button
 			type="button"
-			data-style="ghost"
 			aria-label={label}
 			tooltip={reason ? `${label}. ${reason}` : label}
 			disabled={reason !== null}

@@ -7,9 +7,10 @@ import { conditionIssue } from "./condition-extension.ts";
 import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
 import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
 
-// Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
-// selected block. Each one is one transaction, so one Undo reverses it. A block inside a list, quote, column or box
-// moves with its top-level parent.
+// Whole-block actions, each one transaction, so one Undo reverses it. Insert puts the new block after the block that
+// holds the selection, inside the innermost column, box, conditional text, header or footer (insertionPoint). Move up,
+// Move down and Delete act on the top-level block that holds the cursor or the selected block: a block inside a list,
+// quote, column or box moves with its top-level parent.
 
 type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
@@ -447,7 +448,7 @@ export function deleteAllContent(editor: Editor): boolean {
 
 // ---------------------------------------------------------------- text styles
 
-export type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
+type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
 export const TEXT_STYLES: { style: TextStyle; label: string }[] = [
 	{ style: "body", label: "Body" },
 	{ style: "lead", label: "Lead" },
