@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { AvatarImage } from "./AvatarImage";
 import { TINT, type Tone } from "./tone";
 
 /**
@@ -246,11 +247,8 @@ export function Avatar({
 				className,
 			)}
 		>
-			{src ? (
-				<img src={src} alt="" className="size-full object-cover" />
-			) : (
-				(children ?? <span aria-hidden="true">{initials(name)}</span>)
-			)}
+			{children ?? <span aria-hidden="true">{initials(name)}</span>}
+			{src ? <AvatarImage key={src} src={src} /> : null}
 		</span>
 	);
 }

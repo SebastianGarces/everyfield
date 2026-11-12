@@ -32,8 +32,3 @@ BEGIN
 END $function$;
 --> statement-breakpoint
 CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE ON "article_revision" FOR EACH ROW EXECUTE FUNCTION article_revision_search_vector();
---> statement-breakpoint
--- The search_vector trigger fills every existing row.
-UPDATE "article_revision" SET "search_vector" = NULL;
---> statement-breakpoint
-ALTER TABLE "article_revision" ALTER COLUMN "search_vector" SET NOT NULL;

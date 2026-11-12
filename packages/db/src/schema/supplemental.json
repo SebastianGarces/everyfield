@@ -3089,7 +3089,7 @@
 		},
 		{
 			"arguments": "content_type text, body text",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.wiki_search_words(content_type text, body text)\n RETURNS text\n LANGUAGE sql\n STABLE PARALLEL SAFE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nSELECT CASE\n\tWHEN content_type = 'safe_nodes' AND pg_input_is_valid(body, 'jsonb') THEN (\n\t\tSELECT string_agg(t #>> '{}', E'\\n')\n\t\tFROM jsonb_path_query(body::jsonb, 'strict $.** ? (@.type() == \"object\").keyvalue() ? ((@.key == \"text\" || @.key == \"label\" || @.key == \"source\") && @.value.type() == \"string\").value', '{}', true) t\n\t)\n\tELSE body\nEND\n$function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.wiki_search_words(content_type text, body text)\n RETURNS text\n LANGUAGE plpgsql\n STABLE PARALLEL SAFE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n\tIF content_type = 'safe_nodes' AND pg_input_is_valid(body, 'jsonb') THEN\n\t\tRETURN (\n\t\t\tSELECT string_agg(t #>> '{}', E'\\n')\n\t\t\tFROM jsonb_path_query(body::jsonb, 'strict $.** ? (@.type() == \"object\").keyvalue() ? ((@.key == \"text\" || @.key == \"label\" || @.key == \"source\") && @.value.type() == \"string\").value', '{}', true) t\n\t\t);\n\tEND IF;\n\tRETURN body;\nEND $function$\n",
 			"name": "wiki_search_words"
 		},
 		{

@@ -312,7 +312,6 @@
     "docs/reference/rubric-v0.md": "R4: frozen reference release; preserve original bytes permanently.",
     "docs/reference/task-templates.ts": "R4: frozen reference release; preserve original bytes permanently.",
     "docs/reference/wiki/backlog.json": "The Wiki F6 backlog item records the legacy spelling change.",
-    "docs/schema/schema-diagram.html": "R1: DB default and migration history stay unchanged permanently.",
     "docs/schema/target.json": "R1: DB default and migration history stay unchanged permanently.",
     "docs/text-allowlist.json": "The legacy token and this explicit kept-path list define the spelling check.",
     "packages/db/migrations/0006_invitation_acceptance.sql": "R1: DB default and migration history stay unchanged permanently.",
