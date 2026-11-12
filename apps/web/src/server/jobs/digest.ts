@@ -15,7 +15,7 @@ import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
 import { owedPeriod } from "./calendar.ts";
-import { createMailService, mailUnsubscribe, type AuthorizeMail } from "./mail.ts";
+import { createMailService, mailUnsubscribe, queueOnlyTransport, type AuthorizeMail } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 
 // The church digest (NTF-007) and the oversight digest (NTF-008), delivered by the scheduled runner. Each minute the
@@ -288,15 +288,8 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 			from: v.data.IDENTITY_MAIL_FROM,
 			authorize: authorizeDigestMail,
 			unsubscribe: mailUnsubscribe(),
-			// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
-			transport: {
-				async send() {
-					return { kind: "refused", retryable: true };
-				},
-				async lookup() {
-					return { kind: "unknown" };
-				},
-			},
+			// Digest mail is queued only: the scheduled runner has no digest mail pass yet.
+			transport: queueOnlyTransport,
 		}),
 	});
 	return mounted;
