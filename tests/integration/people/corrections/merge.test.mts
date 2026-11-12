@@ -79,7 +79,7 @@ after(async () => {
 	await database.close();
 });
 
-test("REQ-PPL-024: a write racing a merge waits for it and never leaves a current reference on the retired source", async () => {
+test("AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source", async () => {
 	const keep = await person("Jordan Lee"),
 		gone = await person("Jordan L.");
 	const r = ok(await review(gone.id, keep.id));
@@ -500,7 +500,7 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 	);
 });
 
-test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
+test("AC:REQ-PPL-016 the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
 	// Unique facts, so other tests' people in this church never match.
 	const tag = randomBytes(4).toString("hex"),
 		digits = String(1e9 + (randomBytes(4).readUInt32BE() % 1e9)).slice(1);
@@ -854,7 +854,7 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 	);
 });
 
-test("REQ-PPL-024: the reference registry names every Person foreign key in the database exactly once", async () => {
+test("AC:REQ-PPL-024 the reference registry names every Person foreign key in the database exactly once", async () => {
 	const declared = await rows(sql`SELECT c.conrelid::regclass::text AS t,a.attname AS col FROM pg_constraint c
  JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(n,i) ON k.i=1 JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n
  WHERE c.contype='f' AND c.confrelid=${schema + ".person"}::regclass ORDER BY 1,2`);

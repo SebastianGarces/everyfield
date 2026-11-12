@@ -154,7 +154,7 @@ test("INV-edit-patch: edit profile sends only the fields that changed", () => {
 });
 
 const url = (s) => new URLSearchParams(s);
-test("AC:TARGET-PPL-001 INV-url (D67): the page number lives in the address; a filter change goes back to page one", () => {
+test("AC:TARGET-PPL-001 INV-url: the page number lives in the address; a filter change goes back to page one", () => {
 	const q = parseQuery(url("q=ana&stage=attendee,leader&source=website&adult=adult&page=3"));
 	assert.equal(q.page, 3);
 	assert.equal(listRequest(q).page, 3);
@@ -193,13 +193,13 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 // Ids a loose uuid test accepts and the contract's recordId refuses: version nibble 0, and variant c.
 const VERSION_0 = "0b0f6a7e-1d6f-0f7e-8c35-5b8f5c0f4d21",
 	VARIANT_C = "0b0f6a7e-1d6f-4f7e-cc35-5b8f5c0f4d21";
-test("BUG-551 (people/peo-18): a tag id the contract refuses drops out of the address and the valid tag stays", () => {
+test("BUG-PR551 (people/peo-18): a tag id the contract refuses drops out of the address and the valid tag stays", () => {
 	const q = parseQuery(url(`tag=${VERSION_0}&tag=${T1}&tag=${VARIANT_C}`));
 	assert.deepEqual(q.tags, [T1]);
 	assert.deepEqual(listRequest(q).tags, [T1], "the list request carries only the id it can send");
 });
 
-test("AC:TARGET-PPL-007 INV-move-revisions (D68): after reorder, away and back, a card keeps its newest revision and the saved order", () => {
+test("AC:TARGET-PPL-007 INV-move-revisions: after reorder, away and back, a card keeps its newest revision and the saved order", () => {
 	const card = (id, stage, revision) => ({ person: { id, stage, revision } });
 	// The server copy: A and B follow up, C attends.
 	const following = [card("A", "following_up", "1"), card("B", "following_up", "1")];
@@ -246,7 +246,7 @@ test("INV-activity-entry: a saved change joins the top, replaces its own entry, 
 
 // AC:TARGET-PPL-018 D-516: "Add, review later" needs a Person to pair the row with, an existing match or the earlier
 // row it repeats while that row imports. Without one the import refuses the whole file, so the screen drops the choice.
-test('AC:TARGET-PPL-018 D-516: a repeat of a skipped row loses "Add, review later"; other duplicates keep it', async () => {
+test('AC:TARGET-PPL-018 a repeat of a skipped row loses "Add, review later"; other duplicates keep it', async () => {
 	const { canReview, withReviewTargets } = await import("../../../apps/web/src/features/people/import-export/model.ts");
 	const row = (n, of, existing = []) => ({
 		row: n,

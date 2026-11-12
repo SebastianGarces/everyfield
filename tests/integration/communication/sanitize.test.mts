@@ -12,7 +12,7 @@ const stored = [
 ] as const;
 
 for (const [input, output] of stored) {
-	test("sanitizeHtml drops executable markup: " + input.slice(0, 24), () => {
+	test("AC:CASE-COM-003 sanitizeHtml drops executable markup: " + input.slice(0, 24), () => {
 		const clean = sanitizeHtml(input);
 		assert.equal(clean, output);
 		assert.equal(/<script/i.test(clean), false);

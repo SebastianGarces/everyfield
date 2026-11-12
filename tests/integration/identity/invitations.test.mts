@@ -304,7 +304,7 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 		"admin",
 	);
 });
-test("AC:ADR1-004 AC:WP008-MUL-004-ATOMIC resident accept is addressed, atomic, consent-specific and seatless", async () => {
+test("AC:ADR1-004 resident accept is addressed, atomic, consent-specific and seatless", async () => {
 	const s = await f.setup("sending_church"),
 		person = await f.resident(s.w),
 		i = await f.invitation(s, person),

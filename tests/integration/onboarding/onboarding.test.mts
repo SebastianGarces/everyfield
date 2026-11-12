@@ -215,7 +215,7 @@ test("AC:TARGET-IDN-013 required mail-intent failure rolls back plant, seat, Per
 	assert.equal(created.status, "created");
 });
 
-test("AC:WP009-MUL-006 AC:ADR1-006 self confirmation, exact identity, live account, no seat transfer or organization creation", async () => {
+test("AC:ADR1-006 self confirmation, exact identity, live account, no seat transfer or organization creation", async () => {
 	const a = await actor(),
 		other = await actor(),
 		q = command({ name: "Boundary", confirmed: true });
@@ -291,7 +291,7 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 	);
 });
 
-test("T-130 an Owner saves a planned launch date again and again, each time sending the revision it last read", async () => {
+test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, each time sending the revision it last read", async () => {
 	const f = await makePlant();
 	let r = await resume(f);
 	assert.equal(r.scheduleRevision, "1");
@@ -346,7 +346,7 @@ test("T-130 an Owner saves a planned launch date again and again, each time send
 	assert.equal(r.scheduleRevision, "5");
 });
 
-test("T-130 a lock timeout or statement timeout refuses as temporary with retry same_request and writes nothing", async () => {
+test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary with retry same_request and writes nothing", async () => {
 	for (const [setting, code] of [
 		["lock_timeout", "55P03"],
 		["statement_timeout", "57014"],
@@ -1315,7 +1315,7 @@ async function verifiedWriteActor(session: string) {
 	});
 }
 
-test("INV-reads: the onboarding entry of a plant owner is one statement with no locks (RT-6a)", async (t) => {
+test("INV-reads: the onboarding entry of a plant owner is one statement with no locks", async (t) => {
 	const f = await makePlant();
 	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
 	assert.equal(viewer.authority.actor.context.role, "owner");
@@ -1453,7 +1453,7 @@ for (const [registration, kind, seatRole] of [
 	["network", "sending_network", "admin"],
 	["sending_church", "sending_church", "owner"],
 ] as const) {
-	test(`T-65 an active ${registration} account with an organization ${seatRole} seat gets the organization entry`, async () => {
+	test(`INV-onboarding-entry: an active ${registration} account with an organization ${seatRole} seat gets the organization entry`, async () => {
 		const a = await actor(registration, "active"),
 			org = randomUUID();
 		await admin
@@ -1482,7 +1482,7 @@ for (const [registration, kind, seatRole] of [
 	});
 }
 
-test("C13 onboarding reads: a request actor whose seat or session ended reads no onboarding facts", async () => {
+test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session ended reads no onboarding facts", async () => {
 	const session = (a) => ({
 		status: "active",
 		accountId: a.id,
@@ -1529,7 +1529,7 @@ test("C13 onboarding reads: a request actor whose seat or session ended reads no
 	});
 });
 
-test("RT-6 answerLead, declareJourney and complete each write the plant once, and their saved times are that write's clock", async () => {
+test("INV-write-clock: answerLead, declareJourney and complete each write the plant once, and their saved times are that write's clock", async () => {
 	const f = await makePlant();
 	const statements = [];
 	let recording = false;

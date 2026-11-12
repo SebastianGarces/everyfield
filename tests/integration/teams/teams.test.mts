@@ -885,7 +885,7 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 	);
 });
 
-test("a team leader can edit a role and still cannot change the church profile", async () => {
+test("AC:TARGET-TEAM-004 a team leader can edit a role and still cannot change the church profile", async () => {
 	const team = await makeTeam("Leader desk");
 	const slot = await makeRole(team.id, "Lead title");
 	const linked = await person("Linked Lead", { account: actors[1].id, stage: "launch_team" });

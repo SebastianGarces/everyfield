@@ -425,7 +425,7 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 					title, eligible_at, created_at
 				)
 				SELECT n.tenant_id, n.account_id, 'reference_update', 'reference_update',
-					n.tenant_id::text || '/wiki_upstream/' || n.revision_id::text || '/' || n.meaningful_sequence::text,
+					n.tenant_id::text || '/wiki_upstream_review/' || n.revision_id::text || '/' || n.meaningful_sequence::text || '/published',
 					n.tenant_id, n.meaningful_sequence, n.title, clock_timestamp(), clock_timestamp()
 				FROM (
 					SELECT * FROM editors

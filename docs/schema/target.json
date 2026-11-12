@@ -320,6 +320,7 @@
     ],
     "job.kind": [
       "mail",
+      "notification",
       "digest",
       "object_cleanup",
       "lifecycle_purge",
@@ -20621,7 +20622,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",

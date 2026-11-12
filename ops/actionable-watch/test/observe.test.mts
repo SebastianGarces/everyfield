@@ -27,15 +27,15 @@ const baseline = (raw: unknown, ci: Ci | null = null): State => advance(null, sn
 const due = (prev: unknown, cur: unknown, ciPrev: Ci | null = null, ciCur: Ci | null = ciPrev) =>
 	advance(baseline(prev, ciPrev), snap(cur, ciCur)).due.map((e) => e.key);
 
-describe("normalisation", () => {
-	test("raw statuses that differ only in volatile fields give identical snapshots", () => {
+describe("INV-watch-observe: normalisation", () => {
+	test("INV-watch-observe: raw statuses that differ only in volatile fields give identical snapshots", () => {
 		const a = running({ noise: "a", now: NOW, heartbeat: NOW - 100 });
 		const b = running({ noise: "b", now: NOW + 90_000, heartbeat: NOW + 89_000 });
 		assert.notDeepEqual(a, b);
 		assert.deepEqual(snap(a), snap(b));
 	});
 
-	test("the snapshot keeps actionable identity only", () => {
+	test("INV-watch-observe: the snapshot keeps actionable identity only", () => {
 		const s = snap(running({ decisions: [{ id: 7, task: 1, question: "secret ask" }] }), { sha: "a".repeat(40), conclusion: "success" });
 		// evf hides the agent row of a task with an open decision behind its needs_you row.
 		assert.deepEqual(s, {
@@ -49,7 +49,7 @@ describe("normalisation", () => {
 		});
 	});
 
-	test("unexpected shapes are refused, and the refusal names list, field and type, never a value", () => {
+	test("INV-watch-observe: unexpected shapes are refused, and the refusal names list, field and type, never a value", () => {
 		const cases: [unknown, string][] = [
 			[null, "list=top fields=status:null"],
 			[[], "list=top fields=status:array"],
@@ -65,7 +65,7 @@ describe("normalisation", () => {
 		for (const [raw, detail] of cases) assert.deepEqual(parseStatus(raw), { ok: false, code: "evf_bad_shape", detail });
 	});
 
-	test("a refusal never carries the offending value", () => {
+	test("INV-watch-observe: a refusal never carries the offending value", () => {
 		const secret = "sk-SECRET nora@example.com";
 		const raw = running({ agents: [{ task: 1, run: 10, step: "implement", state: secret }] });
 		raw.agents[0].task = secret as never;
@@ -74,7 +74,7 @@ describe("normalisation", () => {
 		assert.ok(!JSON.stringify(r).includes("SECRET"));
 	});
 
-	test("main CI reads the newest head sha", () => {
+	test("INV-watch-observe: main CI reads the newest head sha", () => {
 		const sha = "b".repeat(40);
 		assert.deepEqual(parseCi(ciRuns(sha, "failure")), { ok: true, value: { sha, conclusion: "failure" } });
 		assert.deepEqual(parseCi(ciRuns(sha, null, "in_progress")), { ok: true, value: { sha, conclusion: "pending" } });
@@ -84,10 +84,10 @@ describe("normalisation", () => {
 	});
 });
 
-describe("real capture: an open owner decision", () => {
+describe("INV-watch-observe: real capture: an open owner decision", () => {
 	// The Nov 8 outage: main's parser required `run` and `step` on every agents row, so this capture
 	// failed with evf_bad_shape on every poll while a decision was open (the parser at f450acec fails it).
-	test("the captured status parses, including evf's needs_you row", () => {
+	test("INV-watch-observe: the captured status parses, including evf's needs_you row", () => {
 		const needsYou = realOpenDecision.agents.filter((a: Record<string, unknown>) => a.state === "needs_you");
 		assert.equal(needsYou.length, 1, "the fixture holds the real needs_you row");
 		assert.ok(!("run" in needsYou[0]) && !("step" in needsYou[0]), "with no run or step keys");
@@ -96,7 +96,7 @@ describe("real capture: an open owner decision", () => {
 		assert.deepEqual(s.value.decisions, [{ id: "D-900", task: 100 }]);
 	});
 
-	test("the decision opening yields exactly one decision event", () => {
+	test("INV-watch-observe: the decision opening yields exactly one decision event", () => {
 		const before = structuredClone(realOpenDecision);
 		before.decisions = [];
 		before.agents = before.agents.filter((a: Record<string, unknown>) => a.state !== "needs_you");
@@ -104,45 +104,45 @@ describe("real capture: an open owner decision", () => {
 		assert.deepEqual(due(realOpenDecision, realOpenDecision), [], "and nothing more while it stays open");
 	});
 
-	test("a decision opening on a running task does not also report the seat as finished", () => {
+	test("INV-watch-observe: a decision opening on a running task does not also report the seat as finished", () => {
 		const cur = running({ decisions: [{ id: 12, task: 1, kind: "question" }] });
 		assert.deepEqual(due(running(), cur), ["decision:D-12"]);
 	});
 });
 
-describe("actionable transitions give exactly one event", () => {
-	test("(a) a run leaves running", () => {
+describe("INV-watch-observe: actionable transitions give exactly one event", () => {
+	test("INV-watch-observe: (a) a run leaves running", () => {
 		const cur = rawStatus({ tasks: [{ id: 1, phase: "waiting", wait: "waits for review" }], agents: [{ task: 1, run: null, step: "review", state: "waiting" }] });
 		assert.deepEqual(due(running(), cur), ["seat-finished:1:10:implement"]);
 	});
 
-	test("(a) the step advances to a new run", () => {
+	test("INV-watch-observe: (a) the step advances to a new run", () => {
 		const cur = rawStatus({ tasks: [{ id: 1 }], agents: [{ task: 1, run: 11, step: "review" }], seats: [{ task: 1, run: 11 }] });
 		assert.deepEqual(due(running(), cur), ["seat-finished:1:10:implement"]);
 	});
 
-	test("(b) a task enters a failed state", () => {
+	test("INV-watch-observe: (b) a task enters a failed state", () => {
 		const cur = rawStatus({ tasks: [{ id: 1, phase: "failed" }], agents: [{ task: 1, run: 10, state: "failed" }], seats: [{ task: 1, run: 10 }] });
 		assert.deepEqual(due(running(), cur), ["task-error:1:failed"]);
 	});
 
-	test("(b) a waiting task's agent errors", () => {
+	test("INV-watch-observe: (b) a waiting task's agent errors", () => {
 		const prev = rawStatus({ tasks: [{ id: 2, phase: "waiting", wait: "waits for T-1 to land" }], agents: [{ task: 2, state: "waiting", step: null }] });
 		const cur = rawStatus({ tasks: [{ id: 2, phase: "waiting", wait: "waits for T-1 to land" }], agents: [{ task: 2, state: "error", step: null }] });
 		assert.deepEqual(due(prev, cur), ["task-error:2:error"]);
 	});
 
-	test("(b) evf tick_error becomes set", () => {
+	test("INV-watch-observe: (b) evf tick_error becomes set", () => {
 		assert.deepEqual(due(running(), running({ tickError: "store locked" })), ["tick-error"]);
 	});
 
-	test("(c) evf heartbeat stops for 15 minutes", () => {
+	test("INV-watch-observe: (c) evf heartbeat stops for 15 minutes", () => {
 		const stale = running({ heartbeat: NOW - HEARTBEAT_STALE_MS });
 		assert.deepEqual(due(running(), stale), ["stuck-heartbeat"]);
 		assert.deepEqual(due(running(), running({ heartbeat: NOW - HEARTBEAT_STALE_MS + 1 })), []);
 	});
 
-	test("(c) a not-live seat on a running task fires on the second poll only", () => {
+	test("INV-watch-observe: (c) a not-live seat on a running task fires on the second poll only", () => {
 		const dead = running({ seats: [{ task: 1, run: 10, live: false }] });
 		const s0 = baseline(running());
 		const first = advance(s0, snap(dead));
@@ -150,7 +150,7 @@ describe("actionable transitions give exactly one event", () => {
 		assert.deepEqual(advance(first.next, snap(dead)).due.map((e) => e.key), ["stuck-seat:10"]);
 	});
 
-	test("(c) a 6-hour live, active run is not stuck", () => {
+	test("INV-watch-observe: (c) a 6-hour live, active run is not stuck", () => {
 		const longRun = running({ seats: [{ task: 1, run: 10, live: true, started_at: NOW - 6 * 3600_000, activity_at: NOW - 30_000 }] });
 		let state = baseline(running());
 		for (let i = 0; i < 5; i++) {
@@ -160,26 +160,26 @@ describe("actionable transitions give exactly one event", () => {
 		}
 	});
 
-	test("(d) a slot frees while released work waits", () => {
+	test("INV-watch-observe: (d) a slot frees while released work waits", () => {
 		const waiting = { id: 3, phase: "waiting", wait: "waits for a free seat" };
 		const full = running({ tasks: [{ id: 1 }, waiting], seatsUsed: 8, seatsMax: 8 });
 		const free = running({ tasks: [{ id: 1 }, waiting], seatsUsed: 7, seatsMax: 8 });
 		assert.deepEqual(due(full, free), ["slot-available:3"]);
 	});
 
-	test("(e) main CI fails for a new head sha", () => {
+	test("INV-watch-observe: (e) main CI fails for a new head sha", () => {
 		const green: Ci = { sha: "1".repeat(40), conclusion: "success" };
 		const red: Ci = { sha: "2".repeat(40), conclusion: "failure" };
 		assert.deepEqual(due(running(), running(), green, red), [`ci-failed:${"2".repeat(40)}`]);
 	});
 
-	test("(f) a new decision id opens", () => {
+	test("INV-watch-observe: (f) a new decision id opens", () => {
 		const cur = running({ decisions: [{ id: "D-9", task: 1, kind: "approval" }] });
 		assert.deepEqual(due(running(), cur), ["decision:D-9"]);
 	});
 });
 
-describe("slot notices count released, eligible work only", () => {
+describe("INV-watch-observe: slot notices count released, eligible work only", () => {
 	const freeWith = (tasks: Task[], decisions: Record<string, unknown>[] = []) =>
 		running({ tasks: [{ id: 1 }, ...tasks], seatsUsed: 1, seatsMax: 8, decisions });
 	const fullWith = (tasks: Task[], decisions: Record<string, unknown>[] = []) =>
@@ -194,15 +194,15 @@ describe("slot notices count released, eligible work only", () => {
 		["terminal lifecycle", [{ id: 4, phase: "landed", lifecycle: "landed" }], []],
 	];
 	for (const [name, tasks, decisions] of queues) {
-		test(`${name} with a free slot gives no slot event`, () => {
+		test(`INV-watch-observe: ${name} with a free slot gives no slot event`, () => {
 			const keys = due(fullWith(tasks, decisions), freeWith(tasks, decisions));
 			assert.deepEqual(keys.filter((k) => k.startsWith("slot-available")), []);
 		});
 	}
 });
 
-describe("dedup", () => {
-	test("unchanged status gives nothing, poll after poll", () => {
+describe("INV-watch-observe: dedup", () => {
+	test("INV-watch-observe: unchanged status gives nothing, poll after poll", () => {
 		let state = baseline(running());
 		for (let i = 0; i < 10; i++) {
 			const step = advance(state, snap(running({ noise: i % 2 ? "a" : "b" })));
@@ -211,14 +211,14 @@ describe("dedup", () => {
 		}
 	});
 
-	test("a baseline over active conditions does not wake, and they stay quiet", () => {
+	test("INV-watch-observe: a baseline over active conditions does not wake, and they stay quiet", () => {
 		const noisy = running({ tickError: "x", decisions: [{ id: 1 }], heartbeat: NOW - HEARTBEAT_STALE_MS });
 		const first = advance(null, snap(noisy));
 		assert.deepEqual(first.due, []);
 		assert.deepEqual(advance(first.next, snap(noisy)).due, []);
 	});
 
-	test("a delivered key stays quiet while its condition holds, and recurs after it clears", () => {
+	test("INV-watch-observe: a delivered key stays quiet while its condition holds, and recurs after it clears", () => {
 		const open = running({ decisions: [{ id: "D-3" }] });
 		const s1 = advance(baseline(running()), snap(open));
 		assert.deepEqual(s1.due.map((e) => e.key), ["decision:D-3"]);
@@ -229,7 +229,7 @@ describe("dedup", () => {
 		assert.deepEqual(advance(cleared, snap(open)).due.map((e) => e.key), ["decision:D-3"]);
 	});
 
-	test("a re-entered stuck state and a new failing sha fire again", () => {
+	test("INV-watch-observe: a re-entered stuck state and a new failing sha fire again", () => {
 		const stale = running({ heartbeat: NOW - HEARTBEAT_STALE_MS });
 		let s = markDelivered(...((r) => [r.next, r.due] as const)(advance(baseline(running()), snap(stale))));
 		s = advance(s, snap(running())).next;
@@ -242,7 +242,7 @@ describe("dedup", () => {
 		assert.deepEqual(b.due.map((e) => e.key), [`ci-failed:${"4".repeat(40)}`]);
 	});
 
-	test("an undelivered event stays pending; a cleared level event is dropped", () => {
+	test("INV-watch-observe: an undelivered event stays pending; a cleared level event is dropped", () => {
 		const open = running({ decisions: [{ id: "D-5" }] });
 		const s1 = advance(baseline(running()), snap(open));
 		const s2 = advance(s1.next, snap(open));
@@ -250,7 +250,7 @@ describe("dedup", () => {
 		assert.deepEqual(advance(s2.next, snap(running())).due, []);
 	});
 
-	test("state round-trips through the parser; corrupt state is refused", () => {
+	test("INV-watch-observe: state round-trips through the parser; corrupt state is refused", () => {
 		const s = baseline(running({ decisions: [{ id: 1 }] }));
 		assert.deepEqual(parseState(JSON.parse(JSON.stringify(s))), s);
 		for (const bad of [null, {}, { ...s, version: 2 }, { ...s, sent: [1] }, { ...s, snapshot: { tasks: "x" } }, { ...s, pending: [{ key: 1 }] }]) {
@@ -259,8 +259,8 @@ describe("dedup", () => {
 	});
 });
 
-describe("redaction", () => {
-	test("sensitive text in status never reaches the payload", () => {
+describe("INV-watch-observe: redaction", () => {
+	test("INV-watch-observe: sensitive text in status never reaches the payload", () => {
 		const secret = "sebastian@example.com https://user:pw@hooks.example/x sk-SECRET transcript-text";
 		const raw = rawStatus({
 			tasks: [{ id: 1, label: `ok ${secret}`, phase: "failed", wait: secret }],

@@ -36,7 +36,7 @@ function planned(c, date) {
 	};
 }
 
-test("BUG-T130: an Owner saves a planned launch date four times in a row and the step shows the latest", async () => {
+test("BUG-58bc5acb8: an Owner saves a planned launch date four times in a row and the step shows the latest", async () => {
 	const fixture = createFixturePort("created", { delay: 0 });
 	const c = cell(initialState(fixture.entry, "journey"));
 	for (const date of ["2027-03-07", "2027-04-11", "2027-05-16", "2027-06-20"]) {
@@ -53,7 +53,7 @@ test("BUG-T130: an Owner saves a planned launch date four times in a row and the
 	assert.equal(load.entry.resume.scheduleRevision, "4");
 });
 
-test("BUG-T130: a thrown server action on any onboarding command reads as unknown with retry reconcile", async () => {
+test("BUG-58bc5acb8: a thrown server action on any onboarding command reads as unknown with retry reconcile", async () => {
 	const port = createPort({ entry: offline, command: offline });
 	for (const op of OPS) {
 		const reply = await port.command(op, { requestKey: "k", expectedRevision: "1", input: {} });
@@ -65,7 +65,7 @@ test("BUG-T130: a thrown server action on any onboarding command reads as unknow
 	assert.deepEqual(await port.entry(), { kind: "offline" });
 });
 
-test("BUG-T130: a reply that arrived but is malformed still reads as unavailable", async () => {
+test("BUG-58bc5acb8: a reply that arrived but is malformed still reads as unavailable", async () => {
 	const replies = [
 		null,
 		"oops",
@@ -86,7 +86,7 @@ test("BUG-T130: a reply that arrived but is malformed still reads as unavailable
 	assert.deepEqual(await port.entry(), { kind: "entry", entry: { kind: "elsewhere", reason: "unavailable" } });
 });
 
-test("BUG-T130: a dropped connection keeps the step, drafts and request key; the retry replays instead of saving twice", async () => {
+test("BUG-58bc5acb8: a dropped connection keeps the step, drafts and request key; the retry replays instead of saving twice", async () => {
 	// The server saves, then the connection drops before the reply arrives and stays down for the reload.
 	const server = createFixturePort("created", { delay: 0 });
 	let drop = "command";
@@ -127,7 +127,7 @@ test("BUG-T130: a dropped connection keeps the step, drafts and request key; the
 	assert.equal(c.get().entry.resume.revision, "2", "the plant moved once: the retry replayed the first save");
 });
 
-test("BUG-T130: when the reload after a lost reply arrives, the notice says the latest was loaded", async () => {
+test("BUG-58bc5acb8: when the reload after a lost reply arrives, the notice says the latest was loaded", async () => {
 	const server = createFixturePort("created", { delay: 0 });
 	let drop = true;
 	const port = createPort({

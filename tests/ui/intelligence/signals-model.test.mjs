@@ -108,7 +108,7 @@ test("INV-signals: saving needs a choice; the same value is not a correction; ca
 	assert.match(refusalText(null), /still here/);
 });
 
-test("BUG-551 (signals/com-16): a cleared True as of date is left out of the request and the answer reads as of today", () => {
+test("BUG-PR551 (signals/com-16): a cleared True as of date is left out of the request and the answer reads as of today", () => {
 	const draft = { value: "yes", asOf: "", detail: " Thursdays ", reference: "" };
 	const input = signalInput("prayer_rhythm_established", "yes", draft);
 	// As sent: no asOf key at all, so the server dates it today.

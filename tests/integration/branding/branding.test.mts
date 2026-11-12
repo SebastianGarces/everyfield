@@ -119,7 +119,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("WP-104/api church brand kit", { concurrency: 1 }, () => {
+describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 	test("AC:CASE-BRD-001 member-refused: only the current Owner or Admin seat of the church plant reads or changes the kit", async () => {
 		const member = await authority(1);
 		refused(await brandReader.get(db, member, {}), "access_denied");
@@ -158,7 +158,7 @@ describe("WP-104/api church brand kit", { concurrency: 1 }, () => {
 		assert.equal(ok(await brandReader.resolveTheme(db, member, { documentClass: "email" })).kind, "everyfield-neutral");
 	});
 
-	test("brand.get for a church plant with no kit returns the defaults", async () => {
+	test("AC:CASE-BRD-004 brand.get for a church plant with no kit returns the defaults", async () => {
 		const kit = ok(await brandReader.get(db, await authority(0), {}));
 		assert.equal(kit.kitState, "default");
 		assert.equal(kit.revision, "0");
@@ -672,7 +672,7 @@ describe("WP-104/api church brand kit", { concurrency: 1 }, () => {
 		);
 	});
 
-	test("an upload can create the kit before a primary color, and that kit resolves to the neutral theme", async () => {
+	test("AC:CASE-BRD-006-NEUTRAL AC:CASE-BRD-003 an upload can create the kit before a primary color, and that kit resolves to the neutral theme", async () => {
 		await admin.execute(sql`DELETE FROM church_brand_kit WHERE tenant_id = ${P}::uuid`);
 		const kit = await attach(2, "mark", "image/png", greenPng, "Harvest mark", "0");
 		assert.deepEqual([kit.kitState, kit.revision, kit.primaryColor], ["saved", "1", null]);
@@ -696,7 +696,7 @@ describe("WP-104/api church brand kit", { concurrency: 1 }, () => {
 		);
 	});
 
-	test("T-143 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer", async () => {
+	test("AC:CASE-BRD-002 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer", async () => {
 		const owner = await authority(0);
 		const kit = ok(await brandReader.get(db, owner, {}));
 		const fileId = kit.assets.mark.fileId;

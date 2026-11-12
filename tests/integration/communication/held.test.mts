@@ -149,7 +149,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("BUG-T44 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message waits in Everyfield and goes to the email service at its send time, storing each recipient's id", async () => {
+test("BUG-f038ba571 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message waits in Everyfield and goes to the email service at its send time, storing each recipient's id", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);
@@ -275,7 +275,7 @@ test("AC:MAIL51-004 AC:MAIL51-005 a waiting message is cancelled or moved at onc
 	assert.deepEqual(resend.take(), []);
 });
 
-test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
+test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -318,7 +318,7 @@ test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the e
 	assert.equal([...resend.emails.values()].filter((email) => email.lastEvent === "canceled").length, 3);
 });
 
-test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
+test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -467,7 +467,7 @@ test("AC:MAIL51-004 a time change without confirmation names the requested and h
 	assert.equal(await auditsOf(message), audits);
 });
 
-test("BUG-T44 AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
+test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	const message = await reviewed(friday);

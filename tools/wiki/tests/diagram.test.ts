@@ -203,7 +203,7 @@ async function lintDraft(extra: string, slug?: string, entries: Entry[] = []) {
 	}
 }
 
-test("WP-034/ui AC:WP-034/ui-6: draft lint reports each malformed diagram block with its article line", async () => {
+test("INV-wiki-lint: draft lint reports each malformed diagram block with its article line", async () => {
 	// The fixture body starts on line 1, so the first fence is line 1 and its first body line is line 2.
 	const cases: [string, string, string[]][] = [
 		[
@@ -244,7 +244,7 @@ test("WP-034/ui AC:WP-034/ui-6: draft lint reports each malformed diagram block 
 	assert.equal(valid.status, 0, valid.output);
 });
 
-test("WP-034/ui AC:WP-034/ui-6: a draft with ASCII art fails even when its slug has an allowlist entry", async () => {
+test("INV-wiki-lint: a draft with ASCII art fails even when its slug has an allowlist entry", async () => {
 	const slug = ORIGINAL[0]!.slug;
 	const drafted = await lintDraft(art, slug, [{ slug, fingerprint: pin }]);
 	assert.equal(drafted.status, 1, drafted.output);
@@ -255,7 +255,7 @@ test("WP-034/ui AC:WP-034/ui-6: a draft with ASCII art fails even when its slug 
 	assert.ok(!drafted.output.includes("Inert ASCII allowlist entry"), drafted.output);
 });
 
-test("WP-034/ui AC:WP-034/ui-1: the seed reports each allowlisted ASCII block as a warning on a passing article", () => {
+test("INV-wiki-lint: the seed reports each allowlisted ASCII block as a warning on a passing article", () => {
 	assert.deepEqual(
 		errors(baseline.output).filter((line) => line.startsWith("ASCII-art")),
 		[],
@@ -269,7 +269,7 @@ test("WP-034/ui AC:WP-034/ui-1: the seed reports each allowlisted ASCII block as
 	assertEachEntryReported(baseline, payload);
 });
 
-test("WP-034/ui AC:WP-034/ui-2: the #388 replay passes, each migrated article names its inert entry, and lint exits 0", async () => {
+test("INV-wiki-lint: the #388 replay passes, each migrated article names its inert entry, and lint exits 0", async () => {
 	const result = await lintSeed(replay);
 	assertNoNewFailures(result);
 	assert.ok(!/remove .* from the allowlist/.test(result.output), result.output);
@@ -281,7 +281,7 @@ test("WP-034/ui AC:WP-034/ui-2: the #388 replay passes, each migrated article na
 	}
 });
 
-test("WP-034/ui AC:WP-034/ui-4: new ASCII art in an article with a matched or an inert entry fails seed lint", async () => {
+test("INV-wiki-lint: new ASCII art in an article with a matched or an inert entry fails seed lint", async () => {
 	const [second, copied, prose, changed] = plain as [string, string, string, string];
 	const seed = edited(payload, {
 		// A second ASCII block beside the pinned one.
@@ -320,7 +320,7 @@ test("WP-034/ui AC:WP-034/ui-4: new ASCII art in an article with a matched or an
 	assert.deepEqual(asciiWarnings(result.block(changed)), [inertWarning({ slug: changed, fingerprint: pin })]);
 });
 
-test("WP-034/ui AC:WP-034/ui-5: ASCII art in an article with no allowlist entry fails seed lint", async () => {
+test("INV-wiki-lint: ASCII art in an article with no allowlist entry fails seed lint", async () => {
 	const unlisted = plain[0]!;
 	const seed = edited(payload, { [unlisted]: append(art) });
 	const result = await lintSeed(seed);
@@ -333,7 +333,7 @@ test("WP-034/ui AC:WP-034/ui-5: ASCII art in an article with no allowlist entry 
 	assert.deepEqual(failing(result.output).sort(), [...knownFailures, unlisted].sort());
 });
 
-test("WP-034/ui AC:WP-034/ui-7: the allowlist only shrinks, and an entry for an unknown slug fails seed lint", async () => {
+test("INV-wiki-lint: the allowlist only shrinks, and an entry for an unknown slug fails seed lint", async () => {
 	// The guard: each entry in the file is one of the original 9 pinned above, listed once.
 	assert.deepEqual(added(allowlist), []);
 	assert.equal(new Set(allowlist.map(key)).size, allowlist.length);
@@ -361,7 +361,7 @@ test("WP-034/ui AC:WP-034/ui-7: the allowlist only shrinks, and an entry for an 
 	assert.ok(!done.output.includes("ASCII"), done.output);
 });
 
-test("WP-034/ui AC:WP-034/ui-8: each seed ASCII finding matches an entry, and each entry matches one block or is inert", () => {
+test("INV-wiki-lint: each seed ASCII finding matches an entry, and each entry matches one block or is inert", () => {
 	// The seed as it stands: every finding matches, and lint reports each entry with no block as inert.
 	const current = audit(payload, allowlist);
 	assert.deepEqual(current.unallowed, []);

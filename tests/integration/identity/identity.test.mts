@@ -25,7 +25,7 @@ async function resetProof(email: string) {
 	return token;
 }
 
-test("AC:WP005-API-STAGED INV-nonenumeration pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
+test("AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
 	f.setIp("127.0.0.11");
 	const first = await register(f, "staged@example.test");
 	assert.equal(first.status, 200);
@@ -147,7 +147,7 @@ test("INV-identity: a rate-limited refusal names the end of the budget window it
 	f.setIp(null);
 });
 
-test("AC:WP005-API-RESET AC:TARGET-IDN-009 INV-proof-link real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
+test("AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
 	f.setIp("127.0.0.14");
 	await register(f, "reset@example.test");
 	const c1 = cookie(await signIn(f, "reset@example.test")),

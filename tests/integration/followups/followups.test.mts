@@ -1078,7 +1078,7 @@ async function sharedBy(c, personId, title, ids) {
 	return id;
 }
 
-test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one owner is eligible, and counts once under each", async () => {
+test("AC:TARGET-TSK-012 a follow-up is owned while one owner is eligible, and counts once under each", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1135,7 +1135,7 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 	);
 });
 
-test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole write when one account cannot own", async () => {
+test("AC:TARGET-TSK-012 assigning a list refuses the whole write when one account cannot own", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1174,7 +1174,7 @@ test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole wri
 	);
 });
 
-test("AC:TARGET-TSK-013 F07b criteria 5 and 7: a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
+test("AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const leaving = await c.seated("member");

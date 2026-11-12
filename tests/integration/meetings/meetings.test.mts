@@ -747,7 +747,7 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	);
 });
 
-test("BUG-WP-020-guest-history: a Person created from a guest list or at the door opens with their history", async () => {
+test("BUG-ecafe8d01: a Person created from a guest list or at the door opens with their history", async () => {
 	const m = await schedule();
 	for (const op of [guests.createGuestContact, guests.createWalkInContact]) {
 		const made = ok(await run(op, { requestKey: key(), input: { meetingId: m.id, displayName: "Robin" } }));
@@ -891,7 +891,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:G
 	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
 });
 
-test("BUG-T155: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
+test("BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
 	const alex = await person("Alex Rivera");
 	for (const to of ["cancelled", "completed"]) {
 		const m = await schedule({ guests: [alex] });
@@ -999,8 +999,13 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 			["day_1", "2026-03-09T14:00:00.000Z", "planned"],
 		],
 	);
+	// D-763: a reminder stays planned through its own time and passes once the next slot is due.
 	assert.deepEqual(
 		(await plan(march.id, "2026-03-08T00:00:00Z")).slots.map((s) => s.state),
+		["planned", "passed", "planned", "planned"],
+	);
+	assert.deepEqual(
+		(await plan(march.id, "2026-03-09T14:00:00Z")).slots.map((s) => s.state),
 		["planned", "passed", "passed", "planned"],
 	);
 	assert.equal(
@@ -1017,10 +1022,24 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	const crmOnly = await person("CRM only");
 	await admin.execute(sql`UPDATE person SET email='crm@example.test' WHERE id=${crmOnly}`);
 	const m = await schedule({ date: day(20), time: "18:00", guests: [memberPerson, ownerPerson, crmOnly] });
-	// Nothing queues reminder jobs until the notification worker exists (D-517): a meeting write queues no job.
 	const jobs = async () =>
-		(await admin.execute(sql`SELECT count(*)::int AS n FROM job WHERE subject_record_id=${m.id}`)).rows[0].n;
-	assert.equal(await jobs(), 0);
+		(
+			await admin.execute(
+				sql`SELECT producer_key AS key, state, eligible_at, source_revision::text AS revision FROM job
+					WHERE subject_record_id=${m.id} AND kind='notification' ORDER BY producer_key`,
+			)
+		).rows;
+	const first = await jobs();
+	assert.deepEqual(
+		first.map((j) => [j.key.split("/").slice(0, 2).join("/"), j.state, j.revision]),
+		[
+			["meeting/announcement", "ready", "1"],
+			["meeting/day_1", "ready", "1"],
+			["meeting/day_3", "ready", "1"],
+			["meeting/day_7", "ready", "1"],
+		],
+		"one job per slot, queued with the meeting",
+	);
 	const now = new Date().toISOString();
 	let current = await plan(m.id, now);
 	const reminder = current.slots.find((s) => s.slot === "day_3");
@@ -1030,7 +1049,7 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 		"creator once though also a guest; no CRM-only address",
 	);
 	assert.deepEqual(current.slots[0].recipients, [actors[0].id], "the announcement goes to the linked Core Group");
-	// Rescheduling moves every reminder slot to the new start.
+	// Reschedule after the 7-day job was queued: old slots are superseded before they send, new ones queued once.
 	const moved = ok(
 		await run(meetings.edit, {
 			requestKey: key(),
@@ -1038,9 +1057,52 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 			input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } },
 		}),
 	).meeting;
-	assert.equal(await jobs(), 0);
+	const afterMove = await jobs();
+	assert.deepEqual(
+		afterMove.filter((j) => j.state === "ready").map((j) => [j.key.split("/").slice(0, 2).join("/"), j.revision]),
+		[
+			["meeting/announcement", moved.revision],
+			["meeting/day_1", moved.revision],
+			["meeting/day_3", moved.revision],
+			["meeting/day_7", moved.revision],
+		],
+		"the announcement and the new slots carry the new revision",
+	);
+	assert.equal(afterMove.filter((j) => j.state === "superseded").length, 3);
+	assert.ok(
+		afterMove
+			.filter((j) => j.state === "ready" && j.key !== "meeting/announcement")
+			.every((j) => j.key.endsWith(moved.startsAt)),
+	);
 	current = await plan(m.id, new Date().toISOString());
 	assert.ok(current.slots.filter((s) => s.slot !== "announcement").every((s) => s.eligibleAt < moved.startsAt));
+	const same = ok(
+		await run(meetings.edit, {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } },
+		}),
+	);
+	assert.equal(same.outcome, "noop");
+	assert.deepEqual(await jobs(), afterMove, "the same time again queues nothing new");
+	// A slot already sent is never queued again: an agenda change brings the waiting jobs to the new revision only.
+	const sent = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"));
+	await admin.execute(
+		sql`UPDATE job SET state='succeeded', finished_at=clock_timestamp() WHERE subject_record_id=${m.id} AND producer_key=${sent.key}`,
+	);
+	const agenda = ok(
+		await run(meetings.replaceAgenda, {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { meetingId: m.id, sections: [] },
+		}),
+	).agenda;
+	const afterAgenda = await jobs();
+	assert.equal(afterAgenda.find((j) => j.key === sent.key).state, "succeeded");
+	assert.ok(
+		afterAgenda.filter((j) => j.state === "ready").every((j) => j.revision === agenda.revision),
+		"waiting jobs follow the meeting's revision",
+	);
 	// The member leaves the guest list: the reminder audience drops them.
 	const g = await guestOf(m.id, memberPerson);
 	ok(
@@ -1052,15 +1114,15 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 	current = await plan(m.id, new Date().toISOString());
 	assert.deepEqual(current.slots.find((s) => s.slot === "day_1").recipients, [actors[0].id]);
-	// Cancelling suppresses every slot; nothing obsolete would be sent.
+	// Cancelling supersedes every waiting job and suppresses every slot; nothing obsolete is sent.
 	ok(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
-			expectedRevision: moved.revision,
+			expectedRevision: agenda.revision,
 			input: { meetingId: m.id, to: "cancelled" },
 		}),
 	);
-	assert.equal(await jobs(), 0);
+	assert.equal((await jobs()).filter((j) => j.state === "ready").length, 0);
 	assert.ok(
 		(await plan(m.id, new Date().toISOString())).slots.every(
 			(s) => s.state === "suppressed" && s.recipients.length === 0,
@@ -1140,7 +1202,7 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 	for (const r of await reads13()) refused(r);
 });
 
-test("T-159: the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
+test("AC:TARGET-MTG-001 the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
 	// Plant Q, minutes from now, so no meeting another test schedules days ahead comes sooner.
 	const at = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
 	const insert = async (status, minutes) => {
@@ -1163,7 +1225,7 @@ test("T-159: the Next card's read skips a sooner cancelled or completed meeting 
 	assert.equal(unfiltered[0].status, "cancelled");
 });
 
-test("T-159 C13: a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
+test("AC:RECOVERY-DELETE-001 a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
 	const guest = await person("Wren", { plant: Q });
 	const m = await schedule({ guests: [guest] }, 3);
 	const token = await issueRsvpToken(admin, Q, m.id, guest);

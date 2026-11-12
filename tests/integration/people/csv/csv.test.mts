@@ -10,7 +10,9 @@ import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queu
 import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
 import {
 	executeBulkImport,
+	listDuplicatePairs,
 	peopleCsv as csv,
+	peopleMerge,
 	runPeopleImport,
 	peopleReader,
 	peopleWriter as people,
@@ -423,7 +425,7 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 	assert.deepEqual(ok(await receiptOf(requestKey)).counts, { created: 498, skipped: 0, failed: 3, remaining: 3 });
 	assert.equal(await count("person"), peopleBefore + 498);
 });
-test("AC:TARGET-PPL-018 INV-tenancy BUG-198-unconfirmed an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
+test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
 	const existing = await person("Rae Existing", { phone: "(555) 010-2030" });
 	const file =
 		"first_name,last_name,phone,email\r\nRae,Import,555-010-2030,\r\nSam,One,,sam@example.test\r\nSam,Two,,SAM@example.test\r\nUma,,,uma@example.test\r\n,,,bad\r\n";
@@ -525,7 +527,7 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-198-unconfirmed an import saves exactly 
 	}
 });
 
-test("AC:TARGET-PPL-018 D-516 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
+test("AC:TARGET-PPL-018 a repeat of a skipped row has nothing to review against: review later is refused, add new imports", async () => {
 	const tag = randomUUID().slice(0, 8);
 	const file = `first_name,last_name,email\r\nVi,One,vi-${tag}@example.test\r\nVi,Two,VI-${tag}@example.test\r\n`;
 	const p = ok(await preview(file));
@@ -564,6 +566,81 @@ test("AC:TARGET-PPL-018 D-516 a repeat of a skipped row has nothing to review ag
 	);
 	assert.deepEqual(receipt.counts, { created: 1, skipped: 1, failed: 0, remaining: 0 });
 	assert.equal(await count("person"), peopleBefore + 1);
+});
+
+test("AC:TARGET-PPL-018 T-193 each review-later row is a pair to review until a merge or retirement, only in its own church", async () => {
+	const tag = randomUUID().slice(0, 8);
+	const pairs = async (who = 0) => ok(await read(who, (t, c) => listDuplicatePairs(t, c)));
+	const pia = await person(`Pia ${tag}`, { email: `pia-${tag}@example.test` });
+	const quin = await person(`Quin ${tag}`, { email: `quin-${tag}@example.test` });
+	await person(`Ross ${tag}`, { email: `ross-${tag}@example.test` });
+	await person(`Uma ${tag}`, { email: `uma-${tag}@example.test` });
+	const quinOther = await person(`Quin Other ${tag}`);
+	// Rows 1 and 2 match existing people, row 5 repeats row 4; Ross is added new and Uma skipped, so neither pairs.
+	const file =
+		`first_name,last_name,email\r\nPia,Imported,pia-${tag}@example.test\r\nQuin,Imported,quin-${tag}@example.test\r\n` +
+		`Ross,Imported,ross-${tag}@example.test\r\nTess,One,tess-${tag}@example.test\r\nTess,Two,tess-${tag}@example.test\r\n` +
+		`Uma,Imported,uma-${tag}@example.test\r\n`;
+	const p = ok(await preview(file));
+	const before = new Set((await pairs()).items.map((x) => x.person.id));
+	const receipt = ok(
+		await importFile(file, p, [
+			{ row: 1, choice: "create_and_review" },
+			{ row: 2, choice: "create_and_review" },
+			{ row: 3, choice: "create" },
+			{ row: 4, choice: "create" },
+			{ row: 5, choice: "create_and_review" },
+			{ row: 6, choice: "skip" },
+		]),
+	);
+	const id = (row) => receipt.rows.find((r) => r.row === row).personId;
+	const fresh = async (who = 0) => (await pairs(who)).items.filter((x) => !before.has(x.person.id));
+	// The read uses the import's own audit rows: no backfill or migration step runs between the import and the list.
+	assert.deepEqual(await fresh(), [
+		{ person: { id: id(1), displayName: "Pia Imported" }, with: { id: pia.id, displayName: `Pia ${tag}` } },
+		{ person: { id: id(2), displayName: "Quin Imported" }, with: { id: quin.id, displayName: `Quin ${tag}` } },
+		{ person: { id: id(5), displayName: "Tess Two" }, with: { id: id(4), displayName: "Tess One" } },
+	]);
+
+	// INV-tenancy: another church's Admin sees none of them, and a Member of this church is refused.
+	assert.deepEqual((await pairs(2)).items, []);
+	refused(await read(1, (t, c) => listDuplicatePairs(t, c)));
+
+	// A merge of the pair, or of either one into someone else, removes it; so does retiring either one.
+	const merge = async (sourceId, survivorId) => {
+		const r = ok(await read(0, (t, c) => peopleMerge.getMergeReview(t, c, { sourceId, survivorId })));
+		ok(
+			await write(0, (t, c) =>
+				peopleMerge.mergePeople(t, c, {
+					requestKey: randomUUID(),
+					input: { sourceId, survivorId, reviewDigest: r.reviewDigest, fieldChoices: {} },
+				}),
+			),
+		);
+	};
+	await merge(id(1), pia.id);
+	await merge(quin.id, quinOther.id);
+	assert.deepEqual(
+		(await fresh()).map((x) => x.person.id),
+		[id(5)],
+	);
+	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(id(4))}`);
+	const { reviewRevision } = ok(await read(0, (t, c) => peopleReader.getStatusWarnings(t, c, { personId: id(4) })));
+	ok(
+		await write(0, (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId: id(4), reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+	assert.deepEqual(await fresh(), []);
 });
 
 test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy INV-filters the export matches the directory's filters as formula-safe CSV without private fields", async () => {
@@ -776,7 +853,7 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	}
 });
 
-test("AC:TARGET-PPL-019 BUG-export-names the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
+test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
 	const maria = await person("Maria Santos");
 	const mary = await person("Mary Ann  Smith");
 	const grace = await person("Grace");
@@ -816,7 +893,7 @@ test("AC:TARGET-PPL-019 BUG-export-names the export derives first_name and last_
 	void uma;
 });
 
-test("INV-C32 a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
+test("INV-session-lock: a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
 	const file = "first_name\r\nLockfree\r\n";
 	const p = ok(await preview(file));
 	const requestKey = randomUUID();
