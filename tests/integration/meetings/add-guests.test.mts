@@ -303,7 +303,7 @@ test("INV-statements: adding 1 person and adding 6 (some new contacts) send the 
 	refused(await direct({ meetingId: await meeting(other), people: [await person("I")] }), "unavailable");
 });
 
-test("T-232: the operation catalog lists meetings.addGuests as an Owner/Admin command Evry does not offer", async () => {
+test("the operation catalog lists meetings.addGuests as an Owner/Admin command Evry does not offer", async () => {
 	const catalog = JSON.parse(readFileSync(new URL("../../../docs/catalog/operations.json", import.meta.url), "utf8"));
 	const op = (id) => catalog.operations.find((o) => o.id === id);
 	const added = op("meetings.addGuests");

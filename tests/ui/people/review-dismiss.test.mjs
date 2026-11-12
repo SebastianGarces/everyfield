@@ -23,7 +23,7 @@ function sender(...answers) {
 	return { sent, send };
 }
 
-test("T-268 a saved dismiss returns to the list, also when another tab already dismissed the pair", async () => {
+test("a saved dismiss returns to the list, also when another tab already dismissed the pair", async () => {
 	for (const outcome of ["changed", "noop"]) {
 		const { sent, send } = sender({ status: "ok", value: { outcome } });
 		assert.deepEqual(await reviewDismiss(send)(listed), { next: "list" });
@@ -35,7 +35,7 @@ test("T-268 a saved dismiss returns to the list, also when another tab already d
 	);
 });
 
-test("T-268 a lost answer is sent once more as it is; a second lost answer keeps the review and says it may have saved", async () => {
+test("a lost answer is sent once more as it is; a second lost answer keeps the review and says it may have saved", async () => {
 	const once = sender({ status: "lost" }, { status: "ok", value: { outcome: "noop" } });
 	assert.deepEqual(await reviewDismiss(once.send)(listed), { next: "list" });
 	assert.deepEqual(once.sent, [listed, listed]);
@@ -49,7 +49,7 @@ test("T-268 a lost answer is sent once more as it is; a second lost answer keeps
 	assert.match(r.text, /Reload the page/);
 });
 
-test("T-268 a refused dismiss keeps the review, says nothing changed and reads the pair again", async () => {
+test("a refused dismiss keeps the review, says nothing changed and reads the pair again", async () => {
 	const stale = reviewDismissed({ status: "refused", code: "pair_unavailable" });
 	assert.deepEqual(stale, {
 		next: "review",
@@ -65,7 +65,7 @@ test("T-268 a refused dismiss keeps the review, says nothing changed and reads t
 	assert.equal(sent.length, 1, "a refusal is not sent again");
 });
 
-test("T-268 while a dismiss is pending a second one sends nothing, and after it ends a new one may start", async () => {
+test("while a dismiss is pending a second one sends nothing, and after it ends a new one may start", async () => {
 	let answer;
 	const sent = [];
 	const run = reviewDismiss((input) => {

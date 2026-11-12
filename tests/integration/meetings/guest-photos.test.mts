@@ -88,7 +88,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:TARGET-IDN-006 T-274 Done 1-2, 7-8: the guest list names the photo each guest shows, and only for live guests seated here", async () => {
+test("AC:TARGET-IDN-006: the guest list names the photo each guest shows, and only for live guests seated here", async () => {
 	const m = await meeting();
 	const holder = await account(),
 		bare = await account(),
@@ -142,7 +142,7 @@ test("AC:TARGET-IDN-006 T-274 Done 1-2, 7-8: the guest list names the photo each
 	assert.doesNotMatch(JSON.stringify(list), /private\/|https?:/);
 });
 
-test("AC:TARGET-IDN-006 T-274 Done 3: an ended seat, a replaced photo and a removed photo show on the next read", async () => {
+test("AC:TARGET-IDN-006: an ended seat, a replaced photo and a removed photo show on the next read", async () => {
 	const m = await meeting();
 	const holder = await account(),
 		leaving = await account();

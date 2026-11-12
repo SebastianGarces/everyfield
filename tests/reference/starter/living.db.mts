@@ -134,11 +134,11 @@ async function installFresh(pin: WikiSource) {
 	return (await activeArticle(db, slug)).body;
 }
 
-test("WP-033 criterion 10: an empty store gets a living seed's corrected 501(c)(3) article byte for byte", async () => {
+test("an empty store gets a living seed's corrected 501(c)(3) article byte for byte", async () => {
 	assertCorrected(await installFresh(fixtureSource));
 });
 
-test("WP-033 criterion 10: an empty store gets the real living seed's corrected 501(c)(3) and EIN articles byte for byte", async () => {
+test("an empty store gets the real living seed's corrected 501(c)(3) and EIN articles byte for byte", async () => {
 	assertCorrected(await installFresh(approvedWiki));
 });
 
@@ -194,11 +194,11 @@ async function upgradeAndRollBack(pin: WikiSource) {
 	return { body: corrected.body, exported: await living.exportApprovedWiki(caller) };
 }
 
-test("WP-033 criterion 11: a corrected living generation replaces the bootstrap one, and rollback works and replays", async () => {
+test("a corrected living generation replaces the bootstrap one, and rollback works and replays", async () => {
 	assertCorrected((await upgradeAndRollBack(fixtureSource)).body);
 });
 
-test("WP-033 criterion 11: the real living generation replaces the bootstrap one, and rollback works and replays", async () => {
+test("the real living generation replaces the bootstrap one, and rollback works and replays", async () => {
 	assert.deepEqual([approvedWiki.articles, approvedWiki.sections, approvedWiki.systemTemplates], [124, 21, 7]);
 	const { body, exported } = await upgradeAndRollBack(approvedWiki);
 	assertCorrected(body);
@@ -209,7 +209,7 @@ test("WP-033 criterion 11: the real living generation replaces the bootstrap one
 	);
 });
 
-test("WP-033 criterion 12 seed step: wiki:install activates the living seed on a seed schema, and a rerun changes nothing", async (t) => {
+test("the seed step's wiki:install activates the living seed on a seed schema, and a rerun changes nothing", async (t) => {
 	if (localCi) return t.skip("the command writes only the shared development database");
 	// The command accepts only tests/ui seed schema names, so this store borrows that shape.
 	const { db } = await emptyStore("ui_" + randomBytes(8).toString("hex"));

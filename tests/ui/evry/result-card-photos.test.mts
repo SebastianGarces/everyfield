@@ -44,7 +44,7 @@ const render = (operation: string, saved: ReturnType<typeof result>, photos: Rec
 	);
 const images = (html: string) => [...html.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
 
-test("AC:TARGET-IDN-006 T-274 Done 4-5: a person row shows the photo read for it now; other rows keep initials", () => {
+test("AC:TARGET-IDN-006: a person row shows the photo read for it now; other rows keep initials", () => {
 	const saved = result("people.listPeople", [person(LINKED, "Linked Holder"), person(PLAIN, "Plain Person")]);
 	// The saved result carries no photo: the card shows only what the panel read.
 	assert.doesNotMatch(JSON.stringify(saved), /photo|avatar|versionId/i);
@@ -59,7 +59,7 @@ test("AC:TARGET-IDN-006 T-274 Done 4-5: a person row shows the photo read for it
 	assert.match(html, /LH/);
 });
 
-test("T-274 Done 4: household rows keep their icon, and member rows of a household card show their photo", () => {
+test("household rows keep their icon, and member rows of a household card show their photo", () => {
 	const photo = `/people/${LINKED}/photo/66666666-6666-4666-8666-666666666666`;
 	const saved = result("people.getHousehold", [
 		{ kind: "household", id: H, label: "Okafor household", fields: { memberCount: "2", city: null } },

@@ -122,7 +122,7 @@ const complete = (reviewWith: (string | null)[]) => ({
 	counts: { created: reviewWith.length, skipped: 0, failed: 0, remaining: 0 },
 });
 
-test("T-193 (people/peo-24): the Done screen says how many to review in Duplicates, or that everyone is in People", () => {
+test("the Done screen says how many to review in Duplicates, or that everyone is in People", () => {
 	const none = text(done(complete([null, null])));
 	assert.match(none, /2 people added Everyone you chose is in People now\./);
 	assert.doesNotMatch(none, /to review/);
@@ -149,7 +149,7 @@ test("T-193 (people/peo-24): the Done screen says how many to review in Duplicat
 // deleted, it says to upload the file again and offers the file chooser instead; a refused file shows why there.
 const partialDone = (fileKept: boolean, problem: unknown = null) => done({ ...receipt, fileKept }, problem);
 
-test("T-194 (people/peo-48): the expired Done screen says to upload the file again and offers the file, not the button", () => {
+test("the expired Done screen says to upload the file again and offers the file, not the button", () => {
 	const kept = text(partialDone(true));
 	assert.match(kept, /Try 3 rows again/);
 	assert.doesNotMatch(kept, /Upload the file again/);

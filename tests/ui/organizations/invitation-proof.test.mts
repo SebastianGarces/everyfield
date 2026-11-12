@@ -113,7 +113,7 @@ const noStore = (response: Response) => {
 	assert.equal(response.headers.get("referrer-policy"), "no-referrer");
 };
 
-test("T-207: the read and the answer send the proof only in the route's body, never in an action argument", async () => {
+test("the read and the answer send the proof only in the route's body, never in an action argument", async () => {
 	reset(viewer);
 	const sent: { url: string; body: string }[] = [];
 	const command = respondInvitationRequest.parse({
@@ -154,7 +154,7 @@ test("T-207: the read and the answer send the proof only in the route's body, ne
 	]);
 });
 
-test("T-207: the route answers the read as the page did: signed out, unavailable or the request", async () => {
+test("the route answers the read as the page did: signed out, unavailable or the request", async () => {
 	const read = (proof: string) => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof }));
 
 	reset({ kind: "signed_out" });
@@ -194,7 +194,7 @@ test("T-207: the route answers the read as the page did: signed out, unavailable
 	assert.deepEqual(state.domain, [["viewerOf"]]);
 });
 
-test("T-207: the route refuses other origins, other content types, oversize and off-schema bodies untouched", async () => {
+test("the route refuses other origins, other content types, oversize and off-schema bodies untouched", async () => {
 	const good = JSON.stringify({ op: "read", invitationId: INVITATION, proof: PROOF });
 	const cases: [string, () => Promise<Response>, number][] = [
 		["no Origin", () => post(good, { origin: null }), 403],

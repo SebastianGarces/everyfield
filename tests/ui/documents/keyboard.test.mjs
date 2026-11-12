@@ -135,7 +135,7 @@ async function insert(page, item) {
 	await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
 
-test("T-122: the toolbar with the keyboard, its overrides and its overlays (Chromium, 1440 px)", async (t) => {
+test("the toolbar with the keyboard, its overrides and its overlays (Chromium, 1440 px)", async (t) => {
 	await onPage(async (page) => {
 		await fork(page);
 		const errors = [];
@@ -350,7 +350,7 @@ test("T-122: the toolbar with the keyboard, its overrides and its overlays (Chro
 	});
 });
 
-test("T-122: at 390 px the overlays open inside the product root, fit and stay usable (Chromium)", async (t) => {
+test("at 390 px the overlays open inside the product root, fit and stay usable (Chromium)", async (t) => {
 	await onPage(
 		async (page) => {
 			await fork(page);

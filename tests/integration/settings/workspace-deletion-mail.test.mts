@@ -179,7 +179,7 @@ async function queueChurchMail(p: Church, a: Person, logicalKey: string) {
 const mailState = async (id: string) =>
 	(await admin.select({ state: t.mail.state }).from(t.mail).where(eq(t.mail.id, id)))[0]!.state;
 
-test("T-272 AC1 AC2 AC3 AC10: a deletion request emails every open seat its own copy; the church's other mail stays stopped", async () => {
+test("a deletion request emails every open seat its own copy; the church's other mail stays stopped", async () => {
 	const { p, owner, seats } = await church();
 	const [seatedAdmin, member] = seats as [Person, Person];
 	await admin.update(t.account).set({ personal_timezone: "America/New_York" }).where(eq(t.account.id, owner.id));
@@ -233,7 +233,7 @@ test("T-272 AC1 AC2 AC3 AC10: a deletion request emails every open seat its own 
 });
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-test("T-272 AC4 AC5: a cancel emails each seat still open; an unsent notice goes only while its request still stands", async () => {
+test("a cancel emails each seat still open; an unsent notice goes only while its request still stands", async () => {
 	const { p, owner, seats } = await church();
 	const [seatedAdmin, member] = seats as [Person, Person];
 	const r1 = ok(await request(owner, p));
@@ -276,7 +276,7 @@ test("T-272 AC4 AC5: a cancel emails each seat still open; an unsent notice goes
 	assert.equal(await mailState(later), "cancelled");
 });
 
-test("T-272 AC6: at send time a notice goes only to an account still seated, at the same address, with no personal deletion pending", async () => {
+test("at send time a notice goes only to an account still seated, at the same address, with no personal deletion pending", async () => {
 	const changes: [string, (a: Person) => Promise<unknown>][] = [
 		["seat ended", (a) => admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, a.id))],
 		[
@@ -320,7 +320,7 @@ test("T-272 AC6: at send time a notice goes only to an account still seated, at 
 	}
 });
 
-test("T-272 AC7: replays and refusals queue no notice", async () => {
+test("replays and refusals queue no notice", async () => {
 	const { p, owner, seats } = await church();
 	const before = await allNotices();
 	// An Admin or a Member cannot request it.
@@ -359,7 +359,7 @@ test("T-272 AC7: replays and refusals queue no notice", async () => {
 	assert.equal(await allNotices(), before + 6);
 });
 
-test("T-272 AC8: notices are service mail: notification settings never hold them back, the suppression list does", async () => {
+test("notices are service mail: notification settings never hold them back, the suppression list does", async () => {
 	const { p, owner, seats } = await church();
 	const [suppressed, quiet] = seats as [Person, Person];
 	const bounce = randomUUID();

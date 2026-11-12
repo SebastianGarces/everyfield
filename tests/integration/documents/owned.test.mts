@@ -1480,7 +1480,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		);
 	});
 
-	test("AC:CASE-DOC-016 INV-documents T-100: plain tables save at the boundary, read back, feed core values and survive Use for this church", async () => {
+	test("AC:CASE-DOC-016 INV-documents: plain tables save at the boundary, read back, feed core values and survive Use for this church", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
 		const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
