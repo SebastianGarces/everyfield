@@ -145,7 +145,7 @@ export async function renderTemplatePdf(
 	const entry = entryFor(template.id);
 	if (entry?.format !== "pdf") throw new RenderFailed();
 	return rendering(() =>
-		renderPdfElement(entry.build(renderContext(church, values, theme, entry.documentClass, meeting, statement))),
+		renderPdfElement(entry.build(renderContext(church, values, theme, entry.documentClass, meeting))),
 	);
 }
 

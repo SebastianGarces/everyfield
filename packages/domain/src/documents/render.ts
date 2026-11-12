@@ -87,9 +87,8 @@ export function renderContext(
 	theme: RenderTheme,
 	documentClass: RenderClass,
 	meeting?: AgendaMeeting,
-	statement: string | null = null,
 ): Ctx {
-	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting, statement };
+	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting };
 }
 
 export function digestOf(bytes: Buffer) {
