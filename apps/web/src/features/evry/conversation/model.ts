@@ -2,6 +2,8 @@
 // about a conversation: the panel merges what the API and the stream send, by sequence, and derives turns, result
 // cards and notices from them. A message the person sent shows at once and falls away when its saved event arrives.
 
+import type { Review } from "../review/model.ts";
+
 /** The four exact contexts a conversation belongs to. */
 export type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
 
@@ -99,6 +101,11 @@ export type State = {
 	sends: readonly Send[];
 	/** Each running turn's whole text as the live stream has delivered it, ahead of its saved events. */
 	live: Readonly<Record<string, string>>;
+	/**
+	 * Each review card's review from the read that opened the conversation, by proposal id; null when it is unavailable.
+	 * A card takes its own once, as it first shows (`seen`), and reads it by id after that.
+	 */
+	reviews: Readonly<Record<string, Review | null>>;
 };
 
 export const EMPTY: State = {
@@ -108,6 +115,7 @@ export const EMPTY: State = {
 	stopping: false,
 	sends: [],
 	live: {},
+	reviews: {},
 };
 
 /** Live text from the stream (turn text from `offset` on). A piece the panel already has adds only what it lacks. */
@@ -126,6 +134,8 @@ export type ReadConversation = {
 	 */
 	run: { turnId: string; state: "running" | "lost" } | null;
 	events: ConversationEvent[];
+	/** The current review of each review card among `events`, by proposal id; null when the person may not read it. */
+	reviews: Record<string, Review | null>;
 	more: boolean;
 };
 
@@ -134,6 +144,7 @@ export function opened(read: ReadConversation): State {
 	return {
 		...merge({ ...EMPTY, conversation: read.conversation }, read.events),
 		activeTurnId: read.run?.turnId ?? null,
+		reviews: read.reviews,
 	};
 }
 
