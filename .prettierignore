@@ -2,6 +2,8 @@
 /docs/
 /design/
 /packages/db/migrations/
+# Fixtures moved from the retired design/doc-format prototype keep their bytes (T-220).
+/tests/integration/documents/fixtures/format/
 
 # Generated source and frozen reference projections.
 **/*.generated.*
