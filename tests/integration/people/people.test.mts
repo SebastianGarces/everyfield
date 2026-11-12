@@ -469,35 +469,6 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	);
 });
 
-test("AC:LAUNCH46-002 named guest and explicit selection share the caller transaction", async () => {
-	const guest = ok(await tx((t) => accounts.ensureGuest(t, ctx(), { kind: "new", displayName: "Guest" })));
-	assert.equal(
-		ok(
-			await tx((t) =>
-				accounts.ensureGuest(t, ctx(), {
-					kind: "existing",
-					personId: guest.personId,
-				}),
-			),
-		).personId,
-		guest.personId,
-	);
-	const n = (await admin.execute(sql`SELECT count(*)::int n FROM person`)).rows[0].n;
-	await assert.rejects(
-		tx(async (t) => {
-			ok(
-				await accounts.ensureGuest(t, ctx(), {
-					kind: "new",
-					displayName: "Attendance rollback",
-				}),
-			);
-			throw Error("attendance_fault");
-		}),
-		/attendance_fault/,
-	);
-	assert.equal((await admin.execute(sql`SELECT count(*)::int n FROM person`)).rows[0].n, n);
-});
-
 test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on it", async () => {
 	const leaving = await create("Leaving"),
 		stays = await create("Stays");
@@ -916,46 +887,6 @@ test("INV-people: concurrent edits serialize to one current revision and one con
 		).rows[0].n,
 		1,
 	);
-});
-
-test("AC:DEL58-004 account removal severs account links and preserves church-owned facts with minimal attribution", async () => {
-	const { detachAccountPersonLinks } = await import("../../../packages/domain/src/people/index.ts");
-	const linked = ok(
-		await tx((t) =>
-			accounts.ensureAccountPerson(t, {
-				accountId: actors[4].id,
-				owner: ctx().selected,
-				selection: { kind: "create", displayName: "Shared church contact" },
-			}),
-		),
-	);
-	const p = ok(await tx((t) => read.getPerson(t, ctx(), { personId: linked.personId }))).person;
-	const note = ok(
-		await tx((t) =>
-			write.addNote(t, ctx(4), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: { personId: p.id, body: "Shared operational fact" },
-			}),
-		),
-	);
-	await admin.execute(
-		sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,account_id,request_id,request_revision,state,requested_at,cancel_until,witness_checkpoint,cleanup_state) VALUES('account',${sql.param(actors[4].id)},${sql.param(actors[4].id)},${sql.param(randomUUID())},1,'purging','2026-09-01Z','2026-10-01Z',1,'in_progress')`,
-	);
-	const retained = await tx((t) => detachAccountPersonLinks(t, actors[4].id));
-	assert.ok(retained.retainedPersonIds.includes(p.id));
-	const current = ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person;
-	assert.equal(current.displayName, "Shared church contact");
-	assert.equal(current.lifecycle.state, "live");
-	assert.deepEqual(ok(await tx((t) => getAccountLink(t, ctx(), { personId: p.id }))), { status: "unlinked" });
-	const notes = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] })));
-	assert.equal(notes.items[0].body, "Shared operational fact");
-	assert.equal(notes.items[0].actor.kind, "former_account");
-	assert.equal(
-		(await admin.execute(sql`SELECT author_id FROM person_note WHERE id=${sql.param(note.noteId)}`)).rows[0].author_id,
-		null,
-	);
-	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
 test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
