@@ -17,6 +17,8 @@ export const { admin } = database;
 export const db = database.pools.runtime;
 /** Every statement the runtime role sent, for statement counts. */
 export const queries: string[] = [];
+/** The same statements with their bound values, for planning checks. */
+export const statements: { text: string; values: unknown[] }[] = [];
 
 export const plant = randomUUID();
 export const otherPlant = randomUUID();
@@ -71,7 +73,10 @@ export async function setup() {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args: unknown[]) {
-			queries.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
+			const text = typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text;
+			const values = (args[0] as { values?: unknown[] }).values ?? (Array.isArray(args[1]) ? args[1] : []);
+			queries.push(text);
+			statements.push({ text, values });
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;
 	});
