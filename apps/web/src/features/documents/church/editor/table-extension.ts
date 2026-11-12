@@ -403,7 +403,10 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		// or a box has. The table scrolls inside its own area when the screen is narrower than that.
 		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
 		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
-		const points = columnWidths(table().columns, textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share);
+		const points = columnWidths(
+			table().columns,
+			textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share,
+		);
 		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
 		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
 	}

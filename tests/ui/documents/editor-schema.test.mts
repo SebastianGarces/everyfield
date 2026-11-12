@@ -28,14 +28,8 @@ import { TOKEN_NAMES, TOKENS } from "../../../apps/web/src/features/documents/ch
 import { editorSchema, nativeSchema, stateAt } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { conditionIssue } from "../../../apps/web/src/features/documents/church/editor/condition-extension.ts";
 import { canInsert, insertBlock } from "../../../apps/web/src/features/documents/church/editor/blocks.ts";
-import {
-	pastedSlice,
-	plainPastedSlice,
-} from "../../../apps/web/src/features/documents/church/editor/extensions.ts";
-import {
-	blocksFromEditor,
-	blocksToEditor,
-} from "../../../apps/web/src/features/documents/church/editor/table-json.ts";
+import { pastedSlice, plainPastedSlice } from "../../../apps/web/src/features/documents/church/editor/extensions.ts";
+import { blocksFromEditor, blocksToEditor } from "../../../apps/web/src/features/documents/church/editor/table-json.ts";
 import { newBudget } from "../../../apps/web/src/features/documents/church/editor/table-ops.ts";
 
 import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
@@ -226,18 +220,7 @@ test("AC:CASE-DOC-016: the plain document editor holds a native body unchanged, 
 	const json = clean(native.nodeFromJSON(body).toJSON());
 	assert.deepEqual(json, body);
 	assert.equal(nativeBody.safeParse(json).success, true);
-	for (const name of [
-		"slot",
-		"field",
-		"image",
-		"columns",
-		"box",
-		"writeIn",
-		"pageHeader",
-		"spacer",
-		"pageBreak",
-		"if",
-	])
+	for (const name of ["slot", "field", "image", "columns", "box", "writeIn", "pageHeader", "spacer", "pageBreak", "if"])
 		assert.equal(native.nodes[name], undefined, `the plain editor has a ${name} node`);
 	assert.equal(native.marks.tag, undefined);
 });
@@ -378,9 +361,14 @@ const checklist = {
 			{ id: "commitment", label: "Commitment", type: "text", width: 0 },
 		],
 	},
-	content: [{ type: "row", content: [{ type: "cell", attrs: { checked: true } }, cell("Pray", [{ type: "underline" }])] }],
+	content: [
+		{ type: "row", content: [{ type: "cell", attrs: { checked: true } }, cell("Pray", [{ type: "underline" }])] },
+	],
 };
-const plainWithTables = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Setup" }] }, everyKind, checklist] };
+const plainWithTables = {
+	type: "doc",
+	content: [{ type: "paragraph", content: [{ type: "text", text: "Setup" }] }, everyKind, checklist],
+};
 
 /** The plain editor's document as the stored body node, as NativeEditor saves it. */
 const storedOf = (doc: Doc) => {
@@ -398,7 +386,10 @@ test("AC:CASE-DOC-016 T-100: a plain body with tables loads into the plain edito
 
 test("AC:CASE-DOC-016 T-100: Insert in a plain document adds the plain table and checklist rows, and never a budget", () => {
 	const native = nativeSchema();
-	const start = native.nodeFromJSON({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }] });
+	const start = native.nodeFromJSON({
+		type: "doc",
+		content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }],
+	});
 	assert.equal(canInsert(stateAt(start, 3), "budget"), false, "a plain document offers no budget table");
 	assert.equal(canInsert(caretIn("inbody"), "budget"), true, "a Church Document keeps its budget table");
 	const inserted = (kind: "table" | "checklist") => {
@@ -434,7 +425,10 @@ test("AC:CASE-DOC-016 T-100: a pasted budget, header color or write-in table is 
 	budget.content![1]!.content = [tagged as never, { type: "cell", attrs: { value: 500 } }];
 	const colored = { ...everyKind, attrs: { ...everyKind.attrs, headerFill: "primary" } };
 	const writeIns = { ...checklist, attrs: { ...checklist.attrs, headerFill: "none", writeInRows: 2 } };
-	const start = native.nodeFromJSON({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }] });
+	const start = native.nodeFromJSON({
+		type: "doc",
+		content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }],
+	});
 	// What the plain schema parses from a Church Document's clipboard: T-16's table with every attribute it has.
 	const copied = (table: unknown) => {
 		const source = native.nodeFromJSON({ type: "doc", content: blocksToEditor([table]) });
@@ -451,15 +445,17 @@ test("AC:CASE-DOC-016 T-100: a pasted budget, header color or write-in table is 
 	}
 	// The budget keeps what each cell showed: its labels and amounts, totals included, in plain rows.
 	const after = paste(budget);
-	const table = (storedOf(after).content as { type: string; content?: { content: { attrs?: { value?: number } }[] }[] }[]).find(
-		(n) => n.type === "table",
-	)!;
+	const table = (
+		storedOf(after).content as { type: string; content?: { content: { attrs?: { value?: number } }[] }[] }[]
+	).find((n) => n.type === "table")!;
 	assert.deepEqual(
 		table.content!.map((row) => row.content[1]!.attrs?.value ?? null),
 		[null, 500, 500, 500],
 	);
 	// Write-in rows become typed rows: the checklist's row and its two blank rows.
 	const fromWriteIns = paste(writeIns);
-	const rows = (storedOf(fromWriteIns).content as { type: string; content?: unknown[] }[]).find((n) => n.type === "table")!.content!;
+	const rows = (storedOf(fromWriteIns).content as { type: string; content?: unknown[] }[]).find(
+		(n) => n.type === "table",
+	)!.content!;
 	assert.equal(rows.length, 3);
 });

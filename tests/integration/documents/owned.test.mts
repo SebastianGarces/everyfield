@@ -1520,10 +1520,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			attrs: {
 				style: "rows",
 				header: false,
-				columns: [
-					{ id: "done", label: "Done", type: "check", width: 18 },
-					column("commitment", "Commitment", "text"),
-				],
+				columns: [{ id: "done", label: "Done", type: "check", width: 18 }, column("commitment", "Commitment", "text")],
 			},
 			content: [
 				{ type: "row", content: [cell(), cell(text("Pray"))] },
@@ -1549,7 +1546,9 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const firstCell = (t) => t.content[0].content[0];
 		const refusals = {
 			"a budget table": changed((t) => (t.attrs.style = "ledger")),
-			"a formula column": changed((t) => (t.attrs.columns[1] = { ...t.attrs.columns[1], type: "formula", formula: "cost" })),
+			"a formula column": changed(
+				(t) => (t.attrs.columns[1] = { ...t.attrs.columns[1], type: "formula", formula: "cost" }),
+			),
 			"a header color": changed((t) => (t.attrs.headerFill = "primary")),
 			"write-in rows": changed((t) => (t.attrs.writeInRows = 3)),
 			"a list field": changed((t) => (t.attrs.source = "people")),
@@ -1580,7 +1579,9 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
 
 		// Criterion 9: the evidence writes each table as its lines, header labels first, in reading order with the prose.
-		ok(await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }));
+		ok(
+			await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }),
+		);
 		const evidence = ok(await documentsWriter.readCoreValuesEvidence(db, member, {}));
 		assert.equal(evidence.documentId, saved.id);
 		assert.equal(
@@ -1607,14 +1608,18 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				await documentsWriter.saveNative(db, owner, { title: "Empty", body: empty, expectedRevision: "0" }),
 				"invalid_input",
 			);
-		const shell = ok(await documentsWriter.saveNative(db, owner, { title: "Shell", body: doc("temp"), expectedRevision: "0" }));
+		const shell = ok(
+			await documentsWriter.saveNative(db, owner, { title: "Shell", body: doc("temp"), expectedRevision: "0" }),
+		);
 		const shellRevision = randomUUID();
 		const shellBody = JSON.stringify(emptyBodies[1]);
 		await admin.execute(sql`
 			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, recorded_at)
 			VALUES (${shellRevision}::uuid, ${P}::uuid, ${shell.id}::uuid, 2, ${shellBody}, ${sha(shellBody)}, clock_timestamp())
 		`);
-		await admin.execute(sql`UPDATE document SET current_revision_id = ${shellRevision}::uuid WHERE id = ${shell.id}::uuid`);
+		await admin.execute(
+			sql`UPDATE document SET current_revision_id = ${shellRevision}::uuid WHERE id = ${shell.id}::uuid`,
+		);
 		refusedPrivate(
 			await documentsWriter.designateCoreValues(db, owner, { documentId: shell.id, expectedRevision: shell.revision }),
 			"unavailable",

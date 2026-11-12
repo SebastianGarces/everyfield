@@ -257,12 +257,12 @@ export function plainTable(table: TableNode): TableNode {
 			const content = plainInline(cell?.content);
 			return { type: "cell", ...(content.length ? { content } : {}) };
 		}
-		if (to === "check") return cell?.attrs?.checked === true ? { type: "cell", attrs: { checked: true } } : { type: "cell" };
+		if (to === "check")
+			return cell?.attrs?.checked === true ? { type: "cell", attrs: { checked: true } } : { type: "cell" };
 		if (to === "number" || to === "money") {
 			const stored = cell?.attrs?.value;
 			const shown = computed[ri]?.[ci];
-			const value =
-				item && from !== "formula" ? stored : anyValue && typeof shown === "number" ? shown : undefined;
+			const value = item && from !== "formula" ? stored : anyValue && typeof shown === "number" ? shown : undefined;
 			return typeof value === "number" ? { type: "cell", attrs: { value } } : { type: "cell" };
 		}
 		return { type: "cell" };
