@@ -123,7 +123,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("AC:DOC-022 archive a Church Document (T-9)", { concurrency: 1 }, () => {
+describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 	test("AC:DOC-016 only an Owner or Admin archives, once, with the current revision, and one audit row tells it from a delete", async () => {
 		const doc = await create(OWNER);
 		const before = await stored();
