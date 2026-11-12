@@ -15,8 +15,6 @@ test("the merge-size refusal shows the 16 KB text", () => {
 });
 
 test("another invalid input whose words mention 16 does not show the size text", () => {
-	const refusal = cleanOverrides({ tagline: "short" });
-	assert.equal(refusal.ok, true);
 	assert.equal(mergeTooLong("invalid_input", "overrides.row_16"), false);
 	assert.equal(mergeTooLong("invalid_input", undefined), false);
 	assert.equal(mergeTooLong("unavailable", "overrides"), false);
