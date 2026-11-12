@@ -26,7 +26,7 @@ export type Occurrence = z.infer<typeof c.openOccurrence>;
 export type BulkResult = z.infer<typeof c.bulkResult>;
 export type BulkOutcome = z.infer<typeof c.bulkOutcome>;
 export type TemplateCatalog = z.infer<typeof c.templateCatalog>;
-export type ChecklistSummary = TemplateCatalog["checklists"][number];
+type ChecklistSummary = TemplateCatalog["checklists"][number];
 export type TemplatePreview = z.infer<typeof c.templatePreview>;
 export type TemplateImport = z.infer<typeof c.templateImport>;
 export type PhaseOffer = z.infer<typeof c.phaseOffer>;
@@ -106,12 +106,14 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
 
 /**
- * Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). Every
- * empty name reads "Unnamed member": a current seat never reads as a former member, and a former member whose account
- * still exists keeps their name.
+ * An assignee's name, as every task screen shows it: the task row, the task panel, the assignee picker and the
+ * assignee summary. Every empty name reads "Unnamed member": a current seat never reads as a former member, and a
+ * former member whose account still exists keeps their name.
  */
+export const assigneeName = (person: { displayName: string }) => person.displayName.trim() || "Unnamed member";
+/** Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). */
 export function ownerLabel(owner: { displayName: string } | null): string {
-	return owner ? owner.displayName.trim() || "Unnamed member" : "Needs owner";
+	return owner ? assigneeName(owner) : "Needs owner";
 }
 
 /** An owner view of a follow-up's assignee (REQ-TSK-012): the name and whether they may own follow-ups. */
@@ -182,8 +184,7 @@ export function noticingIneligible<T>(
 /** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
 export const lacksOwner = (owners: readonly Pick<FollowUpOwner, "eligible">[]) => !owners.some((o) => o.eligible);
 /** Every assignee's name, in the order the server lists them. */
-export const assigneeNames = (people: readonly { displayName: string }[]) =>
-	people.map((p) => p.displayName.trim() || "Former member");
+export const assigneeNames = (people: readonly { displayName: string }[]) => people.map(assigneeName);
 /** The first name and how many more, for a place with no room for all of them: "Ana Lee +2". */
 export function assigneeSummary(people: readonly { displayName: string }[]) {
 	const [first, ...rest] = assigneeNames(people);
@@ -452,14 +453,6 @@ export function dueText(due: Due, year?: number): string | null {
 	if (due.kind === "local_date") return dayText(due.date, year);
 	return `${dayText(due.local.slice(0, 10), year)} · ${timeText(due.local.slice(11))}`;
 }
-/** "UTC−5" or "UTC+5:30" for an offset in seconds. */
-export function offsetText(seconds: number): string {
-	const sign = seconds < 0 ? "−" : "+";
-	const abs = Math.abs(seconds),
-		h = Math.floor(abs / 3600),
-		m = Math.round((abs % 3600) / 60);
-	return `UTC${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
-}
 
 /** The due-date form value. `offsetSeconds` is the occurrence chosen for a time the clocks repeat. */
 export type DueDraft = {
@@ -698,3 +691,6 @@ export function checklistGroups(list: readonly ChecklistSummary[]) {
 }
 /** "1 task", "9 tasks". */
 export const taskCount = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);
+
+/** The signed-in person the Tasks screens act for. */
+export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };

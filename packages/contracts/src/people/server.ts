@@ -81,12 +81,12 @@ export interface PeopleWriter<Tx, Reminders> {
 		tx: Tx,
 		context: PeopleWriteContext,
 		input: z.infer<typeof request.classifyAdultRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.classificationMutationResult>>>;
+	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	correctAdultClassification(
 		tx: Tx,
 		context: PeopleWriteContext,
 		input: z.infer<typeof request.classifyAdultRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.classificationMutationResult>>>;
+	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	reorderPipeline(
 		tx: Tx,
 		context: PeopleWriteContext,
@@ -142,9 +142,4 @@ export interface AccountPersonProducer<Tx> {
 				| { kind: "first"; displayName: string };
 		},
 	): Promise<PeopleReply<z.infer<typeof result.accountPersonResolution>>>;
-	ensureGuest(
-		tx: Tx,
-		context: PeopleWriteContext,
-		input: z.infer<typeof request.guestSelection>,
-	): Promise<PeopleReply<z.infer<typeof lockedPersonReference>>>;
 }

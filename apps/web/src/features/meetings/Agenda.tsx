@@ -38,6 +38,7 @@ export function AgendaCard({
 	printable,
 	project,
 	onSaved,
+	onStale,
 }: {
 	meeting: Detail;
 	canWrite: boolean;
@@ -45,12 +46,16 @@ export function AgendaCard({
 	printable: boolean;
 	project: (change: Change) => void;
 	onSaved: (agenda: Detail["agenda"]) => void;
+	/** Reads the meeting again after a save refused as out of date: the latest meeting, or null when it did not load. */
+	onStale: () => Promise<{ meeting: Detail } | null>;
 }) {
 	// The card's save lane (components/save): the editor closes as it saves, and a refusal opens it again with the rows.
 	const lane = useSaveIntent<{ rows: Row[]; problem?: string }>({ explain: problemText });
 	const rowsOf = (m: Detail): Row[] =>
 		m.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) }));
 	const edit = () => lane.wait === null && lane.open({ rows: rowsOf(meeting) });
+	// Each reopening on the latest agenda starts a fresh editor, so it shows those rows and not the refused ones.
+	const [round, setRound] = useState(0);
 	/** The new agenda shows at once; the answer confirms it, or the old one comes back and its editor reopens. */
 	function submit(rows: Row[], sections: AgendaSection[]) {
 		startTransition(async () => {
@@ -63,6 +68,15 @@ export function AgendaCard({
 				form: { rows },
 				send: (key) => replaceAgenda(key, meeting.revision, meeting.id, sections),
 				ok: (value) => startTransition(() => onSaved(value.agenda)),
+				// Out of date: the editor opens again on the agenda as it is now, so "the latest version is shown" is true.
+				refused: (code) => {
+					if (code !== "conflict") return;
+					void onStale().then((latest) => {
+						if (!latest) return lane.open({ rows, problem: "conflict_unloaded" });
+						setRound((n) => n + 1);
+						lane.open({ rows: rowsOf(latest.meeting), problem: "conflict" });
+					});
+				},
 			});
 		});
 	}
@@ -136,6 +150,7 @@ export function AgendaCard({
 			<NoticeInDialog {...lane.noticeProps}>
 				{lane.editing ? (
 					<AgendaForm
+						key={round}
 						initial={lane.editing.rows}
 						problem={lane.problem}
 						wait={lane.wait}

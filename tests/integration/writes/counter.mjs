@@ -43,7 +43,6 @@ const standalone = {
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
 	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
 	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
-	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
@@ -51,14 +50,13 @@ const standalone = {
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
+	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport", "signPeopleImport"],
 	"/packages/domain/src/people/commitments/index.ts": [
 		"getCommitmentDownload",
 		"signCommitmentDocument",
 		"saveCommitmentDocument",
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
-	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/apps/web/src/server/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
@@ -79,6 +77,8 @@ export async function measure(name, body, options = {}) {
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
+		// Exempt from the no-wall-clock rule (test-standard): the sample's `ms` reports real time, which is its job; nothing
+		// asserts on it.
 		const started = performance.now();
 		let status = "threw";
 		try {
@@ -173,9 +173,7 @@ registerHooks({
 			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 				edits = [];
 			const names = standalone[path.slice(root.length)] ?? [];
-			const localAliases = path.endsWith("/jobs/notifications.ts")
-				? { enqueueMany: "notifications.enqueueMany", cancelForEntity: "notifications.cancelForEntity" }
-				: {};
+			const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 			function walk(n) {
 				if (ts.isReturnStatement(n) && n.expression) {
 					let ancestor = n.parent;

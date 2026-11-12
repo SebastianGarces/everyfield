@@ -121,7 +121,8 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 	const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 	observeDatabase({ $client: pool });
 	try {
-		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT pg_sleep(0.05)"))));
+		// Three queries on a one-client pool: the second and third queue behind the first, with no sleep needed.
+		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT 1"))));
 	} finally {
 		await pool.end();
 	}
@@ -135,7 +136,7 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 });
 
 // The budget rules themselves: growth, slack, a write above the pattern without a reason and a page that grows.
-test("RT-4: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
+test("INV-census: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
 	const sample = (name: string, count: number, writes = 1, rollbacks = 0) => ({
 		kind: "sample",
 		name,
@@ -170,7 +171,7 @@ test("RT-4: a budget fails on growth, slack, an unexplained write above six and 
 });
 
 // F8: a replay through a shared wrapper writes nothing and carries a variant suffix; it still meets its retry budget.
-test("F8: a zero-write replay with a suffixed name is held to its operation's retry budget", () => {
+test("INV-census: a zero-write replay with a suffixed name is held to its operation's retry budget", () => {
 	const save = "people/commitments/index.saveCommitmentDocument";
 	const name = save + ":people/core.withPeopleWrite:" + save;
 	// Two samples from the #251 verifier's census: the first save and its replay.
@@ -205,7 +206,7 @@ test("F8: a zero-write replay with a suffixed name is held to its operation's re
 // WP-087: the union of the parts holds every whole-census rule. A budget that no part measured fails, and so does a
 // missing part, which would otherwise drop its budgets from the check. A suite that no part ran fails even when it
 // measured nothing of its own, and so does a suite that two parts ran.
-test("WP-087: the census union fails on a budget no part measured, a missing part and a skipped suite", async () => {
+test("INV-census: the census union fails on a budget no part measured, a missing part and a skipped suite", async () => {
 	const folder = await mkdtemp(join(tmpdir(), "evf-census-union-"));
 	const sample = (name: string) => ({
 		kind: "sample",
@@ -245,7 +246,7 @@ test("WP-087: the census union fails on a budget no part measured, a missing par
 
 // One regression checks every budget in limits.json: real HTTP requests on the production build, the native write
 // boundaries and every write the behavior suites run. It records no SQL or parameters.
-test("D69/D70: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
+test("INV-census: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
 	if (census.kind === "union") return checkWhole(await unionRows(census.folder, await censusUnits()), limits);
 	// CI names a folder (EVF_CENSUS_LOGS) and uploads it: these logs and the counts file.

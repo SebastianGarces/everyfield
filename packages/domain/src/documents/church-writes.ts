@@ -8,7 +8,7 @@ import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
-import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
+import { docFormats, offeredFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
@@ -58,8 +58,6 @@ type Provenance = { key: string; value: string | null; source: string }[];
  * The name of the church template a Church Document `d` was made from, or null for a built-in template. A deleted
  * template keeps its row, so a document made from it still names it.
  */
-/** The most revisions one list answers: the newest ones, matching the contract's bound on churchRevisionList. */
-const REVISION_LIST_MAX = 1000;
 const TEMPLATE_NAME = sql`(SELECT t.title FROM document t WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template'
 	AND 'church-' || t.id::text = d.template_id)`;
 /**
@@ -1630,23 +1628,36 @@ export const churchWriter = {
 				author_name: string | null;
 				recorded_at: Date | string | null;
 				content_hash: string | null;
+				exports: unknown;
+				ledger: boolean | null;
 			}>(
 				db,
+				// Each revision's formats come from its own body: its export list and whether it holds a ledger table (a
+				// conditional block holds none, so a table under the body, a column or a box is every place one can be).
+				// Only those two facts leave the database, not the bodies.
 				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id,
-					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash
+					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash,
+					b.doc -> 'exports' AS exports,
+					jsonb_path_exists(b.doc, 'strict $.body.** ? (@.type == "table" && @.attrs.style == "ledger")') AS ledger
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
+				LEFT JOIN LATERAL (
+					SELECT CASE WHEN pg_input_is_valid(r.body, 'jsonb') THEN r.body::jsonb END AS doc
+				) b ON true
 				ORDER BY r.version_number DESC
-				LIMIT ${REVISION_LIST_MAX}`,
+				LIMIT ${c.CHURCH_REVISION_LIST_MAX + 1}`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
+			// One row past the bound says there are older revisions than the list holds.
+			const saved = found.filter((row) => row.id);
 			return c.churchRevisionList.parse({
 				documentId: input.documentId,
-				revisions: found
-					.filter((row) => row.id)
+				truncated: saved.length > c.CHURCH_REVISION_LIST_MAX,
+				revisions: saved
+					.slice(0, c.CHURCH_REVISION_LIST_MAX)
 					.reverse()
 					.map((row) => ({
 						id: row.id,
@@ -1655,6 +1666,7 @@ export const churchWriter = {
 						authorName: row.author_name || null,
 						recordedAt: iso(row.recorded_at),
 						contentHash: row.content_hash,
+						formats: revisionFormats(row.exports, row.ledger),
 					})),
 			});
 		});
@@ -1686,6 +1698,7 @@ export const churchWriter = {
 			if (found[0]?.ok !== true) deny("access_denied");
 			const row = found[0];
 			if (!row.id || row.body === null) deny("unavailable");
+			const body = storedDoc(row.body) ?? deny("render_failed");
 			return c.churchRevision.parse({
 				id: row.id,
 				number: row.version_number,
@@ -1694,11 +1707,20 @@ export const churchWriter = {
 				recordedAt: iso(row.recorded_at),
 				contentHash: row.content_hash,
 				documentId: input.documentId,
-				body: storedDoc(row.body) ?? deny("render_failed"),
+				body,
+				formats: docFormats(body),
 			});
 		});
 	},
 };
+
+const exportList = c.documentFormat.array().min(1).max(3);
+
+/** A listed revision's formats from the two facts its row read; a body that is not a document offers none. */
+function revisionFormats(exports: unknown, ledger: boolean | null) {
+	const list = exportList.safeParse(exports);
+	return list.success ? offeredFormats(list.data, ledger === true) : [];
+}
 
 /** The image sources a body uses, so the render reads only those brand assets. */
 function imageSources(node: unknown, found = new Set<ImageSource>()) {
@@ -1723,6 +1745,8 @@ async function renderRevision(
 	row: { kit: Record<string, unknown> | null; use_church_branding: boolean | null; recorded_at: Date | string | null },
 	format: DocFormat,
 ) {
+	// A format this revision does not offer is refused before the theme reads any brand asset.
+	if (!docFormats(body).includes(format)) rejectInput("format", "This revision does not offer that format.");
 	const church = fieldValues(body).church_name ?? body.title;
 	const theme = await exportTheme(
 		db,
@@ -1738,7 +1762,7 @@ async function renderRevision(
 		const bytes = await renderDocFile(body, format, theme, new Date(row.recorded_at ?? 0));
 		return { bytes, theme };
 	} catch (error) {
-		if (error instanceof RenderFailed) deny(docFormats(body).includes(format) ? "render_failed" : "unavailable");
+		if (error instanceof RenderFailed) deny("render_failed");
 		throw error;
 	}
 }

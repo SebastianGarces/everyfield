@@ -23,7 +23,9 @@ export function proxy(request: NextRequest) {
 // tasks) plus /home and /onboarding. The proxy sends a visitor with no session cookie to /signin?returnTo=<path> before
 // any server work, and sets PATH_HEADER on the rest; the pages still check the real session. Routes that serve
 // signed-out visitors stay out: /wiki (crawler previews), rsvp, unsubscribe, email-preferences, confirm-email,
-// account-deletion, connections/respond, the identity pages, access, design, marketing, legal and /api.
+// account-deletion, connections/respond, the identity pages, access, design, marketing, legal and /api. The one
+// product section outside the matcher, /wiki, sends a signed-out reader to sign-in from its page
+// (features/wiki/routes.tsx) instead.
 export const config = {
 	matcher: [
 		"/communication/:path*",

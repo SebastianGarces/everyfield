@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { commandEnvelope } from "../common/writes.ts";
-import { safeError } from "../common/values.ts";
+import { requestKey, safeError } from "../common/values.ts";
 
 export const wikiError = safeError;
 export type WikiError = z.infer<typeof wikiError>;
@@ -91,19 +91,23 @@ export const publicPreviewRequest = z.strictObject({
 	path: z.string().min(1).max(500),
 	userAgent: z.string().max(500).optional(),
 });
-export const updateProgressRequest = commandEnvelope(
-	z.strictObject({
+// Progress and views are monotone, so they carry no expected revision: two tabs never conflict.
+// Bookmark keeps its revision check.
+export const updateProgressRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
 		articleId: z.uuid(),
 		fraction,
 		plantId: z.uuid().optional(),
 	}),
-);
-export const recordViewRequest = commandEnvelope(
-	z.strictObject({
+});
+export const recordViewRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
 		articleId: z.uuid(),
 		plantId: z.uuid().optional(),
 	}),
-);
+});
 export const setBookmarkRequest = commandEnvelope(
 	z.strictObject({
 		articleId: z.uuid(),
@@ -157,8 +161,6 @@ export const navigationResult = z.strictObject({
 			),
 		}),
 	),
-	breadcrumbs: z.array(z.strictObject({ articleId: z.uuid(), crumbs: z.array(z.string()) })),
-	relatedIds: z.array(z.uuid()),
 });
 export const neighborsResult = z.strictObject({
 	articles: z.array(
@@ -339,3 +341,4 @@ export const upstreamReviewResult = z.strictObject({
 });
 
 export * from "./diagram.ts";
+export * from "./blocks.ts";

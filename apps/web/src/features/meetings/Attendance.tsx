@@ -133,7 +133,7 @@ export function AttendanceCard({
 	meeting: m,
 	attendance,
 	analytics,
-	canWrite,
+	canSettle,
 	lane,
 	blocked,
 	headerFinalize,
@@ -145,7 +145,8 @@ export function AttendanceCard({
 	meeting: Detail;
 	attendance: Attendance | null;
 	analytics: Analytics | null;
-	canWrite: boolean;
+	/** Finalize and correct: an Owner, an Admin or the team meeting's current leader (REQ-MTG-010, D-562). */
+	canSettle: boolean;
 	/** The finalize and correction lane: while its save is on its way or unknown, nothing here starts another. */
 	lane: SaveIntent<SettleEditing>;
 	/** Presence saves are on their way or unknown; finalizing waits for them. */
@@ -220,7 +221,7 @@ export function AttendanceCard({
 			) : null}
 			{final && vision && analytics ? <Work tasks={analytics.tasks} /> : null}
 			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} className="mt-4" />
-			{canWrite ? (
+			{canSettle ? (
 				<div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
 					{final ? (
 						<Button
@@ -350,6 +351,7 @@ export function SettleDialog({
 	problem,
 	onClose,
 	onSubmit,
+	onConflict,
 }: {
 	open: boolean;
 	mode: "finalize" | "reconcile";
@@ -363,6 +365,8 @@ export function SettleDialog({
 	problem: string | undefined;
 	onClose: () => void;
 	onSubmit: (input: SettleInput) => void;
+	/** The review was refused as out of date: handled like a refused submit of these choices (reload, then review). */
+	onConflict: (input: SettleInput) => void;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -377,6 +381,7 @@ export function SettleDialog({
 					problem={problem}
 					onClose={onClose}
 					onSubmit={onSubmit}
+					onConflict={onConflict}
 				/>
 			) : null}
 		</Dialog>
@@ -393,6 +398,7 @@ function SettleForm({
 	problem,
 	onClose,
 	onSubmit,
+	onConflict,
 }: Omit<Parameters<typeof SettleDialog>[0], "open">) {
 	const current: string[] = attendedOf(attendance).map((a) => a.person.personId);
 	const [ids, setIds] = useState<string[]>(initial?.attendeeIds ?? current);
@@ -445,13 +451,29 @@ function SettleForm({
 	const [attempt, setAttempt] = useState(0);
 	const [got, setGot] = useState<{ key: string; attempt: number; value: Outcome<Finalization> } | null>(null);
 	const retryRef = useRef<HTMLButtonElement>(null);
+	// The choices as they stand, for a review refused as out of date.
+	const chosen: SettleInput = {
+		attendeeIds: ids,
+		followUpAssigneeIds: followUp,
+		evaluationAssigneeIds: evaluation,
+		reason: reason.trim(),
+	};
+	const conflictRef = useRef(() => onConflict(chosen));
+	useEffect(() => {
+		conflictRef.current = () => onConflict(chosen);
+	});
 	useEffect(() => {
 		if (unchanged) return;
 		let live = true;
 		const t = setTimeout(() => {
 			previewSettlement(mode, attendance.attendanceRevision, JSON.parse(choiceKey))
 				.catch(() => ({ status: "lost" }) as const)
-				.then((value) => live && setGot({ key: choiceKey, attempt, value }));
+				.then((value) => {
+					if (!live) return;
+					// A newer attendance revision: Try again would send the same old one, so read the page again.
+					if (value.status === "refused" && value.code === "conflict") return conflictRef.current();
+					setGot({ key: choiceKey, attempt, value });
+				});
 		}, 250);
 		return () => {
 			live = false;
@@ -491,12 +513,7 @@ function SettleForm({
 					// Confirm only what the review shows: the exact effects of these choices (C73).
 					if (!settled) return;
 					if (effects.status !== "ok") return retryRef.current?.focus();
-					onSubmit({
-						attendeeIds: ids,
-						followUpAssigneeIds: followUp,
-						evaluationAssigneeIds: evaluation,
-						reason: reason.trim(),
-					});
+					onSubmit(chosen);
 				}}
 			>
 				<DialogHeader
@@ -1157,9 +1174,6 @@ export function HistoryDialog({
 		</Dialog>
 	);
 }
-
-// -------------------------------------------------------------------------------------------------------------
-// Attendee note
 
 // -------------------------------------------------------------------------------------------------------------
 // Small parts used by the guest list and the check-in screen

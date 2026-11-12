@@ -28,6 +28,12 @@ type Account = {
 	/** The account revision each mark's envelope carries, from the latest feed read. */
 	revision: () => string | null;
 	setRevision: (revision: string) => void;
+	/**
+	 * The entries marked read in this frame, kept while their marks stand. A page that Back restores from the router
+	 * cache was read before them, so it shows them read and reads its first page again.
+	 */
+	marked: ReadonlySet<string>;
+	remember: (ids: ReadonlySet<string>, read: boolean) => void;
 };
 const AccountContext = createContext<Account | null>(null);
 
@@ -37,10 +43,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 	// Stable for the frame's life, so effects that depend on them run once.
 	const [stable] = useState(() => {
 		let revision: string | null = null;
+		const marked = new Set<string>();
 		return {
 			revision: () => revision,
 			setRevision: (r: string) => {
 				revision = r;
+			},
+			marked,
+			remember: (ids: ReadonlySet<string>, read: boolean) => {
+				for (const id of ids) {
+					if (read) marked.add(id);
+					else marked.delete(id);
+				}
 			},
 			adjust: (delta: number) => setCount((n) => (n === null ? n : Math.max(0, n + delta))),
 		};
@@ -82,19 +96,32 @@ const lost = () => ({ status: "lost" }) as const;
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const toast = useToast();
 	const account = useAccount();
+	// Entries this frame marked that the server's page still shows unread: Back restored a page read before the mark.
+	const [stale] = useState(() => initial?.feed.items.filter((i) => !i.read && account.marked.has(i.id)).length ?? 0);
 	const [state, setState] = useState<{ status: "loading" } | { status: "failed" } | ({ status: "ready" } & Ready)>(
-		initial ? { status: "ready", ...fromPage(initial) } : { status: "loading" },
+		initial
+			? {
+					status: "ready",
+					...fromPage(initial),
+					items: markedRead(initial.feed.items, account.marked),
+					unread: Math.max(0, initial.unread - stale),
+				}
+			: { status: "loading" },
 	);
 	const [refreshing, setRefreshing] = useState(false);
 	const latest = useRef(0);
 	const { setRevision, setCount } = account;
-	// The server's first page brings the revision marks carry and, unfiltered by category, the bell's fresh count.
-	const first = useRef({ page: initial, category: query.category });
+	// The server's first page brings the revision marks carry and, unfiltered by category, the bell's fresh count. A
+	// restored page that predates a mark is read again instead, so its count is the server's current one.
+	const first = useRef({ page: initial, query, stale });
 	useEffect(() => {
-		const { page, category } = first.current;
+		const { page, query: q, stale: behind } = first.current;
 		if (!page) return;
 		setRevision(page.revision);
-		if (!category) setCount(page.unread);
+		if (behind) void load(q);
+		else if (!q.category) setCount(page.unread);
+		// `load` is this render's; the effect runs once for the server's page.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [setRevision, setCount]);
 
 	const load = async (q: FeedQuery) => {
@@ -156,8 +183,10 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 				s.status === "ready" ? { ...s, items: markedRead(s.items, ids), unread: Math.max(0, s.unread - drop) } : s,
 			);
 			account.adjust(-drop);
+			account.remember(ids, true);
 			const r = await deliver(envelope, run);
 			if (r.status === "ok") return settle?.(r.value.markedIds.length);
+			account.remember(ids, false);
 			setState((s) =>
 				s.status === "ready"
 					? { ...s, items: s.items.map((i) => (ids.has(i.id) ? { ...i, read: false } : i)), unread: s.unread + drop }

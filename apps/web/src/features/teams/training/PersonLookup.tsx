@@ -390,14 +390,12 @@ function ProgramHistory({
 function latestText(credit: Credit | null): string {
 	if (!credit) return "No completion is recorded.";
 	if (credit.kind === "earned") return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.`;
-	if (credit.kind === "revoked") return "Revoked. The earlier completion stays in the history.";
-	return "A service record is stored on this program.";
+	return "Revoked. The earlier completion stays in the history.";
 }
 
 function eventText(credit: Credit): string {
 	const version = credit.version ? ` Version ${credit.version}.` : "";
 	if (credit.kind === "earned")
 		return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.${version}`;
-	if (credit.kind === "revoked") return `Revoked.${version}`;
-	return `Attendance ${credit.attendanceDays ?? 0} days. Serving ${credit.volunteerDays ?? 0} days.`;
+	return `Revoked.${version}`;
 }

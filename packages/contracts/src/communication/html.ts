@@ -109,15 +109,28 @@ export function renderBody(input: string, merge: Readonly<Record<string, string>
 		.replace(/<p>\s*<\/p>/g, "");
 }
 
+/** The entities the sanitizer writes into text. */
+const entities: Record<string, string> = { lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+
+/** Text of sanitized markup as a reader sees it. `&amp;` decodes last, so `&amp;lt;` stays the literal text `&lt;`. */
+const decodeText = (markup: string): string =>
+	markup
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&(lt|gt|quot|#39|nbsp);/g, (_m, name: string) => entities[name]!)
+		.replaceAll("&amp;", "&");
+
 /** Text part of a body. A link is written as its text followed by its URL. */
 export function plainText(input: string): string {
 	return sanitizeHtml(input)
-		.replace(/<a\s+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g, (_m, href: string, inner: string) => {
-			const url = href.replaceAll("&amp;", "&");
-			const label = inner.replace(/<[^>]+>/g, "").trim();
+		.split(/(<a\s+href="[^"]*"[^>]*>[\s\S]*?<\/a>)/)
+		.map((part, index) => {
+			if (index % 2 === 0) return decodeText(part);
+			const [, href, inner] = /^<a\s+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>$/.exec(part)!;
+			const url = href!.replaceAll("&amp;", "&");
+			const label = decodeText(inner!.replace(/<[^>]+>/g, "")).trim();
 			return label && label !== url ? ` ${label} ${url} ` : ` ${url} `;
 		})
-		.replace(/<[^>]+>/g, " ")
+		.join("")
 		.replace(/\s+/g, " ")
 		.trim();
 }

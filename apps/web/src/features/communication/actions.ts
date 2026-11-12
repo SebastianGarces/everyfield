@@ -5,6 +5,7 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import type { Transaction } from "@everyfield/db/client";
 import type {
 	AudienceSummary,
@@ -31,7 +32,7 @@ import type {
 	Template,
 	TrackingRow,
 } from "./model.ts";
-import { loadMeeting } from "../meetings/server.ts";
+import { read as readMeeting } from "../meetings/server.ts";
 import { canWrite } from "../shared/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
@@ -129,8 +130,8 @@ export async function rescheduleReviewed(
 }
 
 /**
- * Hand a scheduled email to the email service: at once for `now`, held until its saved time for `held`. The provider
- * key is the domain idempotency key.
+ * Hand a scheduled email over: to the email service at once for `now`; for `held` Everyfield keeps it, and the minute
+ * runner hands it off at its saved time (T-241). The provider key is the domain idempotency key.
  */
 export async function sendReviewed(
 	requestKey: string,
@@ -536,16 +537,14 @@ export async function handOff(
 	return scheduledAt === null ? chainSendNow(steps) : chainHandoff(steps, scheduledAt);
 }
 
-/** The meeting a message is attached to: title, time, place and its live guest list. */
+/** The meeting a message is attached to: title, time, place and its live guest list, in one statement. */
 export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
-	const page = await loadMeeting(viewer, meetingId);
-	if (page.status === "failed") return { status: "lost" };
-	if (page.status === "missing" || page.meeting.retiredAt) return { status: "refused", code: "not_found" };
-	// A guest list that did not load is a failure, not an empty audience.
-	if (!page.guests) return { status: "lost" };
-	const m = page.meeting;
+	const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, { meetingId }));
+	if (context.status === "failed") return { status: "lost" };
+	if (context.status === "refused") return { status: "refused", code: "not_found" };
+	const { meeting: m, guests } = context.value;
 	return {
 		status: "ok",
 		value: {
@@ -555,9 +554,7 @@ export async function readMeetingContext(meetingId: string): Promise<Outcome<Mee
 			date: m.localDate,
 			time: m.localTime,
 			place: m.venue?.name ?? null,
-			guests: page.guests
-				.filter((g) => g.person.state === "live")
-				.map((g) => ({ id: g.person.personId, displayName: g.person.displayName })),
+			guests: guests.map((g) => ({ id: g.personId, displayName: g.displayName })),
 		},
 	};
 }

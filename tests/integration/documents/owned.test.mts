@@ -1,4 +1,4 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { fixture, ok, refusedWith } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -9,13 +9,21 @@ import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import * as W from "./fixtures/word.mts";
+import { syncBuiltinESMExports } from "node:module";
+import zlib from "node:zlib";
 
-const database = await testDatabase({ prefix: "wp037" });
+const database = await fixture({ prefix: "wp037", plant: { name: "Harvest Point" } });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 5 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
+];
 let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 /** A native body of one paragraph per line, as the editor saves it. */
@@ -55,18 +63,7 @@ class MemoryClient extends S3Client {
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	const leaked = JSON.stringify(result.error);
-	assert.equal(leaked.includes("Harvest Point"), false, leaked);
-	assert.equal(leaked.includes("Quinn Canary"), false, leaked);
-	return result.error;
-};
+const refusedPrivate = refusedWith({ hidden: ["Harvest Point", "Quinn Canary"] });
 const authority = async (who = 0) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -97,8 +94,21 @@ const restoreSeat = (accountId) =>
 const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
-const docx = (text, extra = []) =>
-	storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]).toString("base64");
+const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
+/** A Word file whose one entry's header declares `declared` bytes while its deflate stream inflates to `inflated`. */
+function lyingZip(declared, inflated) {
+	const name = Buffer.from("word/document.xml");
+	const data = zlib.deflateRawSync(Buffer.alloc(inflated));
+	const local = Buffer.alloc(30 + name.length);
+	local.writeUInt32LE(0x04034b50, 0);
+	local.writeUInt16LE(20, 4);
+	local.writeUInt16LE(8, 8);
+	local.writeUInt32LE(data.length, 18);
+	local.writeUInt32LE(declared, 22);
+	local.writeUInt16LE(name.length, 26);
+	name.copy(local, 30);
+	return Buffer.concat([local, data]);
+}
 function zipBomb() {
 	const name = Buffer.from("word/document.xml");
 	const local = Buffer.alloc(30 + name.length + 1);
@@ -108,36 +118,10 @@ function zipBomb() {
 	local.writeUInt32LE(40 * 1024 * 1024 + 1, 22);
 	local.writeUInt16LE(name.length, 26);
 	name.copy(local, 30);
-	return local.toString("base64");
+	return local;
 }
 
 before(async () => {
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${P},'Harvest Point','America/Chicago',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${Q},'Other Plant','America/New_York',7,14,1,8,1,1)`,
-	);
-	for (const [index, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${seatRole},clock_timestamp())`,
-		);
 	const pastor = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
@@ -170,7 +154,7 @@ after(async () => {
 	await database.close();
 });
 
-describe("WP-037/api generated files and owned documents", { concurrency: 1 }, () => {
+describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned documents", { concurrency: 1 }, () => {
 	test("AC:CASE-DOC-003 AC:CASE-DOC-015 AC:PROVIDER48-002 AC:PROVIDER48-003 AC:TEN-004 saved renders match the preview and keep a private key", async () => {
 		const owner = await authority(0);
 		const loaded = await library();
@@ -185,7 +169,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		const budget = loaded.templates.find((template) => template.id === "first-year-budget");
 		assert.ok(card && agenda && budget);
 		const filesBefore = await countOf("file_object");
-		refused(
+		refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				owner,
@@ -194,7 +178,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			),
 			"invalid_subject",
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				owner,
@@ -203,7 +187,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			),
 			"invalid_input",
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				owner,
@@ -252,7 +236,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			saved[format] = { made, stored };
 		}
 		// No template offers Word now; the old request is refused with the existing message.
-		const refusal = refused(
+		const refusal = refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				owner,
@@ -285,7 +269,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(ok(await documentsWriter["history.get"](db, owner, { documentId: legacyId })).format, "docx");
 		const generatedAudits = await countOf("audit_event", `WHERE action = 'documents.generated' AND tenant_id = '${P}'`);
 		assert.equal(generatedAudits, 2);
-		const conflict = refused(
+		const conflict = refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				owner,
@@ -308,7 +292,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		);
 		assert.equal(memberFile.plantId, P);
 		await endSeat(actors[1].id);
-		refused(
+		refusedPrivate(
 			await documentsWriter.download(db, await authority(1), { documentId: memberFile.id }, storage),
 			"unavailable",
 		);
@@ -329,8 +313,11 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			),
 		);
 		assert.equal(otherFile.plantId, Q);
-		refused(await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage), "unavailable");
-		refused(
+		refusedPrivate(
+			await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage),
+			"unavailable",
+		);
+		refusedPrivate(
 			await documentsWriter.generate(
 				db,
 				await authority(4),
@@ -339,7 +326,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			),
 			"unavailable",
 		);
-		refused(await documentsWriter.download(db, owner, { documentId: randomUUID() }, storage), "unavailable");
+		refusedPrivate(await documentsWriter.download(db, owner, { documentId: randomUUID() }, storage), "unavailable");
 
 		const listed = ok(await documentsWriter["history.list"](db, owner, {}));
 		assert.equal(
@@ -352,7 +339,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		);
 		const one = ok(await documentsWriter["history.get"](db, owner, { documentId: saved.pdf.made.id }));
 		assert.equal(one.digest, saved.pdf.made.digest);
-		refused(await documentsWriter["history.get"](db, owner, { documentId: randomUUID() }), "unavailable");
+		refusedPrivate(await documentsWriter["history.get"](db, owner, { documentId: randomUUID() }), "unavailable");
 		await admin.execute(sql`
 			INSERT INTO file_object (id, tenant_id, purpose, opaque_key, media_type, max_bytes, byte_count, sha256, state, upload_key, claim_generation)
 			SELECT gen_random_uuid(), ${P}::uuid, 'generated', 'private/' || ${P}::text || '/' || gen_random_uuid()::text,
@@ -400,18 +387,66 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		const signed = ok(await documentsWriter.download(db, owner, { documentId: saved.pdf.made.id }, storage));
 		assert.equal(signed.expiresInSeconds, 300);
 		assert.equal(signed.url.includes(saved.pdf.stored.opaque_key), true);
-		const ttl = Date.parse(signed.expiresAt) - Date.now();
-		assert.equal(ttl > 240_000 && ttl < 360_000, true);
+		// The link expires 300 s after the signing date it carries, read back from the URL, not from the wall clock.
+		const query = new URL(signed.url).searchParams;
+		assert.equal(query.get("X-Amz-Expires"), "300");
+		const signedAt = Date.parse(
+			query.get("X-Amz-Date").replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, "$1-$2-$3T$4:$5:$6Z"),
+		);
+		const ttl = Date.parse(signed.expiresAt) - signedAt;
+		assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
+	});
+
+	test("AC:CASE-DOC-002 generate with a meeting stores the bytes its preview showed: the meeting's date and its rows", async () => {
+		const owner = await authority(0);
+		const meeting = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,
+					agenda,venue_name,venue_address,vision_number)
+				VALUES(${meeting},${P},'vision_meeting',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1,
+					${JSON.stringify([{ id: "a", title: "Greeting", minutes: 10 }])}::jsonb,'Harbor Hall','12 Dock Street',7)`,
+		);
+		const input = { templateId: "vision-meeting-agenda", format: "pdf", meetingId: meeting };
+		const preview = ok(await documentsReader.preview(db, owner, input));
+		assert.ok(preview.digest, "the preview renders from the meeting");
+		const dated = preview.fields.find((field) => field.key === "meeting_date");
+		assert.equal(dated.source, "meeting");
+		// The same template with the meeting's date typed in, but no meeting, prints no meeting rows: other bytes.
+		const unbound = ok(
+			await documentsReader.preview(db, owner, {
+				templateId: "vision-meeting-agenda",
+				format: "pdf",
+				overrides: { meeting_date: dated.value },
+			}),
+		);
+		assert.notEqual(unbound.digest, preview.digest);
+
+		const made = ok(await documentsWriter.generate(db, owner, { ...input, requestKey: "t124-meeting" }, storage));
+		assert.equal(made.digest, preview.digest, "generate stores the preview's bytes");
+		const stored = await fileKey(made.id);
+		assert.equal(sha(client.objects.get(stored.opaque_key)), preview.digest);
+		assert.deepEqual(client.objects.get(stored.opaque_key), Buffer.from(preview.artifact, "base64"));
+		// A meeting of another kind is no subject for this agenda, as in the preview.
+		const other = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+				VALUES(${other},${P},'orientation',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1)`,
+		);
+		refusedPrivate(await documentsReader.preview(db, owner, { ...input, meetingId: other }), "invalid_subject");
+		refusedPrivate(
+			await documentsWriter.generate(db, owner, { ...input, meetingId: other, requestKey: "t124-other" }, storage),
+			"invalid_subject",
+		);
 	});
 
 	test("AC:CASE-DOC-016 AC:SCHEMA-008 AC:WIKI52-003 one owner, unsafe imports stay out, and the church copy survives purge", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
-		refused(
+		refusedPrivate(
 			await documentsWriter.saveNative(db, member, { title: "No", body: doc("Member text"), expectedRevision: "0" }),
 			"unavailable",
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, { title: "Empty", body: doc("   "), expectedRevision: "0" }),
 			"invalid_input",
 		);
@@ -455,7 +490,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		);
 		const read = ok(await documentsWriter.getAuthorized(db, member, { documentId: values.id }));
 		assert.deepEqual(read.body, doc("We serve our community."));
-		refused(
+		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, {
 				title: "Core values",
 				body: doc("Changed"),
@@ -476,7 +511,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		await admin.execute(
 			sql`UPDATE document SET current_revision_id = ${emptyRevision}::uuid WHERE id = ${emptyDoc.id}::uuid`,
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.designateCoreValues(db, owner, {
 				documentId: emptyDoc.id,
 				expectedRevision: emptyDoc.revision,
@@ -495,7 +530,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		await admin.execute(
 			sql`UPDATE document SET current_revision_id = ${failedRevision}::uuid WHERE id = ${failedDoc.id}::uuid`,
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.designateCoreValues(db, owner, {
 				documentId: failedDoc.id,
 				expectedRevision: failedDoc.revision,
@@ -529,7 +564,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			await countOf("audit_event", `WHERE action = 'documents.archived' AND subject_id = '${values.id}'`),
 			archivedAudits,
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: designated.revision }),
 			"conflict",
 		);
@@ -537,7 +572,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			documentId: null,
 			text: null,
 		});
-		refused(
+		refusedPrivate(
 			await documentsWriter.archive(db, member, { documentId: values.id, expectedRevision: archived.revision }),
 			"unavailable",
 		);
@@ -550,9 +585,9 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			}),
 		);
 		const rejects = [
-			["text", Buffer.from("   ").toString("base64")],
-			["text", Buffer.from("hello\u0000").toString("base64")],
-			["text", Buffer.from([0xd0, 0xcf, 0x11, 0xe0]).toString("base64")],
+			["text", Buffer.from("   ")],
+			["text", Buffer.from("hello\u0000")],
+			["text", Buffer.from([0xd0, 0xcf, 0x11, 0xe0])],
 			["docx", zipBomb()],
 			["docx", docx("macro", [{ name: "word/vbaProject.bin", data: "macro" }])],
 			[
@@ -566,8 +601,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			],
 			["docx", docx("")],
 		];
-		for (const [format, bytes] of rejects) {
-			refused(
+		for (const [index, [format, bytes]] of rejects.entries()) {
+			refusedPrivate(
 				await documentsWriter.importTextOrWord(
 					db,
 					owner,
@@ -577,7 +612,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 						bytes,
 						documentId: kept.id,
 						expectedRevision: kept.revision,
-						requestKey: `bad-${format}-${bytes.length}`,
+						requestKey: `bad-${format}-${index}`,
 					},
 					storage,
 				),
@@ -624,7 +659,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				expectedRevision: imported.revision,
 			}),
 		);
-		const drifted = refused(
+		const drifted = refusedPrivate(
 			await documentsWriter.importTextOrWord(
 				db,
 				owner,
@@ -656,9 +691,9 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			ok(await documentsWriter.listOwned(db, owner, {})).documents.some((item) => item.id === secret.id),
 			false,
 		);
-		refused(await documentsWriter.read(db, owner, { documentId: secret.id }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, owner, { documentId: secret.id }), "unavailable");
 		const beforeCopy = await countOf("document", `WHERE tenant_id = '${P}'`);
-		refused(
+		refusedPrivate(
 			await documentsWriter.useForChurch(db, owner, {
 				documentId: secret.id,
 				revisionId: (await currentOf(secret.id)).revision_id,
@@ -683,7 +718,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		await restoreSeat(actors[0].id);
 		const planted = await authority(0);
 		assert.equal(planted.actor.context.kind, "seat");
-		refused(
+		refusedPrivate(
 			await documentsWriter.useForChurch(db, member, {
 				documentId: sourceDoc.id,
 				revisionId: sourceRevision.revision_id,
@@ -748,7 +783,36 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(surviving.copiedFromHash, sourceRevision.content_hash);
 		assert.equal((await fileKey(generated.id)).state, "ready");
 		assert.equal(ok(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: witness })).removed, 0);
-		refused(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: randomUUID() }), "unavailable");
+		refusedPrivate(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: randomUUID() }), "unavailable");
+	});
+
+	test("AC:CASE-DOC-016 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
+		const owner = await authority(2);
+		const bytes = lyingZip(10, 100 * 1024 * 1024);
+		// Every inflate the import runs is watched for how much output it may make.
+		const real = zlib.inflateRawSync;
+		const limits = [];
+		zlib.inflateRawSync = (input, options) => {
+			limits.push(options?.maxOutputLength ?? Infinity);
+			return real(input, options);
+		};
+		syncBuiltinESMExports();
+		try {
+			refusedPrivate(
+				await documentsWriter.importTextOrWord(
+					db,
+					owner,
+					{ title: "Lying header", format: "docx", bytes, expectedRevision: "0", requestKey: "t117-lying-header" },
+					storage,
+				),
+				"invalid_input",
+			);
+		} finally {
+			zlib.inflateRawSync = real;
+			syncBuiltinESMExports();
+		}
+		assert.equal(limits.length, 1, "the one entry is inflated once");
+		assert.ok(limits[0] <= 40 * 1024 * 1024, `the inflate may make at most the cap, not ${limits[0]} bytes`);
 	});
 
 	test("AC:CASE-DOC-016 INV-documents: a native body is checked at the boundary, old text opens intact, and Use for this church writes one copy", async () => {
@@ -813,11 +877,11 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		];
 		const [beforeRevisions, beforeAudits] = [await revisions(), await audits()];
 		for (const bad of refusals) {
-			refused(
+			refusedPrivate(
 				await documentsWriter.saveNative(db, owner, { title: "Bad", body: bad, expectedRevision: "0" }),
 				"invalid_input",
 			);
-			refused(
+			refusedPrivate(
 				await documentsWriter.saveNative(db, owner, {
 					title: "Bad",
 					body: bad,
@@ -828,7 +892,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			);
 		}
 		// The stored kind decides: a plain save on a Church Document, or a Church Document save on a plain one, writes nothing.
-		refused(
+		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, {
 				title: "Policy",
 				body,
@@ -838,7 +902,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			"unavailable",
 		);
 		const churchBody = ok(await documentsWriter.readChurch(db, owner, { documentId: church.id })).body;
-		refused(
+		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, {
 				documentId: saved.id,
 				expectedRevision: saved.revision,
@@ -852,12 +916,12 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 
 		// Criterion 1: the page read returns the plain document of the current owner, and nothing for anyone else.
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
-		refused(await documentsWriter.read(db, owner, { documentId: randomUUID() }), "unavailable");
-		refused(await documentsWriter.read(db, owner, { documentId: church.id }), "unavailable");
-		refused(await documentsWriter.read(db, await authority(3), { documentId: saved.id }), "unavailable");
-		refused(await documentsWriter.read(db, await authority(4), { documentId: saved.id }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, owner, { documentId: randomUUID() }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, owner, { documentId: church.id }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, await authority(3), { documentId: saved.id }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, await authority(4), { documentId: saved.id }), "unavailable");
 		await endSeat(actors[1].id);
-		refused(await documentsWriter.read(db, await authority(1), { documentId: saved.id }), "unavailable");
+		refusedPrivate(await documentsWriter.read(db, await authority(1), { documentId: saved.id }), "unavailable");
 		await restoreSeat(actors[1].id);
 
 		// Criterion 6: a text revision saved before this change opens as its lines, and a save adds the body after it.
@@ -907,7 +971,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				{
 					title: "Imported notes",
 					format: "text",
-					bytes: Buffer.from("One\nTwo").toString("base64"),
+					bytes: Buffer.from("One\nTwo"),
 					documentId: old,
 					expectedRevision: resaved.revision,
 					requestKey: randomUUID(),
@@ -931,7 +995,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				{
 					title: "Volunteer roles",
 					format: "docx",
-					bytes: storedZip([{ name: "word/document.xml", data: words }]).toString("base64"),
+					bytes: storedZip([{ name: "word/document.xml", data: words }]),
 					expectedRevision: "0",
 					requestKey: randomUUID(),
 				},
@@ -942,14 +1006,14 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			type: "doc",
 			content: [para(text("Greeters welcome every guest")), para(text("Kids team"))],
 		});
-		refused(
+		refusedPrivate(
 			await documentsWriter.importTextOrWord(
 				db,
 				owner,
 				{
 					title: "Imported notes",
 					format: "text",
-					bytes: Buffer.from(" \n ").toString("base64"),
+					bytes: Buffer.from(" \n "),
 					documentId: old,
 					expectedRevision: imported.revision,
 					requestKey: randomUUID(),
@@ -980,7 +1044,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		await admin.execute(
 			sql`UPDATE document SET current_revision_id = ${blankRevision}::uuid WHERE id = ${blank.id}::uuid`,
 		);
-		refused(
+		refusedPrivate(
 			await documentsWriter.designateCoreValues(db, owner, { documentId: blank.id, expectedRevision: blank.revision }),
 			"unavailable",
 		);
@@ -1016,7 +1080,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		await admin.execute(
 			sql`UPDATE document SET current_revision_id = ${emptyRevision}::uuid WHERE id = ${empty.id}::uuid`,
 		);
-		refused(await documentsWriter.listCopySources(db, mine, {}), "unavailable");
+		refusedPrivate(await documentsWriter.listCopySources(db, mine, {}), "unavailable");
 		await restoreSeat(actors[2].id);
 		const theirs = ok(
 			await documentsWriter.saveNative(db, await authority(4), {
@@ -1032,7 +1096,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			["Prayer plan"],
 		);
 		assert.equal(offered[0].revisionId, source.revisionId);
-		refused(await documentsWriter.listCopySources(db, member, {}), "unavailable");
+		refusedPrivate(await documentsWriter.listCopySources(db, member, {}), "unavailable");
 
 		const copies = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action = 'documents.copied'`);
 		const churchDocs = () => countOf("document", `WHERE tenant_id = '${P}'`);
@@ -1053,7 +1117,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(first.kind, "native");
 		assert.deepEqual(first.body, body);
 		assert.equal(first.copiedFromRevisionId, source.revisionId);
-		refused(
+		refusedPrivate(
 			await documentsWriter.useForChurch(db, seated, {
 				documentId: theirs.id,
 				revisionId: theirs.revisionId,
@@ -1094,7 +1158,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: first.id })).body, body);
 	});
 
-	test("AC:CASE-DOC-016 T-99 a Word file keeps its headings, lists and links as native nodes", async () => {
+	test("AC:CASE-DOC-016 a Word file keeps its headings, lists and links as native nodes", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
 		const text = (value, href) => ({
@@ -1287,7 +1351,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				rels: `<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${target}" TargetMode="External"/></Relationships>`,
 			});
 		for (const target of ["file:///etc/passwd", "../../outside.docx"])
-			refused(await importWord(hyperlinkTo(target)), "invalid_input");
+			refusedPrivate(await importWord(hyperlinkTo(target)), "invalid_input");
 
 		// documents/doc-11: a part target resolves from its own part's folder, so the `../docProps/meta.xml` that
 		// macOS textutil writes stays inside the package and imports; a tab reads as a space and character references
@@ -1313,7 +1377,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			partRel("theme/../../../outside.xml"),
 			partRel("../../outside.xml").replace("/>", "></Relationship>"),
 		])
-			refused(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
+			refusedPrivate(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
 
 		// Criterion 6: tables and text boxes stay paragraphs in reading order; the drawing's fallback copy is not repeated.
 		const textBox = (inner) =>
@@ -1371,7 +1435,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		];
 		const before = await rows();
 		const huge = Array.from({ length: 2600 }, (_, i) => W.p(`Line ${i}`)).join("");
-		const tooLarge = refused(await importWord(W.word(huge)), "invalid_input");
+		const tooLarge = refusedPrivate(await importWord(W.word(huge)), "invalid_input");
 		assert.match(JSON.stringify(tooLarge), /too large/);
 		assert.deepEqual(await rows(), before);
 
@@ -1409,7 +1473,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 							name: "word/document.xml",
 							data: "<w:document><w:body><w:p><w:r><w:t>Cut off</w:t></w:r><w:p><w:r><w:t>mid",
 						},
-					]).toString("base64"),
+					]),
 				),
 			),
 			{ type: "doc", content: [para(text("Cut off")), para(text("mid"))] },

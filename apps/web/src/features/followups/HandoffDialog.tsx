@@ -15,11 +15,11 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { useEffect, useState } from "react";
+import { HANDOFF_LIMIT } from "@everyfield/contracts/followups";
 import { executeHandoff } from "./actions.ts";
 import { DutyFacts } from "./duties.tsx";
 import { loadPlan, prefetchSeats } from "./fetch.ts";
 import {
-	HANDOFF_LIMIT,
 	keepSelection,
 	problemText,
 	type Account,

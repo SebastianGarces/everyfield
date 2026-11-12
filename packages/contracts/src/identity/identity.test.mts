@@ -24,6 +24,9 @@ test("INV-identity: safe navigation rejects authority changes and expired-sessio
 		"/a/..//evil.test",
 		"/path\nnext",
 		"/%0d%0aLocation:evil",
+		// INV-boundary: double-encoded backslash and newline stay refused.
+		"/%255cforeign",
+		"/%250aheader",
 	]) {
 		assert.equal(safeReturn(value), null, String(value));
 	}
@@ -31,7 +34,7 @@ test("INV-identity: safe navigation rejects authority changes and expired-sessio
 		assert.equal(invalidSessionReturn(value), "/signin");
 });
 
-test("WP-005: landingFor sends a signed-in person to a safe returnTo, else onboarding, else the dashboard home", () => {
+test("AC:TARGET-IDN-028 landingFor sends a signed-in person to a safe returnTo, else onboarding, else the dashboard home", () => {
 	assert.equal(DASHBOARD_HOME, "/people");
 	const done = { status: "active", plant: "complete" } as const;
 	assert.equal(landingFor({ ...done, returnTo: "/settings/sharing" }), "/settings/sharing");
@@ -49,7 +52,7 @@ test("WP-005: landingFor sends a signed-in person to a safe returnTo, else onboa
 	}
 });
 
-test("BUG-551 (people/peo-21, packages/pac-1): a seat change that leaves a duty remaining is partial, never changed", () => {
+test("BUG-PR551: a seat change that leaves a duty remaining is partial, never changed", () => {
 	const result = (outcome: string, status: string) => ({
 		seatId: "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60",
 		revision: "4",

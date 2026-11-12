@@ -24,6 +24,7 @@ import {
 	OUTCOME_LABEL,
 	OUTCOMES,
 	outcomeInput,
+	recentAfter,
 	windowAt,
 	type Draft,
 	type DraftErrors,
@@ -61,10 +62,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const due = dueText(task.due);
 
 	async function submit(form: HTMLFormElement) {
-		const parsed =
-			!open && draft.outcome === "no_longer_needed"
-				? ({ ok: false, errors: { outcome: "This follow-up is already finished. Choose what happened." } } as const)
-				: outcomeInput(draft, { completable: open });
+		const parsed = outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			focusFirstProblem(form);
@@ -89,7 +87,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 						? {
 								...c.recent,
 								lastConfirmedContactAt: value.lastConfirmedContactAt,
-								items: [value.record, ...c.recent.items].slice(0, 3),
+								items: recentAfter(c.recent.items, value),
 							}
 						: c.recent,
 				}));

@@ -1,11 +1,12 @@
-import { brandAssetBytes, storeBrandBytes } from "@/features/settings/brand/server";
+import { brandAsset, storeBrandBytes } from "@/features/settings/brand/server";
 import { ASSET_MAX_BYTES } from "@everyfield/contracts/branding";
-import { createHash } from "node:crypto";
 
 // Brand asset bytes (REQ-BRD-002). PUT sends the bytes of a staged upload (the id is the upload id); GET returns the
 // stored file the kit references now (the id is the file id). Every request rechecks the live session, the Owner or
 // Admin seat and the kit's current reference, a 304 revalidation included, so a replaced or removed file, a Member,
-// another church and a signed-out visitor all get 404 and no bytes. No storage key or bearer URL leaves the server.
+// another church and a signed-out visitor all get 404 and no bytes. The ETag comes from the stored SHA-256 that the
+// authorized statement returns, so a matching If-None-Match gets 304 with no storage read. No storage key or bearer URL
+// leaves the server.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,12 +34,18 @@ export async function PUT(request: Request, { params }: Params) {
 
 export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
-	const found = UUID.test(id) ? await brandAssetBytes(id) : null;
+	const held = request.headers.get("if-none-match");
+	const found = UUID.test(id) ? await brandAsset(id, (sha256) => etagOf(sha256) === held) : null;
 	if (found?.status !== "ok") return new Response(null, { status: 404, headers: PRIVATE });
-	const etag = `"${createHash("sha256").update(found.value.bytes).digest("hex").slice(0, 32)}"`;
-	const headers = { ...PRIVATE, "Content-Type": found.value.mediaType, ETag: etag };
-	if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
-	return new Response(Buffer.from(found.value.bytes), { headers });
+	const { sha256, mediaType, bytes } = found.value;
+	const headers = { ...PRIVATE, "Content-Type": mediaType, ETag: etagOf(sha256) };
+	if (!bytes) return new Response(null, { status: 304, headers });
+	return new Response(Buffer.from(bytes), { headers });
+}
+
+/** The quoted first 32 hex characters of the stored SHA-256: the same tag the route has always sent. */
+function etagOf(sha256: string) {
+	return `"${sha256.slice(0, 32)}"`;
 }
 
 function refusal(code: keyof typeof REFUSAL_STATUS, status: number) {

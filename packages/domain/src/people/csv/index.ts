@@ -2,6 +2,7 @@ import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common
 import * as c from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
+import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
@@ -10,10 +11,12 @@ import { liveRead, writeVisibility, type RequestActor } from "../../access/sessi
 import { declareWrite, finishAudit, prepareWrite } from "../../operations/writes.ts";
 import {
 	authorize,
+	authorizeCachedWrite,
 	deny,
 	hash,
 	lockOwner,
 	parse,
+	PeopleReadContext,
 	readReply,
 	reply,
 	withPeopleWrite,
@@ -526,6 +529,101 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
  upload=CASE WHEN ${failed.length === 0} THEN NULL ELSE upload END
  WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id`);
 	return finished.rows.length ? "succeeded" : "lost";
+}
+
+// The screen's upload (REQ-PPL-018 over the REQ-PPL-014 private-file flow): the browser puts the file once into the
+// private bucket with a signed PUT, then the preview and the import each read the stored object here and parse it. No
+// request to the app carries the file, and no row the browser sends back is trusted.
+
+/** A staged import file's object key: the church comes from the verified viewer, so another church's upload cannot be named. */
+const uploadKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
+/**
+ * Sign one import upload: one statement checks the live Owner or Admin, inserts the pending file row and queues its
+ * cleanup for when it expires. Nothing references a staged file, so the shared object cleanup removes it then, whether
+ * the import ran or not. The PUT URL is signed locally for the exact key, type and length, and writes once.
+ */
+export async function signPeopleImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
+	return readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const plant = plantId(ctx);
+		// The same refusal as a stored file over the limit, so a browser that skips its own check learns why.
+		const declared = (raw as { byteLength?: unknown } | null)?.byteLength;
+		if (typeof declared === "number" && declared > c.importLimits.bytes) deny("file_too_large");
+		const input = parse(c.signImportUploadRequest, raw);
+		const id = randomUUID();
+		const key = uploadKey(plant, id);
+		const result = await db.execute(sql`WITH upload AS (
+ INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+ SELECT ${id}::uuid,${plant}::uuid,'native_import',${key}::text,'text/csv',${String(input.byteLength)}::bigint,
+  'pending',${"people-import/" + id}::text,0,clock_timestamp()+interval '1 hour'
+ WHERE ${access(ctx, true)}
+ RETURNING id,expires_at), cleanup AS (
+ INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+ SELECT ${plant}::uuid,'object_cleanup',u.id,'people-import-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
+ ON CONFLICT DO NOTHING)
+ SELECT id FROM upload`);
+		if (!result.rows[0]) deny();
+		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny());
+		return c.importUpload.parse({ uploadId: id, ...signed });
+	});
+}
+/**
+ * The stored upload's bytes. One statement first checks the live Owner or Admin and this church's own unexpired
+ * staged upload, so no other request reaches the bucket. An object over the limit is refused unread; a missing,
+ * expired or incomplete one is not the file the person chose, so it is refused as a changed file.
+ */
+async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleReadContext, uploadId: string) {
+	const plant = plantId(ctx),
+		key = uploadKey(plant, uploadId);
+	const found = z.object({ allowed: z.boolean(), staged: z.boolean() }).parse(
+		(
+			await db.execute(sql`SELECT ${access(ctx, true)} AS allowed, EXISTS(SELECT FROM file_object f
+ WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND f.purpose='native_import' AND f.opaque_key=${key}::text
+ AND f.state='pending' AND f.expires_at>clock_timestamp()) AS staged`)
+		).rows[0],
+	);
+	if (!found.allowed) deny();
+	if (!found.staged) deny("file_changed");
+	const object = await readPrivateUpload(storage, key, c.importLimits.bytes);
+	if (object === "too_large") deny("file_too_large");
+	if (object === "missing") deny("file_changed");
+	return object.bytes;
+}
+/** previewImport of a stored upload. The bucket is read with no transaction open. */
+export async function previewStoredImport(
+	db: Database,
+	storage: PrivateStorage,
+	authority: RequestActor,
+	raw: unknown,
+) {
+	const ctx = new PeopleReadContext(authority);
+	const loaded = await readReply(async () => {
+		authorizeCachedWrite(ctx);
+		const input = parse(c.previewStoredImportRequest, raw);
+		return storedFile(db, storage, ctx, input.uploadId);
+	});
+	if (loaded.status !== "ok") return loaded;
+	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
+}
+/**
+ * executeBulkImport of a stored upload: the server reads the object again and saves it only when it is the previewed
+ * file (its digest). A swapped, missing or incomplete object is refused as file_changed and nothing is saved.
+ */
+export async function executeStoredImport(
+	db: Database,
+	storage: PrivateStorage,
+	authority: RequestActor,
+	raw: unknown,
+) {
+	const loaded = await readReply(async () => {
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const { uploadId, ...input } = parse(c.executeStoredImportRequest, raw);
+		return { ...input, file: await storedFile(db, storage, ctx, uploadId) };
+	});
+	if (loaded.status !== "ok") return loaded;
+	return executeBulkImport(db, authority, loaded.value);
 }
 
 export const peopleCsv = {

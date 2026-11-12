@@ -385,19 +385,23 @@ type VenueDraft = Record<
 >;
 const text = (v: string | null) => v ?? "";
 
+const draftOf = (venue: Venue | undefined): VenueDraft => ({
+	name: text(venue?.name ?? null),
+	address: text(venue?.address ?? null),
+	contactName: text(venue?.contactName ?? null),
+	phone: text(venue?.phone ?? null),
+	email: text(venue?.email ?? null),
+	costDescription: text(venue?.costDescription ?? null),
+	capacity: venue?.capacity ? String(venue.capacity) : "",
+	notes: text(venue?.notes ?? null),
+	reason: "",
+});
+
 /** Add a place, or change one. A change with a reason is a correction and keeps the reason in the history. */
-function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
-	const [draft, setDraft] = useState<VenueDraft>({
-		name: text(venue?.name ?? null),
-		address: text(venue?.address ?? null),
-		contactName: text(venue?.contactName ?? null),
-		phone: text(venue?.phone ?? null),
-		email: text(venue?.email ?? null),
-		costDescription: text(venue?.costDescription ?? null),
-		capacity: venue?.capacity ? String(venue.capacity) : "",
-		notes: text(venue?.notes ?? null),
-		reason: "",
-	});
+function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
+	// The place being changed: as opened, or as read again after a save refused as out of date.
+	const [venue, setVenue] = useState(opened);
+	const [draft, setDraft] = useState<VenueDraft>(() => draftOf(opened));
 	const [touched, setTouched] = useState(false);
 	// The form stays open while it saves; its notice says why a save was refused or that it may already be saved.
 	const lane = useSaveIntent({ explain: problemText });
@@ -451,6 +455,17 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 			what: `The changes to ${venue.name}`,
 			send: (key) => changeVenue(op, key, venue.revision, input),
 			ok: (value) => onDone(venue.id, value.venue),
+			// Out of date: the form shows the place as it is now, as the refusal says, and saves against that revision.
+			refused: (code) =>
+				code === "conflict" &&
+				getVenue(venue.id).then(
+					(r) => {
+						if (r.status !== "ok" || r.value.status !== "available") return;
+						setVenue(r.value.venue);
+						setDraft(draftOf(r.value.venue));
+					},
+					() => {},
+				),
 		});
 	}
 

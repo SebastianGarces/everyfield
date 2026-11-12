@@ -1,23 +1,19 @@
-import { gt } from "@everyfield/db/query";
 import { instant } from "@everyfield/contracts/common";
 import { notificationCategory as category } from "@everyfield/contracts/settings";
 import type { Transaction } from "@everyfield/db/client";
-import { and, eq, isNull, or, sql } from "@everyfield/db/query";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readAccountContacts } from "@everyfield/domain/identity";
 import { reminderSeats } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
-import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
+import { taskReminderTimes } from "./calendar.ts";
 import { createMailService, type MailIntent } from "./mail.ts";
-import { enqueueJobs } from "./queue";
-export { notificationCategory as category } from "@everyfield/contracts/settings";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
 	id: z.uuid(),
 	revision: z.string().regex(/^[1-9]\d*$/),
 });
-export type NoticeSource = z.infer<typeof sourceSchema>;
 const noticeInput = z.strictObject({
 	owner: z.discriminatedUnion("kind", [
 		z.strictObject({ kind: z.literal("plant"), id: z.uuid() }),
@@ -77,6 +73,8 @@ const policy = {
 		purpose: "reference_update",
 		source: "article_editor_state",
 	},
+	// Written with the Messages opt-out itself (T-242), never through this queue.
+	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
 } as const;
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
@@ -241,34 +239,6 @@ export function createNotificationService(config: {
 		return result;
 	}
 
-	async function cancelForEntity(tx: Transaction, tenant: string, source: NoticeSource, preserveCurrent = false) {
-		if (!(await lockSource(tx, tenant, source))) throw Error("notification_source_stale");
-		await tx
-			.update(tables.notice)
-			.set({
-				cancelled_at: sql<Date>`coalesce(${tables.notice.cancelled_at}, clock_timestamp())`.mapWith(
-					(value: string) => new Date(value),
-				),
-			})
-			.where(
-				and(
-					and(eq(tables.notice.tenant_id, tenant), eq(tables.notice.source_record_id, source.id)),
-					or(
-						sql<unknown>`(NOT ${preserveCurrent})`,
-						sql<unknown>`(${tables.notice.source_revision} != ${source.revision})`,
-					),
-				),
-			);
-		await cancelOwed(tx, tenant, [source.id]);
-	}
-	// Pending/known-refused work is safe to cancel. Unknown external effects stay unknown.
-	async function cancelOwed(tx: Transaction, tenant: string, sources: readonly string[]) {
-		await tx.execute(sql`UPDATE mail m SET state='cancelled' FROM notice n WHERE n.id=m.notice_id AND n.tenant_id=${tenant}
-      AND n.source_record_id=ANY(${sql.param(sources)}::uuid[]) AND n.cancelled_at IS NOT NULL AND m.state IN ('pending','refused')`);
-		await tx.execute(sql`UPDATE job j SET state='cancelled',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,
-      revision=j.revision+1,finished_at=clock_timestamp() FROM mail m JOIN notice n ON n.id=m.notice_id WHERE m.job_id=j.id AND n.tenant_id=${tenant}
-      AND n.source_record_id=ANY(${sql.param(sources)}::uuid[]) AND n.cancelled_at IS NOT NULL AND m.state='cancelled' AND j.state IN ('ready','retry_wait','claimed')`);
-	}
 	/**
 	 * Replace the owed due and overdue reminders of one or more tasks of one plant in at most two statements, whatever
 	 * the number of tasks: one locked read (sources, delivered slots, assignees, preferences, seats and deletion
@@ -281,7 +251,9 @@ export function createNotificationService(config: {
 	async function syncTaskReminders(
 		tx: Transaction,
 		inputs: readonly {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient">;
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient" | "title">;
+			/** The notice title of each reminder slot: the due reminder and the overdue one read differently. */
+			titles: Record<ReturnType<typeof taskReminderTimes>[number]["slot"], string>;
 			/** Every assignee of the task: each gets their own due and overdue notices (REQ-TSK-014). */
 			recipients: readonly string[];
 			due: Parameters<typeof taskReminderTimes>[0];
@@ -313,6 +285,7 @@ export function createNotificationService(config: {
 						.map((t) =>
 							noticeInput.parse({
 								...i.base,
+								title: i.titles[t.slot],
 								recipient,
 								category: t.slot === "due" ? "task_due" : "task_overdue",
 								occurrence: t.slot,
@@ -466,30 +439,7 @@ export function createNotificationService(config: {
 		if (done.mail !== mail.length) throw Error("mail_identity_conflict");
 		return output;
 	}
-	async function syncMeetingReminders(
-		tx: Transaction,
-		input: {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt">;
-			date: string;
-			time: string;
-			zone: string;
-			scheduled: boolean;
-			startsAt: string;
-			asOf: string;
-		},
-	) {
-		const asOf = instant.parse(input.asOf),
-			startsAt = instant.parse(input.startsAt);
-		await cancelForEntity(tx, input.base.owner.id, input.base.source, input.scheduled && startsAt > asOf);
-		if (!input.scheduled || startsAt <= asOf) return [];
-		return enqueueMany(
-			tx,
-			meetingReminderTimes(input.date, input.time, input.zone)
-				.filter((t) => t.at >= asOf)
-				.map((t) => ({ ...input.base, category: "meeting_reminder", occurrence: t.slot, eligibleAt: t.at })),
-		);
-	}
-	return { enqueue, enqueueMany, cancelForEntity, syncTaskReminders, syncMeetingReminders };
+	return { enqueue, enqueueMany, syncTaskReminders };
 }
 // A Discovery receipt deliberately has no plant or inbox anchor.
 export async function sendDiscoveryAssociationReceipt(
@@ -546,7 +496,7 @@ export async function sendDiscoveryAssociationReceipt(
 /** One durable notice batch for all links changed by a discovery conversion. */
 export async function sendOnboardingRelationships(
 	tx: Transaction,
-	inputs: readonly Parameters<import("@everyfield/domain/organizations").OrganizationEffects["notice"]>[1][],
+	inputs: readonly import("@everyfield/domain/organizations").RelationshipNotice[],
 	mail: ReturnType<typeof createMailService>,
 ) {
 	if (!inputs.length) return;
@@ -565,17 +515,6 @@ export async function sendOnboardingRelationships(
 		].map((recipient) => ({ i, recipient })),
 	);
 	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
-	await enqueueJobs(
-		tx,
-		inputs.map((i) => ({
-			tenant: i.pair.organization.id,
-			kind: "assessment",
-			subject: i.relationshipId,
-			key: "onboarding/" + i.relationshipId + "/" + i.revision,
-			revision: i.revision,
-			eligibleAt: new Date().toISOString(),
-		})),
-	);
 	await mail.enqueueMany(
 		tx,
 		notices.map(({ i, recipient }) => {
@@ -584,7 +523,8 @@ export async function sendOnboardingRelationships(
 			return {
 				owner: { kind: "account", id: recipient },
 				purpose: i.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-				logicalKey: "relationship/" + i.eventId + "/" + recipient,
+				// Under the onboarding mount's own key, so the organizations mail pass never claims a receipt.
+				logicalKey: "onboarding/relationship/" + i.eventId + "/" + recipient,
 				recipient,
 				address,
 				content: { subject: "Relationship updated", text: "A church relationship you are part of changed." },
@@ -594,60 +534,4 @@ export async function sendOnboardingRelationships(
 			};
 		}),
 	);
-}
-
-export async function lockSource(tx: Transaction, tenant: string, source: NoticeSource) {
-	const s = sourceSchema.parse(source);
-	if (s.kind === "phase_transition") {
-		const phase = await tx
-			.select({ id: tables.phase_transition.id })
-			.from(tables.phase_transition)
-			.where(
-				and(
-					and(
-						and(
-							and(
-								eq(tables.phase_transition.id, s.id),
-								// A connected sending church or network owns its own phase-advance notice (NTF-009).
-								sql`(${tables.phase_transition.plant_id}=${tenant} OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=${tables.phase_transition.plant_id} AND a.organization_id=${tenant} AND a.ended_at IS NULL))`,
-							),
-							eq(tables.phase_transition.kind, "movement"),
-						),
-						gt(tables.phase_transition.to_phase, tables.phase_transition.from_phase),
-					),
-					sql`${s.revision}='1'`,
-				),
-			)
-			.for("share");
-		return phase.length === 1;
-	}
-	if (s.kind === "affiliation") {
-		const relationship = await tx
-			.select({ id: tables.affiliation.id })
-			.from(tables.affiliation)
-			.where(
-				and(
-					and(
-						eq(tables.affiliation.id, s.id),
-						or(eq(tables.affiliation.plant_id, tenant), eq(tables.affiliation.organization_id, tenant)),
-					),
-					eq(tables.affiliation.revision, s.revision),
-				),
-			)
-			.for("share");
-		return relationship.length === 1;
-	}
-	const sources = {
-		task: [tables.task, tables.task.plant_id],
-		meeting: [tables.meeting, tables.meeting.plant_id],
-		launch_milestone: [tables.launch_milestone, tables.launch_milestone.plant_id],
-		article_editor_state: [tables.article_editor_state, tables.article_editor_state.organization_id],
-	} as const;
-	const [table, column] = sources[s.kind];
-	const r = await tx
-		.select({ id: table.id })
-		.from(table)
-		.where(and(eq(table.id, s.id), eq(column, tenant), eq(table.revision, s.revision)))
-		.for("share");
-	return r.length === 1;
 }

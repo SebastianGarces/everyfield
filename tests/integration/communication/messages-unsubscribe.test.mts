@@ -18,6 +18,8 @@ import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/i
 import { deliveryText, hubLabel, scheduleText } from "../../../apps/web/src/features/communication/model.ts";
 import { POST as oneClick } from "../../../apps/web/src/features/communication/unsubscribeOneClick.ts";
 import { resendRecorder } from "./resend-recorder.mts";
+import { atSendTime } from "./scheduled-support.mts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, churchA, churchB, ownerA, ownerB, memberA;
 const origin = "https://app.example.test";
@@ -33,15 +35,6 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const HOUR = 3_600_000;
 const key = () => randomUUID();
 const now = () => new Date();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function person(church, name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
@@ -85,6 +78,8 @@ async function send(who, people, { mode = "now", meetingId = null, body = "<p>He
 			keys,
 		);
 	const result = ok(await handOff());
+	// A scheduled email waits in Everyfield; the minute runner hands it off at its send time (T-241).
+	if (mode !== "now") await atSendTime(f.admin, f.db, saved.communicationId, resend.transport, keys);
 	return { id: saved.communicationId, result, resend, handOff };
 }
 const batches = (resend) => resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST");
@@ -304,7 +299,9 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	const all = ok(
 		await f.db.transaction((t) => communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: none.id })),
 	);
-	assert.equal(hubLabel[all.state], "Not sent");
+	// Nobody got it because everyone unsubscribed: its own state, not an error or a cancel (T-241).
+	assert.equal(all.state, "unsubscribed");
+	assert.equal(hubLabel[all.state], "Not sent: unsubscribed");
 	assert.deepEqual([all.failed, all.unsubscribed, all.delivered], [0, 2, 0]);
 	const text = deliveryText(none.result);
 	assert.equal(

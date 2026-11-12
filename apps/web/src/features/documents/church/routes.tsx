@@ -59,6 +59,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 			canManage={canManage}
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}
+			revisionsTruncated={loaded.value.revisionsTruncated}
 			viewerName={viewer.displayName || null}
 		/>
 	);

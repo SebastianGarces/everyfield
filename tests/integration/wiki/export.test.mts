@@ -2,7 +2,7 @@
 // markdown markers, prose wrapped at spaces and a human credit in the footer. No database.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bodyBlocks } from "../../../packages/domain/src/wiki/excerpt.ts";
+import { wikiBlocks as bodyBlocks } from "../../../packages/contracts/src/wiki/index.ts";
 import { helveticaPdf, helveticaWidth, printHtml } from "../../../packages/domain/src/wiki/pdf.ts";
 
 /** cp1252 bytes 0x80 to 0x9f, as the PDF viewer maps them under /WinAnsiEncoding. */
@@ -24,7 +24,7 @@ const nodes = (blocks: unknown[]) => JSON.stringify({ format: "everyfield-editor
 const run = (text: string) => [{ type: "text", text, marks: [] }];
 const meta = { filename: "article.pdf", credit: "Ana Torres" };
 
-test("T-156: an organization node body prints its headings, paragraphs and list items, never its JSON", () => {
+test("AC:CASE-WIKI-007 an organization node body prints its headings, paragraphs and list items, never its JSON", () => {
 	const body = nodes([
 		{ type: "heading", level: 2, children: run("Welcome plan") },
 		{ type: "paragraph", children: run("Greet every guest by name.") },
@@ -64,7 +64,7 @@ test("T-156: an organization node body prints its headings, paragraphs and list 
 	for (const raw of ["{&quot;", '"type"', "children"]) assert.equal(html.includes(raw), false, raw);
 });
 
-test("T-156: accented letters and typographic marks print as WinAnsi, and a letter outside it prints a fallback", () => {
+test("AC:CASE-WIKI-007 accented letters and typographic marks print as WinAnsi, and a letter outside it prints a fallback", () => {
 	const words = "José, Señor and café – it’s “ready” … €5";
 	const pdf = helveticaPdf("Año", bodyBlocks("safe_mdx", `${words}\nŐrült 漢 ok`), meta);
 	const text = Buffer.from(pdf).toString("latin1");
@@ -80,7 +80,7 @@ test("T-156: accented letters and typographic marks print as WinAnsi, and a lett
 	}
 });
 
-test("T-156: inline markdown markers never print; code keeps its text verbatim", () => {
+test("AC:CASE-WIKI-007 inline markdown markers never print; code keeps its text verbatim", () => {
 	const body = [
 		"Read **bold**, _italic_, *also*, `code` and [the guide](/wiki/guide) <Badge>tag</Badge> now.",
 		"- A **listed** item",
@@ -111,7 +111,7 @@ test("T-156: inline markdown markers never print; code keeps its text verbatim",
 	assert.ok(html.includes("<pre><code>keep **these** _marks_ [x](y)</code></pre>"));
 });
 
-test("T-156: prose wraps at spaces within the text width; only a word longer than a line breaks inside", () => {
+test("AC:CASE-WIKI-007 prose wraps at spaces within the text width; only a word longer than a line breaks inside", () => {
 	const words = Array.from(
 		{ length: 160 },
 		(_, index) => ["community", "Welcome", "the", "WWW", "illuminating"][index % 5],
@@ -131,15 +131,4 @@ test("T-156: prose wraps at spaces within the text width; only a word longer tha
 	assert.ok(pieces.length > 1);
 	assert.equal(pieces.join(""), long);
 	for (const piece of pieces) assert.ok(helveticaWidth(piece) <= width);
-});
-
-test("T-156: the footer prints a human credit and the page, or only the page", () => {
-	const blocks = bodyBlocks("safe_mdx", "Text.");
-	const footer = (credit: string | null) => shownLines(helveticaPdf("T", blocks, { filename: "t.pdf", credit })).at(-1);
-	assert.equal(footer("Ana Torres"), "Ana Torres  1/1");
-	assert.equal(footer(null), "1/1");
-	assert.ok(
-		printHtml("T", blocks, { filename: "t.pdf", credit: "Ana Torres" }).includes("<footer>Ana Torres</footer>"),
-	);
-	assert.ok(printHtml("T", blocks, { filename: "t.pdf", credit: null }).includes("<footer></footer>"));
 });

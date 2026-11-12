@@ -8,7 +8,7 @@ export {
 	cancelTurn,
 	closeLostJobs,
 	createConversation,
-	latestConversation,
+	openLatestConversation,
 	listConversations,
 	readConversation,
 	retryTurn,

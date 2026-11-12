@@ -99,7 +99,7 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 	assert.deepEqual(settled, []);
 });
 
-test("the outbox lists newest first", async () => {
+test("INV-communication-outbox: the outbox lists newest first", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "outbox-test-"));
 	const message = { from: "f@x.test", to: "t@x.test", html: "h", text: "t" };
 	await record({ ...message, subject: "first" }, null, dir);

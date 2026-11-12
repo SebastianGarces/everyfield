@@ -2,6 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
+import { ok, refused, seeds } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -19,19 +20,10 @@ const api = createNotificationProducer({ optOutKey, now: () => clock.at });
 const orgs = createOrganizationAdapter(
 	{
 		invitation: async () => {},
-		notice: () => sql`UPDATE account SET id = id WHERE false`,
 		invalidate: () => sql`UPDATE account SET id = id WHERE false`,
 	},
 	{ candidates: async () => [] },
 );
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const denied = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-};
 const command = (input, expectedRevision = "1") => ({ requestKey: randomUUID(), expectedRevision, input });
 async function actor(session) {
 	const resolved = await RequestActor.resolve(db, sessionId.parse(session));
@@ -66,10 +58,7 @@ async function identity(selected, seatRole = "owner") {
 	return { id: account, session: handle, selected: selected ?? owner.parse({ kind: "account", id: account }) };
 }
 async function plant(name = "Harvest") {
-	const id = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},${name},'America/Chicago',7,14,0,16,1,1)`,
-	);
+	const { id } = await seeds(admin).plant({ name, digest_weekday: 0, digest_hour: 16 });
 	return owner.parse({ kind: "plant", id });
 }
 async function organization(kind, name) {
@@ -142,7 +131,10 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		eligible: "2026-10-13T22:00:00Z",
 	});
 	const reader = await actor(a.session);
-	const feed = ok(await api.readFeed(db, reader, { asOf: "2026-10-14T03:00:00Z" }));
+	const clockBefore = clock.at;
+	clock.at = new Date("2026-10-14T03:00:00Z");
+	const feed = ok(await api.readFeed(db, reader, {}));
+	clock.at = clockBefore;
 	const item = feed.items.find((row) => row.id === due);
 	assert.ok(item);
 	assert.equal(item.dueLocalDate, "2026-10-13");
@@ -152,7 +144,7 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 1);
-	denied(await api.markRead(db, reader, command({ noticeId: foreign })), "access_denied");
+	refused(await api.markRead(db, reader, command({ noticeId: foreign })), "access_denied");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${foreign} AND read_at IS NULL`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM task WHERE id=${work} AND status='not_started'`), 1);
 	const arrived = await notice({
@@ -187,6 +179,12 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 60);
+	// The feed page reads the same first page, the unread count of its filter and the mark revision in one statement.
+	const page = ok(await api.readFeedPage(db, reader, {}));
+	assert.deepEqual(page.feed, first);
+	assert.equal(page.unread, 60);
+	assert.equal(page.revision, ok(await api.getPreferences(db, reader, {})).revision);
+	assert.equal(ok(await api.readFeedPage(db, reader, { category: "task_overdue" })).unread, 0);
 	const unread = ok(await api.readFeed(db, reader, { unread: true }));
 	assert.equal(
 		unread.items.some((row) => row.id === due),
@@ -221,7 +219,7 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	const burstReader = await actor(burst.session);
 	const sameFirst = ok(await api.readFeed(db, burstReader, {}));
 	const sameSecond = ok(await api.readFeed(db, burstReader, { cursor: sameFirst.nextCursor }));
-	denied(await api.readFeed(db, burstReader, { page: 2 }), "invalid_input");
+	refused(await api.readFeed(db, burstReader, { page: 2 }), "invalid_input");
 	const sameIds = new Set([...sameFirst.items, ...sameSecond.items].map((row) => row.id));
 	assert.equal(sameFirst.items.length, 50);
 	assert.equal(sameSecond.items.length, 10);
@@ -340,7 +338,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		),
 	);
 	const discovery = await actor((await identity()).session);
-	denied(
+	refused(
 		await api.setDigestCadence(db, discovery, command({ plantId: church.id, cadence: "weekly" })),
 		"access_denied",
 	);
@@ -375,13 +373,13 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp,
 		unsubscribeRevision: "0",
 	});
-	const described = ok(await api.describeEmailOptOut(db, reader, { token: expired }));
+	const described = ok(await api.describeEmailOptOut(db, { token: expired }));
 	assert.equal(described.expired, true);
 	assert.equal(described.changed, false);
 	assert.equal(described.inAppEnabled, true);
-	const refused = ok(await api.applyEmailOptOut(db, { token: expired, oneClick: true }));
-	assert.equal(refused.changed, false);
-	assert.equal(refused.emailEnabled, true);
+	const stale = ok(await api.applyEmailOptOut(db, { token: expired }));
+	assert.equal(stale.changed, false);
+	assert.equal(stale.emailEnabled, true);
 	assert.equal(
 		await count(sql`SELECT count(*)::int AS n FROM account WHERE id=${a.id} AND revision::text=${daily.revision}`),
 		1,
@@ -394,7 +392,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp: "2027-04-11T00:00:00Z",
 		unsubscribeRevision: "0",
 	});
-	const applied = ok(await api.applyEmailOptOut(db, { token, oneClick: true }));
+	const applied = ok(await api.applyEmailOptOut(db, { token }));
 	assert.equal(applied.changed, true);
 	assert.equal(applied.emailEnabled, false);
 	assert.equal(applied.inAppEnabled, true);
@@ -427,7 +425,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp: "2027-04-01T00:00:00Z",
 		unsubscribeRevision: "0",
 	});
-	assert.equal(ok(await rotated.describeEmailOptOut(db, reader, { token: previous })).category, "task_overdue");
+	assert.equal(ok(await rotated.describeEmailOptOut(db, { token: previous })).category, "task_overdue");
 	const tooLong = issueEmailOptOutToken(optOutKey, {
 		purpose: "disable",
 		accountId: a.id,
@@ -435,8 +433,8 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		exp: "2031-10-14T00:00:00Z",
 		unsubscribeRevision: "0",
 	});
-	denied(await api.applyEmailOptOut(db, { token: tooLong }), "access_denied");
-	denied(await api.describeEmailOptOut(db, reader, { token: "not-a-token" }), "access_denied");
+	refused(await api.applyEmailOptOut(db, { token: tooLong }), "access_denied");
+	refused(await api.describeEmailOptOut(db, { token: "not-a-token" }), "access_denied");
 });
 
 test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-IDN-022 oversight counts shared activity only", async () => {
@@ -512,7 +510,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	assert.deepEqual(quiet.lines, []);
 	assert.deepEqual(quiet.plants, []);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant WHERE id=${church.id}`), 1);
-	denied(
+	refused(
 		await api.readOversightDigest(db, northReader, {
 			organizationId: south.id,
 			organizationKind: "sending_church",
@@ -566,6 +564,60 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	assert.equal(ok(await api.getPreferences(db, northReader, {})).oversightCadence, "daily");
 });
 
+test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests and phases name none, and the entries are the same", async () => {
+	const church = await plant("Subjects");
+	const sam = await identity(church);
+	const work = await task(church.id);
+	const meeting = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision night','2026-10-20','18:00','America/Chicago','2026-10-20T23:00:00Z','1','ready',1)`,
+	);
+	const rows = [
+		["task", "task_due", "task_due", work, "Call is due"],
+		["task", "task_due", "task_overdue", work, "Call is overdue"],
+		["meeting", "meeting_invitation", "meeting_announcement", meeting, "Vision night is on"],
+		["meeting", "meeting_reminder", "meeting_reminder", meeting, "Vision night tomorrow"],
+		["digest", "oversight_digest", "oversight_digest", church.id, "Your plants this week"],
+		["phase", "phase_transition", "phase_milestone", church.id, "Moved to Launch Team Formation"],
+	];
+	const ids = {};
+	for (const [i, [category, purpose, feedCategory, source, title]] of rows.entries())
+		ids[feedCategory] = await notice({
+			tenant: church.id,
+			recipient: sam.id,
+			category,
+			purpose,
+			key: `${church.id}/${feedCategory}/${source}/1/${i}`,
+			source,
+			title,
+			eligible: `2026-10-13T1${i}:00:00Z`,
+		});
+	const reader = await actor(sam.session);
+	const feed = ok(await api.readFeed(db, reader, {}));
+	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.category, item.subject])), {
+		task_due: { kind: "task", id: work },
+		task_overdue: { kind: "task", id: work },
+		meeting_announcement: { kind: "meeting", id: meeting },
+		meeting_reminder: { kind: "meeting", id: meeting },
+		oversight_digest: null,
+		phase_milestone: null,
+	});
+	// The subject adds nothing to the item set: every entry, newest first, and the same unread count.
+	assert.deepEqual(
+		feed.items.map((item) => item.id),
+		[...Object.values(ids)].reverse(),
+	);
+	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, rows.length);
+	// Following a linked entry marks that entry read and no other.
+	assert.deepEqual(ok(await api.markRead(db, reader, command({ noticeId: ids.task_due }))).markedIds, [ids.task_due]);
+	const later = ok(await api.readFeed(db, reader, {}));
+	assert.deepEqual(
+		later.items.filter((item) => item.read).map((item) => item.id),
+		[ids.task_due],
+	);
+	assert.deepEqual(later.items.find((item) => item.id === ids.task_due).subject, { kind: "task", id: work });
+});
+
 test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app for current editors", async () => {
 	const network = await organization("sending_network", "Editors");
 	const editor = await identity(network);
@@ -602,7 +654,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 				sourceRevision: revision,
 			}),
 		);
-	denied(
+	refused(
 		await api.publishWikiUpstream(
 			db,
 			reader,
@@ -616,7 +668,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 		),
 		"invalid_input",
 	);
-	denied(await publish(randomUUID(), "7"), "access_denied");
+	refused(await publish(randomUUID(), "7"), "access_denied");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE title LIKE 'Please re-enter%'`), 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='wiki.published'`), 0);
 	const typo = ok(await publish(typoId, "1"));
@@ -630,6 +682,11 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	);
 	const feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(feed.items.map((item) => item.title).sort(), ["Meaningful update", "Typo"]);
+	// T-260 Done 6: each review entry opens the published global article it names, by that revision's slug.
+	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.title, item.subject])), {
+		Typo: { kind: "article", id: article, slug: "typo" },
+		"Meaningful update": { kind: "article", id: article, slug: "update" },
+	});
 	const hidden = ok(await api.readFeed(db, await actor(revoked.session), {}));
 	assert.deepEqual(hidden.items, []);
 	const field = await plant("Field");
@@ -654,12 +711,12 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	assert.deepEqual(seatless.recipientIds, [discovery.id, editor.id].sort());
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plantsBefore);
 	const loose = await identity();
-	denied(
+	refused(
 		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: loose.id }),
 		"access_denied",
 	);
 	const stranger = await identity();
-	denied(
+	refused(
 		await api.readAssociationAudience(db, await actor(stranger.session), {
 			organizationId: network.id,
 			discoveryAccountId: stranger.id,
@@ -682,4 +739,66 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: planter.id }),
 	);
 	assert.equal(seen.recipientIds.includes(adminSeat.id), false);
+});
+
+test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {
+	const witness = async (kind, subject) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+			witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${id},${kind},${subject},
+			${kind === "plant" ? subject : null},1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),
+			statement_timestamp()+interval '720 hours')`);
+		return () => admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${id}`);
+	};
+	// A church with its Owner, and a network the church is linked to, with its Owner.
+	const church = await plant("Witnessed");
+	const planter = await identity(church);
+	const network = await organization("sending_network", "Witness Network");
+	const overseer = await identity(network);
+	await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${randomUUID()},${church.id},${network.id},clock_timestamp(),false,false,false,false,false,true,false)`);
+	const meeting = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO meeting(id,plant_id,type,title,creator_id,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision',${planter.id},'2026-10-13','18:00','America/Chicago','2026-10-13T23:00:00Z','1','completed',1)`,
+	);
+	const churchReader = await actor(planter.session);
+	const networkReader = await actor(overseer.session);
+	const plantReads = {
+		meetingAudience: () => api.readMeetingAudience(db, churchReader, { plantId: church.id, meetingId: meeting }),
+		planterDigest: () => api.readPlanterDigest(db, churchReader, { plantId: church.id }),
+	};
+	const networkReads = {
+		associationAudience: () =>
+			api.readAssociationAudience(db, networkReader, { organizationId: network.id, discoveryAccountId: planter.id }),
+		associationReceipt: () =>
+			api.readAssociationReceipt(db, networkReader, { organizationId: network.id, operationId: randomUUID() }),
+		oversightDigest: () =>
+			api.readOversightDigest(db, networkReader, {
+				organizationId: network.id,
+				organizationKind: "sending_network",
+				period: "current",
+			}),
+	};
+	for (const read of [...Object.values(plantReads), ...Object.values(networkReads)]) ok(await read());
+
+	// The church is pending deletion: its reads refuse, and the network's digest no longer counts it.
+	let clear = await witness("plant", church.id);
+	try {
+		for (const [name, read] of Object.entries(plantReads)) refused(await read(), "access_denied", name);
+		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
+			VALUES(${church.id},${planter.id},'tasks.changed','edit','record',${church.id},'{}'::jsonb)`);
+		assert.deepEqual(ok(await networkReads.oversightDigest()).plants, []);
+	} finally {
+		await clear();
+	}
+	assert.deepEqual(ok(await networkReads.oversightDigest()).plants, [church.id]);
+
+	// The network Owner's own account is pending deletion: every one of their reads refuses.
+	clear = await witness("account", overseer.id);
+	try {
+		for (const [name, read] of Object.entries(networkReads)) refused(await read(), "access_denied", name);
+	} finally {
+		await clear();
+	}
+	for (const read of Object.values(networkReads)) ok(await read());
 });
