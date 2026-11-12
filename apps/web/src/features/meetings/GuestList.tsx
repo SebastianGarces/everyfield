@@ -177,7 +177,7 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
-	const photoOf = new Map(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
+	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const table = useRef<HTMLDivElement>(null);
