@@ -3,6 +3,7 @@ import { tenantOwner } from "../access/results.ts";
 import { instant } from "../common/time.ts";
 import { accountId, defineSafeError, recordId, revision, role, safeError } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
+import { avatarReference } from "../settings/results.ts";
 import { ordinarySeatRole } from "./invitations.ts";
 
 export const listSeatsRequest = z.strictObject({ workspace: tenantOwner, after: recordId.optional() });
@@ -67,6 +68,8 @@ const seatProjection = z
 		revision,
 		status: z.enum(["active", "removed"]),
 		isSelf: z.boolean(),
+		/** The account's current photo, set only while the seat holder may be seen by this workspace (REQ-IDN-006). */
+		avatar: avatarReference.nullable(),
 		joined: seatJoinedProvenance,
 		allowedActions: z
 			.array(z.enum(["appoint_admin", "demote", "remove"]))

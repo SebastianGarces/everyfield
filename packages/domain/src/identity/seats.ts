@@ -7,6 +7,7 @@ import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
+import { workspaceAvatar } from "../settings/photo-visibility.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 const seatListRow = z.object({
@@ -19,6 +20,7 @@ const seatListRow = z.object({
 	created_at: z.coerce.date(),
 	invitation_id: z.uuid().nullable(),
 	acted_at: z.coerce.date().nullable(),
+	avatar: z.uuid().nullable(),
 });
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
@@ -35,7 +37,8 @@ export function createSeatService(db: Database) {
 			db,
 			liveRead(liveAccess(authority)),
 			sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
-					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at
+					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at,
+					${workspaceAvatar(sql`s.account_id`, sql`${v.workspace.id}::uuid`)} AS avatar
 				FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 				LEFT JOIN invitation inv ON inv.id=s.invitation_id AND inv.tenant_id=${v.workspace.id}
 					AND inv.state='accepted' AND inv.accepted_account_id=s.account_id
@@ -54,6 +57,7 @@ export function createSeatService(db: Database) {
 			revision: s.revision,
 			status: s.ended_at ? "removed" : "active",
 			isSelf: s.account_id === a.accountId,
+			avatar: s.avatar && { accountId: s.account_id, versionId: s.avatar },
 			joined: s.acted_at
 				? { source: "accepted_invitation", invitationId: s.invitation_id, at: s.acted_at.toISOString() }
 				: { source: "original_account_fallback", at: s.created_at.toISOString() },
