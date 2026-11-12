@@ -310,7 +310,7 @@ export default function NativeEditor({
 			importKey.current = null;
 			const value = result.value;
 			created(value.id);
-			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists and links.
+			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists, links and tables.
 			editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 			savedDoc.current = editor.state.doc;
 			setBodyChanged(false);
@@ -319,7 +319,7 @@ export default function NativeEditor({
 			setTextRevision(false);
 			setNote(
 				format === "docx"
-					? "The Word file is now this document's saved version. Its headings, lists and links came across, ready to edit."
+					? "The Word file is now this document's saved version. Its headings, lists, links and tables came across, ready to edit."
 					: "The file's text is now this document's saved version. Each line is a paragraph you can edit.",
 			);
 		})();
