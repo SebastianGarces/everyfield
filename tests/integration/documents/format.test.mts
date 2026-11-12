@@ -1,4 +1,5 @@
-// WP-036 criterion 1: the zod parser for everyfield.doc/1 in packages/contracts ports schema.json and format.js.
+// WP-036 criterion 1: the zod parser for everyfield.doc/1 in packages/contracts ports the retired approach-a prototype.
+// Its schema.json, examples and invalid samples now live in fixtures/format/.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
@@ -14,7 +15,7 @@ import {
 	tileBox,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 
-const design = new URL("../../../design/doc-format/approach-a/", import.meta.url);
+const design = new URL("./fixtures/format/", import.meta.url);
 const read = (rel: string) => JSON.parse(readFileSync(new URL(rel, design), "utf8"));
 const issues = (doc: unknown) => {
 	const parsed = everyfieldDoc.safeParse(doc);

@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-02T14:05:42.258Z",
+	"recordedAt": "2026-11-11T16:22:21.880Z",
 	"spend": {
-		"newCalls": 10,
-		"newMicroUsd": 3554,
+		"newCalls": 6,
+		"newMicroUsd": 2216,
 		"allCalls": 10,
-		"allMicroUsd": 3554
+		"allMicroUsd": 3565
 	},
 	"calls": {
 		"1167e77d95178baa": {
@@ -29,102 +29,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": ".list"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "House"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "holds"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "search"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "Ok"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "af"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "or"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "limit"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "\":"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "100"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_CR77hdmJHfyFUvIutao11csj",
-					"delta": "}}"
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"search\":\"Okafor\",\"limit\":100}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -185,7 +90,7 @@
 				"output": 34
 			}
 		},
-		"2461a61866fe7300": {
+		"1bd453da2cb5ae6f": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -194,418 +99,31 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_053aeb4aac053629006ae898bfb78087d18402de3805c5a190",
-					"timestamp": "2026-11-02T14:05:51.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": ".get"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "House"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "hold"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "house"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "hold"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "Id"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "5"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "b"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "6"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "d"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "1"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "f"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "e"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "400"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "800"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "a"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "1"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"delta": "\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_EjAD0xm57pM0hKNVOTOYQqsd"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_EjAD0xm57pM0hKNVOTOYQqsd",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a1\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_053aeb4aac053629006ae898c0d7bc87d1b589d5cd29586631"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3370,
-							"noCache": 3,
-							"cacheRead": 3215,
-							"cacheWrite": 152
-						},
-						"outputTokens": {
-							"total": 53,
-							"text": 53,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3370,
-							"input_tokens_details": {
-								"cache_write_tokens": 152,
-								"cached_tokens": 3215
-							},
-							"output_tokens": 53,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3423
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_053aeb4aac053629006ae898bfb78087d18402de3805c5a190",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3370,
-				"output": 53
-			}
-		},
-		"3c150ef4cdbf11bd": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0573fc356235be22006ae898b8bd6487d196c3580ebafc49c2",
-					"timestamp": "2026-11-02T14:05:44.000Z",
+					"id": "resp_09b012ccbf8fbb32006af49633935887d1a0a75f2d934f7bc9",
+					"timestamp": "2026-11-11T16:22:11.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "text-start",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
+					"id": "msg_09b012ccbf8fbb32006af49634ce2487d19abdc6705bc8517a",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
+							"itemId": "msg_09b012ccbf8fbb32006af49634ce2487d19abdc6705bc8517a",
 							"phase": "final_answer"
 						}
 					}
 				},
 				{
 					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "You"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " have"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " **"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "1"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": ":"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " the"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " **"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " in"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " North"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " Ridge"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "ville"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": ","
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " with"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " "
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "2"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": " members"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
-					"delta": "."
+					"id": "msg_09b012ccbf8fbb32006af49634ce2487d19abdc6705bc8517a",
+					"delta": "There’s 1 household: **Okafor household** in North Ridgeville, with 2 members."
 				},
 				{
 					"type": "text-end",
-					"id": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
+					"id": "msg_09b012ccbf8fbb32006af49634ce2487d19abdc6705bc8517a",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0573fc356235be22006ae898b9d00c87d193ce5751b3fa594d",
+							"itemId": "msg_09b012ccbf8fbb32006af49634ce2487d19abdc6705bc8517a",
 							"phase": "final_answer"
 						}
 					}
@@ -617,32 +135,32 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 3363,
+							"total": 3376,
 							"noCache": 3,
-							"cacheRead": 3214,
-							"cacheWrite": 146
+							"cacheRead": 0,
+							"cacheWrite": 3373
 						},
 						"outputTokens": {
-							"total": 28,
-							"text": 28,
+							"total": 26,
+							"text": 26,
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 3363,
+							"input_tokens": 3376,
 							"input_tokens_details": {
-								"cache_write_tokens": 146,
-								"cached_tokens": 3214
+								"cache_write_tokens": 3373,
+								"cached_tokens": 0
 							},
-							"output_tokens": 28,
+							"output_tokens": 26,
 							"output_tokens_details": {
 								"reasoning_tokens": 0
 							},
-							"total_tokens": 3391
+							"total_tokens": 3402
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_0573fc356235be22006ae898b8bd6487d196c3580ebafc49c2",
+							"responseId": "resp_09b012ccbf8fbb32006af49633935887d1a0a75f2d934f7bc9",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -650,8 +168,274 @@
 				}
 			],
 			"usage": {
-				"input": 3363,
-				"output": 28
+				"input": 3376,
+				"output": 26
+			}
+		},
+		"36b7daf5a0eaa559": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0d1805d24bc6e621006af49638f02c87d191c1c0d0d8df50a8",
+					"timestamp": "2026-11-11T16:22:17.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0d1805d24bc6e621006af49639a67087d1b87246954baac233",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d1805d24bc6e621006af49639a67087d1b87246954baac233",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0d1805d24bc6e621006af49639a67087d1b87246954baac233",
+					"delta": "**Okafor household** — North Ridgeville  \n- James Okafor — head  \n- Ruth Allen — spouse  \n\n2 members total."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0d1805d24bc6e621006af49639a67087d1b87246954baac233",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d1805d24bc6e621006af49639a67087d1b87246954baac233",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 3741,
+							"noCache": 3,
+							"cacheRead": 3380,
+							"cacheWrite": 358
+						},
+						"outputTokens": {
+							"total": 33,
+							"text": 33,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 3741,
+							"input_tokens_details": {
+								"cache_write_tokens": 358,
+								"cached_tokens": 3380
+							},
+							"output_tokens": 33,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 3774
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0d1805d24bc6e621006af49638f02c87d191c1c0d0d8df50a8",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 3741,
+				"output": 33
+			}
+		},
+		"49530edd59e06ca7": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0d1805d24bc6e621006af49637264087d183036b924aa50312",
+					"timestamp": "2026-11-11T16:22:15.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0d1805d24bc6e621006af49637ec3087d1bbe9e8079b016a89:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0d1805d24bc6e621006af49637ec3087d1bbe9e8079b016a89",
+							"reasoningEncryptedContent": "gAAAAABq9JY3EL7v2UA75X9h40wzpOpTU53U4lExc2viv7Jh9tKV_3oRGJiSd7PxJm25j0WN1ilHYsXWmI_jen-NkCtYQreluyFIWt_GQk108dzrSKgG4JYERRCBHesKc3_JQrbmU3YnXpjHX6OgTivR8nPRKadGhoZRT9eT3cezgsihSJcq4PVFXQ-9Pj2uCPfdLBh-hZBgwWeMSyFoWLc4GMdgujDkVUlfHnh_-anDcu-ipxXXyXyfuCuUWvtKd1yoWTd_A-Yg7hnKcRIvDdyFi2UAxWmdwlU_5M1xbEwsTSUPNn18F5LLAWP6dfYU94r8nkCr1Xp8gBxp2LUz-PLYAZp5_mpvDSWFkmxtzooi2U_q6X2RPA0ML-jEJtPndDP7i8prAJhy-FYLTcvEFNCstNI66ZXZYyUjklk-lWSCQFcwbKHzWXyDpTJG6RajHUpNKlH3jRZ1RZbV2NqMKnPY7hZyaYlPz2vagyFcpbCDrwJ-a9iejRE6nZcBaBzWDhiDD1fdPo9VJkPEsXRmMtahzv3vlwNLmM7IVcqPpoTNfofE_lh6RoMn7RsnOIJCxEroU7K5_851JKoRga-CQ5vWBTmrAOkUVJOcVzzzXc1VfjFr4-6C4eR_Xbabfs0yBsUX53uvfLMFKpb0vgYklN8G99j7jv8mUcUpyFrX-IdLoz57uTjZIr2q6aaNBLjo8cnXGeQg8wj_HfBdiJIrVJYabUkYox2ENLCb9Iq7TeYz-oWxiVVCXIgrYwI74INkHA3zG11BUbDwe4KBlQdKiapIvT0bbuZ5L9IKmH6WkKLFYphOsp-iAMJKU4kdyxvT8zIOfM1YS8pMvKuYl3hL9TvXPPFYuWBrBZs4HL3q6MqlGNrLJl5bOTkpFDcIU55rXf5rdWd4AzLfxUOL8kxUo74stJTMcrHPGPMFIHA62W_bWTIxS9tR6vGLhI83h2ZcBq6u1mqrZr4k1y-5dMbnqdhLatvWsKDGcnv4neQrAof9MIWJOPbm-N2aEOAcj602E2eH_aRwXwemRJ7V0-gioQ5RkpmkbF7xPYQPWfN49h8cVOBa6J-CuPCq8Wv-QeymwY9z1I8TvvY80598YRp3OnUbxnW4qW4FEq_0EwAIJvWCKrjZNf0h_Rf0zs7UNfDkvCOL3P8ui8RvKCEnIQPTqMlNODVu9upLAxPNIraK2w4NAuAqc8N36y_XcyeMXAjFKgDXpP-DWu4ZyGNCzfBtSpx9pQg7dnGkUTaJV4qE2tXG_jcqggxz3Q9Kl7KMxUVlMoVI-ZcNybvEhLslDlngODm-BF83svaVmN6-sptCsHvXCTBtf_op6O5lC3P5J_PdDicMPH1GUvBJvoOEOg7wjTM1EeGDEGAnRdwUkqrmgYuNpgd1NBTouyY="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0d1805d24bc6e621006af49637ec3087d1bbe9e8079b016a89:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0d1805d24bc6e621006af49637ec3087d1bbe9e8079b016a89",
+							"reasoningEncryptedContent": "gAAAAABq9JY4Ds0N4c7XUu0EG5D1vFke0Tle6wkbT7TJXmrfW3quy2qmEnQsowaIe2Zh8823eHHaWBosf_Go7mCUa_uaPdW1isq2o4upbOduSaHB3COAiquIscLRx5D-85isCxBm0f8ASDDh5sYDnvssUXqBxD4ib04f5MvPcW9eOlomzbSfumNPCYaEP8dOymy3-aOsqe_LmSlGG9mw5vpBknGr8kS-PVRlv6qFMtxYLod_ORcRTa09xLU2yh5qQgvNZ3mCJgw-f8DbJpoySYHho5sPhofybsa6ck7vrzIFwH3LlYvC160l3AjMsFGMmp2ZfD2kH_ojGsZiFIorjnK1aCnd4sz8f3KKFpoTuT9rGiLsBwVf3zw1uk2yXYe80uptK44FLjBD0IgWUGJx0qiLf_0qYFRI9wjoEc4ahxTftT-RYvRWA4EDHO0U2JCW5gwGV6UmZtCDlcCoXr9eelx1AY1Nr0JeKsIn9_mRZFTNC-TUT5pQt0vSERcba9znJUHszCI2H2g_UJfN5dN03Xqgx-lDFahuEPuec9F-qD5xIe4sDTGQ7JMnJXe1SxU8uHCmSNlvs0mXNz3h56Pi3iRiQVU1BYAnwRIYjRCC8nbqq0m-DadRvQ7ZZ5szcNHBqJ2B2Fj-N6Sdf9JoysYNDruEPWNiFr1bGtf2vvxAPwuicgBzYs8VCAB0GY8A8THsDAYXIgQobZ2d4JeiUzbIIkEVjrS-W_qgk8s-RuQDXvNUWbTUk60JZ8JGwcblARZtKw2NKRO-H66zMR4eg7w7KoU844XxBCrLUIAw25Q8W3rRPGkXDv3IUqazH2_uZkxFKE7h1VXnmknSWZu9xVEwIx-zwJ77MDv_UPqP-eDSt7gzJW8eDDlaXAVXZzdLCe3QotBvn3Y4WFZtcv6aG4mth80z9FGTvAk1G8SYq104TBwTykQFqf76nf7J_ZVlLDemjvRqTIpmEpmTL3PrucGC8rn_Rl_LFWPilF7sq8AvofyDJzcjeqF2qyPUGMapgZzHo0O1D4xg9V5Ez0YMw4tYeBaE22cpG6Ke15i0djOhwlBZRq83s22t-P1HU8GlQU4k2X2WvHTpvgXlNxWBMVQJZrfHnNFLAME6SdBVi_RPcmO5Lr2M_QQ0V_hFk8JemT4msEcxESM8VqF6c9MX1slKB_mrmevqqXDCTsoNGMz1EbAFfW70wsgX6HxmwjGe_DBUQNpHgewzSX7BhH-1To_TAxfM3iAqxoTp999gWS5b188EqF4U4VGMkI51CmIQ7wpKpd-Ea7SZL5rCL1AXXNX4JDg3wlQOsjAvhJMU5UYC0bhD9n7U_dYgmbJ20w8pqwN2Z_jJuPCMUB2tH5QizNh9Q0oo3aKE_znDNpet3GLBNsijb-QgIJz0HH16qd_nQERj4Un6cpHq3yeV1mJdHpgXltBEmwsWHPSyMwoP6kHCGI1J1cSpQbiW2QoppiT_AUN9DOWG12I-0DPnLzBJaN2drS7bYlGQDmLIyGVxhsWcLyWJLIaADa4vtsNhaDNaYWdsXZ_jWF6ZtBmouiyuA1U3EyRCgCtBp4Zhr6CpJhwdq5NMG-HMRLj1H1KdPt9RTBGI7k4LA4GwpGMpriO31uQSF_3Ip3-gywV5NghoIB4oyd0lBFk_uq_0XT0ynJ0432rt75CagbiD4Go9ueZwd7Pr3337VQqnJ33jm2NzEsBJSQEbyEkWUoyN9BcxMOByTkCoBjyqwFC_CwtpHTaYuCPzqq7qdzAfwiAV8Q=="
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_fCrxHgJOnPfbYifrNIYkWyXM",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_fCrxHgJOnPfbYifrNIYkWyXM",
+					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a1\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_fCrxHgJOnPfbYifrNIYkWyXM"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_fCrxHgJOnPfbYifrNIYkWyXM",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a1\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0d1805d24bc6e621006af496381bc087d1a85c9f824a1c9cdc"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 3383,
+							"noCache": 3,
+							"cacheRead": 3204,
+							"cacheWrite": 176
+						},
+						"outputTokens": {
+							"total": 67,
+							"text": 55,
+							"reasoning": 12
+						},
+						"raw": {
+							"input_tokens": 3383,
+							"input_tokens_details": {
+								"cache_write_tokens": 176,
+								"cached_tokens": 3204
+							},
+							"output_tokens": 67,
+							"output_tokens_details": {
+								"reasoning_tokens": 12
+							},
+							"total_tokens": 3450
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0d1805d24bc6e621006af49637264087d183036b924aa50312",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 3383,
+				"output": 67
+			}
+		},
+		"6fb5021e2a690929": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_02ede5aeaff4d841006af49635649087d19fafd50a2af4270c",
+					"timestamp": "2026-11-11T16:22:13.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_02ede5aeaff4d841006af49636404487d1a47d93bc75b5c039",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02ede5aeaff4d841006af49636404487d1a47d93bc75b5c039",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_02ede5aeaff4d841006af49636404487d1a47d93bc75b5c039",
+					"delta": "You have **1 household** across all your people:\n\n- **Okafor household** — North Ridgeville; 2 members."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_02ede5aeaff4d841006af49636404487d1a47d93bc75b5c039",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02ede5aeaff4d841006af49636404487d1a47d93bc75b5c039",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 3380,
+							"noCache": 3,
+							"cacheRead": 3204,
+							"cacheWrite": 173
+						},
+						"outputTokens": {
+							"total": 31,
+							"text": 31,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 3380,
+							"input_tokens_details": {
+								"cache_write_tokens": 173,
+								"cached_tokens": 3204
+							},
+							"output_tokens": 31,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 3411
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_02ede5aeaff4d841006af49635649087d19fafd50a2af4270c",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 3380,
+				"output": 31
 			}
 		},
 		"7c1632c5aa7e0c09": {
@@ -675,72 +459,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": ".list"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "House"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "holds"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "limit"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "\":"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "100"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_BsbXD9eyBDeaIBfmHGLhaEaC",
-					"delta": "}}"
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -822,82 +541,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": ".list"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "People"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "search"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "James"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": " Ok"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "af"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "or"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_IyrkjrVp7uJ5HCmlmsVlvYln",
-					"delta": "\"}}"
+					"delta": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"James Okafor\"}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -958,7 +602,7 @@
 				"output": 29
 			}
 		},
-		"ab6db7f839e30a96": {
+		"c07c4cc2fd67138f": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -967,186 +611,113 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_0e0c7391b18b5443006ae898bc134087d1856bac8e28a54f4a",
-					"timestamp": "2026-11-02T14:05:48.000Z",
+					"id": "resp_0cdf72bc3bd527d9006af4963a6e9487d183917e2be7002983",
+					"timestamp": "2026-11-11T16:22:18.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_LadAsLACOeGZj3eQviTIRJUL",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_LadAsLACOeGZj3eQviTIRJUL",
+					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_LadAsLACOeGZj3eQviTIRJUL"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_LadAsLACOeGZj3eQviTIRJUL",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0cdf72bc3bd527d9006af4963b5a2087d180e3458bf78bfd56"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 3361,
+							"noCache": 3,
+							"cacheRead": 3204,
+							"cacheWrite": 154
+						},
+						"outputTokens": {
+							"total": 52,
+							"text": 52,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 3361,
+							"input_tokens_details": {
+								"cache_write_tokens": 154,
+								"cached_tokens": 3204
+							},
+							"output_tokens": 52,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 3413
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0cdf72bc3bd527d9006af4963a6e9487d183917e2be7002983",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 3361,
+				"output": 52
+			}
+		},
+		"e131fba3170b8621": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0c42585187055e67006af4963c1a1087d18c52a147cc47221a",
+					"timestamp": "2026-11-11T16:22:20.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "text-start",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
+					"id": "msg_0c42585187055e67006af4963d31b487d1a4f9689ff6762bcb",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
+							"itemId": "msg_0c42585187055e67006af4963d31b487d1a4f9689ff6762bcb",
 							"phase": "final_answer"
 						}
 					}
 				},
 				{
 					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "There"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " is"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " **"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "1"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " across"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " your"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " people"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": ":"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " **"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " in"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " North"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " Ridge"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "ville"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": ","
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " with"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " **"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "2"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " members"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "."
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " The"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " list"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " is"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": " complete"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
-					"delta": "."
+					"id": "msg_0c42585187055e67006af4963d31b487d1a4f9689ff6762bcb",
+					"delta": "James Okafor’s household has 2 members: James Okafor (head) and Ruth Allen (spouse)."
 				},
 				{
 					"type": "text-end",
-					"id": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
+					"id": "msg_0c42585187055e67006af4963d31b487d1a4f9689ff6762bcb",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0e0c7391b18b5443006ae898bd387087d1aaf626522e73c8ea",
+							"itemId": "msg_0c42585187055e67006af4963d31b487d1a4f9689ff6762bcb",
 							"phase": "final_answer"
 						}
 					}
@@ -1158,32 +729,32 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 3367,
+							"total": 3704,
 							"noCache": 3,
-							"cacheRead": 3218,
-							"cacheWrite": 146
+							"cacheRead": 3358,
+							"cacheWrite": 343
 						},
 						"outputTokens": {
-							"total": 36,
-							"text": 36,
+							"total": 29,
+							"text": 29,
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 3367,
+							"input_tokens": 3704,
 							"input_tokens_details": {
-								"cache_write_tokens": 146,
-								"cached_tokens": 3218
+								"cache_write_tokens": 343,
+								"cached_tokens": 3358
 							},
-							"output_tokens": 36,
+							"output_tokens": 29,
 							"output_tokens_details": {
 								"reasoning_tokens": 0
 							},
-							"total_tokens": 3403
+							"total_tokens": 3733
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_0e0c7391b18b5443006ae898bc134087d1856bac8e28a54f4a",
+							"responseId": "resp_0c42585187055e67006af4963c1a1087d18c52a147cc47221a",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -1191,280 +762,8 @@
 				}
 			],
 			"usage": {
-				"input": 3367,
-				"output": 36
-			}
-		},
-		"dbc0a1c4bbefc112": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0b9d252772feeec2006ae898c589cc87d1a2c5d3c70ab8055c",
-					"timestamp": "2026-11-02T14:05:57.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": ".get"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "House"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "hold"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "Members"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "person"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "Id"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "5"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "b"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "6"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "d"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "1"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "f"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "e"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "400"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "800"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "-"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "000"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "0"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "b"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "1"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"delta": "\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_dILwzZ6GSkqMcUzZ9DxGTj7R"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_dILwzZ6GSkqMcUzZ9DxGTj7R",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHouseholdMembers\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0b9d252772feeec2006ae898c719cc87d1b7ff5a8edf2d8037"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3382,
-							"noCache": 3,
-							"cacheRead": 3218,
-							"cacheWrite": 161
-						},
-						"outputTokens": {
-							"total": 53,
-							"text": 53,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3382,
-							"input_tokens_details": {
-								"cache_write_tokens": 161,
-								"cached_tokens": 3218
-							},
-							"output_tokens": 53,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3435
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0b9d252772feeec2006ae898c589cc87d1a2c5d3c70ab8055c",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3382,
-				"output": 53
+				"input": 3704,
+				"output": 29
 			}
 		},
 		"e5c96844822874fa": {
@@ -1488,72 +787,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "operation"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "\":\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "people"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": ".list"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "House"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "holds"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "\",\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "input"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "\":{\""
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "limit"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "\":"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "100"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_W5d64RJdSLISJk13Tw08cnLS",
-					"delta": "}}"
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -1612,390 +846,6 @@
 			"usage": {
 				"input": 3221,
 				"output": 28
-			}
-		},
-		"e5cecb2bf7aba997": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_02c4f8de8b9137c9006ae898c7d55487d19762b7a0ff67f3cb",
-					"timestamp": "2026-11-02T14:05:59.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "James"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "’s"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " has"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " two"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " members"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": ":"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " James"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " and"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " Ruth"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": " Allen"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"delta": "."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_02c4f8de8b9137c9006ae898c86fa487d1867781e68423691e",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3714,
-							"noCache": 3,
-							"cacheRead": 3379,
-							"cacheWrite": 332
-						},
-						"outputTokens": {
-							"total": 22,
-							"text": 22,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3714,
-							"input_tokens_details": {
-								"cache_write_tokens": 332,
-								"cached_tokens": 3379
-							},
-							"output_tokens": 22,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3736
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_02c4f8de8b9137c9006ae898c7d55487d19762b7a0ff67f3cb",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3714,
-				"output": 22
-			}
-		},
-		"ffbc51a3d0a52895": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0a1960a25422b12b006ae898c18c2887d19e0171913ea4791d",
-					"timestamp": "2026-11-02T14:05:53.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " household"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "**"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " —"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " North"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " Ridge"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "ville"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "  \n"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "-"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " James"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " Ok"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "af"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "or"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " —"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " head"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "  \n"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "-"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " Ruth"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " Allen"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " —"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " spouse"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "  \n\n"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "2"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": " members"
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"delta": "."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0a1960a25422b12b006ae898c359c487d19991b8adc5dfced0",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3701,
-							"noCache": 3,
-							"cacheRead": 3367,
-							"cacheWrite": 331
-						},
-						"outputTokens": {
-							"total": 32,
-							"text": 32,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3701,
-							"input_tokens_details": {
-								"cache_write_tokens": 331,
-								"cached_tokens": 3367
-							},
-							"output_tokens": 32,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3733
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0a1960a25422b12b006ae898c18c2887d19e0171913ea4791d",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3701,
-				"output": 32
 			}
 		}
 	}
