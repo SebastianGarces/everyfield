@@ -95,17 +95,15 @@ function fixture({ tools = true } = {}) {
 	});
 	const eslintConfig = (ignores) =>
 		`import prettier from "eslint-config-prettier/flat";\nimport tseslint from "typescript-eslint";\nexport default tseslint.config({ ignores: ${JSON.stringify(ignores)} }, ...tseslint.configs.recommended, prettier);\n`;
+	const bunCheck = "../../node_modules/.bin/bun check --no-script --no-pretty --all";
 	const manifest = (name, scripts, dependencies = {}) =>
 		JSON.stringify({ name, private: true, type: "module", scripts, dependencies }, null, "\t") + "\n";
-	write(
-		"packages/demo/package.json",
-		manifest("@fx/demo", { lint: "eslint --max-warnings=0 .", typecheck: "tsc --noEmit" }),
-	);
+	write("packages/demo/package.json", manifest("@fx/demo", { lint: "eslint --max-warnings=0 .", typecheck: bunCheck }));
 	write("packages/demo/eslint.config.mjs", eslintConfig(["src/ignored.ts"]));
 	write("packages/demo/tsconfig.json", tsconfig);
 	write("packages/demo/src/index.ts", "export const n: number = 1;\n");
 	write("packages/demo/src/old.ts", "const   stale = {a:1}\nexport {};\n");
-	write("packages/app/package.json", manifest("@fx/app", { typecheck: "tsc --noEmit" }, { "@fx/demo": "workspace:*" }));
+	write("packages/app/package.json", manifest("@fx/app", { typecheck: bunCheck }, { "@fx/demo": "workspace:*" }));
 	write("packages/app/tsconfig.json", tsconfig);
 	write("packages/app/src/index.ts", 'import { n } from "../../demo/src/index.ts";\nexport const m: number = n;\n');
 	write(

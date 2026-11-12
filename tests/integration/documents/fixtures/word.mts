@@ -36,6 +36,25 @@ export const numbered = (numId, runs, ilvl = 0) =>
 	p(runs, `<w:numPr><w:ilvl w:val="${ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
 export const link = (id, text) => `<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
 export const br = "<w:r><w:br/></w:r>";
+export const tab = "<w:r><w:tab/></w:r>";
+/** A run holding a text box around `inner`, with the fallback copy Word writes beside it. */
+export const textBox = (inner) =>
+	`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
+
+/** A Word table: `rows` are its rows' XML, `props` the inside of its w:tblPr. */
+export const table = (rows, props = "") =>
+	`<w:tbl>${props ? `<w:tblPr>${props}</w:tblPr>` : ""}<w:tblGrid/>${rows.join("")}</w:tbl>`;
+/** A table row: `props` is the inside of its w:trPr. */
+export const row = (cells, props = "") => `<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
+/** A row Word repeats as the header row at the top of each page; `value` is its w:tblHeader w:val, if any. */
+export const headerRow = (cells, value) =>
+	row(cells, value === undefined ? "<w:tblHeader/>" : `<w:tblHeader w:val="${value}"/>`);
+/** A table cell: each string in `blocks` is one paragraph of text unless it is XML already; `props` is its w:tcPr. */
+export const cell = (blocks = "", props = "") =>
+	`<w:tc>${props ? `<w:tcPr>${props}</w:tcPr>` : ""}${[blocks]
+		.flat()
+		.map((block) => (block.startsWith("<") ? block : p(block)))
+		.join("")}</w:tc>`;
 
 /** A paragraph style; `inner` holds its basedOn, pPr and the rest. */
 export const style = (id, name, inner = "") =>
