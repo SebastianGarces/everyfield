@@ -238,8 +238,10 @@ export function pairAnswered(s: PairState, key: string, action: PairAction, answ
 	return { gone: s.gone.filter((k) => k !== key), notices: { ...s.notices, [key]: pairNotice(action, answer) } };
 }
 /** The rows still shown, in their original order. */
-export const pairsShown = <P extends { person: { id: string }; with: { id: string } }>(items: readonly P[], s: PairState) =>
-	items.filter((p) => !s.gone.includes(pairKey(p)));
+export const pairsShown = <P extends { person: { id: string }; with: { id: string } }>(
+	items: readonly P[],
+	s: PairState,
+) => items.filter((p) => !s.gone.includes(pairKey(p)));
 
 export function pairNotice(action: PairAction, answer: Exclude<Outcome<unknown>, { status: "ok" }>): string {
 	if (answer.status === "lost")

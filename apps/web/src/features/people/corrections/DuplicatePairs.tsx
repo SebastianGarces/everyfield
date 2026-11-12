@@ -80,8 +80,8 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 							</IntentLink>
 						}
 					>
-						People an import added with &ldquo;Add, review later&rdquo; show here until you merge them, retire one or mark
-						them not a duplicate.
+						People an import added with &ldquo;Add, review later&rdquo; show here until you merge them, retire one or
+						mark them not a duplicate.
 					</EmptyState>
 				</Card>
 			) : (
@@ -92,8 +92,8 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 								{pairs.completeness === "partial" ? `First ${count} to review` : `${count} to review`}
 							</CardTitle>
 							<CardDescription>
-								Added by an import with &ldquo;Add, review later&rdquo;. Each pair stays until you merge them, retire one or
-								mark them not a duplicate.
+								Added by an import with &ldquo;Add, review later&rdquo;. Each pair stays until you merge them, retire
+								one or mark them not a duplicate.
 							</CardDescription>
 						</CardHeading>
 					</CardHeader>
@@ -139,7 +139,12 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 export function DismissedPairs({ pairs }: { pairs: Dismissed }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "restore");
 	const count = shown.length;
-	const day = new Intl.DateTimeFormat("en-US", { timeZone: pairs.zone, month: "short", day: "numeric", year: "numeric" });
+	const day = new Intl.DateTimeFormat("en-US", {
+		timeZone: pairs.zone,
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
 	return (
 		<>
 			<Said text={said} />
