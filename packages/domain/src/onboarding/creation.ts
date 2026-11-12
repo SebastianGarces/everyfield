@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { currentActor, liveOwner } from "../access/session.ts";
 import { setAuditDetails, type AuditWrite } from "../operations/writes.ts";
-import { choices, loadAffiliations, pairOf, type OrganizationEffects } from "../organizations/core.ts";
+import { choices, loadAffiliations, pairOf, type RelationshipNotice } from "../organizations/core.ts";
 import { accountPersonProducer } from "../people/index.ts";
 import { creationEntry } from "../phases/creation-entry/index.ts";
 import {
@@ -28,7 +28,7 @@ import {
 import { ownReading } from "./reading.ts";
 
 export interface OnboardingEffects {
-	relationships(tx: Tx, inputs: readonly Parameters<OrganizationEffects["notice"]>[1][]): Promise<void>;
+	relationships(tx: Tx, inputs: readonly RelationshipNotice[]): Promise<void>;
 	// Required durable mail/notice writers share Tx. They enqueue only; providers
 	// run after commit. No default noop can silently drop a required consequence.
 	enqueue(
@@ -315,7 +315,7 @@ export function creation(effects: OnboardingEffects) {
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
 				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
 
-				const notices: Parameters<OrganizationEffects["notice"]>[1][] = [];
+				const notices: RelationshipNotice[] = [];
 				const newLinks = selected.length
 					? await tx
 							.insert(t.affiliation)

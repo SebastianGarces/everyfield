@@ -377,16 +377,6 @@ export function relationshipCommands(
 			);
 			setAuditDetails(c, event, { pair: pair, sourceInvitationId: i.id }, null);
 			invalidate(tx, effects, c, pair, a.id, a.revision);
-			c.writes.push(
-				effects.notice(tx, {
-					eventId: event,
-					relationshipId: a.id,
-					pair,
-					kind: "relationship_approved",
-					revision: a.revision,
-					operationId: c.id,
-				}),
-			);
 			return finishCommand(tx, c, () =>
 				Q.invitationDecisionResult.parse({ status: "accepted", relationship: projection(a) }),
 			);
@@ -492,16 +482,6 @@ export function relationshipCommands(
 			const event = await appendEvent(tx, c, a.id, "remove", "affiliation.ended", a.revision, next);
 			setAuditDetails(c, event, { pair, sourceInvitationId: a.invitation_id }, q.input.reason);
 			invalidate(tx, effects, c, pair, a.id, next);
-			c.writes.push(
-				effects.notice(tx, {
-					eventId: event,
-					relationshipId: a.id,
-					pair,
-					kind: "relationship_ended",
-					revision: next,
-					operationId: c.id,
-				}),
-			);
 			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 		});
 	}
