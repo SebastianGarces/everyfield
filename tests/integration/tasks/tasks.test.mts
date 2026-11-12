@@ -1466,7 +1466,9 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 	const old = first.recurrence.seriesId;
 	ok(await configure(third, null));
 	const oldSeries = async () => ({
-		rule: await rows(sql`SELECT interval, stopped_at IS NOT NULL AS stopped, revision::text FROM recurrence WHERE id=${old}`),
+		rule: await rows(
+			sql`SELECT interval, stopped_at IS NOT NULL AS stopped, revision::text FROM recurrence WHERE id=${old}`,
+		),
 		tasks: await rows(
 			sql`SELECT t.id, t.series_id, t.occurrence_key, t.status, t.revision::text,
 				(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=t.id) AS history
@@ -1626,6 +1628,38 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	);
 	assert.deepEqual((await get(owner, later.id)).due, { kind: "local_date", date: "2026-11-01" });
 	assert.deepEqual((await get(owner, others.id)).due, { kind: "undated" });
+});
+
+test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring task's next occurrence once", async () => {
+	const due = (date) => ({ kind: "local_date", date });
+	const weekly = await recurring({ title: "Weekly prayer", due: due("2026-10-05") });
+	const monthly = await recurring(
+		{ title: "Monthly report", due: due("2026-10-31") },
+		{ frequency: "monthly", until: null },
+	);
+	const plain = await create(owner, { title: "One-off" });
+	const request = {
+		requestKey: randomUUID(),
+		items: [weekly, plain, monthly].map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
+	};
+	const result = ok(await write(owner, "bulkComplete", request));
+	assert.deepEqual(
+		result.items.map((i) => [i.taskId, i.outcome, i.successor?.title ?? null, i.successor?.due ?? null]),
+		[
+			[weekly.id, "changed", "Weekly prayer", due("2026-10-12")],
+			[plain.id, "changed", null, null],
+			[monthly.id, "changed", "Monthly report", due("2026-11-30")],
+		],
+	);
+	// Each successor is the series' live next task, as a single read returns it.
+	for (const i of [result.items[0], result.items[2]]) {
+		const next = await get(owner, i.successor.id);
+		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i.successor.revision]);
+	}
+	// A retry with the same request key returns the same answer and adds nothing; the one-off has no successor.
+	assert.deepEqual(ok(await write(owner, "bulkComplete", request)), result);
+	const successors = async (t) => (await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`))[0].n;
+	assert.deepEqual([await successors(weekly), await successors(plain), await successors(monthly)], [1, 0, 1]);
 });
 
 // ---------------------------------------------------------------------------------------------------------------
