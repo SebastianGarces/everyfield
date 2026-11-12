@@ -316,12 +316,8 @@ test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with s
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
-/**
- * Every rectangle a PDF page strokes, with the line width it is stroked at and the clip it is drawn under. Reads the
- * page's own drawing operators, so it sees the drawn border rather than the form widget over it. The page draws its
- * boxes as `x y w h re` then `S` (stroke) or `B` (fill and stroke), clips as `x y w h re W n`, and nests with `q`/`Q`.
- */
-async function strokedRects(bytes: Uint8Array) {
+/** The drawing operator lines of a PDF's first page. */
+async function pageOps(bytes: Uint8Array) {
 	const doc = await PDFDocument.load(bytes);
 	const contents = doc.getPage(0).node.Contents()!;
 	const streams = contents instanceof PDFArray ? contents.asArray().map((s) => doc.context.lookup(s)) : [contents];
@@ -329,6 +325,16 @@ async function strokedRects(bytes: Uint8Array) {
 		.map((s) => Buffer.from(decodePDFRawStream(s as PDFRawStream).decode()).toString("latin1"))
 		.join("\n")
 		.split("\n");
+	return { doc, ops };
+}
+
+/**
+ * Every rectangle a PDF page strokes, with the line width it is stroked at and the clip it is drawn under. Reads the
+ * page's own drawing operators, so it sees the drawn border rather than the form widget over it. The page draws its
+ * boxes as `x y w h re` then `S` (stroke) or `B` (fill and stroke), clips as `x y w h re W n`, and nests with `q`/`Q`.
+ */
+async function strokedRects(bytes: Uint8Array) {
+	const { doc, ops } = await pageOps(bytes);
 	type State = { clip: Rect; width: number };
 	const page = doc.getPage(0).getSize();
 	let state: State = { clip: { x0: 0, y0: 0, x1: page.width, y1: page.height }, width: 1 };
@@ -406,15 +412,7 @@ test("AC:CASE-DOC-004 every box on the 4-per-sheet card sheet draws its whole bo
 
 test("AC:CASE-DOC-004 each checkbox on the card sits level with its GROW, PRAY or GIVE tile, in the middle of a two-line row", async () => {
 	const pdf = await renderDocPdf(await fork("commitment-card"));
-	const doc = await PDFDocument.load(pdf.bytes);
-	const contents = doc.getPage(0).node.Contents()!;
-	const streams = contents instanceof PDFArray ? contents.asArray().map((s) => doc.context.lookup(s)) : [contents];
-	const rects = streams
-		.flatMap((s) =>
-			Buffer.from(decodePDFRawStream(s as PDFRawStream).decode())
-				.toString("latin1")
-				.split("\n"),
-		)
+	const rects = (await pageOps(pdf.bytes)).ops
 		.map((line) => line.trim().split(/\s+/))
 		.filter((t) => t[4] === "re")
 		.map((t) => t.slice(0, 4).map(Number) as [number, number, number, number]);
