@@ -648,7 +648,6 @@ export const commitment = pgTable(
 		object_id: uuid("object_id"),
 		notes: text("notes"),
 		voided_at: timestamp("voided_at", { withTimezone: true, mode: "date" }),
-		corrected_commitment_id: uuid("corrected_commitment_id"),
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
@@ -679,13 +678,6 @@ export const commitment = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
-			name: "commitment_fk_4",
-			columns: [table.corrected_commitment_id, table.plant_id],
-			foreignColumns: [commitment.id, commitment.plant_id],
-		})
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
 			name: "commitment_fk_5",
 			columns: [table.id, table.plant_id],
 			foreignColumns: [record.id, record.tenant_id],
@@ -705,11 +697,6 @@ export const commitment = pgTable(
 			table.plant_id.asc().nullsLast(),
 		),
 		index("commitment_ref_3").using("btree", table.object_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
-		index("commitment_ref_4").using(
-			"btree",
-			table.corrected_commitment_id.asc().nullsLast(),
-			table.plant_id.asc().nullsLast(),
-		),
 		// One private document belongs to one card.
 		uniqueIndex("commitment_object_uq").using("btree", table.object_id.asc().nullsLast()),
 	],
@@ -1085,8 +1072,6 @@ export const digest_coverage = pgTable(
 		cadence: text("cadence", { enum: ["daily", "weekly"] }).notNull(),
 		timezone: text("timezone").notNull(),
 		covered_through: date("covered_through", { mode: "string" }),
-		last_mail_id: uuid("last_mail_id"),
-		last_operation_id: uuid("last_operation_id"),
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
@@ -1096,20 +1081,6 @@ export const digest_coverage = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "digest_coverage_fk_1", columns: [table.recipient_id], foreignColumns: [account.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "digest_coverage_fk_2",
-			columns: [table.last_mail_id, table.tenant_id],
-			foreignColumns: [mail.id, mail.tenant_id],
-		})
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "digest_coverage_fk_3",
-			columns: [table.last_operation_id, table.tenant_id],
-			foreignColumns: [audit_event.id, audit_event.tenant_id],
-		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
@@ -1128,16 +1099,6 @@ export const digest_coverage = pgTable(
 		check("digest_coverage_ck_3", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("digest_coverage_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		index("digest_coverage_ref_1").using("btree", table.recipient_id.asc().nullsLast()),
-		index("digest_coverage_ref_2").using(
-			"btree",
-			table.last_mail_id.asc().nullsLast(),
-			table.tenant_id.asc().nullsLast(),
-		),
-		index("digest_coverage_ref_3").using(
-			"btree",
-			table.last_operation_id.asc().nullsLast(),
-			table.tenant_id.asc().nullsLast(),
-		),
 	],
 );
 export const discovery = pgTable(
@@ -1410,7 +1371,6 @@ export const file_object = pgTable(
 		upload_key: text("upload_key").notNull(),
 		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }),
 		claim_generation: int64("claim_generation").notNull(),
-		retention_until: timestamp("retention_until", { withTimezone: true, mode: "date" }),
 		purge_requested_at: timestamp("purge_requested_at", { withTimezone: true, mode: "date" }),
 		purged_at: timestamp("purged_at", { withTimezone: true, mode: "date" }),
 		revision: int64("revision")
@@ -1912,10 +1872,7 @@ export const launch = pgTable(
 		status: text("status", { enum: ["planning", "scheduled", "postponed", "completed"] }).notNull(),
 		attendance: integer("attendance"),
 		decisions: integer("decisions"),
-		outcome_notes: text("outcome_notes"),
-		outcome_recorded_at: timestamp("outcome_recorded_at", { withTimezone: true, mode: "date" }),
 		reference_version_id: uuid("reference_version_id"),
-		summary_document_id: uuid("summary_document_id"),
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
@@ -1925,13 +1882,6 @@ export const launch = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "launch_fk_1", columns: [table.reference_version_id], foreignColumns: [reference_version.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "launch_fk_2",
-			columns: [table.summary_document_id, table.plant_id],
-			foreignColumns: [document.id, document.tenant_id],
-		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		primaryKey({ name: "launch_pkey", columns: [table.plant_id] }),
@@ -1944,7 +1894,6 @@ export const launch = pgTable(
 		check("launch_ck_3", sql`((decisions IS NULL) OR ((decisions >= 0) AND (decisions <= 1000000)))`),
 		check("launch_ck_4", sql`((status <> 'postponed'::text) OR (target_date IS NULL))`),
 		index("launch_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
-		index("launch_ref_2").using("btree", table.summary_document_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 	],
 );
 export const launch_milestone = pgTable(
@@ -1955,7 +1904,6 @@ export const launch_milestone = pgTable(
 			.default(sql`gen_random_uuid()`),
 		plant_id: uuid("plant_id").notNull(),
 		source_version_id: uuid("source_version_id").notNull(),
-		seed_key: text("seed_key").notNull(),
 		title: text("title").notNull(),
 		description: text("description"),
 		area: text("area").notNull(),
@@ -1986,7 +1934,6 @@ export const launch_milestone = pgTable(
 			.onUpdate("no action"),
 		primaryKey({ name: "launch_milestone_pkey", columns: [table.id] }),
 		unique("launch_milestone_uq_0").on(table.id, table.plant_id),
-		unique("launch_milestone_uq_1").on(table.plant_id, table.seed_key),
 		check("launch_milestone_ck_0", sql`(revision >= 1)`),
 		index("launch_milestone_ref_0").using("btree", table.source_version_id.asc().nullsLast()),
 	],
@@ -2011,15 +1958,12 @@ export const lifecycle_witness = pgTable(
 		live_purged_at: timestamp("live_purged_at", { withTimezone: true, mode: "date" }),
 		copy_expires_at: timestamp("copy_expires_at", { withTimezone: true, mode: "date" }),
 		witness_checkpoint: int64("witness_checkpoint").notNull(),
-		byte_manifest_hash: text("byte_manifest_hash"),
-		cancellation_manifest_hash: text("cancellation_manifest_hash"),
 		cleanup_state: text("cleanup_state", {
 			enum: ["not_started", "in_progress", "inaccessible", "confirmed"],
 		}).notNull(),
 		seat_id: uuid("seat_id"),
 		affiliation_id: uuid("affiliation_id"),
 		requester_opaque_id: uuid("requester_opaque_id"),
-		counterparty_organization_id: uuid("counterparty_organization_id"),
 		cancel_until: timestamp("cancel_until", { withTimezone: true, mode: "date" }),
 		cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "date" }),
 	},
@@ -2037,13 +1981,6 @@ export const lifecycle_witness = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "lifecycle_witness_fk_4", columns: [table.affiliation_id], foreignColumns: [affiliation.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "lifecycle_witness_fk_5",
-			columns: [table.counterparty_organization_id],
-			foreignColumns: [organization.id],
-		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "lifecycle_witness_fk_6", columns: [table.id], foreignColumns: [record.id] })
@@ -2107,7 +2044,6 @@ export const lifecycle_witness = pgTable(
 		index("lifecycle_witness_ref_2").using("btree", table.requester_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_3").using("btree", table.seat_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_4").using("btree", table.affiliation_id.asc().nullsLast()),
-		index("lifecycle_witness_ref_5").using("btree", table.counterparty_organization_id.asc().nullsLast()),
 	],
 );
 export const mail = pgTable(
@@ -2156,7 +2092,6 @@ export const mail = pgTable(
 		cancel_requested_at: timestamp("cancel_requested_at", { withTimezone: true, mode: "date" }),
 		cancel_confirmed_at: timestamp("cancel_confirmed_at", { withTimezone: true, mode: "date" }),
 		job_id: uuid("job_id"),
-		original_mail_id: uuid("original_mail_id"),
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
@@ -2200,13 +2135,6 @@ export const mail = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
-			name: "mail_fk_6",
-			columns: [table.original_mail_id, table.tenant_id],
-			foreignColumns: [mail.id, mail.tenant_id],
-		})
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
 			name: "mail_fk_8",
 			columns: [table.communication_id, table.tenant_id],
 			foreignColumns: [communication.id, communication.plant_id],
@@ -2245,7 +2173,6 @@ export const mail = pgTable(
 		index("mail_ref_3").using("btree", table.operation_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_4").using("btree", table.notice_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_ref_5").using("btree", table.job_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
-		index("mail_ref_6").using("btree", table.original_mail_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("mail_communication").using(
 			"btree",
 			table.tenant_id.asc().nullsLast(),
@@ -2273,9 +2200,7 @@ export const mail_attempt = pgTable(
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
 		outcome: text("outcome", { enum: ["in_flight", "accepted", "refused", "partial", "unknown"] }).notNull(),
 		safe_error: text("safe_error"),
-		retry_at: timestamp("retry_at", { withTimezone: true, mode: "date" }),
 		retryable: boolean("retryable"),
-		provider_payload: jsonb("provider_payload"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "mail_attempt_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -2542,7 +2467,6 @@ export const notice = pgTable(
 		eligible_at: timestamp("eligible_at", { withTimezone: true, mode: "date" }).notNull(),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		schedule_date: date("schedule_date", { mode: "string" }),
-		schedule_time: time("schedule_time"),
 		timezone: text("timezone"),
 		resolver_version: text("resolver_version"),
 		read_at: timestamp("read_at", { withTimezone: true, mode: "date" }),
@@ -3306,7 +3230,6 @@ export const phase_transition = pgTable(
 		occurred_at: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
 		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
 		operation_id: uuid("operation_id").notNull(),
-		criterion_version_id: uuid("criterion_version_id"),
 		offer_answer: text("offer_answer", { enum: ["accepted", "declined"] }),
 		answered_at: timestamp("answered_at", { withTimezone: true, mode: "date" }),
 	},
@@ -3315,13 +3238,6 @@ export const phase_transition = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "phase_transition_fk_1", columns: [table.operation_id], foreignColumns: [audit_event.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "phase_transition_fk_2",
-			columns: [table.criterion_version_id],
-			foreignColumns: [reference_version.id],
-		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
@@ -3344,7 +3260,6 @@ export const phase_transition = pgTable(
 		check("phase_transition_ck_3", sql`((from_phase IS NULL) OR ((from_phase >= 0) AND (from_phase <= 6)))`),
 		check("phase_transition_ck_4", sql`((kind <> 'creation'::text) OR ((from_phase IS NULL) AND (to_phase = 1)))`),
 		check("phase_transition_ck_5", sql`((offer_answer IS NULL) = (answered_at IS NULL))`),
-		index("phase_transition_ref_2").using("btree", table.criterion_version_id.asc().nullsLast()),
 		uniqueIndex("phase_transition_uq_2")
 			.using("btree", table.plant_id.asc().nullsLast())
 			.where(sql`(kind = 'creation'::text)`),
@@ -3808,7 +3723,6 @@ export const reading = pgTable(
 		last_revision_id: uuid("last_revision_id"),
 		plant_context_id: uuid("plant_context_id"),
 		observed_fraction: numeric("observed_fraction").notNull(),
-		resume_position: text("resume_position"),
 		last_viewed_at: timestamp("last_viewed_at", { withTimezone: true, mode: "date" }),
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
 		completed_revision_id: uuid("completed_revision_id"),
@@ -4146,7 +4060,6 @@ export const reference_release = pgTable(
 			.default(sql`1`),
 		tenant_id: uuid("tenant_id").notNull(),
 		source_revision_id: uuid("source_revision_id"),
-		failure_code: text("failure_code"),
 		expected_passages: integer("expected_passages").notNull(),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -4592,10 +4505,6 @@ export const task = pgTable(
 		obligation_id: uuid("obligation_id"),
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
 		deleted_at: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
-		source_template_id: uuid("source_template_id"),
-		import_operation_id: uuid("import_operation_id"),
-		milestone_id: uuid("milestone_id"),
-		seed_key: text("seed_key"),
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
@@ -4615,19 +4524,6 @@ export const task = pgTable(
 			name: "task_fk_10",
 			columns: [table.obligation_id, table.plant_id],
 			foreignColumns: [obligation.id, obligation.plant_id],
-		})
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "task_fk_11", columns: [table.source_template_id], foreignColumns: [reference_version.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "task_fk_12", columns: [table.import_operation_id], foreignColumns: [audit_event.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({
-			name: "task_fk_13",
-			columns: [table.milestone_id, table.plant_id],
-			foreignColumns: [launch_milestone.id, launch_milestone.plant_id],
 		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
@@ -4716,9 +4612,6 @@ export const task = pgTable(
 		index("task_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("task_ref_1").using("btree", table.creator_id.asc().nullsLast()),
 		index("task_ref_10").using("btree", table.obligation_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
-		index("task_ref_11").using("btree", table.source_template_id.asc().nullsLast()),
-		index("task_ref_12").using("btree", table.import_operation_id.asc().nullsLast()),
-		index("task_ref_13").using("btree", table.milestone_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_3").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_4").using("btree", table.meeting_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_5").using("btree", table.team_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
@@ -4740,9 +4633,6 @@ export const task = pgTable(
 		uniqueIndex("task_uq_4")
 			.using("btree", table.obligation_id.asc().nullsLast())
 			.where(sql`((obligation_id IS NOT NULL) AND (deleted_at IS NULL))`),
-		uniqueIndex("task_uq_5")
-			.using("btree", table.milestone_id.asc().nullsLast(), table.seed_key.asc().nullsLast())
-			.where(sql`(seed_key IS NOT NULL)`),
 	],
 );
 export const task_assignee = pgTable(
@@ -5346,7 +5236,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
