@@ -3,7 +3,20 @@ import * as c from "@everyfield/contracts/people";
 import "server-only";
 import { z } from "zod";
 import { adminRead } from "./assessments/shared.ts";
-import { authorizeRead, deny, parse, readReply, type Context, type Tx } from "./core.ts";
+import { declareWrite } from "../operations/writes.ts";
+import {
+	authorize,
+	authorizeRead,
+	deny,
+	hash,
+	lockOwner,
+	parse,
+	readReply,
+	reply,
+	type Context,
+	type Tx,
+	type WriteContext,
+} from "./core.ts";
 
 /**
  * The normalized contact signals that duplicate hints and the CSV import both match on: a lowercased email and the
@@ -121,11 +134,19 @@ const pairRows = z.object({
 		}),
 	),
 });
+/** The import flagged person `p` to review against `m`: its people.created audit row names `m` (`import.reviewWith`). */
+const flagged = sql`EXISTS(SELECT FROM audit_event e WHERE e.tenant_id=p.tenant_id AND e.subject_id=p.id
+ AND e.action='people.created' AND jsonb_typeof(e.metadata->'import'->'reviewWith')='string'
+ AND lower(e.metadata->'import'->>'reviewWith')=m.id::text)`;
+/** An Owner or Admin marked the pair of `p` and `m` "Not a duplicate" (D-789). */
+const dismissed = sql`EXISTS(SELECT FROM person_duplicate_dismissal d WHERE d.plant_id=p.tenant_id AND d.person_id=p.id
+ AND d.with_person_id=m.id)`;
 /**
  * people.listDuplicatePairs (REQ-PPL-018): the pairs a CSV import added with "Add, review later", read from each imported
  * person's people.created audit row (`import.reviewWith`), so imports made before this read show too. A pair shows
- * while both people are live in this church: a merge or retirement of either one removes it. Oldest first, the first
- * 100. One statement, with the live Owner or Admin check inside it (C13).
+ * while both people are live in this church and nobody marked it "Not a duplicate": a merge or retirement of either
+ * one removes it, and so does a dismissal until it is restored (D-789). Oldest first, the first 100. One statement,
+ * with the live Owner or Admin check inside it (C13).
  */
 export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
@@ -139,6 +160,7 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
   JOIN audit_event e ON e.tenant_id=p.tenant_id AND e.subject_id=p.id AND e.action='people.created'
   JOIN person m ON m.id=(e.metadata->'import'->>'reviewWith')::uuid AND m.tenant_id=p.tenant_id AND m.state='live'
   WHERE g.allowed AND p.tenant_id=${plant}::uuid AND p.state='live' AND jsonb_typeof(e.metadata->'import'->'reviewWith')='string'
+   AND NOT ${dismissed}
   ORDER BY p.created_at,p.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs
  FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
 		const row = pairRows.parse(r.rows[0]);
@@ -149,3 +171,91 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 		});
 	});
 }
+
+const dismissedRows = z.object({
+	allowed: z.boolean(),
+	pairs: z.array(
+		z.object({
+			person: z.object({ id: z.uuid(), displayName: z.string() }),
+			with: z.object({ id: z.uuid(), displayName: z.string() }),
+			dismissedBy: z.string().nullable(),
+			dismissedAt: z.string(),
+		}),
+	),
+});
+/**
+ * people.listDismissedDuplicatePairs (D-790): the pairs an Owner or Admin marked "Not a duplicate" whose two people are
+ * both still live, newest first, the first 100. Who dismissed each pair comes from its latest dismiss audit row, so an
+ * account the purge scrubbed reads as unnamed. One statement, with the live Owner or Admin check inside it (C13).
+ */
+export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
+	return readReply(async () => {
+		if (ctx.selected.kind !== "plant") deny();
+		const plant = ctx.selected.id;
+		const r = await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
+  'person',jsonb_build_object('id',x.person_id,'displayName',x.person_name),
+  'with',jsonb_build_object('id',x.with_id,'displayName',x.with_name),
+  'dismissedBy',(SELECT i.display_name FROM audit_event a CROSS JOIN LATERAL seat_identity(a.actor_id) i
+   WHERE a.tenant_id=${plant}::uuid AND a.subject_id=x.person_id AND a.action='people.duplicate_dismissed'
+   ORDER BY a.occurred_at DESC,a.id LIMIT 1),
+  'dismissedAt',to_char(x.dismissed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) ORDER BY x.dismissed_at DESC,x.id) FROM (
+  SELECT d.id,d.dismissed_at,p.id person_id,p.display_name person_name,m.id with_id,m.display_name with_name
+  FROM person_duplicate_dismissal d
+  JOIN person p ON p.id=d.person_id AND p.tenant_id=d.plant_id AND p.state='live'
+  JOIN person m ON m.id=d.with_person_id AND m.tenant_id=d.plant_id AND m.state='live'
+  WHERE g.allowed AND d.plant_id=${plant}::uuid
+  ORDER BY d.dismissed_at DESC,d.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs
+ FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
+		const row = dismissedRows.parse(r.rows[0]);
+		if (!row.allowed) deny();
+		return c.dismissedDuplicatePairs.parse({
+			items: row.pairs.slice(0, PAIRS),
+			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
+		});
+	});
+}
+
+const changeRow = z.object({ found: z.boolean(), changed: z.boolean() });
+/**
+ * Dismiss or restore one listed pair (D-789). It runs in the write gate's transaction, which holds the Owner or Admin
+ * seat and the church until COMMIT. Its one statement locks both people, checks that the import flagged the pair and
+ * both are still live, changes the dismissal row and writes the audit row only when the row changed. A repeat (a double
+ * click, a second tab) changes nothing, writes no audit row and answers "noop". A pair on neither list is refused as
+ * pair_unavailable, with nothing written.
+ */
+function pairWrite(change: "dismiss" | "restore") {
+	return (tx: Tx, ctx: WriteContext, raw: unknown) =>
+		reply(tx, async () => {
+			if (ctx.selected.kind !== "plant") deny();
+			const plant = ctx.selected.id;
+			const input = parse(c.duplicatePairRequest, raw);
+			await declareWrite(tx, "established");
+			await lockOwner(tx, ctx);
+			const actor = (await authorize(tx, ctx, true)).accountId;
+			const write =
+				change === "dismiss"
+					? sql`INSERT INTO person_duplicate_dismissal (plant_id,person_id,with_person_id)
+ SELECT ${plant}::uuid,id,with_id FROM pair ON CONFLICT (plant_id,person_id,with_person_id) DO NOTHING
+ RETURNING person_id,with_person_id`
+					: sql`DELETE FROM person_duplicate_dismissal d USING pair
+ WHERE d.plant_id=${plant}::uuid AND d.person_id=pair.id AND d.with_person_id=pair.with_id
+ RETURNING d.person_id,d.with_person_id`;
+			const action = change === "dismiss" ? "people.duplicate_dismissed" : "people.duplicate_restored";
+			const r = await tx.execute(sql`WITH pair AS (
+  SELECT p.id,m.id with_id FROM person p JOIN person m ON m.id=${input.withPersonId}::uuid AND m.tenant_id=p.tenant_id
+  WHERE p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.state='live' AND m.state='live' AND ${flagged}
+  FOR SHARE OF p,m
+), changed AS (${write}), audit AS (
+  INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
+  SELECT ${plant}::uuid,${actor}::uuid,${hash([plant, actor])},${action},${change === "dismiss" ? "hide" : "restore"},
+   'person',person_id,jsonb_build_object('withPersonId',with_person_id) FROM changed RETURNING 1
+) SELECT EXISTS(SELECT FROM pair) AS found,EXISTS(SELECT FROM audit) AS changed`);
+			const row = changeRow.parse(r.rows[0]);
+			if (!row.found) deny("pair_unavailable");
+			return c.duplicatePairChange.parse({ outcome: row.changed ? "changed" : "noop" });
+		});
+}
+/** people.dismissDuplicatePair: "Not a duplicate" takes a listed pair off the list and into the Dismissed view. */
+export const dismissDuplicatePair = pairWrite("dismiss");
+/** people.restoreDuplicatePair: Restore puts a dismissed pair back on the list, in its import order. */
+export const restoreDuplicatePair = pairWrite("restore");

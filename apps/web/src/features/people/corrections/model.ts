@@ -51,6 +51,7 @@ export type ReferenceKind =
 	| "attestation"
 	| "attestation_history"
 	| "email_opt_out"
+	| "duplicate_dismissal"
 	| "contact_outcome"
 	| "development_enrollment"
 	| "invitation"
@@ -83,6 +84,7 @@ export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	attestation: ["attestation", "attestations"],
 	attestation_history: ["earlier attestation", "earlier attestations"],
 	email_opt_out: ["email unsubscribe", "email unsubscribes"],
+	duplicate_dismissal: ["pair marked not a duplicate", "pairs marked not a duplicate"],
 	contact_outcome: ["follow-up outcome", "follow-up outcomes"],
 	development_enrollment: ["development enrollment", "development enrollments"],
 	invitation: ["invitation", "invitations"],

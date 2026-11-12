@@ -210,6 +210,8 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
+	// A dismiss or restore named a pair that is not on the list: one of them was merged or retired, or no import flagged it.
+	defineSafeError("pair_unavailable", {}, "refresh"),
 	...csvError,
 	...mergeErrors,
 ]);
@@ -228,6 +230,26 @@ export const duplicatePairs = z.strictObject({
 		.max(100),
 	completeness: z.enum(["complete", "partial"]),
 });
+const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
+/**
+ * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
+ * both still live, newest first, with who dismissed each one (null once that account is deleted) and when.
+ */
+export const dismissedDuplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: pairPerson,
+				with: pairPerson,
+				dismissedBy: z.string().nullable(),
+				dismissedAt: instant,
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+/** people.dismissDuplicatePair and people.restoreDuplicatePair: "noop" when the pair was already in that state. */
+export const duplicatePairChange = z.strictObject({ outcome: z.enum(["changed", "noop"]) });
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z

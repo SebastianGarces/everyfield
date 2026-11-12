@@ -107,6 +107,8 @@ export const reorderPipelineRequest = commandEnvelope(
 // Organization identity never carries plant recruitment or commitment fields.
 export const createOrganizationPersonRequest = z.strictObject({ requestKey, input: z.strictObject(contactFields) });
 /** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
+/** One pair on the duplicates list: the person an import added with "Add, review later" and the person it may duplicate. */
+export const duplicatePairRequest = z.strictObject({ personId, withPersonId: personId });
 export const duplicateCheckRequest = z.strictObject({
 	displayName: z.string().max(255).optional(),
 	email: z.string().max(320).optional(),
