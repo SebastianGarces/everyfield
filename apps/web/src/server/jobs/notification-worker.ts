@@ -1,13 +1,12 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import { authorizeMeetingNotices, meetingNotice, planNotifications } from "@everyfield/domain/meetings";
-import { reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
-import { createMailService, mailUnsubscribe } from "./mail.ts";
-import { createNotificationService } from "./notifications.ts";
+import { mailUnsubscribe, type createMailService } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, recoverLease, type Claim, type JobResult } from "./queue.ts";
+import { queuedMailService, seatedNotificationService } from "./seated-notifications.ts";
 
 // The notification worker (NTF-006), run by the scheduled runner. Meeting writes queue one `notification` job per
 // announcement and reminder slot (syncReminderJobs in packages/domain/src/meetings). Each due job reads its meeting's
@@ -30,21 +29,7 @@ const finish: Record<Exclude<Outcome, "lost">, JobResult> = {
 };
 
 export function createNotificationWorker(config: { mail: ReturnType<typeof createMailService> }) {
-	const notifications = createNotificationService({
-		mail: config.mail,
-		// A recipient gets a notice only while they hold an accepted seat in the church, at that seat's address.
-		async eligible(tx, inputs) {
-			const [plant, ...others] = new Set(inputs.map((i) => i.owner.id));
-			if (others.length) throw Error("notification_owner_mismatch");
-			const addresses = plant
-				? await reminderRecipients(tx, plant, [...new Set(inputs.map((i) => i.recipient))])
-				: null;
-			return inputs.map((i) => {
-				const address = addresses?.get(i.recipient);
-				return address ? { address } : null;
-			});
-		},
-	});
+	const notifications = seatedNotificationService(config.mail);
 
 	/** One claimed job: write its slot's notices when the plan still has it planned, or nothing. */
 	async function deliver(tx: Transaction, claim: Claim, asOf: string): Promise<Outcome> {
@@ -117,23 +102,7 @@ export function notificationsMount(db: Database | null): NotificationWorker | nu
 	const v = z.object(mailEnv).safeParse(process.env);
 	if (!db || !v.success) return null;
 	mounted ??= createNotificationWorker({
-		mail: createMailService({
-			db,
-			encryptionKey: Buffer.from(v.data.IDENTITY_MAIL_KEY, "hex"),
-			addressKey: Buffer.from(v.data.IDENTITY_ADDRESS_KEY, "hex"),
-			from: v.data.IDENTITY_MAIL_FROM,
-			authorize: authorizeMeetingNotices,
-			unsubscribe: mailUnsubscribe(),
-			// This mount queues mail through a transport that refuses every send, so nothing is sent from it yet.
-			transport: {
-				async send() {
-					return { kind: "refused", retryable: true };
-				},
-				async lookup() {
-					return { kind: "unknown" };
-				},
-			},
-		}),
+		mail: queuedMailService({ db, env: v.data, authorize: authorizeMeetingNotices, unsubscribe: mailUnsubscribe() }),
 	});
 	return mounted;
 }
