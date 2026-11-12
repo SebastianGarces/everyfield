@@ -15,6 +15,7 @@ import { runDueImports } from "../people/run-imports.ts";
 import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
 import { runDuePurges } from "./lifecycle-purge.ts";
+import type { MailPass } from "./mail.ts";
 import type { NotificationWorker } from "./notification-worker.ts";
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 
@@ -48,9 +49,12 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
  * ended at the run's clock and delivers a bounded batch of them (WP-030), and writes the notices of due meeting
  * announcements and reminders (`notification`). The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
- * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
- * `mail`, and scheduled Messages email through `messages`. Other queued mail (identity, settings, organization connection, task, onboarding, phase and digest mail) has
- * no sending worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
+ * business authority: every worker rechecks its own fences and sources. Queued mail goes out in one pass per mount,
+ * each claiming only its own logical-key prefixes and rechecking every mail under that mount's own rule just before
+ * the handoff: church invitations (`mail`: `invitation/`, `invitation-accepted/`), identity (`identity-mail`:
+ * `password_reset/`, `email_verification/`), organization connections (`organization-mail`: `relationship/`),
+ * settings (`settings-mail`: `email-change/`, `security/`) and onboarding (`onboarding-mail`: `onboarding/`).
+ * Scheduled Messages email goes through `messages`.
  *
  * Each step runs in its own try, so one that throws (a provider outage, a lost connection) logs one line naming its
  * component and the later steps still run in the same tick; its own jobs wait for their lease or retry. The body keeps
@@ -76,6 +80,11 @@ export function scheduledJobs(config: {
 	 * emails the email service already holds for people who unsubscribed (T-241). Null without mail configuration.
 	 */
 	messages?: ((limit: number, until: number) => Promise<number>) | null;
+	/**
+	 * The other mounts' mail passes, each sending one bounded batch of its own due mail. Each is null when the
+	 * deployment has no mail configuration or none for that mount; a missing one is skipped.
+	 */
+	mountMail?: Partial<Record<"identity" | "organization" | "settings" | "onboarding", MailPass | null>>;
 	/** Null on a deployment without mail configuration: no digest is planned or delivered there. */
 	digests: DigestWorker | null;
 	/** Writes the notices of due meeting announcement and reminder jobs; null without mail configuration. */
@@ -96,6 +105,10 @@ export function scheduledJobs(config: {
 		const { storage, cleanup, reminders, digests, mail } = config;
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
+		const pass = (name: keyof NonNullable<typeof config.mountMail>): Step => {
+			const run = config.mountMail?.[name] ?? null;
+			return [`${name}-mail`, null, run && (() => run(20, until))];
+		};
 		const steps: Step[] = [
 			["close-lost-jobs", "closed", () => transaction(db, (tx) => closeLostJobs(tx))],
 			["people-import", null, () => runDueImports(db, 4, until)],
@@ -107,6 +120,10 @@ export function scheduledJobs(config: {
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
 			["mail", "mailed", mail && (() => mail(20, until))],
+			pass("identity"),
+			pass("organization"),
+			pass("settings"),
+			pass("onboarding"),
 			["messages", "messages", messages && (() => messages(20, until))],
 		];
 		// The counts a tick has always reported; a step that is skipped or fails keeps its default.

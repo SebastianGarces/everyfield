@@ -3,7 +3,7 @@ import { reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
 import type { mailEnv } from "../mail-env.ts";
-import { createMailService, type AuthorizeMail, type MailUnsubscribe } from "./mail.ts";
+import { createMailService, queueOnlyTransport, type AuthorizeMail, type MailUnsubscribe } from "./mail.ts";
 import { createNotificationService } from "./notifications.ts";
 
 // The mail and notification services the server mounts share. Mail is queued only: until mail sending exists, every
@@ -24,14 +24,7 @@ export function queuedMailService(config: {
 		from: config.env.IDENTITY_MAIL_FROM,
 		authorize: config.authorize,
 		...(config.unsubscribe !== undefined ? { unsubscribe: config.unsubscribe } : {}),
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
+		transport: queueOnlyTransport,
 	});
 }
 
