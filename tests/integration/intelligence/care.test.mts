@@ -114,6 +114,7 @@ before(async () => {
 					eligibleAt: i.eligibleAt,
 				},
 			]),
+		workspaceNotice: async () => {},
 	});
 });
 after(() => f?.close());

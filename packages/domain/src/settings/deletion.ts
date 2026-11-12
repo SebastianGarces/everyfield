@@ -49,9 +49,55 @@ const currentWitness = z.object({
 });
 export type DeletionSubject = z.infer<typeof n.deletionSubject>;
 export type DeletionRequest = { subject: DeletionSubject; requestId: string; revision: string };
+/** The facts of one church workspace deletion notice: the church, its request and every seat open at the commit. */
+export type WorkspaceDeletionNotice = {
+	kind: "requested" | "cancelled";
+	plant: { id: string; name: string; timeZone: string };
+	requestId: string;
+	requester: { accountId: string; name: string };
+	cancelUntil: string;
+	recipients: { accountId: string; address: string; timeZone: string | null }[];
+};
 export interface DeletionEffects {
 	/** The purge job for one request, as an insert the request adds to its own write statement (D70). */
 	queue(tx: Tx, input: DeletionRequest & { witnessId: string; eligibleAt: string }): SQLWrapper;
+	/** Adds one email per recipient to `writes`, which commit with the witness change. */
+	workspaceNotice(tx: Tx, input: WorkspaceDeletionNotice, writes: SQLWrapper[]): Promise<void>;
+}
+const audience = z.object({
+	account_id: z.uuid(),
+	email: z.string(),
+	personal_timezone: z.string().nullable(),
+	plant_name: z.string(),
+	plant_timezone: z.string(),
+	requester_name: z.string().nullable(),
+});
+/**
+ * Every seat open in the church now, with its contact and personal zone, and the requester's name: one statement. The
+ * caller holds the plant root (a request) or the workspace seat lock (a cancel).
+ */
+async function seated(
+	tx: Tx,
+	kind: WorkspaceDeletionNotice["kind"],
+	w: { plant_id: string | null; request_id: string | null; requester_id: string | null; cancel_until: Date | null },
+): Promise<WorkspaceDeletionNotice> {
+	const read = await tx.execute(
+		sql`SELECT DISTINCT ON (s.account_id) s.account_id, c.email, a.personal_timezone, p.name AS plant_name, p.timezone AS plant_timezone,
+ (SELECT i.display_name FROM seat_identity(${w.requester_id}::uuid) i) AS requester_name
+ FROM seat s JOIN account a ON a.id=s.account_id JOIN plant p ON p.id=s.plant_id CROSS JOIN LATERAL access_account_contact(s.account_id) c
+ WHERE s.plant_id=${w.plant_id}::uuid AND s.ended_at IS NULL ORDER BY s.account_id`,
+	);
+	const rows = read.rows.map((r) => audience.parse(r));
+	const first = rows[0];
+	if (!first || !w.request_id || !w.requester_id || !w.cancel_until) deny();
+	return {
+		kind,
+		plant: { id: w.plant_id!, name: first.plant_name, timeZone: first.plant_timezone },
+		requestId: w.request_id,
+		requester: { accountId: w.requester_id, name: first.requester_name ?? "The Owner" },
+		cancelUntil: w.cancel_until.toISOString(),
+		recipients: rows.map((r) => ({ accountId: r.account_id, address: r.email, timeZone: r.personal_timezone })),
+	};
 }
 export function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
 	if (w.kind !== "account" && w.kind !== "plant") deny();
@@ -235,6 +281,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			: await tx.insert(t.lifecycle_witness).values(values).returning();
 		// Sessions, pending mail and queued work stop in the same transaction as the witness.
 		await tx.execute(sql`SELECT settings_suspend_subject(${w!.id}::uuid,${requestId}::uuid)`);
+		if (subject.kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "requested", w!), c.writes);
 		c.writes.push(
 			effects.queue(tx, {
 				subject,
@@ -263,8 +310,10 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		revision(v.expectedRevision, w.request_revision);
 		if (w.state === "cancelled") return status(w);
 		if (clock >= w.cancel_until! || w.state !== "pending_deletion") deny("deadline_passed");
-		// The witness and its audit entry change in one statement. No grant, session or mail is restored:
-		// independent revocations stay authoritative.
+		// The witness, its audit entry and each open seat's notice change in one statement. No grant, session or mail is
+		// restored: independent revocations stay authoritative.
+		const writes: SQLWrapper[] = [];
+		if (kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "cancelled", w), writes);
 		await executeWrites(tx, [
 			tx
 				.update(t.lifecycle_witness)
@@ -288,6 +337,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 					event_key: w.request_id + "/cancelled",
 				})
 				.onConflictDoNothing({ target: [t.audit_event.subject_id, t.audit_event.event_key] }),
+			...writes,
 		]);
 		return status({ ...w, state: "cancelled", cancelled_at: clock });
 	}
