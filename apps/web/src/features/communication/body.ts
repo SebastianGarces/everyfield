@@ -181,4 +181,3 @@ export function bodyToTextResult(html: string): BodyText {
 	});
 	return { text: out, lossy };
 }
-
