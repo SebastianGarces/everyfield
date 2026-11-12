@@ -4701,6 +4701,16 @@
       "requirement": "REQ-NTF-016",
       "operation": "communication.undoMessagesOptOut",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "requirement": "REQ-MTG-007",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
+    },
+    {
+      "requirement": "REQ-MTG-011",
+      "operation": "meetings.addGuests",
+      "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
     }
   ],
   "rule_additions": [
@@ -5050,6 +5060,11 @@
       "id": "communication.undoMessagesOptOut",
       "requirement": "REQ-NTF-016",
       "reason": "Sebastian, D-284 (T-102): \"Per church and per person, staff can see it but can't clear it.\" REQ-NTF-016 names the Messages opt-out operations that prove it."
+    },
+    {
+      "id": "meetings.addGuests",
+      "requirement": "REQ-MTG-007",
+      "reason": "T-232 (later slice 3 of T-161, audit finding messages/com-36): Add guest sends everyone chosen in one set-based write instead of one request per person (patterns.md Performance, D70). Owner/Admin only; Evry keeps its one-person meetings.inviteGuest and meetings.createGuestContact."
     }
   ],
   "shared_rewrites": {

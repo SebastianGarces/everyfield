@@ -125,17 +125,36 @@ export const setInviterRequest = commandEnvelope(
 /** Null resets the answer to Pending. */
 export const correctRsvpRequest = commandEnvelope(z.strictObject({ ...guest, rsvp: rsvpAnswer.nullable() }));
 export const saveOwnRsvpRequest = create(z.strictObject({ meetingId, rsvp: rsvpAnswer }));
-const contact = {
-	meetingId,
+const contactFields = {
 	displayName,
 	email: z.string().trim().pipe(z.email().max(320)).nullable().default(null),
 	phone: z.string().trim().max(40).nullable().default(null),
 	country: z.string().trim().max(255).nullable().default(null),
 };
-export const createGuestContactRequest = create(
-	z.strictObject({ ...contact, attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") }),
-);
+const contact = { meetingId, ...contactFields };
+const guestAttendance = { attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") };
+export const createGuestContactRequest = create(z.strictObject({ ...contact, ...guestAttendance }));
 export const createWalkInContactRequest = create(z.strictObject(contact));
+/**
+ * Everyone chosen in one Add guest submit, as one write: People already in this church, and new contacts made as
+ * prospects from this meeting's guest list (REQ-MTG-007, REQ-MTG-011). Nobody here gets an inviter.
+ */
+export const addGuestsRequest = create(
+	z
+		.strictObject({
+			meetingId,
+			people: z
+				.array(personId)
+				.max(100)
+				.refine((ids) => new Set(ids).size === ids.length, "duplicate_person")
+				.default([]),
+			contacts: z
+				.array(z.strictObject({ ...contactFields, ...guestAttendance }))
+				.max(50)
+				.default([]),
+		})
+		.refine((v) => v.people.length + v.contacts.length > 0, "nobody_chosen"),
+);
 export const recordCardRequest = commandEnvelope(
 	z.strictObject({
 		...guest,

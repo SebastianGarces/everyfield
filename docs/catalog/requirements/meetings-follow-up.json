@@ -356,7 +356,8 @@
         "meetings.inviteGuest",
         "meetings.removeGuest",
         "meetings.previewRosterImport",
-        "meetings.copyTeamRoster"
+        "meetings.copyTeamRoster",
+        "meetings.addGuests"
       ],
       "acceptance_ids": [
         "AC-MTG-007--MTG-007"
@@ -565,7 +566,8 @@
       "spec": "docs/product/meetings-follow-up.md#req-mtg-011",
       "operations": [
         "meetings.createGuestContact",
-        "meetings.createWalkInContact"
+        "meetings.createWalkInContact",
+        "meetings.addGuests"
       ],
       "acceptance_ids": [
         "AC-MTG-011--MTG-011"
