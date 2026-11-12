@@ -44,7 +44,7 @@ const DESCRIPTION: Record<SectionKey, string> = {
 	seats: "People who can sign in to your church.",
 	notifications: "Your choices only. Other seats set their own.",
 	sharing: "Choose what connected organizations can see. Names and personal details are never shared.",
-	wiki: "Choose whose Wiki version your church reads first when more than one church or network wrote one.",
+	wiki: "Choose which sending church and network your church reads first in the Wiki.",
 	account: "Only you can change these.",
 };
 

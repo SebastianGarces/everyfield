@@ -249,12 +249,14 @@ function OrderList({
 							<span aria-hidden="true" className="w-5 flex-none text-right text-sm text-text-3 tabular-nums">
 								{index + 1}
 							</span>
-							<span className="min-w-0 flex-1 truncate font-medium text-ink">{row.name}</span>
-							{index === 0 ? (
-								<StatusBadge status="positive" size="sm" fill="soft">
-									Preferred
-								</StatusBadge>
-							) : null}
+							<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
+								<span className="min-w-0 font-medium break-words text-ink">{row.name}</span>
+								{index === 0 ? (
+									<StatusBadge status="positive" size="sm" fill="soft">
+										Preferred
+									</StatusBadge>
+								) : null}
+							</span>
 							<span className="flex flex-none gap-1.5">
 								{([-1, 1] as const).map((step) => {
 									const edge = step === -1 ? index === 0 : index === rows.length - 1;
