@@ -1,5 +1,6 @@
 "use client";
 
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
@@ -29,7 +30,7 @@ import {
 	setPersonalTimezone,
 	setPlantTimezone,
 } from "./actions";
-import { avatarSrc, uploadAvatarBytes } from "./flows/avatarBytes";
+import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
@@ -59,7 +60,7 @@ const PORT: SettingsPort = {
 		assetSrc,
 	},
 	flows: {
-		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc },
+		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc: avatarRoute },
 		requestEmailChange,
 		changePassword,
 		previewPersonalTimezone,

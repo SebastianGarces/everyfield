@@ -2,10 +2,7 @@ import { avatarRoute, settingsError } from "@everyfield/contracts/settings";
 import type { AvatarReference, Reply } from "../port";
 
 // The client side of the avatar version route (app/api/accounts/[accountId]/avatar/[versionId]): the production
-// port's uploadAvatarBytes and avatarSrc. A staged upload's id is the version it becomes, so both use one address.
-
-/** The authenticated delivery route for one photo version. Never a storage key or bearer URL. */
-export const avatarSrc = (avatar: AvatarReference) => avatarRoute(avatar);
+// port's uploadAvatarBytes. A staged upload's id is the version it becomes, so the bytes go to that version's address.
 
 /**
  * Sends the bytes of a staged upload. The route answers 413 (empty or too large) and 422 (not a JPG, PNG or WebP)
