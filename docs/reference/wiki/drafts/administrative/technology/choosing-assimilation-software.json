@@ -29,9 +29,9 @@
 		"replaces_id": "ffa40955-6eeb-4ad3-a340-796a93959a24",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Guest-tracking/follow-up ChMS advice replaced by Everyfield section; removals of specialized tools/automation/migration are subtractive. Everyfield claims checked against docs/product: People records with household, source (\"How you met\"), stage, notes (people.md, app people features); meeting guests with inviter + attendance and response cards (meetings-follow-up.md); auto follow-up obligations for first-Vision guests (meetings-follow-up.md); tasks with due dates/reminders (tasks.md); contact logs; CSV import/export; \"doesn't handle giving or children's check-in\" true per scope.md. Vendor list unchanged. No finance/SMS/coaching/Gantt claims; Evry not mentioned. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; John 10:14 verified word for word on read.lsbible.org (2026-11-12): match. Screenshot (desktop+mobile) sampled: complete, LSB notice present, rendered text matches current draft; minor cosmetic: mobile stage table wraps \"Connected\" mid-word, still readable. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"F51: 'Set up guest follow-up in Everyfield; choose a ChMS for check-in and giving if needed.' The advice to buy a ChMS for guest tracking and follow-up is replaced by a section on Everyfield's people, meeting guests, response cards, follow-up tasks, contact log and import. The ChMS sections now cover only check-in, giving and data import/export.",

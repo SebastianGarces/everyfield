@@ -28,9 +28,9 @@
 		"replaces_id": "e68d6c02-b012-491e-af14-9cee7bd304a1",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: One D1 polity rewording; bank/legal text unchanged. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; 2 Corinthians 8:21 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"D1 elder polity, Sebastian Oct 31: each place that named the elders now says 'the elders or the governing body your bylaws name'; later mentions in the same passage say 'that body' or 'they'. Every control (two signatures, approval thresholds, designated funds only, reporting) is unchanged."

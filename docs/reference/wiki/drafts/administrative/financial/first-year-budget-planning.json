@@ -29,9 +29,9 @@
 		"replaces_id": "1956cc1d-d7b7-474d-9921-ea6cb3fc75be",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Network 5% share removed as a fixed figure and reframed as \"if your network sets one\" (D2); storage row made conditional on rented space; related slugs added (both exist). Remaining % ranges are seed text. No new facts. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; Proverbs 21:5 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"D2 network commitments as examples, Sebastian Oct 31: a church planting share is framed as one network example ('if your network or church sets a commitment (for example, a share of the budget)'), not a standard for every church. The sample allocation table no longer lists a fixed 5% network share.",

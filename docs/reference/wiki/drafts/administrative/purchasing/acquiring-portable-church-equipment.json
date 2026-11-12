@@ -28,9 +28,9 @@
 		"replaces_id": "a4c79837-13f6-4e61-844b-c472a9e26c06",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Portable-method wording made conditional (\"if you meet in a rented space\"), Phase -> Stage headings, \"opening Sunday\" -> \"Launch Sunday\", \"plants\" -> \"church plants\", excerpt reworded. No new facts or prices. Title keeps the existing slug name. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; Colossians 3:23 verified word for word on read.lsbible.org (2026-11-12): match. Screenshot (desktop+mobile) sampled: complete, tables legible, LSB notice present; rendered text matches current draft. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"Portable church method row (Page, 'Method presented as universal'): advice that assumed every church meets in a portable setting now applies 'If you meet in a rented space' or similar conditional wording.",

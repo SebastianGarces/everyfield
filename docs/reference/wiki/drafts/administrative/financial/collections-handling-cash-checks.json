@@ -27,9 +27,9 @@
 		"replaces_id": "60a3448a-7ee1-4020-adcc-17617c8fbe05",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Content unchanged; only read_time 7 -> 4 (matches lint word count). Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; Luke 16:10 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"F58 read time: read_time_minutes recomputed from lint's word count (rounded words / 200)."

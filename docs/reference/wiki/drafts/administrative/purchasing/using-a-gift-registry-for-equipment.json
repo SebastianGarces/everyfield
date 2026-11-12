@@ -28,9 +28,9 @@
 		"replaces_id": "34a14f39-54f4-40dd-8725-3475729e7c4a",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Only change: \"plant\" -> \"church plant\". No new facts. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; 1 Corinthians 4:2 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"F53: bare 'plant' becomes 'church plant'.",

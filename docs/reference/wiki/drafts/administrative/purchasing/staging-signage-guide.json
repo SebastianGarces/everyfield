@@ -28,9 +28,9 @@
 		"replaces_id": "34449315-0c87-4091-a79d-be81daab488f",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Portable-method wording made conditional. Remaining \"plants\" is \"Faux plants/greenery\" (decor), not the church. No new facts. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; 1 Corinthians 10:31 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"Portable church method row (Page, 'Method presented as universal'): advice that assumed every church meets in a portable setting now applies 'If you meet in a rented space' or similar conditional wording.",

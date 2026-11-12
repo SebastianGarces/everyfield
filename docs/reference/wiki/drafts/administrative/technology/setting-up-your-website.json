@@ -29,9 +29,9 @@
 		"replaces_id": "69221cdc-562f-4648-8ad2-45e658550dd5",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: Content unchanged; read_time and two related slugs (exist) only. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; Isaiah 52:7 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"F55 orphans: related_article_slugs gains administrative/technology/building-your-churchs-brand and administrative/technology/website-analytics-and-search-basics so that article has an inbound link from a related slice article.",

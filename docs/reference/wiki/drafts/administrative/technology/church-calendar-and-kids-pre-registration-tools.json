@@ -28,9 +28,9 @@
 		"replaces_id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: New Everyfield claims verified: meetings scheduled in Everyfield announce to linked Core Group and send 7/3/1-day reminders to invited guests (REQ-MTG-018); no public calendar or children's check-in in docs/product. Vendor facts unchanged. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; 1 Corinthians 14:40 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"Everyfield instead of outside tools (Page table 'Outside tools where Everyfield already helps'): feature claims match docs/product (people.md, meetings-follow-up.md, tasks.md). Slice 1's wording is reused: 'Everyfield doesn't handle giving or children's check-in.' Here: meeting scheduling, announcements and reminders point to Everyfield meetings (meetings-follow-up.md, MTG-002 and MTG-018). Public calendars and children's pre-registration and check-in stay with outside tools, and the article says Everyfield does not do them."

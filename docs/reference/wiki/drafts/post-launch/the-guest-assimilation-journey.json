@@ -28,9 +28,9 @@
 		"replaces_id": "3ecaef0f-2b06-439b-aa2b-2c9ffa713fc4",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Opus independent claim check (claude-opus-5-5), 2026-11-12",
+			"notes": "Diff vs seed: ASCII pathway became a diagram flow (same 4 steps in order). ChMS section replaced by Everyfield (People with source/stage, contact history, follow-up tasks with assignee/due date, ministry teams) - matches people.md, tasks.md, teams-training.md; check-in/giving disclaimer true per scope.md. No new facts. Sources: none; none needed (no new factual claims). Scripture callout byte-identical to seed; Romans 15:7 verified word for word on read.lsbible.org (2026-11-12): match. Standing rules checked on full content (no playbook, no bare plant noun, polity wording, no he/him for pastor outside scripture, no 5%/network share as a norm, no research-shows, no internal ids, no out-of-scope Everyfield claims, no theological side): OK. Lint: 0 errors (draft against applied copy; seed lint 124/124)."
 		},
 		"rulings": [
 			"Everyfield instead of outside tools (Page table 'Outside tools where Everyfield already helps'): feature claims match docs/product (people.md, meetings-follow-up.md, tasks.md). Slice 1's wording is reused: 'Everyfield doesn't handle giving or children's check-in.' Here: contact history points to Everyfield's people, contact log and follow-up tasks instead of 'Church Management Software'.",
