@@ -5219,7 +5219,8 @@ export const model_spend = pgTable(
 
 /**
  * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
- * write failed. The file is cleared when the import completes; the job's deletion removes the import.
+ * write failed. The file is cleared when the import completes, and 7 days after its job last stopped with rows left
+ * (T-194, by the scheduled run); the job's deletion removes the import.
  */
 export const person_import = pgTable(
 	"person_import",
