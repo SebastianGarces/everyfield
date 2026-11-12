@@ -35,7 +35,7 @@ const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12,
 export const PLANT = id(1);
 /** The saved draft and the scheduled Friday email in Messages. */
 export const DRAFT = id(0xc01);
-export const FRIDAY_EMAIL = id(0xc02);
+const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
 
