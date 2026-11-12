@@ -49,6 +49,8 @@ export const updatePersonRequest = commandEnvelope(
 	}),
 );
 export const personRequest = z.strictObject({ personId });
+/** The people whose current photos a screen asks for: at most one page of rows. */
+export const personPhotosRequest = z.strictObject({ personIds: z.array(personId).max(100) });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
 	...pageInput,

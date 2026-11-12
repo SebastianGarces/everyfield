@@ -1469,9 +1469,9 @@
 		"retry": 3
 	},
 	"settings.cancelWorkspaceDeletion": {
-		"limit": 9,
+		"limit": 10,
 		"retry": 6,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 1 read, 1 write. A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 3 locked read, 2 read, 1 write. One read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements."
 	},
 	"settings.changePassword": {
 		"limit": 13,
@@ -1518,9 +1518,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 5 read, 4 write."
 	},
 	"settings.requestWorkspaceDeletion": {
-		"limit": 9,
+		"limit": 10,
 		"retry": 3,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, through the settings producer the app mounts (the actor's lifecycle read included): 2 transaction, 3 locked read, 2 read, 2 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, through the settings producer the app mounts (the actor's lifecycle read included): 2 transaction, 3 locked read, 3 read, 2 write. One read gives each open seat's contact; their notices join the request's write (T-272)."
 	},
 	"settings.saveChurch": {
 		"limit": 4
@@ -1565,9 +1565,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write."
 	},
 	"settings/core.withSettingsWrite": {
-		"limit": 8,
+		"limit": 9,
 		"retry": 7,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, a workspace deletion request with the read of each open seat's contact for its notice (T-272): 2 transaction, 3 locked read, 2 read, 2 write."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4

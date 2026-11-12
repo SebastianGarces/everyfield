@@ -44,6 +44,7 @@ import {
 	readColumnOrders,
 	readPersonPage,
 	readPersonPhoto,
+	readPersonPhotos,
 	recordCorrections,
 	retryStoredImport,
 	searchPeople,
@@ -578,6 +579,14 @@ function cases(who) {
 			check: (value) => assert.deepEqual({ ...value, zone: "" }, { zone: "", items: [], completeness: "complete" }),
 		}),
 		ppl("searchPeople", () => reads((t, c) => searchPeople(t, c, MARK)), { value: [] }),
+		ppl("readPersonPhotos", () => readPersonPhotos(f.db, new PeopleReadContext(who.actor), { personIds: [a.avery] }), {
+			value: { photos: [] },
+			// Avery links to church A's owner, whose seeded avatar church A sees on its own Person.
+			control: (value) =>
+				assert.deepEqual(value, {
+					photos: [{ personId: a.avery, photo: { kind: "account", accountId: ownerA.id, versionId: a.avatar } }],
+				}),
+		}),
 		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
 			check: (value) => {
 				assert.deepEqual(value.owner, plantB);

@@ -191,6 +191,8 @@ export type RowView = {
 	mark: RowMark;
 	/** The round mark before the name: a person's initials, or the icon of a household, tag, skill, activity or file. */
 	avatar: Exclude<Kind, "import"> | null;
+	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
+	photoFor: string | null;
 	/** Only a person (or a row that names the person it created) has a page. A household or any other record has none. */
 	href: string | null;
 };
@@ -214,7 +216,7 @@ function activityLine(fields: Record<string, unknown>) {
 function rowView(operation: string, row: SourceRow): RowView {
 	const { fields } = row;
 	const key = `${row.kind}:${row.id}`;
-	const plain = { key, mark: null, href: null } as const;
+	const plain = { key, mark: null, href: null, photoFor: null } as const;
 	switch (row.kind) {
 		case "household": {
 			const members = num(fields.memberCount);
@@ -304,6 +306,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 						warn: failed,
 					},
 					avatar: null,
+					photoFor: null,
 					href: personId ? `/people/${personId}` : null,
 				};
 			}
@@ -340,6 +343,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: fields.photo === "available" ? "Open the person's page to see it" : null,
 			mark: null,
 			avatar: null,
+			photoFor: null,
 			href,
 		};
 	if (operation === "people.listDuplicatePairs")
@@ -349,6 +353,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: typeof fields.mayDuplicate === "string" ? `May duplicate ${fields.mayDuplicate}` : null,
 			mark: null,
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (typeof fields.match === "string")
@@ -358,6 +363,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: null,
 			mark: { kind: "match", exact: fields.match === "exact" },
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (HOUSEHOLD_DETAIL.has(operation))
@@ -367,6 +373,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: typeof fields.role === "string" ? (ROLE[fields.role] ?? fields.role) : null,
 			mark: null,
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	return {
@@ -375,6 +382,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		line: typeof fields.city === "string" ? fields.city : null,
 		mark: typeof fields.stage === "string" ? { kind: "stage", stage: fields.stage } : null,
 		avatar: "person",
+		photoFor: row.id,
 		href,
 	};
 }
