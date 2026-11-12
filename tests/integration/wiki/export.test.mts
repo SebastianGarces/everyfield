@@ -2,7 +2,7 @@
 // markdown markers, prose wrapped at spaces and a human credit in the footer. No database.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bodyBlocks } from "../../../packages/domain/src/wiki/excerpt.ts";
+import { wikiBlocks as bodyBlocks } from "../../../packages/contracts/src/wiki/index.ts";
 import { helveticaPdf, helveticaWidth, printHtml } from "../../../packages/domain/src/wiki/pdf.ts";
 
 /** cp1252 bytes 0x80 to 0x9f, as the PDF viewer maps them under /WinAnsiEncoding. */

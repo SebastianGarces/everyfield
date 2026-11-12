@@ -3,7 +3,8 @@
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DEFAULT_TITLE = {
+/** Each meeting type's name. The digest SQL builds its default titles from this same map. */
+export const MEETING_TYPE_TITLE = {
 	vision_meeting: "Vision Meeting",
 	orientation: "Orientation",
 	team_meeting: "Team Meeting",
@@ -11,8 +12,11 @@ const DEFAULT_TITLE = {
 } as const;
 
 /** The title a meeting shows without its own title, as the producer builds it ("Vision Meeting #12"). */
-export const defaultTitle = (m: { type: keyof typeof DEFAULT_TITLE; visionNumber: number | null }) =>
-	DEFAULT_TITLE[m.type] + (m.visionNumber ? ` #${m.visionNumber}` : "");
+export const defaultTitle = (m: { type: keyof typeof MEETING_TYPE_TITLE; visionNumber: number | null }) =>
+	MEETING_TYPE_TITLE[m.type] + (m.visionNumber ? ` #${m.visionNumber}` : "");
+/** The title a meeting shows: its own title, or the default title when it has none. */
+export const meetingTitle = (m: Parameters<typeof defaultTitle>[0] & { title: string | null }) =>
+	m.title?.trim() || defaultTitle(m);
 
 /** "6:30 pm" from "18:30". */
 export function timeText(localTime: string): string {

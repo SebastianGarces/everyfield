@@ -1,4 +1,3 @@
-import { testDatabase } from "../../../support/test-database.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,27 +11,24 @@ import {
 	trainingReader,
 	trainingWriter,
 } from "../../../../packages/domain/src/teams/index.ts";
+import { fixture, ok, refused } from "../../../support/fixture.mts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const database = await testDatabase({ prefix: "wp019", max: 6 });
+const database = await fixture({ prefix: "wp019", max: 6 });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 let memberPerson;
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -97,33 +93,6 @@ async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
 const idsOf = (names, book) => names.map((name) => book[name]);
 
 before(async () => {
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
 	memberPerson = await person("Member leader", { account: actors[1].id });
 });
 after(async () => {
@@ -414,20 +383,8 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	const casey = await person("Casey Guest");
 	const jamie = await person("Jamie Guest");
 	const leader = memberPerson;
-	const otherMember = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	const otherMember = await database.actor({ kind: "plant", id: P }, "member");
 	actors.push(otherMember);
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${otherMember.user},${otherMember.id + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${otherMember.id},${otherMember.user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${otherMember.session},${otherMember.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${otherMember.id},${P},'member',clock_timestamp())`,
-	);
 	const stranger = await person("Other leader", { account: otherMember.id });
 	await assign(await makeRole(hospitality.id, "Host"), hospitality.id, alex);
 	await assign(await makeRole(hospitality.id, "Host two"), hospitality.id, alex);

@@ -39,6 +39,7 @@ import {
 } from "../church/editor/session.tsx";
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
+import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
 
 // A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools only: no
@@ -112,7 +113,7 @@ export default function NativeEditor({
 	const [archiveOpen, setArchiveOpen] = useState(false);
 	const [textRevision, setTextRevision] = useState(doc?.textRevision ?? false);
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 	const discarding = useRef(false);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const importKey = useRef<string | null>(null);
@@ -143,8 +144,8 @@ export default function NativeEditor({
 		() =>
 			!discarding.current &&
 			!!editor &&
-			(inflight.current !== null || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
-		[editor, isSaved],
+			(saves.busy || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
+		[editor, isSaved, saves],
 	);
 	useEffect(() => {
 		if (!editor) return;
@@ -189,7 +190,7 @@ export default function NativeEditor({
 		setPhase({ kind: "saving" });
 		setNote(null);
 		const base = savedRef.current;
-		const run = (async () => {
+		return saves.start(async () => {
 			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveOwnedDocument({
 				title: nextTitle,
@@ -218,28 +219,14 @@ export default function NativeEditor({
 			setTextRevision(false);
 			setPhase({ kind: "idle" });
 			return true;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor]);
+	}, [editor, saves]);
 
-	/**
-	 * Saves the document on screen. A save already in flight sent the document as it was when it started, so after it
-	 * resolves, edits typed meanwhile get a save of their own. True only when what is on screen is saved; a failed save
-	 * keeps its reason on the page.
-	 */
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
 	const save = useCallback(async (): Promise<boolean> => {
 		if (!editor) return false;
-		let joined = false;
-		while (inflight.current) {
-			joined = true;
-			if (!(await inflight.current)) return false;
-		}
-		if (joined && isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title) return true;
-		return saveNow();
-	}, [editor, isSaved, saveNow]);
+		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {

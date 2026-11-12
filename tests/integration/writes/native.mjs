@@ -5,11 +5,12 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import {
 	executeBulkImport,
 	PeopleReadContext,
@@ -83,14 +84,7 @@ try {
 		const pid = await locked;
 		try {
 			const result = body();
-			for (let waited = 0; ; waited++) {
-				const r = await f.db.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`,
-				);
-				if (r.rows[0].n > 0) break;
-				if (waited > 200) throw Error("no write waited for the church row");
-				await new Promise((resolve) => setTimeout(resolve, 25));
-			}
+			await waitingOnLock(f.db, { blockedBy: pid });
 			release();
 			return await result;
 		} finally {
@@ -955,19 +949,8 @@ try {
 					writes,
 				);
 			},
-			notice: (tx, i) =>
-				queueJobs(tx, [
-					{
-						tenant: i.pair.kind === "plant" ? i.pair.subject.id : i.pair.organization.id,
-						kind: "notification",
-						subject: i.relationshipId,
-						key: i.kind + "/" + i.eventId,
-						revision: i.revision,
-						eligibleAt: new Date().toISOString(),
-					},
-				]),
 			invalidate: (_tx, i) =>
-				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${i.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
+				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${i.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 		},
 		{ candidates: unused },
 	);
@@ -1041,16 +1024,6 @@ try {
 		organizations: {},
 		organizationEffects: {},
 		effects: {
-			invalidate: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.owner.id,
-					kind: "assessment",
-					subject: i.owner.id,
-					key: "native/" + i.operationId,
-					revision: i.revision,
-					eligibleAt: new Date().toISOString(),
-				});
-			},
 			replan: unexpected,
 		},
 		suppression: unexpected,

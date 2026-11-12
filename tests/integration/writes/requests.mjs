@@ -7,7 +7,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
+import { EventEmitter } from "node:events";
+import { dirname } from "node:path";
 import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
 import { createServer } from "node:net";
@@ -17,11 +19,14 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { BODY_JSON_MAX } from "../../../packages/contracts/src/documents/body.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/native.ts";
+import { IMPORT_BYTES_MAX } from "../../../packages/contracts/src/documents/values.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
+import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -260,12 +265,39 @@ try {
 	for (const m of [visionMeeting, boardMeeting]) await guest(m, maria.id);
 	for (const name of ["Ada", "Ben"]) await guest(visionMeeting, (await person(`${name} Guest`)).id);
 
+	// The Wiki (com-36): one global section and article in an active release, as the reference import stores them.
+	const GLOBAL = "00000000-0000-0000-0000-000000000000";
+	const hash = () => randomBytes(32).toString("hex");
+	const wikiSection = randomUUID(),
+		release = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${wikiSection},'section','framework/start',${GLOBAL})`,
+	);
+	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},${"release-" + release},'memory://census',${hash()},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${hash()},'v','profile',1,${GLOBAL},0)`);
+	const wikiArticle = async (slug, position) => {
+		const article = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article},'article',${slug},${GLOBAL})`,
+		);
+		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
+			VALUES(${randomUUID()},${article},${GLOBAL},${release},1,${"Article " + slug},${slug},${"About " + slug},${"Opening line.\n## Part\n> A quote\n\n1. First\n2. Second"},'safe_mdx',1,${position},${hash()},clock_timestamp(),true,1,${wikiSection},ARRAY[]::text[])`);
+		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+			VALUES(${randomUUID()},${article},${release},1,${"wiki/" + slug},${hash()},'Census credit')`);
+	};
+	await wikiArticle("census-lead", 1);
+	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+		VALUES(${randomUUID()},${release},1,clock_timestamp(),'census','census',0)`);
+
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl), keeps the objects a brand asset
 	// upload puts and records every call it gets. Signing an upload URL needs no other bucket call.
 	const bucketCalls = [];
+	// Every server log chunk, bucket call and counts-file write is a change; `until` re-checks its condition on each.
+	const changes = new EventEmitter();
 	const objects = new Map();
 	bucket = httpServer(async (request, response) => {
 		bucketCalls.push(`${request.method} ${request.url}`);
+		changes.emit("change");
 		const key = new URL(request.url, "http://bucket").pathname;
 		if (request.method === "PUT") {
 			const chunks = [];
@@ -316,19 +348,38 @@ try {
 		},
 	);
 	let log = "";
-	for (const stream of [server.stdout, server.stderr]) stream.on("data", (chunk) => (log += chunk));
+	for (const stream of [server.stdout, server.stderr])
+		stream.on("data", (chunk) => {
+			log += chunk;
+			changes.emit("change");
+		});
 	const exited = new Promise((resolve) => server.once("exit", resolve));
-	for (let ready = false, started = Date.now(); !ready;) {
-		assert.ok(
-			Date.now() - started < 60_000 && server.exitCode === null,
-			"next start did not answer:\n" + log.slice(-2000),
-		);
-		ready = await fetch(origin + "/signin").then(
-			(r) => r.ok,
-			() => false,
-		);
-		if (!ready) await new Promise((resolve) => setTimeout(resolve, 250));
-	}
+	const watcher = watch(dirname(output), () => changes.emit("change"));
+	watcher.unref();
+	/** Resolves with `check()`'s first truthy value, re-checked on every change; rejects if the server exits first. */
+	const until = (check, message) =>
+		new Promise((resolve, reject) => {
+			const finish = (settle, value) => {
+				changes.off("change", probe);
+				server.off("exit", gone);
+				settle(value);
+			};
+			const gone = () => finish(reject, Error(message + "\n" + log.slice(-2000)));
+			const probe = () => {
+				try {
+					const value = check();
+					if (value !== undefined && value !== false) finish(resolve, value);
+				} catch (error) {
+					finish(reject, error);
+				}
+			};
+			changes.on("change", probe);
+			server.once("exit", gone);
+			probe();
+		});
+	// next start prints its Ready line once it listens; the first request then answers.
+	await until(() => /Ready in/.test(log), "next start never became ready");
+	assert.equal((await fetch(origin + "/signin")).ok, true, "next start did not answer:\n" + log.slice(-2000));
 
 	// Server actions by exported name and file, from the build's action manifest.
 	const manifest = JSON.parse(readFileSync(web + ".next/server/server-reference-manifest.json", "utf8"));
@@ -339,8 +390,11 @@ try {
 		assert.equal(found.length, 1, `one server action ${file}#${name} in the build`);
 		return found[0][0];
 	};
-	const get = async (name, path, cookie, status = 200) => {
-		const r = await fetch(origin + path, { headers: { "x-evf-request": name, cookie }, redirect: "manual" });
+	const get = async (name, path, cookie, status = 200, headers = {}) => {
+		const r = await fetch(origin + path, {
+			headers: { ...headers, "x-evf-request": name, cookie },
+			redirect: "manual",
+		});
 		await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
 	};
@@ -373,6 +427,15 @@ try {
 		["GET /people/[personId]", `/people/${maria.id}`, owner.cookie],
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
+		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
+		// The badges and a bulk change's stale rows read only the rows on screen, by ID (com-36).
+		["GET /tasks/read?what=blocking", `/tasks/read?what=blocking&id=${followUpId}`, owner.cookie],
+		["GET /tasks/read?what=rows", `/tasks/read?what=rows&id=${followUpId}`, owner.cookie],
+		["GET /wiki", "/wiki", owner.cookie],
+		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
+		// A crawler gets the public preview: one read for the metadata and the body together.
+		["GET /wiki/[slug] (crawler)", "/wiki/census-lead", "", 200, { "user-agent": "Googlebot/2.1" }],
+		["GET /api/evry/open", "/api/evry/open", owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
 		["GET /documents/church", "/documents/church", owner.cookie],
 		["GET /documents/church (member)", "/documents/church", member.cookie],
@@ -413,24 +476,28 @@ try {
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
 	// the connections one request uses (the first before it answers, the rest just after: warm_rest), so the first
 	// person page (two reads at once) and the first upload sign open no connection and call no bucket.
-	for (
-		const started = Date.now();
-		!bucketCalls.length || !log.includes('"event":"warm_rest"');
-		await new Promise((resolve) => setTimeout(resolve, 50))
-	)
-		assert.ok(Date.now() - started < 10_000, "server start never checked the bucket or never opened every connection");
+	await until(
+		() => bucketCalls.length > 0 && log.includes('"event":"warm_rest"'),
+		"server start never checked the bucket or never opened every connection",
+	);
 	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="]);
-	const opened = async (name) => {
-		for (const started = Date.now(); ; await new Promise((resolve) => setTimeout(resolve, 20))) {
-			const row = readFileSync(output, "utf8")
-				.split("\n")
-				.filter(Boolean)
-				.map((line) => JSON.parse(line))
-				.find((r) => r.name === name);
-			if (row) return row.connects;
-			assert.ok(Date.now() - started < 5_000, `${name}: no sample`);
-		}
-	};
+	const opened = (name) =>
+		until(
+			() =>
+				readFileSync(output, "utf8")
+					.split("\n")
+					.filter(Boolean)
+					.flatMap((line) => {
+						// A line being written as the watcher fires is not a sample yet.
+						try {
+							return [JSON.parse(line)];
+						} catch {
+							return [];
+						}
+					})
+					.find((r) => r.name === name)?.connects,
+			`${name}: no sample`,
+		);
 	await get("GET /people/[personId]", `/people/${maria.id}`, owner.cookie);
 	assert.equal(await opened("GET /people/[personId]"), 0, "the first person page opened a database connection");
 	const sign = "POST people.assessments.signCommitmentUpload";
@@ -446,8 +513,9 @@ try {
 	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="], "the first upload sign called the bucket");
 
 	// Warm every route once (module load, first connections), then read each page with little data.
-	for (const [, path, cookie] of pages) await fetch(origin + path, { headers: { cookie } }).then((r) => r.text());
-	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
+	for (const [, path, cookie, , headers] of pages)
+		await fetch(origin + path, { headers: { ...headers, cookie } }).then((r) => r.text());
+	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
 	// The resident's budget is the page with its residency card, not the refusal a seatless account without one gets.
 	const sharingPage = await fetch(origin + "/settings/sharing", { headers: { cookie: resident.cookie } }).then((r) =>
 		r.text(),
@@ -659,8 +727,8 @@ try {
 		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
-		const refused = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
-		assert.deepEqual([refused.status, refused.error?.code], ["refused", "access_denied"], action);
+		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
+		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) {
@@ -765,6 +833,120 @@ try {
 	);
 	assert.equal(retracted.status, "ok", JSON.stringify(retracted));
 
+	// T-120, kept by T-237 and moved here from the browser suite by T-259: the host's two document limits
+	// (apps/web/next.config.ts), which only a running server shows. Setup requests: they carry no budget.
+	//  - A Word import of exactly IMPORT_BYTES_MAX passes the proxy (proxyClientMaxBodySize) and the import route whole and
+	//    lands as the document's first revision; a file one byte over gets the stated limit, not a dropped connection,
+	//    with a length header and without one (the route counts the bytes as they arrive, before it reads anything else).
+	//  - A written-document save and a Church Document save whose body JSON is near BODY_JSON_MAX (over 3 MB of UTF-8)
+	//    pass the server-action limit (serverActions.bodySizeLimit) and are stored whole.
+	async function documentHostLimits() {
+		/** A Word file of exactly `size` bytes: one paragraph of text and a picture part that pads it to that size. */
+		const wordFile = (size, line) => {
+			const xml = `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${wordParagraph(line)}</w:body></w:document>`;
+			const build = (padding) =>
+				storedZip([
+					{ name: "word/document.xml", data: xml },
+					{ name: "word/media/image1.png", data: randomBytes(padding) },
+				]);
+			const bytes = build(size - build(0).length);
+			assert.equal(bytes.length, size);
+			return bytes;
+		};
+		/** Posts the file to the import route as the editor does, signed in as the Owner. */
+		const importFile = async (body, title, extra = {}) => {
+			const query = new URLSearchParams({ title, format: "docx", expectedRevision: "0", requestKey: randomUUID() });
+			const r = await fetch(`${origin}/documents/written/import?${query}`, {
+				method: "POST",
+				headers: {
+					"content-type": "application/octet-stream",
+					cookie: owner.cookie,
+					origin,
+					"sec-fetch-site": "same-origin",
+				},
+				body,
+				...extra,
+			});
+			assert.equal(r.status, 200, `import ${title}: HTTP ${r.status}`);
+			return r.json();
+		};
+		const tooLarge = { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." };
+		// The route counts the bytes before anything reads the request: with an empty title too, the answer is the size
+		// limit. The domain refuses an oversized file as well, but it states the title's problem first.
+		const over = wordFile(IMPORT_BYTES_MAX + 1, "Just over");
+		assert.deepEqual(await importFile(over, ""), tooLarge, "a length header just over the limit");
+		const streamed = new ReadableStream({
+			start(controller) {
+				for (let at = 0; at < over.length; at += 1024 * 1024) controller.enqueue(over.subarray(at, at + 1024 * 1024));
+				controller.close();
+			},
+		});
+		assert.deepEqual(await importFile(streamed, "", { duplex: "half" }), tooLarge, "no length header");
+		const marker = `Exactly ten ${randomUUID()}`;
+		const exact = await importFile(wordFile(IMPORT_BYTES_MAX, marker), "Exactly the limit");
+		assert.equal(exact.status, "ok", JSON.stringify(exact));
+		assert.equal(exact.value.revision, "1");
+		assert.match(JSON.stringify(exact.value.body), new RegExp(marker));
+
+		/** The stored body of a document's latest revision, read again from the database. */
+		const storedBody = async (documentId) =>
+			JSON.parse(
+				(
+					await admin.execute(
+						sql`SELECT r.body FROM document d JOIN document_revision r ON r.id=d.current_revision_id WHERE d.id=${documentId}::uuid`,
+					)
+				).rows[0].body,
+			);
+		/** Paragraphs of "€" (3 UTF-8 bytes each, under the block text limit) to add `room` characters of JSON. */
+		const euros = (room) => {
+			const paragraph = { type: "paragraph", content: [{ type: "text", text: "€".repeat(19_000) }] };
+			return Array.from({ length: Math.floor(room / JSON.stringify(paragraph).length) }, () => paragraph);
+		};
+		const bytesOf = (value) => Buffer.byteLength(JSON.stringify(value));
+
+		const start = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Start." }] }] };
+		const writtenBody = { ...start, content: [...start.content, ...euros(BODY_JSON_MAX - 40_000)] };
+		const writtenLength = JSON.stringify(writtenBody).length;
+		assert.ok(writtenLength > 1_900_000 && writtenLength < BODY_JSON_MAX, `written body is ${writtenLength}`);
+		assert.ok(bytesOf(writtenBody) > 3_000_000, "the written save is over 3 MB on the wire");
+		const written = await act(
+			null,
+			"/documents/written/new",
+			"apps/web/src/features/documents/actions.ts",
+			"saveOwnedDocument",
+			[{ title: "Near the body limit", body: writtenBody, expectedRevision: "0" }],
+		);
+		assert.equal(written.status, "ok", JSON.stringify(written).slice(0, 500));
+		assert.equal(JSON.stringify(await storedBody(written.value.id)).length, writtenLength);
+
+		const church = await churchDocument("commitment-card");
+		const base = await storedBody(church);
+		// The saved document holds its page setup and exports beside the body, so the fill leaves room for them.
+		const churchBody = {
+			...base,
+			body: {
+				...base.body,
+				content: [...base.body.content, ...euros(BODY_JSON_MAX - 60_000 - JSON.stringify(base).length)],
+			},
+		};
+		const churchLength = JSON.stringify(churchBody).length;
+		assert.ok(churchLength > 1_900_000, `Church body is ${churchLength}`);
+		assert.ok(bytesOf(churchBody) > 3_000_000, "the Church save is over 3 MB on the wire");
+		const [{ revision: churchRevision }] = (
+			await admin.execute(sql`SELECT revision::text AS revision FROM document WHERE id=${church}::uuid`)
+		).rows;
+		const savedChurch = await act(
+			null,
+			`/documents/church/${church}`,
+			"apps/web/src/features/documents/church/actions.ts",
+			"saveChurchDocument",
+			[church, churchRevision, churchBody],
+		);
+		assert.equal(savedChurch.status, "saved", JSON.stringify(savedChurch).slice(0, 500));
+		assert.equal(JSON.stringify(await storedBody(church)).length, churchLength);
+	}
+	await documentHostLimits();
+
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 12; i++)
 		assert.equal(
@@ -792,6 +974,10 @@ try {
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
 	await notices(80);
+	for (let i = 0; i < 12; i++) await wikiArticle(`census-grown-${i}`, i + 2);
+	await admin.execute(
+		sql`INSERT INTO conversation(tenant_id,account_id,context_kind,title) VALUES(${plant.id},${owner.accountId},'plant','Census')`,
+	);
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
 	// The ministry page lists its team meetings in one read: a dozen of them send the same statement count (WP-017).
@@ -854,7 +1040,16 @@ try {
 		writtenDocument.id,
 		writtenDocument.revision,
 	);
-	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
+	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
+	const composed = await act(
+		"POST communication.readMeetingContext",
+		"/communication",
+		"apps/web/src/features/communication/actions.ts",
+		"readMeetingContext",
+		[visionMeeting],
+	);
+	assert.equal(composed.status, "ok", JSON.stringify(composed));
+	assert.equal(composed.value.guests.length, 103);
 
 	server.kill("SIGTERM");
 	await exited;

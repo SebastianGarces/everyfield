@@ -179,11 +179,7 @@ test("AC:OUTBOX-RESTORE-001 INV-mail: dropped acceptance replays only the identi
 test("INV-mail: killing a worker after provider acceptance recovers its original request without another effect", async () => {
 	mode = "hold";
 	const id = await enqueue();
-	let timer;
-	const observed = new Promise((resolve, reject) => {
-		handedOff = resolve;
-		timer = setTimeout(() => reject(Error("handoff_not_observed")), 15000);
-	});
+	const observed = new Promise((resolve) => (handedOff = resolve));
 	const child = spawn(
 		process.execPath,
 		["--conditions=react-server", new URL("./dispatch-child.mts", import.meta.url).pathname],
@@ -199,10 +195,11 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 		},
 	);
 	const exited = new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
+	// The provider sees the handoff before the child ends; a child that exits first never handed off.
 	try {
-		await observed;
+		const first = await Promise.race([observed.then(() => "handed_off"), exited.then(() => "handoff_not_observed")]);
+		assert.equal(first, "handed_off");
 	} finally {
-		clearTimeout(timer);
 		child.kill("SIGKILL");
 	}
 	assert.deepEqual(await exited, { code: null, signal: "SIGKILL" });

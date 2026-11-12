@@ -2,6 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { fixture, key, noReminders } from "./invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
@@ -179,15 +180,13 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-			let blocked = false;
-			for (let attempt = 0; attempt < 300 && !blocked; attempt++) {
-				const result = await f.admin.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-				);
-				blocked = Number(result.rows[0].n) > 0;
-				if (!blocked) await new Promise((resolve) => setTimeout(resolve, 10));
-			}
-			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
+			assert.equal(
+				await waitingOnLock(f.admin, { blockedBy: pid }),
+				true,
+				`${via} must wait for the workspace root lock`,
+			);
+			// Exempt from the no-sleep rule (test-standard, owner ruling D-704): the claim reads and locks the invitation
+			// before this wait, so only elapsed time shows the expiry check uses the clock read after the root lock (RT-6a).
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
@@ -253,7 +252,10 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	);
 	await f.admin
 		.update(t.invitation)
-		.set({ resent_at: new Date(Date.now() - 61000), created_at: new Date(Date.now() - 120000) })
+		.set({
+			resent_at: sql`clock_timestamp()-interval '61 seconds'`,
+			created_at: sql`clock_timestamp()-interval '120 seconds'`,
+		})
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	const sent = await f.invitations.resend(await f.actor(s2.sender.session), {
 		...change,
@@ -267,7 +269,7 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	assert.notEqual(fresh, i2.proof);
 	await f.admin
 		.update(t.invitation)
-		.set({ created_at: new Date(Date.now() - 30 * 86400000) })
+		.set({ created_at: sql`clock_timestamp()-interval '720 hours'-interval '1 second'` })
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	assert.deepEqual(await f.invitations.describe({ proof: fresh }), { status: "unavailable" });
 });
@@ -928,18 +930,11 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-		let blocked = false;
-		for (let attempt = 0; attempt < 30; attempt++) {
-			const result = await f.admin.execute(
-				sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-			);
-			if (Number(result.rows[0].n) > 0) {
-				blocked = true;
-				break;
-			}
-			await new Promise((resolve) => setTimeout(resolve, 10));
-		}
-		assert.equal(blocked, true, "The claim must reach its competing Person lock");
+		assert.equal(
+			await waitingOnLock(f.admin, { blockedBy: pid }),
+			true,
+			"The claim must reach its competing Person lock",
+		);
 		await tx
 			.update(t.person)
 			.set({ state: "retired", retired_at: new Date(), revision: "2" })

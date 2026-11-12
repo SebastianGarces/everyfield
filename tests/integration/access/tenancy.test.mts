@@ -37,6 +37,7 @@ import {
 	peopleViewer,
 	peopleWriter,
 	personFields,
+	previewStoredImport,
 	readColumnOrders,
 	readPersonPage,
 	readPersonPhoto,
@@ -45,16 +46,19 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { readBrandAssetIfChanged } from "../../../packages/domain/src/branding/index.ts";
+import { meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
+import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
 import { organizationsCases, seedOrganizations } from "./tenancy-organizations.mts";
 import { phasesCases, seedPhases } from "./tenancy-phases.mts";
+import { seedSettings, settingsCases } from "./tenancy-settings.mts";
 import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
 import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 
@@ -163,10 +167,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
@@ -461,8 +461,15 @@ function cases(who) {
 	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
+	// A meetings read this file's own seed meeting covers.
+	const area = (name, run, expected) => [name, { run, expected }];
 	const unavailable = { refused: "unavailable" };
 	return new Map([
+		area(
+			"meetings:meetingsReader.pageGuests",
+			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			unavailable,
+		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
 			refused: "invalid_subject",
 		}),
@@ -657,6 +664,12 @@ function cases(who) {
 			{ refused: "unavailable", control: null },
 		),
 		ppl(
+			"previewStoredImport",
+			() => previewStoredImport(f.db, storage, who.actor, { uploadId: key() }),
+			// An upload id names a staged file of the caller's own church only; the seed stages none.
+			{ refused: "file_changed", control: null },
+		),
+		ppl(
 			"peopleCsv.previewImport",
 			() =>
 				reads((t, c) =>
@@ -684,14 +697,6 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
-		[
-			"branding:readBrandAssetIfChanged",
-			{
-				run: () => readBrandAssetIfChanged(f.db, storage, who.actor, key(), () => true),
-				// The seed stores no brand asset, so church A has nothing to read back either.
-				expected: { refused: "unavailable", control: null },
-			},
-		],
 		// Only a sending church's own Owner or Admin has pipeline choices; a church's owner, even naming a church A id as
 		// the connection, gets none, and church A has no sending-church connection for the control to read.
 		[
@@ -710,6 +715,8 @@ function cases(who) {
 		...organizationsCases(t, who),
 		...accessCases(t, who),
 		...onboardingCases(t, who),
+		...brandingCases(t, who),
+		...settingsCases(t, who),
 	]);
 }
 
@@ -735,6 +742,8 @@ before(async () => {
 	await seedOrganizations(t);
 	await seedAccess(t);
 	await seedOnboarding(t);
+	await seedBranding(t);
+	await seedSettings(t);
 });
 after(() => f?.close());
 
