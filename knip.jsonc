@@ -2,8 +2,8 @@
 //   pnpm dlx knip@6.43.0 --include exports,types,nsExports,nsTypes
 // knip is not a dependency and does not run in CI or `pnpm lint`. Every test, script and tool is an entry point, so an
 // export that only they use counts as used. The package.json `exports` maps count as public entry points (knip's
-// default mode, without --include-entry-exports). The sweep covers packages/contracts, packages/domain, packages/ui and
-// apps/web; packages/db, packages/evry and packages/reference are a later slice, so their findings are not kept here.
+// default mode, without --include-entry-exports). The sweep covers packages/contracts, packages/domain, packages/ui,
+// apps/web (T-188), and packages/db, packages/evry and packages/reference (T-278).
 {
 	"$schema": "https://unpkg.com/knip@6.43.0/schema-jsonc.json",
 	"workspaces": {

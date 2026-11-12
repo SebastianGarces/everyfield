@@ -12,8 +12,8 @@ import { reviewMap, reviewsOf } from "../proposals/review.ts";
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
 // one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
 
-export const PAGE_SIZE = 24;
-export const EVENT_PAGE = 200;
+const PAGE_SIZE = 24;
+const EVENT_PAGE = 200;
 const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
 /** The conversation's active run can still make progress (runtime/job.ts). */
 const liveRun = (alias: string) =>
@@ -23,14 +23,14 @@ const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
 const requestKey = z.string().min(8).max(200);
 export const reference = z.strictObject({ kind: z.literal("person"), id: z.uuid() });
-export const submitInput = z.strictObject({
+const submitInput = z.strictObject({
 	requestKey,
 	text,
 	/** Visible page context: presentation hints only. Each is re-read under current authority before model use. */
 	references: z.array(reference).max(64).default([]),
 });
-export const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
-export const listInput = z.strictObject({
+const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
+const listInput = z.strictObject({
 	search: z.string().trim().min(1).max(200).optional(),
 	page: z.int().min(1).max(100_000).default(1),
 });

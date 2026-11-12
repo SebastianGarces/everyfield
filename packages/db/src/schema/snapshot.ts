@@ -47,7 +47,7 @@ const table = z
 	})
 	.passthrough();
 /** Kit's stable API is an external boundary; retain its full artifact and validate fields we consume. */
-export const snapshotShape = z
+const snapshotShape = z
 	.object({
 		version: z.literal("7"),
 		dialect: z.literal("postgresql"),
