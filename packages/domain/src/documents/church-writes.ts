@@ -1639,7 +1639,6 @@ export const churchWriter = {
 			const found = await rowsOf<{
 				ok: boolean;
 				document_id: string | null;
-				deleted: boolean | null;
 				id: string | null;
 				version_number: number | null;
 				author_account_id: string | null;
