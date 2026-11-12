@@ -79,18 +79,18 @@ export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
 ): Promise<
-	Load<{
-		view: ChurchView;
-		document: DocDocument;
-		brands: DocBrands | null;
-		mergeValues: Record<string, string>;
-		template: TemplateState;
-		exports: SavedExport[];
-		/** The newest 1000 revisions, newest first. */
-		revisions: RevisionRow[];
-		/** True when the document has older revisions than `revisions` holds. */
-		revisionsTruncated: boolean;
-	}>
+	| Load<{
+			view: ChurchView;
+			document: DocDocument;
+			brands: DocBrands | null;
+			mergeValues: Record<string, string>;
+			template: TemplateState;
+			exports: SavedExport[];
+			/** The newest 1000 revisions, newest first. */
+			revisions: RevisionRow[];
+			/** True when the document has older revisions than `revisions` holds. */
+			revisionsTruncated: boolean;
+	  }>
 	// Only a seat of the church plant whose document was deleted; anyone else gets "refused", as for an unknown id.
 	| { status: "deleted" }
 > {
