@@ -52,7 +52,7 @@ export type DeletionRequest = { subject: DeletionSubject; requestId: string; rev
 /** The facts of one church workspace deletion notice: the church, its request and every seat open at the commit. */
 export type WorkspaceDeletionNotice = {
 	kind: "requested" | "cancelled";
-	plant: { id: string; name: string; timeZone: string };
+	plant: { name: string; timeZone: string };
 	requestId: string;
 	requester: { accountId: string; name: string };
 	cancelUntil: string;
@@ -92,7 +92,7 @@ async function seated(
 	if (!first || !w.request_id || !w.requester_id || !w.cancel_until) deny();
 	return {
 		kind,
-		plant: { id: w.plant_id!, name: first.plant_name, timeZone: first.plant_timezone },
+		plant: { name: first.plant_name, timeZone: first.plant_timezone },
 		requestId: w.request_id,
 		requester: { accountId: w.requester_id, name: first.requester_name ?? "The Owner" },
 		cancelUntil: w.cancel_until.toISOString(),
