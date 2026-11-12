@@ -9427,6 +9427,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "communication_id": {
+          "name": "communication_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9540,6 +9546,27 @@
             },
             {
               "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_communication": {
+          "name": "mail_communication",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "communication_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -9665,6 +9692,21 @@
           "columnsTo": [
             "id",
             "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "mail_fk_8": {
+          "name": "mail_fk_8",
+          "tableFrom": "mail",
+          "tableTo": "communication",
+          "columnsFrom": [
+            "communication_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"

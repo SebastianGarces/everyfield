@@ -132,7 +132,7 @@ async function writeOptOut(db: Database, value: Claim) {
 			WHERE m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
 				AND m.recipient_person_id IN (SELECT t.id UNION ALL
 					SELECT q.merged_into_person_id FROM person q WHERE q.id = t.id AND q.merged_into_person_id IS NOT NULL)
-			RETURNING m.id, m.recipient_person_id, m.scheduled_at, split_part(m.logical_key, '/', 2)::uuid AS communication_id
+			RETURNING m.id, m.recipient_person_id, m.scheduled_at, m.communication_id
 		), noticed AS (
 			-- The staff member who scheduled each skipped email is told now, in the bell, while they hold a seat in this
 			-- church (T-242, D-680 to D-684). One notice per email and per person: the key repeats on a retry, and an
@@ -163,7 +163,7 @@ async function writeOptOut(db: Database, value: Claim) {
 				-- This statement's own skips are not visible to its other parts, so they count as unsubscribed here.
 				NOT EXISTS (SELECT 1 FROM mail o
 					WHERE o.tenant_id = c.plant_id AND o.purpose = 'communication'
-						AND o.logical_key LIKE 'communication/' || c.id::text || '/%'
+						AND o.communication_id = c.id
 						AND o.id NOT IN (SELECT id FROM skipped) AND o.refusal IS DISTINCT FROM 'unsubscribed') AS only
 			) x
 			WHERE c.plant_id = (SELECT tenant_id FROM target)
