@@ -5,7 +5,8 @@ import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 // database or environment dependency. The layout is system code: tables and inline styles only, no `<style>` block,
 // no external CSS or fonts. Author HTML never reaches it unsanitized.
 
-export type EmailContext = { churchName: string };
+/** `unsubscribeUrl`: the recipient's own Messages Unsubscribe page. A preview has none, so it shows no link. */
+export type EmailContext = { churchName: string; unsubscribeUrl?: string };
 
 const INK = "#181D19";
 
@@ -37,6 +38,11 @@ function initials(name: string): string {
 	return letters.join("") || "•";
 }
 
+function unsubscribeLink(url: string | undefined): string {
+	if (!url) return "";
+	return ` <a href="${escapeHtml(url)}" style="color:#666A64;text-decoration:underline;">Unsubscribe</a>`;
+}
+
 /** The complete HTML document for one recipient: layout, the rendered body and the RSVP button. */
 export function renderEmailHtml(
 	body: string,
@@ -61,7 +67,7 @@ export function renderEmailHtml(
 		`<td style="padding-left:10px;font-family:${FONT};font-size:15px;font-weight:600;color:${INK};">${church}</td>` +
 		`</tr></table></td></tr>` +
 		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${content}</td></tr>` +
-		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.</td></tr>` +
+		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}</td></tr>` +
 		`</table>` +
 		`<!--[if mso]></td></tr></table><![endif]-->` +
 		`</td></tr></table></body></html>`

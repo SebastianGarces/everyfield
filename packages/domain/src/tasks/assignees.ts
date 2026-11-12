@@ -18,7 +18,7 @@ export const idsOf = (people: readonly { accountId: string }[]) => people.map((p
 
 /**
  * The assignees of the task row `task` (an alias with id and plant_id) as one JSON array, in the same statement as the
- * task. A scalar lookup for the name, as nameOf in queries.ts: seat_identity declares 1000 rows.
+ * task. The name is a scalar subquery with LIMIT 1 because seat_identity declares 1000 rows.
  */
 export const assigneesOf = (task: string) => {
 	const t = sql.raw(task);

@@ -135,11 +135,15 @@ const latest = (...dates: (Date | string | null)[]) => {
 	const known = dates.filter((d) => d !== null).map((d) => Date.parse(new Date(d).toISOString()));
 	return known.length ? at(new Date(Math.max(...known))) : null;
 };
-/** The actual instant must not be after the server's clock; truthful late entry keeps its past instant. */
+/**
+ * The actual instant: one more than CLOCK_ALLOWANCE_MS (2 minutes) after the server's clock is refused as future; one
+ * within it is a browser clock running ahead and is stored as the server's clock, so it is never after recorded_at.
+ * Truthful late entry keeps its past instant.
+ */
 function occurrence(value: Instant | undefined, fallback: Date, clock: Date) {
 	const d = value ? new Date(value) : fallback;
-	if (d > clock) refuse("future_occurrence");
-	return d;
+	if (d.getTime() > clock.getTime() + c.CLOCK_ALLOWANCE_MS) refuse("future_occurrence");
+	return d > clock ? clock : d;
 }
 
 const personFacts = z.object({

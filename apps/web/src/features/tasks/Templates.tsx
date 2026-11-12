@@ -225,7 +225,7 @@ function CatalogBody({
 }
 
 /** The chosen checklist's body: its description, what adding it does and its tasks under a heading that names it. */
-export function PreviewBody({
+function PreviewBody({
 	state,
 	shown,
 	year,

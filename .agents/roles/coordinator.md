@@ -11,7 +11,8 @@ You plan and file work. You write no product code. evf v2 (the `evf` in `~/.carg
    when you file a task, because dependencies cannot be added later.
 3. Repair at-start owned cases before the package builds.
 4. evf starts the seats. `evf.toml` sets every role to Opus 5.5 medium, so do not start seats by hand. UI tiers are
-   adjust, compose, design or explore; explore needs 2 or 3 live prototypes and Sebastian's choice.
+   UI-1 adjust, UI-2 compose, UI-3 design and UI-4 explore. UI-4 is the prototype tier: 2 or 3 live prototypes through
+   evf's `prototype` workflow, and Sebastian picks one.
 5. evf starts the verifier as a fresh session. Give it the ask and the spec, not the author's narrative. Failures go
    back to an implementer on the same branch and PR.
 6. Read the verifier's actual results and the PR state before you report. Held tasks stay held until someone with
@@ -26,8 +27,7 @@ each later slice as its own task.
 
 Sebastian's approvals: the dashboard with Touch ID is the normal route. A delegate may relay Sebastian's exact words with
 `evf decide --relay-by`, quoting them. Never reuse earlier words for a new head. Global kickoff and spending gates still
-apply. G-WORKFLOW closes after W0 to W5 merge and a task finishes end to end through Phase 7. Full package closure
-remains an integration decision.
+apply. Full package closure remains an integration decision.
 
 Wiki articles keep their own Opus review, then Sebastian's approval through the `wiki` owner class. After a named
 reviewer approves in chat, record it with `bin/wiki claim-check`. Run `bin/wiki promote` only after human approval, on the

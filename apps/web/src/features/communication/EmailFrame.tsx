@@ -12,7 +12,7 @@ import { renderPreview, type PreviewInput } from "./preview.ts";
 type Width = "desktop" | "phone";
 const widthPx: Record<Width, number> = { desktop: 600, phone: 375 };
 
-export function EmailFrame({ html, width, label = "Email preview" }: { html: string; width: Width; label?: string }) {
+function EmailFrame({ html, width, label = "Email preview" }: { html: string; width: Width; label?: string }) {
 	const holder = useRef<HTMLDivElement>(null);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const [available, setAvailable] = useState(widthPx.desktop);

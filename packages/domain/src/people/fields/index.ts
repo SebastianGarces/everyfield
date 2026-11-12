@@ -1,7 +1,7 @@
 import * as f from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, inArray, sql } from "@everyfield/db/query";
 import {
 	putPrivateObject,
 	readAuthorizedObject,
@@ -45,14 +45,22 @@ const photo = {
 			await lockOwner(tx, ctx);
 			await authorize(tx, ctx, true);
 			livePerson(await personFacts(tx, plant, input.personId));
-			const id = randomUUID();
-			// The object and its orphan cleanup are one statement: an upload never finalized is removed after expiry.
+			// The request key names the upload, so a replay after a lost answer reaches the same object, not a second one.
+			const id = uploadIdFor(plant, input.requestKey);
+			// The object and its orphan cleanup are one statement: an upload never finalized is removed after expiry. A replay
+			// inserts nothing and answers the object it made first; the cleanup it queued then stays the only one.
 			const result = await tx.execute(sql`WITH upload AS (
  INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
  VALUES (${id}::uuid,${plant}::uuid,'person_photo',${`private/${plant}/${randomUUID()}`},${input.mime},${input.byteLength},'pending',${id},0,clock_timestamp()+interval '15 minutes')
- RETURNING id,expires_at), cleanup AS (${queueObjectCleanup(tx, plant, id, "upload", sql`(SELECT expires_at FROM upload)`).getSQL()})
- SELECT expires_at FROM upload`);
-			const expiresAt = z.coerce.date().parse(result.rows[0]?.expires_at).toISOString();
+ ON CONFLICT (id) DO NOTHING
+ RETURNING expires_at,media_type,max_bytes), cleanup AS (${queueObjectCleanup(tx, plant, id, "upload", sql`COALESCE((SELECT expires_at FROM upload),clock_timestamp())`).getSQL()})
+ SELECT expires_at,media_type,max_bytes FROM upload
+ UNION ALL SELECT expires_at,media_type,max_bytes FROM file_object
+ WHERE id=${id}::uuid AND tenant_id=${plant}::uuid AND purpose='person_photo' AND NOT EXISTS(SELECT FROM upload)`);
+			const row = result.rows[0];
+			// The same request key with another file is not a replay.
+			if (!row || row.media_type !== input.mime || Number(row.max_bytes) !== input.byteLength) deny("conflict");
+			const expiresAt = z.coerce.date().parse(row.expires_at).toISOString();
 			return f.photoUploadResult.parse({ uploadId: id, expiresAt });
 		});
 	},
@@ -146,6 +154,15 @@ const photo = {
 	},
 };
 
+/** The photo upload of one photo change: a UUID from the church and the request key, the same on every replay. */
+function uploadIdFor(plant: string, requestKey: string) {
+	const h = createHash("sha256").update(`person-photo-upload\0${plant}\0${requestKey}`).digest();
+	h[6] = (h[6]! & 0x0f) | 0x50;
+	h[8] = (h[8]! & 0x3f) | 0x80;
+	const x = h.subarray(0, 16).toString("hex");
+	return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
+}
+
 /** Every household, tag, skill and photo operation, named as its catalog operation people.<name>. */
 export const personFields = { ...households, ...tagsAndSkills, ...photo };
 
@@ -187,9 +204,10 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 	return readReply(async () => {
 		const plant = plantId(ctx);
 		const input = parse(z.object({ uploadId: z.uuid(), bytes: z.instanceof(Uint8Array) }), raw);
+		const sha256 = createHash("sha256").update(input.bytes).digest("hex");
 		const file = await db.transaction(async (tx) => {
 			await authorize(tx, ctx, true);
-			const [pending] = await tx
+			const [current] = await tx
 				.select()
 				.from(tables.file_object)
 				.where(
@@ -197,28 +215,34 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 						eq(tables.file_object.id, input.uploadId),
 						eq(tables.file_object.tenant_id, plant),
 						eq(tables.file_object.purpose, "person_photo"),
-						eq(tables.file_object.state, "pending"),
+						inArray(tables.file_object.state, ["pending", "ready"]),
 					),
 				)
 				.for("update");
-			if (!pending) deny();
+			if (!current) deny();
+			// A replay after a lost answer: these exact bytes are stored already, so they are not sent to storage again.
+			if (current.state === "ready") {
+				if (current.sha256 !== sha256 || Number(current.byte_count) !== input.bytes.length) deny("conflict");
+				return null;
+			}
 			// A failed upload changes nothing: the Person keeps its current photo.
-			if (input.bytes.length !== Number(pending.max_bytes)) deny("invalid_input");
-			await validateAvatar(input.bytes, pending.media_type).catch(() => deny("invalid_input"));
+			if (input.bytes.length !== Number(current.max_bytes)) deny("invalid_input");
+			await validateAvatar(input.bytes, current.media_type).catch(() => deny("invalid_input"));
 			await tx
 				.update(tables.file_object)
-				.set({ byte_count: String(input.bytes.length), sha256: createHash("sha256").update(input.bytes).digest("hex") })
-				.where(eq(tables.file_object.id, pending.id));
-			return pending;
+				.set({ byte_count: String(input.bytes.length), sha256 })
+				.where(eq(tables.file_object.id, current.id));
+			return current;
 		});
-		await putPrivateObject(db, storage, photoAuthority(ctx), {
-			tenantId: plant,
-			purpose: "person_photo",
-			mediaType: file.media_type,
-			bytes: input.bytes,
-			uploadKey: file.upload_key,
-		}).catch(() => deny());
-		return { uploadId: file.id };
+		if (file)
+			await putPrivateObject(db, storage, photoAuthority(ctx), {
+				tenantId: plant,
+				purpose: "person_photo",
+				mediaType: file.media_type,
+				bytes: input.bytes,
+				uploadKey: file.upload_key,
+			}).catch(() => deny());
+		return { uploadId: input.uploadId };
 	});
 }
 

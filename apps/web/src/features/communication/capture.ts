@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,6 +20,8 @@ export type Captured = {
 	subject: string;
 	html: string;
 	text: string;
+	/** The headers the provider request would carry: the List-Unsubscribe pair of an optional email. */
+	headers?: Readonly<Record<string, string>>;
 	/** The held send time, or null for a send-now capture. */
 	scheduledAt: string | null;
 	cancelled: boolean;
@@ -54,16 +56,41 @@ export async function captureSilent(): Promise<boolean> {
 	);
 }
 
-export async function record(
+/**
+ * Record one message as the provider would under an idempotency key: the same `key` always names the same capture, so
+ * a replay of a send answers with the first capture's id and writes nothing (`fresh` false).
+ */
+export async function capture(
 	message: Omit<Captured, "id" | "at" | "scheduledAt" | "cancelled">,
-	scheduledAt: string | null = null,
+	scheduledAt: string | null,
+	key: string,
 	directory = outboxFolder(),
-): Promise<string> {
-	const id = `capture-${randomUUID()}`;
+): Promise<{ id: string; fresh: boolean }> {
+	const id = `capture-${keyedId(key)}`;
 	await mkdir(directory, { recursive: true });
 	const entry: Captured = { id, at: new Date().toISOString(), ...message, scheduledAt, cancelled: false };
-	await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });
-	return id;
+	try {
+		await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });
+		return { id, fresh: true };
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "EEXIST") return { id, fresh: false };
+		throw error;
+	}
+}
+
+/** A UUID-shaped id from a key, so a capture id keeps the `capture-<uuid>` form. */
+function keyedId(key: string): string {
+	const h = createHash("sha256").update(key).digest("hex");
+	return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/** Whether a capture with this id is in the outbox: the capture's answer to a lookup by id. */
+export async function captured(id: string): Promise<boolean> {
+	if (!/^capture-[0-9a-f-]{36}$/.test(id)) return false;
+	return access(join(outboxFolder(), `${id}.json`)).then(
+		() => true,
+		() => false,
+	);
 }
 
 /**

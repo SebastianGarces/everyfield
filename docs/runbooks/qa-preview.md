@@ -1,7 +1,7 @@
 # QA preview runbook (OPS-106)
 
 A QA preview is a Vercel preview of one branch with its own database. It gives Nora a working copy of the app to test,
-with seeded data, seven known logins and the same shared credentials as every preview. Nothing builds on a normal push
+with seeded data, eight known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
 `bin/qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md). The code is in `tools/qa/`.
@@ -11,6 +11,9 @@ or PR. A preview exists only when someone asks for one, and the lead removes it 
 Nora posts one message to the engineering lead (Jonah) in the team thread:
 
 > QA preview please: `<branch name or PR link>`. What I want to test: `<one line>`.
+
+When the test needs mail to reach an inbox she can read, she names those addresses in the same message (see
+"Real test inboxes" below).
 
 She never pastes a password, key or bypass secret into the request. The lead answers in the same thread with the URL
 and the preview id.
@@ -22,7 +25,8 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
 1. Make sure the branch is pushed and contains current main. The QA seed (`tools/qa/qa-seed.ts`) runs from the
    branch's own code, so a branch made before OPS-106 merged must merge main first. A branch made before the seed moved
    still works: `bin/qa` runs the older seed path that branch still carries.
-2. Run `bin/qa up <branch>`. It takes 5 to 10 minutes. It does these steps in order:
+2. Run `bin/qa up <branch>`, or `bin/qa up <branch> --test-recipients a@example.com,b@example.com` when Nora named
+   inboxes (below). It takes 5 to 10 minutes. It does these steps in order:
    1. Finds the development Neon branch (endpoint ep-autumn-dew). It stops before it creates anything if that branch
       is missing or also serves production (ep-gentle-dust).
    2. Creates a Neon branch named `qa-<branch>-<4 hex>` off development.
@@ -35,7 +39,11 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       environment.
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
-3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora.
+   7. Starts the preview's scheduled-send driver on this Mac and waits for its first run (see "Scheduled sends"
+      below).
+3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora. Below them it prints which extra
+   addresses this preview mails for real, or that it mails none. Check that line against Nora's request first. The
+   last line starts with `Scheduled sends:`. It must say `on` before you send the URL.
 
 If a step fails, the command removes what it made and prints the error with every secret masked.
 
@@ -50,6 +58,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Sending-church director | `delivered+qa-sending-director@resend.dev`  | `Everyfield-QA-preview-1` |
 | Second Member           | `delivered+qa-member-2@resend.dev`          | `Everyfield-QA-preview-1` |
 | Sign-up                 | `delivered+qa-signup@resend.dev`            | `Everyfield-QA-preview-1` |
+| Riverside Owner         | `delivered+qa-riverside-owner@resend.dev`   | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
 Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
@@ -76,6 +85,21 @@ and the organization's login accepted it.
 - `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
 - These logins do not see planter-private data such as check-ins. They see the church only through what the
   connection shares.
+
+### Two churches and a shared person (T-255)
+
+The seed makes a second church plant, "Riverside (QA)", in Dallas. It is a real church, not a sending church or a
+network. Rachel Moss owns it through the Riverside Owner login, and signing in as that login lands on Riverside (QA).
+Riverside (QA) has no other seats and no other data.
+
+Ana Lee is a person in both churches, Harvest Point (QA) and Riverside (QA), with the same email address in each. She
+has no login. Her address is the first address given to `--test-recipients`, so mail to her reaches a real inbox. On a
+preview made without the flag, it is `delivered+qa-ana@resend.dev`. Every other seeded person keeps a
+`delivered+…@resend.dev` address.
+
+The two churches do not see each other. The Harvest Point (QA) logins see no Riverside (QA) people, and the Riverside
+Owner sees no Harvest Point (QA) people. The seed adds no message, schedule or opt-out for Ana. Nora sets those up
+herself.
 
 ### Removable Member seat and sign-up login (T-51)
 
@@ -173,11 +197,75 @@ without a Resend key. Only `VERCEL_ENV=production` lets mail reach any address. 
 Every other address goes to the capture outbox and never appears in a request to Resend, also when a tester types a real
 address. Read the outbox at `/api/dev/outbox` on the preview. "Accepted" in Messages does not say which mode ran.
 
+#### Real test inboxes: `--test-recipients`
+
+Use the flag when Nora needs to see mail arrive in a real inbox, for example to check what a recipient gets or that an
+opted-out person gets nothing:
+
+    bin/qa up main --test-recipients nora-inbox@example.com
+
+- The value is one or more full addresses, comma-separated. `bin/qa up` refuses before it makes anything when an entry
+  is empty, has no `@`, is a bare domain or holds a wildcard, and says which entry to fix.
+- It sets `EMAIL_TEST_RECIPIENTS` on this one deployment only, with the same per-deployment setting as the database
+  and identity keys. It never changes the Vercel Preview or Production environment, so other previews are not affected.
+- These addresses receive real mail through Resend, with the preview's shared Resend key. Only use addresses whose
+  owner agreed to get test mail.
+- The first address is Ana Lee's address in both churches (above).
+- The list is fixed when the preview is made. To change it, make a new preview and remove the old one.
+- `bin/qa list` and the preview records do not hold the addresses.
+
+#### See what was delivered
+
+Three places together show what a preview really sent:
+
+- **The real inbox.** Mail to an address given to `--test-recipients` arrives there, like any other email. Check spam
+  too.
+- **The Resend email log.** In the Resend dashboard, open Emails. Every email the preview handed to Resend is listed
+  with its recipient, subject, time and status. All previews share one Resend key, so filter by the recipient address.
+  `delivered+…@resend.dev` sends show there too.
+- **The capture outbox.** Every other address is in `/api/dev/outbox` on the preview, never in Resend. It has the
+  one-instance limit described above.
+
+To prove that an opted-out person got nothing:
+
+1. Pick a person whose address is a real test inbox, for example Ana Lee.
+2. Opt that person out: send them a message, open it in their inbox and use its Unsubscribe link, or follow the test
+   case's own steps. Note the time.
+3. Send a message from Messages with "Send now" to an audience that includes that person and at least one other.
+4. Check that the other recipients got the message (their inbox, the Resend log or the outbox).
+5. Check that nothing new reached the opted-out person's inbox, that the Resend log has no email to that address
+   after the opt-out time, and that `/api/dev/outbox` has none either.
+
 The outbox is a temp folder on one server instance. On Vercel, another instance may not see a capture, so the outbox can
 miss it and a cancel or time change can answer unknown. Nothing is sent in that case.
 
-Use "Send now" in Messages to test a send: the app hands the mail to Resend or the outbox in the same request. No cron
-job is needed, and Vercel does not run cron on previews. Evry turns also run in the request.
+"Send now" in Messages hands the mail to Resend or the outbox in the same request. A scheduled send waits for the
+scheduled-send job, which the driver below runs. Evry turns also run in the request.
+
+#### Scheduled sends: the cron driver (T-255)
+
+In production, Vercel calls `/api/cron/jobs` every minute (`apps/web/vercel.json`). That route sends scheduled Messages
+email at its send time and runs the other background jobs. Vercel does not run crons on previews, so `bin/qa up`
+starts a small driver on the lead's Mac that calls the same route on the preview once a minute, a couple of seconds
+after the minute starts. A message scheduled for 10:03 goes out by about 10:03:02, through the same code as
+production, with no manual step.
+
+- The preview has its own `CRON_SECRET`, made by `bin/qa up` and set on that one deployment like the database
+  settings. The driver holds it in memory and in a private temporary file. It is never printed, stored in the records
+  or put in the shared Vercel environments.
+- The driver calls the route with `vercel curl`, which gets past Deployment Protection with the project's existing
+  Protection Bypass for Automation (section 3). The Mac's Vercel CLI must have the `curl` command.
+- On the preview, the cleanup login points at the preview's own Neon branch, so the job's purges stay on that branch.
+- The driver writes one line per run to `<git common dir>/qa/<id>.cron.log`: the time, the HTTP status and the route's
+  counts (`"messages": 1` means one scheduled email went out). To watch it:
+  `tail -f "$(git rev-parse --git-common-dir)/qa/<id>.cron.log"`.
+- It runs until `bin/qa down <id>`, which stops it first. It also stops on its own when the preview's record is gone.
+- It runs only while the Mac is awake. If the Mac sleeps, due messages go out on the first run after it wakes. If the
+  Mac restarts, the driver is gone and scheduled sends wait: make a new preview.
+- If `Scheduled sends:` says the first run FAILED, the preview is up but scheduled sends are not. The line and the log
+  name the HTTP status. A 401 or 403 from Vercel means `vercel curl` could not get past Deployment Protection, and
+  a command error means the Vercel CLI needs an update. The driver keeps trying every minute, so fix the cause or
+  make a new preview before Nora tests a scheduled send.
 
 A preview built before WP-029 merged keeps the old code and can send to any address. Rebuild an open preview from that
 time with `bin/qa up` before you test mail on it.
@@ -209,8 +297,8 @@ open the URL in a browser that is signed in to Vercel.
 When Nora finishes, or once a week:
 
 1. Run `bin/qa list`. It shows each open preview with its id, branch, URL, Neon branch and age.
-2. Run `bin/qa down <id>` for each preview that is done. It removes the alias, the Vercel deployment and the Neon
-   branch, then its record. A second run for the same id does nothing and succeeds.
+2. Run `bin/qa down <id>` for each preview that is done. It stops the scheduled-send driver, removes the alias, the
+   Vercel deployment and the Neon branch, then its record. A second run for the same id does nothing and succeeds.
 3. Check with `neonctl branches list --project-id cool-math-76767811` that no `qa-` branch is left for that id.
 
 Files that Nora uploads go to the shared development bucket and stay there. QA previews do not expire on their own,
@@ -218,9 +306,6 @@ which is why `qa list` exists.
 
 ## 5. Where the records are
 
-`bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names and URLs,
-never a connection string, key or password.
-
-Previews made before this file existed are recorded in the v1 work store. `bin/qa carry-over` copies them into the file.
-It reads the v1 store and stops nothing. It adds only ids it has not seen, so it never brings back a preview that
-`qa down` removed.
+`bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names, URLs
+and the driver's process id, never a connection string, key or password. Each open preview also has its driver's log,
+`<id>.cron.log`, in the same folder.

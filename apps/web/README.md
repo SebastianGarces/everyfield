@@ -1,122 +1,93 @@
-# Early access site
+# Everyfield web app
 
-Use Node 24 and the pnpm version in the root package.json. Run commands from the repository root. Install with `corepack pnpm install`, then use `corepack pnpm dev` or `corepack pnpm build`.
+The Next.js app for Everyfield: the marketing and legal pages, the sign-in and account pages, and the signed-in
+product (People, Meetings, Tasks, Communication, Documents, Ministries, Settings, the Wiki and the rest). Features
+live in `src/features/<feature>/`; the files under `src/app/` only re-export their routes. The product frame (nav,
+account menu, notification bell) is `src/features/shell/`.
+
+Use Node 24 and the pnpm version in the root `package.json`. Run commands from the repository root: install with
+`corepack pnpm install`, then `corepack pnpm dev` or `corepack pnpm build`.
 
 ## Environment
 
-Copy `apps/web/.env.example` to `apps/web/.env.local`. Keep values outside Git and logs. Use only the v3 Neon database; the older v2 environment files point to a different database.
+Next loads `apps/web/.env.local`; values already set in the shell take precedence. Keep values out of Git, logs and
+chat. This list names every variable `src/` reads, never a value.
 
-- `DATABASE_URL`: v3 PostgreSQL connection string.
-- `RESEND_API_KEY`: Resend send permission for the verified sender domain.
-- `EMAIL_TEST_RECIPIENTS`: outside production, a comma-separated list of full addresses that may receive real mail. Empty by default. Production ignores it.
-- `EMAIL_FROM`: verified sender, including an optional display name.
-- `EARLY_ACCESS_EMAIL_TO`: the single owner inbox. Production sets it in Vercel; the address is not kept in the repository.
-- `CRON_SECRET`: a random secret for the retention route. Set it in Vercel before deployment.
-- `EARLY_ACCESS_EMAIL_SUBJECT_PREFIX`: optional prefix for approved real-mail checks, such as `[EveryField test] `. Leave empty in production.
+- `IDENTITY_DATABASE_URL`: the app's Postgres connection, for product reads and writes and the job runner's pool.
+- `IDENTITY_AUTH_DATABASE_URL`: the separate Postgres connection the sign-in layer uses.
+- `IDENTITY_ORIGIN`: the app's public origin, used to build links in mail and invitations.
+- `IDENTITY_SECRET`: the session signing secret, at least 32 characters.
+- `IDENTITY_MAIL_KEY`: 64 hex characters; encrypts stored mail payloads.
+- `IDENTITY_ADDRESS_KEY`: 64 hex characters; keys the hash that matches email addresses.
+- `IDENTITY_MAIL_FROM`: the sender address for product mail.
+- `RESEND_API_KEY`: Resend send permission. Without it, mail outside production is captured to the dev outbox.
+- `RESEND_WEBHOOK_SECRET`: verifies Resend delivery webhooks at `/api/webhooks/resend`.
+- `NOTIFICATION_OPT_OUT_KEYS`: the key ring that seals email opt-out and unsubscribe links.
+- `CRON_SECRET`: the bearer secret both scheduled routes require, `/api/cron/access-retention` and `/api/cron/jobs`
+  (see Scheduled routes). Set it in the Vercel Production environment: Vercel runs cron there only, not on previews
+  (`docs/runbooks/qa-preview.md`).
+- `PLATFORM_PROOF_SECRET`: outside production only, turns on proof mode for a request sending it in `x-platform-proof`.
+- `EVERYFIELD_DEV_OUTBOX`: optional folder for captured dev mail; defaults to a folder under the system temp dir.
 
-Next and the database/test scripts load `apps/web/.env.local` themselves. Values already set in the shell take precedence. With Node 24, run:
+Set by the platform, read but never configured here: `VERCEL`, `VERCEL_ENV`, `NODE_ENV`, `NEXT_RUNTIME`, `PGOPTIONS`.
+
+## Database
+
+Local work, tests and previews use the shared development database only. It may be wiped and reseeded, so run the repo
+seed and preview scripts freely. Never point a test, check or preview at the production database.
+
+## Scheduled routes
+
+`apps/web/vercel.json` schedules two routes. Vercel calls each with `Authorization: Bearer <CRON_SECRET>`, and both
+refuse a missing or wrong secret.
+
+- `/api/cron/access-retention`, daily at 05:00 UTC: deletes early access requests older than twelve calendar months,
+  clears request IPs older than thirty days and deletes limiter attempts older than 24 hours. A missing secret or a
+  database failure returns HTTP 503. Rerunning it is safe.
+- `/api/cron/jobs`, every minute: runs due background jobs (task reminders, digests, queued invitation mail) and
+  closes lost ones (`src/server/jobs/scheduled.ts`).
+
+## Checks
 
 ```sh
-corepack pnpm db:migrate
-corepack pnpm access:export /tmp/everyfield-access-requests.csv
+corepack pnpm --filter @everyfield/web typecheck      # bun check, the typecheck (T-110)
+corepack pnpm --filter @everyfield/web typecheck:tsc  # tsc, which GitHub CI also runs as the backstop
+corepack pnpm --filter @everyfield/web lint
+corepack pnpm --filter @everyfield/web test:unit
+corepack pnpm test:logs
 ```
-
-A blank `mailed_at` in the CSV means no successful send to the owner has been recorded. It does not confirm delivery; Resend may have accepted the email before saving its database receipt failed.
-
-The migration is transactional and safe to repeat. The export includes both forms, every submitted field, and request/mail metadata. It quotes CSV cells and prefixes spreadsheet formulas with an apostrophe. A named output file has private permissions and must not already exist. Keep exports outside the repository. Omit the file argument to write CSV to standard output; pnpm also prints its command banner, so use a named file for a clean CSV.
-
-## Request handling
-
-Validation and the public operation live in `packages/domain/src/early-access/`. PostgreSQL, the migration, retention, and export live in `packages/db/`. The Next server action only supplies the form data and trusted Vercel IP address. Locally, requests use the shared unknown-IP limit; client forwarding headers cannot bypass it.
-
-Email is trimmed and lowercased. Valid attempts, including duplicates, count toward rolling limits of five per email in 24 hours and twenty per IP in one hour. Rate limits take precedence over duplicate receipts. A delivered request suppresses another request with the same email and form for 24 hours. A filled honeypot returns received before validation and stores or sends nothing.
-
-The request and original email payload commit together. Resend runs outside database locks with an idempotency key tied to the request ID. Success requires a valid Resend receipt and a saved database mail receipt. A duplicate of a pending request retries the original payload, within 23 hours, and returns unavailable if mail or storage fails. Once a pending request is older than the 23-hour retry window, a new submission creates a new request and email key with the current fields. The owner may receive a second email if the earlier send outcome was unknown. The old row stays unchanged until retention deletes it. No visitor field can change the inbox, sender, or subject prefix. Honeypot values and request headers are never stored or included in mail.
-
-## Retention
-
-`apps/web/vercel.json` schedules `/api/cron/access-retention` daily at 05:00 UTC. Vercel sends `Authorization: Bearer <CRON_SECRET>`. The route refuses a missing or wrong secret. It deletes requests older than twelve calendar months, clears request IPs older than thirty days, and deletes limiter attempts older than 24 hours. Rerunning it is safe. A missing secret or database failure returns HTTP 503, rather than claiming completion.
-
-## Verification
-
-Create a disposable branch in the v3 Neon project. Put its connection string in `apps/web/.env.local` before running these commands, and ensure no shell `DATABASE_URL` points elsewhere. The tests delete early access data and must never run on the v3 main database.
-
-```sh
-corepack pnpm db:migrate
-EARLY_ACCESS_TEST_DATABASE=1 corepack pnpm test:access
-corepack pnpm typecheck
-corepack pnpm lint
-corepack pnpm build
-```
-
-Tests call the public operation against real Postgres and fake only the Resend HTTP boundary. Delete the Neon test branch and remove its connection string from the app environment file afterward. Apply the migration to v3 main only after the tests pass. The real mail check uses a local production build, the approved test recipient, and the subject prefix above. Cross-model review and owner preview approval remain required before go-live.
 
 ## Per-task local previews
 
-WP-087 extends the existing workspace scaffold. Use Node 24, the pinned pnpm through
-Corepack, and the managed Portless CLI from the `portless-preview` skill. The upstream
-npm Portless package does not include `preview` commands. Check `portless preview --help`
-before starting. From a fresh task worktree:
+Each worktree runs one preview through `bin/dev stack` and the managed Portless CLI from the `portless-preview` skill.
+The upstream npm Portless package does not include `preview` commands; check `portless preview --help` before
+starting. From a fresh task worktree:
 
 ```sh
 corepack pnpm install --frozen-lockfile
-corepack pnpm stack:up
-corepack pnpm stack:status
-corepack pnpm stack:check
-corepack pnpm stack:down
+bin/dev stack up
+bin/dev stack status
+bin/dev stack check
+bin/dev stack down
 ```
 
-The commands select the current worktree, including when run from another directory.
-`--project /absolute/worktree` selects a different worktree explicitly. Each worktree gets
-one preview, its own dependencies, and a loopback-only app port behind a unique Portless
-URL. Repeating up reuses the preview; repeating down is safe. Stop before changing mode
-or recreating a preview after committing. Down stops only that worktree's preview and
-preserves its source and branch. Portless leases expire after one hour; use
+The commands select the current worktree, including when run from another directory. `--project /absolute/worktree`
+selects a different worktree explicitly. Each worktree gets one preview, its own dependencies, and a loopback-only app
+port behind a unique Portless URL. Repeating up reuses the preview; repeating down is safe. Down stops only that
+worktree's preview and preserves its source and branch. Portless leases expire after one hour; use
 `portless preview renew ID --ttl 7200` for a longer review.
 
-Live edits use development mode. For proof tied to a clean commit:
+Live edits use development mode. For proof tied to a clean commit, run `bin/dev stack up --mode production` and then
+`bin/dev stack check`. Production mode builds a disposable local snapshot, not a deployment, and refuses a dirty
+worktree. Status prints the preview ID, URL, mode and commit as JSON. Check also asserts readiness, the current commit,
+and HTTP 200 at the preview URL; it does not prove application acceptance, so open the URL and exercise the behavior.
+Use `portless preview logs ID` to investigate a failed start. The configuration lives in `scripts/preview.json`, and
+the commands call no paid providers.
 
-```sh
-corepack pnpm stack:up --mode production
-corepack pnpm stack:check
-```
+Portless uses HTTPS by default. Trust its CA before browser review, in the browser and in Node. The `portless-preview`
+skill describes the CA setup and a disposable HTTP test supervisor. Never shut down another agent's supervisor.
 
-Production mode builds a disposable local snapshot, not a deployment. It refuses a dirty
-worktree. Status prints the preview ID, URL, mode and commit as JSON. Check additionally
-asserts readiness, the current commit, and HTTP 200 at the preview URL. It does not prove
-application acceptance. Open the returned URL in a browser and exercise the task behavior.
-Use `portless preview logs ID` to investigate a failed start. With `EVF_RUNTIME_DIR` set, the
-commands also keep a `stack.json` receipt there and clear it on down.
-
-The configuration lives in `scripts/preview.json`. `bin/dev stack` wraps these commands, and
-they call no paid providers.
-
-Portless uses HTTPS by default. Trust its CA explicitly before browser review. For a
-disposable HTTP test supervisor, set these variables consistently on every preview command:
-
-```sh
-export PORTLESS_PREVIEW_DIR=/tmp/everyfield-preview-session
-export PORTLESS_PREVIEW_PORT=1457
-export PORTLESS_PREVIEW_HTTP=1
-```
-
-Choose an unused port and directory for a separate test session. Preserve their values in
-the handoff together with the worktree path, preview ID, URL and commit. Stop its previews,
-then run `portless preview shutdown` with the same variables when the session is finished.
-Never shut down another agent's supervisor. For the HTTPS HTTP check, Node must also trust
-the Portless CA, for example through `NODE_EXTRA_CA_CERTS` pointing to the trusted CA file.
-
-No credentials, database creation, migration, seed, email, or provider setup runs as part
-of preview startup. Marketing pages can render without provider credentials. For domain
-work, use only the shared development database with synthetic data. Set its approved
-connection in the shell or this worktree's ignored `apps/web/.env.local`. Production
-snapshots do not copy ignored env files; supply approved dev values in the shell or a
-private Portless config outside the repository. Never copy production settings into a
-preview, print secrets, or submit forms against a production database. Portless isolates
-processes and dependencies, not the shared database.
-
-Run the existing lint, TypeScript and build checks with `corepack pnpm check`. Run the
-small workflow suite with `corepack pnpm test:workflow`; it uses Node's built-in runner
-and a local fake Portless executable, with no database or provider calls. If
-`EVF_TEST_REPORT` is set, it writes test names and results to that file. CI retains the
-existing app, domain, documentation, Wiki and cross-model checks, and adds this suite.
+Preview startup runs no database creation, migration, seed, email or provider setup. Marketing pages render without
+provider credentials. For product work, supply the shared development database's settings in the shell or this
+worktree's ignored `apps/web/.env.local`; production snapshots do not copy ignored env files. Never copy production
+settings into a preview or print secrets. Portless isolates processes and dependencies, not the shared database.

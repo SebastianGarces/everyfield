@@ -114,7 +114,9 @@ export const propagateAddressRequest = commandEnvelope(
 	}),
 );
 
+// The request key of the photo change names its upload: a replay after a lost answer reaches the same upload.
 export const requestPhotoUploadRequest = z.strictObject({
+	requestKey,
 	personId,
 	mime: photoMime,
 	byteLength: z.int().min(1).max(PHOTO_MAX_BYTES),

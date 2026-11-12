@@ -77,7 +77,7 @@ export async function browserRun(argv: string[], opts: BrowserRunOptions): Promi
 		AGENT_BROWSER_SESSION: session,
 		AGENT_BROWSER_IDLE_TIMEOUT_MS: process.env.AGENT_BROWSER_IDLE_TIMEOUT_MS ?? "300000",
 	};
-	const child = spawn(argv[0], argv.slice(1), { detached: true, stdio: "inherit", env });
+	const child = spawn(argv[0]!, argv.slice(1), { detached: true, stdio: "inherit", env });
 	let stopped: { reason: string; code: number } | undefined;
 	const stop = (reason: string, code: number) => {
 		stopped ??= { reason, code };

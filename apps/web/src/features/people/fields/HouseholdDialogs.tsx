@@ -248,7 +248,7 @@ export function JoinHouseholdDialog({
 			description={
 				creating
 					? `${person.displayName} will be its head. You can add the others next.`
-					: person.street || person.city
+					: addressLine(person)
 						? `${first} keeps their own address.`
 						: `${first} has no address yet, so they take the household's address.`
 			}
@@ -400,9 +400,9 @@ export function JoinHouseholdDialog({
 }
 
 /**
- * Copy the household address to every member (REQ-PPL-009): a preview read fresh when the dialog opens shows each
- * member's address now and which ones change. Confirming overwrites exactly those reviewed members at once; if anyone
- * changed since the preview, nothing is written.
+ * Copy the household address to every member (REQ-PPL-009): the dialog previews the household as the card shows it,
+ * each member's address and which ones change. Confirming overwrites exactly those reviewed members at once; the server
+ * refuses the write, and nothing is written, if any member changed since.
  */
 export function CopyAddressDialog({
 	household: h,

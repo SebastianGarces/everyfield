@@ -1,13 +1,24 @@
+import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { fixture, key, noReminders } from "./invitations-support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 let f;
+// The text of every statement this test's runtime pool sends.
+const sent = [];
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...q) {
+			sent.push(typeof q[0] === "string" ? q[0] : (q[0]?.text ?? ""));
+			return Reflect.apply(query, this, q);
+		};
+	});
 });
 after(async () => {
 	await f?.close();
@@ -170,19 +181,21 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-			let blocked = false;
-			for (let attempt = 0; attempt < 300 && !blocked; attempt++) {
-				const result = await f.admin.execute(
-					sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-				);
-				blocked = Number(result.rows[0].n) > 0;
-				if (!blocked) await new Promise((resolve) => setTimeout(resolve, 10));
-			}
-			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
+			assert.equal(
+				await waitingOnLock(f.admin, { blockedBy: pid }),
+				true,
+				`${via} must wait for the workspace root lock`,
+			);
+			// Exempt from the no-sleep rule (test-standard, owner ruling D-704): the claim reads and locks the invitation
+			// before this wait, so only elapsed time shows the expiry check uses the clock read after the root lock (RT-6a).
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
-		assert.equal(result.error?.value?.code, "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
+		assert.equal(
+			result.error?.value?.code,
+			"invitation_unavailable",
+			via + ": " + JSON.stringify(result.value ?? null),
+		);
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
 	}
@@ -240,7 +253,10 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	);
 	await f.admin
 		.update(t.invitation)
-		.set({ resent_at: new Date(Date.now() - 61000), created_at: new Date(Date.now() - 120000) })
+		.set({
+			resent_at: sql`clock_timestamp()-interval '61 seconds'`,
+			created_at: sql`clock_timestamp()-interval '120 seconds'`,
+		})
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	const sent = await f.invitations.resend(await f.actor(s2.sender.session), {
 		...change,
@@ -254,7 +270,7 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 	assert.notEqual(fresh, i2.proof);
 	await f.admin
 		.update(t.invitation)
-		.set({ created_at: new Date(Date.now() - 30 * 86400000) })
+		.set({ created_at: sql`clock_timestamp()-interval '720 hours'-interval '1 second'` })
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
 	assert.deepEqual(await f.invitations.describe({ proof: fresh }), { status: "unavailable" });
 });
@@ -289,7 +305,7 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 		"admin",
 	);
 });
-test("AC:ADR1-004 AC:WP008-MUL-004-ATOMIC resident accept is addressed, atomic, consent-specific and seatless", async () => {
+test("AC:ADR1-004 resident accept is addressed, atomic, consent-specific and seatless", async () => {
 	const s = await f.setup("sending_church"),
 		person = await f.resident(s.w),
 		i = await f.invitation(s, person),
@@ -356,11 +372,16 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 	assert.deepEqual(await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd), changed);
 	const owner = list.items.find((x) => x.role === "owner");
 	await denied(
-		f.seats.remove(await f.actor(s.recipient.session), s.w, {
-			requestKey: key(),
-			expectedRevision: "1",
-			input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
-		}, noReminders),
+		f.seats.remove(
+			await f.actor(s.recipient.session),
+			s.w,
+			{
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
+			},
+			noReminders,
+		),
 		"protected_owner",
 	);
 	const demoted = await f.seats.demote(await f.actor(s.recipient.session), s.w, {
@@ -408,14 +429,19 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		input: { seatId: a.seat.seatId, expectedRole: "member", handoffs: [] },
 	};
 	await denied(f.seats.remove(await f.actor(s.sender.session), s.w, cmd, noReminders), "conflict");
-	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
-		...cmd,
-		requestKey: key(),
-		input: {
-			...cmd.input,
-			handoffs: [{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: s.sender.id }],
+	const result = await f.seats.remove(
+		await f.actor(s.sender.session),
+		s.w,
+		{
+			...cmd,
+			requestKey: key(),
+			input: {
+				...cmd.input,
+				handoffs: [{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: s.sender.id }],
+			},
 		},
-	}, noReminders);
+		noReminders,
+	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
 	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0].status, "complete");
@@ -472,22 +498,106 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		[s.sender.id],
 	);
 	// The review is exactly what remove needs: handing off each listed duty succeeds at once.
-	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
-		requestKey: key(),
-		expectedRevision: review.expectedRevision,
-		input: {
-			seatId: review.seatId,
-			expectedRole: review.expectedRole,
-			handoffs: review.duties.map((d) => ({
-				kind: "assign",
-				dutyId: d.dutyId,
-				expectedRevision: d.expectedRevision,
-				recipientAccountId: review.recipients[0].accountId,
-			})),
+	const result = await f.seats.remove(
+		await f.actor(s.sender.session),
+		s.w,
+		{
+			requestKey: key(),
+			expectedRevision: review.expectedRevision,
+			input: {
+				seatId: review.seatId,
+				expectedRole: review.expectedRole,
+				handoffs: review.duties.map((d) => ({
+					kind: "assign",
+					dutyId: d.dutyId,
+					expectedRevision: d.expectedRevision,
+					recipientAccountId: review.recipients[0].accountId,
+				})),
+			},
 		},
-	}, noReminders);
+		noReminders,
+	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
+});
+
+/** Runs `body` and returns its result with the text of every statement it sent. */
+async function statements(body) {
+	const start = sent.length;
+	return { result: await body(), sent: sent.slice(start) };
+}
+
+test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are offered, in a fixed number of unlocked statements", async () => {
+	const s = await f.setup(),
+		target = await f.account();
+	const seatId = await f.seat(target, s.w, "member");
+	const member = async (state = "active") => {
+		const a = await f.account(state);
+		return { account: a, seat: await f.seat(a, s.w, "member") };
+	};
+	const witness = (values) =>
+		f.admin.insert(t.lifecycle_witness).values({
+			request_revision: "1",
+			state: "revoked",
+			witness_checkpoint: "1",
+			cleanup_state: "not_started",
+			...values,
+		});
+	// Each of these active seats is not a recipient remove would accept.
+	await member("pending_domain");
+	const future = await member(),
+		ended = await member(),
+		blockedAccount = await member(),
+		blockedSeat = await member(),
+		witnessed = await member();
+	await f.admin
+		.update(t.seat)
+		.set({ accepted_at: new Date(Date.now() + 86400000) })
+		.where(eq(t.seat.id, future.seat));
+	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ended.seat));
+	const requested = new Date();
+	await witness({
+		kind: "account",
+		opaque_subject_id: blockedAccount.account.id,
+		account_id: blockedAccount.account.id,
+		state: "pending_deletion",
+		request_id: key(),
+		requested_at: requested,
+		cancel_until: new Date(requested.getTime() + 30 * 86400000),
+	});
+	await witness({ kind: "seat", opaque_subject_id: blockedSeat.seat, seat_id: blockedSeat.seat });
+	// An active witness does not block.
+	await witness({ kind: "seat", opaque_subject_id: witnessed.seat, seat_id: witnessed.seat, state: "active" });
+	const review = () => statements(() => f.seats.readRemoval(s.sender.session, s.w, { seatId }));
+	const few = await review();
+	const ids = (r) => r.result.recipients.map((x) => x.accountId);
+	const bySeat = (pairs) => pairs.sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((p) => p[1]);
+	const [owner] = await f.admin.select().from(t.seat).where(eq(t.seat.account_id, s.sender.id));
+	assert.deepEqual(
+		ids(few),
+		bySeat([
+			[owner.id, s.sender.id],
+			[witnessed.seat, witnessed.account.id],
+		]),
+	);
+	assert.equal(few.result.recipients[0].displayName, "Synthetic person");
+	// Four more eligible members cost no extra statement.
+	const more = [];
+	for (let n = 0; n < 4; n++) more.push(await member());
+	const many = await review();
+	assert.deepEqual(
+		ids(many),
+		bySeat([
+			[owner.id, s.sender.id],
+			[witnessed.seat, witnessed.account.id],
+			...more.map((m) => [m.seat, m.account.id]),
+		]),
+	);
+	assert.equal(many.sent.length, few.sent.length);
+	assert.deepEqual(
+		many.sent.filter((q) => /\bfor\s+(update|share|no key update|key share)\b/i.test(q)),
+		[],
+	);
 });
 
 test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is one duty, and a closed linked task keeps its outcome", async () => {
@@ -567,7 +677,8 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			i = await f.invitation(s),
 			a = await f.invitations.accept(s.recipient.session, i.claim),
 			ids = Array.from({ length: n }, () => key());
-		await insertTasks(f.admin, 
+		await insertTasks(
+			f.admin,
 			ids.map((id, k) => ({
 				id,
 				plant_id: s.w.id,
@@ -708,7 +819,7 @@ test("AC:ADR1-004 INV-resident: foreign Person, foreign linked account and stale
 	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, own)), 0);
 });
 
-test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or list administrative invitations", async () => {
+test("AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member actors cannot send or list administrative invitations", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s);
 	await denied(f.actor(s.recipient.session).then((a) => f.invitations.list(a, { workspace: s.w })));
@@ -724,6 +835,61 @@ test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or li
 	await denied(f.invitations.list(await f.actor(s.recipient.session), { workspace: s.w }));
 	const changed = { ...i.command, input: { ...i.command.input, role: "admin" } };
 	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
+});
+
+test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s);
+	// The same address again at the current revision: the duplicate keeps its own code.
+	await denied(
+		f.invitations.invite(await f.actor(s.sender.session), { ...i.command, requestKey: key() }),
+		"invitation_unavailable",
+	);
+	// Another tab saved the church settings, so the page's revision is behind.
+	await f.admin.update(t.plant).set({ revision: "2" }).where(eq(t.plant.id, s.w.id));
+	const before = await count(t.invitation, eq(t.invitation.tenant_id, s.w.id));
+	await denied(
+		f.invitations.invite(await f.actor(s.sender.session), {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
+		}),
+		"conflict",
+	);
+	assert.equal(await count(t.invitation, eq(t.invitation.tenant_id, s.w.id)), before);
+	const sent = await f.invitations.invite(await f.actor(s.sender.session), {
+		requestKey: key(),
+		expectedRevision: "2",
+		input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
+	});
+	assert.equal(sent.invitation.status, "pending");
+});
+test("AC:ROLE43-006 C13: seats.list and invitations.list read nothing for an actor whose seat ended or role changed", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s),
+		admin = await f.account();
+	const adminSeat = await f.seat(admin, s.w, "admin");
+	const owner = await f.actor(s.sender.session),
+		appointed = await f.actor(admin.session);
+	assert.equal(
+		(await f.invitations.list(owner, { workspace: s.w })).items[0].invitationId,
+		i.result.invitation.invitationId,
+	);
+	assert.equal((await f.invitations.list(appointed, { workspace: s.w })).items.length, 1);
+	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
+	// Demoted after the request resolved its actor: the roster stays readable, the invitations do not.
+	await f.admin.update(t.seat).set({ role: "member" }).where(eq(t.seat.id, adminSeat));
+	await denied(f.invitations.list(appointed, { workspace: s.w }));
+	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
+	// Seat ended after the request resolved its actor: both reads refuse with the same RequestActor.
+	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, adminSeat));
+	await denied(f.seats.list(appointed, { workspace: s.w }));
+	await f.admin
+		.update(t.seat)
+		.set({ ended_at: new Date() })
+		.where(and(eq(t.seat.account_id, s.sender.id), eq(t.seat.plant_id, s.w.id)));
+	await denied(f.invitations.list(owner, { workspace: s.w }));
+	await denied(f.seats.list(owner, { workspace: s.w }));
 });
 
 test("AC:TARGET-IDN-017 INV-mail: revoked invitation cancels its pending outbox handoff", async () => {
@@ -765,18 +931,11 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 				(value) => ({ value }),
 				(error) => ({ error }),
 			);
-		let blocked = false;
-		for (let attempt = 0; attempt < 30; attempt++) {
-			const result = await f.admin.execute(
-				sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
-			);
-			if (Number(result.rows[0].n) > 0) {
-				blocked = true;
-				break;
-			}
-			await new Promise((resolve) => setTimeout(resolve, 10));
-		}
-		assert.equal(blocked, true, "The claim must reach its competing Person lock");
+		assert.equal(
+			await waitingOnLock(f.admin, { blockedBy: pid }),
+			true,
+			"The claim must reach its competing Person lock",
+		);
 		await tx
 			.update(t.person)
 			.set({ state: "retired", retired_at: new Date(), revision: "2" })

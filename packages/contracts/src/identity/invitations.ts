@@ -137,6 +137,3 @@ export const invitationError = z.discriminatedUnion("code", [
 	defineSafeError("address_blocked", {}, "never"),
 ]);
 export type InvitationSubject = z.infer<typeof invitationSubject>;
-export type AcceptSeatInvitationRequest = z.infer<typeof acceptSeatInvitationRequest>;
-export type RespondResidentInvitationRequest = z.infer<typeof respondResidentInvitationRequest>;
-export type SeatInvitationAcceptedResult = z.infer<typeof seatInvitationAcceptedResult>;

@@ -32,7 +32,7 @@ const run = async () => {
 
 before(async () => {
 	await setup();
-	tick = scheduledJobs({ secret, db, storage: null, reminders: noReminders, digests: null, mail: null });
+	tick = scheduledJobs({ secret, db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null });
 });
 after(teardown);
 
@@ -66,6 +66,7 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 		secret: undefined,
 		db,
 		storage: null,
+		cleanup: null,
 		reminders: noReminders,
 		digests: null,
 		mail: null,
@@ -132,8 +133,9 @@ test("INV-budget: an idle scheduled run sends a fixed number of statements, and 
 	const start = queries.length;
 	await run();
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
-	// closeLostJobs 2 (timeout, close); imports: recoverLease 2, claim 1; effects claim 1; turns claim 1.
-	assert.equal(sent.length, 7, sent.join("\n---\n"));
+	// closeLostJobs 2 (timeout, close); imports: recoverLease 2, claim 1; expired import files 1; effects claim 1;
+	// turns claim 1; mail-expiry 1 (stale ready mail); mail-callbacks 1 (stored callbacks whose mail has a provider id).
+	assert.equal(sent.length, 10, sent.join("\n---\n"));
 	// A job the runner finishes costs one round trip: the statement bound and the fenced finish in one message.
 	await ask(await actor("owner"), "Find Casey");
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);

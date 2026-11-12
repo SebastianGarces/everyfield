@@ -12,10 +12,20 @@ import {
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
 import { owedPeriod } from "./calendar.ts";
-import { createMailService, type AuthorizeMail } from "./mail.ts";
+import {
+	MAIL_PASSES,
+	mailUnsubscribe,
+	runDueMail,
+	type AuthorizeMail,
+	type createMailService,
+	type MailPass,
+	type MailTransport,
+} from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
+import { mountMailService } from "./seated-notifications.ts";
 
 // The church digest (NTF-007) and the oversight digest (NTF-008), delivered by the scheduled runner. Each minute the
 // planner queues one `digest` job for every Owner or Admin whose period has ended; the worker then compiles that job's
@@ -98,9 +108,10 @@ const recipientRow = z.object({
 	revision: z.string().nullable(),
 });
 
-/** A digest notice and its email share one key: tenant, category, coverage row and the covered dates. */
+/** A digest notice's key: tenant, category, coverage row and the covered dates. Its email's key is `digest/` and this. */
 const digestKey = (tenant: string, category: string, coverage: string, start: string, end: string) =>
 	`${tenant}/${category}/${coverage}/${start}/${end}`;
+const MAIL_KEY = MAIL_PASSES.digest[0];
 const parseKey = (key: string) => {
 	const [, category, , start, end] = key.split("/");
 	return { category, start: localDate.parse(start), end: localDate.parse(end) };
@@ -179,7 +190,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 							recipient,
 							address: row.address!,
 							purpose: category,
-							logicalKey: key,
+							logicalKey: MAIL_KEY + key,
 							notice,
 							operation: null,
 							eligibleAt: new Date().toISOString(),
@@ -250,7 +261,9 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 	const allowed = new Set<string>();
 	for (const m of list) {
 		if ((m.purpose !== "planter_digest" && m.purpose !== "oversight_digest") || !m.notice || !m.recipient) continue;
-		const { category, start, end } = parseKey(m.logicalKey);
+		if (!m.logicalKey.startsWith(MAIL_KEY)) continue;
+		const key = m.logicalKey.slice(MAIL_KEY.length);
+		const { category, start, end } = parseKey(key);
 		if (category !== m.purpose) continue;
 		if (m.purpose === "planter_digest") {
 			if (await digestRecipientLive(tx, m.tenant, m.recipient)) allowed.add(m.id);
@@ -259,7 +272,7 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 		const fresh = await compileOversightDigest(tx, {
 			organization: m.tenant,
 			recipient: m.recipient,
-			notice: { id: m.notice, logicalKey: m.logicalKey },
+			notice: { id: m.notice, logicalKey: key },
 			start,
 			end,
 		});
@@ -270,34 +283,34 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 };
 
 const env = z.object({
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 	IDENTITY_ORIGIN: z.url(),
 });
 let mounted: DigestWorker | undefined;
-/** The runner's digest worker, or null when the deployment has no mail configuration. Mail is queued here only. */
+/** The runner's digest worker, or null when the deployment has no mail configuration. Mail is queued here only: `digestMailPass` sends it. */
 export function digestsMount(db: Database | null): DigestWorker | null {
 	const v = env.safeParse(process.env);
 	if (!db || !v.success) return null;
 	mounted ??= createDigestWorker({
 		origin: v.data.IDENTITY_ORIGIN,
-		mail: createMailService({
-			db,
-			encryptionKey: Buffer.from(v.data.IDENTITY_MAIL_KEY, "hex"),
-			addressKey: Buffer.from(v.data.IDENTITY_ADDRESS_KEY, "hex"),
-			from: v.data.IDENTITY_MAIL_FROM,
-			authorize: authorizeDigestMail,
-			// WP-031 owns dispatch; no real provider is configured here.
-			transport: {
-				async send() {
-					return { kind: "refused", retryable: true };
-				},
-				async lookup() {
-					return { kind: "unknown" };
-				},
-			},
-		}),
+		mail: mountMailService({ db, env: v.data, authorize: authorizeDigestMail, unsubscribe: mailUnsubscribe() }),
 	});
 	return mounted;
+}
+
+/**
+ * The scheduled runner's digest mail pass (`digest/` keys): one bounded batch through `transport`, each digest rechecked
+ * by authorizeDigestMail just before the handoff. Null without mail configuration.
+ */
+export function digestMailPass(db: Database | null, transport: MailTransport): MailPass | null {
+	const v = env.safeParse(process.env);
+	if (!db || !v.success) return null;
+	const mail = mountMailService({
+		db,
+		env: v.data,
+		authorize: authorizeDigestMail,
+		unsubscribe: mailUnsubscribe(),
+		transport,
+	});
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.digest, limit, until);
 }

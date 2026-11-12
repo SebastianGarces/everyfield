@@ -7,7 +7,7 @@ import type { EvryActor } from "../context/actor.ts";
  * Selection re-checks `person` rows only. A household, tag, skill, activity, file or import row is not a person.
  */
 export type SourceRow = {
-	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import";
+	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */

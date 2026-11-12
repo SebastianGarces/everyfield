@@ -12,6 +12,7 @@
 			"Bash(git push -f*)",
 			"Bash(git push * -f*)",
 			"Bash(git push * +*)",
+			"Bash(git push *--no-verify*)",
 			"Bash(git push --mirror*)",
 			"Bash(git push * --mirror*)",
 			"Bash(git push * main)",
@@ -29,9 +30,7 @@
 			"Bash(git branch -d *)",
 			"Bash(git worktree remove*)",
 			"Bash(git worktree prune*)",
-			"Read(./.env*)",
-			"Read(./apps/web/.env*)",
-			"Read(./packages/**/.env*)"
+			"Read(./**/.env*)"
 		]
 	}
 }

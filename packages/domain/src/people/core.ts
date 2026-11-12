@@ -33,7 +33,7 @@ import {
 } from "../operations/writes.ts";
 export { hash };
 
-import { owner, revision } from "@everyfield/contracts/common";
+import { revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
 
@@ -411,7 +411,7 @@ export function contactValues(patch: object) {
 		}),
 	);
 }
-export function contactPatch(patch: object) {
+function contactPatch(patch: object) {
 	return Object.fromEntries(
 		Object.entries(contactValues(patch)).map(([key, value]) => [key, sql`${sql.param(value)}`]),
 	);
@@ -461,9 +461,8 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
  * final statement locks again: creating a Person (no read), editing its contact fields and adding a note to it. Every
  * other write reads another row, a count or the church's settings and runs in the gate's transaction.
  */
-export const peopleWritePaths = {
+const peopleWritePaths = {
 	"orgPeople.merge": "established",
-	"orgPeople.remove": "established",
 	"orgPeople.unmerge": "established",
 	"people.addNote": "single",
 	"people.addSkill": "established",
@@ -557,7 +556,6 @@ export async function mutation<T>(
 		// Only an organization removes people from its view; a plant replay has nothing to check.
 		if (
 			context.selected.kind === "organization" &&
-			name !== "orgPeople.remove" &&
 			(
 				await tx
 					.select({ id: tables.organization_person_removal.id })
@@ -632,7 +630,6 @@ export function expected(p: Person, revision: string) {
 export function live(p: Person) {
 	if (p.state !== "live") deny();
 }
-export { owner };
 
 const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
 	actor.context.kind === "seat" && actor.context.role !== "member";

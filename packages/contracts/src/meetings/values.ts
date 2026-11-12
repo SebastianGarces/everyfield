@@ -5,7 +5,11 @@ import { recordId } from "../common/values.ts";
 export const meetingId = recordId;
 export const venueId = recordId;
 export const meetingType = z.enum(["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"]);
+/** A team meeting's kind (REQ-TEAM-013); other meeting types have none. */
+export const meetingSubtype = z.enum(["regular", "training", "planning", "special", "rehearsal"]);
 export const meetingStatus = z.enum(["planning", "ready", "in_progress", "completed", "cancelled"]);
+/** The statuses in which a meeting still takes RSVP answers: before it is completed or cancelled. */
+export const answeringStatuses: readonly z.infer<typeof meetingStatus>[] = ["planning", "ready", "in_progress"];
 export const meetingWindow = z.enum(["upcoming", "past", "all"]);
 export const preparation = z.enum(["complete", "incomplete", "any"]);
 export const rsvp = z.enum(["pending", "confirmed", "declined"]);

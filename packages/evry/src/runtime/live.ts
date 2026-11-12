@@ -6,7 +6,7 @@
 type Waiter = () => void;
 
 /** One conversation's running turn: all its text so far, and who waits for more. */
-export class LiveRoom {
+class LiveRoom {
 	turnId: string | null = null;
 	text = "";
 	private waiters = new Set<Waiter>();

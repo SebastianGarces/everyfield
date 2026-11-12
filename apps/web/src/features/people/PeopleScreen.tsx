@@ -9,9 +9,11 @@ import {
 	KanbanIcon,
 	LeftToRightListBulletIcon,
 	UserAdd01Icon,
+	UserMultiple02Icon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { listPhotoRoute } from "@everyfield/contracts/people";
 import {
 	Button,
 	buttonVariants,
@@ -54,6 +56,8 @@ import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
+/** A list row: the person and the photo it shows, when there is one (REQ-PPL-005, REQ-IDN-006). */
+type ListRow = PlantPerson & { photo?: string };
 /** List and cards show the same loaded rows; the pipeline is its own load. */
 type Kind = "rows" | "pipeline";
 const kindOf = (view: ViewValue): Kind => (view === "pipeline" ? "pipeline" : "rows");
@@ -135,6 +139,12 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 				subtitle="Everyone you have met, from first visit to leader."
 				actions={
 					<>
+						{loaded.review ? (
+							<IntentLink href="/people/duplicates" className={buttonVariants({ variant: "ghost" })}>
+								<Icon icon={UserMultiple02Icon} size={18} />
+								{loaded.review}
+							</IntentLink>
+						) : null}
 						{shown.workspaceEmpty ? null : (
 							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
 								Export CSV
@@ -200,6 +210,19 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 	useEffect(() => {
 		latest.current = query;
 	});
+	// The terms this box sent and the address has not shown yet. Its own echo leaves the typed value alone; any other term
+	// (back or forward, a link, "Clear filters") replaces it and drops a pending send.
+	const sent = useRef<string[]>([]);
+	useEffect(() => {
+		const i = sent.current.indexOf(query.search);
+		if (i >= 0) {
+			sent.current = sent.current.slice(i + 1);
+			return;
+		}
+		sent.current = [];
+		clearTimeout(timer.current);
+		setValue(query.search);
+	}, [query.search]);
 	useEffect(() => () => clearTimeout(timer.current), []);
 	// Typing waits for a pause before it changes the address, so each keystroke is not a page load.
 	return (
@@ -214,7 +237,10 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 					setValue(next);
 					clearTimeout(timer.current);
 					timer.current = setTimeout(() => {
-						if (next.trim() !== latest.current.search) go(withFilters(latest.current, { search: next.trim() }), true);
+						const term = next.trim();
+						if (term === latest.current.search) return;
+						if (sent.current.at(-1) !== term) sent.current.push(term);
+						go(withFilters(latest.current, { search: term }), true);
 					}, 300);
 				}}
 				data-people-search=""
@@ -236,7 +262,7 @@ function Toolbar({
 }) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
-			<SearchBox key={query.search} query={query} go={go} />
+			<SearchBox query={query} go={go} />
 			<FilterChip
 				label="Stage"
 				icon={FilterHorizontalIcon}
@@ -336,6 +362,8 @@ function Results({
 		);
 	if (data.kind === "pipeline") return <PipelineBoard query={query} pipeline={data.pipeline} canWrite={canWrite} />;
 	const page = data.page;
+	const photos = new Map(page.photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
+	const rows: ListRow[] = page.items.map((p) => ({ ...p, photo: photos.get(p.id) }));
 	const clear = (
 		<Button
 			variant="secondary"
@@ -359,12 +387,13 @@ function Results({
 	return (
 		<div className="flex flex-col gap-4">
 			{query.view === "card" ? (
-				page.items.length ? (
+				rows.length ? (
 					<ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5" aria-label="People">
-						{page.items.map((p) => (
+						{rows.map((p) => (
 							<li key={p.id}>
 								<PersonCard
 									name={p.displayName}
+									photo={p.photo}
 									href={`/people/${p.id}`}
 									linkAs={CardLink}
 									meta={p.email ?? p.phone ?? undefined}
@@ -382,7 +411,7 @@ function Results({
 				<DataTable
 					caption="People"
 					columns={COLUMNS}
-					state={{ status: "ready", data: page.items }}
+					state={{ status: "ready", data: rows }}
 					rowId={(p) => p.id}
 					rowLabel={(p) => p.displayName}
 					empty={{
@@ -430,7 +459,7 @@ function Pager({
 }
 
 /** Retired, committed and launch-team or leader badges: the facts a list row says in words. */
-export function PersonBadges({ person }: { person: PlantPerson }) {
+function PersonBadges({ person }: { person: PlantPerson }) {
 	return (
 		<span className="flex flex-wrap items-center gap-1.5">
 			<StageChip stage={STAGE_KEY[person.stage]}>{STAGE_LABEL[person.stage]}</StageChip>
@@ -443,13 +472,13 @@ export function PersonBadges({ person }: { person: PlantPerson }) {
 	);
 }
 
-const COLUMNS: Column<PlantPerson>[] = [
+const COLUMNS: Column<ListRow>[] = [
 	{
 		key: "person",
 		header: "Person",
 		cell: (p) => (
 			<div className="flex items-center gap-3">
-				<Avatar name={p.displayName} size="sm" decorative />
+				<Avatar name={p.displayName} src={p.photo} size="sm" decorative />
 				<div className="min-w-0">
 					<PersonLink href={`/people/${p.id}`} className="font-semibold text-ink hover:underline">
 						{p.displayName}
@@ -487,8 +516,8 @@ const COLUMNS: Column<PlantPerson>[] = [
 ];
 
 /**
- * An active tag filter from the address (ruling D47). People must carry every selected tag. The tag picker and tag
- * names come with WP-012/ui; until then a chip only shows that a tag filter is on and removes it.
+ * An active tag filter from the address (ruling D47). People must carry every selected tag. The chip shows "Tag" (or
+ * "Tag N" when several are on), not the tag's name, and removes that filter.
  */
 function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (

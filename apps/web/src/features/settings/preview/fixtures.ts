@@ -109,17 +109,14 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 		S.sectionResult.parse({
 			section: "notifications",
 			accountId: account,
-			revision: "5",
+			// Your account and notification choices share the account's one revision, as on the server.
+			revision: "3",
 			values: {
 				choices:
 					persona === "network"
 						? [
 								{ category: "oversight_digest", channel: "email", enabled: true },
 								{ category: "oversight_digest", channel: "in_app", enabled: true },
-								{ category: "relationship_milestone", channel: "email", enabled: true },
-								{ category: "relationship_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "email", enabled: false },
 								{ category: "phase_milestone", channel: "in_app", enabled: true },
 								{ category: "phase_milestone", channel: "email", enabled: false },
 							]
@@ -134,9 +131,12 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 								{ category: "meeting_announcement", channel: "email", enabled: false },
 								{ category: "planter_digest", channel: "in_app", enabled: true },
 								{ category: "planter_digest", channel: "email", enabled: true },
-								{ category: "launch_milestone", channel: "in_app", enabled: true },
-								{ category: "launch_milestone", channel: "email", enabled: true },
+								{ category: "relationship_milestone", channel: "in_app", enabled: true },
+								{ category: "relationship_milestone", channel: "email", enabled: true },
+								{ category: "sharing_milestone", channel: "in_app", enabled: true },
+								{ category: "sharing_milestone", channel: "email", enabled: false },
 								{ category: "wiki_upstream_review", channel: "in_app", enabled: false },
+								{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true },
 							],
 				planterCadence: persona === "network" ? null : "weekly",
 				oversightCadence: persona === "network" ? "daily" : null,
@@ -223,6 +223,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 						description: "We send and support new churches across Central Texas.",
 						contactEmail: "office@austinsending.org",
 						contactPhone: null,
+						statementOfFaith: null,
 					},
 					timeZone: "America/Chicago",
 				},
@@ -311,6 +312,16 @@ export function createFixturePort(
 		return row?.section === "account" ? row.personalTimezone : { status: "unconfirmed" };
 	};
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
+	/**
+	 * Stores an account or notifications row and gives the other one its revision: both carry the account's one
+	 * revision, so a save of either (or of your photo or time zone) refuses the other's stale revision with `conflict`.
+	 */
+	const setAccountScope = (row: Extract<SectionResult, { section: "account" | "notifications" }>) => {
+		store.sections.set(row.section, row);
+		const other = store.sections.get(row.section === "account" ? "notifications" : "account");
+		if (other?.section === "account" || other?.section === "notifications")
+			store.sections.set(other.section, { ...other, revision: row.revision });
+	};
 	const canAdminPlant = persona === "owner" || persona === "admin";
 
 	const port: SettingsPort = {
@@ -409,7 +420,8 @@ export function createFixturePort(
 				case "teams":
 					return refuse("unavailable");
 			}
-			store.sections.set(key, next);
+			if (next.section === "account" || next.section === "notifications") setAccountScope(next);
+			else store.sections.set(key, next);
 			return ok(S.savedSectionResult, {
 				current: next,
 			});
@@ -503,9 +515,9 @@ export function createFixturePort(
 					S.requestAvatarUpload.parse(request);
 					return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
 				},
-				async uploadAvatarBytes(uploadId, file) {
+				async uploadAvatarBytes(target, file) {
 					await wait(300);
-					store.staged.set(uploadId, file);
+					store.staged.set(target.versionId, file);
 					return { status: "ok", value: null };
 				},
 				async finalizeAvatar(raw) {
@@ -521,7 +533,7 @@ export function createFixturePort(
 						status: "available",
 						avatar: { accountId: ACCOUNT[persona], versionId },
 					});
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				async removeAvatar(raw) {
@@ -530,7 +542,7 @@ export function createFixturePort(
 					const row = store.sections.get("account");
 					if (!row || row.section !== "account") return refuse("invalid_input");
 					const avatar = S.avatarResult.parse({ status: "absent" });
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				avatarSrc(avatar) {
@@ -594,7 +606,7 @@ export function createFixturePort(
 					timeZone: request.input.timeZone,
 					revision: bump(current),
 				});
-				store.sections.set("account", { ...row, personalTimezone: preference });
+				setAccountScope({ ...row, personalTimezone: preference, revision: bump(row.revision) as typeof row.revision });
 				return ok(N.personalTimezoneResult, { preference });
 			},
 			async requestAccountDeletion(raw) {

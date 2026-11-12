@@ -7,7 +7,7 @@ import { useTiptapEditor } from "../use-tiptap-editor.ts";
 // --- Icons ---
 import { Redo2Icon, Undo2Icon } from "../icons.tsx";
 
-export type UndoRedoAction = "undo" | "redo";
+type UndoRedoAction = "undo" | "redo";
 
 /**
  * Configuration for the history functionality
@@ -21,28 +21,19 @@ export interface UseUndoRedoConfig {
 	 * The history action to perform (undo or redo).
 	 */
 	action: UndoRedoAction;
-	/**
-	 * Whether the button should hide when action is not available.
-	 * @default false
-	 */
-	hideWhenUnavailable?: boolean;
-	/**
-	 * Callback function called after a successful action execution.
-	 */
-	onExecuted?: () => void;
 }
 
-export const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
+const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
 	undo: "mod+z",
 	redo: "mod+shift+z",
 };
 
-export const historyActionLabels: Record<UndoRedoAction, string> = {
+const historyActionLabels: Record<UndoRedoAction, string> = {
 	undo: "Undo",
 	redo: "Redo",
 };
 
-export const historyIcons = {
+const historyIcons = {
 	undo: Undo2Icon,
 	redo: Redo2Icon,
 };
@@ -50,7 +41,7 @@ export const historyIcons = {
 /**
  * Checks if a history action can be executed
  */
-export function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
 	if (!editor || !editor.isEditable) return false;
 
 	return action === "undo" ? editor.can().undo() : editor.can().redo();
@@ -59,7 +50,7 @@ export function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedo
 /**
  * Executes a history action on the editor
  */
-export function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!canExecuteUndoRedoAction(editor, action)) return false;
 
@@ -70,20 +61,10 @@ export function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAct
 /**
  * Determines if the history button should be shown
  */
-export function shouldShowButton(props: {
-	editor: Editor | null;
-	hideWhenUnavailable: boolean;
-	action: UndoRedoAction;
-}): boolean {
-	const { editor, hideWhenUnavailable, action } = props;
+function shouldShowButton(props: { editor: Editor | null }): boolean {
+	const { editor } = props;
 
-	if (!editor || !editor.isEditable) return false;
-
-	if (hideWhenUnavailable && !editor.isActive("code")) {
-		return canExecuteUndoRedoAction(editor, action);
-	}
-
-	return true;
+	return !!editor && editor.isEditable;
 }
 
 /**
@@ -105,8 +86,6 @@ export function shouldShowButton(props: {
  *   const { isVisible, handleAction, label } = useHistory({
  *     editor: myEditor,
  *     action: "redo",
- *     hideWhenUnavailable: true,
- *     onExecuted: () => console.log('Action executed!')
  *   })
  *
  *   if (!isVisible) return null
@@ -123,7 +102,7 @@ export function shouldShowButton(props: {
  * ```
  */
 export function useUndoRedo(config: UseUndoRedoConfig) {
-	const { editor: providedEditor, action, hideWhenUnavailable = false, onExecuted } = config;
+	const { editor: providedEditor, action } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
 	const [isVisible, setIsVisible] = React.useState<boolean>(true);
@@ -133,7 +112,7 @@ export function useUndoRedo(config: UseUndoRedoConfig) {
 		if (!editor) return;
 
 		const handleUpdate = () => {
-			setIsVisible(shouldShowButton({ editor, hideWhenUnavailable, action }));
+			setIsVisible(shouldShowButton({ editor }));
 		};
 
 		handleUpdate();
@@ -143,17 +122,13 @@ export function useUndoRedo(config: UseUndoRedoConfig) {
 		return () => {
 			editor.off("transaction", handleUpdate);
 		};
-	}, [editor, hideWhenUnavailable, action]);
+	}, [editor]);
 
 	const handleAction = React.useCallback(() => {
 		if (!editor) return false;
 
-		const success = executeUndoRedoAction(editor, action);
-		if (success) {
-			onExecuted?.();
-		}
-		return success;
-	}, [editor, action, onExecuted]);
+		return executeUndoRedoAction(editor, action);
+	}, [editor, action]);
 
 	return {
 		isVisible,

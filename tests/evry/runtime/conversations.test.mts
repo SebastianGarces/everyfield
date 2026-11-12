@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
 	cancelTurn,
 	createConversation,
-	latestConversation,
+	openLatestConversation,
 	listConversations,
 	observeConversation,
 	readConversation,
@@ -40,7 +40,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	const c = created.value;
 	assert.equal(c.context, "plant");
 	// Opening Evry again from the launcher or the panel returns the same conversation, not a new thread.
-	assert.equal((await latestConversation(db, owner))?.id, c.id);
+	assert.equal((await openLatestConversation(db, owner))?.conversation.id, c.id);
 
 	const first = { requestKey: randomUUID(), text: "Show my people.", references: [] };
 	const submitted = await statements(() => submitTurn(db, owner, c.id, first));
@@ -123,7 +123,7 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION AC:TEN-002 AC:SEC-02 AC:UI45-006 INV-ten
 		await refused(() => cancelTurn(db, other, c.id), "not_found");
 		await refused(() => retryTurn(db, other, c.id, { requestKey: randomUUID() }), "not_found");
 		assert.deepEqual((await listConversations(db, other, { search: "Private" })).items, []);
-		assert.equal(await latestConversation(db, other), null);
+		assert.equal(await openLatestConversation(db, other), null);
 	}
 	assert.deepEqual(await counts(), before, "no refused call wrote anything");
 	// An ended seat loses the conversation's context at once: no new turn, no cancel.
