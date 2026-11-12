@@ -202,8 +202,8 @@ after(async () => {
 	await database.close();
 });
 
-describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () => {
-	test("criterion 2: a v1 document lists exactly what v2 added, removed or reworded, each with its mark", async () => {
+describe("INV-template-changes: Template changes on a Church Document", { concurrency: 1 }, () => {
+	test("INV-template-changes: a v1 document lists exactly what v2 added, removed or reworded, each with its mark", async () => {
 		const templates = await sources();
 		const doc = await create(OWNER, POLICY);
 		const found = ok(await compare(OWNER, doc.id, templates));
@@ -223,7 +223,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.equal(await templateStatus(doc.body, templates), "behind");
 	});
 
-	test("criterion 3: blocks the church edited, added or deleted that the template did not change are not listed", async () => {
+	test("INV-template-changes: blocks the church edited, added or deleted that the template did not change are not listed", async () => {
 		const templates = await sources();
 		const doc = await create(OWNER, POLICY);
 		ok(await save(OWNER, doc.id, "1", ownEdits(doc.body)));
@@ -236,7 +236,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.ok(JSON.stringify(found.differences).includes("Our own closing line."));
 	});
 
-	test("criterion 4: both changed is listed once; a change already removed or already made is not listed", async () => {
+	test("INV-template-changes: both changed is listed once; a change already removed or already made is not listed", async () => {
 		const templates = await sources();
 		const doc = await create(ADMIN, POLICY);
 		const edited = structuredClone(doc.body);
@@ -261,7 +261,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.deepEqual([found.changes[5].document, found.changes[5].template], [own22, null]);
 	});
 
-	test("AC:DOC-TEMPLATE-CHANGES criteria 6, 7: one accepted item lands in its place; one revision records v2; declined ones move to All differences", async () => {
+	test("INV-template-changes: one accepted item lands in its place; one revision records v2; declined ones move to All differences", async () => {
 		const templates = await sources();
 		const doc = await create(OWNER, POLICY);
 		const own = ok(await save(OWNER, doc.id, "1", ownEdits(doc.body)));
@@ -328,7 +328,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.deepEqual(all.body.page, v2.page);
 	});
 
-	test("criterion 8: no behind status once every template change is in the document; behind when one is missing", async () => {
+	test("INV-template-changes: no behind status once every template change is in the document; behind when one is missing", async () => {
 		const templates = await sources();
 		const doc = await create(ADMIN, POLICY);
 		// The church made every v2 change by hand, kept its v1 origin, and edited block 9 too.
@@ -348,7 +348,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.deepEqual(shape(ok(await compare(ADMIN, doc.id, templates)).changes), [[0, "header", "template-only"]]);
 	});
 
-	test("criterion 9: a base that is not stored offers All differences only, and accept works from it", async () => {
+	test("INV-template-changes: a base that is not stored offers All differences only, and accept works from it", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const forged = structuredClone(doc.body);
 		forged.origin = { ...forged.origin, hash: `sha256:${"0".repeat(64)}` };
@@ -368,7 +368,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.deepEqual(again.changes, []);
 	});
 
-	test("criterion 10: a church template updated twice compares its stored v1 with v3; accepting records v3", async () => {
+	test("INV-template-changes: a church template updated twice compares its stored v1 with v3; accepting records v3", async () => {
 		const template = await churchTemplate(OWNER, "Twice-updated policy");
 		const doc = await create(ADMIN, template.templateId);
 		const own = structuredClone(doc.body);
@@ -410,7 +410,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		refused(await compare(ADMIN, doc.id), "unavailable");
 	});
 
-	test("criterion 11: on a policy the legal notice is never listed or removed; a new field prints a value or fallback", async () => {
+	test("INV-template-changes: on a policy the legal notice is never listed or removed; a new field prints a value or fallback", async () => {
 		const templates = await sources();
 		// Other Church has no senior pastor and another name: a value-only field difference is not listed.
 		const doc = await create(OTHER, POLICY);
@@ -425,7 +425,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.ok(pdf.includes(LEGAL_NOTICE));
 	});
 
-	test("criterion 12: a compare made stale by another save or a new template, or a key from the other list, is a conflict", async () => {
+	test("INV-template-changes: a compare made stale by another save or a new template, or a key from the other list, is a conflict", async () => {
 		const templates = await sources();
 		const doc = await create(ADMIN, POLICY);
 		const found = ok(await compare(ADMIN, doc.id, templates));
@@ -450,7 +450,7 @@ describe("T-81 Template changes on a Church Document", { concurrency: 1 }, () =>
 		assert.equal(await revisionCount(doc.id), 2);
 	});
 
-	test("criterion 13: a Member is refused the compare and the accept", async () => {
+	test("INV-template-changes: a Member is refused the compare and the accept", async () => {
 		const templates = await sources();
 		const doc = await create(ADMIN, POLICY);
 		const found = ok(await compare(ADMIN, doc.id, templates));

@@ -348,14 +348,14 @@ type Action = "resend" | "withdraw";
 type InvitationCommand = ReturnType<typeof invitationCommandRequest.parse>;
 
 const RESEND_REFUSED: Record<string, string> = {
-	resend_cooldown: "This invitation was sent a moment ago. Wait a few minutes, then resend it.",
+	resend_cooldown: "This invitation was sent a moment ago. Wait a minute, then resend it.",
 };
 
 /**
- * Invitations this subject sent that are still waiting (REQ-IDN-020). Resend sends a fresh link and a new 30 days;
- * withdraw cancels the request. Each row keeps its own frozen command, so a lost reply on one row never sends its
- * request key with another invitation or another action. Until it is resolved or the list reloads, the other
- * controls wait.
+ * Invitations this subject sent that are still waiting (REQ-IDN-020). Resend sends a fresh link and keeps the
+ * original expiry; withdraw cancels the request. Each row keeps its own frozen command, so a lost reply on one row
+ * never sends its request key with another invitation or another action. Until it is resolved or the list reloads, the
+ * other controls wait.
  */
 function PendingList({
 	invitations,

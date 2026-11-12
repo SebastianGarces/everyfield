@@ -15,7 +15,7 @@ function fixture() {
 
 const cli = (root: string) => spawnSync(process.execPath, [tool], { cwd: root, encoding: "utf8" });
 
-test("BUG-OPS10-ci: follow recursive scripts, filters and file globs; fail an unlisted integration test", () => {
+test("BUG-3b7185b67: follow recursive scripts, filters and file globs; fail an unlisted integration test", () => {
 	const f = fixture();
 	try {
 		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
@@ -152,7 +152,7 @@ test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and mus
 	}
 });
 
-test("T-172: an unlisted pure tests/ui model test fails the guard; a browser suite importing setup.mjs is not required", () => {
+test("INV-ci-tests: an unlisted pure tests/ui model test fails the guard; a browser suite importing setup.mjs is not required", () => {
 	const f = fixture();
 	try {
 		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
@@ -246,7 +246,7 @@ test("INV-ci-db-steps: each package with test:db needs a CI step, and the domain
 	}
 });
 
-test("CI runs this check on its own, in the tooling job the required ci check needs", () => {
+test("INV-ci-tests: CI runs this check on its own, in the tooling job the required ci check needs", () => {
 	const workflow = readFileSync(resolve(import.meta.dirname, "../../../.github/workflows/ci.yml"), "utf8");
 	const job = workflow.split(/(?=^  [\w-]+:\s*$)/m).find((part) => part.startsWith("  tooling:"));
 	assert.ok(job, "ci.yml has a tooling job");

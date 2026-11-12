@@ -283,7 +283,7 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
 });
 
-test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof (ruling D48)", async () => {
+test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof", async () => {
 	const p = await S.tenant("plant", "Harvest Point"),
 		pa = await S.identity(p),
 		o = await S.tenant("sending_church"),

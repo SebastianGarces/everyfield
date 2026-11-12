@@ -1536,7 +1536,7 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 // ---------------------------------------------------------------------------------------------------------------
 // WP-023 F07b: a task has one or more assignees.
 
-test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as a whole, kept as a set and audited", async () => {
+test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set and audited", async () => {
 	const assigneeIds = async (id) =>
 		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id} ORDER BY account_id`)).map(
 			(r) => r.account_id,
@@ -1610,7 +1610,7 @@ test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as 
 	assert.deepEqual([cleared.assignees, await assigneeIds(t.id)], [[], []]);
 });
 
-test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
+test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
 	const shared = await create(owner, { title: "Shared duty", assigneeIds: [member.id, admin2.id] });
 	// Another Member is not an assignee and cannot complete it; one of the assignees can.
 	const stranger = await (async () => {
@@ -1675,7 +1675,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 	);
 });
 
-test("INV-statements F07b criterion 10: a page read sends the same statements for one assignee or three", async () => {
+test("INV-statements: a page read sends the same statements for one assignee or three", async () => {
 	const third = await (async () => {
 		const a = await f.account();
 		await f.seat(a, plant, "member");
@@ -1692,7 +1692,7 @@ test("INV-statements F07b criterion 10: a page read sends the same statements fo
 	assert.deepEqual(await each(three.id), await each(one.id));
 });
 
-test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
+test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
 	const notices = (task) =>
 		rows(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled FROM notice n
 			WHERE n.source_record_id=${task} ORDER BY n.recipient_id, n.eligible_at`);
@@ -1731,7 +1731,7 @@ test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminder
 	assert.deepEqual(await live(t.id), both);
 });
 
-test("T-159 AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder mail", async () => {
+test("AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder mail", async () => {
 	const t = await create(owner, {
 		title: "Print the programs",
 		assigneeIds: [member.id],

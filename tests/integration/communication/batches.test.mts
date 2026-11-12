@@ -175,7 +175,7 @@ async function stopAtSecondCall(m, fake: { transport: DeliveryTransport; sends: 
 }
 const states = (members: { state: string }[]) => [...new Set(members.map((row) => row.state))];
 
-test("T-228 Send now to 250 people freezes 3 batches of 100, 100 and 50 in person-id order, one call each, all accepted", async () => {
+test("INV-message-batches: Send now to 250 people freezes 3 batches of 100, 100 and 50 in person-id order, one call each, all accepted", async () => {
 	const m = await message(250);
 	const fake = carrier();
 	const result = ok(await sendNow(m, fake.transport));
@@ -215,7 +215,7 @@ test("T-228 Send now to 250 people freezes 3 batches of 100, 100 and 50 in perso
 	assert.equal(result.confirmedRecipientIds.length, 250);
 });
 
-test("T-228 101 people schedule and send to all 101; a scheduled handoff of 101 waits in Everyfield in 2 batches", async () => {
+test("INV-message-batches: 101 people schedule and send to all 101; a scheduled handoff of 101 waits in Everyfield in 2 batches", async () => {
 	const now = await message(101, "Over");
 	const fake = carrier();
 	const sent = ok(await sendNow(now, fake.transport));
@@ -239,7 +239,7 @@ test("T-228 101 people schedule and send to all 101; a scheduled handoff of 101 
 	);
 });
 
-test("T-228 the minute runner hands off a scheduled 250-person message one batch per claim and refuses the person who unsubscribed", async () => {
+test("INV-message-batches: the minute runner hands off a scheduled 250-person message one batch per claim and refuses the person who unsubscribed", async () => {
 	const m = await message(250, "Runner");
 	const fake = carrier();
 	ok(await sendNow(m, fake.transport, "handOffScheduled"));
@@ -278,7 +278,7 @@ test("T-228 the minute runner hands off a scheduled 250-person message one batch
 	assert.equal(after.filter((row) => row.state === "accepted").length, 249);
 });
 
-test("T-228 a lost second batch leaves only its 100 recipients unknown; the others keep their ids and totals count every batch", async () => {
+test("INV-message-batches: a lost second batch leaves only its 100 recipients unknown; the others keep their ids and totals count every batch", async () => {
 	for (const lose of ["unknown", "throw"] as const) {
 		const m = await message(250, "Lost");
 		const fake = carrier((call, batch) => {
@@ -311,7 +311,7 @@ test("T-228 a lost second batch leaves only its 100 recipients unknown; the othe
 	}
 });
 
-test("T-228 a retry reuses every batch's stored key and frozen bytes: a stopped run resumes, an unknown batch is only looked up, an expired one never resent", async () => {
+test("INV-message-batches: a retry reuses every batch's stored key and frozen bytes: a stopped run resumes, an unknown batch is only looked up, an expired one never resent", async () => {
 	const m = await message(250, "Resume");
 	// The run stops after the first batch: the second call never answers, so nothing of this run is stored.
 	const stopped = carrier((call, batch) => (call === 1 ? stopped.ids(batch) : new Promise<DeliveryBatch>(() => {})));
@@ -380,7 +380,7 @@ async function holdAtProvider(members: { id: string }[], tag: string) {
 	return held.map((row) => row.provider);
 }
 
-test("T-228 cancel and replace read every batch: waiting recipients cancel at once, held ones by their own ids", async () => {
+test("INV-message-batches: cancel and replace read every batch: waiting recipients cancel at once, held ones by their own ids", async () => {
 	const m = await message(250, "Cancel");
 	const fake = carrier();
 	ok(await sendNow(m, fake.transport, "handOffScheduled"));
@@ -431,7 +431,7 @@ test("T-228 cancel and replace read every batch: waiting recipients cancel at on
 	);
 });
 
-test("T-228 a time change moves the waiting recipients of every batch and the held ones by their own ids", async () => {
+test("INV-message-batches: a time change moves the waiting recipients of every batch and the held ones by their own ids", async () => {
 	const m = await message(250, "Move");
 	const fake = carrier();
 	ok(await sendNow(m, fake.transport, "handOffScheduled"));
@@ -479,7 +479,7 @@ function counting(db: Database) {
 	return { db: wrapped as Database, counter };
 }
 
-test("T-228 every delivery operation sends as many statements for 3 batches as for 1", async () => {
+test("INV-message-batches: every delivery operation sends as many statements for 3 batches as for 1", async () => {
 	async function measure(n: number) {
 		const counts: Record<string, number> = {};
 		const run = async (name: string, call: (db: Database) => Promise<unknown>) => {

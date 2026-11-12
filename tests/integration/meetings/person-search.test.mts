@@ -78,7 +78,7 @@ test("AC:TARGET-MTG-011 case and diacritics are ignored, hyphens split name word
 	assert.deepEqual(await search("sam"), []);
 });
 
-test("AC:TARGET-MTG-011 apostrophes split name words in the name and the query (D-434), never the domain", async () => {
+test("AC:TARGET-MTG-011 apostrophes split name words in the name and the query, never the domain", async () => {
 	const both = ["Liam O'Brien", "Nora O\u2019Brien"];
 	assert.deepEqual(await search("brien"), both);
 	assert.deepEqual(await search("o'brien"), both);

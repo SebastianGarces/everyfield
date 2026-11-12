@@ -145,7 +145,7 @@ const row = (task, to, revision, category, at, rest = {}) => ({
 	...rest,
 });
 
-test("CASE-NTF-005: one sync plans and replans the owed reminders of mixed tasks, and the worker sends only those", async () => {
+test("AC:CASE-NTF-005 one sync plans and replans the owed reminders of mixed tasks, and the worker sends only those", async () => {
 	const due = {
 		t1: { kind: "date_only", date: day(10) },
 		t2: { kind: "timed", at: hours(5 * 24) },

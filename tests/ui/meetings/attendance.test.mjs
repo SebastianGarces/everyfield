@@ -106,7 +106,7 @@ for (const [name, engine] of ENGINES) {
 		await hydrated(page);
 	};
 
-	test(`BUG-T155 messages/com-8 (${name}): finalize, then Record response card saves the first time`, async () => {
+	test(`BUG-ce8e6b7f7 messages/com-8 (${name}): finalize, then Record response card saves the first time`, async () => {
 		const { meetingId, guest } = revisions().card;
 		await signedIn(async (page) => {
 			// Before the meeting closes, Finalize attendance is on the Results tab's attendance card.
@@ -154,7 +154,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`BUG-T155 messages/com-9 (${name}): a walk-in, then Finish check-in finalizes the first time`, async () => {
+	test(`BUG-ce8e6b7f7 messages/com-9 (${name}): a walk-in, then Finish check-in finalizes the first time`, async () => {
 		const meetingId = revisions().walkIn;
 		await signedIn(async (page) => {
 			await open(page, `/meetings/${meetingId}/check-in`);

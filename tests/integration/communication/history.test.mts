@@ -391,7 +391,7 @@ test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps deli
 	refused(await read(owner, "listResendCandidates", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
+test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
 	const nora = await person("Nora", { email: "nora@example.test" });
 	const owen = await person("Owen", { email: "owen@example.test" });
 	const sent = await message({
@@ -560,7 +560,7 @@ test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective cont
 	);
 });
 
-test("history search for an ampersand phrase matches the message body and subject as typed", async () => {
+test("INV-history-search: history search for an ampersand phrase matches the message body and subject as typed", async () => {
 	const inBody = ok(
 		await write(owner, "saveDraft", {
 			requestKey: key(),
@@ -588,7 +588,7 @@ test("history search for an ampersand phrase matches the message body and subjec
 	);
 });
 
-test("T-159: meeting tracking lists a person emailed by two of the meeting's messages once, with the latest mail", async () => {
+test("AC:CASE-COM-002 meeting tracking lists a person emailed by two of the meeting's messages once, with the latest mail", async () => {
 	const twice = await person("Twice Tracked", { email: "twice@example.test" });
 	const once = await person("Once Tracked", { email: "once@example.test" });
 	const meet = await meeting("Tracked twice");
@@ -605,7 +605,7 @@ test("T-159: meeting tracking lists a person emailed by two of the meeting's mes
 	assert.equal(tracked.items.find((row) => row.personId === twice).deliveryStatus, "delivered");
 });
 
-test("T-159 C13: a pending-deletion witness on the plant hides communication history reads", async () => {
+test("AC:RECOVERY-DELETE-001 a pending-deletion witness on the plant hides communication history reads", async () => {
 	const meet = await meeting("Hidden");
 	const witness = randomUUID();
 	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,

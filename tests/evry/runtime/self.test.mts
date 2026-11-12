@@ -19,7 +19,7 @@ const link = (who: "owner" | "member", personId: string | null) =>
 		sql`UPDATE person SET linked_account_id=${personId ? accounts[who].id : null} WHERE id=${personId ?? people.alexRivera}`,
 	);
 
-test("AC:WP059-001 resolveSelf returns the linked live person in the church, or none; the account context has none", async () => {
+test("INV-evry-self: resolveSelf returns the linked live person in the church, or none; the account context has none", async () => {
 	const owner = await actor("owner");
 	const member = await actor("member");
 	assert.equal(await resolveSelf(db, owner), null, "unlinked: no row");
@@ -38,7 +38,7 @@ test("AC:WP059-001 resolveSelf returns the linked live person in the church, or 
 	assert.equal(queries.length - start, 1, "one statement");
 });
 
-test("AC:WP059-002 AC:WP059-004 only the user's own row carries you; the list and its total still include the user", async () => {
+test("INV-evry-self: only the user's own row carries you; the list and its total still include the user", async () => {
 	await link("owner", people.alexRivera);
 	const owner = { ...(await actor("owner")), selfPersonId: await resolveSelf(db, await actor("owner")) };
 	const listed = await invokeRead(db, owner, listPeople, { limit: 100 });
@@ -73,13 +73,13 @@ test("AC:WP059-002 AC:WP059-004 only the user's own row carries you; the list an
 	assert.ok(board.rows.every((r) => r.kind === "person" && (r.id === people.alexRivera || !("you" in r.fields))));
 });
 
-test("AC:WP059-002 the shared row helper marks exactly the user's id", () => {
+test("INV-evry-self: the shared row helper marks exactly the user's id", () => {
 	assert.deepEqual(personRow({ selfPersonId: "a" }, "a", "A", { x: null }).fields, { x: null, you: true });
 	assert.deepEqual(personRow({ selfPersonId: "a" }, "b", "B", { x: null }).fields, { x: null });
 	assert.deepEqual(personRow({ selfPersonId: null }, "a", "A", {}).fields, {});
 });
 
-test("AC:WP059-003 the compiled system prompt names the you marker and the never-suggest rule", async () => {
+test("INV-evry-self: the compiled system prompt names the you marker and the never-suggest rule", async () => {
 	const owner = await actor("owner");
 	const { system } = compileContext({
 		actor: owner,

@@ -62,8 +62,8 @@ const names = (r: { fields: { name: string }[] }) => r.fields.map((f) => f.name)
 const countOf = (r: { fields: { name: string }[] }, prefix: string) =>
 	r.fields.filter((f) => f.name.startsWith(prefix)).length;
 
-describe("WP-036/api agendas from the meeting", () => {
-	test("text rules match the meeting screen: title, date, time, start times, total, kind", () => {
+describe("AC:DOC-007 AC:DOC-011 agendas from the meeting", () => {
+	test("AC:DOC-007 text rules match the meeting screen: title, date, time, start times, total, kind", () => {
 		const a = agendaMeetingOf(meetingOf(), 2026);
 		assert.equal(a.title, "Vision Meeting #12");
 		assert.equal(a.date, "Tue Nov 10");
@@ -93,7 +93,7 @@ describe("WP-036/api agendas from the meeting", () => {
 			assert.equal(agendaKindOf({ type, leadership }), null, type);
 	});
 
-	test("the default Vision agenda (6 sections, 8 guests, a venue) prints on one page", async () => {
+	test("AC:DOC-007 the default Vision agenda (6 sections, 8 guests, a venue) prints on one page", async () => {
 		const agenda = [
 			["Welcome and prayer", 10],
 			["Our story", 20],
@@ -109,7 +109,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		}
 	});
 
-	test("DOC-007: with no meeting both agendas are the blank sheet, with no invented segments", async () => {
+	test("AC:DOC-007 with no meeting both agendas are the blank sheet, with no invented segments", async () => {
 		for (const id of IDS) {
 			const r = await render(id);
 			const text = lines(r).join(" ");
@@ -132,7 +132,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		assert.ok(names(await render("board-meeting-agenda")).includes("facilitator"));
 	});
 
-	test("DOC-007: the header and the run of show print exactly what the meeting holds, in order", async () => {
+	test("AC:DOC-007 the header and the run of show print exactly what the meeting holds, in order", async () => {
 		for (const id of IDS) {
 			const r = await render(id, meetingOf());
 			const all = lines(r);
@@ -161,13 +161,13 @@ describe("WP-036/api agendas from the meeting", () => {
 		}
 	});
 
-	test("DOC-007: a meeting with no venue prints a blank Place field", async () => {
+	test("AC:DOC-007 a meeting with no venue prints a blank Place field", async () => {
 		const r = await render("vision-meeting-agenda", meetingOf({ venueName: null, venueAddress: null }));
 		assert.ok(names(r).includes("meeting_place"));
 		assert.equal(lines(r).join(" ").includes("Harbor Hall"), false);
 	});
 
-	test("DOC-007: attendees print sorted names, roles, empty Here boxes and blank rows up to the minimum", async () => {
+	test("AC:DOC-007 attendees print sorted names, roles, empty Here boxes and blank rows up to the minimum", async () => {
 		const r = await render("vision-meeting-agenda", meetingOf());
 		const all = lines(r);
 		assert.ok(all.indexOf("Ada Brown") >= 0 && all.indexOf("Ada Brown") < all.indexOf("Ben Cole"));
@@ -194,7 +194,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		assert.ok(lines(board).includes("Leadership huddle"));
 	});
 
-	test("DOC-007: no sections and nobody listed prints 6 blank run rows and 8 blank attendee rows", async () => {
+	test("AC:DOC-007 no sections and nobody listed prints 6 blank run rows and 8 blank attendee rows", async () => {
 		const r = await render(
 			"board-meeting-agenda",
 			meetingOf({
@@ -218,7 +218,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		);
 	});
 
-	test("DOC-002, DOC-007: 40 sections and 100 people paginate with a footer on every page and stay in the limit", async () => {
+	test("AC:DOC-002 AC:DOC-007 40 sections and 100 people paginate with a footer on every page and stay in the limit", async () => {
 		const m = meetingOf({
 			agenda: Array.from({ length: 40 }, (_, i) => ({
 				title: `Section ${i + 1} ${"long ".repeat(i % 7)}`.trim(),
@@ -256,7 +256,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		);
 	});
 
-	test("DOC-002: more people than the cap prints the cap and the count not shown", async () => {
+	test("AC:DOC-002 more people than the cap prints the cap and the count not shown", async () => {
 		const total = ATTENDEE_CAP + 37;
 		const m = meetingOf({
 			attendees: Array.from({ length: ATTENDEE_CAP }, (_, i) => ({
@@ -273,7 +273,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		assert.ok(r.bytes.length < 8 * 1024 * 1024);
 	});
 
-	test("DOC-009: the same meeting renders under the neutral theme and a brand theme with the same facts", async () => {
+	test("AC:DOC-009 AC:DOC-017 the same meeting renders under the neutral theme and a brand theme with the same facts", async () => {
 		for (const id of IDS) {
 			const neutral = await render(id, meetingOf(), NEUTRAL_THEME);
 			const brand = await render(id, meetingOf(), sampleKit());
@@ -287,7 +287,7 @@ describe("WP-036/api agendas from the meeting", () => {
 		}
 	});
 
-	test("DOC-002: meeting_date resolves from the meeting; an explicit override wins", async () => {
+	test("AC:DOC-002 meeting_date resolves from the meeting; an explicit override wins", async () => {
 		const { templates } = await library();
 		const template = templates.find((t) => t.id === "vision-meeting-agenda")!;
 		const sources = { churchName: CHURCH, pastorName: null, launchDate: null, meetingDate: "Tue Nov 10" };
