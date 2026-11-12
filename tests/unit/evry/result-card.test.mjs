@@ -122,7 +122,7 @@ test("INV-household-detail: only person rows link; a person row keeps its city a
 	);
 });
 
-test("AC:WP-028-10 a message read is a Messages card with the send time, no person wording and no avatar", () => {
+test("a message read is a Messages card with the send time, no person wording and no avatar", () => {
 	const friday = {
 		kind: "message",
 		id: H,

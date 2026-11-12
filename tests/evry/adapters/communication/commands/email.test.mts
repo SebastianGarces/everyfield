@@ -272,7 +272,7 @@ async function sendWhenDue(id: string, service: ReturnType<typeof emailService>)
 const loseOutcome = (id: string) =>
 	admin.execute(sql`UPDATE proposal SET outcome=NULL,receipt='{"reached":true}'::jsonb WHERE id=${id}`);
 
-test("AC:WP-028-1 a draft review shows the subject, audience, recipient count and body, and saves nothing", async () => {
+test("a draft review shows the subject, audience, recipient count and body, and saves nothing", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const t = await turn(owner, service.port);
@@ -291,7 +291,7 @@ test("AC:WP-028-1 a draft review shows the subject, audience, recipient count an
 	assert.equal(counted(start), 1, "one statement to prepare a draft review");
 });
 
-test("AC:WP-028-2 approving a draft saves it in Messages drafts with no mail and no email service call", async () => {
+test("approving a draft saves it in Messages drafts with no mail and no email service call", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const t = await turn(owner, service.port);
@@ -324,7 +324,7 @@ test("AC:WP-028-2 approving a draft saves it in Messages drafts with no mail and
 	assert.equal(service.calls.send.length + service.calls.cancel.length + service.calls.reschedule.length, 0);
 });
 
-test("AC:WP-028-3 a schedule review names who gets it, who is left out and why, and refuses a time outside the window", async () => {
+test("a schedule review names who gets it, who is left out and why, and refuses a time outside the window", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await savedDraft(owner, service.port, "Schedule review");
@@ -359,7 +359,7 @@ test("AC:WP-028-3 a schedule review names who gets it, who is left out and why, 
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
 });
 
-test("AC:WP-028-3 the review leaves out who the handoff refuses: an unsubscribe after one review shows on the next", async () => {
+test("the review leaves out who the handoff refuses: an unsubscribe after one review shows on the next", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const olive = randomUUID();
@@ -411,7 +411,7 @@ test("AC:WP-028-3 the review leaves out who the handoff refuses: an unsubscribe 
 	await admin.execute(sql`DELETE FROM person WHERE id = ANY(${sql.param(crowd)}::uuid[])`);
 });
 
-test("AC:WP-028-4 a schedule that is not approved, or whose approval lapsed, runs nothing and calls no email service", async () => {
+test("a schedule that is not approved, or whose approval lapsed, runs nothing and calls no email service", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await savedDraft(owner, service.port, "Not approved");
@@ -433,7 +433,7 @@ test("AC:WP-028-4 a schedule that is not approved, or whose approval lapsed, run
 	assert.equal((await readReview(db, owner, proposal.id)).status, "expired");
 });
 
-test("AC:WP-028-5 approving a schedule saves it scheduled, reports counts without saying delivered, and the email service gets it at its time", async () => {
+test("approving a schedule saves it scheduled, reports counts without saying delivered, and the email service gets it at its time", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const sendAt = localAt(3);
@@ -482,7 +482,7 @@ test("AC:WP-028-5 approving a schedule saves it scheduled, reports counts withou
 	assert.equal(call.openTransactions, 0, "the email service is called outside any open transaction");
 });
 
-test("AC:WP-028-5 the email service gets only the people the review showed", async () => {
+test("the email service gets only the people the review showed", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const launchTeam = { groups: ["launch_team"], teamIds: [], personIds: [] };
@@ -531,7 +531,7 @@ test("AC:WP-028-5 the email service gets only the people the review showed", asy
 	await stageOf(people.alexRivera!, "prospect");
 });
 
-test("AC:WP-028-6 AC:WP-028-7 a message still waiting in Everyfield moves and cancels at once, with no email service call", async () => {
+test("a message still waiting in Everyfield moves and cancels at once, with no email service call", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Waiting then moved", localAt(3), false);
@@ -564,7 +564,7 @@ test("AC:WP-028-6 AC:WP-028-7 a message still waiting in Everyfield moves and ca
 	);
 });
 
-test("AC:WP-028-6 a time change shows old and new time and says Saturday only after the email service confirms", async () => {
+test("a time change shows old and new time and says Saturday only after the email service confirms", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Move me", localAt(3));
@@ -610,7 +610,7 @@ test("AC:WP-028-6 a time change shows old and new time and says Saturday only af
 	assert.equal(service.calls.reschedule.length, asked);
 });
 
-test("AC:WP-028-6 a schedule the email service did not answer refuses a time change on the review, and no time moves", async () => {
+test("a schedule the email service did not answer refuses a time change on the review, and no time moves", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await scheduledMessage(owner, service, "Unanswered then moved");
@@ -631,7 +631,7 @@ test("AC:WP-028-6 a schedule the email service did not answer refuses a time cha
 	assert.deepEqual((await rows(sql`SELECT scheduled_at,revision FROM communication WHERE id=${draft.id}`))[0], before);
 });
 
-test("AC:WP-028-6 one unanswered recipient beside an accepted one refuses a time change", async () => {
+test("one unanswered recipient beside an accepted one refuses a time change", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Mixed then moved");
@@ -645,7 +645,7 @@ test("AC:WP-028-6 one unanswered recipient beside an accepted one refuses a time
 	assert.equal(service.calls.reschedule.length, 0);
 });
 
-test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs the email service's confirmation", async () => {
+test("a cancel review shows subject, time and count; Cancelled needs the email service's confirmation", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Cancel me");
@@ -689,7 +689,7 @@ test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs
 	);
 });
 
-test("AC:WP-028-8 a replacement is scheduled only when every original send is confirmed cancelled", async () => {
+test("a replacement is scheduled only when every original send is confirmed cancelled", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const ok = await scheduledMessage(owner, service, "Replace me");
@@ -778,7 +778,7 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	service.answers.cancel = "done";
 });
 
-test("AC:WP-028-8 a replacement the handoff would refuse is refused on the review, and a changed audience stops before the cancel", async () => {
+test("a replacement the handoff would refuse is refused on the review, and a changed audience stops before the cancel", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Replace nobody");
@@ -878,7 +878,7 @@ const inMessages = {
 	},
 };
 
-test("AC:WP-028-9 a message edited in Messages after the review refuses the approval and calls no email service", async () => {
+test("a message edited in Messages after the review refuses the approval and calls no email service", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await savedDraft(owner, service.port, "Changed after review");
@@ -929,7 +929,7 @@ for (const [name, changeIt] of [
 		["communication.cancelScheduledReviewed", (id: string) => ({ communicationId: id })],
 		["communication.replaceScheduledReviewed", (id: string) => ({ communicationId: id, body: "New text." })],
 	] as [string, (id: string) => unknown][])
-		test(`AC:WP-028-9 a message ${name} in Messages refuses a ${operation} approval and calls no email service`, async () => {
+		test(`a message ${name} in Messages refuses a ${operation} approval and calls no email service`, async () => {
 			const owner = await actor("owner");
 			const service = emailService();
 			const { id } = await scheduledMessage(owner, service, `${name} before ${operation}`);
@@ -963,7 +963,7 @@ for (const [name, changeIt] of [
 				);
 		});
 
-test("AC:WP-028-9 a cancel that went out before the effect ran is refused by the effect, and an all-sent cancel never says Cancelled", async () => {
+test("a cancel that went out before the effect ran is refused by the effect, and an all-sent cancel never says Cancelled", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Sent while waiting");
@@ -991,7 +991,7 @@ test("AC:WP-028-9 a cancel that went out before the effect ran is refused by the
 	});
 });
 
-test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads but cannot write; no write sends unreviewed", async () => {
+test("Evry finds messages by subject and send time; a member reads but cannot write; no write sends unreviewed", async () => {
 	const owner = await actor("owner");
 	const member = await actor("member");
 	const service = emailService();
@@ -1042,7 +1042,7 @@ test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads 
 	);
 });
 
-test("AC:WP-028-10 the read offers only a message that can still go out, so a replaced original never beats its replacement", async () => {
+test("the read offers only a message that can still go out, so a replaced original never beats its replacement", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const when = localAt(6);
@@ -1089,7 +1089,7 @@ test("AC:WP-028-10 the read offers only a message that can still go out, so a re
 	for (const r of found) assert.equal(r.fields.state, "scheduled");
 });
 
-test("AC:WP-028-11 a second approval, a double click or a retried effect makes one draft, one schedule request and one cancel", async () => {
+test("a second approval, a double click or a retried effect makes one draft, one schedule request and one cancel", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const t = await turn(owner, service.port);
@@ -1174,7 +1174,7 @@ test("AC:WP-028-11 a second approval, a double click or a retried effect makes o
 	assert.equal((await readReview(db, owner, part!.id)).receipt!.report!.confirmation, "confirmed");
 });
 
-test("AC:WP-028-11 a retry that runs after the approval lapsed reports what the email service holds, never that nothing was done", async () => {
+test("a retry that runs after the approval lapsed reports what the email service holds, never that nothing was done", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await savedDraft(owner, service.port, "Reached then lapsed");
@@ -1211,7 +1211,7 @@ test("AC:WP-028-11 a retry that runs after the approval lapsed reports what the 
 	assert.equal(service.calls.send.length, sends);
 });
 
-test("AC:WP-028-13 each read and effect stays within its budget in limits.json and no transaction is open during a provider call", async () => {
+test("each read and effect stays within its budget in limits.json and no transaction is open during a provider call", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	// The Evry read: its own row in limits.json, which counts the BEGIN and COMMIT of its read transaction.
@@ -1243,7 +1243,7 @@ test("AC:WP-028-13 each read and effect stays within its budget in limits.json a
 		assert.ok(counted(before) <= budget, `${proposal.operation} sent ${counted(before)} statements, budget ${budget}`);
 	};
 	await effect(sched, ["communication.scheduleReviewed", "communication.handOffScheduled"]);
-	// The send itself happens at the send time (AC:WP-028-5 checks its open transactions). From here the email service
+	// The send itself happens at the send time (the schedule approval test checks its open transactions). From here the email service
 	// holds the message, so each later effect calls it.
 	await heldByService(draft.id);
 

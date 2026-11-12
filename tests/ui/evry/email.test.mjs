@@ -174,7 +174,7 @@ async function scheduledFriday(panel, d, held = true) {
 for (const [engine, launcher] of ENGINES) {
 	const run = (body) => withPage(launcher, body, { width: 390, height: 844 });
 
-	test(`AC:WP-028-1 (${engine}): a draft review shows subject, audience, recipient count and body, and saves nothing`, () =>
+	test(`(${engine}): a draft review shows subject, audience, recipient count and body, and saves nothing`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const before = await d.count();
@@ -194,7 +194,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await d.count(), before, "nothing is saved before the planter approves");
 		}));
 
-	test(`AC:WP-028-2 (${engine}): approving the draft saves it in Messages with no mail and no email service call`, () =>
+	test(`(${engine}): approving the draft saves it in Messages with no mail and no email service call`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const before = await d.count();
@@ -224,7 +224,7 @@ for (const [engine, launcher] of ENGINES) {
 				.waitFor({ timeout: 90_000 });
 		}));
 
-	test(`AC:WP-028-3 (${engine}): the schedule review names who gets it, who is left out and why, the content and the send time`, () =>
+	test(`(${engine}): the schedule review names who gets it, who is left out and why, the content and the send time`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -264,7 +264,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await past.getByRole("button", { name: "Approve" }).count(), 0);
 		}));
 
-	test(`AC:WP-028-4 (${engine}): a schedule that is not approved, or whose approval lapsed, is refused as review required`, () =>
+	test(`(${engine}): a schedule that is not approved, or whose approval lapsed, is refused as review required`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -294,7 +294,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await d.requests(before.id), 0, "the email service got no call");
 		}));
 
-	test(`AC:WP-028-5 (${engine}): approving the schedule makes one schedule request and Messages shows the same scheduled message`, () =>
+	test(`(${engine}): approving the schedule makes one schedule request and Messages shows the same scheduled message`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -332,7 +332,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.doesNotMatch(body, /Delivered/);
 		}));
 
-	test(`AC:WP-028-5 (${engine}): a card with no saved result and a lapsed approval says so and offers no Try again`, () =>
+	test(`(${engine}): a card with no saved result and a lapsed approval says so and offers no Try again`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -360,7 +360,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await card.getByRole("button", { name: "Try again" }).count(), 0);
 		}));
 
-	test(`AC:WP-028-6 (${engine}): a time change shows old and new time and the new time only after the email service confirms`, () =>
+	test(`(${engine}): a time change shows old and new time and the new time only after the email service confirms`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -398,7 +398,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await d.requests(moved.id), 1, "the time change made no second send");
 		}));
 
-	test(`AC:WP-028-6 (${engine}): a schedule the email service did not answer refuses a time change on the card`, () =>
+	test(`(${engine}): a schedule the email service did not answer refuses a time change on the card`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -427,7 +427,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(now.scheduled_at, before, "the saved time stays");
 		}));
 
-	test(`AC:WP-028-7 (${engine}): a cancel says Cancelled only after the email service confirms, and Check again asks again`, () =>
+	test(`(${engine}): a cancel says Cancelled only after the email service confirms, and Check again asks again`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -473,7 +473,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(newestStatus(await messages(page)), "Cancelled");
 		}));
 
-	test(`AC:WP-028-8 (${engine}): a replacement is scheduled only when every original send is confirmed cancelled`, () =>
+	test(`(${engine}): a replacement is scheduled only when every original send is confirmed cancelled`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -527,7 +527,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(await d.requests(replacement[0].id), 1, "one new schedule request");
 		}));
 
-	test(`AC:WP-028-9 (${engine}): a message that changed after the review refuses the approval and offers a new review`, () =>
+	test(`(${engine}): a message that changed after the review refuses the approval and offers a new review`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -559,7 +559,7 @@ for (const [engine, launcher] of ENGINES) {
 			await stale.getByText(/no longer waiting to send/).waitFor({ timeout: 90_000 });
 		}));
 
-	test(`AC:WP-028-9 (${engine}): a review whose message was deleted calls it a message and changes nothing`, () =>
+	test(`(${engine}): a review whose message was deleted calls it a message and changes nothing`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -586,7 +586,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.doesNotMatch(text, /person/i);
 		}));
 
-	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"`, () =>
+	test(`(${engine}): Evry finds the Friday email for "cancel the Friday email"`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -617,7 +617,7 @@ for (const [engine, launcher] of ENGINES) {
 			);
 		}));
 
-	test(`AC:WP-028-10 (${engine}): the read leaves out a replaced original, so Friday's email is its replacement`, () =>
+	test(`(${engine}): the read leaves out a replaced original, so Friday's email is its replacement`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
@@ -647,7 +647,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal((await d.mail(replacement.id)).filter((m) => m.state === "cancelled").length, 3);
 		}));
 
-	test(`AC:WP-028-11 (${engine}): a double click on Approve makes one schedule request`, () =>
+	test(`(${engine}): a double click on Approve makes one schedule request`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const before = await d.count();
