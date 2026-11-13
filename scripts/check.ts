@@ -104,13 +104,10 @@ export function coverageMapFor(home: string, gh: Gh): CoverageMap | MapProblem {
 		"databaseId,createdAt",
 	]);
 	if (listed.status !== 0) return without("gh could not list the GitHub nightly runs");
+	// An off-shape run fails safe: its download fails, and the reason says so.
 	let latest: { databaseId: number; createdAt: string } | undefined;
 	try {
-		const runs: unknown = JSON.parse(listed.stdout);
-		const first = Array.isArray(runs) ? (runs[0] as Record<string, unknown> | undefined) : undefined;
-		if (first && typeof first.databaseId === "number" && typeof first.createdAt === "string")
-			latest = { databaseId: first.databaseId, createdAt: first.createdAt };
-		else if (!Array.isArray(runs) || runs.length) throw new Error("off-shape");
+		latest = JSON.parse(listed.stdout)[0];
 	} catch {
 		return without("gh run list returned no run list");
 	}

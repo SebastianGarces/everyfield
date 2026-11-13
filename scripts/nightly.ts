@@ -24,7 +24,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { type CoverageMap, suiteOf } from "../tools/ci/select.ts";
 import { ciHome, type Gh, REPO } from "./check.ts";
 
-export type { Gh };
 export type SuiteRun = { passed: number; failed: number };
 export type Engine = "chromium" | "webkit";
 export const ENGINES: readonly Engine[] = ["chromium", "webkit"];
@@ -408,11 +407,7 @@ export function coverageMapCommand(args: string[], checkout = root, now = () => 
 
 if (import.meta.main) {
 	const [command, ...rest] = process.argv.slice(2);
-	if (command === "coverage-map") process.exitCode = coverageMapCommand(rest);
-	else {
-		console.error("usage: node scripts/nightly.ts coverage-map <file>");
-		process.exitCode = 2;
-	}
+	process.exitCode = coverageMapCommand(command === "coverage-map" ? rest : []);
 }
 
 /** The `bin/dev nightly` command line. */

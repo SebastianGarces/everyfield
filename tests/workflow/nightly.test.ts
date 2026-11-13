@@ -11,12 +11,12 @@ import {
 	counts,
 	coverageMap,
 	coverageMapCommand,
-	type Gh,
 	nightly,
 	type NightlyDeps,
 	nightlyLog,
 	reportFailure,
 } from "../../scripts/nightly.ts";
+import type { Gh } from "../../scripts/check.ts";
 
 const HEAD = "f".repeat(40);
 
