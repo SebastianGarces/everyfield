@@ -406,7 +406,8 @@ export function WikiSourceBar({
 					</DropdownMenu.RadioGroup>
 					<MenuSeparator />
 					<MenuLabel className="text-xs font-normal">
-						Choosing a source changes only what you read now. Your church&apos;s preferred source is set in Settings.
+						Choosing a source changes only what you read now.
+						{prefer ? null : " Your church's preferred source is set in Settings."}
 					</MenuLabel>
 					{prefer ? (
 						<DropdownMenu.Item onSelect={prefer.onSelect} className={MENU_ACTION}>
