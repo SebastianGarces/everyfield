@@ -141,7 +141,7 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 				title={
 					<span className="inline-flex flex-wrap items-center gap-3">
 						Launch plan
-						<StatusBadge status={shown.tone} className="align-middle">
+						<StatusBadge status={shown.tone} className="font-sans tracking-normal">
 							{shown.badge}
 						</StatusBadge>
 					</span>
