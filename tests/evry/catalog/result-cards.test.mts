@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, taskId } from "../evals/golden-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -59,9 +59,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"tasks.list": {},
 	"tasks.count": {},
 	"tasks.get": withTask("tasks.get", (taskId) => ({ taskId })),
-	"tasks.statusHistory": withTask("tasks.statusHistory", (taskId) => ({ taskId })),
+	// Lena completed the welcome packet; a settled task is not in the open list, so the probe names it by id.
+	"tasks.statusHistory": { taskId: taskId("packet") },
 	"tasks.listSubtasks": withTask("tasks.listSubtasks", (parentId) => ({ parentId }), "Prepare launch Sunday"),
-	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId })),
+	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId }), "Prepare launch Sunday"),
 	"tasks.prerequisiteCandidates": withTask("tasks.prerequisiteCandidates", (taskId) => ({ taskId })),
 	"tasks.findOpenOccurrence": withTask("tasks.findOpenOccurrence", (taskId) => ({ taskId }), "Weekly team check-in"),
 	"tasks.eligibleAssignees": {},

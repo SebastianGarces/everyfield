@@ -118,17 +118,21 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs. A Member's catalog, whose
+	// shorter tool list leaves the input budget room for 24 small reads.
+	const member = await actor("member");
+	const mine = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`))
+		.rows[0]!.n;
+	const narrow = await ask(member, "Read every detail for all people, 5 at a time.");
 	assert.equal(await work(), "succeeded");
-	const budget = await events(foreign, narrow);
+	const budget = await events(member, narrow);
 	assert.equal(budget.cards.length, 24);
 	assert.deepEqual(
 		[budget.status.state, budget.status.reason, budget.status.usage.toolCalls],
 		["stopped", "tool_budget", 24],
 	);
 	const last = budget.cards.at(-1)!.result;
-	assert.deepEqual([last.total, last.completeness, last.next], [all, "partial", 25], "no false exhaustive answer");
+	assert.deepEqual([last.total, last.completeness, last.next], [mine, "partial", 25], "no false exhaustive answer");
 });
 
 test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {

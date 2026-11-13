@@ -2,16 +2,9 @@ import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { createTaskWriter, taskReader, type TaskReminders } from "@everyfield/domain/tasks";
 import type { PeopleContext } from "@everyfield/contracts/people";
-import {
-	category,
-	dueInput,
-	priority,
-	recurrenceFrequency,
-	relation,
-	taskStatus,
-	title,
-} from "@everyfield/contracts/tasks";
+import { category, priority, recurrenceFrequency, taskStatus, title } from "@everyfield/contracts/tasks";
 import { z } from "zod";
+import { id, localDue, dueOf as nativeDue } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
@@ -41,7 +34,7 @@ export const dueOf = (t: string) =>
 		WHEN 'timed' THEN to_char(${t}.due_date,'YYYY-MM-DD')||' '||to_char(${t}.due_time,'HH24:MI')||' '||${t}.timezone END)`);
 
 /** "me" names the signed-in user's own account; any other value is an account id from tasks.eligibleAssignees. */
-export const assignee = z.union([z.uuid(), z.literal("me")]);
+export const assignee = z.union([id, z.literal("me")]);
 const me = (actor: EvryActor, ids: readonly string[]) => [
 	...new Set(ids.map((id) => (id === "me" ? actor.accountId : id))),
 ];
@@ -116,7 +109,7 @@ const writer = (reminders: TaskReminders) => createTaskWriter({ reminders });
 /** The saved native input and the revision the review showed. */
 const saved = z.object({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
 
-const taskId = z.uuid().describe("A task id from an earlier result");
+const taskId = id.describe("A task id from an earlier result");
 
 // --- Status changes on one task: complete, completeOccurrence, reopen, changeStatus, waive, delete ----------------
 
@@ -222,8 +215,7 @@ const recurrence = z.strictObject({
 	until: z.iso.date().nullable().default(null).describe("The last local date it repeats on; null for no end"),
 });
 type Recurrence = z.infer<typeof recurrence>;
-const dueDay = (due: z.infer<typeof dueInput>) =>
-	due.kind === "local_date" ? due.date : due.kind === "resolved_instant" ? due.local.slice(0, 10) : null;
+const dueDay = (due: string | undefined) => due?.slice(0, 10) ?? null;
 /** "weekly on Mondays, America/Chicago": the rule as the church reads it, counted from the first due date. */
 function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
 	const day = first ? WEEKDAY[new Date(`${first}T00:00:00Z`).getUTCDay()]! : null;
@@ -232,10 +224,9 @@ function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
 	return sql`to_jsonb(${`${rule.frequency}${on}${until}`}::text||', '||${zone})`;
 }
 const churchZone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
-const dueText = (due: z.infer<typeof dueInput>, zone: SQL) =>
-	due.kind === "undated"
-		? sql`NULL::jsonb`
-		: sql`to_jsonb(${dueDay(due)! + (due.kind === "resolved_instant" ? ` ${due.local.slice(11, 16)}` : "")}::text||' '||${zone})`;
+/** A due value as the review shows it: the church-local date (and time) with the church's zone. */
+const dueText = (due: string | undefined, zone: SQL) =>
+	due ? sql`to_jsonb(${due.replace("T", " ")}::text||' '||${zone})` : sql`NULL::jsonb`;
 
 const createInput = z
 	.strictObject({
@@ -243,12 +234,11 @@ const createInput = z
 		description: z.string().trim().max(5_000).optional(),
 		priority: priority.optional(),
 		category: category.exclude(["follow_up"]).optional(),
-		due: dueInput.optional().describe("The church's local date (or date and time) it is due; undated when omitted"),
+		due: localDue.optional().describe("Church-local due date or date and time; undated when omitted"),
 		assigneeIds: z.array(assignee).max(10).optional().describe('Account ids from tasks.eligibleAssignees, or "me"'),
-		relation: relation.optional(),
 		recurrence: recurrence.optional().describe("Repeat it: weekly repeats on the due date's weekday"),
 	})
-	.refine((v) => !v.recurrence || (v.due && v.due.kind !== "undated"), "a recurring task needs a due date");
+	.refine((v) => !v.recurrence || v.due, "a recurring task needs a due date");
 const createTask = reviewed<z.infer<typeof createInput>>({
 	operation: "tasks.create",
 	description:
@@ -257,7 +247,7 @@ const createTask = reviewed<z.infer<typeof createInput>>({
 	allowed: ownerOrAdmin,
 	async review(actor, v, context) {
 		const owners = await namedAccounts(context, actor, v.assigneeIds ?? [], "any");
-		const due = v.due ?? { kind: "undated" as const };
+		const due = nativeDue(v.due);
 		const zone = churchZone(actor);
 		const input = {
 			title: v.title,
@@ -266,19 +256,13 @@ const createTask = reviewed<z.infer<typeof createInput>>({
 			category: v.recurrence ? (v.category ?? "recurring") : (v.category ?? "general"),
 			due,
 			assigneeIds: owners.ids,
-			relation: v.relation ?? null,
+			relation: null,
 		};
-		const related = v.relation
-			? sql`(SELECT to_jsonb(coalesce((SELECT display_name FROM person WHERE id=${v.relation.id}::uuid AND plant_id=${actor.owner.id}::uuid AND state='live'),
-				(SELECT title FROM meeting WHERE id=${v.relation.id}::uuid AND plant_id=${actor.owner.id}::uuid),
-				(SELECT name FROM team WHERE id=${v.relation.id}::uuid AND plant_id=${actor.owner.id}::uuid))))`
-			: null;
 		return sql`SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_build_array(
 				${change("title", null, json(v.title))},
-				${change("due", null, dueText(due, zone))},
+				${change("due", null, dueText(v.due, zone))},
 				${change("owners", null, json(owners.names.join(", ") || null))}
-				${v.recurrence ? sql`,${change("recurrence", null, ruleText(v.recurrence, dueDay(due), zone))}` : sql``}
-				${related ? sql`,${change("relatedTo", null, related)}` : sql``}
+				${v.recurrence ? sql`,${change("recurrence", null, ruleText(v.recurrence, dueDay(v.due), zone))}` : sql``}
 				${v.description ? sql`,${change("description", null, json(v.description))}` : sql``})) AS review,
 			jsonb_build_object('input',${json(input)},'recurrence',${json(v.recurrence ?? null)}) AS args`;
 	},
@@ -343,9 +327,8 @@ const editInput = z.strictObject({
 			description: z.string().trim().max(5_000).nullable().optional(),
 			priority: priority.optional(),
 			category: category.optional(),
-			due: dueInput.optional(),
+			due: localDue.optional(),
 			assigneeIds: z.array(assignee).max(10).optional().describe("The whole new set of owners; [] for nobody"),
-			relation: relation.nullable().optional(),
 		})
 		.refine((p) => Object.keys(p).length > 0, "empty patch"),
 });
@@ -356,7 +339,11 @@ const editTask = reviewed<z.infer<typeof editInput>>({
 	allowed: ownerOrAdmin,
 	async review(actor, v, context) {
 		const owners = v.patch.assigneeIds ? await namedAccounts(context, actor, v.patch.assigneeIds, "any") : null;
-		const patch = { ...v.patch, ...(owners ? { assigneeIds: owners.ids } : {}) };
+		const patch = {
+			...v.patch,
+			...(v.patch.due ? { due: nativeDue(v.patch.due) } : {}),
+			...(owners ? { assigneeIds: owners.ids } : {}),
+		};
 		const zone = churchZone(actor);
 		const rows = [
 			v.patch.title !== undefined ? change("title", sql`to_jsonb(t.title)`, json(v.patch.title)) : null,
@@ -367,9 +354,6 @@ const editTask = reviewed<z.infer<typeof editInput>>({
 			v.patch.category ? change("category", sql`to_jsonb(t.category)`, json(v.patch.category)) : null,
 			v.patch.due ? change("due", dueOf("t"), dueText(v.patch.due, zone)) : null,
 			owners ? change("owners", ownersOf("t"), json(owners.names.join(", ") || null)) : null,
-			v.patch.relation !== undefined
-				? change("relatedTo", sql`to_jsonb(t.person_id::text)`, json(v.patch.relation?.id ?? null))
-				: null,
 		].filter((r) => r !== null);
 		return sql`SELECT jsonb_build_object('target',${taskTarget},'changes',jsonb_build_array(${sql.join(rows, sql`,`)})) AS review,
 			jsonb_build_object('expectedRevision',t.revision::text,'input',jsonb_build_object('taskId',t.id,'patch',${json(patch)})) AS args
@@ -427,7 +411,7 @@ const bulkComplete = reviewed<z.infer<typeof bulkCompleteInput>>({
 		return bulkDone(await writer(reminders).bulkComplete(tx, context, { requestKey: key("bulk"), items: a.items }));
 	},
 });
-const rescheduleInput = z.strictObject({ taskIds: many, due: dueInput });
+const rescheduleInput = z.strictObject({ taskIds: many, due: localDue });
 const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 	operation: "tasks.bulkReschedule",
 	description: "Propose moving several tasks (up to 100) to one new due date, listed one by one on the review.",
@@ -438,7 +422,7 @@ const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 			actor,
 			v.taskIds,
 			sql`jsonb_build_object('field',t.title,'before',${dueOf("t")},'after',${dueText(v.due, churchZone(actor))})`,
-			sql`jsonb_build_object('due',${json(v.due)})`,
+			sql`jsonb_build_object('due',${json(nativeDue(v.due))})`,
 		);
 	},
 	async run(tx, context, args, key, reminders) {
@@ -456,22 +440,30 @@ const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 // The operation names the step the request is mainly about; each of the three needs its own step.
 
 const checklistInput = z.strictObject({
-	parentId: z.uuid().describe("The parent task id"),
+	parentId: id.describe("The parent task id"),
 	add: z.array(title).max(20).default([]).describe("Titles of new checklist rows"),
 	tick: z
-		.array(z.strictObject({ taskId: z.uuid().describe("A checklist row id from tasks.get"), complete: z.boolean() }))
+		.array(z.strictObject({ taskId: id.describe("A checklist row id from tasks.get"), complete: z.boolean() }))
 		.max(20)
 		.default([]),
-	remove: z.array(z.uuid()).max(20).default([]).describe("Checklist row ids to remove"),
+	remove: z.array(id).max(20).default([]).describe("Checklist row ids to remove"),
 });
 type Checklist = z.infer<typeof checklistInput>;
 const checklistArgs = z.object({
-	parentId: z.uuid(),
+	parentId: id,
 	parentRevision: z.string(),
 	add: z.array(z.string()),
-	rows: z.array(z.object({ taskId: z.uuid(), revision: z.string(), complete: z.boolean().nullable() })),
+	rows: z.array(z.object({ taskId: id, revision: z.string(), complete: z.boolean().nullable() })),
 });
-function checklistWrite(operation: string, main: "add" | "tick" | "remove", description: string) {
+function checklistWrite({
+	operation,
+	main,
+	description,
+}: {
+	operation: string;
+	main: "add" | "tick" | "remove";
+	description: string;
+}) {
 	return reviewed<Checklist>({
 		operation,
 		description,
@@ -528,21 +520,24 @@ function checklistWrite(operation: string, main: "add" | "tick" | "remove", desc
 		},
 	});
 }
-const createSubtask = checklistWrite(
-	"tasks.createSubtask",
-	"add",
-	"Propose adding checklist rows to one task (each a real subtask), optionally ticking or removing other rows of the same checklist in the same review.",
-);
-const setSubtaskCompletion = checklistWrite(
-	"tasks.setSubtaskCompletion",
-	"tick",
-	"Propose ticking or unticking checklist rows of one task, optionally adding or removing rows of the same checklist in the same review.",
-);
-const removeSubtask = checklistWrite(
-	"tasks.removeSubtask",
-	"remove",
-	"Propose removing checklist rows from one task, optionally adding or ticking rows of the same checklist in the same review.",
-);
+export const createSubtask = checklistWrite({
+	operation: "tasks.createSubtask",
+	main: "add",
+	description:
+		"Propose adding checklist rows to one task (each a real subtask), optionally ticking or removing other rows of the same checklist in the same review.",
+});
+export const setSubtaskCompletion = checklistWrite({
+	operation: "tasks.setSubtaskCompletion",
+	main: "tick",
+	description:
+		"Propose ticking or unticking checklist rows of one task, optionally adding or removing rows of the same checklist in the same review.",
+});
+export const removeSubtask = checklistWrite({
+	operation: "tasks.removeSubtask",
+	main: "remove",
+	description:
+		"Propose removing checklist rows from one task, optionally adding or ticking rows of the same checklist in the same review.",
+});
 
 /** The installed Tasks reviewed writes, keyed by operation. */
 export const TASK_COMMANDS = {

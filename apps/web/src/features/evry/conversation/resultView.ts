@@ -279,6 +279,15 @@ const words = (value: string) => {
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
 const day = (value: unknown) => {
+	// A church-local time ("2026-11-05 15:30 America/Chicago") names its own calendar day.
+	const local = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2} /.exec(value) : null;
+	if (local)
+		return new Date(`${local[1]}T12:00:00Z`).toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+			timeZone: "UTC",
+		});
 	const at = typeof value === "string" ? new Date(value) : null;
 	return at && !Number.isNaN(at.getTime())
 		? at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })

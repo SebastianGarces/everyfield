@@ -148,7 +148,7 @@ test("INV-review-first: a weekly task on Mondays is created with its recurrence 
 	const date = String(monday.rows[0]!.d);
 	const proposal = await propose("tasks.create", {
 		title: "Review the pipeline",
-		due: { kind: "local_date", date },
+		due: date,
 		assigneeIds: ["me"],
 		recurrence: { frequency: "weekly" },
 	});

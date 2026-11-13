@@ -45,7 +45,9 @@ export function describeCatalog(catalog: Catalog) {
 	const writes = catalog.reviewedWrites.map((w) => w.description);
 	const lines = reads.length
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
-		: ["In this context I have no application reads available yet."];
+		: [
+				"In this context I have no application reads available yet: I can't read or change people, tasks, follow-ups or messages here.",
+			];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
@@ -68,26 +70,6 @@ export async function resolveReferences(
 }
 
 /**
- * The catalog as the system prompt names it on every model call: each domain's operations and the reviewed writes, by
- * name. Their descriptions travel with the tool definitions, so the prompt never repeats them; the capabilities answer
- * (describeCatalog) says them in full.
- */
-export function catalogSummary(catalog: Catalog) {
-	if (!catalog.domains.length)
-		return "In this context you have no application tools: you can't read or change people, tasks, follow-ups or messages here. Say so plainly when asked about them.";
-	return [
-		"Tools in this context: " +
-			catalog.domains.map((d) => `${d.domain} (${d.operations.map((o) => o.operation).join(", ")})`).join("; ") +
-			".",
-		catalog.reviewedWrites.length
-			? "Changes you may prepare for review: " + catalog.reviewedWrites.map((w) => w.operation).join(", ") + "."
-			: "",
-	]
-		.filter(Boolean)
-		.join(" ");
-}
-
-/**
  * The rules for tasks and follow-ups (WP-067, WP-068), only when their tools are in the catalog. A recorded outcome is
  * what a person said happened (COM-011), and areas no tool reads yet are named rather than guessed.
  */
@@ -97,11 +79,11 @@ function taskRules(catalog: Catalog) {
 	return [
 		"Tasks and follow-ups: a task row with followUp: true is a person follow-up. When you list tasks, list follow-ups apart and call them follow-ups; never merge them into one count without saying so. Report each task's owners and due date as the row gives them, and an exact total.",
 		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. If the user names someone who can\'t own follow-ups, say so and ask what to do before preparing any change. "me" names the signed-in user.',
-		"Contact history (followups.listContactHistory) holds only what people recorded. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails.",
+		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails or about who has heard from the church.",
 		"You can't read meeting attendance yet: never infer who attended or who came for the first time from pipeline stage; say attendance isn't readable yet. You can't read meetings or calendars yet either: name them as areas you couldn't read.",
 		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
 		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
-		"Never rank people by spiritual judgment or invent priorities: a focus list names only items a tool returned, each with where it came from and its owner and date where recorded.",
+		"For what to focus on this week, read the tasks due this week (tasks.list due this_week), the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded. Never rank people by spiritual judgment or invent priorities or items.",
 	];
 }
 
@@ -140,8 +122,7 @@ export function compileContext(input: {
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
 		...taskRules(input.catalog),
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
-		catalogSummary(input.catalog),
-		"Every change to records needs the user's review and approval first.",
+		describeCatalog(input.catalog),
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",
 	]
 		.filter(Boolean)

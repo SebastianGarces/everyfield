@@ -20,6 +20,7 @@ import {
 	type Due,
 } from "@everyfield/contracts/tasks";
 import { z } from "zod";
+import { id } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
@@ -118,19 +119,53 @@ export function taskRow(actor: EvryActor, t: Item): SourceRow {
 			parentId: t.parentId ?? null,
 			checklist: t.checklist?.total ? `${t.checklist.complete} of ${t.checklist.total} done` : null,
 			obligationId: t.managed?.obligationId ?? null,
-			completedAt: t.completedAt ?? null,
 			revision: t.revision,
 		},
 	};
 }
 
-/** The church's own time zone and local date today, by the database's clock, in the actor's church. */
+/**
+ * The church's local date today and its ISO weekday (1 Monday … 7 Sunday), at the same clock the native list reads
+ * overdue from (its asOf), so a due window and the overdue flag never disagree.
+ */
 async function churchToday(tx: Transaction, actor: EvryActor) {
-	const r = await tx.execute(sql`SELECT pl.timezone AS zone,
-			to_char(clock_timestamp() AT TIME ZONE pl.timezone,'YYYY-MM-DD') AS today,
-			extract(isodow FROM clock_timestamp() AT TIME ZONE pl.timezone)::int AS weekday
-		FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`);
-	return z.object({ zone: z.string(), today: z.string(), weekday: z.int() }).parse(r.rows[0]);
+	const zone = await churchZone(tx, actor);
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat("en-CA", {
+			timeZone: zone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			weekday: "short",
+		})
+			.formatToParts(new Date())
+			.map((p) => [p.type, p.value]),
+	);
+	const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday!) + 1;
+	return { zone, today: `${parts.year}-${parts.month}-${parts.day}`, weekday };
+}
+/** The church's own time zone. */
+export async function churchZone(tx: Transaction, actor: EvryActor) {
+	const r = await tx.execute(sql`SELECT pl.timezone AS zone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`);
+	return z.object({ zone: z.string() }).parse(r.rows[0]).zone;
+}
+/** An instant as the church reads it: "2026-11-05 15:30 America/Chicago". */
+export function localTime(at: string | null, zone: string) {
+	if (!at) return null;
+	const p = Object.fromEntries(
+		new Intl.DateTimeFormat("en-CA", {
+			timeZone: zone,
+			hourCycle: "h23",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+		})
+			.formatToParts(new Date(at))
+			.map((x) => [x.type, x.value]),
+	);
+	return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${zone}`;
 }
 const addDays = (date: string, days: number) =>
 	new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -254,7 +289,7 @@ export const countTasks: ReadAdapter<z.infer<typeof countInput>> = {
 	},
 };
 
-const taskInput = z.strictObject({ taskId: z.uuid().describe("A task id from an earlier result") });
+const taskInput = z.strictObject({ taskId: id.describe("A task id from an earlier result") });
 export const getTask: ReadAdapter<z.infer<typeof taskInput>> = {
 	operation: "tasks.get",
 	description:
@@ -297,6 +332,7 @@ export const statusHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 		const reply = await taskReader.statusHistory(tx, actor.authority, statusHistoryRequest.parse(input));
 		if (reply.status !== "ok") return result("tasks.statusHistory", [], []);
 		const h = reply.value;
+		const zone = await churchZone(tx, actor);
 		const rows = h.items.map((e) => ({
 			kind: "history" as const,
 			id: e.id,
@@ -304,7 +340,7 @@ export const statusHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 			fields: {
 				from: e.from,
 				to: e.to,
-				occurredAt: e.occurredAt,
+				occurredAt: localTime(e.occurredAt, zone),
 				by:
 					e.actor.kind === "account"
 						? e.actor.accountId === actor.accountId
@@ -381,7 +417,7 @@ export const relationOptions: ReadAdapter<z.infer<typeof relationInput>> = {
 };
 
 const subtasksInput = z.strictObject({
-	parentId: z.uuid().describe("The parent task id"),
+	parentId: id.describe("The parent task id"),
 	page: z.int().min(1).max(100).optional(),
 });
 export const listSubtasks: ReadAdapter<z.infer<typeof subtasksInput>> = {
@@ -554,10 +590,10 @@ export const readPhaseOffer: ReadAdapter<z.infer<typeof readPhaseOfferRequest>> 
 };
 
 const receiptInput = z.strictObject({
-	receiptId: z.uuid().optional().describe("One import's receipt id; omitted lists the latest imports"),
+	receiptId: id.optional().describe("One import's receipt id; omitted lists the latest imports"),
 });
 const receiptRow = z.object({
-	id: z.uuid(),
+	id: id,
 	occurred_at: z.coerce.date(),
 	kind: z.string(),
 	checklists: z.string().nullable(),

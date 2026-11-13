@@ -8,10 +8,20 @@ import {
 } from "@everyfield/contracts/followups";
 import type { Due } from "@everyfield/contracts/tasks";
 import { z } from "zod";
+import { id } from "../../tasks/values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { dueText, inPlant, ownerNames, ownerOrAdmin, result, value } from "../../tasks/reads/index.ts";
+import {
+	churchZone,
+	dueText,
+	inPlant,
+	localTime,
+	ownerNames,
+	ownerOrAdmin,
+	result,
+	value,
+} from "../../tasks/reads/index.ts";
 
 // The Follow-up read tools (WP-067): obligations, owners, coverage and the recorded contact log, through the native
 // follow-up reads the Follow-ups page uses. A recorded outcome is what a person said happened: only an effective
@@ -36,7 +46,7 @@ type Duty = {
 	contacted: { at: string; by: string | null } | null;
 };
 /** One open follow-up task: the person it is for, its owners and its latest recorded outcome. */
-function dutyRow(actor: EvryActor, d: Duty): SourceRow {
+function dutyRow(actor: EvryActor, d: Duty, zone: string): SourceRow {
 	const owners = owning(d.owners);
 	return {
 		kind: "follow_up",
@@ -52,7 +62,7 @@ function dutyRow(actor: EvryActor, d: Duty): SourceRow {
 			overdue: d.overdue,
 			from: d.origin.kind === "meeting" ? `meeting: ${d.origin.meeting.label}` : "added by hand",
 			lastOutcome: d.lastOutcome,
-			contactedAt: d.contacted?.at ?? null,
+			contactedAt: localTime(d.contacted?.at ?? null, zone),
 			contactedBy: d.contacted?.by ?? null,
 			obligationId: d.obligationId,
 			revision: d.revision,
@@ -65,9 +75,9 @@ const page = {
 	limit: z.int().min(1).max(100).optional(),
 };
 const ownersInput = z.strictObject({
-	personId: z.uuid().optional().describe("Only this person's open follow-ups"),
+	personId: id.optional().describe("Only this person's open follow-ups"),
 	owner: z
-		.union([z.uuid(), z.literal("needs_owner")])
+		.union([id, z.literal("needs_owner")])
 		.optional()
 		.describe("An account id from tasks.eligibleAssignees, or needs_owner"),
 	...page,
@@ -86,9 +96,10 @@ export const listFollowUpOwners: ReadAdapter<z.infer<typeof ownersInput>> = {
 				listFollowUpOwnersRequest.parse({ ...input, limit: input.limit ?? 50 }),
 			),
 		);
+		const zone = await churchZone(tx, actor);
 		return result(
 			"tasks.listFollowUpOwners",
-			found.items.map((d) => dutyRow(actor, d)),
+			found.items.map((d) => dutyRow(actor, d, zone)),
 			["completed or closed follow-ups", "contact notes"],
 			{ total: found.matched, page: found.page, next: found.next },
 		);
@@ -96,7 +107,7 @@ export const listFollowUpOwners: ReadAdapter<z.infer<typeof ownersInput>> = {
 };
 
 const coverageInput = z.strictObject({
-	personId: z.uuid().optional(),
+	personId: id.optional(),
 	coverage: z.enum(["owned", "needs_owner", "uncovered", "any"]).optional(),
 	...page,
 });
@@ -131,7 +142,7 @@ export const followUpCoverage: ReadAdapter<z.infer<typeof coverageInput>> = {
 	},
 };
 
-const handoffInput = z.strictObject({ fromAccountId: z.uuid().describe("An account id from tasks.eligibleAssignees") });
+const handoffInput = z.strictObject({ fromAccountId: id.describe("An account id from tasks.eligibleAssignees") });
 export const planHandoff: ReadAdapter<z.infer<typeof handoffInput>> = {
 	operation: "tasks.planHandoff",
 	description:
@@ -140,10 +151,11 @@ export const planHandoff: ReadAdapter<z.infer<typeof handoffInput>> = {
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const plan = value(await followUpReader.planHandoff(tx, actor.authority, planHandoffRequest.parse(input)));
+		const zone = await churchZone(tx, actor);
 		return result(
 			"tasks.planHandoff",
 			[
-				...plan.duties.slice(0, 100).map((d) => dutyRow(actor, d)),
+				...plan.duties.slice(0, 100).map((d) => dutyRow(actor, d, zone)),
 				...plan.recipients.map((r) => ({
 					kind: "account" as const,
 					id: r.accountId,
@@ -158,8 +170,8 @@ export const planHandoff: ReadAdapter<z.infer<typeof handoffInput>> = {
 };
 
 const obligationsInput = z.strictObject({
-	personId: z.uuid().optional(),
-	meetingId: z.uuid().optional(),
+	personId: id.optional(),
+	meetingId: id.optional(),
 	state: z.enum(["open", "complete", "no_longer_needed", "superseded", "any"]).optional(),
 	...page,
 });
@@ -177,6 +189,7 @@ export const readObligations: ReadAdapter<z.infer<typeof obligationsInput>> = {
 				readObligationsRequest.parse({ ...input, limit: input.limit ?? 50 }),
 			),
 		);
+		const zone = await churchZone(tx, actor);
 		return result(
 			"followups.readObligations",
 			found.items.map((o) => {
@@ -196,7 +209,7 @@ export const readObligations: ReadAdapter<z.infer<typeof obligationsInput>> = {
 						owners: ownerNames(actor, owners),
 						needsOwner: owners.length === 0,
 						completedWith: o.completion?.outcome ?? null,
-						completedAt: o.completion?.occurredAt ?? null,
+						completedAt: localTime(o.completion?.occurredAt ?? null, zone),
 						contacted: o.contacted,
 						taskStatus: o.task?.status ?? null,
 					},
@@ -209,8 +222,8 @@ export const readObligations: ReadAdapter<z.infer<typeof obligationsInput>> = {
 };
 
 const historyInput = z.strictObject({
-	personId: z.uuid().describe("A person id from an earlier result"),
-	taskId: z.uuid().optional().describe("Only the entries recorded on this follow-up"),
+	personId: id.describe("A person id from an earlier result"),
+	taskId: id.optional().describe("Only the entries recorded on this follow-up"),
 	...page,
 });
 export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
@@ -228,6 +241,7 @@ export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 		// A foreign, retired-elsewhere or guessed person reads the same as one with no log.
 		if (reply.status !== "ok") return result("followups.listContactHistory", [], []);
 		const log = reply.value;
+		const zone = await churchZone(tx, actor);
 		return result(
 			"followups.listContactHistory",
 			log.items.map((o) => ({
@@ -238,7 +252,7 @@ export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 					personId: o.personId,
 					outcome: o.outcome,
 					conversationHappened: o.contact,
-					occurredAt: o.occurredAt,
+					occurredAt: localTime(o.occurredAt, zone),
 					channel: o.channel,
 					recordedBy:
 						o.actor.kind === "account"
@@ -248,7 +262,7 @@ export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 							: "a former member",
 					state: o.state,
 					completedFollowUp: o.completedTask,
-					lastConfirmedContactAt: log.lastConfirmedContactAt,
+					lastConfirmedContactAt: localTime(log.lastConfirmedContactAt, zone),
 				},
 			})),
 			["contact notes", "sent emails (not readable here yet)"],

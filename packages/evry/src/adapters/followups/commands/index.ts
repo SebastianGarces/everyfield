@@ -2,8 +2,9 @@ import { sql } from "@everyfield/db/query";
 import { createFollowUpWriter } from "@everyfield/domain/followups";
 import { createTaskWriter, type TaskReminders } from "@everyfield/domain/tasks";
 import { channel, outcome } from "@everyfield/contracts/followups";
-import { dueInput, priority, title } from "@everyfield/contracts/tasks";
+import { priority, title } from "@everyfield/contracts/tasks";
 import { z } from "zod";
+import { id, localDue, dueOf as nativeDue } from "../../tasks/values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewContext } from "../../../proposals/types.ts";
@@ -33,14 +34,13 @@ const openFollowUp = sql`t.category='follow_up' AND t.person_id IS NOT NULL AND 
 	AND t.status IN ('not_started','in_progress','blocked')`;
 // --- followups.recordOutcome ------------------------------------------------------------------------------------
 
-const occurred = z.union([
-	z.literal("now"),
-	z.iso.date().describe("The church's local date it happened, like 2026-10-13"),
-	z.iso.datetime({ local: true }).describe("The church's local date and time it happened, like 2026-10-13T14:30"),
-]);
+const occurred = z
+	.string()
+	.regex(/^(now|\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?)$/)
+	.describe('When it happened, as the user said: "now", or a church-local date or date and time');
 const recordInput = z
 	.strictObject({
-		taskId: z.uuid().optional().describe("The open follow-up task this is about, from tasks.listFollowUpOwners"),
+		taskId: id.optional().describe("The open follow-up task this is about, from tasks.listFollowUpOwners"),
 		personId: z
 			.uuid()
 			.optional()
@@ -48,7 +48,7 @@ const recordInput = z
 		outcome: outcome.describe(
 			"contacted only when the user says a conversation happened; attempted_no_contact for a try with no conversation",
 		),
-		occurred: occurred.describe('When it happened, as the user said it: "now", a local date, or a local date and time'),
+		occurred,
 		channel: channel.optional(),
 		notes: z.string().trim().max(2_000).optional().describe("What the user said about it, in their words"),
 		completeTask: z.boolean().default(true).describe("Complete the follow-up with this outcome"),
@@ -69,7 +69,7 @@ const occurredAt = (actor: EvryActor, when: Record["occurred"]) => {
 	return sql`least(clock_timestamp(),(${local}::timestamp AT TIME ZONE ${zone}))`;
 };
 const iso = (at: ReturnType<typeof sql>) => sql`to_char(${at} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-const recordOutcome = reviewed<Record>({
+export const recordOutcome = reviewed<Record>({
 	operation: "followups.recordOutcome",
 	description:
 		"Propose recording what happened on a person's follow-up: contacted (a conversation happened, as the user said), attempted_no_contact, administrative_completion or no_longer_needed, with when, how and the user's note. It goes in the contact log, never the person's profile notes.",
@@ -116,7 +116,7 @@ const recordOutcome = reviewed<Record>({
 // --- followups.correctOutcome -----------------------------------------------------------------------------------
 
 const correctInput = z.strictObject({
-	outcomeId: z.uuid().describe("A contact log entry id from followups.listContactHistory"),
+	outcomeId: id.describe("A contact log entry id from followups.listContactHistory"),
 	correction: z.discriminatedUnion("kind", [
 		z.strictObject({
 			kind: z.literal("replace"),
@@ -128,7 +128,7 @@ const correctInput = z.strictObject({
 	]),
 	reason: z.string().trim().min(1).max(500),
 });
-const correctOutcome = reviewed<z.infer<typeof correctInput>>({
+export const correctOutcome = reviewed<z.infer<typeof correctInput>>({
 	operation: "followups.correctOutcome",
 	description:
 		"Propose correcting one recorded contact log entry (replace its outcome, time or channel) or withdrawing it, with a reason. The old entry stays in the log.",
@@ -174,13 +174,13 @@ const correctOutcome = reviewed<z.infer<typeof correctInput>>({
 // --- tasks.createFollowUp ---------------------------------------------------------------------------------------
 
 const createInput = z.strictObject({
-	personId: z.uuid().describe("A person id from an earlier result"),
+	personId: id.describe("A person id from an earlier result"),
 	title: title.optional().describe('Defaults to "Follow up with <name>"'),
 	priority: priority.optional(),
-	due: dueInput.optional(),
+	due: localDue.optional(),
 	assigneeIds: z.array(assignee).max(10).optional().describe('Account ids that may own follow-ups, or "me"'),
 });
-const createFollowUp = reviewed<z.infer<typeof createInput>>({
+export const createFollowUp = reviewed<z.infer<typeof createInput>>({
 	operation: "tasks.createFollowUp",
 	description:
 		"Propose a new follow-up with one person, with its owners (who must be able to own follow-ups) and an optional due date.",
@@ -188,7 +188,7 @@ const createFollowUp = reviewed<z.infer<typeof createInput>>({
 	allowed: ownerOrAdmin,
 	async review(actor, v, context) {
 		const owners = await namedAccounts(context, actor, v.assigneeIds ?? [], "committed_follow_up");
-		const due = v.due ?? { kind: "undated" as const };
+		const due = nativeDue(v.due);
 		const input = {
 			personId: v.personId,
 			...(v.title ? { title: v.title } : {}),
@@ -200,7 +200,7 @@ const createFollowUp = reviewed<z.infer<typeof createInput>>({
 				'changes',jsonb_build_array(
 					${change("followUp", null, sql`to_jsonb(coalesce(${v.title ?? null}::text,'Follow up with '||p.display_name))`)},
 					${change("owners", null, json(owners.names.join(", ") || null))},
-					${change("due", null, json(due.kind === "undated" ? null : due.kind === "local_date" ? due.date : due.local))})) AS review,
+					${change("due", null, json(v.due?.replace("T", " ") ?? null))})) AS review,
 			jsonb_build_object('input',${json(input)}) AS args
 			FROM person p WHERE p.id=${v.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
@@ -221,7 +221,7 @@ const assignInput = z.strictObject({
 	items: z
 		.array(
 			z.strictObject({
-				taskId: z.uuid().describe("An open follow-up task id from tasks.listFollowUpOwners"),
+				taskId: id.describe("An open follow-up task id from tasks.listFollowUpOwners"),
 				assigneeIds: z.array(assignee).max(10).describe('The whole new set of owners, or "me"; [] for nobody'),
 			}),
 		)
@@ -230,9 +230,9 @@ const assignInput = z.strictObject({
 		.refine((items) => new Set(items.map((i) => i.taskId)).size === items.length, "repeated follow-up"),
 });
 const assignArgs = z.object({
-	items: z.array(z.object({ taskId: z.uuid(), expectedRevision: z.string(), assigneeIds: z.array(z.uuid()) })),
+	items: z.array(z.object({ taskId: id, expectedRevision: z.string(), assigneeIds: z.array(id) })),
 });
-const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
+export const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 	operation: "tasks.assignFollowUp",
 	description:
 		"Propose who owns one or more open follow-ups, listed one by one on a single review. Every owner must be able to own follow-ups (tasks.eligibleAssignees canOwnFollowUps).",
@@ -275,9 +275,9 @@ const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 // same native reopen the Tasks page uses: the obligation keeps its identity and its waiver is cleared.
 
 const reopenInput = z.strictObject({
-	obligationId: z.uuid().describe("An obligationId from followups.readObligations"),
+	obligationId: id.describe("An obligationId from followups.readObligations"),
 });
-const reopenObligation = reviewed<z.infer<typeof reopenInput>>({
+export const reopenObligation = reviewed<z.infer<typeof reopenInput>>({
 	operation: "tasks.reopenObligation",
 	description:
 		"Propose reopening a meeting's generated follow-up or evaluation that was closed or completed. Its history stays.",

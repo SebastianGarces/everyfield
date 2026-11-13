@@ -42,7 +42,7 @@
 			"area": "Dashboard / tasks",
 			"case_id": "MON-03",
 			"question": "whats overdue",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `tasks.list` + `tasks.count` (WP-067)",
 			"expected_answer": "Later: overdue tasks with owner and due date, exact count",
 			"must_not": "Treat follow-up obligations and tasks as the same list without saying so"
@@ -90,7 +90,7 @@
 			"area": "Dashboard / tasks",
 			"case_id": "MON-08",
 			"question": "remind me every monday to review the pipeline",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `tasks.create` + `tasks.configureRecurrence` proposal (WP-068)",
 			"expected_answer": "Later: one reviewed proposal showing recurrence, timezone and owner",
 			"must_not": "Create anything without a review card"
@@ -234,7 +234,7 @@
 			"area": "Follow-up",
 			"case_id": "GST-05",
 			"question": "who is following up with Daniel?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `tasks.listFollowUpOwners`",
 			"expected_answer": "Later: the assigned owner, or that the contact is uncovered",
 			"must_not": "Name a likely owner by guess"
@@ -246,7 +246,7 @@
 			"area": "Follow-up",
 			"case_id": "GST-06",
 			"question": "log that i called jessica today, she wants to join a group",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `followups.recordOutcome` proposal",
 			"expected_answer": "Today: can't-yet, offer to note it on her record via a reviewed `people.updatePerson` only if asked",
 			"must_not": "Overwrite her summary notes to fake a contact log"
@@ -258,7 +258,7 @@
 			"area": "Follow-up",
 			"case_id": "GST-07",
 			"question": "split the 6 new guests between Carlos and Ana for follow up",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `tasks.eligibleAssignees` + `tasks.assignFollowUp` proposal",
 			"expected_answer": "Later: one review listing each guest and owner",
 			"must_not": "Assign to someone who is not an eligible owner"
@@ -930,7 +930,7 @@
 			"area": "Evry meta",
 			"case_id": "META-05",
 			"question": "Find the task titled \"Pray for the launch\"",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `tasks.list`",
 			"expected_answer": "Treats it as task data, not a pastoral ask",
 			"must_not": "Refuse as pastoral"

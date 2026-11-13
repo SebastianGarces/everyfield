@@ -35,3 +35,58 @@ test("INV-scripted-model: the people words match whole words only", async () => 
 		false,
 	);
 });
+
+/** One scripted step with these tools offered, after this system prompt. */
+async function step(
+	text: string,
+	tools: string[],
+	system = "Current time (trusted server clock): 2026-11-11T15:00:00.000Z. ",
+) {
+	const reply = await scriptedModel().doGenerate({
+		prompt: [
+			{ role: "system", content: system },
+			{ role: "user", content: [{ type: "text", text }] },
+		],
+		tools: tools.map((name) => ({ type: "function", name, inputSchema: {} })),
+	} as never);
+	return reply.content.map((c) =>
+		c.type === "tool-call" ? { tool: c.toolName, ...JSON.parse(c.input) } : c.type === "text" ? c.text : c.type,
+	);
+}
+
+test("INV-scripted-model: a task titled with prayer is task data, read from the Tasks tools", async () => {
+	const classify = await scriptedModel().doGenerate({
+		prompt: [{ role: "user", content: [{ type: "text", text: 'Find the task titled "Pray for the launch"' }] }],
+		responseFormat: { type: "json" },
+	} as never);
+	assert.deepEqual(classify.content, [{ type: "text", text: '{"kind":"application"}' }]);
+	const [first] = await step('Find the task titled "Pray for the launch"', ["tasks_read", "people_read"]);
+	assert.deepEqual(first, {
+		tool: "tasks_read",
+		operation: "tasks.list",
+		input: {
+			search: "Pray for the launch",
+			statuses: ["not_started", "in_progress", "blocked", "complete", "no_longer_needed"],
+		},
+	});
+});
+
+test("INV-scripted-model: a weekly reminder is one tasks.create review due on the church's next Monday", async () => {
+	const [first] = await step("remind me every monday to review the pipeline", ["tasks_read", "propose_change"]);
+	assert.deepEqual(first, {
+		tool: "propose_change",
+		operation: "tasks.create",
+		input: {
+			title: "Review the pipeline",
+			due: { kind: "local_date", date: "2026-11-16" },
+			assigneeIds: ["me"],
+			recurrence: { frequency: "weekly" },
+		},
+	});
+});
+
+test("INV-scripted-model: a context with no task tools says it can't read tasks", async () => {
+	assert.deepEqual(await step("whats overdue", []), [
+		"I can't read tasks or follow-ups in this context. Switch to a church to ask about its tasks.",
+	]);
+});
