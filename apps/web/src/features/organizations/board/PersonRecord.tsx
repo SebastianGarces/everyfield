@@ -445,7 +445,7 @@ function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise
 										Note removed by {n.author ?? "former staff"}, {formatDay(n.removedOn)}
 									</p>
 								) : (
-									<NoteItem note={n} onChanged={onChanged} />
+									<NoteItem note={n} editable={canWrite && n.mine} onChanged={onChanged} />
 								)}
 							</li>
 						))}
@@ -460,9 +460,12 @@ function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise
 
 function NoteItem({
 	note,
+	editable,
 	onChanged,
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
+	/** The author's own note on a live person: only then can it change (REQ-MUL-009). */
+	editable: boolean;
 	onChanged: () => Promise<void>;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -508,7 +511,7 @@ function NoteItem({
 			)}
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<span className="text-xs text-text-3">{meta}</span>
-				{note.mine && !editing ? (
+				{editable && !editing ? (
 					<span className="ml-auto flex gap-1">
 						<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
 							Edit
