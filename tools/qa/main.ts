@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { drive } from "./cron-driver.ts";
 import { parseTestRecipients, qaDown, qaList, qaUp } from "./qa.ts";
 import { fail, QaError } from "./store.ts";
 
@@ -7,9 +8,13 @@ const HELP = `QA previews for Nora (docs/runbooks/qa-preview.md). Run on Sebasti
                    Neon branch off development, migrate, seed, Vercel preview of the branch head; prints the id and URL.
                    --test-recipients: full addresses that get real mail on this one deployment (EMAIL_TEST_RECIPIENTS);
                    the first is Ana Lee's address in both test churches
-                   Then starts a driver on this Mac that calls the preview's /api/cron/jobs every minute (scheduled sends)
+                   Never starts a driver: it says whether qa drive is running, else the command to start it
+  qa drive         scheduled sends: calls /api/cron/jobs once a minute for every open preview, until Ctrl-C or SIGTERM.
+                   Jonah starts it in a terminal outside any seat (a seat's processes end with its turn);
+                   seats never start it. One per repository; previews that qa up adds join without a restart
   qa list          open QA previews: id, branch, URL, Neon branch, age, head
-  qa down <id>     stop the driver, remove the alias, the deployment and the Neon branch; a second run does nothing and succeeds`;
+  qa down <id>     remove the cron secret (qa drive stops calling it within a minute), the alias, the deployment and the
+                   Neon branch; a second run does nothing and succeeds`;
 
 const usage = (args: string[], why = "") => {
 	console.error(`${why || `Unknown command: qa ${args.filter(Boolean).join(" ")}`}\n\n${HELP}`);
@@ -39,6 +44,7 @@ function main(args: string[]): number {
 	if (!rest.length) {
 		if (sub === "down" && arg) return qaDown(root, arg);
 		if (sub === "list" && !arg) return qaList(root);
+		if (sub === "drive" && !arg) return drive(root);
 	}
 	return usage(args);
 }

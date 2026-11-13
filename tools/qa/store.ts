@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 /**
  * The open QA previews, in one small JSON file under the git common directory, so every worktree of the repository
@@ -15,8 +15,6 @@ export type QaPreview = {
 	url: string;
 	deployment: string | null;
 	created_at: string;
-	/** T-255: the process id of the preview's scheduled-send driver (cron-driver.ts), once it runs. */
-	driver_pid?: number;
 };
 
 type PreviewFile = { previews: QaPreview[] };
@@ -38,10 +36,46 @@ function commonDir(root: string): string {
 	return resolve(root, r.stdout.trim());
 }
 
-const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
+export const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
 
-/** The scheduled-send driver's log of one preview, next to the records: times, HTTP statuses and counts only. */
+/** The checkout that owns the git common directory, where `bin/qa drive` runs from. */
+export function repoHome(root: string): string {
+	const common = commonDir(root);
+	return basename(common) === ".git" ? dirname(common) : common;
+}
+
+/** The scheduled-send log of one preview, next to the records: times, HTTP statuses and counts only. */
 export const driverLogPath = (root: string, id: string) => join(commonDir(root), "qa", `${id}.cron.log`);
+
+/**
+ * T-289: one preview's cron secret, which `qa drive` reads to call its /api/cron/jobs. Only the owner can read it
+ * (0600); it is never in the records. `qa down` deletes it, which also tells `qa drive` to stop calling the preview.
+ */
+export const cronSecretPath = (root: string, id: string) => join(commonDir(root), "qa", `${id}.cron-secret`);
+
+export function writeCronSecret(root: string, id: string, secret: string): void {
+	const file = cronSecretPath(root, id);
+	mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+	rmSync(file, { force: true });
+	writeFileSync(file, secret, { mode: 0o600, flag: "wx" });
+}
+
+/** The lock of the one `qa drive` of this repository: a file holding its pid. */
+export const driveLockPath = (root: string) => join(commonDir(root), "qa", "drive.lock");
+
+/** The pid of the running `qa drive` of this repository, or undefined when none runs (a stale lock counts as none). */
+export function drivePid(root: string): number | undefined {
+	let pid: number;
+	try {
+		pid = Number(readFileSync(driveLockPath(root), "utf8").trim());
+	} catch {
+		return undefined;
+	}
+	if (!Number.isInteger(pid) || pid <= 0) return undefined;
+	// The pid must still be a qa drive: after a crash or a restart the number can belong to another process.
+	const command = spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" }).stdout ?? "";
+	return /\bmain\.ts drive\b/.test(command) ? pid : undefined;
+}
 
 function readFile(file: string): PreviewFile {
 	if (!existsSync(file)) return { previews: [] };
@@ -89,11 +123,6 @@ export const addPreview = (root: string, preview: QaPreview) =>
 export const setDeployment = (root: string, id: string, deployment: string) =>
 	change(root, (records) => {
 		for (const preview of records.previews) if (preview.id === id) preview.deployment = deployment;
-	});
-
-export const setDriver = (root: string, id: string, pid: number) =>
-	change(root, (records) => {
-		for (const preview of records.previews) if (preview.id === id) preview.driver_pid = pid;
 	});
 
 export const removePreview = (root: string, id: string) =>

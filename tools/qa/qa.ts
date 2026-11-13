@@ -1,9 +1,8 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import {
 	devParent,
 	FULL_ADDRESS,
@@ -14,14 +13,25 @@ import {
 	type NeonBranch,
 	type NeonEndpoint,
 } from "./qa-guard.ts";
-import { addPreview, driverLogPath, fail, readPreviews, removePreview, setDeployment, setDriver } from "./store.ts";
+import {
+	addPreview,
+	cronSecretPath,
+	drivePid,
+	driverLogPath,
+	fail,
+	readPreviews,
+	removePreview,
+	repoHome,
+	setDeployment,
+	writeCronSecret,
+} from "./store.ts";
 
 /**
  * OPS-106: on-demand QA previews. `qa up <branch>` makes a Neon branch off the development branch, migrates and
  * seeds it with the branch's own code, deploys that head to a Vercel preview with per-deployment database and identity
- * settings, and gives it a stable alias, the one origin the deployment trusts. It then starts the preview's
- * scheduled-send driver (cron-driver.ts, T-255), because Vercel runs crons on production only. `qa list` shows open
- * previews; `qa down` stops the driver and removes the alias, the deployment and the Neon branch.
+ * settings, and gives it a stable alias, the one origin the deployment trusts. It writes the preview's cron secret file,
+ * which `qa drive` (cron-driver.ts, T-289) reads to run its scheduled sends; `qa up` never starts a driver itself.
+ * `qa list` shows open previews; `qa down` removes the cron secret, the alias, the deployment and the Neon branch.
  *
  * Secrets pass from neonctl to child processes in memory only. qa prints, logs and stores names, never a connection
  * string, key or password: child output reaches the screen only on failure, through `redact`.
@@ -188,7 +198,8 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		const direct = cs(),
 			pooled = cs("--pooled");
 		const { deployment, cronSecret } = deployCheckout(root, redactor, { id, head, url, direct, pooled, recipients });
-		cron = startDriver(root, id, deployment, cronSecret);
+		writeCronSecret(root, id, cronSecret);
+		cron = scheduledSends(root, id, deployment);
 	} catch (error) {
 		console.error(`qa up: ${id} failed; removing what it made.`);
 		try {
@@ -211,54 +222,37 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 	return 0;
 }
 
-const DRIVER = join(dirname(fileURLToPath(import.meta.url)), "cron-driver.ts");
-/** How long `qa up` waits for the driver's first call of /api/cron/jobs to answer. */
+/** How long `qa up` waits for a running `qa drive` to answer its first call of the new preview's /api/cron/jobs. */
 const FIRST_RUN_WAIT_MS = 90_000;
+/** How long `qa down` waits for a running `qa drive` to log that it stopped calling the preview. */
+const STOP_WAIT_MS = 15_000;
+
+const lastLine = (log: string) => (existsSync(log) ? (readFileSync(log, "utf8").trim().split("\n").pop() ?? "") : "");
+const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const shellQuote = (s: string) => `'${s.replaceAll("'", "'\\''")}'`;
 
 /**
- * Starts the preview's scheduled-send driver, detached so it outlives `qa up`, records its pid and waits for its first
- * call. Returns the line to print: whether scheduled sends run, and where the log is. A failed first call leaves the
- * preview and the driver up, since the next minute may succeed, and says what to check.
+ * The line to print about scheduled sends. With `qa drive` running, it waits for the host's first call of this preview
+ * and says whether it answered. Without one, it says sends are off and gives the command to run outside a seat.
  */
-function startDriver(root: string, id: string, deployment: string, secret: string): string {
+function scheduledSends(root: string, id: string, deployment: string): string {
+	const pid = drivePid(root);
+	if (!pid)
+		return `Scheduled sends: off until you run, outside a seat: cd ${shellQuote(repoHome(root))} && bin/qa drive`;
 	const log = driverLogPath(root, id);
-	writeFileSync(log, "", { mode: 0o600 });
-	const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", DRIVER, root, id, deployment], {
-		detached: true,
-		stdio: ["ignore", "ignore", openSync(log, "a")],
-		env: { ...process.env, QA_CRON_SECRET: secret },
-	});
-	child.unref();
-	if (!child.pid) fail("The scheduled-send driver did not start.");
-	setDriver(root, id, child.pid);
 	let first = "";
 	for (let waited = 0; waited < FIRST_RUN_WAIT_MS && !first; waited += 250) {
-		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
-		first =
-			readFileSync(log, "utf8")
-				.split("\n")
-				.find((line) => / (ok|failed): /.test(line)) ?? "";
+		pause(250);
+		first = existsSync(log)
+			? (readFileSync(log, "utf8")
+					.split("\n")
+					.find((line) => / (ok|failed): /.test(line)) ?? "")
+			: "";
 	}
-	const where = `/api/cron/jobs runs every minute from this Mac until bin/qa down. Log: ${log}`;
+	const where = `qa drive (pid ${pid}) calls /api/cron/jobs on ${deployment} every minute until bin/qa down. Log: ${log}`;
 	if (/ ok: /.test(first)) return `Scheduled sends: on. ${where}`;
 	if (!first) return `Scheduled sends: the first run has not answered yet. ${where}`;
-	return `Scheduled sends: the first run FAILED (${first.split(" failed: ")[1]}). The driver keeps trying. ${where}`;
-}
-
-/** Stops a preview's scheduled-send driver: only that process, checked by its command line, then removes its log. */
-function stopDriver(root: string, id: string, pid: number | undefined): boolean {
-	let stopped = false;
-	const command = (p: number) =>
-		spawnSync("ps", ["-p", String(p), "-o", "command="], { encoding: "utf8" }).stdout.trim();
-	if (pid && command(pid).includes(DRIVER) && command(pid).includes(id)) {
-		process.kill(pid, "SIGTERM");
-		for (let waited = 0; waited < 5_000 && command(pid); waited += 100)
-			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
-		if (command(pid)) process.kill(pid, "SIGKILL");
-		stopped = true;
-	}
-	rmSync(driverLogPath(root, id), { force: true });
-	return stopped;
+	return `Scheduled sends: the first run FAILED (${first.split(" failed: ")[1]}). It keeps trying. ${where}`;
 }
 
 function deployCheckout(
@@ -363,7 +357,10 @@ export function qaDown(root: string, id: string): number {
 	const redactor = new Redactor();
 	const row = readPreviews(root).find((r) => r.id === id);
 	const removed: string[] = [];
-	if (stopDriver(root, id, row?.driver_pid)) removed.push("scheduled-send driver");
+	// Without its secret file, a running qa drive stops calling the preview at its next read of the records.
+	const secret = cronSecretPath(root, id);
+	if (existsSync(secret)) removed.push("scheduled sends");
+	rmSync(secret, { force: true });
 	if (row?.deployment) {
 		// Vercel CLI 65 refuses --yes from an agent; --confirm-name approves by naming the target exactly as passed.
 		const alias = aliasHost(id);
@@ -380,6 +377,11 @@ export function qaDown(root: string, id: string): number {
 		neon(redactor, "branches", "delete", branch.id);
 		removed.push(`Neon branch ${branch.name}`);
 	}
+	const log = driverLogPath(root, id);
+	if (drivePid(root))
+		for (let waited = 0; waited < STOP_WAIT_MS && existsSync(log) && !/ stopped: /.test(lastLine(log)); waited += 100)
+			pause(100);
+	rmSync(log, { force: true });
 	if (row) removePreview(root, id);
 	console.log(
 		row || branch
