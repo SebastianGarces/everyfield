@@ -156,6 +156,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
 	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	const mailReads = [
+		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+		"communication.resendCandidates",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -174,6 +182,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"communication.sendReviewed",
+						"communication.executeResend",
+						"communication.retryProvenFailed",
+						"communication.deleteDraft",
+						"communication.templates.create",
+						"communication.templates.fork",
+						"communication.templates.update",
 					]
 				: [],
 		);
@@ -210,9 +225,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"communication.preview",
+						"communication.get",
+						"communication.forPerson",
+						"communication.templates.list",
+						"communication.resendCandidates",
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, ...mailReads]
 					: [],
 		);
 	}
