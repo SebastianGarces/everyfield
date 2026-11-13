@@ -97,8 +97,20 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				expiresAt: proposal.expiresAt,
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
+				// A note's stored text stays out of what the model reads, as in every read (the card shows it).
 				rows: target
-					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
+					? [
+							{
+								kind: target.kind,
+								id: target.id,
+								label: target.label,
+								fields: {
+									changes: proposal.review.changes.map((c) =>
+										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
+									),
+								},
+							},
+						]
 					: [],
 			}),
 		),
