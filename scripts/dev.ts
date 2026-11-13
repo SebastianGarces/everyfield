@@ -14,6 +14,11 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         checks.json record outside the repo and prints its path
   dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
         time; skips when the machine is loaded or no preview slot is free
+  dev nightly schedule install     installs the launchd agent com.everyfield.nightly: bin/dev nightly from the main
+        checkout at 03:30 local time every day; running it again replaces the one agent
+  dev nightly schedule status      says whether the agent is installed and loaded, when it runs, its log and the last
+        nightly.jsonl record
+  dev nightly schedule uninstall   boots the agent out and deletes its plist
   dev traces                               says what to read instead: no trace reader exists yet
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command

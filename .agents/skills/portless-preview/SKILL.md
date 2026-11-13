@@ -61,3 +61,7 @@ Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews ru
 Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR` and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart removed every live preview.
 
 Worktree cleanup does not revert commits. If a rehearsal requires reverting the change, keep its SHA and revert it on the retained branch after cleanup. Report preview removal and Git reversion separately.
+
+## Nightly run
+
+`bin/dev nightly` takes a preview slot on this Mac once a night: the launchd agent `com.everyfield.nightly` runs it from the main checkout at 03:30 local time (a missed run starts when the Mac next wakes). It skips, and starts nothing, when the machine is loaded or no slot is free. Its output goes to `~/.everyfield/ci/nightly.log`, and each result or skip is one line in `~/.everyfield/ci/nightly.jsonl`. `bin/dev nightly schedule status` says whether the agent is loaded, when it runs and the last record; `bin/dev nightly schedule uninstall` removes it, and `install` puts it back.
