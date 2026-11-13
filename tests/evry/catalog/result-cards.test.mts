@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, WIKI } from "../evals/golden-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -46,6 +46,11 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"wiki.search": { query: "vision meeting" },
+	"wiki.referenceExcerpt": { articleId: WIKI.vision.article },
+	"wiki.recommendForPhase": {},
+	"wiki.reading.resume": {},
+	"wiki.article.exportPdf": { articleId: WIKI.vision.article },
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

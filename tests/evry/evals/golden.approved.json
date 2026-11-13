@@ -726,7 +726,7 @@
 			"area": "Documents / wiki",
 			"case_id": "DOC-03",
 			"question": "what does the wiki say about running a vision meeting",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `wiki.search`, `wiki.articles.get`",
 			"expected_answer": "Later: cited article excerpt",
 			"must_not": "Answer from general knowledge as if it were the wiki"

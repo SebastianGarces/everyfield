@@ -15,6 +15,9 @@
 //   "Not a duplicate".
 // - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
 //   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
+// - A Wiki (tests/evry/adapters/wiki/corpus.mts): Hope Fellowship is in Launch Team Formation (phase 2) and shares its
+//   Wiki with Harvest Network, whose published version of "Running Your Vision Meeting" its Wiki shows; Harvest
+//   Network's draft and Other Network's version never show. The Owner was last reading "Launch Team Roles" (40%).
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
 //
@@ -28,6 +31,7 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
+import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
 
 /** The trusted clock the prompt states (deps.now in the turn). */
 export const NOW = new Date("2026-11-09T15:00:00Z");
@@ -38,6 +42,9 @@ export const DRAFT = id(0xc01);
 const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
+/** The Wiki's pinned ids, from 0x5000 (corpus.mts names them). */
+let wikiId = 0x5000;
+export const WIKI = wikiIds(() => id(wikiId++));
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -248,7 +255,7 @@ async function seedHope(admin: Database) {
 		[EMPTY_PLANT, "New Hope"],
 	])
 		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
-			VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`);
+			VALUES(${plant},${name},'America/Chicago',7,14,1,8,2,1)`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
 	for (const [who, a] of Object.entries(ACTOR_SPECS)) {
@@ -378,6 +385,11 @@ async function seedHope(admin: Database) {
 			state,scheduled_at,created_at)
 			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
 			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
+	// The Wiki, and where the Owner left off: 40% through "Launch Team Roles", as the Wiki page records a read.
+	await seedWiki(run, PLANT, WIKI);
+	const roles = WIKI.phaseTwo[1]!;
+	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,policy_version,last_read_meaningful_sequence,bookmarked,revision)
+		VALUES(${id(0x5100)},${owner},${roles.article},${roles.global},${PLANT},0.4,'2026-11-08T15:00:00.000Z','wiki-reading-v1',1,false,1)`);
 }
 
 /** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */

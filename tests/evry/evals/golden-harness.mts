@@ -28,6 +28,7 @@ import {
 	compileContext,
 	describeCatalog,
 	PASTORAL_BOUNDARY,
+	resolveReferences,
 } from "../../../packages/evry/src/context/compile.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
@@ -307,6 +308,8 @@ export async function converse(
 	as: ActorName,
 	text: string,
 	history: Turn[] = [],
+	/** The Wiki article the user's page shows (its slug), offered as the turn offers a page reference. */
+	page?: string,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
@@ -333,7 +336,8 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const context = compileContext({ actor, catalog, history: events, text, references: [], now: NOW });
+	const references = await resolveReferences(db, actor, page ? [{ kind: "article", slug: page }] : []);
+	const context = compileContext({ actor, catalog, history: events, text, references, now: NOW });
 	const results = new Map<number, SourceResult>();
 	let sequence = 0;
 	let toolCalls = 0;

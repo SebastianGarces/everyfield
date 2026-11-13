@@ -64,6 +64,8 @@ type Checks = {
 type Eval = Checks & {
 	as?: ActorName;
 	text?: string;
+	/** The Wiki article on the user's page, by slug: the page reference the panel sends. */
+	page?: string;
 	history?: Turn[];
 	kind?: Conversation["kind"];
 	target?: Checks & {
@@ -401,7 +403,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	try {
-		const c = await converse(church, as, text, spec.history ?? []);
+		const c = await converse(church, as, text, spec.history ?? [], spec.page);
 		row.conversation = c;
 		row.keys = c.keys;
 		row.checks = [

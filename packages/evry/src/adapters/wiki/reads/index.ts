@@ -126,7 +126,7 @@ export const resume: ReadAdapter<Record<string, never>> = {
 		const { article } = value(await wiki.readingResume(on(tx), actor.authority, {}));
 		const read = (a: WikiArticle) => `${Math.round(Number(a.observedFraction) * 100)}%`;
 		const rows = article ? [articleRow(article, { read: read(article), completed: article.completed })] : [];
-		return listed("wiki.reading.resume", rows, ["other people's reading"]);
+		return listed("wiki.reading.resume", rows, ["other readers' progress"]);
 	},
 };
 
