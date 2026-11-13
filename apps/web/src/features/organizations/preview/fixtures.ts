@@ -7,7 +7,7 @@ import type {
 	History,
 	NameOf,
 	OperationName,
-	PendingInvitation,
+	Invitation,
 	Relationship,
 	RelationshipPair,
 	Run,
@@ -31,7 +31,7 @@ export const VIEWERS = ["owner", "member"] as const;
 export type Viewer = (typeof VIEWERS)[number];
 export const VIEWER_LABEL: Record<Viewer, string> = { owner: "Owner or Admin", member: "Member" };
 
-export const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused"] as const;
+const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused"] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 export const SCENARIO_LABEL: Record<Scenario, string> = {
 	connected: "Normal",
@@ -88,15 +88,6 @@ const CHURCH_PAIR = C.relationshipPair.parse({ kind: "sending_church", subject: 
 
 let counter = 100;
 const nextId = () => uuid(counter++);
-/** A waiting invitation without the receipt that only its own command returns. */
-const bare = (i: PendingInvitation): PendingInvitation => ({
-	status: i.status,
-	invitationId: i.invitationId,
-	pair: i.pair,
-	revision: i.revision,
-	expiresAt: i.expiresAt,
-	inviterDescription: i.inviterDescription,
-});
 const READS = new Set<OperationName>([
 	"privacy.getSharing",
 	"associations.getHistory",
@@ -261,10 +252,11 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}) as History;
 	}
 
-	let pending: PendingInvitation[] =
-		scenario === "connected" && side === "subject"
+	// "refused" keeps the waiting request too, so its refused resend and withdraw can be seen.
+	let pending: Invitation[] =
+		(scenario === "connected" || scenario === "refused") && side === "subject"
 			? [
-					C.invitationResult.omit({}).parse({
+					C.invitationResult.parse({
 						status: "pending",
 						invitationId: uuid(50),
 						pair: pair(PLANT, RIVERBEND),
@@ -341,7 +333,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 					inviterDescription: "Daniel Reyes, Owner of Harvest Point Church",
 				});
 				addresses.set(made.invitationId, email);
-				pending = [bare(made), ...pending];
+				pending = [made, ...pending];
 				return made;
 			}
 			case "associations.resendInvitation": {
@@ -350,9 +342,10 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const next = C.invitationResult.parse({
 					...original,
 					revision: String(Number(original.revision) + 1),
-					expiresAt: days(30),
+					// As the API does: a resend sends a fresh link and keeps the original expiry.
+					expiresAt: original.expiresAt,
 				});
-				pending = pending.map((i) => (i.invitationId === next.invitationId ? bare(next) : i));
+				pending = pending.map((i) => (i.invitationId === next.invitationId ? next : i));
 				return next;
 			}
 			case "associations.revokeInvitation": {
@@ -517,12 +510,27 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		const r = (await run("privacy.setSharing", command)) as z.infer<typeof C.mutationResult>;
 		return r.status === "committed" ? readSharing(command.input.relationshipId, command.input) : null;
 	};
+	const saveResidency = async (command: z.infer<typeof C.setResidencySharingRequest>) => {
+		const r = (await run("residency.setSharing", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? readResidency(command.input.linkId) : null;
+	};
+	const readConsent = async (relationshipId: string) =>
+		(await run("pipelineSharing.readConsent", C.pipelineConsentRequest.parse({ relationshipId }))) as z.infer<
+			typeof C.pipelineConsentResult
+		>;
+	const saveConsent = async (command: z.infer<typeof C.setPipelineConsentRequest>) => {
+		const r = (await run("pipelineSharing.setConsent", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? readConsent(command.input.relationshipId) : null;
+	};
 	return {
 		load,
 		read,
 		run,
 		end,
 		readResidency,
+		saveResidency,
+		readConsent,
+		saveConsent,
 		sharing: { read: readSharing, save: saveSharing },
 		readDisclosure,
 		residencyLink: RESIDENT_LINK,
@@ -530,7 +538,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */
-export const INVITATION: PendingInvitation = C.invitationResult.omit({}).parse({
+export const INVITATION: Invitation = C.invitationResult.parse({
 	status: "pending",
 	invitationId: uuid(60),
 	pair: pair(EASTSIDE, AUSTIN),

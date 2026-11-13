@@ -1,11 +1,13 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
-import { notificationCategory } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { executeWrites } from "@everyfield/domain/operations";
+import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
+import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
 
@@ -66,12 +68,17 @@ export type TransportOutcome =
 	| { kind: "accepted"; id: string }
 	| { kind: "refused"; retryable: boolean; retryAfterSeconds?: number }
 	| { kind: "unknown" };
+/** One email as the transport hands it to the provider. `headers` holds the List-Unsubscribe pair, when the email has one. */
+export type MailPayload = Readonly<{
+	from: string;
+	to: string;
+	subject: string;
+	text: string;
+	html: string;
+	headers?: Readonly<Record<string, string>>;
+}>;
 export interface MailTransport {
-	send(
-		payload: Readonly<{ from: string; to: string; subject: string; text: string; html: string }>,
-		key: string,
-		signal: AbortSignal,
-	): Promise<TransportOutcome>;
+	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
 const stored = z.object({
@@ -90,9 +97,45 @@ const stored = z.object({
 	provider_message_id: z.string().nullable(),
 	revision: z.string(),
 	job_id: z.uuid().nullable(),
+	created_at: z.date(),
 });
+/**
+ * Mail a reader may turn off (REQ-NTF-012): a notification email and the two digests. Security, invitation and receipt
+ * mail never carries an Unsubscribe link. Messages mail to CRM people (`communication`) is not listed here: it carries its own
+ * Unsubscribe link, built in `packages/domain/src/communication/delivery.ts`.
+ */
+const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
+/** The opt-out page's origin (scheme, host and port only) and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
+export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
+/** The category an optional email belongs to and the reader's current unsubscribe revision for its email. */
+type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
+/** The deployment's unsubscribe configuration: the public origin and the NOTIFICATION_OPT_OUT_KEYS ring the opt-out page opens. */
+export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
+	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
+	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
+	return keys && origin.success ? { origin: new URL(origin.data).origin, keys } : null;
+}
 export const escapeHtml = (text: string) =>
 	text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+/**
+ * The plain rendering of one email. Optional mail ends with its Unsubscribe and settings links in both bodies and
+ * carries the RFC 8058 List-Unsubscribe pair with the same token.
+ */
+function render(
+	to: string,
+	content: z.infer<typeof storedContentSchema>,
+	links: { page: string; oneClick: string; settings: string } | null,
+): MailPayload {
+	const html = `<p>${escapeHtml(content.text).replaceAll("\n", "<br>")}</p>`;
+	if (!links) return { to, ...content, html };
+	return {
+		to,
+		...content,
+		text: `${content.text}\n\n--\nUnsubscribe: ${links.page}\nNotification settings: ${links.settings}`,
+		html: `${html}<hr><p><a href="${escapeHtml(links.page)}">Unsubscribe</a> · <a href="${escapeHtml(links.settings)}">Notification settings</a></p>`,
+		headers: { "List-Unsubscribe": `<${links.oneClick}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+	};
+}
 export const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 
 export function createMailService(config: {
@@ -101,9 +144,19 @@ export function createMailService(config: {
 	addressKey: Uint8Array;
 	from: string;
 	authorize: AuthorizeMail;
-	transport: MailTransport;
+	/**
+	 * The email service. A request-side service that only queues mail has none: the scheduled runner's pass for its mount
+	 * sends it, so a request never waits on the email service.
+	 */
+	transport?: MailTransport | undefined;
 	authorizeRecovery?: AuthorizeRecovery;
+	unsubscribe?: MailUnsubscribe;
 }) {
+	const unsubscribe = config.unsubscribe ?? null;
+	const transport = () => {
+		if (!config.transport) throw Error("mail_transport_unconfigured");
+		return config.transport;
+	};
 	const encryptionKey = Buffer.from(config.encryptionKey),
 		addressKey = Buffer.from(config.addressKey);
 	if (encryptionKey.length !== 32 || addressKey.length !== 32 || encryptionKey.equals(addressKey))
@@ -134,7 +187,11 @@ export function createMailService(config: {
 		logicalKey: m.logical_key,
 	});
 	const aad = (id: string, tenant: string, purpose: string) => `${tenant}/${id}/${purpose}`;
-	async function live(tx: Transaction, m: z.infer<typeof stored>) {
+	/**
+	 * Whether the mail may still go. Live mail answers with the opt-out its notice's category gives, when the reader may
+	 * turn that category's email off: the category and the email preference's current unsubscribe revision.
+	 */
+	async function live(tx: Transaction, m: z.infer<typeof stored>): Promise<false | { optOut: OptOut | null }> {
 		// Current deletion witnesses override restored or still-present intent rows.
 		const barriers = await tx
 			.select({ id: tables.lifecycle_witness.id })
@@ -150,6 +207,7 @@ export function createMailService(config: {
 			)
 			.for("share");
 		if (barriers.length) return false;
+		let optOut: OptOut | null = null;
 		if (m.notice_id) {
 			const notice = await tx
 				.select({
@@ -173,7 +231,10 @@ export function createMailService(config: {
 			if (!parsedPreference.success) return false;
 			const preference = parsedPreference.data;
 			const choice = await tx
-				.select({ enabled: tables.notification_preference.enabled })
+				.select({
+					enabled: tables.notification_preference.enabled,
+					revision: sql<string>`${tables.notification_preference.unsubscribe_revision}::text`,
+				})
 				.from(tables.notification_preference)
 				.where(
 					and(
@@ -184,24 +245,11 @@ export function createMailService(config: {
 						eq(tables.notification_preference.channel, "email"),
 					),
 				);
-			if (choice[0]?.enabled === false) return false;
-		}
-		if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") {
-			const choice = await tx
-				.select({ enabled: tables.notification_preference.enabled })
-				.from(tables.notification_preference)
-				.where(
-					and(
-						and(
-							eq(tables.notification_preference.account_id, sql`${m.recipient_account_id}`),
-							eq(tables.notification_preference.category, m.purpose),
-						),
-						eq(tables.notification_preference.channel, "email"),
-					),
-				);
-			if (choice[0]?.enabled === false) return false;
-		}
-		return (await config.authorize(tx, [authority(m)])).has(m.id);
+			if (!(choice[0]?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
+			if (OPTIONAL_PURPOSES.has(m.purpose))
+				optOut = { category: preference, revision: z.string().parse(choice[0]?.revision ?? "0") };
+		} else if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") return false;
+		return (await config.authorize(tx, [authority(m)])).has(m.id) && { optOut };
 	}
 	function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {
 		return tx
@@ -419,7 +467,24 @@ export function createMailService(config: {
 		return id;
 	}
 
+	/**
+	 * The Unsubscribe page and one-click URLs for one optional email, or null. The token names the recipient and the
+	 * email's own category, and is the same on every attempt of this mail (`issueMailOptOutToken`).
+	 */
+	function optOutLinks(m: z.infer<typeof stored>, optOut: OptOut | null) {
+		if (!unsubscribe || !optOut || !m.recipient_account_id) return null;
+		const token = issueMailOptOutToken(unsubscribe.keys, {
+			accountId: m.recipient_account_id,
+			category: optOut.category,
+			unsubscribeRevision: optOut.revision,
+			iat: m.created_at.toISOString(),
+		});
+		const page = `${unsubscribe.origin}/email-preferences/${token}`;
+		return { page, oneClick: `${page}/one-click`, settings: `${unsubscribe.origin}/settings/notifications` };
+	}
+
 	async function dispatch(claim: Claim) {
+		const send = transport();
 		const prepared = await transaction(config.db, async (tx) => {
 			if (claim.kind !== "mail" || !(await lockClaim(tx, claim))) return null;
 			const row = await tx
@@ -432,7 +497,8 @@ export function createMailService(config: {
 				await finishClaim(tx, claim, { state: m.state === "cancelled" ? "cancelled" : "succeeded" });
 				return null;
 			}
-			if (m.revision !== claim.source_revision || !(await live(tx, m))) {
+			const current = m.revision === claim.source_revision && (await live(tx, m));
+			if (!current) {
 				if (["unknown", "dispatched"].includes(m.state)) {
 					await finishClaim(tx, claim, { state: "reconcile", code: "authority_changed" });
 					return null;
@@ -492,17 +558,12 @@ export function createMailService(config: {
 				tx.update(tables.mail).set({ state: "dispatched" }).where(eq(tables.mail.id, m.id)),
 			]);
 			await checkpoint(tx, claim, "external");
-			return {
-				m,
-				attempt,
-				key: r.provider_key,
-				payload: { to, ...content, html: `<p>${escapeHtml(content.text).replaceAll("\n", "<br>")}</p>` },
-			};
+			return { m, attempt, key: r.provider_key, payload: render(to, content, optOutLinks(m, current.optOut)) };
 		});
 		if (!prepared) return { kind: "not_dispatched" } as const;
 		let outcome: TransportOutcome;
 		try {
-			outcome = await config.transport.send(prepared.payload, prepared.key, AbortSignal.timeout(10_000));
+			outcome = await send.send(prepared.payload, prepared.key, AbortSignal.timeout(10_000));
 		} catch {
 			outcome = { kind: "unknown" };
 		}
@@ -568,9 +629,10 @@ export function createMailService(config: {
 		const m = stored.parse(row[0]);
 		if (m.state !== "unknown" || !m.provider_message_id) return { kind: "unknown" } as const;
 		// Provider observations, never caller-supplied result strings, establish truth.
+		const provider = transport();
 		let observed: TransportOutcome;
 		try {
-			observed = await config.transport.lookup(m.provider_message_id, AbortSignal.timeout(10_000));
+			observed = await provider.lookup(m.provider_message_id, AbortSignal.timeout(10_000));
 		} catch {
 			return { kind: "unknown" } as const;
 		}
@@ -621,9 +683,10 @@ export function createMailService(config: {
 			return authorize(tx, authority(stored.parse(row[0])), providerId);
 		});
 		if (!initial) throw Error("recovery_unavailable");
+		const provider = transport();
 		let observed: TransportOutcome;
 		try {
-			observed = await config.transport.lookup(providerId, AbortSignal.timeout(10_000));
+			observed = await provider.lookup(providerId, AbortSignal.timeout(10_000));
 		} catch {
 			return { kind: "unknown" } as const;
 		}
@@ -701,8 +764,68 @@ export function createMailService(config: {
 	};
 }
 
-// The only automatic replay of an unknown effect keeps its entire original request/key.
-export async function claimUnknownMail(db: Database, limit = 1): Promise<Claim[]> {
+/**
+ * The logical-key prefixes each scheduled-runner mail pass claims, by pass. Every prefix a producer writes belongs to
+ * exactly one pass, whose mount's authorizer judges that mail again just before the handoff: a mail claimed by the
+ * wrong mount would fail its authorization and be cancelled.
+ */
+export const MAIL_PASSES = {
+	/** Church invitations and their acceptance receipts. */
+	mail: ["invitation/", "invitation-accepted/"],
+	/** Password-reset links and their outcome notices, and sign-up verification links. */
+	identity: ["password_reset/", "email_verification/"],
+	/** Organization connection invitations. */
+	organization: ["relationship/"],
+	/** Email-change links, security notices and workspace deletion notices. */
+	settings: ["email-change/", "security/", "workspace-deletion/"],
+	/** Set-up and Discovery receipts, relationship receipts after a conversion, and Discovery association receipts. */
+	onboarding: ["onboarding/", "association/"],
+	/** Notice email: task reminders, phase advances, meeting announcements and reminders, milestones. */
+	notice: ["notice/"],
+	/** Planter and oversight digests. */
+	digest: ["digest/"],
+} as const satisfies Record<string, readonly `${string}/`[]>;
+export type MailPassName = keyof typeof MAIL_PASSES;
+
+/** A reminder emailed later than this after its slot is stale: the next slot, or the event itself, has come. */
+const REMINDER_GRACE = "1 day";
+
+/**
+ * Mail that no longer helps its reader, for a mail row `m` and its job `j`: a password-reset or verification link older
+ * than the link itself (a reset's outcome notice still goes), and a task or meeting reminder whose slot passed a day
+ * ago. It is never handed to the email service.
+ */
+const stale = sql.raw(`((split_part(m.logical_key,'/',1) IN ('password_reset','email_verification')
+    AND m.logical_key NOT LIKE 'password_reset/outcome/%'
+    AND m.created_at+make_interval(secs=>${IDENTITY_LINK_SECONDS})<=clock_timestamp())
+  OR (m.notice_id IS NOT NULL AND j.eligible_at+interval '${REMINDER_GRACE}'<=clock_timestamp()
+    AND EXISTS(SELECT FROM notice n WHERE n.id=m.notice_id AND n.purpose IN ('task_due','meeting_reminder'))))`);
+
+/**
+ * Cancels up to 500 stale queued mail (see `stale`) that was never handed off, with its job, so the first tick after
+ * mail starts sending does not send a backlog of dead links and past reminders. One statement. Returns how many.
+ */
+export async function expireStaleMail(db: Database): Promise<number> {
+	const rows = await db.execute(sql`WITH due AS (
+    SELECT j.id AS job_id,m.id AS mail_id FROM job j JOIN mail m ON m.id=j.subject_record_id
+    WHERE j.kind='mail' AND j.state IN ('ready','retry_wait') AND m.state IN ('pending','refused') AND ${stale}
+    ORDER BY j.eligible_at,j.id FOR UPDATE OF j,m SKIP LOCKED LIMIT 500
+   ), jobs AS (
+    UPDATE job j SET state='cancelled',error_code='stale',next_attempt_at=NULL,finished_at=clock_timestamp(),revision=revision+1
+    FROM due WHERE j.id=due.job_id RETURNING j.id
+   ), mails AS (
+    UPDATE mail m SET state='cancelled' FROM due WHERE m.id=due.mail_id RETURNING m.id
+   ) SELECT (SELECT count(*) FROM mails)::int AS count`);
+	return z.number().parse(rows.rows[0]?.count);
+}
+
+/**
+ * The only automatic replay of an unknown effect: claims up to `limit` mail whose handoff answered unknown, under the
+ * given key prefixes, while its request is still inside the email service's 23 h 55 min idempotency window. Dispatch
+ * then sends the same stored request under the same key, so the email service answers with its first result. Past the
+ * window, or once the job used its attempts, the mail stays in reconcile, unclaimed, for a provider callback.
+ */
+export async function claimUnknownMail(db: Database, prefixes: readonly string[], limit = 1): Promise<Claim[]> {
 	z.number().int().min(1).max(100).parse(limit);
 	const rows = await db.execute(sql`WITH due AS (
     SELECT j.id FROM job j JOIN mail m ON m.id=j.subject_record_id
@@ -710,9 +833,62 @@ export async function claimUnknownMail(db: Database, limit = 1): Promise<Claim[]
     WHERE j.kind='mail' AND j.state='reconcile' AND j.attempt_count<j.max_attempts AND m.state='unknown'
     AND r.first_dispatched_at+interval '23 hours 55 minutes'>clock_timestamp()
     AND (j.next_attempt_at IS NULL OR j.next_attempt_at<=clock_timestamp())
+    AND split_part(m.logical_key,'/',1)||'/'=ANY(${sql.param(prefixes)}::text[]) AND NOT ${stale}
     ORDER BY j.eligible_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT ${limit})
     UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
     lease_owner=${randomUUID()},lease_until=clock_timestamp()+make_interval(secs=>${DEFAULT_LEASE_SECONDS}),revision=revision+1
     FROM due WHERE j.id=due.id RETURNING j.*`);
 	return rows.rows.map((row) => claimSchema.parse(row));
+}
+
+/**
+ * Claims the oldest due mail job whose mail's logical key starts with one of `prefixes`, skipping rows another claim
+ * holds and stale mail. A mount's worker claims only the mail its own authorizer can judge (`MAIL_PASSES`). One
+ * statement, so one implicit transaction.
+ */
+async function claimDueMail(db: Database, prefixes: readonly string[]): Promise<Claim | undefined> {
+	const rows = await db.execute(sql`WITH due AS (
+    SELECT j.id FROM job j JOIN mail m ON m.id=j.subject_record_id
+    WHERE j.kind='mail' AND j.state IN ('ready','retry_wait') AND j.attempt_count<j.max_attempts
+    AND j.eligible_at<=clock_timestamp() AND (j.next_attempt_at IS NULL OR j.next_attempt_at<=clock_timestamp())
+    AND split_part(m.logical_key,'/',1)||'/'=ANY(${sql.param(prefixes)}::text[]) AND NOT ${stale}
+    ORDER BY j.eligible_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1)
+    UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
+    lease_owner=${randomUUID()},lease_until=clock_timestamp()+make_interval(secs=>${DEFAULT_LEASE_SECONDS}),revision=revision+1
+    FROM due WHERE j.id=due.id RETURNING j.*`);
+	return rows.rows.map((row) => claimSchema.parse(row))[0];
+}
+
+/** A scheduled-runner mail pass: sends at most `limit` due mail, starting none after `until`. Returns the claims. */
+export type MailPass = (limit: number, until: number) => Promise<number>;
+
+/**
+ * One bounded batch of a mount's mail: first it replays the mail whose handoff answered unknown on an earlier tick
+ * (`claimUnknownMail`), then it claims due mail, each dispatched under the mount's own authorizer. Returns the claims.
+ */
+export async function runDueMail(
+	db: Database,
+	mail: Pick<ReturnType<typeof createMailService>, "dispatch">,
+	prefixes: readonly string[],
+	limit: number,
+	until: number,
+): Promise<number> {
+	let claimed = 0;
+	const run = async (claim: Claim) => {
+		claimed++;
+		// A failed dispatch keeps its lease; lease recovery returns it to the queue. No error text: it can carry values.
+		await mail.dispatch(claim).catch(() => console.error(JSON.stringify({ component: "mail", outcome: "error" })));
+	};
+	// Replays first, so mail that answered unknown in this tick's own sends waits for the next tick.
+	while (claimed < limit && Date.now() < until) {
+		const [claim] = await claimUnknownMail(db, prefixes);
+		if (!claim) break;
+		await run(claim);
+	}
+	while (claimed < limit && Date.now() < until) {
+		const claim = await claimDueMail(db, prefixes);
+		if (!claim) break;
+		await run(claim);
+	}
+	return claimed;
 }

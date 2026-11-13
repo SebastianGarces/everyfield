@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import * as api from "./api.ts";
 import {
 	cursor,
 	EMPTY,
 	merge,
+	mergeLive,
 	opened,
 	turnsOf,
 	type Conversation,
@@ -24,12 +25,14 @@ import {
 type Action =
 	| { type: "open"; state: State }
 	| { type: "events"; events: readonly ConversationEvent[] }
+	| { type: "live"; turnId: string; offset: number; text: string }
 	| { type: "conversation"; conversation: Conversation }
 	| { type: "send"; send: Send }
 	| { type: "sent"; key: string; patch: Partial<Send> }
 	| { type: "drop"; key: string }
 	| { type: "active"; turnId: string | null }
-	| { type: "stopping"; value: boolean };
+	| { type: "stopping"; value: boolean }
+	| { type: "seen"; proposalId: string };
 
 function reduce(state: State, action: Action): State {
 	switch (action.type) {
@@ -37,6 +40,8 @@ function reduce(state: State, action: Action): State {
 			return action.state;
 		case "events":
 			return merge(state, action.events);
+		case "live":
+			return mergeLive(state, action.turnId, action.offset, action.text);
 		case "conversation":
 			return { ...state, conversation: action.conversation };
 		case "send":
@@ -53,6 +58,12 @@ function reduce(state: State, action: Action): State {
 			return { ...state, activeTurnId: action.turnId, stopping: action.turnId ? state.stopping : false };
 		case "stopping":
 			return { ...state, stopping: action.value };
+		case "seen": {
+			if (!(action.proposalId in state.reviews)) return state;
+			const { [action.proposalId]: _, ...reviews } = state.reviews;
+			void _;
+			return { ...state, reviews };
+		}
 	}
 }
 
@@ -82,6 +93,7 @@ async function readAll(
 		const next = await api.readConversation(id, read.events.at(-1)?.sequence ?? 0);
 		if (next.status !== "ok") return next;
 		read.events.push(...next.value.events);
+		Object.assign(read.reviews, next.value.reviews);
 		read.more = next.value.more;
 		read.run = next.value.run;
 	}
@@ -169,6 +181,15 @@ export function useConversation(open: boolean) {
 		const onEvent = (e: MessageEvent<string>) =>
 			dispatch({ type: "events", events: [JSON.parse(e.data) as ConversationEvent] });
 		for (const kind of KINDS) source.addEventListener(kind, onEvent);
+		// The running turn's text as this server received it, ahead of its saved events.
+		source.addEventListener("live", (e) => {
+			const { turnId, offset, text } = JSON.parse((e as MessageEvent<string>).data) as {
+				turnId: string;
+				offset: number;
+				text: string;
+			};
+			dispatch({ type: "live", turnId, offset, text });
+		});
 		source.onopen = () => setStream("live");
 		// The server ends the stream when no run is active; any run the panel still waits for has no more events.
 		source.addEventListener("idle", () => {
@@ -299,7 +320,9 @@ export function useConversation(open: boolean) {
 		setLoad("ready");
 	};
 
-	const turns = useMemo(() => turnsOf(state.events), [state.events]);
+	/** A review card showed the review the open read brought; it reads its own from now on. */
+	const seen = useCallback((proposalId: string) => dispatch({ type: "seen", proposalId }), []);
+	const turns = useMemo(() => turnsOf(state.events, state.live), [state.events, state.live]);
 	return {
 		state,
 		turns,
@@ -312,6 +335,7 @@ export function useConversation(open: boolean) {
 		send,
 		resend: (s: Send) => void deliver(s),
 		discard: (key: string) => dispatch({ type: "drop", key }),
+		seen,
 		cancel,
 		retry,
 		reconnect: () => setAttempt((n) => n + 1),

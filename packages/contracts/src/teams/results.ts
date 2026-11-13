@@ -1,31 +1,25 @@
 import { z } from "zod";
 import { localDate } from "../common/time.ts";
-import { correlationId, operationId, personId, recordId, revision } from "../common/values.ts";
+import { defineSafeError, operationId, personId, recordId, revision, type Reply } from "../common/values.ts";
 import { TEMPLATE_VERSION, leaderSource, teamState } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(
-	code: C,
-	details: D,
-	retry: "never" | "refresh" | "same_request",
-) =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
 /** Every refusal a teams operation can return. Missing rows are "unavailable". */
 export const teamsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unsupported_filter", {}, "never"),
-	error("unavailable", {}, "never"),
-	error("access_denied", {}, "never"),
-	error("invalid_subject", {}, "never"),
-	error("conflict", {}, "refresh"),
-	error("occupied", { roleId: recordId.optional() }, "never"),
-	error("stale_template_version", {}, "never"),
-	error("stale_review", {}, "never"),
-	error("required_write_failed", {}, "same_request"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unsupported_filter", {}, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("invalid_subject", {}, "never"),
+	defineSafeError("conflict", {}, "refresh"),
+	defineSafeError("occupied", { roleId: recordId.optional() }, "never"),
+	defineSafeError("stale_template_version", {}, "never"),
+	defineSafeError("stale_review", {}, "never"),
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);
 export type TeamsError = z.infer<typeof teamsError>;
-export type TeamsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: TeamsError };
+export type TeamsReply<T> = Reply<T, TeamsError>;
 
 const outcome = z.enum(["changed", "noop"]);
 const receipt = { receiptId: operationId, outcome };
@@ -50,8 +44,10 @@ export const teamMutationResult = z.strictObject({
 	team,
 	stableKey: z.string().nullable(),
 });
+/** A team as the list reads it: the team and its leader's display name, or null when it has no leader. */
+export const listedTeam = team.extend({ leaderName: z.string().nullable() });
 export const teamPage = z.strictObject({
-	items: z.array(team).max(200),
+	items: z.array(listedTeam).max(200),
 	ordinaryIds: z.array(recordId).max(200),
 	archivedIds: z.array(recordId).max(200),
 });
@@ -61,6 +57,15 @@ export const historyEntry = z.strictObject({
 	kind: z.string().min(1).max(80),
 	occurredAt: z.string().min(1),
 	reason: z.string().nullable(),
+	/** Who made the change, by their account name; null when the change has no account. */
+	actorName: z.string().nullable(),
+	/** What the change was filed under: the ministry itself, one of its roles, or one person's time in a role. */
+	subject: z.enum(["ministry", "role", "tenure"]),
+	/**
+	 * The role a role change names, and the person when it names one: a role filled or a role-date correction.
+	 * Ministry entries name none.
+	 */
+	about: z.strictObject({ personName: z.string().nullable(), roleName: z.string() }).nullable(),
 	before: z.record(z.string(), z.unknown()).nullable(),
 	after: z.record(z.string(), z.unknown()).nullable(),
 });
@@ -119,6 +124,8 @@ export const memberPage = z.strictObject({
 	history: z.array(memberRow).max(500),
 });
 export const assignmentRow = z.strictObject({
+	tenureId: recordId,
+	revision,
 	teamId: recordId,
 	teamName: z.string().min(1).max(200),
 	roleId: recordId,
@@ -128,6 +135,8 @@ export const assignmentRow = z.strictObject({
 	endedOn: localDate.nullable(),
 	active: z.boolean(),
 });
+/** One corrected role tenure, as the person's record shows it. */
+export const tenureMutationResult = z.strictObject({ ...receipt, assignment: assignmentRow });
 export const personAssignments = z.strictObject({
 	personId,
 	assignments: z.array(assignmentRow).max(200),
@@ -181,6 +190,8 @@ export const chartNode = z.strictObject({
 	archived: z.boolean(),
 	leaderName: z.string().nullable(),
 });
+/** The ministry's current revision alone, for a write refused as stale to retry with. */
+export const teamRevision = z.strictObject({ teamId: recordId, revision });
 export const orgChart = z.strictObject({
 	nodes: z.array(chartNode).max(200),
 });
@@ -190,17 +201,4 @@ export const orgChartExport = z.strictObject({
 	svg: z.string().min(1),
 	lines: z.array(z.string().min(1).max(200)).max(800),
 	nodes: z.array(chartNode).max(200),
-});
-
-export const rosterPreview = z.strictObject({
-	meetingId: recordId,
-	teamId: recordId,
-	personIds: z.array(personId).max(500),
-});
-export const rosterCopyResult = z.strictObject({
-	...receipt,
-	meetingId: recordId,
-	teamId: recordId,
-	addedPersonIds: z.array(personId).max(500),
-	skippedPersonIds: z.array(personId).max(500),
 });

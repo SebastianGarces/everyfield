@@ -227,10 +227,12 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 			WHERE ${pick.kind} = 'current'
 				OR (${pick.kind} = 'global' AND c.source_kind = 'global')
 				OR (${pick.kind} = 'organization' AND c.source_id = ${pick.organizationId}::uuid)
+			-- Unranked church copies have no winner (REQ-KNOW-191): the next version in line is read instead, the
+			-- network's, then the global one. Each church copy stays open by name.
 			ORDER BY c.article_id,
 				CASE
-					WHEN EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
-						THEN CASE WHEN c.source_kind = 'global' THEN 0 ELSE 1 END
+					WHEN c.source_kind = 'church' AND EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
+						THEN 1
 					ELSE 0
 				END,
 				c.rank, c.accepted_at, c.source_id
@@ -261,14 +263,20 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 		)`;
 }
 
-export function articleJson(): SQL {
+/** The body a reader may see: none under a hide, and none when only unranked church copies remain. */
+export function visibleBodySql(): SQL {
+	return sql`CASE WHEN p.hidden OR (p.order_required AND p.source_kind = 'church') THEN NULL ELSE p.body END`;
+}
+
+/** One article as JSON. A title list (`body: false`) leaves the body out: it shows titles, never the text. */
+export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	return sql`json_build_object(
 		'articleId', p.article_id,
 		'sourceId', p.source_id,
 		'sourceKind', p.source_kind,
 		'hidden', p.hidden,
 		'state', CASE WHEN p.order_required THEN 'source_order_required' ELSE p.state END,
-		'body', CASE WHEN p.hidden OR p.order_required THEN NULL ELSE p.body END,
+		'body', ${body ? visibleBodySql() : sql`NULL`},
 		'title', p.title,
 		'slug', p.slug,
 		'excerpt', p.excerpt,
@@ -296,21 +304,22 @@ export function articleJson(): SQL {
 	)`;
 }
 
-export function articleFrom(extra: SQL = sql`true`): SQL {
-	return sql`picked p
-		LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
-		LEFT JOIN LATERAL (
-			SELECT v.source_credit
-			FROM reference_version v
-			WHERE v.item_id = p.article_id
-				AND (
-					v.release_id = (SELECT release_id FROM release)
-					OR NOT EXISTS (SELECT FROM release)
-				)
-			ORDER BY v.version_number DESC
-			LIMIT 1
-		) cr ON true
-		WHERE ${extra}`;
+/** The picked articles that match `extra`. The reading and credit joins come later, on the rows a page keeps. */
+function articleFrom(extra: SQL = sql`true`): SQL {
+	return sql`picked p WHERE ${extra}`;
+}
+
+/**
+ * The plant's live Wiki sources of one kind in reading order: the stored order first, then sources it does not
+ * name yet, by when they joined. The order dialog lists them and a save must name each one.
+ */
+function sourceList(access: CorpusAccess, kind: "sending_church" | "sending_network"): SQL {
+	const stored = kind === "sending_church" ? sql`p.churches` : sql`p.networks`;
+	return sql`COALESCE((
+		SELECT json_agg(l.org_id ORDER BY array_position(${stored}, l.org_id) NULLS LAST, l.accepted_at, l.org_id)
+		FROM links l CROSS JOIN pref p
+		WHERE ${access.owner.kind} = 'plant' AND l.kind = ${kind}
+	), '[]'::json)`;
 }
 
 export function pageQuery(access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`): SQL {
@@ -324,18 +333,8 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 		)
 		SELECT
 			EXISTS (SELECT FROM me) AS allowed,
-			CASE WHEN EXISTS (SELECT FROM me)
-				THEN COALESCE((
-					SELECT json_agg(u.id ORDER BY u.ord)
-					FROM unnest((SELECT churches FROM pref)) WITH ORDINALITY AS u(id, ord)
-				), '[]'::json)
-				ELSE '[]'::json END AS churches,
-			CASE WHEN EXISTS (SELECT FROM me)
-				THEN COALESCE((
-					SELECT json_agg(u.id ORDER BY u.ord)
-					FROM unnest((SELECT networks FROM pref)) WITH ORDINALITY AS u(id, ord)
-				), '[]'::json)
-				ELSE '[]'::json END AS networks,
+			${sourceList(access, "sending_church")} AS churches,
+			${sourceList(access, "sending_network")} AS networks,
 			CASE WHEN EXISTS (SELECT FROM me) THEN (SELECT revision FROM pref) ELSE '0' END AS order_revision,
 			(SELECT count(*)::int FROM picked p WHERE ${where}) AS total,
 			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
@@ -352,7 +351,12 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 }
 
 /** Every matching article in one statement. The count does not grow with the corpus. */
-export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQL = sql`true`): SQL {
+export function catalogQuery(
+	access: CorpusAccess,
+	source: SourceView,
+	where: SQL = sql`true`,
+	options: { body?: boolean } = {},
+): SQL {
 	return sql`WITH ${corpusCtes(access, source)},
 		rows AS (
 			SELECT p.*, NULL::text AS snippet
@@ -362,7 +366,7 @@ export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQ
 			EXISTS (SELECT FROM me) AS allowed,
 			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
 			COALESCE((
-				SELECT json_agg(${articleJson()} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
+				SELECT json_agg(${articleJson(options)} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
 				FROM rows p
 				LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
 				LEFT JOIN LATERAL (
@@ -373,7 +377,7 @@ export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQ
 			), '[]'::json) AS articles`;
 }
 
-/** Navigation ids in one statement: title, slug, phase, section, and stored related ids. */
+/** Navigation ids in one statement: title, slug, phase and section. */
 export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 	return sql`WITH ${corpusCtes(access, source)}
 		SELECT
@@ -384,8 +388,7 @@ export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 					'title', p.title,
 					'slug', p.slug,
 					'phase', p.phase,
-					'sectionKey', p.section_key,
-					'relatedIds', p.related_ids
+					'sectionKey', p.section_key
 				) ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
 				FROM picked p
 			), '[]'::json) AS articles`;

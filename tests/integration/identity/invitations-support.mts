@@ -1,8 +1,8 @@
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 import {
 	createInvitationService,
 	createSeatService,
@@ -11,92 +11,68 @@ import {
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import {RequestActor} from "../../../packages/domain/src/access/session.ts";
-import {refuse} from "../../../packages/domain/src/identity/invitation-core.ts";
-import {sessionId} from "../../../packages/contracts/src/common/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
+import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 export const key = randomUUID;
-export async function fixture({ lockTimeout = "0" } = {}) {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	const ci =
-		process.env.CI === "true" &&
-		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-		["localhost", "127.0.0.1"].includes(source.hostname) &&
-		source.pathname === "/everyfield_ci";
-	if (
-		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved development or disposable CI database required");
-	if (!ci) source.searchParams.set("sslmode", "verify-full");
-	const schema = "wp008_" + key().replaceAll("-", ""),
-		role = "wp008_" + randomBytes(8).toString("hex"),
-		options = `-c search_path=${schema},pg_catalog,pg_temp`;
-	const admin = createDatabase({ connectionString: source.href, options, max: 8 });
-	let db;
+export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
+	const database = await testDatabase({ prefix: "wp008", max: 8 });
+	const { admin, schema } = database;
+	const db = database.connect("runtime", { options: `-c lock_timeout=${lockTimeout}` });
+	const runtimeUrl = database.logins.runtime.url;
 	const effects = [];
 	let mailFault = false;
-	const addressKey = randomBytes(32);
-	try {
-		await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-		await migrate(admin, schema);
-		const password = randomBytes(32).toString("hex");
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-		const runtime = new URL(source);
-		runtime.username = role;
-		runtime.password = password;
-		db = createDatabase({
-			connectionString: runtime.href,
-			options: options + ` -c lock_timeout=${lockTimeout}`,
-			max: 8,
-		});
-	} catch {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-		await closeDatabase(admin);
-		throw Error("Invitation fixture setup failed");
-	}
+	// A real transport a test can put behind the recording one, so the email goes to a recorded email service.
+	let relay = null;
+	const addressKey = mailKeys?.addressKey ?? randomBytes(32);
 	const hash = (address) => createHmac("sha256", addressKey).update(address).digest("hex");
 	const mail = createMailService({
 		db,
 		addressKey,
-		encryptionKey: randomBytes(32),
+		encryptionKey: mailKeys?.encryptionKey ?? randomBytes(32),
 		from: "invitations@example.test",
 		authorize: (tx, m) => authorizeInvitationMail(tx, m, hash),
 		transport: {
-			async send(payload, key) {
+			async send(payload, key, signal) {
 				effects.push({ text: payload.text, to: payload.to, key });
-				return { kind: "accepted", id: randomUUID() };
+				return relay ? relay.send(payload, key, signal) : { kind: "accepted", id: randomUUID() };
 			},
 			async lookup() {
 				return { kind: "unknown" };
 			},
 		},
 	});
-	async function actor(session:string){const a=await db.transaction(tx=>RequestActor.resolve(tx,sessionId.parse(session)));if(!(a instanceof RequestActor))refuse();return a;}
+	async function actor(session: string) {
+		const a = await db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(session)));
+		if (!(a instanceof RequestActor)) refuse();
+		return a;
+	}
 	const invitations = createInvitationService({
 		db,
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
-		enqueueMail: async (tx,m,command) => {
+		// As the invitation mount checks it: the mail service's own address hash against the active blocks.
+		addressBlocked: (email) =>
+			sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash(email.trim().toLowerCase())} AND cleared_at IS NULL)`,
+		enqueueMail: async (tx, m, command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
-			return mail.append(tx, {
-				owner: m.owner,
-				purpose: m.purpose,
-				logicalKey: m.logicalKey,
-				recipient: m.recipientAccountId,
-				address: m.recipientEmail,
-				content: { subject: m.subject, text: m.text },
-				operation: m.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			},command.writes);
+			return mail.append(
+				tx,
+				{
+					owner: m.owner,
+					purpose: m.purpose,
+					logicalKey: m.logicalKey,
+					recipient: m.recipientAccountId,
+					address: m.recipientEmail,
+					content: { subject: m.subject, text: m.text },
+					operation: m.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 	const identitySecret = randomBytes(32).toString("hex");
@@ -154,55 +130,21 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		return decodeURIComponent(m[1]);
 	}
 
+	const seed = seeds(admin);
 	async function account(state = "active", address = key() + "@example.test") {
-		const id = key(),
-			user = key(),
-			session = key();
-		await admin
-			.insert(t.auth_user)
-			.values({ id: user, name: "Synthetic person", email: address, email_verified: true });
-		await admin
-			.insert(t.account)
-			.values({ id, auth_user_id: user, registration_state: state, registration_kind: "discovery" });
-		await admin.insert(t.auth_session).values({
-			id: session,
-			user_id: user,
-			token: randomBytes(32).toString("hex"),
-			expires_at: new Date(Date.now() + 86400000),
+		const a = await seed.actor(null, "owner", {
+			email: address,
+			user: { name: "Synthetic person" },
+			account: { registration_state: state },
 		});
-		return { id, user, session, email: address };
+		return { id: a.id, user: a.user, session: a.session, email: address };
 	}
 	async function workspace(kind = "plant") {
-		const id = key();
-		if (kind === "plant")
-			await admin.insert(t.plant).values({
-				id,
-				name: "Synthetic plant",
-				timezone: "UTC",
-				warning_days: 7,
-				alert_days: 14,
-				digest_weekday: 1,
-				digest_hour: 8,
-				phase: 1,
-				material_revision: "1",
-			});
-		else
-			await admin
-				.insert(t.organization)
-				.values({ id, kind, name: "Synthetic organization", timezone: "UTC", material_revision: "1" });
-		return kind === "plant" ? { kind: "plant", id } : { kind: "organization", id, organizationKind: kind };
+		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
+		return seed.organization(kind, { name: "Synthetic organization" });
 	}
 	async function seat(a, w, role = "owner") {
-		const id = key();
-		await admin.insert(t.seat).values({
-			id,
-			account_id: a.id,
-			plant_id: w.kind === "plant" ? w.id : null,
-			organization_id: w.kind === "organization" ? w.id : null,
-			role,
-			accepted_at: new Date(),
-		});
-		return id;
+		return seed.seat(a, w, role);
 	}
 	async function resident(w) {
 		const id = key();
@@ -253,11 +195,14 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		native,
 		admin,
 		db,
+		/** The runtime login with this schema, for a mount that opens its own pool from the environment. */
+		runtimeUrl: runtimeUrl.href,
 		invitations,
 		seats: createSeatService(db),
 		mail,
 		effects,
 		dispatch,
+		addressHash: hash,
 		proof,
 		account,
 		workspace,
@@ -268,11 +213,11 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		setMailFault(v) {
 			mailFault = v;
 		},
+		setTransport(transport) {
+			relay = transport;
+		},
 		async close() {
-			await closeDatabase(db);
-			await admin.execute(sql.raw(`DROP SCHEMA ${schema} CASCADE`));
-			await admin.execute(sql.raw(`DROP ROLE ${role}`));
-			await closeDatabase(admin);
+			await database.close();
 		},
 	};
 }

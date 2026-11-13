@@ -1,0 +1,40 @@
+{
+	"church_id": null,
+	"content": "Launch Sunday is for the people you hope will make this church their home: neighbors, coworkers, friends and the guests your team has invited. Plan the day around them.\n\nInvite one partner representative from your sending church or network to take part in the service, for example a short greeting or a prayer. Ask 6–8 weeks ahead, and see [Partner Organization Coordination](/wiki/launch-sunday/partner-organization-coordination) for the steps.\n\nAsk your other supporters, such as family, financial partners and friends from other churches, to pray for you that morning and to visit on the second or third Sunday. Many church plants see attendance dip in the weeks after launch, and a visit then encourages your team when it helps most. Tell them why you're asking, so no one feels turned away, and give them the dates.\n\nIf supporters come on Launch Sunday anyway, welcome them warmly. The goal is a clear invitation, not a rule.\n",
+	"content_type": "guide",
+	"created_at": "2026-11-09T13:00:00Z",
+	"excerpt": "Who to invite to Launch Sunday: one partner representative takes part in the service, and other supporters pray that morning and visit on the second or third Sunday.",
+	"id": "7f5cbfcc-d997-4dca-8d45-479d46c5a0a8",
+	"phase": 5,
+	"published_at": null,
+	"read_time_minutes": 1,
+	"related_article_slugs": [
+		"launch-sunday/partner-organization-coordination",
+		"launch-sunday/5-priority-details",
+		"launch-sunday/launch-day-guide"
+	],
+	"section_id": "85569b95-4e93-43fd-b77a-4733e168a583",
+	"slug": "launch-sunday/who-to-invite-to-launch-sunday",
+	"sort_order": 7,
+	"status": "draft",
+	"title": "Who to Invite to Launch Sunday",
+	"updated_at": "2026-11-09T13:00:00Z",
+	"draft": {
+		"backlog_id": "C9",
+		"tier": "C",
+		"closes": [],
+		"approver": "Sebastian",
+		"replaces_id": null,
+		"sources": [],
+		"claim_check": {
+			"status": "failed",
+			"reviewer": "Opus (independent claim check, Nov 12 2026)",
+			"notes": "Tier C, not promotable as is (bin/wiki promote refuses tier C). Wording: content is exactly the four required paragraphs, word for word (checked programmatically after unlinking), with the only addition a link on 'Partner Organization Coordination' to /wiki/launch-sunday/partner-organization-coordination (a published row). New slug; related slugs exist. Standing rules: 'church plants' (no bare 'plant'), neutral 'not a rule' framing, no playbook, ids, outside tools or Everyfield claims; consistent with the D9 changes in partner-organization-coordination and 5-priority-details. No scripture, so nothing to verify. Lint fails only the minimums, as expected: 159 words (500–2,500), 0 H2s, 0 callouts, no scripture callout. bin/wiki shot/render refuse to render it for that reason, so there is no preview. Why 'failed': 'Many church plants see attendance dip in the weeks after launch, and a visit then encourages your team when it helps most.' is a factual claim with no draft.sources entry. It is phrased as an observation, not 'research shows', and it is the owner's own wording. It still needs a source, or Sebastian's explicit confirmation as human author that it stands as his general observation, before it can pass. Apart from that sentence and the tier C minimums, the draft holds."
+		},
+		"rulings": [
+			"D9 Launch Sunday invitations, Sebastian Oct 31: 'partner leader on Launch Sunday, other supporters visit weeks 2–3'. The content is exactly the four paragraphs of the audit's D9 'Suggested wording', word for word; the only change is a /wiki/ link on 'Partner Organization Coordination'. Nothing else is written.",
+			"Tier C (human-led): Sebastian must confirm this article as its human author before promotion. bin/wiki promote refuses tier C, and the draft does not meet lint's minimums (500 words, three H2s, a scripture callout), so it stays unpromoted until a human author finishes it.",
+			"The sentence 'Many church plants see attendance dip in the weeks after launch' has no source yet; the human author should source it or keep it as a general observation before promotion."
+		]
+	}
+}
