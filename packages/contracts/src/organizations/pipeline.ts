@@ -110,8 +110,8 @@ export const pipelineStage = z.strictObject({
 	id: recordId,
 	label: z.string(),
 	kind: pipelineStageKind,
-	/** Null for a starter stage nobody has saved yet. */
-	revision: revision.nullable(),
+	/** A starter stage nobody has saved yet reads as revision 1, the revision the first write gives it. */
+	revision,
 	/** Every live person in the stage, whatever the filters. */
 	count: z.int().min(0),
 	/** Live people at this stage who are in the viewer's audience, or in the retired list, and match the filters. */

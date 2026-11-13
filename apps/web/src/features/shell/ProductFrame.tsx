@@ -7,6 +7,7 @@ import {
 	ChartLineData01Icon,
 	File02Icon,
 	Mail01Icon,
+	Route01Icon,
 	Settings02Icon,
 	Task01Icon,
 	UserGroupIcon,
@@ -83,6 +84,15 @@ const INTELLIGENCE = {
 	icon: ChartLineData01Icon,
 	prefetch: false,
 } as const;
+// An organization's Pipeline (WP-098a): the people a sending church or network develops toward planting.
+const PIPELINE = {
+	kind: "link",
+	key: "pipeline",
+	label: "Pipeline",
+	href: "/organization/pipeline",
+	icon: Route01Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -150,7 +160,10 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+		main:
+			settings?.context === "organization"
+				? [PIPELINE, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI]
+				: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
 		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
 		tools: [
 			{

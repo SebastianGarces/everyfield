@@ -80,7 +80,7 @@ const boardRow = z.object({
 			id: z.string(),
 			label: z.string(),
 			kind: z.string(),
-			revision: z.string().nullable(),
+			revision: z.string(),
 			count: z.number(),
 			matching: z.number(),
 			people: z.array(z.record(z.string(), z.unknown())),
@@ -110,7 +110,7 @@ st AS (
  SELECT s.id,s.label,s.stable_kind AS kind,s.position,s.revision::text AS revision FROM pipeline_stage s
   WHERE s.organization_id=${org}::uuid AND s.removed_at IS NULL AND EXISTS(SELECT FROM o)
  UNION ALL
- SELECT x.id,x.label,x.kind,x.position,NULL FROM jsonb_to_recordset(${startersJson(org)}::jsonb) x(id uuid,kind text,label text,position int)
+ SELECT x.id,x.label,x.kind,x.position,'1' FROM jsonb_to_recordset(${startersJson(org)}::jsonb) x(id uuid,kind text,label text,position int)
   WHERE EXISTS(SELECT FROM o) AND NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${org}::uuid)),
 pp AS (
  SELECT pp.id,pp.person_id,pp.stage_id,pp.responsible_seat_id,pp.revision::text AS revision,p.display_name,p.email,p.state,
@@ -376,7 +376,7 @@ function settle(row: z.infer<typeof changed>, expected: string) {
 }
 
 /** Adds a person to the pipeline at a stage, with an optional email and responsible staff member. Owner or Admin. */
-export function addPipelinePerson(db: Database, authority: RequestActor, raw: unknown) {
+function addPerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.addPipelinePersonRequest, raw);
 		const o = w.organization;
@@ -423,7 +423,7 @@ const target = (w: Writer, person: string, state = "live") =>
  AND p.state=${state} FOR UPDATE OF pp,p`;
 
 /** Changes a person's name, email and responsible staff. Owner or Admin. */
-export function editPipelinePerson(db: Database, authority: RequestActor, raw: unknown) {
+function editPerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.editPipelinePersonRequest, raw);
 		const row = await one(
@@ -448,7 +448,7 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
  * Moves a person to another stage with a reason. Owner or Admin: a person does it, never a rule (REQ-MUL-008). The
  * move row keeps both stages' labels as they are now. A move to the person's own stage changes nothing.
  */
-export function movePipelinePerson(db: Database, authority: RequestActor, raw: unknown) {
+function movePerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.movePipelinePersonRequest, raw);
 		const o = w.organization;
@@ -478,7 +478,7 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
  * Records that an outside assessment happened, on a day no later than today in the organization's time zone, and who
  * ran it. The request has no outcome field and the row has no outcome column (REQ-MUL-008). Owner or Admin.
  */
-export function recordPipelineAssessment(db: Database, authority: RequestActor, raw: unknown) {
+function recordAssessment(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.recordAssessmentRequest, raw);
 		const row = await one(
@@ -523,17 +523,22 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
 			return settle(row, input.expectedRevision);
 		});
 }
-export const retirePipelinePerson = lifecycle("retire");
-export const restorePipelinePerson = lifecycle("restore");
 
 const stageRows = z.array(
-	z.object({ id: z.string(), label: z.string(), kind: z.string(), position: z.number(), revision: z.string(), held: z.coerce.number() }),
+	z.object({
+		id: z.string(),
+		label: z.string(),
+		kind: z.string(),
+		position: z.number(),
+		revision: z.string(),
+		held: z.coerce.number(),
+	}),
 );
 /**
  * Saves the reviewed stage list (REQ-MUL-008): renames, new stages, order and removals, all or nothing. A stage that
  * still holds a person, live or retired, cannot be removed. An existing stage keeps its kind. Owner or Admin.
  */
-export function savePipelineStages(db: Database, authority: RequestActor, raw: unknown) {
+function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.saveStagesRequest, raw);
 		const o = w.organization;
@@ -576,7 +581,8 @@ export function savePipelineStages(db: Database, authority: RequestActor, raw: u
 		const gone = input.removed.map((s) => s.id);
 		if (!gone.length && changes.every((c) => c.change === "keep")) return { outcome: "noop" as const };
 		const rows = JSON.stringify(changes.filter((c) => c.change !== "keep"));
-		await w.tx.execute(sql`WITH c AS (SELECT * FROM jsonb_to_recordset(${rows}::jsonb) c(id uuid,label text,kind text,position int,change text)),
+		await w.tx
+			.execute(sql`WITH c AS (SELECT * FROM jsonb_to_recordset(${rows}::jsonb) c(id uuid,label text,kind text,position int,change text)),
 e AS (UPDATE pipeline_stage s SET label=c.label,position=c.position,revision=s.revision+1 FROM c
  WHERE c.change='edit' AND s.id=c.id AND s.organization_id=${o}::uuid RETURNING s.id),
 n AS (INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
@@ -611,7 +617,7 @@ const noteTarget = (w: Writer, person: SQL) =>
  * Adds a note to a person the writer is responsible for, or to anyone for an Owner or Admin (REQ-MUL-009). The browser
  * names the note's ID, so a repeated request adds no second note.
  */
-export function addPipelineNote(db: Database, authority: RequestActor, raw: unknown) {
+function addNote(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, false, async (w) => {
 		const input = parse(C.addPipelineNoteRequest, raw);
 		const row = await one(
@@ -659,5 +665,17 @@ SELECT EXISTS(SELECT FROM n,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::t
 			return { noteId: input.noteId, ...settle(row, input.expectedRevision) };
 		});
 }
-export const editPipelineNote = noteChange("edit");
-export const removePipelineNote = noteChange("remove");
+
+/** Every pipeline write. The statement census measures each one as `pipeline.<name>`. */
+export const pipelineWriter = {
+	addPerson,
+	editPerson,
+	movePerson,
+	recordAssessment,
+	retirePerson: lifecycle("retire"),
+	restorePerson: lifecycle("restore"),
+	saveStages,
+	addNote,
+	editNote: noteChange("edit"),
+	removeNote: noteChange("remove"),
+};
