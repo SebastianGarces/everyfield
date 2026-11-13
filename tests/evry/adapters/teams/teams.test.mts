@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
 	approveProposal,
+	openLatestConversation,
 	createConversation,
 	executeProposal,
 	prepareProposal,
@@ -239,4 +240,28 @@ test("INV-authority: a Member reads the roster their Ministries screen shows and
 	const other = await actor("foreign");
 	assert.equal((await invokeRead(db, other, adapter("teams.get"), { teamId: worship })).status, "not_found");
 	assert.ok(accounts.member);
+});
+
+test("BUG-2cd4ba98 INV-retained: a conversation whose result card shows ministry rows reopens with them, and drops a removed one", async () => {
+	const owner = await actor("owner");
+	const c = await createConversation(db, owner, { requestKey: key() });
+	const gone = await role(hospitality, "Parking");
+	const rows = [
+		{ kind: "team", id: hospitality, label: "Hospitality", fields: {} },
+		{ kind: "role", id: greeter, label: "Greeter", fields: {} },
+		{ kind: "role", id: gone, label: "Parking", fields: {} },
+		{ kind: "training", id: randomUUID(), label: "Gone program", fields: {} },
+	];
+	await admin.execute(sql`INSERT INTO conversation_event(conversation_id,sequence,kind,body)
+		VALUES(${c.id},1,'tool_result',${JSON.stringify({ operation: "teams.get", result: { operation: "teams.get", status: "available", rows, total: 4, page: 1, next: null, completeness: "complete", exclusions: [] } })}::jsonb)`);
+	await admin.execute(sql`UPDATE conversation SET last_sequence=1 WHERE id=${c.id}`);
+	await admin.execute(sql`DELETE FROM team_role WHERE id=${gone}`);
+	const open = await openLatestConversation(db, owner);
+	const card = open?.events.find((e) => e.kind === "tool_result");
+	const kept = (card?.body as { result: { rows: { label: string }[]; withheldRows?: number } }).result;
+	assert.deepEqual(
+		[kept.rows.map((r) => r.label), kept.withheldRows],
+		[["Hospitality", "Greeter"], 2],
+		"the live ministry and role stay; the deleted role and the unknown program are withheld",
+	);
 });
