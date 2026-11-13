@@ -155,7 +155,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
+	// commands; any church seat may propose changes to its own account, and an organization Owner its own profile.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -174,8 +175,24 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"seats.invite",
+						"seats.resendInvitation",
+						"seats.revokeInvitation",
+						"seats.changeOrdinaryRole",
+						"seats.remove",
+						"plant.updateProfile",
+						"plant.setTimezone",
+						"privacy.setSharing",
+						"associations.invite",
+						"associations.end",
+						"account.finalizeAvatar",
+						"account.requestDeletion",
 					]
-				: [],
+				: who === "member"
+					? ["account.finalizeAvatar", "account.requestDeletion"]
+					: who === "orgOwner"
+						? ["organizations.updateProfile"]
+						: [],
 		);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
@@ -210,9 +227,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"seats.list",
+						"seats.listInvitations",
+						"privacy.getSharing",
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, "communication.list", "seats.list", "privacy.getSharing"]
 					: [],
 		);
 	}
@@ -376,7 +396,15 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"peopleOrganization_read",
+			"people_read",
+			"propose_change",
+			"seats_read",
+			"select_returned_rows",
+			"sharing_read",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });
