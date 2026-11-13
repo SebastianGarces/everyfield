@@ -18,7 +18,9 @@ export type Operation =
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| "wiki.bookmarks.set"
+	| "wiki.feedback.setMine";
 
 export type Change = { field: string; before: unknown; after: unknown };
 
@@ -33,7 +35,14 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message"; id: string; label: string } | null;
+		/** A Wiki article's target names the exact version reviewed (id), its article and its Wiki page. */
+		target: {
+			kind: "person" | "message" | "article";
+			id: string;
+			label: string;
+			articleId?: string;
+			href?: string;
+		} | null;
 		changes: Change[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
@@ -103,6 +112,8 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	bookmarked: "Bookmark",
+	feedback: "Your feedback",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
@@ -123,6 +134,9 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
 	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
+	if (field === "bookmarked") return value === true ? "Bookmarked" : "Not bookmarked";
+	if (field === "feedback")
+		return value === "helpful" ? "Helpful" : value === "unhelpful" ? "Not helpful" : String(value);
 	if (field === "birthDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
 	return String(value);
@@ -157,6 +171,8 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"wiki.bookmarks.set": "Bookmark an article",
+	"wiki.feedback.setMine": "Rate an article",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -164,6 +180,10 @@ export const operationTitle = (operation: Operation) => TITLE[operation];
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
 
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
+/** A Wiki bookmark or vote: the reader's own, with nothing to revise but the request itself. */
+export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
+/** Where the card's target opens: a Wiki article's page, else the person's. */
+export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 type SendTime = { at: string; zone: string };
 const asTime = (value: unknown): SendTime | null =>
 	value && typeof value === "object" && "at" in value && "zone" in value ? (value as SendTime) : null;
@@ -388,7 +408,9 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || isMail(review.operation) || isWiki(review.operation)
+		? []
+		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -411,6 +433,10 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (!target) return null;
 	const personId = target.id;
 	switch (review.operation) {
+		case "wiki.bookmarks.set":
+			return target.articleId ? { articleId: target.articleId, desired: after("bookmarked") !== false } : null;
+		case "wiki.feedback.setMine":
+			return target.articleId ? { articleId: target.articleId, vote: after("feedback") } : null;
 		case "people.updatePerson":
 			return { personId, patch: Object.fromEntries(changes.map((c) => [c.field, value(c)])) };
 		case "people.changeStatus":
@@ -469,6 +495,20 @@ export function refusalText(code: string | undefined, target: string | null): st
 			return `${who} is no longer available, so nothing was saved.`;
 		default:
 			return "People refused this change, so nothing was saved.";
+	}
+}
+
+/** Why a Wiki bookmark or vote was refused. Nothing was saved in each case. */
+export function wikiRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+		case "unavailable":
+			return "You can no longer read this article here, so nothing was saved.";
+		default:
+			return "The Wiki refused this change, so nothing was saved.";
 	}
 }
 

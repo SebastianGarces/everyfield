@@ -38,9 +38,9 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-export type Reference = { kind: "person"; id: string };
+export type Reference = { kind: "person"; id: string } | { kind: "article"; slug: string };
 export type SourceRow = {
-	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message";
+	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message" | "article";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;
@@ -358,13 +358,23 @@ export const resendable = (send: Send) =>
 
 // ---------------------------------------------------------------------------------------------------------------
 // Page context: the record on the page the person is looking at, offered to Evry as a hint it reads again under the
-// person's current access (REQ-EVR-006). Only person pages name a record in this slice.
+// person's current access (REQ-EVR-006). A person page names its person and a Wiki article page its article.
 
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+/** A Wiki article's page: /wiki/<slug>, not the Wiki home and not the editor (/wiki/<slug>/edit). */
+const ARTICLE_PAGE = /^\/wiki\/(.+?)\/?$/;
 
 export function pageReferences(pathname: string | null): Reference[] {
 	const id = pathname ? PERSON_PAGE.exec(pathname)?.[1] : undefined;
-	return id ? [{ kind: "person", id: id.toLowerCase() }] : [];
+	if (id) return [{ kind: "person", id: id.toLowerCase() }];
+	const path = pathname ? ARTICLE_PAGE.exec(pathname)?.[1] : undefined;
+	if (!path || path.endsWith("/edit")) return [];
+	try {
+		const slug = path.split("/").map(decodeURIComponent).join("/");
+		return slug.length <= 300 ? [{ kind: "article", slug }] : [];
+	} catch {
+		return [];
+	}
 }
 
 export const MAX_MESSAGE = 8_000;

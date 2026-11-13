@@ -44,6 +44,15 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	...rest,
 });
 
+const wiki = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["article", "articles"],
+	icon: "article",
+	counts: "article",
+	empty: "Nothing in your Wiki matches.",
+	...rest,
+});
+
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
 	"people.getPerson": people("Person"),
@@ -117,6 +126,14 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
+	"wiki.search": wiki("Wiki articles", { empty: "The Wiki has nothing on this." }),
+	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
+	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
+	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.article.exportPdf": wiki("Wiki PDF", {
+		noun: ["file", "files"],
+		empty: "This article is not in your Wiki, or you can't read it.",
+	}),
 };
 /** An operation with no view of its own. A test fails while any installed read falls back to it. */
 export const FALLBACK = { title: "Records", noun: ["record", "records"] } as const;
@@ -201,8 +218,12 @@ export type RowView = {
 	avatar: Exclude<Kind, "import"> | null;
 	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
 	photoFor: string | null;
-	/** Only a person (or a row that names the person it created) has a page. A household or any other record has none. */
+	/** Only a person (or a row that names the person it created) and a Wiki article have a page. */
 	href: string | null;
+	/** A file the row downloads (the Wiki's PDF): a plain link, never prefetched. */
+	file?: string;
+	/** The Wiki's own words, quoted under the row: an excerpt exactly as the article has it, markup aside. */
+	quote?: string;
 };
 export type CardView = {
 	title: string;
@@ -211,6 +232,15 @@ export type CardView = {
 	rows: RowView[];
 	facts: string[];
 };
+
+/** An excerpt's words without its markup: headings, emphasis marks and component tags go, line breaks stay. */
+const plainExcerpt = (excerpt: string) =>
+	excerpt
+		.replace(/<\/?[A-Za-z][^>]*>/g, "")
+		.replace(/^#{1,6}\s+/gm, "")
+		.replace(/\*\*|__|`/g, "")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
 
 function activityLine(fields: Record<string, unknown>) {
 	const stageChange = fields.from && fields.to ? `${stage(fields.from)} → ${stage(fields.to)}` : null;
@@ -350,6 +380,36 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Draft",
 				avatar: null,
 			};
+		case "article": {
+			// A version other than the global one says whose it is, as the Wiki page does.
+			const whose =
+				fields.source === "network"
+					? "Your network's version"
+					: fields.source === "church"
+						? "Your sending church's version"
+						: null;
+			const line =
+				operation === "wiki.search"
+					? text(fields.snippet)
+					: operation === "wiki.reading.resume"
+						? joined(text(fields.read) && `${String(fields.read)} read`, fields.completed === true ? "Finished" : null)
+						: operation === "wiki.recommendForPhase"
+							? text(fields.phase)
+							: operation === "wiki.article.exportPdf"
+								? "Download the PDF"
+								: text(fields.section);
+			return {
+				...plain,
+				name: row.label,
+				line: joined(line, whose),
+				avatar: "article",
+				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
+				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref)! } : {}),
+				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
+					? { quote: plainExcerpt(text(fields.excerpt)!) }
+					: {}),
+			};
+		}
 		case "person":
 			break;
 	}

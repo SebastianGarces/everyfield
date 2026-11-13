@@ -4,7 +4,8 @@ import { generateText, Output, type ModelMessage } from "ai";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
-import type { ConversationEvent } from "../conversations/store.ts";
+import { verifyArticles } from "../adapters/wiki/reads/index.ts";
+import type { ConversationEvent, Reference } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
@@ -53,19 +54,35 @@ export function describeCatalog(catalog: Catalog) {
 	return lines.join("\n");
 }
 
+/** A page reference as the model may use it: read again under current authority, with the id a tool takes. */
+export type VerifiedReference = { kind: "person" | "article"; id: string; label: string };
+
 /**
  * evry.resolveReferences: page context and entity references are hints. Each one is read again under the actor's
- * current authority in one statement; a stale, foreign, retired or guessed reference is dropped, never used as
- * permission. At most 64.
+ * current authority, people in one statement and Wiki articles in one more; a stale, foreign, retired or guessed
+ * reference is dropped, never used as permission. At most 64.
  */
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
-	references: readonly { kind: "person"; id: string }[],
-) {
-	const ids = [...new Set(references.slice(0, LIMITS.references).map((r) => r.id))];
-	return (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
+	references: readonly Reference[],
+): Promise<VerifiedReference[]> {
+	const kept = references.slice(0, LIMITS.references);
+	const ids = [...new Set(kept.flatMap((r) => (r.kind === "person" ? [r.id] : [])))];
+	const slugs = [...new Set(kept.flatMap((r) => (r.kind === "article" ? [r.slug] : [])))];
+	const [people, articles] = await Promise.all([verifyPeople(db, actor, ids), verifyArticles(db, actor, slugs)]);
+	return [...people.map((r) => ({ kind: "person" as const, id: r.id, label: r.label })), ...articles];
 }
+
+/**
+ * What Evry says about the Wiki (DOC-03, WIKI-008): only what a Wiki tool returned, quoted with its title and link, never
+ * general knowledge passed off as the Wiki. It points to existing articles and writes none of its own.
+ */
+const WIKI_RULE = [
+	"When the user asks what the Wiki says, answer only from Wiki tool results: quote the excerpt as the Wiki's words, with the article's title as a markdown link to its href.",
+	"When no Wiki article matches, say the Wiki has nothing on it. Never answer from general knowledge as if it were the Wiki.",
+	"No tool writes or edits Wiki content: the Wiki is shared reading. When asked to edit the Wiki or add the church's own writing to it, say churches keep their own writing in Church Documents, and offer no change.",
+].join(" ");
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
 /** Estimated tokens of the read and selection tool definitions the model also receives. */
@@ -82,7 +99,7 @@ export function compileContext(input: {
 	catalog: Catalog;
 	history: readonly ConversationEvent[];
 	text: string;
-	references: readonly { kind: "person"; id: string; label: string }[];
+	references: readonly VerifiedReference[];
 	now: Date;
 }) {
 	const turns: ModelMessage[] = [];
@@ -100,6 +117,7 @@ export function compileContext(input: {
 		"Report exact totals and say when a result is partial; offer the next page instead of guessing. When a name matches more than one person, ask once which one, using only the returned fields.",
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
+		input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",

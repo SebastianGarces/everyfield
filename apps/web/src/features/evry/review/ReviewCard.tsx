@@ -3,6 +3,7 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	BookOpen01Icon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
@@ -36,6 +37,7 @@ import {
 	hasBirthDate,
 	isMail,
 	isRequired,
+	isWiki,
 	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
@@ -48,7 +50,9 @@ import {
 	retryable,
 	reviseInput,
 	shownChanges,
+	targetHref,
 	valueText,
+	wikiRefusalText,
 	type Change,
 	type Phase,
 	type Review,
@@ -413,7 +417,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail
+				? mailRefusalText(review.receipt?.code)
+				: review && isWiki(review.operation)
+					? wikiRefusalText(review.receipt?.code)
+					: refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -426,11 +434,13 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 			return "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
-		case "withheld":
+		case "withheld": {
 			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
+			const what = review && isWiki(review.operation) ? "The article" : "The person";
 			return review?.status === "approved"
-				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
-				: "The person in this change is no longer available to you. Nothing was changed.";
+				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
+				: `${what} in this change is no longer available to you. Nothing was changed.`;
+		}
 		case "unavailable":
 			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
@@ -723,7 +733,7 @@ function Footer({
 			<>
 				{who ? (
 					<Button size="sm" variant="secondary" asChild>
-						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
+						<IntentLink href={targetHref(who)}>Open {who.label}</IntentLink>
 					</Button>
 				) : null}
 				<span className="flex-1" />
@@ -757,7 +767,7 @@ function Footer({
 					</>
 				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={`/people/${who.id}`}>
+						<IntentLink href={targetHref(who)}>
 							Open {who.label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
@@ -842,6 +852,10 @@ function Affects({ review }: { review: Review }) {
 			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
 					<Icon icon={UserAdd01Icon} size={16} />
+				</span>
+			) : isWiki(review.operation) ? (
+				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
+					<Icon icon={BookOpen01Icon} size={16} />
 				</span>
 			) : (
 				<Avatar name={name} size="sm" decorative />

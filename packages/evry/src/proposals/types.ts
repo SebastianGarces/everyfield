@@ -18,10 +18,10 @@ export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
 export type ReviewContext = { db: Database; mail: MailPort | null };
 
 /**
- * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
- * only a write that reaches the email service has one.
+ * The owning domain write's saved receipt, or the domain's refusal code. A Wiki bookmark or vote has no receipt id of
+ * its own. `report` is what the email service confirmed; only a write that reaches the email service has one.
  */
-type EffectDone = { receiptId: string; revision: string; report?: MailReport };
+type EffectDone = { receiptId?: string; revision: string; report?: MailReport };
 export type EffectResult = EffectDone | { refused: string };
 
 /**

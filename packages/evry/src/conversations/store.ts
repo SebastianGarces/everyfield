@@ -22,7 +22,12 @@ const liveRun = (alias: string) =>
 const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
 const requestKey = z.string().min(8).max(200);
-export const reference = z.strictObject({ kind: z.literal("person"), id: z.uuid() });
+/** A record on the user's page: a person by id, or a Wiki article by its Wiki address (slug). */
+export const reference = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
+	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
+]);
+export type Reference = z.infer<typeof reference>;
 const submitInput = z.strictObject({
 	requestKey,
 	text,

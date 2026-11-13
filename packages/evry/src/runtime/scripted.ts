@@ -116,6 +116,100 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 	);
 }
 
+// Wiki requests (DOC-03, WIKI-008): "what does the wiki say about running a vision meeting", "what should I read next?",
+// "where did I leave off?", and on an open article "bookmark this", "this article was helpful" and "a PDF of this
+// article". The answer quotes only what a Wiki read returned, with its title and link; no match says so. A request to
+// edit the Wiki is pointed to Church Documents. Article text is never read as an instruction.
+const WIKI_ASK = /\bwhat does the wiki say about\s+(.+?)[?.!\s]*$/i;
+const WIKI_NEXT = /\bwhat should i read next\b/i;
+const WIKI_RESUME = /\bwhere did i leave off\b/i;
+const WIKI_BOOKMARK = /\bbookmark (?:this|it)\b/i;
+const WIKI_VOTE = /\b(?:this|the) article (?:was|is) (not helpful|unhelpful|helpful)\b/i;
+const WIKI_PDF = /\bpdf\b/i;
+const WIKI_EDIT = /\b(?:edit|rewrite|change)\b.*\b(?:wiki|article)\b|\badd\b.*\bto the wiki\b/i;
+const WIKI_EDIT_ANSWER =
+	"I can't edit the Wiki. It is shared reading, and churches keep their own writing in Church Documents.";
+const VERIFIED = "Verified references on the user's page: ";
+type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
+/** The open article the page reference names, read again under current authority (resolveReferences). */
+function pageArticle(prompt: Prompt): string | null {
+	const system = prompt.find((m) => m.role === "system")?.content;
+	const at = typeof system === "string" ? system.indexOf(VERIFIED) : -1;
+	if (at < 0) return null;
+	const line = system!.slice(at + VERIFIED.length).split("\n")[0]!;
+	const refs = JSON.parse(line) as { kind: string; id: string }[];
+	return refs.find((r) => r.kind === "article")?.id ?? null;
+}
+const linked = (row: Row) => `[${row.label}](${String(row.fields.href)})`;
+const quoted = (text: string) =>
+	text
+		.split("\n")
+		.map((line) => `> ${line}`)
+		.join("\n");
+function wikiStep(
+	text: string,
+	options: LanguageModelV4CallOptions,
+	result: Record<string, unknown> | null,
+): LanguageModelV4Content[] | null {
+	if (!options.tools?.some((t) => t.name === "wiki_read")) return null;
+	const read = (operation: string, input: unknown) => [toolCall("wiki_read", { operation, input })];
+	const say = (answer: string) => [{ type: "text" as const, text: answer }];
+	const rows = (result?.rows as Row[] | undefined) ?? [];
+	if (WIKI_EDIT.test(text) && !WIKI_ASK.test(text)) return say(WIKI_EDIT_ANSWER);
+	if (result && typeof result.proposalId === "string" && rows[0]?.kind === "article")
+		return say(`I prepared a review for ${linked(rows[0])}. Nothing changes until you approve it.`);
+	if (result?.error) return say(`I could not read the Wiki (${String(result.error)}).`);
+	const ask = WIKI_ASK.exec(text);
+	if (ask) {
+		const topic = ask[1]!;
+		if (!result) return read("wiki.search", { query: topic });
+		if (result.operation === "wiki.search")
+			return rows[0]
+				? read("wiki.referenceExcerpt", { articleId: rows[0].fields.articleId })
+				: say(`The Wiki has nothing on ${topic}.`);
+		const [row] = rows;
+		if (!row) return say(`The Wiki has nothing on ${topic}.`);
+		const whose = row.fields.source === "global" ? "" : ` This is your ${String(row.fields.source)}'s version.`;
+		return say(`The Wiki's article ${linked(row)} says:\n\n${quoted(String(row.fields.excerpt))}${whose}`);
+	}
+	if (WIKI_NEXT.test(text)) {
+		if (!result) return read("wiki.recommendForPhase", {});
+		if (!rows.length) return say("The Wiki has no suggestions for your phase.");
+		const phase = rows[0]!.fields.phase ? ` for ${String(rows[0]!.fields.phase)}` : "";
+		return say(`The Wiki suggests these${phase}:\n\n${rows.map((r) => `- ${linked(r)}`).join("\n")}`);
+	}
+	if (WIKI_RESUME.test(text)) {
+		if (!result) return read("wiki.reading.resume", {});
+		const [row] = rows;
+		return say(
+			row
+				? `You were last reading ${linked(row)} (${String(row.fields.read)} read).`
+				: "You haven't opened a Wiki article yet.",
+		);
+	}
+	const vote = WIKI_VOTE.exec(text);
+	if (WIKI_BOOKMARK.test(text) || vote || WIKI_PDF.test(text)) {
+		const articleId = pageArticle(options.prompt);
+		if (!articleId) return say("Open the article on the Wiki page, then ask me again.");
+		if (WIKI_PDF.test(text)) {
+			if (!result) return read("wiki.article.exportPdf", { articleId });
+			const [row] = rows;
+			if (!row) return say("I can't find that article in your Wiki.");
+			return say(
+				`Here is the Wiki's PDF of ${linked(row)}: [Download the PDF](${String(row.fields.pdfHref)}). Nothing is saved.`,
+			);
+		}
+		if (result) return say("I could not prepare that review.");
+		return [
+			toolCall("propose_change", {
+				operation: vote ? "wiki.feedback.setMine" : "wiki.bookmarks.set",
+				input: vote ? { articleId, vote: vote[1] === "helpful" ? "helpful" : "unhelpful" } : { articleId },
+			}),
+		];
+	}
+	return null;
+}
+
 const FORMATTING = /\bformatting demo\b/i;
 const FORMATTING_ANSWER = [
 	"There are **19 prospects** in this church, and the *list is complete*.",
@@ -143,6 +237,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	);
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const wiki = wikiStep(text, options, result);
+	if (wiki) return wiki;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))

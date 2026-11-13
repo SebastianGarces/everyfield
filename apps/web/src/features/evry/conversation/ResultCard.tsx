@@ -2,6 +2,7 @@
 
 import {
 	Award01Icon,
+	BookOpen01Icon,
 	Clock01Icon,
 	File01Icon,
 	Home01Icon,
@@ -32,6 +33,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	article: BookOpen01Icon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {
@@ -112,9 +114,23 @@ export function ResultCard({
 									>
 										{body}
 									</IntentLink>
+								) : view.file ? (
+									<a
+										href={view.file}
+										download
+										data-focus-inset=""
+										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
 								) : (
 									<div className={rowClass}>{body}</div>
 								)}
+								{view.quote ? (
+									<blockquote className="mx-2 mb-2 border-l-2 border-line-2 pl-3 text-sm whitespace-pre-line text-ink-2">
+										{view.quote}
+									</blockquote>
+								) : null}
 							</li>
 						);
 					})}

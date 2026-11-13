@@ -11,6 +11,20 @@ import type { SourceRow } from "../catalog/types.ts";
  */
 type Rule = ((id: SQL, plant: SQL) => SQL) | null;
 
+/**
+ * A Wiki revision is live while the church's Wiki can still show it: a global revision of the active release, or the
+ * current published version of a sending church or network the church still shares its Wiki with. Once that
+ * connection ends, or the organization hides or replaces its version, the quoted text is withheld (GAP-EVR-418). Its
+ * aliases are its own: the replay query around it already names `r`, `e` and `t`.
+ */
+export const articleLive = (id: SQL, plant: SQL) =>
+	sql`EXISTS(SELECT FROM article_revision wiki_r WHERE wiki_r.id=${id} AND (
+		(wiki_r.tenant_id='00000000-0000-0000-0000-000000000000'::uuid
+			AND wiki_r.release_id=(SELECT wiki_a.release_id FROM reference_activation wiki_a ORDER BY wiki_a.activation_number DESC LIMIT 1))
+		OR EXISTS(SELECT FROM article_editor_state wiki_e JOIN affiliation wiki_f ON wiki_f.organization_id=wiki_e.organization_id
+			WHERE wiki_e.current_revision_id=wiki_r.id AND wiki_e.organization_id=wiki_r.tenant_id AND wiki_e.state='published'
+				AND wiki_f.plant_id=${plant} AND wiki_f.ended_at IS NULL AND wiki_f.share_wiki)))`;
+
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// Unchanged: the person is live in this church.
 	person: (id, plant) =>
@@ -21,6 +35,7 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	// A message is live while it exists in the church.
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,
+	article: articleLive,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
