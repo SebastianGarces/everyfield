@@ -34,8 +34,7 @@ export function useAttachedPhoto() {
 		const src = URL.createObjectURL(file);
 		setPhoto({ status: "uploading", src });
 		const failed = () =>
-			run === attempt.current &&
-			setPhoto({ status: "failed", src, message: "That photo did not upload. Try again." });
+			run === attempt.current && setPhoto({ status: "failed", src, message: "That photo did not upload. Try again." });
 		try {
 			const staged = await stagePhoto({ mime: file.type, byteLength: file.size });
 			if (!staged) return failed();
@@ -91,13 +90,22 @@ export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: 
 	return (
 		<div className="mb-2 flex items-center gap-2.5" aria-live="polite">
 			{photo.src ? (
-				<img src={photo.src} alt="" className="size-10 flex-none rounded-md object-cover shadow-[0_0_0_1px_var(--ef-line-2)]" />
+				// eslint-disable-next-line @next/next/no-img-element -- a local object URL of the file the user picked
+				<img
+					src={photo.src}
+					alt=""
+					className="size-10 flex-none rounded-md object-cover shadow-[0_0_0_1px_var(--ef-line-2)]"
+				/>
 			) : (
 				<span className="grid size-10 flex-none place-items-center rounded-md bg-surface-2 text-text-3">
 					<Icon icon={Image01Icon} size={18} />
 				</span>
 			)}
-			<span className={photo.status === "failed" ? "min-w-0 flex-1 text-sm text-magenta-600" : "min-w-0 flex-1 text-sm text-text-2"}>
+			<span
+				className={
+					photo.status === "failed" ? "min-w-0 flex-1 text-sm text-magenta-600" : "min-w-0 flex-1 text-sm text-text-2"
+				}
+			>
 				{status}
 			</span>
 			<IconButton icon={Cancel01Icon} label="Remove the photo" size="sm" onClick={onRemove} />

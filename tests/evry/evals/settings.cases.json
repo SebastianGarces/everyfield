@@ -9,10 +9,7 @@
 			"actor": "owner",
 			"ask": "who has access to our church?",
 			"operation": "seats.list",
-			"calls": [
-				"seats.list",
-				"seats.listInvitations"
-			],
+			"calls": ["seats.list", "seats.listInvitations"],
 			"answer": [
 				"3 people have access",
 				"Nate Ellis (Owner, you)",
@@ -27,13 +24,8 @@
 			"actor": "owner",
 			"ask": "who has access to our church?",
 			"operation": "seats.listInvitations",
-			"calls": [
-				"seats.list",
-				"seats.listInvitations"
-			],
-			"answer": [
-				"jordan@example.test as Member"
-			]
+			"calls": ["seats.list", "seats.listInvitations"],
+			"answer": ["jordan@example.test as Member"]
 		},
 		{
 			"id": "SET-03",
@@ -42,9 +34,7 @@
 			"ask": "invite sam@example.test as a Member",
 			"operation": "seats.invite",
 			"calls": [],
-			"answer": [
-				"Only an Owner or Admin can invite people"
-			]
+			"answer": ["Only an Owner or Admin can invite people"]
 		},
 		{
 			"id": "SET-04",
@@ -68,14 +58,10 @@
 						"after": "admin"
 					}
 				],
-				"notes": [
-					"Everyfield emails ana@example.test a link to join as an Admin"
-				]
+				"notes": ["Everyfield emails ana@example.test a link to join as an Admin"]
 			},
 			"approve": true,
-			"answer": [
-				"I prepared a review. Nothing changes until you approve it."
-			]
+			"answer": ["I prepared a review. Nothing changes until you approve it."]
 		},
 		{
 			"id": "SET-05",
@@ -83,9 +69,7 @@
 			"actor": "owner",
 			"ask": "resend the invitation to jordan@example.test",
 			"operation": "seats.resendInvitation",
-			"calls": [
-				"seats.listInvitations"
-			],
+			"calls": ["seats.listInvitations"],
 			"proposal": {
 				"operation": "seats.resendInvitation",
 				"target": "jordan@example.test",
@@ -96,9 +80,7 @@
 						"after": "sent_again"
 					}
 				],
-				"notes": [
-					"The earlier link stops working"
-				]
+				"notes": ["The earlier link stops working"]
 			},
 			"approve": true
 		},
@@ -108,9 +90,7 @@
 			"actor": "owner",
 			"ask": "revoke the invitation to ana@example.test",
 			"operation": "seats.revokeInvitation",
-			"calls": [
-				"seats.listInvitations"
-			],
+			"calls": ["seats.listInvitations"],
 			"proposal": {
 				"operation": "seats.revokeInvitation",
 				"target": "ana@example.test",
@@ -121,9 +101,7 @@
 						"after": "revoked"
 					}
 				],
-				"notes": [
-					"stops working"
-				]
+				"notes": ["stops working"]
 			},
 			"approve": true
 		},
@@ -144,10 +122,7 @@
 						"after": "deletion_requested"
 					}
 				],
-				"notes": [
-					"30 days after you approve",
-					"To cancel within the 30 days"
-				],
+				"notes": ["30 days after you approve", "To cancel within the 30 days"],
 				"refusal": null
 			}
 		},
@@ -157,9 +132,7 @@
 			"actor": "owner",
 			"ask": "make Priya Shah an Admin",
 			"operation": "seats.changeOrdinaryRole",
-			"calls": [
-				"seats.list"
-			],
+			"calls": ["seats.list"],
 			"proposal": {
 				"operation": "seats.changeOrdinaryRole",
 				"target": "Priya Shah",
@@ -179,9 +152,7 @@
 			"actor": "owner",
 			"ask": "remove Lena Park from our church",
 			"operation": "seats.remove",
-			"calls": [
-				"seats.list"
-			],
+			"calls": ["seats.list"],
 			"proposal": {
 				"operation": "seats.remove",
 				"target": "Lena Park",
@@ -192,9 +163,7 @@
 						"after": "removed"
 					}
 				],
-				"notes": [
-					"Lena Park loses access to Hope Fellowship right away"
-				]
+				"notes": ["Lena Park loses access to Hope Fellowship right away"]
 			},
 			"approve": true
 		},
@@ -230,12 +199,8 @@
 			"conversation": "sharing",
 			"ask": "what are we sharing with Hill Country Network?",
 			"operation": "privacy.getSharing",
-			"calls": [
-				"privacy.getSharing"
-			],
-			"answer": [
-				"shares 2 categories with Hill Country Network: People totals and Meetings"
-			]
+			"calls": ["privacy.getSharing"],
+			"answer": ["shares 2 categories with Hill Country Network: People totals and Meetings"]
 		},
 		{
 			"id": "SET-12",
@@ -244,9 +209,7 @@
 			"conversation": "sharing",
 			"ask": "stop sharing meetings with them",
 			"operation": "privacy.setSharing",
-			"calls": [
-				"privacy.getSharing"
-			],
+			"calls": ["privacy.getSharing"],
 			"proposal": {
 				"operation": "privacy.setSharing",
 				"target": "Hill Country Network",
@@ -282,9 +245,7 @@
 						"after": "connect@graceaustin.example.test"
 					}
 				],
-				"notes": [
-					"Nothing is shared until they accept."
-				],
+				"notes": ["Nothing is shared until they accept."],
 				"refusal": null
 			},
 			"approve": true
@@ -295,9 +256,7 @@
 			"actor": "owner",
 			"ask": "end our connection with Hill Country Network",
 			"operation": "associations.end",
-			"calls": [
-				"privacy.getSharing"
-			],
+			"calls": ["privacy.getSharing"],
 			"proposal": {
 				"operation": "associations.end",
 				"target": "Hill Country Network",
@@ -308,9 +267,7 @@
 						"after": "ended"
 					}
 				],
-				"notes": [
-					"Hill Country Network stops seeing what you share now: People totals."
-				]
+				"notes": ["Hill Country Network stops seeing what you share now: People totals."]
 			},
 			"approve": true
 		},
@@ -334,10 +291,7 @@
 			"actor": "owner",
 			"ask": "change my password",
 			"calls": [],
-			"answer": [
-				"in Settings",
-				"(/settings/account)"
-			],
+			"answer": ["in Settings", "(/settings/account)"],
 			"noReview": true
 		},
 		{
@@ -346,10 +300,7 @@
 			"actor": "owner",
 			"ask": "change my sign-in email",
 			"calls": [],
-			"answer": [
-				"in Settings",
-				"(/settings/account)"
-			],
+			"answer": ["in Settings", "(/settings/account)"],
 			"noReview": true
 		},
 		{
@@ -362,10 +313,7 @@
 			"proposal": {
 				"operation": "account.requestDeletion",
 				"target": "Nate Ellis",
-				"notes": [
-					"30 days after you approve",
-					"To cancel within the 30 days"
-				],
+				"notes": ["30 days after you approve", "To cancel within the 30 days"],
 				"refusal": "You are an Owner, so your church needs another Owner first. Write to Everyfield support to arrange it."
 			}
 		},
@@ -375,10 +323,7 @@
 			"actor": "owner",
 			"ask": "delete our church",
 			"calls": [],
-			"answer": [
-				"Only the church's Owner can delete the church",
-				"(/settings/church)"
-			],
+			"answer": ["Only the church's Owner can delete the church", "(/settings/church)"],
 			"noReview": true
 		},
 		{
@@ -409,9 +354,7 @@
 			"ask": "update our network's description",
 			"operation": "organizations.updateProfile",
 			"calls": [],
-			"answer": [
-				"What should the description say?"
-			]
+			"answer": ["What should the description say?"]
 		},
 		{
 			"id": "SET-22",
@@ -433,9 +376,7 @@
 				]
 			},
 			"approve": true,
-			"answer": [
-				"I prepared a review. Nothing changes until you approve it."
-			]
+			"answer": ["I prepared a review. Nothing changes until you approve it."]
 		}
 	]
 }

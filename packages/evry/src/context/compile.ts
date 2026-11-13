@@ -66,7 +66,11 @@ export async function resolveReferences(
 ): Promise<{ kind: "person" | "photo"; id: string; label: string }[]> {
 	const bounded = references.slice(0, LIMITS.references);
 	const ids = [...new Set(bounded.filter((r) => r.kind === "person").map((r) => r.id))];
-	const people = (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
+	const people = (await verifyPeople(db, actor, ids)).map((r) => ({
+		kind: "person" as const,
+		id: r.id,
+		label: r.label,
+	}));
 	// An attached photo is the actor's own staged account photo upload that is still ready and unused.
 	const photos = [...new Set(bounded.filter((r) => r.kind === "photo").map((r) => r.id))];
 	const attached = photos.length

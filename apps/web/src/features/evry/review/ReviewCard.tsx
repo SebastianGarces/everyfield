@@ -884,7 +884,9 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
 	return (
-		<span className={cn("min-w-0 [overflow-wrap:anywhere]", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>
+		<span className={cn("min-w-0 [overflow-wrap:anywhere]", before ? "text-text-2" : "font-medium text-ink")}>
+			{text}
+		</span>
 	);
 }
 

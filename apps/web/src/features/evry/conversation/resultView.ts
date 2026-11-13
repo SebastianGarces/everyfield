@@ -385,7 +385,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 				...plain,
 				href: "/settings/seats",
 				name: row.label,
-				line: joined(text(fields.role), typeof fields.expiresAt === "string" ? `Expires ${day(fields.expiresAt)}` : null),
+				line: joined(
+					text(fields.role),
+					typeof fields.expiresAt === "string" ? `Expires ${day(fields.expiresAt)}` : null,
+				),
 				avatar: null,
 			};
 		case "connection":

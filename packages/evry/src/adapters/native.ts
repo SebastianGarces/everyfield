@@ -4,13 +4,7 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import type {
-	EffectResult,
-	NativeContext,
-	NativePorts,
-	ReviewContext,
-	ReviewedWrite,
-} from "../proposals/types.ts";
+import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
 
 // What the Settings, seat, sharing, connection, account and organization tools share. Each review is one SELECT that
 // reads its target live and saves the native command's exact arguments with the revision the review showed. On

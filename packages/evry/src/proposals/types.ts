@@ -23,7 +23,9 @@ export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
  * the connection it is given: the executor passes its own transaction, so the change commits with the proposal outcome.
  */
 export type NativePorts = {
-	invitations(db: Database | Transaction): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
+	invitations(
+		db: Database | Transaction,
+	): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
 	organizations: OrganizationAdapter<Transaction>;
 	settings: Pick<SettingsProducer<Transaction>, "updatePlantProfile" | "previewPlantTimezone" | "setPlantTimezone">;
 	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &

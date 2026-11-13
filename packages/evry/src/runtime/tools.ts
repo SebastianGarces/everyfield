@@ -16,7 +16,9 @@ type ModelReply = Record<string, unknown>;
 export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: Offered = everyOperation): ToolSet {
 	const tools: ToolSet = {};
 	for (const [domain, adapters] of Object.entries(READ_DOMAINS)) {
-		const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter((a) => offered(a.operation) && a.allowed(actor));
+		const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter(
+			(a) => offered(a.operation) && a.allowed(actor),
+		);
 		if (!allowed.length) continue;
 		const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
 		tools[`${domain}_read`] = tool({

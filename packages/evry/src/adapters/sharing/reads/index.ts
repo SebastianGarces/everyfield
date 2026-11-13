@@ -47,7 +47,8 @@ export const SHARING_READS = [
 							label: sharing.organizationDisplayName,
 							fields: {
 								organizationId: sharing.organization.id,
-								organizationKind: sharing.organization.organizationKind === "sending_network" ? "network" : "sending church",
+								organizationKind:
+									sharing.organization.organizationKind === "sending_network" ? "network" : "sending church",
 								shared: shared ? (shared.length ? shared.join(", ") : "nothing") : null,
 							},
 						},

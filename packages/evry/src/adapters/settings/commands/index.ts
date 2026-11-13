@@ -103,7 +103,10 @@ export const setTimezone = nativeWrite({
 		].sort((a, b) => a.at.localeCompare(b.at));
 		const lines = moved
 			.slice(0, SHOWN)
-			.map((m) => `${m.label}, ${day(m.after, zone)}: ${time(m.before, zone)} → ${time(m.after, zone)} ${zoneName(zone)} time`);
+			.map(
+				(m) =>
+					`${m.label}, ${day(m.after, zone)}: ${time(m.before, zone)} → ${time(m.after, zone)} ${zoneName(zone)} time`,
+			);
 		if (moved.length > SHOWN) lines.push(`And ${moved.length - SHOWN} more.`);
 		const intro = moved.length
 			? `These upcoming times move, shown in ${zoneName(zone)} time:`

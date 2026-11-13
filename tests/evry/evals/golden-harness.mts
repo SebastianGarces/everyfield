@@ -371,68 +371,72 @@ export async function converse(
 	};
 	let conversation: ReturnType<typeof openConversation> | null = null;
 
-	const tools = modelTools(actor, {
-		read: inOrder(async (adapter: ReadAdapter<unknown>, input: unknown) => {
-			if (!admit()) return { error: "tool_budget" };
-			const call: ToolCall = { operation: adapter.operation, input };
-			calls.push(call);
-			const resultId = ++sequence;
-			try {
-				call.result = await invokeRead(db, actor, adapter, input);
-				return keep(resultId, call.result);
-			} catch (error) {
-				// A failed read ends the turn with its refusal, as runTurn does.
-				const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
-				call.error = code;
-				failed ??= code;
-				abort.abort();
-				return { error: "source_unavailable" };
-			}
-		}),
-		select: inOrder(async ({ resultId, ids }: { resultId: number; ids: string[] }) => {
-			if (!admit()) return { error: "tool_budget" };
-			const source = results.get(resultId);
-			const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
-			const rejected = ids.filter((rowId) => !returned.has(rowId));
-			calls.push({ operation: SELECT_RETURNED_ROWS, input: { resultId, ids } });
-			if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-			const selected = ++sequence;
-			const rows = await verifyPeople(db, actor, ids);
-			return keep(selected, {
-				operation: SELECT_RETURNED_ROWS,
-				status: "available",
-				rows,
-				total: rows.length,
-				page: 1,
-				next: null,
-				completeness: "complete",
-				exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
-			});
-		}),
-		propose: inOrder(async (call: { operation: string; input: unknown }) => {
-			if (!admit()) return { error: "tool_budget" };
-			const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
-			proposals.push(card);
-			const number = proposals.length;
-			const open = await (conversation ??= openConversation(db, actor));
-			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
-				error instanceof EvryRefusal ? error.code : "unknown",
-			);
-			if (typeof proposal === "string" || !proposal) {
-				card.error = proposal || "source_unavailable";
-				return { error: card.error };
-			}
-			card.prepared = true;
-			card.review = proposal.review;
-			// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
-			// recorded call; everything else on the card is the real review.
-			return proposalForModel({
-				...proposal,
-				id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
-				expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
-			});
-		}),
-	}, RECORDED);
+	const tools = modelTools(
+		actor,
+		{
+			read: inOrder(async (adapter: ReadAdapter<unknown>, input: unknown) => {
+				if (!admit()) return { error: "tool_budget" };
+				const call: ToolCall = { operation: adapter.operation, input };
+				calls.push(call);
+				const resultId = ++sequence;
+				try {
+					call.result = await invokeRead(db, actor, adapter, input);
+					return keep(resultId, call.result);
+				} catch (error) {
+					// A failed read ends the turn with its refusal, as runTurn does.
+					const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
+					call.error = code;
+					failed ??= code;
+					abort.abort();
+					return { error: "source_unavailable" };
+				}
+			}),
+			select: inOrder(async ({ resultId, ids }: { resultId: number; ids: string[] }) => {
+				if (!admit()) return { error: "tool_budget" };
+				const source = results.get(resultId);
+				const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
+				const rejected = ids.filter((rowId) => !returned.has(rowId));
+				calls.push({ operation: SELECT_RETURNED_ROWS, input: { resultId, ids } });
+				if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
+				const selected = ++sequence;
+				const rows = await verifyPeople(db, actor, ids);
+				return keep(selected, {
+					operation: SELECT_RETURNED_ROWS,
+					status: "available",
+					rows,
+					total: rows.length,
+					page: 1,
+					next: null,
+					completeness: "complete",
+					exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
+				});
+			}),
+			propose: inOrder(async (call: { operation: string; input: unknown }) => {
+				if (!admit()) return { error: "tool_budget" };
+				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
+				proposals.push(card);
+				const number = proposals.length;
+				const open = await (conversation ??= openConversation(db, actor));
+				const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
+					error instanceof EvryRefusal ? error.code : "unknown",
+				);
+				if (typeof proposal === "string" || !proposal) {
+					card.error = proposal || "source_unavailable";
+					return { error: card.error };
+				}
+				card.prepared = true;
+				card.review = proposal.review;
+				// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
+				// recorded call; everything else on the card is the real review.
+				return proposalForModel({
+					...proposal,
+					id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
+					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
+				});
+			}),
+		},
+		RECORDED,
+	);
 
 	const run = streamText({
 		model,

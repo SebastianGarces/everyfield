@@ -148,7 +148,14 @@ function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandl
 export async function converse(model: LanguageModelV4, db: Database, actor: EvryActor, text: string, now: Date) {
 	const calls: ToolCall[] = [];
 	const tools = readTools(actor, realReads(db, actor, calls), RECORDED);
-	const context = compileContext({ actor, catalog: readCatalog(actor, RECORDED), history: [], text, references: [], now });
+	const context = compileContext({
+		actor,
+		catalog: readCatalog(actor, RECORDED),
+		history: [],
+		text,
+		references: [],
+		now,
+	});
 	const run = streamText({
 		model,
 		system: context.system,

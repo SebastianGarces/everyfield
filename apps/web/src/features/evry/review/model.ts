@@ -208,7 +208,8 @@ export function settingsLink(operation: SettingsOperation): { href: string; labe
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
 	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
-	if (operation.startsWith("organizations.")) return { href: "/settings/organization", label: "Open Organization profile" };
+	if (operation.startsWith("organizations."))
+		return { href: "/settings/organization", label: "Open Organization profile" };
 	return { href: "/settings/sharing", label: "Open Sharing" };
 }
 

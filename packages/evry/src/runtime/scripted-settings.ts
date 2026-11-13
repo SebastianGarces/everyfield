@@ -18,13 +18,15 @@ const propose = (operation: string, input: unknown) => call("propose_change", { 
 /** The JSON tool results of the current turn, oldest first (everything after the last user message). */
 function turnOutputs(prompt: Prompt): Output[] {
 	const start = prompt.findLastIndex((m) => m.role === "user");
-	return prompt.slice(start + 1).flatMap((m) =>
-		m.role === "tool"
-			? m.content.flatMap((p) =>
-					p.type === "tool-result" && p.output.type === "json" ? [p.output.value as Output] : [],
-				)
-			: [],
-	);
+	return prompt
+		.slice(start + 1)
+		.flatMap((m) =>
+			m.role === "tool"
+				? m.content.flatMap((p) =>
+						p.type === "tool-result" && p.output.type === "json" ? [p.output.value as Output] : [],
+					)
+				: [],
+		);
 }
 /** The assistant's last text before the current user message. */
 function lastAssistantText(prompt: Prompt) {
@@ -127,20 +129,22 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		if (!of("seats.list")) return call("seats_read", { operation: "seats.list", input: {} });
 		if (offers("seats.listInvitations") && !of("seats.listInvitations"))
 			return call("seats_read", { operation: "seats.listInvitations", input: {} });
-		const seats = rows("seats.list").map(
-			(r) => `${r.label} (${String(r.fields.role)}${r.fields.you ? ", you" : ""})`,
-		);
+		const seats = rows("seats.list").map((r) => `${r.label} (${String(r.fields.role)}${r.fields.you ? ", you" : ""})`);
 		const invitations = rows("seats.listInvitations").map((r) => `${r.label} as ${String(r.fields.role)}`);
 		const waiting = !of("seats.listInvitations")
 			? ""
 			: invitations.length
 				? ` ${invitations.length === 1 ? "1 invitation is" : `${invitations.length} invitations are`} waiting: ${invitations.join(", ")}.`
 				: " No invitation is waiting.";
-		return say(`${seats.length} ${seats.length === 1 ? "person has" : "people have"} access: ${seats.join(", ")}.${waiting}`);
+		return say(
+			`${seats.length} ${seats.length === 1 ? "person has" : "people have"} access: ${seats.join(", ")}.${waiting}`,
+		);
 	}
 
 	// Inviting someone to a seat.
-	const invite = new RegExp(String.raw`\binvite\s+${EMAIL}\s+(?:as|to be)\s+(?:an?\s+)?(admin|member)\b`, "i").exec(text);
+	const invite = new RegExp(String.raw`\binvite\s+${EMAIL}\s+(?:as|to be)\s+(?:an?\s+)?(admin|member)\b`, "i").exec(
+		text,
+	);
 	if (invite) {
 		if (!offers("seats.invite"))
 			return say("Only an Owner or Admin can invite people to this church. Ask one of them to send the invitation.");
@@ -167,7 +171,9 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	const role =
 		new RegExp(String.raw`\b[Mm]ake\s+${NAME}\s+(?:an?\s+)?([Aa]dmin|[Mm]ember)\b`).exec(text) ??
 		new RegExp(String.raw`\bchange\s+${NAME}'s\s+role\s+to\s+(admin|member)\b`, "i").exec(text);
-	const removal = new RegExp(String.raw`\b[Rr]emove\s+${NAME}(?:'s seat|\s+from\s+(?:our|the|this)\s+church)\b`).exec(text);
+	const removal = new RegExp(String.raw`\b[Rr]emove\s+${NAME}(?:'s seat|\s+from\s+(?:our|the|this)\s+church)\b`).exec(
+		text,
+	);
 	if (role || removal) {
 		const operation = role ? "seats.changeOrdinaryRole" : "seats.remove";
 		if (!offers(operation)) return say("Only an Owner or Admin can change who has access to this church.");
@@ -186,11 +192,14 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		const timeZone = ZONES[zone[1]!.toLowerCase()];
 		return timeZone ? propose("plant.setTimezone", { timeZone }) : say(`Which time zone is ${zone[1]}?`);
 	}
-	const profile = /\bupdate\s+(?:our|the)\s+church'?s\s+(name|street|city|state|province|country|description)\s+to\s+(.+?)\.?\s*$/i.exec(
-		text,
-	);
+	const profile =
+		/\bupdate\s+(?:our|the)\s+church'?s\s+(name|street|city|state|province|country|description)\s+to\s+(.+?)\.?\s*$/i.exec(
+			text,
+		);
 	if (profile && offers("plant.updateProfile"))
-		return propose("plant.updateProfile", { patch: { [PROFILE_FIELD[profile[1]!.toLowerCase()]!]: profile[2]!.trim() } });
+		return propose("plant.updateProfile", {
+			patch: { [PROFILE_FIELD[profile[1]!.toLowerCase()]!]: profile[2]!.trim() },
+		});
 
 	// What the church shares with a connected organization, changing it, and ending a connection.
 	const sharing = /\bwhat (?:are|do) we shar(?:e|ing) with\s+(.+?)\s*\??$/i.exec(text);
@@ -235,7 +244,10 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		});
 
 	// The signed-in person's own photo and account.
-	if (/\b(?:use|make|set)\s+(?:this|it)\s+(?:as\s+)?my\s+(?:profile\s+)?(?:photo|picture)\b/i.test(text) && offers("account.finalizeAvatar")) {
+	if (
+		/\b(?:use|make|set)\s+(?:this|it)\s+(?:as\s+)?my\s+(?:profile\s+)?(?:photo|picture)\b/i.test(text) &&
+		offers("account.finalizeAvatar")
+	) {
 		const uploadId = /"kind":"photo","id":"([0-9a-f-]{36})"/.exec(systemText(options.prompt))?.[1];
 		return uploadId
 			? propose("account.finalizeAvatar", { uploadId })
@@ -245,7 +257,9 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		return propose("account.requestDeletion", {});
 
 	// An organization's own profile: ask for the new text when the request has none.
-	const network = /\bupdate\s+our\s+(?:network|organization|church)'?s\s+description(?:\s+to:?\s+(.+?))?\s*$/is.exec(text);
+	const network = /\bupdate\s+our\s+(?:network|organization|church)'?s\s+description(?:\s+to:?\s+(.+?))?\s*$/is.exec(
+		text,
+	);
 	if (network && offers("organizations.updateProfile"))
 		return network[1]
 			? propose("organizations.updateProfile", { patch: { description: network[1].trim() } })

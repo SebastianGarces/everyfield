@@ -107,7 +107,9 @@ async function ask(actor: EvryActor, conversationId: string, text: string, refer
 			? [e.body.operation]
 			: [],
 	);
-	const answer = turn.flatMap((e) => (e.kind === "assistant_text" && typeof e.body.text === "string" ? [e.body.text] : [])).join("");
+	const answer = turn
+		.flatMap((e) => (e.kind === "assistant_text" && typeof e.body.text === "string" ? [e.body.text] : []))
+		.join("");
 	const ids = turn.flatMap((e) =>
 		e.kind === "tool_result" && typeof (e.body.result as { proposalId?: unknown })?.proposalId === "string"
 			? [(e.body.result as { proposalId: string }).proposalId]
@@ -148,7 +150,8 @@ const sharingScreen = async (actor: EvryActor) =>
 		"organizationDisplayName" in sharing ? sharing.organizationDisplayName : null,
 		"choices" in sharing ? Object.entries(sharing.choices).flatMap(([c, on]) => (on ? [c] : [])) : null,
 	]);
-const row = async (query: ReturnType<typeof sql>) => (await church.db.execute(query)).rows[0] as Record<string, unknown>;
+const row = async (query: ReturnType<typeof sql>) =>
+	(await church.db.execute(query)).rows[0] as Record<string, unknown>;
 
 /** What each approved case changes, read back as Settings shows it; `before` runs before approval. */
 const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after: (a: EvryActor) => Promise<void> }> = {
@@ -165,7 +168,9 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-05": {
 		after: async () => {
 			assert.deepEqual(mail.at(-1), { to: "jordan@example.test", purpose: "seat_invitation" });
-			const i = await row(sql`SELECT revision::int AS revision, resent_at IS NOT NULL AS resent FROM invitation WHERE recipient_email='jordan@example.test'`);
+			const i = await row(
+				sql`SELECT revision::int AS revision, resent_at IS NOT NULL AS resent FROM invitation WHERE recipient_email='jordan@example.test'`,
+			);
 			assert.deepEqual(i, { revision: 2, resent: true });
 		},
 	},
@@ -195,8 +200,10 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			]),
 	},
 	"SET-10": {
-		before: async () => assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/Chicago" }),
-		after: async () => assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
+		before: async () =>
+			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/Chicago" }),
+		after: async () =>
+			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
 	},
 	"SET-12": {
 		before: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Network", ["people", "meetings"]]]),
@@ -204,10 +211,15 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	},
 	"SET-13": {
 		before: async () =>
-			assert.deepEqual(await row(sql`SELECT count(*)::int AS n FROM invitation WHERE tenant_id=${PLANT} AND purpose<>'seat'`), { n: 0 }),
+			assert.deepEqual(
+				await row(sql`SELECT count(*)::int AS n FROM invitation WHERE tenant_id=${PLANT} AND purpose<>'seat'`),
+				{ n: 0 },
+			),
 		after: async () => {
 			assert.deepEqual(
-				await row(sql`SELECT i.state, i.recipient_email FROM invitation i WHERE i.tenant_id=${PLANT} AND i.purpose<>'seat'`),
+				await row(
+					sql`SELECT i.state, i.recipient_email FROM invitation i WHERE i.tenant_id=${PLANT} AND i.purpose<>'seat'`,
+				),
 				{ state: "pending", recipient_email: "connect@graceaustin.example.test" },
 			);
 			assert.deepEqual(mail.at(-1), { to: "connect@graceaustin.example.test", purpose: "relationship_invitation" });
@@ -218,7 +230,9 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	},
 	"SET-15": {
 		before: async (a) =>
-			assert.deepEqual(await row(sql`SELECT avatar_object_id FROM account WHERE id=${a.accountId}`), { avatar_object_id: null }),
+			assert.deepEqual(await row(sql`SELECT avatar_object_id FROM account WHERE id=${a.accountId}`), {
+				avatar_object_id: null,
+			}),
 		after: async (a) =>
 			assert.deepEqual(await row(sql`SELECT avatar_object_id FROM account WHERE id=${a.accountId}`), {
 				avatar_object_id: photo,
@@ -226,7 +240,8 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	},
 	"SET-20": {
 		before: async () => assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Austin" }),
-		after: async () => assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Round Rock" }),
+		after: async () =>
+			assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Round Rock" }),
 	},
 	"SET-22": {
 		after: async () =>
@@ -242,12 +257,13 @@ async function stagePhoto(actor: EvryActor) {
 	photo = randomUUID();
 	const key = `private/${actor.accountId}/${photo}`;
 	objects.set(key, png);
-	await church.db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
+	await church.db
+		.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
 		VALUES(${photo},${actor.accountId},'avatar',${key},'image/png',${png.length},${png.length},${createHash("sha256").update(png).digest("hex")},'ready',${photo},0,clock_timestamp()+interval '15 minutes')`);
 	return [{ kind: "photo", id: photo }];
 }
 
-test("AC:T-327 INV-evry-settings: every seat, Settings, sharing, connection, account and organization case passes on the scripted model, and each approved change reads back in Settings", async () => {
+test("INV-evry-settings: every seat, Settings, sharing, connection, account and organization case passes on the scripted model, and each approved change reads back in Settings", async () => {
 	const conversations = new Map<string, string>();
 	for (const c of cases) {
 		const actor = church.actors[c.actor];
@@ -258,7 +274,8 @@ test("AC:T-327 INV-evry-settings: every seat, Settings, sharing, connection, acc
 		await SETTLED[c.id]?.before?.(actor);
 		const turn = await ask(actor, conversations.get(key)!, c.ask, references);
 		assert.deepEqual(turn.reads, c.calls, `${c.id} reads`);
-		for (const text of c.answer ?? []) assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
+		for (const text of c.answer ?? [])
+			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
 		if (!c.proposal) {
 			assert.equal(turn.proposals.length, 0, `${c.id} prepares no review`);
 			continue;
@@ -271,8 +288,12 @@ test("AC:T-327 INV-evry-settings: every seat, Settings, sharing, connection, acc
 		assert.equal(proposal.review.target?.label, expected.target, `${c.id} target`);
 		if (expected.changes) assert.deepEqual(proposal.review.changes, expected.changes, `${c.id} changes`);
 		for (const line of expected.notes ?? [])
-			assert.ok(proposal.review.notes?.some((n) => n.includes(line)), `${c.id} notes ${JSON.stringify(proposal.review.notes)} have ${line}`);
-		if (expected.refusal !== undefined) assert.equal(proposal.review.refusal ?? null, expected.refusal, `${c.id} refusal`);
+			assert.ok(
+				proposal.review.notes?.some((n) => n.includes(line)),
+				`${c.id} notes ${JSON.stringify(proposal.review.notes)} have ${line}`,
+			);
+		if (expected.refusal !== undefined)
+			assert.equal(proposal.review.refusal ?? null, expected.refusal, `${c.id} refusal`);
 		// Still nothing changed: the review is only a card.
 		await SETTLED[c.id]?.before?.(actor);
 		if (!c.approve) continue;

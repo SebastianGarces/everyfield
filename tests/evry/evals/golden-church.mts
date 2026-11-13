@@ -241,9 +241,23 @@ const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
 export const ACTOR_SPECS = {
 	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner", name: "Nate Ellis" },
 	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin", name: "Lena Park" },
-	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member", name: "Priya Shah" },
+	member: {
+		account: ACCOUNT(3),
+		user: id(0xf13),
+		session: id(0xf23),
+		plant: PLANT,
+		role: "member",
+		name: "Priya Shah",
+	},
 	org: { account: ACCOUNT(4), user: id(0xf14), session: id(0xf24), plant: null, role: "owner", name: "Synthetic" },
-	empty: { account: ACCOUNT(5), user: id(0xf15), session: id(0xf25), plant: EMPTY_PLANT, role: "owner", name: "Synthetic" },
+	empty: {
+		account: ACCOUNT(5),
+		user: id(0xf15),
+		session: id(0xf25),
+		plant: EMPTY_PLANT,
+		role: "owner",
+		name: "Synthetic",
+	},
 	network: {
 		account: ACCOUNT(6),
 		user: id(0xf16),
@@ -293,7 +307,7 @@ export async function seedHope(admin: Database) {
 			VALUES(${a.session},${a.user},${`golden-${who}`},clock_timestamp()+interval '1 day')`);
 		// Accepted by the database clock, so a host clock ahead of it never makes the seat look unaccepted.
 		await run(sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at)
-			VALUES(${a.account},${a.plant},${a.plant ? null : ("organization" in a ? a.organization : ORGANIZATION)},${a.role},clock_timestamp()-interval '1 day')`);
+			VALUES(${a.account},${a.plant},${a.plant ? null : "organization" in a ? a.organization : ORGANIZATION},${a.role},clock_timestamp()-interval '1 day')`);
 	}
 	// One pending seat invitation, sent by the Owner a day before the seed runs.
 	await run(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at,revision,inviter_description)
