@@ -6,6 +6,9 @@
 //   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
 //     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
 //   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
+//   INV-result-card-tasks: task rows say the due date, owner and status in words, mark overdue and open the task in Tasks.
+//   INV-result-card-follow-ups: follow-ups name their owner or "Nobody assigned"; contact log entries say whether a
+//     conversation happened; account rows say the role and whether the account can own follow-ups.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -516,5 +519,147 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	assert.deepEqual(
 		[none.summary, none.facts],
 		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
+	);
+});
+
+test("INV-result-card-tasks: task rows say due, owner and overdue in words and open the task in Tasks", () => {
+	const T1 = "44444444-4444-4444-8444-444444444444";
+	const task = (id, label, fields) => ({ kind: "task", id, label, fields: { status: "not_started", ...fields } });
+	const view = cardView(
+		"tasks.list",
+		result("tasks.list", [
+			task(T1, "Order launch banners", { due: "2026-10-09", overdue: true, owners: "Ana Rivera", needsOwner: false }),
+			task(P1, "Research sound systems", { due: null, overdue: false, owners: null, needsOwner: true }),
+			task(P2, "Pray for the launch", {
+				due: "2026-11-15 09:30 America/Chicago",
+				owners: "you",
+				status: "in_progress",
+			}),
+			task(H, "Set out chairs", { owners: null, needsOwner: true, parentId: T1 }),
+		]),
+		null,
+	);
+	assert.equal(view.title, "Tasks");
+	assert.equal(view.summary, "4 tasks");
+	assert.equal(view.icon, "task");
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.mark, r.avatar, r.href]),
+		[
+			[
+				"Order launch banners",
+				"Due Oct 9 · Ana Rivera",
+				{ kind: "status", text: "Overdue", warn: true },
+				"task",
+				`/tasks?task=${T1}`,
+			],
+			["Research sound systems", "Needs owner", null, "task", `/tasks?task=${P1}`],
+			[
+				"Pray for the launch",
+				"Due Nov 15, 9:30 AM · Yours",
+				{ kind: "status", text: "In progress", warn: false },
+				"task",
+				`/tasks?task=${P2}`,
+			],
+			// A checklist item opens its parent task.
+			["Set out chairs", "Needs owner", null, "task", `/tasks?task=${T1}`],
+		],
+	);
+	const count = cardView(
+		"tasks.count",
+		result(
+			"tasks.count",
+			[
+				{ kind: "tally", id: "status:not_started", label: "not_started", fields: { count: 3, of: "tasks" } },
+				{ kind: "tally", id: "checklist", label: "checklist rows", fields: { count: 2, complete: 1 } },
+			],
+			{ total: 5 },
+		),
+		null,
+	);
+	assert.equal(count.summary, "5 tasks");
+	assert.deepEqual(
+		count.rows.map((r) => [r.name, r.line]),
+		[
+			["Not started", "3 tasks"],
+			["Checklist items", "1 of 2 items done"],
+		],
+	);
+});
+
+test("INV-result-card-follow-ups: follow-up, contact log and account rows name owners, outcomes and roles in words", () => {
+	const follow = cardView(
+		"tasks.listFollowUpOwners",
+		result("tasks.listFollowUpOwners", [
+			{
+				kind: "follow_up",
+				id: H,
+				label: "Daniel Cruz",
+				fields: {
+					personId: P1,
+					needsOwner: true,
+					owners: null,
+					due: "2026-11-12",
+					overdue: true,
+					from: "meeting: Interest night",
+					lastOutcome: "attempted_no_contact",
+				},
+			},
+		]),
+		null,
+	);
+	assert.equal(follow.summary, "1 follow-up");
+	assert.deepEqual(
+		follow.rows.map((r) => [r.name, r.line, r.mark, r.avatar, r.photoFor, r.href]),
+		[
+			[
+				"Daniel Cruz",
+				"Nobody assigned · Due Nov 12 · From Interest night · Last: Attempt, no conversation",
+				{ kind: "status", text: "Overdue", warn: true },
+				"person",
+				P1,
+				`/people/${P1}`,
+			],
+		],
+	);
+	const contact = (id, outcome, channel, state = "effective") => ({
+		kind: "contact",
+		id,
+		label: outcome,
+		fields: { personId: P1, outcome, channel, occurredAt: "2026-11-05T21:30:00.000Z", recordedBy: "Ana Rivera", state },
+	});
+	const log = cardView(
+		"followups.listContactHistory",
+		result("followups.listContactHistory", [
+			contact(H, "contacted", "phone"),
+			contact(P2, "attempted_no_contact", "text", "corrected"),
+			contact(P1, "administrative_completion", null),
+		]),
+		null,
+	);
+	assert.equal(log.title, "Contact log");
+	assert.equal(log.summary, "3 entries");
+	assert.deepEqual(
+		log.rows.map((r) => [r.name, r.line, r.mark?.text ?? null, r.href]),
+		[
+			["Call — conversation", "Nov 5, 2026 · Recorded by Ana Rivera", null, `/people/${P1}`],
+			["Attempt, no conversation", "Nov 5, 2026 · Text message · Recorded by Ana Rivera", "Corrected", `/people/${P1}`],
+			["Admin completion", "Nov 5, 2026 · Recorded by Ana Rivera", null, `/people/${P1}`],
+		],
+	);
+	const seats = cardView(
+		"tasks.eligibleAssignees",
+		result("tasks.eligibleAssignees", [
+			{ kind: "account", id: H, label: "Nate Ellis", fields: { role: "owner", canOwnFollowUps: true, you: true } },
+			{ kind: "account", id: P1, label: "Carlos Mendez", fields: { role: "member", canOwnFollowUps: false } },
+		]),
+		null,
+	);
+	assert.equal(seats.summary, "2 accounts");
+	assert.deepEqual(
+		seats.rows.map((r) => [r.name, r.line, r.avatar, r.photoFor, r.href]),
+		[
+			["Nate Ellis (you)", "Owner · Can own follow-ups", "person", null, null],
+			["Carlos Mendez", "Member · Can't own follow-ups", "person", null, null],
+		],
 	);
 });

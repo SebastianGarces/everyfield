@@ -11,6 +11,7 @@ import {
 	Mail01Icon,
 	ImageNotFound01Icon,
 	SquareLock02Icon,
+	Task01Icon,
 	Tick02Icon,
 	UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
@@ -36,10 +37,13 @@ import {
 	hasBirthDate,
 	isMail,
 	isRequired,
+	isTasks,
+	itemField,
 	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
 	missingRequired,
+	openAfter,
 	operationTitle,
 	phaseOf,
 	photoRef,
@@ -47,7 +51,10 @@ import {
 	refusalText,
 	retryable,
 	reviseInput,
+	savedText,
+	showsBefore,
 	shownChanges,
+	subjectName,
 	valueText,
 	type Change,
 	type Phase,
@@ -389,6 +396,8 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	const tasks = !!review && isTasks(review.operation);
+	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (mail) {
 		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
@@ -413,11 +422,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
-				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+				: `Evry can't confirm that this was saved, and the approval expired. ${tasks ? "Open Tasks" : "Open the person"} to check.`;
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
@@ -429,8 +438,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "withheld":
 			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
 			return review?.status === "approved"
-				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
-				: "The person in this change is no longer available to you. Nothing was changed.";
+				? `The ${record} in this change is no longer available to you, so Evry can't show this change or its result.`
+				: `The ${record} in this change is no longer available to you. Nothing was changed.`;
 		case "unavailable":
 			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
@@ -448,8 +457,7 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
 	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
-	if (view === "completed")
-		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
+	if (view === "completed") return review ? savedText(review) : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
 }
 
@@ -651,6 +659,7 @@ function Footer({
 	onRevise: () => void;
 }) {
 	const who = review.review.target;
+	const open = openAfter(review);
 	const other = (action: string) => r.busy !== null && r.busy !== action;
 	const cancel = (
 		<Button
@@ -755,10 +764,10 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
-				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
+				) : open ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={`/people/${who.id}`}>
-							Open {who.label}
+						<IntentLink href={open.href}>
+							{open.label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -771,7 +780,7 @@ function Footer({
 				Try again
 			</Button>
 		);
-	else if (view === "expired" && review.outcome === null)
+	else if (view === "expired" && review.outcome === null && reviseInput(review) !== null)
 		body = (
 			<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 				Prepare again
@@ -828,14 +837,22 @@ function CardHead({
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
+	// A task or follow-up review names its task, its person or how many items it lists; only a person shows initials.
+	const task = isTasks(review.operation) && review.review.target?.kind !== "person";
 	const name = mail
 		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
 		: create
 			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-			: (review.review.target?.label ?? "Not available");
+			: isTasks(review.operation)
+				? subjectName(review)
+				: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{mail ? (
+			{task ? (
+				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
+					<Icon icon={Task01Icon} size={16} />
+				</span>
+			) : mail ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
 					<Icon icon={Mail01Icon} size={16} />
 				</span>
@@ -982,26 +999,35 @@ function PhotoChange({
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
+	// A review of several items lists each by its name, on its own line, with the value it changes under it.
+	const item = itemField(review.operation);
+	const values = (c: Change, field: string) => (
+		<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+			{showsBefore(review, c) ? (
+				<>
+					<span className="sr-only">from </span>
+					<Value field={field} value={c.before} before />
+					<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
+					<span className="sr-only"> to </span>
+				</>
+			) : null}
+			<Value field={field} value={c.after} />
+		</dd>
+	);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-			{changes.map((c: Change) =>
-				c.field === "photo" && review.review.target ? (
+			{changes.map((c: Change, n) =>
+				item ? (
+					<div key={n} className="flex min-w-0 flex-col gap-0.5">
+						<dt className="font-medium break-words text-ink">{c.field}</dt>
+						{values(c, item)}
+					</div>
+				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
-						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" ? null : (
-								<>
-									<span className="sr-only">from </span>
-									<Value field={c.field} value={c.before} before />
-									<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
-									<span className="sr-only"> to </span>
-								</>
-							)}
-							<Value field={c.field} value={c.after} />
-						</dd>
+						{values(c, c.field)}
 					</div>
 				),
 			)}

@@ -24,6 +24,16 @@ const JAMES = byName("James Okafor").id;
 /** Has a household, a tag and a skill. */
 const MARK = byName("Mark Thompson").id;
 const FILE = "first_name,last_name,email\r\nAda,Park,ada@example.test\r\n,,\r\nJames,Okafor,\r\n";
+/**
+ * The open task the Tasks list finds by `search` (the first open task when none is given), read with `operation` and
+ * the input `build` makes from its id.
+ */
+const withTask =
+	(operation: string, build: (taskId: string) => Record<string, unknown>, search?: string) => async () => {
+		const found = (await read("tasks.list", search ? { search } : {})).rows[0];
+		assert.ok(found, `the eval church has an open task${search ? ` "${search}"` : ""}`);
+		return read(operation, build(found.id));
+	};
 
 /** The input each operation is probed with. A catalog tool has a function that builds its result instead. */
 const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResult>)> = {
@@ -46,6 +56,30 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"tasks.list": {},
+	"tasks.count": {},
+	"tasks.get": withTask("tasks.get", (taskId) => ({ taskId })),
+	"tasks.statusHistory": withTask("tasks.statusHistory", (taskId) => ({ taskId })),
+	"tasks.listSubtasks": withTask("tasks.listSubtasks", (parentId) => ({ parentId }), "Prepare launch Sunday"),
+	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId })),
+	"tasks.prerequisiteCandidates": withTask("tasks.prerequisiteCandidates", (taskId) => ({ taskId })),
+	"tasks.findOpenOccurrence": withTask("tasks.findOpenOccurrence", (taskId) => ({ taskId }), "Weekly team check-in"),
+	"tasks.eligibleAssignees": {},
+	"tasks.relationOptions": { kind: "person", search: "James" },
+	"tasks.listTemplates": {},
+	"tasks.previewTemplate": async () => {
+		const first = (await read("tasks.listTemplates", {})).rows[0];
+		assert.ok(first, "Everyfield has a phase checklist");
+		return read("tasks.previewTemplate", { checklistKey: first.id });
+	},
+	"tasks.readPhaseOffer": {},
+	"tasks.importReceipt": {},
+	"tasks.listFollowUpOwners": {},
+	"tasks.followUpCoverage": {},
+	"tasks.planHandoff": { fromAccountId: church.actors.owner.accountId },
+	"followups.readObligations": {},
+	// Beth Johnson's follow-up was completed by a recorded call.
+	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
