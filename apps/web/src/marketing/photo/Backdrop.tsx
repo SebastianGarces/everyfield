@@ -1,10 +1,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { cn } from "@/components/cn";
-import { PHOTOS, type Backdrop as Bg, type MeshTone, type PhotoName } from "./photos";
-
-/** Full class names, so Tailwind finds them. */
-const MESH: Record<MeshTone, string> = { field: "g-field", sky: "g-sky", sage: "g-sage", rose: "g-rose" };
+import { PHOTOS, type Backdrop as Bg } from "./photos";
 
 type Props = {
 	bg: Bg;
@@ -24,14 +21,10 @@ type Props = {
 
 /**
  * A surface layer: a treated photo (next/image, then a black overlay and film grain in CSS; foundations.md Marketing
- * photos) or a muted gradient (mk-gsurf). It is decorative (aria-hidden); the caller places it behind its content.
+ * photos). It is decorative (aria-hidden); the caller places it behind its content.
  */
 export function Backdrop({ bg, sizes, className, style, preload, shade, zoom }: Props) {
-	if (bg.startsWith("mesh:"))
-		return (
-			<span aria-hidden="true" className={cn("mk-gsurf", MESH[bg.slice(5) as MeshTone], className)} style={style} />
-		);
-	const crop = PHOTOS[bg as PhotoName];
+	const crop = PHOTOS[bg];
 	// The crop as custom properties, so a slot can change it at a breakpoint (an important utility beats the inline value).
 	const vars = {
 		...style,

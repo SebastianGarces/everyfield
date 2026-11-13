@@ -9,7 +9,7 @@ const BODY_MAX = 64 * 1024;
 
 export async function previewRoute(request: Request) {
 	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX)
-		return Response.json({ status: "refused", code: "invalid_input" }, { headers: NO_STORE });
+		return Response.json({ status: "refused", code: "invalid_input", path: "overrides" }, { headers: NO_STORE });
 	let raw: unknown;
 	try {
 		raw = await request.json();

@@ -1,1 +1,1 @@
-export { ProductFrameLayout as default } from "@/features/people/routes";
+export { ProductFrameLayout as default } from "@/features/shell/routes";

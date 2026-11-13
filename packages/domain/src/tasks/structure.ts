@@ -49,8 +49,8 @@ export function structureWriter(reminders: TaskReminders) {
 	return {
 		/**
 		 * Add a checklist row: a real one-level child task (REQ-TSK-005). An Owner or Admin may add under any live
-		 * top-level task and may name an eligible assignee or null; omitted inherits the parent's assignee. A Member may
-		 * add only under a task they hold, and the row is theirs. The child has no deadline, recurrence, source or relation.
+		 * top-level task and may name eligible assignees or none; omitted inherits the parent's assignees. A Member may
+		 * add only under a task they hold, and the row inherits its set. The child has no deadline, recurrence, source or relation.
 		 */
 		async createSubtask(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
@@ -60,28 +60,29 @@ export function structureWriter(reminders: TaskReminders) {
 					const parent = await loadTask(tx, cmd.actor.plantId, v.parentId, true);
 					if (!parent || parent.deleted_at) deny();
 					const admin = administers(cmd.actor);
-					if (!admin && parent.assignee_id !== cmd.actor.accountId) deny();
-					if (!admin && v.assigneeId !== undefined) deny("access_denied");
+					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
+					if (!admin && v.assigneeIds !== undefined) deny("access_denied");
 					// One level only: a checklist row never has its own rows.
 					if (parent.parent_id) deny("invalid_subject");
 					// A task reads back with at most 500 checklist rows.
 					if (parent.child_total >= 500) deny("invalid_input");
 					if (parent.revision !== input.expectedRevision) deny("conflict");
-					const inherit = v.assigneeId === undefined;
-					const assigneeId = inherit ? (parent.assignee_seated ? parent.assignee_id : null) : v.assigneeId!;
-					const name = inherit
-						? assigneeId && parent.assignee_name
-						: assigneeId && (await references(tx, cmd.actor.plantId, { assigneeId })).assigneeName;
+					// Omitted takes the parent's whole set, minus anyone who no longer holds a seat.
+					const assignees =
+						v.assigneeIds === undefined
+							? parent.assignees.filter((a) => a.seated)
+							: v.assigneeIds.length
+								? (await references(tx, cmd.actor.plantId, { assigneeIds: v.assigneeIds })).assignees
+								: [];
 					const row = newTask(parent.plant_zone, {
 						title: v.title,
 						category: parent.category,
 						priority: parent.priority,
 						status: "not_started",
-						assignee_id: assigneeId,
-						assignee_name: name ?? null,
+						assignees,
 						parent_id: parent.id,
 					});
-					cmd.writes.push(insertTasks(cmd.actor.plantId, cmd.actor.accountId, [row]));
+					cmd.writes.push(...insertTasks(cmd.actor.plantId, cmd.actor.accountId, [row]));
 					auditCreated(cmd, [row]);
 					return { value: mutation(cmd, row, "changed") };
 				});
@@ -110,7 +111,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					if (row.parent_id !== input.input.parentId) deny();
 					const next: TaskRow = { ...row, deleted_at: new Date(), revision: bump(row.revision) };
-					cmd.writes.push(update(cmd.actor.plantId, row, next));
+					cmd.writes.push(...update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
 						taskId: row.id,
 						action: "tasks.changed",
@@ -182,7 +183,9 @@ export function structureWriter(reminders: TaskReminders) {
 		},
 		/**
 		 * Make a top-level task recurring, change its series rule, or stop it with a null rule (REQ-TSK-007). Stopping
-		 * keeps every occurrence and its history. A generated duty cannot recur. Owner/Admin.
+		 * keeps every occurrence and its history. A rule on any occurrence of a stopped series starts a new series from
+		 * that task as occurrence 1; the old series stays stopped with its other occurrences. A generated duty cannot
+		 * recur. Owner/Admin.
 		 */
 		async configureRecurrence(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
@@ -264,7 +267,8 @@ export function structureWriter(reminders: TaskReminders) {
 		/**
 		 * Complete up to 100 reviewed tasks in one transaction (REQ-TSK-008). Each task gets its own outcome: a missing
 		 * or foreign task is not_found, a changed one stale, a waived one closed, one a Member does not hold unauthorized.
-		 * Every valid task completes, recurring ones with their successor; a failure commits nothing, and a retry with the
+		 * Every valid task completes, recurring ones with their successor, which the task's item names; a failure commits
+		 * nothing, and a retry with the
 		 * same request key returns the stored outcomes without completing anything twice.
 		 */
 		async bulkComplete(tx: Tx, context: TaskContext, raw: unknown) {
@@ -272,11 +276,12 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.bulkCompleteRequest, raw);
 				return command(tx, context, "tasks.bulkComplete", input, async (cmd) =>
 					bulk(tx, cmd, input.items, (row) => {
-						if (!administers(cmd.actor) && row.assignee_id !== cmd.actor.accountId) return "unauthorized";
+						if (!administers(cmd.actor) && !row.assignees.some((a) => a.accountId === cmd.actor.accountId))
+							return "unauthorized";
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });
-						return { row: r.row.revision, changes: r.changes };
+						return { row: r.row.revision, changes: r.changes, successor: r.successor };
 					}),
 				);
 			});
@@ -298,7 +303,7 @@ export function structureWriter(reminders: TaskReminders) {
 						const delta = changes(audited(row), audited(next));
 						if (!Object.keys(delta.after).length) return "noop";
 						next.revision = bump(row.revision);
-						cmd.writes.push(update(cmd.actor.plantId, row, next));
+						cmd.writes.push(...update(cmd.actor.plantId, row, next));
 						auditRow(cmd, {
 							taskId: row.id,
 							action: "tasks.changed",
@@ -322,7 +327,9 @@ export function structureWriter(reminders: TaskReminders) {
 		items: readonly { taskId: string; expectedRevision: string }[],
 		apply: (
 			row: LockedTask,
-		) => z.infer<typeof c.bulkOutcome> | { row: string; changes: readonly ReturnType<typeof reminderChange>[] },
+		) =>
+			| z.infer<typeof c.bulkOutcome>
+			| { row: string; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
 	) {
 		const selected = [...new Map(items.map((i) => [i.taskId, i])).values()];
 		const rows = await loadTasks(
@@ -332,11 +339,16 @@ export function structureWriter(reminders: TaskReminders) {
 		);
 		const pending: ReturnType<typeof reminderChange>[] = [];
 		const remaining: string[] = [];
+		const asOf = now();
 		const results = selected.map((item) => {
 			const row = rows.get(item.taskId);
-			const done = (outcome: z.infer<typeof c.bulkOutcome>, revision: string | null = row?.revision ?? null) => {
+			const done = (
+				outcome: z.infer<typeof c.bulkOutcome>,
+				revision: string | null = row?.revision ?? null,
+				successor: TaskRow | null = null,
+			) => {
 				if (outcome !== "changed" && row && !row.deleted_at && OPEN(row.status)) remaining.push(item.taskId);
-				return { taskId: item.taskId, outcome, revision };
+				return { taskId: item.taskId, outcome, revision, successor: successor && detailOf(successor, asOf) };
 			};
 			if (!row) return done("not_found", null);
 			if (row.deleted_at) return done("deleted");
@@ -344,7 +356,7 @@ export function structureWriter(reminders: TaskReminders) {
 			const r = apply(row);
 			if (typeof r === "string") return done(r);
 			pending.push(...r.changes);
-			return done("changed", r.row);
+			return done("changed", r.row, r.successor ?? null);
 		});
 		return {
 			value: c.bulkResult.parse({

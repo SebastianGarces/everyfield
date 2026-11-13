@@ -19,15 +19,15 @@ import {
 } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, getTableColumns, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { currentActor, liveOwner } from "@everyfield/domain/access";
+import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { canonical } from "../operations/canonical.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
-export { currentActor, liveOwner, sameOwner };
+export { currentActor, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
 export const administrator = (a: Actor) => a.context.kind === "seat" && a.context.role !== "member";
 export const unavailable = () => ({ status: "unavailable" }) as const;
@@ -51,38 +51,6 @@ export const endpointValues = (pair: RelationshipPair) => [
 	pair.kind === "sending_church" ? pair.subject.id : null,
 	pair.organization.id,
 ];
-export async function subjectAuthority(
-	tx: Transaction,
-	actor: Actor,
-	pair: RelationshipPair,
-	lock = true,
-): Promise<boolean> {
-	if (!sameOwner(actor.context.owner, subjectOwner(pair))) return false;
-	if (pair.kind !== "discovery") return administrator(actor);
-	const discovery = tx
-		.select({ id: tables.discovery.id })
-		.from(tables.discovery)
-		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
-	const seats = tx
-		.select({ id: tables.seat.id })
-		.from(tables.seat)
-		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)));
-	const d = await (lock ? discovery.for("share") : discovery);
-	const s = await (lock ? seats.for("share") : seats);
-	return d.length === 1 && s.length === 0;
-}
-/** Both endpoints exist and are not being deleted. A write locks them; a read observes. */
-export async function validPair(tx: Transaction, pair: RelationshipPair, lock = true) {
-	if (!(await liveOwner(tx, subjectOwner(pair), lock)) || !(await liveOwner(tx, pair.organization, lock))) return false;
-	if (pair.kind === "discovery") {
-		const discovery = tx
-			.select({ id: tables.discovery.id })
-			.from(tables.discovery)
-			.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
-		return (await (lock ? discovery.for("share") : discovery)).length === 1;
-	}
-	return true;
-}
 export const affiliationSchema = z.object({
 	id: recordId,
 	plant_id: tenantId.nullable(),
@@ -194,22 +162,19 @@ export interface OrganizationEffects {
 		},
 		writes: SQLWrapper[],
 	): Promise<void>;
-	/** One job row for the coarse notice. The command runs it inside its single write statement (D70). */
-	notice(
-		tx: Transaction,
-		input: {
-			eventId: string;
-			actorId?: string;
-			relationshipId: string;
-			pair: RelationshipPair;
-			kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
-			revision: string;
-			operationId: string;
-		},
-	): SQLWrapper;
 	/** Stops queued work that read the old grant. Runs inside the command's single write statement (D70). */
 	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): SQLWrapper;
 }
+/** A coarse relationship change the connected parties are told about by receipt mail (REQ-NTF-009). */
+export type RelationshipNotice = {
+	eventId: string;
+	actorId?: string;
+	relationshipId: string;
+	pair: RelationshipPair;
+	kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
+	revision: string;
+	operationId: string;
+};
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
 export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
 	const identity = requestIdentity.parse({
@@ -276,7 +241,7 @@ export function invalidate(
 		effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev }),
 	);
 }
-/** SQL fragments for one-statement fact reads: the checks validPair and subjectAuthority make, as boolean columns. */
+/** SQL fragments for one-statement fact reads: endpoint, pair and Discovery checks as boolean columns. */
 export const witnessHides = (kind: "account" | "plant", id: SQL) =>
 	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
 export const discoveryOpen = (accountId: SQL) =>
@@ -285,14 +250,14 @@ export const seatless = (accountId: SQL) =>
 	sql<boolean>`NOT EXISTS(SELECT FROM seat s WHERE s.account_id=${accountId} AND s.ended_at IS NULL)`;
 const uuid = (value: string) => sql`${sql.param(value)}::uuid`;
 /** The endpoint root exists with that kind and no lifecycle witness hides it. Organizations carry no witness. */
-export function liveEndpoint(o: Owner): SQL<boolean> {
+function liveEndpoint(o: Owner): SQL<boolean> {
 	if (o.kind === "global") return sql<boolean>`false`;
 	if (o.kind === "organization")
 		return sql<boolean>`EXISTS(SELECT FROM organization WHERE id=${uuid(o.id)} AND kind=${o.organizationKind})`;
 	const root = o.kind === "plant" ? sql`plant` : sql`account`;
 	return sql<boolean>`(EXISTS(SELECT FROM ${root} WHERE id=${uuid(o.id)}) AND NOT ${witnessHides(o.kind, uuid(o.id))})`;
 }
-/** Both endpoints exist and are not being deleted, and a Discovery subject is still open: validPair in one column. */
+/** Both endpoints exist and are not being deleted, and a Discovery subject is still open, in one column. */
 export function pairLive(pair: RelationshipPair): SQL<boolean> {
 	const live = sql<boolean>`(${liveEndpoint(subjectOwner(pair))} AND ${liveEndpoint(pair.organization)})`;
 	return pair.kind === "discovery" ? sql<boolean>`(${live} AND ${discoveryOpen(uuid(pair.accountId))})` : live;

@@ -7,13 +7,13 @@ import type { PeopleQuery } from "./model.ts";
 import { HISTORY_PAGE } from "./assessments/server.ts";
 import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
+import { canWrite } from "../shared/seat-role.ts";
 
 // Layout, pages and actions share this request's native session and actor.
 // Reads consume that observation; writes recheck authority inside their transaction.
 
 export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];
-export const canWrite = (v: Viewer) => v.role === "owner" || v.role === "admin";
 
 /** Runs one read in its own transaction. A thrown database error reads as unavailable, never as a crash. */
 export async function read<T>(
@@ -38,7 +38,7 @@ async function readOnPool<T>(
 	}
 }
 
-/** Runs one native write in its own transaction. Origin is built here, never taken from the browser. */
+/** Runs one native write in its own transaction, with the write context built from the viewer's authority. */
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
@@ -87,7 +87,13 @@ export async function readPersonView(
 	return readOnPool(viewer, (db, ctx) => readPersonPage(db, ctx, personId, parts));
 }
 
-export async function loadPeople(viewer: Viewer, query: PeopleQuery) {
-	const result = await read(viewer, async (tx, ctx) => ({ status: "ok", value: await readPeoplePage(tx, ctx, query) }));
-	return result.status === "ok" ? result.value : { query, data: { kind: "failed" } as const, workspaceEmpty: false };
+/** With `pairs`, an Owner or Admin's page load, it also reads the header's pairs to review (readPeoplePage). */
+export async function loadPeople(viewer: Viewer, query: PeopleQuery, pairs = false) {
+	const result = await read(viewer, async (tx, ctx) => ({
+		status: "ok",
+		value: await readPeoplePage(tx, ctx, query, { pairs }),
+	}));
+	return result.status === "ok"
+		? result.value
+		: { query, data: { kind: "failed" } as const, workspaceEmpty: false, review: null };
 }

@@ -1,6 +1,6 @@
 import { accountId, requestIdentity, sameOwner, sessionId, tenantId, type Owner } from "@everyfield/contracts/common";
 import { settingsError } from "@everyfield/contracts/settings";
-import type { SettingsContext, SettingsReply, SettingsWriteContext } from "@everyfield/contracts/settings/server";
+import type { SettingsContext, SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -23,7 +23,7 @@ import { appendEvent } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
 export type Tx = Transaction;
 export type Context = SettingsContext;
-export type WriteContext = SettingsWriteContext;
+export type WriteContext = SettingsContext;
 export const now = sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v));
 export { hash };
 export class Refusal extends Error {

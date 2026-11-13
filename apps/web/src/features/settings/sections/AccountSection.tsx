@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Field, Input, Skeleton } from "@everyfield/ui/controls";
-import { Avatar, LoadableView } from "@everyfield/ui/display";
+import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { SessionActions } from "../../identity/SessionActions";
 import { AvatarControl } from "../flows/AvatarControl";
@@ -82,34 +82,29 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				{port.flows.avatar ? (
-					<SettingRow label="Photo" description="Shown next to your name to people in your church.">
-						<AvatarControl
-							port={port.flows.avatar}
-							account={account}
-							onChanged={(avatar) => replace({ ...account, avatar })}
-						/>
-					</SettingRow>
-				) : null}
+				<SettingRow
+					label="Photo"
+					description="Shown next to your name, to anyone who already sees your name in Everyfield."
+				>
+					<AvatarControl
+						port={port.flows.avatar}
+						account={account}
+						onChanged={(avatar) => {
+							// The change also moved the account revision, which only a fresh read carries (as for the time zone).
+							replace({ ...account, avatar });
+							reload();
+						}}
+					/>
+				</SettingRow>
 				<SettingRow label="Name">
-					<div className="flex items-start gap-4">
-						{/* Without photos (Q2) the initials stand in, as the prototype's Photo and name row draws them. */}
-						{port.flows.avatar ? null : (
-							<Avatar name={account.name} label={`${account.name}, no photo`} size="lg" tone="green" />
-						)}
-						<Field
-							label={<span className="sr-only">Your name</span>}
-							error={showError ? nameError : undefined}
-							className="min-w-0 flex-1"
-						>
-							<Input
-								value={draft.name}
-								onChange={(e) => setDraft({ name: e.target.value })}
-								autoComplete="name"
-								invalid={showError && Boolean(nameError)}
-							/>
-						</Field>
-					</div>
+					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
+						<Input
+							value={draft.name}
+							onChange={(e) => setDraft({ name: e.target.value })}
+							autoComplete="name"
+							invalid={showError && Boolean(nameError)}
+						/>
+					</Field>
 				</SettingRow>
 				<SettingRow label="Email" description="You sign in with it. We send a link to a new address to confirm it.">
 					<EmailChange currentEmail={account.email} />
@@ -123,7 +118,12 @@ function AccountForm({
 				>
 					<PersonalTimezone
 						preference={account.personalTimezone}
-						onSaved={(personalTimezone) => replace({ ...account, personalTimezone })}
+						onSaved={(personalTimezone) => {
+							// The save also moved the account revision, which only a fresh read carries. Show the new zone
+							// at once, then read the section so the next name or notification save sends the current revision.
+							replace({ ...account, personalTimezone });
+							reload();
+						}}
 					/>
 				</SettingRow>
 				<SettingRow label="Sessions" description="Sign out here, or on every other device at once.">

@@ -1,18 +1,28 @@
 import { Icon } from "@/components/Icon";
-import { Badge, CardIcon, UiButton, type Status, type Tone } from "@/components/kit/kit";
+import { Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
 import { cn } from "@/components/cn";
 import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead } from "./dash";
 import { Insight } from "./insight";
 
-// Revision 24: the /oversight hero dashboard (Austin Sending Network, 14 plants), demo data.
+// The /oversight hero dashboard (the OPS-82 prototype's vNetworkDash): the Austin Sending Network with 14 church plants.
+// Sample data, coded in place; the prototype holds it in the page, not in the copy file.
 
-/** A plant row: name, place, icon tone, phase, core group, launch, status label and its badge. */
-type Row = readonly [string, string, Tone, string, string, string, string, Status];
-type Stat = readonly [string, string, string, 0 | 1];
-type Finding = { num: string; unit: string; title: string; text: string };
-/** The demo values the page passes (oversight/demo.ts). */
-export type DashDemo = { plants: Row[]; stats: readonly Stat[]; lastCol: string; finding: Finding };
+/** A church plant row: name, place, icon tone, phase, core group, launch and its findings ("" shows a dash). */
+const PLANTS: readonly (readonly [string, string, Tone, string, string, string, string])[] = [
+	["Harvest Point Church", "Hyde Park, Austin, TX", "green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
+	["Eastside Commons", "East Austin, Austin, TX", "blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
+	["Mueller Fellowship", "Mueller, Austin, TX", "violet", "0 · Discovery", "8", "Not set", ""],
+	["Alamo Heights Church", "San Antonio, TX", "amber", "2 · Launch team", "28", "Sep 2027", "2 findings"],
+	["Deep Ellum Collective", "Dallas, TX", "teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],
+];
+/** A stat: label, value, the line under it, and whether the value is amber (needs attention). */
+const STATS: readonly (readonly [string, string, string, boolean?])[] = [
+	["Church plants", "14", "In 2 states"],
+	["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"],
+	["Committed adults", "412", "Across 14 church plants"],
+	["Needs attention", "3", "Need a look this month", true],
+];
 const AREAS = [
 	["All", 14],
 	["Austin", 5],
@@ -25,8 +35,7 @@ const TH =
 	"border-b border-line px-2.5 py-2 text-left type-xs font-medium whitespace-nowrap text-text-3 max-mk-sm:px-1.5";
 const TD = "border-b border-line px-2.5 py-3 align-middle type-md max-mk-sm:px-1.5";
 
-export function NetworkDash({ demo }: { demo: DashDemo }) {
-	const { plants, stats, lastCol, finding } = demo;
+export function NetworkDash() {
 	return (
 		<AppFrame
 			className="motion-safe:animate-mk-ov-rise"
@@ -39,27 +48,29 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 					</Badge>
 				</>
 			}
-			sub="14 plants in Texas and Oklahoma, in launch order."
+			sub="14 church plants in Texas and Oklahoma, in launch order."
 			right={
 				<UiButton variant="primary" className="max-mk-sm:hidden">
 					<Icon icon={ICONS.users} />
-					Invite a plant
+					Invite a church plant
 				</UiButton>
 			}
 			body={
 				<>
 					<div className="mx-1 mb-4 flex w-max gap-1 bg-surface-2 p-1 type-md font-medium text-ink-2 max-mk-sm:ml-0">
-						<span className="bg-surface-raised px-3.5 py-[7px] whitespace-nowrap text-ink shadow-raised">Plants</span>
+						<span className="bg-surface-raised px-3.5 py-[7px] whitespace-nowrap text-ink shadow-raised">
+							Church plants
+						</span>
 						<span className="px-3.5 py-[7px] whitespace-nowrap">Network Intelligence</span>
 					</div>
 					<div className="mb-4 grid grid-cols-4 gap-4 max-mk-lg:gap-3 max-mk-sm:grid-cols-2 max-mk-sm:gap-2.5">
-						{stats.map((s) => (
+						{STATS.map((s) => (
 							<DashCard key={s[0]} className="max-mk-lg:p-4 max-mk-sm:p-3.5">
 								<div className="type-sm text-text-2 max-mk-sm:type-xs">{s[0]}</div>
 								<div
 									className={cn(
 										"mt-2 mb-1.5 font-display type-display-md leading-none tracking-[-0.02em] max-mk-nav:type-display-sm max-mk-sm:mt-1.5 max-mk-sm:type-display-md",
-										s[3] === 1 && "text-amber-display",
+										s[3] && "text-amber-display",
 									)}
 								>
 									{s[1]}
@@ -70,7 +81,7 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 					</div>
 					<div className="grid grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)] items-start gap-4 max-mk-nav:grid-cols-[minmax(0,1fr)]">
 						<DashCard>
-							<DashHead title="Plants" sub="In order of launch date." />
+							<DashHead title="Church plants" sub="In order of launch date." />
 							<div className="-mt-0.5 mb-1.5 flex flex-wrap items-center gap-1.5">
 								<span className="mr-1 type-sm text-text-2">Area</span>
 								{AREAS.map((a, i) => (
@@ -91,16 +102,16 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 							<table className="w-full border-collapse">
 								<thead>
 									<tr>
-										<th className={TH}>Plant</th>
+										<th className={TH}>Church plant</th>
 										<th className={TH}>Phase</th>
 										<th className={cn(TH, "max-mk-sm:hidden")}>Core group</th>
 										<th className={cn(TH, "max-mk-sm:hidden")}>Launch</th>
-										<th className={cn(TH, "max-mk-sm:hidden")}>{lastCol}</th>
+										<th className={cn(TH, "max-mk-sm:hidden")}>Findings</th>
 									</tr>
 								</thead>
 								<tbody>
-									{plants.map((p, i) => {
-										const td = cn(TD, i === plants.length - 1 && "border-b-0");
+									{PLANTS.map((p, i) => {
+										const td = cn(TD, i === PLANTS.length - 1 && "border-b-0");
 										return (
 											<tr key={p[0]}>
 												<td className={td}>
@@ -121,7 +132,7 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 												<td className={cn(td, "whitespace-nowrap max-mk-sm:hidden")}>{p[5]}</td>
 												<td className={cn(td, "max-mk-sm:hidden")}>
 													{p[6] ? (
-														<Badge status={p[7]} size="sm">
+														<Badge status="measured" size="sm">
 															{p[6]}
 														</Badge>
 													) : (
@@ -138,16 +149,16 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 							tone="g-sky"
 							icon={ICONS.sparkle}
 							label="Top network finding"
-							count="From 11 of 14 plants"
-							num={finding.num}
-							unit={finding.unit}
+							count="From 11 of 14 church plants"
+							num="4 of 6"
+							unit="church plants within a year of launch have a Concern on Emerging leadership"
 							unitMax={220}
 							className="min-h-0"
-							title={finding.title}
-							text={finding.text}
+							title="Emerging leadership is the most common gap before launch"
+							text="It is the lens most often at Watch or Concern across church plants in Training and Pre-launch. Both church plants that have already launched had their leader roles filled before Training."
 							footer={
 								<UiButton variant="light">
-									See the plants <Icon icon={ICONS.arrow} />
+									See the church plants <Icon icon={ICONS.arrow} />
 								</UiButton>
 							}
 						/>
