@@ -202,3 +202,75 @@ export const orgChartExport = z.strictObject({
 	lines: z.array(z.string().min(1).max(200)).max(800),
 	nodes: z.array(chartNode).max(200),
 });
+
+/** One ministry: the team, its roles with their occupants, and its current people. */
+export const teamDetail = z.strictObject({
+	team: listedTeam,
+	roles: z.array(teamRole).max(100),
+	members: z.array(memberRow).max(500),
+});
+/** One current ministry role a person holds. */
+export const memberMatch = z.strictObject({
+	personId,
+	name: z.string().min(1).max(200),
+	teamId: recordId,
+	teamName: z.string().min(1).max(200),
+	roleId: recordId,
+	roleName: z.string().min(1).max(200),
+	startedOn: localDate,
+});
+export const memberSearch = z.strictObject({
+	items: z.array(memberMatch).max(200),
+	completeness: z.enum(["complete", "partial"]),
+});
+/**
+ * appointed: an explicit appointment; fallback: the holder of a leadership role; none: no leader recorded; unavailable:
+ * a leader is recorded but their person record can't be read now, so the ministry is never called leaderless.
+ */
+export const leaderStatus = z.enum(["appointed", "fallback", "none", "unavailable"]);
+export const staffingRow = z.strictObject({
+	teamId: recordId,
+	name: z.string().min(1).max(200),
+	state: teamState,
+	leaderStatus,
+	leaderName: z.string().nullable(),
+	/** Configured role slots, those with a current occupant, those open, and the distinct people serving. */
+	roles: z.int().min(0),
+	filledRoles: z.int().min(0),
+	openRoles: z.int().min(0),
+	people: z.int().min(0),
+});
+/** Roles and people are counted apart: one person may fill several roles, and `people` counts each person once. */
+export const staffingSummary = z.strictObject({
+	teams: z.array(staffingRow).max(200),
+	roles: z.int().min(0),
+	filledRoles: z.int().min(0),
+	openRoles: z.int().min(0),
+	people: z.int().min(0),
+});
+export const personTeamCount = z.strictObject({
+	personId,
+	name: z.string().min(1).max(200),
+	teams: z.int().min(1),
+	teamNames: z.array(z.string().min(1).max(200)).max(200),
+});
+/** An advisory count of distinct current ministries per person; it never limits or judges anyone. */
+export const personTeamCounts = z.strictObject({
+	minTeams: z.int().min(1),
+	people: z.array(personTeamCount).max(200),
+});
+export const templatePreview = z.strictObject({
+	teams: z
+		.array(
+			z.strictObject({
+				key: z.string().min(1).max(80),
+				name: z.string().min(1).max(200),
+				exists: z.boolean(),
+				newRoles: z.array(catalogRole).max(20),
+				existingRoles: z.array(catalogRole).max(20),
+			}),
+		)
+		.max(20),
+	newTeams: z.int().min(0),
+	newRoles: z.int().min(0),
+});

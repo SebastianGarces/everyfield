@@ -184,6 +184,7 @@ type TeamWrite =
 	| "teams.retireRole"
 	| "teams.assignRole"
 	| "teams.endMembership"
+	| "teams.removeRole"
 	| "teams.reactivateMembership"
 	| "teams.appointLeader"
 	| "teams.correctTenure"

@@ -1927,5 +1927,17 @@
 		"limit": 8,
 		"retry": 3,
 		"reason": "A forward move with connected sending churches or networks queues their phase-advance notices in the move's transaction through the notification service (NTF-009): BEGIN, the move, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. Every other move sends BEGIN, the move and COMMIT."
+	},
+	"teams.removeRole": {
+		"limit": 6
+	},
+	"teams.readHealth": {
+		"limit": 1
+	},
+	"teams.readAggregateHealth": {
+		"limit": 1
+	},
+	"teams.readRequiredTrainingParticipants": {
+		"limit": 1
 	}
 }
