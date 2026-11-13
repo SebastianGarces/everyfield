@@ -118,8 +118,9 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	// Pages of 3 rows: the 24-tool budget is reached first, and the 25th read never runs. (Pages of 5 reach the input
+	// budget at 23 reads since the Owner's and Admin's prompt lists the household, tag, skill, note and import writes.)
+	const narrow = await ask(foreign, "Read every detail for all people, 3 at a time.");
 	assert.equal(await work(), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
@@ -169,6 +170,25 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.addToHousehold",
+						"people.createHouseholdWithHead",
+						"people.updateHousehold",
+						"people.deleteHousehold",
+						"people.removeFromHousehold",
+						"people.setHouseholdRole",
+						"people.propagateAddress",
+						"people.createTag",
+						"people.updateTag",
+						"people.deleteTag",
+						"people.assignTag",
+						"people.removeTag",
+						"people.addSkill",
+						"people.updateSkill",
+						"people.removeSkill",
+						"people.addNote",
+						"people.editNote",
+						"people.deleteNote",
+						"people.executeBulkImport",
 						"communication.saveDraft",
 						"communication.scheduleReviewed",
 						"communication.rescheduleReviewed",

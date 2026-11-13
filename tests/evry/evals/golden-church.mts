@@ -262,7 +262,7 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-async function seedHope(admin: Database) {
+export async function seedHope(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	for (const [plant, name] of [
 		[PLANT, "Hope Fellowship"],
