@@ -1,20 +1,16 @@
 import { getViewer } from "@/server/request-context";
+import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
 import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
+import { params } from "../shared/search-params.ts";
 
 // The documents routes. The files under apps/web/src/app/ only re-export these.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [key, value] of Object.entries(raw)) for (const one of [value ?? []].flat()) out.append(key, one);
-	return out;
-};
-
 export const documentsMetadata: Metadata = { title: "Documents", robots: { index: false, follow: false } };
 
 /** Signed out goes to sign-in. An active account sees the library. A church seat is required only to preview. */
@@ -29,11 +25,13 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 	return (
 		<DocumentsScreen
 			templates={loaded.templates}
+			version={loaded.version}
 			query={query}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
 			canEdit={canEditDocuments(viewer.authority)}
 			canStore={canStoreDocuments()}
+			textTemplates={TEXT_TEMPLATE_IDS}
 			written={writtenScope(viewer.authority)}
 		/>
 	);

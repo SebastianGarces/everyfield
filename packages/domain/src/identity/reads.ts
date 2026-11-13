@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
+import { liveRead } from "../access/session.ts";
+import type { Owner, sessionId } from "@everyfield/contracts/common";
 import { sessionResult } from "@everyfield/contracts/identity";
 export const userRow = z.object({
 	id: z.uuid(),
@@ -63,4 +65,19 @@ export async function readAccountContacts(
 	);
 	const rows = z.array(z.object({ id: z.uuid(), email: z.email() })).parse(result.rows);
 	return new Map(rows.map((row) => [row.id, row.email]));
+}
+
+/**
+ * Whether the viewer's selected plant has finished setup (WP-009 sets plant.onboarding_completed_at). One statement,
+ * with the live access check as its predicate (C13). A failed check returns no row, which reads as not finished.
+ */
+export async function readPlantSetupComplete(
+	db: Pick<Database, "execute">,
+	session: z.infer<typeof sessionId>,
+	plant: Owner & { kind: "plant" },
+) {
+	const result = await db.execute(
+		sql`SELECT (onboarding_completed_at IS NOT NULL) AS complete FROM plant WHERE id=${plant.id}::uuid AND ${liveRead({ session, owner: plant })}`,
+	);
+	return result.rows[0] ? z.object({ complete: z.boolean() }).parse(result.rows[0]).complete : false;
 }

@@ -9603,7 +9603,7 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired People and another church's page; switch card/filter/page; unresolved adult classification.",
+      "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired People and another church's page; switch card/filter/page; unresolved adult classification for people with no birth date.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10009,7 +10009,8 @@
           "retired_in_active_list": false,
           "foreign_cursor_allowed": false,
           "adult_classification": "unknown",
-          "DOB_inferred": false
+          "birth_date": null,
+          "adult_or_child_from_birth_date": false
         },
         "event": null
       }

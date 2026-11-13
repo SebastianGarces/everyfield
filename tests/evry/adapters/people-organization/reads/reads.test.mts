@@ -59,6 +59,18 @@ const PIPELINE = 4;
 /** Saved columns, an empty board and the read timeout. Duties are skipped when the page has no cards. */
 const PIPELINE_EMPTY = 3;
 
+/** The export count's one statement: a count(*) that selects no contact value, note, tag list or per-person row. */
+function exportCount(start: number) {
+	const [statement, ...rest] = queries
+		.slice(start)
+		.filter((query) => !/^(BEGIN|COMMIT|ROLLBACK)/i.test(query.trim()) && !/statement_timeout/i.test(query));
+	assert.deepEqual(rest, []);
+	assert.match(statement!, /count\(\*\)/i);
+	const selected = statement!.replace(/\bWHERE\b[\s\S]*$/i, "");
+	for (const forbidden of [/jsonb_agg/i, /\bnotes\b/i, /\bstreet\b/i, /postal_code/i, /export_first/i, /person_tag/i])
+		assert.doesNotMatch(statement!, forbidden);
+	assert.doesNotMatch(selected, /\b(email|phone)\b/i);
+}
 function hidden(value: unknown, secrets: string[]) {
 	const text = JSON.stringify(value);
 	for (const secret of secrets) assert.equal(text.includes(secret), false, secret);
@@ -144,6 +156,8 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 	const exported = queries.length;
 	const file = await invokeRead(db, member, exportPeople, {});
 	assert.equal(counted(exported), READ);
+	// The count answer builds no file: one count(*) plus the read timeout, with no contact column, note or person row.
+	exportCount(exported);
 	assert.equal(file.total, 203);
 	assert.match(file.rows[0]!.label, /^people-\d{4}-\d{2}-\d{2}\.csv$/);
 	assert.deepEqual(file.rows[0]!.fields, {
@@ -156,6 +170,7 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 	const filtered = queries.length;
 	const one = await invokeRead(db, member, exportPeople, { search: EMAIL });
 	assert.equal(counted(filtered), READ);
+	exportCount(filtered);
 	assert.equal(one.rows[0]!.fields.matched, "1");
 	hidden(one, secrets);
 
@@ -358,10 +373,11 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE A
 			item.fields.householdTo ?? null,
 		]),
 		[
-			[note, "Note", "note", null, null, null],
-			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],
-			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
+			// Newest first, as the person page reads it.
 			[mergeId, "person_merged", "activity", null, null, null],
+			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
+			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],
+			[note, "Note", "note", null, null, null],
 		],
 	);
 	assert.equal(feed.rows.find((item) => item.id === note)?.fields.body, undefined);

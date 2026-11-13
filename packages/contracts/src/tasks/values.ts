@@ -8,7 +8,8 @@ import {
 	type Instant,
 	type TimeZone,
 } from "../common/time.ts";
-import { recordId } from "../common/values.ts";
+import { accountId, recordId } from "../common/values.ts";
+import { MAX_DESCRIPTION, normalizeDescription } from "./description.ts";
 
 export const taskStatus = z.enum(["not_started", "in_progress", "blocked", "complete", "no_longer_needed"]);
 export const settledStatus = ["complete", "no_longer_needed"] as const;
@@ -25,14 +26,41 @@ export const category = z.enum([
 	"recurring",
 	"general",
 ]);
+/** Why an assignee cannot own a follow-up now (REQ-TSK-012): no current seat, no linked Person, or a Person outside the committed stages. */
+export const ownerReason = z.enum(["no_seat", "no_person", "not_committed"]);
+/** A task has at most ten assignees (D-b). */
+export const MAX_ASSIGNEES = 10;
+/** The accounts a task is assigned to. A repeated ID collapses to one before the limit applies. */
+export const assigneeIds = z
+	.array(accountId)
+	.max(100)
+	.transform((ids) => [...new Set(ids)])
+	.refine((ids) => ids.length <= MAX_ASSIGNEES, "too_many_assignees");
+/** A follow-up's owner view: one of the task's assignees and whether they may own it. The one value every screen shows. */
+export const followUpOwner = z.strictObject({
+	accountId,
+	displayName: z.string(),
+	eligible: z.boolean(),
+	reason: ownerReason.nullable(),
+});
+export type FollowUpOwner = z.infer<typeof followUpOwner>;
+/** Where a follow-up came from: a meeting's generated duty or a person who added it. Tells two for one person apart. */
+export const followUpOrigin = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("meeting"), meeting: z.strictObject({ id: recordId, label: z.string() }) }),
+	z.strictObject({ kind: z.literal("added"), by: z.string().nullable() }),
+]);
+export type FollowUpOrigin = z.infer<typeof followUpOrigin>;
 export const obligationKind = z.enum(["first_vision_follow_up", "meeting_evaluation"]);
 // A bounded title. Whitespace-only titles are refused rather than saved empty.
 export const title = z.string().trim().min(1).max(500);
-// Plain bounded text: trimmed, LF line endings, at most 10,000 characters (tasks.normalizeDescription).
+// Bounded Markdown kept as typed (tasks.normalizeDescription, REQ-TSK-016, D88): raw HTML and script stay inert
+// literal text, links to unsafe schemes keep only their label. The canonical value is at most 50,000 characters,
+// and whitespace only clears it to "". The raw bound keeps the normalizer's work bounded too.
 export const description = z
 	.string()
-	.transform((v) => v.replaceAll("\r\n", "\n").replaceAll("\r", "\n").trim())
-	.pipe(z.string().max(10_000));
+	.max(4 * MAX_DESCRIPTION)
+	.transform(normalizeDescription)
+	.pipe(z.string().max(MAX_DESCRIPTION));
 
 // A due date is one of three kinds. A deadline is entered as church-local wall time: the server resolves it in the
 // church zone and never takes an instant from the client. A fold needs the chosen offset (REQ-TSK-018).

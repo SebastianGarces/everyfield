@@ -42,6 +42,10 @@
         {
           "operation": "teams.get",
           "rule": "Single current authorized team details or unavailable; no page/scalar substitution"
+        },
+        {
+          "operation": "teams.edit",
+          "rule": "Supported state values: forming, active, paused?."
         }
       ],
       "title": "Ministry teams and staffing"
@@ -56,7 +60,6 @@
       "operations": [
         "teams.archive",
         "teams.restore",
-        "teams.correct",
         "teams.history"
       ],
       "acceptance_ids": [
@@ -70,12 +73,6 @@
       ],
       "work_packages": [
         "WP-017"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "teams.correct",
-          "rule": "Supported state values: forming, active, paused?."
-        }
       ],
       "title": "Archive, restore and correct teams"
     },

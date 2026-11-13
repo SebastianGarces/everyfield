@@ -1,0 +1,331 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "follow-up-letter",
+	"version": 1,
+	"title": "Vision Meeting Follow-up Letter",
+	"description": "A thank-you letter to a guest of a vision meeting.",
+	"class": "outward-facing",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "church.pastor",
+			"fallback": "[pastor name]",
+			"sample": "Pastor Daniel Reyes"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Thank You for Coming"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Letter"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Thank You for Coming"
+					}
+				]
+			},
+			{
+				"type": "writeIn",
+				"attrs": {
+					"label": "Date",
+					"key": "letter_date",
+					"kind": "date",
+					"width": 200
+				}
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Dear friend,"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Thank you for coming to our vision meeting. It meant a great deal to us that you gave an evening to hear about "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ", a new church plant."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "We shared why we believe this church is needed, who we hope to reach and what a Sunday could look like. We would love to hear what you thought. Your questions and your ideas help us build something that serves our neighbors well."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Here are three ways to take the next step:"
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Come to the next vision meeting and bring a friend."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Join a weekly group and meet the core group."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Tell us how you would like to help. Reply to this letter or speak with one of us in person."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "There is no pressure and no obligation. We simply want you to know that you are welcome, and that we are praying for you."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "With gratitude,"
+					}
+				]
+			},
+			{
+				"type": "spacer",
+				"attrs": {
+					"size": 24
+				}
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "pastor_name"
+						}
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "small"
+				},
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					}
+				]
+			}
+		]
+	}
+}

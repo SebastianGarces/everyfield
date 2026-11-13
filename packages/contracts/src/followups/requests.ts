@@ -2,7 +2,7 @@ import { z } from "zod";
 import { instant } from "../common/time.ts";
 import { accountId, personId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
-import { description, dueInput, priority, title } from "../tasks/values.ts";
+import { assigneeIds, description, dueInput, priority, title } from "../tasks/values.ts";
 import { channel, notes, outcome, reason } from "./values.ts";
 
 const page = {
@@ -24,7 +24,8 @@ export const recordOutcomeRequest = z.strictObject({
 				z.strictObject({ kind: z.literal("person"), personId }),
 			]),
 			outcome,
-			// Omitted means now, except for contacted. The server refuses a future instant.
+			// Omitted means now, except for contacted. The server refuses an instant more than CLOCK_ALLOWANCE_MS (2 minutes)
+			// after its clock and stores its own clock for one within that allowance.
 			occurredAt: instant.optional(),
 			channel: channel.nullable().default(null),
 			notes: notes.nullable().default(null),
@@ -54,7 +55,8 @@ export const correctOutcomeRequest = commandEnvelope(
 		reason,
 	}),
 );
-export const listContactHistoryRequest = z.strictObject({ personId, ...page });
+// With taskId, only the entries recorded on that follow-up task or finished along with it.
+export const listContactHistoryRequest = z.strictObject({ personId, taskId: recordId.optional(), ...page });
 export const readObligationsRequest = z.strictObject({
 	personId: personId.optional(),
 	meetingId: recordId.optional(),
@@ -73,13 +75,11 @@ export const createFollowUpRequest = z.strictObject({
 		description: description.nullable().default(null),
 		priority: priority.default("medium"),
 		due: dueInput.default({ kind: "undated" }),
-		assigneeId: accountId.nullable().default(null),
+		assigneeIds: assigneeIds.default([]),
 	}),
 });
-// Null leaves the follow-up as Needs owner.
-export const assignFollowUpRequest = commandEnvelope(
-	z.strictObject({ taskId: recordId, assigneeId: accountId.nullable() }),
-);
+// An empty list leaves the follow-up as Needs owner.
+export const assignFollowUpRequest = commandEnvelope(z.strictObject({ taskId: recordId, assigneeIds }));
 export const followUpCoverageRequest = z.strictObject({
 	personId: personId.optional(),
 	coverage: z.enum(["owned", "needs_owner", "uncovered", "any"]).default("any"),
@@ -94,6 +94,8 @@ export const listFollowUpOwnersRequest = z.strictObject({
 });
 export const planHandoffRequest = z.strictObject({ fromAccountId: accountId });
 // At most 100 reviewed follow-ups per request. A larger selection is several requests, each with its own key.
+/** The most follow-ups one handoff request may move (REQ-TSK-013). */
+export const HANDOFF_LIMIT = 100;
 export const executeHandoffRequest = z.strictObject({
 	requestKey,
 	input: z
@@ -103,7 +105,7 @@ export const executeHandoffRequest = z.strictObject({
 			items: z
 				.array(z.strictObject({ taskId: recordId, expectedRevision: revision }))
 				.min(1)
-				.max(100)
+				.max(HANDOFF_LIMIT)
 				.refine((items) => new Set(items.map((i) => i.taskId)).size === items.length),
 		})
 		.refine((v) => v.fromAccountId !== v.toAccountId, { message: "same_account", path: ["toAccountId"] }),

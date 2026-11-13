@@ -6,7 +6,7 @@ import type { Refusal } from "./api";
 export type Screen = "sign_in" | "register" | "recover" | "reset" | "session";
 
 /** "4:12 PM" for today, or "Oct 19, 4:12 PM" for a later day, in the reader's own time zone. */
-export function retryTime(retryAt: string, now = new Date()): string {
+function retryTime(retryAt: string, now = new Date()): string {
 	const at = new Date(retryAt);
 	const sameDay = at.toDateString() === now.toDateString();
 	return new Intl.DateTimeFormat(undefined, {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { instant, localDate } from "../common/time.ts";
 import { accountId, operationId, personId, recordId, requestKey, revision } from "../common/values.ts";
 import { stage } from "../people/values.ts";
+import { assigneeIds, followUpOwner, MAX_ASSIGNEES } from "../tasks/values.ts";
 import { meetingId, meetingType, presence, rsvp } from "./values.ts";
 
 // Attendance, finalization, evaluation and analytics (WP-022). The server derives the church, actor, meeting type,
@@ -40,7 +41,7 @@ const unique = <T extends z.ZodType>(item: T, max: number) =>
 		.refine((ids) => new Set(ids).size === ids.length, "duplicate_entry");
 const create = <T extends z.ZodType>(input: T) => z.strictObject({ requestKey, input });
 const target = { meetingId, personId };
-const assignee = accountId.nullable().default(null);
+const assignees = assigneeIds.default([]);
 
 export const setAttendanceRequest = create(z.strictObject({ ...target, presence }));
 /** Marks a Person attended; a live Person not yet on the guest list joins it as a walk-in. */
@@ -68,8 +69,8 @@ export const finalizeAttendanceRequest = z.strictObject({
 	input: z.strictObject({
 		meetingId,
 		attendeeIds: unique(personId, 500),
-		followUpAssigneeId: assignee,
-		evaluationAssigneeId: assignee,
+		followUpAssigneeIds: assignees,
+		evaluationAssigneeIds: assignees,
 	}),
 });
 /** Late additions, removals and same-count replacements of a finalized meeting, by exact identity. */
@@ -79,7 +80,7 @@ export const reconcileAttendanceRequest = z.strictObject({
 	input: z.strictObject({
 		meetingId,
 		attendeeIds: unique(personId, 500),
-		followUpAssigneeId: assignee,
+		followUpAssigneeIds: assignees,
 		reason: z.string().trim().min(1).max(500),
 	}),
 });
@@ -179,9 +180,11 @@ export const generatedWork = z.strictObject({
 	obligationId: recordId,
 	taskId: recordId.nullable(),
 	outcome: z.enum(["created", "existing", "closed"]),
-	assigneeId: accountId.nullable(),
-	/** No current owner: the task shows Needs owner. */
+	assigneeIds: z.array(accountId).max(MAX_ASSIGNEES),
+	/** No eligible owner: nobody is assigned or every assignee fails eligibility. The task shows Needs owner. */
 	needsOwner: z.boolean(),
+	/** Each assignee as every screen shows them, with whether they may own it. */
+	owners: z.array(followUpOwner).max(MAX_ASSIGNEES),
 });
 export const finalizationResult = z.strictObject({
 	...receipt,
@@ -203,6 +206,8 @@ export const finalizationResult = z.strictObject({
 		.max(500),
 	stageChanges: z.array(z.strictObject({ personId, from: stage, to: stage })).max(500),
 	work: z.array(generatedWork).max(1100),
+	/** This meeting's participation rows the change wrote, each at its new revision; empty for a noop. */
+	attendees: z.array(attendee).max(1000),
 });
 
 const attribution = z.discriminatedUnion("kind", [
