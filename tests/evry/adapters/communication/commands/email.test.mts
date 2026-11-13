@@ -1311,21 +1311,23 @@ async function sentEmail(
 	return { proposal, review: done.review, id: done.review.receipt!.receiptId! };
 }
 
-test("the audience read names who gets an email and who is left out and why, and saves and sends nothing", async () => {
+test("the preview read names who a drafted email reaches and who is left out and why, and saves and sends nothing", async () => {
 	const owner = await actor("owner");
-	const { resolveAudience } = await reads();
+	const { preview } = await reads();
 	const extra = await twin();
 	const before = await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`);
-	const r = await db.transaction((tx) => resolveAudience.invoke(tx, owner, { audience: audience([extra]) }));
+	const r = await db.transaction((tx) =>
+		preview.invoke(tx, owner, { subject: "Vision night", body: BODY, audience: audience([extra]) }),
+	);
 	assert.deepEqual(
 		r.rows.map((p) => `${p.label}: ${p.fields.leftOut ?? "gets it"}`),
 		[
-			"Alex Chen: gets it",
-			"Alex Rivera: gets it",
 			"Alex Twin: duplicate_address",
-			"Casey Reed: gets it",
 			"Dana Off: unsubscribed",
 			"Member 001: no_address",
+			"Alex Chen: gets it",
+			"Alex Rivera: gets it",
+			"Casey Reed: gets it",
 		],
 	);
 	assert.ok(
@@ -1518,22 +1520,19 @@ test("deleting a draft waits for Approve; templates list system and church, a sy
 	assert.equal(saved!.subject, "Our own subject");
 });
 
-test("one person's emails are listed apart from recorded calls, and the never-emailed list says how it checked", async () => {
+test("one person's emails are listed with their results, and the never-emailed list says how it checked", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const { id } = await sentEmail(owner, service, "For one person");
-	await admin.execute(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
-		VALUES(${plant},${people.alexRivera!},'contacted',clock_timestamp()-interval '1 day',clock_timestamp(),'phone')`);
 	const { forPerson } = await reads();
 	const mine = await db.transaction((tx) => forPerson.invoke(tx, owner, { personId: people.alexRivera! }));
 	const email = mine.rows.find((r) => r.kind === "message" && r.id === id)!;
 	assert.equal(email.fields.result, "sent");
-	const calls = mine.rows.filter((r) => r.kind === "activity");
-	assert.deepEqual(
-		calls.map((r) => [r.label, r.fields.channel]),
-		[["Recorded contact: contacted", "phone"]],
+	assert.ok(
+		mine.rows.every((r) => r.kind === "message"),
+		"only emails: a recorded call is never in this read",
 	);
-	assert.ok(mine.exclusions.some((e) => /an email is never a call/.test(e)));
+	assert.ok(mine.exclusions.some((e) => /an email is never one/.test(e)));
 	const never = await db.transaction((tx) => forPerson.invoke(tx, owner, {}));
 	const names = never.rows.map((r) => r.label);
 	assert.ok(!names.includes("Alex Rivera") && !names.includes("Alex Chen"), "emailed people are not listed");

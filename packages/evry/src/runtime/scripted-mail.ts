@@ -61,11 +61,17 @@ function invitation(meeting: Row | undefined) {
 	const when = meeting ? String(meeting.fields.startsAt) : "Thursday";
 	const title = meeting?.label ?? "Vision Night";
 	return {
-		subject: `You're invited: ${title}`,
-		body: `Hi {{name}},\n\nYou're invited to ${title} on ${when}. Come hear where our church is headed, meet the team and bring your questions.\n\nWe'd love to see you there.`,
 		title,
 		when,
+		subject: `You're invited: ${title}`,
+		body: `Hi {{name}},\n\nYou're invited to ${title} on ${when}. Come hear where our church is headed, meet the team and bring your questions.\n\nWe'd love to see you there.`,
 	};
+}
+
+/** The draft before the meeting is known: what the preview checks. */
+function firstDraft() {
+	const { subject, body } = invitation(undefined);
+	return { subject, body };
 }
 
 /** One step of an email conversation, or null when the ask is not one of these. */
@@ -87,7 +93,8 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	// COM-01: an unsaved draft, with exactly who it reaches and who is left out. Nothing is saved or sent.
 	if (INVITE.test(ask)) {
 		if (!last)
-			return read("communication.resolveAudience", {
+			return read("communication.preview", {
+				...firstDraft(),
 				audience: { groups: ["prospects"] },
 				meetingWords: "vision night",
 			});
@@ -123,7 +130,8 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	if (/\b(ok |okay )?send it\b(?! again)/i.test(ask) && INVITE.test(earlier)) {
 		if (!canPropose) return null;
 		if (!last)
-			return read("communication.resolveAudience", {
+			return read("communication.preview", {
+				...firstDraft(),
 				audience: { groups: ["prospects"] },
 				meetingWords: "vision night",
 			});
@@ -245,7 +253,8 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	if (/\bmake a template from this draft\b/i.test(ask) && INVITE.test(earlier)) {
 		if (!canPropose) return null;
 		if (!last)
-			return read("communication.resolveAudience", {
+			return read("communication.preview", {
+				...firstDraft(),
 				audience: { groups: ["prospects"] },
 				meetingWords: "vision night",
 			});

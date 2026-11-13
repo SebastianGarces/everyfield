@@ -117,7 +117,7 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
-	"communication.resolveAudience": people("Who it reaches", {
+	"communication.preview": people("Who it reaches", {
 		empty: "Nobody in this church is in that audience, or you can't see them.",
 	}),
 	"communication.get": people("Email results", {
@@ -125,12 +125,12 @@ const VIEWS: Record<string, OpView> = {
 		empty: "No email in Messages matches, or you can't see it.",
 	}),
 	"communication.forPerson": {
-		title: "Emails and contacts",
+		title: "Emails",
 		noun: ["email", "emails"],
 		icon: "message",
 		counts: "message",
 		shownOnly: true,
-		empty: "Messages has no email to this person, and no call or visit is recorded.",
+		empty: "Messages has no email to this person.",
 	},
 	"communication.templates.list": {
 		title: "Email templates",
@@ -295,14 +295,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "skill",
 			};
 		case "activity": {
-			// A recorded call, visit or other contact (communication.forPerson): never an email.
-			if ("channel" in fields)
-				return {
-					...plain,
-					name: row.label,
-					line: joined(text(fields.channel) ? words(String(fields.channel)) : null, text(fields.occurredAt)),
-					avatar: "activity",
-				};
 			// Note text never reaches the card: a note row says only that a note was added or removed, and when.
 			const kind = fields.kind;
 			const name =

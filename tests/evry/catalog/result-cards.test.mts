@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, WELCOME } from "../evals/golden-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -46,6 +46,16 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"communication.preview": {
+		subject: "You're invited: Vision Night",
+		body: "Hi {{name}}, come to Vision Night.",
+		audience: { groups: ["prospects"], teamIds: [], personIds: [] },
+		meetingWords: "vision night",
+	},
+	"communication.get": {},
+	"communication.forPerson": { personId: byName("Maria Santos").id },
+	"communication.templates.list": {},
+	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

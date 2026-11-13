@@ -147,7 +147,9 @@ const recipientRow = (actor: EvryActor, r: z.infer<typeof resultRow>) =>
 	personRow(actor, r.id, r.name, { result: r.result, deliveredAt: r.delivered_at, openedAt: r.opened_at });
 
 const meetingRow = z.object({ id: z.uuid(), title: z.string(), type: z.string(), starts: z.string() });
-const resolveInput = z.strictObject({
+const previewInput = z.strictObject({
+	subject: z.string().trim().min(1).max(200).describe("The drafted subject"),
+	body: z.string().trim().min(1).max(20_000).describe("The drafted body, plain text"),
 	audience: audienceInput,
 	meetingWords: z
 		.string()
@@ -163,11 +165,11 @@ const resolveInput = z.strictObject({
 		.describe("That meeting's local date, like 2026-10-15"),
 });
 
-export const resolveAudience: ReadAdapter<z.infer<typeof resolveInput>> = {
-	operation: "communication.resolveAudience",
+export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
+	operation: "communication.preview",
 	description:
-		"Before drafting or sending, see exactly who an email audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address). With meetingWords or meetingOn it also returns the church's upcoming meetings that match, so the email can name the right one. Saves and sends nothing.",
-	input: resolveInput,
+		"Check an email you have drafted (subject and body) before it is saved or sent: exactly who its audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address); the left-out come first, so name them and their reasons. When the email is about a meeting, meetingWords or meetingOn also returns the church's matching meetings, newest first, so the email names the right one. Saves and sends nothing.",
+	input: previewInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const plant = actor.owner.id;
@@ -178,15 +180,14 @@ export const resolveAudience: ReadAdapter<z.infer<typeof resolveInput>> = {
 			.map((w) => `%${w}%`);
 		const wantMeeting = words.length > 0 || input.meetingOn !== undefined;
 		const r = await tx.execute(sql`WITH ${classifiedPeople(plant, input.audience, null)}
-			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY name,id) FROM classified),'[]'::jsonb) AS people,
-				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'starts',x.starts) ORDER BY x.starts_at)
+			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,name,id) FROM classified),'[]'::jsonb) AS people,
+				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'starts',x.starts) ORDER BY x.starts_at DESC)
 					FROM (SELECT mt.id,mt.title,mt.type,mt.starts_at,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
 						FROM meeting mt WHERE mt.plant_id=${plant}::uuid AND mt.status<>'cancelled'
-							AND mt.local_date>=(clock_timestamp() AT TIME ZONE mt.timezone)::date
 							AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
 							AND (cardinality(${sql.param(words)}::text[])=0 OR EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w(p)
 								WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p))
-						ORDER BY mt.starts_at LIMIT 5) x),'[]'::jsonb) END AS meetings
+						ORDER BY mt.starts_at DESC LIMIT 3) x),'[]'::jsonb) END AS meetings
 			WHERE ${live(actor)}`);
 		if (!r.rows.length) throw new EvryRefusal("access_denied");
 		const found = z
@@ -205,7 +206,7 @@ export const resolveAudience: ReadAdapter<z.infer<typeof resolveInput>> = {
 			...found.people.map((p) => personRow(actor, p.id, p.name, { leftOut: p.reason })),
 		];
 		return {
-			operation: "communication.resolveAudience",
+			operation: "communication.preview",
 			status: rows.length ? "available" : "not_found",
 			rows,
 			total: found.people.length,
@@ -215,7 +216,7 @@ export const resolveAudience: ReadAdapter<z.infer<typeof resolveInput>> = {
 			exclusions: [
 				"email addresses",
 				"addresses the email service blocks: the send review checks them",
-				...(wantMeeting && !found.meetings?.length ? ["no upcoming meeting matched"] : []),
+				...(wantMeeting && !found.meetings?.length ? ["no meeting matched"] : []),
 			],
 		};
 	},
@@ -315,7 +316,7 @@ const WENT_OUT = `(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.acce
 export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 	operation: "communication.forPerson",
 	description:
-		"The emails Messages sent one person, newest first, each with that person's result (sent, delivered, opened, bounced, failed, checking), and separately the calls, visits and other contacts recorded for them (activity rows). An email is never a call. With no personId: the live people in this church that no email has gone out to.",
+		"The emails Messages sent one person, newest first, each with that person's result (sent, delivered, opened, bounced, failed, checking). Calls, visits and other recorded contacts are not in it, and an email is never one. With no personId: the live people in this church that no email has gone out to.",
 	input: forPersonInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -352,10 +353,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 						${sql.raw(local("m.delivered_at"))} AS delivered_at,${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))} AS opened_at
 					FROM mail m JOIN communication c ON c.id=m.communication_id AND c.plant_id=m.tenant_id
 					WHERE m.tenant_id=${plant}::uuid AND m.recipient_person_id=${input.personId}::uuid AND m.purpose='communication'
-					ORDER BY at DESC LIMIT ${limit}) x),'[]'::jsonb) AS emails,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id',o.id,'outcome',o.outcome,'channel',o.contact_channel,
-						'occurred_at',${sql.raw(local("o.occurred_at"))}) ORDER BY o.occurred_at DESC)
-					FROM contact_outcome o WHERE o.plant_id=${plant}::uuid AND o.person_id=${input.personId}::uuid AND o.voided_at IS NULL),'[]'::jsonb) AS contacts
+					ORDER BY at DESC LIMIT ${limit}) x),'[]'::jsonb) AS emails
 			FROM plant pl WHERE pl.id=${plant}::uuid AND ${live(actor)}`);
 		const found = z
 			.object({
@@ -370,9 +368,6 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 						opened_at: z.string().nullable(),
 					}),
 				),
-				contacts: z.array(
-					z.object({ id: z.uuid(), outcome: z.string(), channel: z.string().nullable(), occurred_at: z.string() }),
-				),
 			})
 			.optional()
 			.parse(r.rows[0]);
@@ -384,22 +379,21 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 				label: e.subject,
 				fields: { sentAt: e.sent_at, result: e.result, deliveredAt: e.delivered_at, openedAt: e.opened_at },
 			})),
-			...found.contacts.map((o) => ({
-				kind: "activity" as const,
-				id: o.id,
-				label: `Recorded contact: ${o.outcome.replaceAll("_", " ")}`,
-				fields: { channel: o.channel, occurredAt: o.occurred_at },
-			})),
 		];
 		return {
 			operation: "communication.forPerson",
-			status: rows.length ? "available" : "not_found",
+			status: "available",
 			rows,
 			total: rows.length,
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: ["email addresses", "message bodies", OPEN_NOTE, "calls in the emails (an email is never a call)"],
+			exclusions: [
+				"email addresses",
+				"message bodies",
+				OPEN_NOTE,
+				"calls, visits and other recorded contacts (an email is never one)",
+			],
 		};
 	},
 };
@@ -467,7 +461,7 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 				${sql.raw(local(`${sentAt("c")}+interval '24 hours'`))} AS resend_from,
 				coalesce(${sql.raw(sentAt("c"))}+interval '24 hours'>clock_timestamp(),true) AS too_soon,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('id',z.id,'name',z.name,'result',z.result,'hard_reason',z.hard_reason) ORDER BY z.name,z.id)
-					FROM (SELECT y.id,y.name,y.result,coalesce(y.hard_reason,CASE WHEN row_number() OVER (PARTITION BY y.hard_reason IS NULL,y.address_hash ORDER BY y.name,y.id)>1
+					FROM (SELECT y.id,y.name,y.result,coalesce(y.hard_reason,CASE WHEN row_number() OVER (PARTITION BY y.hard_reason IS NULL,coalesce(y.address_hash,y.id::text) ORDER BY y.name,y.id)>1
 						THEN 'duplicate_address' END) AS hard_reason
 					FROM (SELECT DISTINCT ON (p.id) p.id,p.display_name AS name,m.address_hash,${sql.raw(RESULT)} AS result,
 						-- Who no resend may reach now, whatever the email service said before: the same rules as a send.
@@ -537,7 +531,7 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 /** The installed Communication read tools, in catalog order. */
 export const COMMUNICATION_READS = [
 	listMessages,
-	resolveAudience,
+	preview,
 	getMessage,
 	forPerson,
 	listTemplates,

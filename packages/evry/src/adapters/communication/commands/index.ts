@@ -729,7 +729,7 @@ const sendInput = z.strictObject({
 	subject: z.string().trim().min(1).max(200).optional(),
 	body: z.string().trim().min(1).max(20_000).optional().describe("Plain text. A blank line starts a new paragraph."),
 	audience: audienceInput.optional(),
-	meetingId: z.uuid().optional().describe("The meeting the email is about, from communication.resolveAudience"),
+	meetingId: z.uuid().optional().describe("The meeting the email is about, from communication.preview"),
 });
 const savedSend = z.object({
 	expectedRevision: z.string().nullable(),
@@ -881,11 +881,15 @@ const savedResend = z.object({
 });
 type Selection = "delivered_nonopeners" | "proven_failed";
 
-function resendWrite(
-	selection: Selection,
-	operation: string,
-	description: string,
-): ReviewedWrite<z.infer<typeof resendInput>> {
+function resendWrite({
+	selection,
+	operation,
+	description,
+}: {
+	selection: Selection;
+	operation: string;
+	description: string;
+}): ReviewedWrite<z.infer<typeof resendInput>> {
 	return {
 		operation,
 		description,
@@ -949,16 +953,18 @@ function resendWrite(
 	};
 }
 
-export const resend = resendWrite(
-	"delivered_nonopeners",
-	"communication.executeResend",
-	"Propose resending a sent email to the people it was delivered to who have no open recorded, once 24 hours have passed since it was sent and a delivery is confirmed. Open tracking is not reliable. Nothing is sent until the user approves the review.",
-);
-export const retryFailed = resendWrite(
-	"proven_failed",
-	"communication.retryProvenFailed",
-	"Propose sending a sent email again to only the recipients the email service refused or bounced for certain. A recipient whose result is still being checked is never sent again. Nothing is sent until the user approves the review.",
-);
+export const resend = resendWrite({
+	selection: "delivered_nonopeners",
+	operation: "communication.executeResend",
+	description:
+		"Propose resending a sent email to the people it was delivered to who have no open recorded, once 24 hours have passed since it was sent and a delivery is confirmed. Open tracking is not reliable. Nothing is sent until the user approves the review.",
+});
+export const retryFailed = resendWrite({
+	selection: "proven_failed",
+	operation: "communication.retryProvenFailed",
+	description:
+		"Propose sending a sent email again to only the recipients the email service refused or bounced. A recipient whose result is still being checked is never sent again. Nothing is sent until the user approves the review.",
+});
 
 // --- 8. communication.deleteDraft -----------------------------------------------------------------------------
 

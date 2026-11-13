@@ -630,7 +630,7 @@
 			"area": "Communication",
 			"case_id": "COM-01",
 			"question": "draft an email inviting all our prospects to vision night",
-			"status": "Partially",
+			"status": "Supported",
 			"expected_operation": "nonpersistent draft now; audience needs `communication.resolveAudience`, saving needs `communication.saveDraft`",
 			"expected_answer": "Full alpha target: an unsent nonpersistent draft with the actual eligible audience and exclusions; save only after separate exact review",
 			"must_not": "Say it was sent or saved"
@@ -642,7 +642,7 @@
 			"area": "Communication",
 			"case_id": "COM-02",
 			"question": "ok send it",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `communication.preview` + `communication.sendReviewed` proposal (WP-072)",
 			"expected_answer": "Today: can't send; later an exact review of recipients and bytes",
 			"must_not": "Treat this chat yes as approval"
@@ -654,7 +654,7 @@
 			"area": "Communication",
 			"case_id": "COM-03",
 			"question": "did maria open my last email",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `communication.forPerson`",
 			"expected_answer": "Later: delivery facts; an open is not attendance or contact",
 			"must_not": "Equate opens with interest or attendance"
@@ -678,7 +678,7 @@
 			"area": "Communication",
 			"case_id": "COM-06",
 			"question": "who hasn't heard from us at all",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `communication.list` per person",
 			"expected_answer": "Later: people with no recorded outbound",
 			"must_not": "Treat no data as no email"
@@ -690,7 +690,7 @@
 			"area": "Communication",
 			"case_id": "COM-07",
 			"question": "what email templates do we have",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `communication.templates.list`",
 			"expected_answer": "Later: template names",
 			"must_not": "List generic templates as if saved"
