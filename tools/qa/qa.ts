@@ -81,6 +81,25 @@ function tool(
 
 const json = <T>(r: Result): T => JSON.parse(r.stdout) as T;
 
+/**
+ * The deployment URL `vercel deploy` printed. Off a terminal, Vercel CLI 65 prints one JSON object with the URL at
+ * `deployment.url`; older CLIs print the bare URL as their last stdout line.
+ */
+function deploymentUrl(stdout: string): string | undefined {
+	const isUrl = (s: unknown): s is string => typeof s === "string" && /^https:\/\/\S+\.vercel\.app$/.test(s);
+	try {
+		const url = (JSON.parse(stdout) as { deployment?: { url?: unknown } }).deployment?.url;
+		if (isUrl(url)) return url;
+	} catch {
+		// Not JSON: an older CLI's plain lines.
+	}
+	return stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(isUrl)
+		.pop();
+}
+
 function neon(redactor: Redactor, ...args: string[]): Result {
 	return tool(redactor, "neonctl", [...args, "--project-id", NEON_PROJECT]);
 }
@@ -286,7 +305,9 @@ function deployCheckout(
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
-			IDENTITY_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.runtime, rolePassword),
+			// Direct, not pooled: the cron's job pool sets statement_timeout as a startup option, which Neon's pooler refuses
+			// (08P01 unsupported startup parameter), so every scheduled job failed on the pooled endpoint.
+			IDENTITY_DATABASE_URL: roleUrl(p.direct, QA_ROLES.runtime, rolePassword),
 			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.auth, rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
@@ -303,12 +324,7 @@ function deployCheckout(
 		const flags = Object.entries(settings).flatMap(([k, v]) => ["-e", `${k}=${v}`, "-b", `${k}=${v}`]);
 		console.error("qa up: deploying to a Vercel preview (several minutes).");
 		const deployed = tool(redactor, "vercel", ["deploy", "--yes", "--target", "preview", ...flags], { cwd: checkout });
-		const deployment = deployed.stdout
-			.trim()
-			.split("\n")
-			.map((line) => line.trim())
-			.filter((line) => /^https:\/\/\S+\.vercel\.app$/.test(line))
-			.pop();
+		const deployment = deploymentUrl(deployed.stdout);
 		if (!deployment) fail("vercel deploy printed no deployment URL.");
 		setDeployment(root, p.id, deployment);
 		tool(redactor, "vercel", ["alias", "set", deployment, aliasHost(p.id), "--scope", VERCEL.orgId], { cwd: checkout });
