@@ -42,7 +42,7 @@ export type FormState = {
 
 export const START: FormState = { step: 0, values: {}, errors: {}, status: "editing" };
 
-export const stepFields = (s: Pick<FormState, "who" | "step">): readonly string[] =>
+const stepFields = (s: Pick<FormState, "who" | "step">): readonly string[] =>
 	s.who && s.step > 0 ? (FIELD_STEPS[kindOf(s.who)][s.step - 1] ?? []) : [];
 
 /** The answers one request kind sends: its own fields only. */

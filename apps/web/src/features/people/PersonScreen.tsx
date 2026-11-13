@@ -34,7 +34,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useOptimistic, useRef, useState } from "react";
+import { useOptimistic, useRef, useState, type ComponentProps } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
@@ -47,10 +47,11 @@ import { HouseholdCard } from "./fields/HouseholdCard.tsx";
 import type { HouseholdResult, PersonFields } from "./fields/model.ts";
 import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
+import { MinistryRoles } from "./corrections/MinistryRoles.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
-import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
+import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
@@ -86,6 +87,7 @@ export function PersonScreen({
 	documentsEnabled,
 	duplicates: initialDuplicates = null,
 	followedMerge = false,
+	ministries = null,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -110,6 +112,8 @@ export function PersonScreen({
 	duplicates?: Hints | null;
 	/** The page opened from a link to a person who was merged into this one. */
 	followedMerge?: boolean;
+	/** The person's ministry roles, now and before (WP-017). Null for a person they do not apply to. */
+	ministries?: ComponentProps<typeof MinistryRoles>["initial"] | null;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -192,7 +196,7 @@ export function PersonScreen({
 		setStale(false);
 	}
 
-	/** Every record Correct a record saved on this page, the newest per record, so each card shows its corrected values. */
+	/** Every record Edit a record saved on this page, the newest per record, so each card shows its edited values. */
 	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
@@ -258,12 +262,14 @@ export function PersonScreen({
 									<MenuItem icon={Edit02Icon} onSelect={() => setOpen("profile")}>
 										Edit profile
 									</MenuItem>
-									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
-										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
-									</MenuItem>
 									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
-										Correct a record
+										Edit a record
 									</MenuItem>
+									{p.birthDate ? null : (
+										<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
+											{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
+										</MenuItem>
+									)}
 									<MenuSeparator />
 									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
 										Retire person
@@ -465,6 +471,9 @@ export function PersonScreen({
 									/>
 								</>
 							) : null}
+							{ministries ? (
+								<MinistryRoles key={`ministries-${generation}`} initial={ministries} canCorrect={canWrite} />
+							) : null}
 							<Card>
 								<CardHeader className="mb-2">
 									<CardHeading>
@@ -475,7 +484,16 @@ export function PersonScreen({
 									<KeyValue
 										size="sm"
 										k="Adult or child"
-										value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
+										value={
+											p.adultClassification === "unknown" ? null : p.adultClassificationSource === "birth_date" ? (
+												<span className="flex items-center gap-2">
+													{CLASSIFICATION_LABEL[p.adultClassification]}
+													<span className="text-text-3">From birth date</span>
+												</span>
+											) : (
+												CLASSIFICATION_LABEL[p.adultClassification]
+											)
+										}
 									/>
 									{records ? null : (
 										<KeyValue
@@ -498,7 +516,8 @@ export function PersonScreen({
 									)}
 								</KeyValueList>
 								<p className="mt-3 text-xs text-text-3">
-									Recorded facts only. The stage alone never counts as a commitment or as adult.
+									Recorded facts only. A birth date sets adult or child. The stage alone never counts as a commitment or
+									as adult.
 								</p>
 							</Card>
 							{p.summaryNotes ? (
@@ -557,12 +576,12 @@ export function PersonScreen({
 						<RestoreDialog open onOpenChange={toggle("restore")} store={store} onSaved={saved} onConflict={reload} />
 					) : null}
 					{open === "correct" ? (
-						<CorrectRecordDialog
+						<EditRecordDialog
 							person={p}
 							store={store}
 							accountId={accountId}
 							onClose={close}
-							onCorrected={(receipt, next) => {
+							onEdited={(receipt, next) => {
 								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
 								if (receipt)
 									saved(receipt, {

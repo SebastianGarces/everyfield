@@ -22,7 +22,8 @@ import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 // change and its audit row commit together; anything that changed since the review refuses instead of being
 // overwritten.
 
-const ownerOrAdmin = (actor: EvryActor) =>
+/** The Owner or Admin of the selected church: the actors who may change People, and review import duplicates. */
+export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 /** The live person in the actor's church, as `p`. */
 const target = (actor: EvryActor, personId: string) =>
@@ -35,7 +36,7 @@ const change = (field: string, before: SQL, after: unknown) =>
  * refuses when the open tasks changed since, so a task is never handed off unreviewed.
  */
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
-	FROM task t WHERE t.plant_id=p.plant_id AND (t.person_id=p.id OR t.assignee_id=p.linked_account_id)
+	FROM task t WHERE t.plant_id=p.plant_id AND (t.person_id=p.id OR EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=p.linked_account_id))
 		AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed'))`;
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
@@ -85,7 +86,7 @@ const personId = z.uuid();
 const reason = changeStatusRequest.shape.input.shape.reason;
 
 const createInput = createPersonRequest.shape.input;
-export const createPerson = reviewed({
+const createPerson = reviewed({
 	operation: "people.createPerson",
 	description:
 		"Propose adding one person to this church with their name, contact, address, stage, source and notes. Nothing changes until the user approves the exact review.",
@@ -103,7 +104,7 @@ export const createPerson = reviewed({
 
 const patch = updatePersonRequest.shape.input.shape.patch.refine((p) => Object.keys(p).length > 0, "empty patch");
 const columns = new Map<string, string>(Object.entries(contactColumns));
-export const updatePerson = reviewed({
+const updatePerson = reviewed({
 	operation: "people.updatePerson",
 	description:
 		"Propose a change to one person's name, contact, address, source, notes or birth date. Nothing changes until the user approves the exact review.",
@@ -126,7 +127,7 @@ export const updatePerson = reviewed({
 });
 
 const core = sql`('core_group','launch_team','leader')`;
-export const changeStatus = reviewed({
+const changeStatus = reviewed({
 	operation: "people.changeStatus",
 	description:
 		"Propose moving one person to another pipeline stage, with the reason. Leaving the core stages hands their open tasks back as needing an owner. Nothing changes until the user approves the exact review.",
@@ -144,7 +145,7 @@ export const changeStatus = reviewed({
 		personReceipt(await peopleWriter.changeStatus(tx, context, request, reminders)),
 });
 
-export const deletePerson = reviewed({
+const deletePerson = reviewed({
 	operation: "people.deletePerson",
 	description:
 		"Propose removing one person from this church's current people, with the reason. Their history stays and their open tasks need a new owner. Nothing changes until the user approves the exact review.",
@@ -162,7 +163,7 @@ export const deletePerson = reviewed({
 		personReceipt(await peopleWriter.retirePerson(tx, context, request, reminders)),
 });
 
-export const setPersonPhoto = reviewed({
+const setPersonPhoto = reviewed({
 	operation: "people.setPersonPhoto",
 	description:
 		"Propose making a photo the user uploaded in this church the person's photo. Nothing changes until the user approves the exact review.",
@@ -179,7 +180,7 @@ export const setPersonPhoto = reviewed({
 	run: async (tx, context, request) => photoReceipt(await personFields.setPersonPhoto(tx, context, request)),
 });
 
-export const removePersonPhoto = reviewed({
+const removePersonPhoto = reviewed({
 	operation: "people.removePersonPhoto",
 	description: "Propose removing one person's photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId }),

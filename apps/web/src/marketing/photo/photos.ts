@@ -10,11 +10,9 @@ import lilies from "./files/lilies.jpg";
 import lupins from "./files/lupins.jpg";
 import marigolds from "./files/marigolds.jpg";
 import meadow from "./files/meadow.jpg";
-import plain from "./files/plain.jpg";
 import poppies from "./files/poppies.jpg";
 import reeds from "./files/reeds.jpg";
 import swirl from "./files/swirl.jpg";
-import wheat from "./files/wheat.jpg";
 import wildflowers from "./files/wildflowers.jpg";
 
 type Crop = {
@@ -31,10 +29,8 @@ type Crop = {
 export const PHOTOS = {
 	// Landscapes.
 	field: { src: field, pos: "50% 16%" },
-	plain: { src: plain, pos: "30% 70%" },
 	reeds: { src: reeds, pos: "50% 72%" },
 	lake: { src: lake, pos: "50% 67%" },
-	wheat: { src: wheat, pos: "50% 62%" },
 	// Blurred colorful photos: the heroes and the phase-card rail.
 	bluebells: { src: bluebells, pos: "30% 40%" },
 	poppies: { src: poppies, pos: "50% 92%", zoom: 1.5 },
@@ -50,13 +46,12 @@ export const PHOTOS = {
 } as const satisfies Record<string, Crop>;
 
 export type PhotoName = keyof typeof PHOTOS;
-export type MeshTone = "field" | "sky" | "sage" | "rose";
 
 /**
  * What a surface shows: a treated photo, or a muted gradient when the slot holds a colorful UI card (photo rule 2).
  * No photo may appear twice on one page (photo rule 3).
  */
-export type Backdrop = PhotoName | `mesh:${MeshTone}`;
+export type Backdrop = PhotoName;
 
 /** The hero photos (home = wildflowers, /oversight = bluebells). */
 export type HeroPhoto = "wildflowers" | "bluebells";

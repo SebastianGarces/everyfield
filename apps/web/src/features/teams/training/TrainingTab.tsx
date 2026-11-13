@@ -30,6 +30,7 @@ import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/s
 import { dayText } from "../model.ts";
 import {
 	attestCompletion,
+	attestService,
 	correctProgram,
 	createProgram,
 	loadTraining,
@@ -86,7 +87,7 @@ export function TrainingTab({
 
 	useEffect(() => {
 		let live = true;
-		loadTraining().then(
+		loadTraining(teamId).then(
 			(result) => {
 				if (!live) return;
 				setPending(false);
@@ -176,15 +177,12 @@ export function TrainingTab({
 					what: `Who must finish ${form.programName}`,
 					done: "saved",
 					form,
-					send: async (key) => {
-						const preview = await previewRoster(form.programId, form.personIds);
-						if (preview.status !== "ok") return preview;
-						return saveRoster(key, preview.value.revision, {
+					send: (key) =>
+						saveRoster(key, form.revision, {
 							programId: form.programId,
-							personIds: preview.value.personIds,
-							rosterDigest: preview.value.rosterDigest,
-						});
-					},
+							personIds: form.personIds,
+							rosterDigest: form.rosterDigest!,
+						}),
 					ok: (value) => {
 						setPrograms((rows) => applyRoster(rows ?? [], value));
 						tell(
@@ -235,8 +233,7 @@ export function TrainingTab({
 					done: "recorded",
 					form,
 					send: (key) =>
-						attestCompletion(key, "0", {
-							kind: "service",
+						attestService(key, {
 							personId: form.personId!,
 							attendanceDays: Number(form.attendanceDays),
 							volunteerDays: Number(form.volunteerDays),
@@ -374,6 +371,7 @@ export function TrainingTab({
 					rosterKnown={rosterKnown}
 					problem={lane.problem}
 					wait={lane.wait}
+					onStale={reload}
 					onClose={lane.close}
 					onSubmit={submit}
 				/>
@@ -467,6 +465,7 @@ function TrainingDialogs({
 	rosterKnown,
 	problem,
 	wait,
+	onStale,
 	onClose,
 	onSubmit,
 }: {
@@ -476,6 +475,7 @@ function TrainingDialogs({
 	rosterKnown: boolean;
 	problem?: string;
 	wait: ReturnType<typeof useSaveIntent<Flow>>["wait"];
+	onStale: () => void;
 	onClose: () => void;
 	onSubmit: (form: Flow) => void;
 }) {
@@ -496,6 +496,8 @@ function TrainingDialogs({
 				rosterKnown={rosterKnown}
 				problem={problem}
 				wait={wait}
+				preview={(personIds) => previewRoster(editing.programId, personIds)}
+				onStale={onStale}
 				onClose={onClose}
 				onSubmit={onSubmit}
 			/>

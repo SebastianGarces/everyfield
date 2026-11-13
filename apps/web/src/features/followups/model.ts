@@ -1,7 +1,10 @@
 // Pure rules of the follow-up screens (REQ-MTG-021, REQ-MTG-022, REQ-TSK-004, REQ-TSK-012, REQ-TSK-013). No React and
 // no server code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/followups";
+import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
+import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
+import { lacksOwner } from "../tasks/model.ts";
 
 export type OutcomeValue = z.infer<typeof c.outcome>;
 export type Channel = z.infer<typeof c.channel>;
@@ -16,9 +19,43 @@ export type Owners = z.infer<typeof c.followUpOwners>;
 export type HandoffPlan = z.infer<typeof c.handoffPlan>;
 export type HandoffResult = z.infer<typeof c.handoffResult>;
 export type Account = HandoffPlan["recipients"][number];
+export type FollowUpOrigin = z.infer<typeof c.followUpOrigin>;
+
+/** Where a follow-up came from, in words: "After Vision Meeting #4" or "Added by Ruth Allen". */
+export const originText = (o: FollowUpOrigin): string =>
+	o.kind === "meeting" ? `After ${o.meeting.label}` : o.by ? `Added by ${o.by}` : "Added by hand";
+/** Whether a follow-up counts as Needs owner: nobody holds it, or nobody who holds it can own it now (D-a, REQ-TSK-012). */
+export const needsOwner = (d: Pick<DutyItem, "owners">) => lacksOwner(d.owners);
+export type Owner = DutyItem["owners"][number];
+
+/**
+ * Who Correct attendance offers for "Follow-up calls go to" (D-e): the set of eligible owners that most of a meeting's
+ * open follow-ups have; a tie goes to the set of the most recent follow-up (the list is newest first). Empty when no
+ * open follow-up has an eligible owner, so it reads Needs owner only then.
+ */
+export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "state" | "owners">[]): string[] {
+	const held = new Map<string, { n: number; ids: string[] }>();
+	for (const o of items) {
+		if (o.kind !== "first_vision_follow_up" || o.state !== "open") continue;
+		const ids = o.owners
+			.filter((x) => x.eligible)
+			.map((x) => x.accountId)
+			.sort();
+		if (!ids.length) continue;
+		const key = ids.join(",");
+		held.set(key, { n: (held.get(key)?.n ?? 0) + 1, ids });
+	}
+	let best: { n: number; ids: string[] } | null = null;
+	for (const set of held.values()) if (best === null || set.n > best.n) best = set;
+	return best ? best.ids : [];
+}
 
 /** A server answer, or none: `lost` means the reply never arrived, so the save may or may not have happened. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
+
+/** A domain reply as a server answer: the error keeps only its code. */
+export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
+	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 export const OUTCOMES: readonly OutcomeValue[] = [
 	"contacted",
@@ -66,6 +103,11 @@ export type Draft = {
 	notes: string;
 	/** Complete the follow-up with this outcome. A separate choice from the outcome (REQ-MTG-022). */
 	complete: boolean;
+	/**
+	 * A correction's recorded time: the stored instant and the `at` it shows as. While `at` still reads the same, the
+	 * save sends the stored instant unchanged, so seconds and the zone it was entered in are never rewritten.
+	 */
+	stored?: { at: string; instant: string };
 };
 export const emptyDraft = (): Draft => ({ outcome: "", when: "", at: "", channel: "", notes: "", complete: false });
 /**
@@ -100,7 +142,8 @@ export function outcomeInput(
 	if (!d.outcome) errors.outcome = "Choose what happened.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
-	if (d.when === "earlier") {
+	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;
+	else if (d.when === "earlier") {
 		const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d.at) ? new Date(d.at) : null;
 		if (!parsed || Number.isNaN(parsed.getTime())) errors.at = "Enter the date and time it happened.";
 		else if (parsed.getTime() > now.getTime()) errors.at = "This time is in the future. Choose a time that has passed.";
@@ -137,13 +180,15 @@ export function localInputOf(at: string | Date): string {
 }
 /** The form for correcting a recorded outcome: its current values, said again by the person. */
 export function draftOf(item: OutcomeItem): Draft {
+	const at = localInputOf(item.occurredAt);
 	return {
 		outcome: item.outcome,
 		when: "earlier",
-		at: localInputOf(item.occurredAt),
+		at,
 		channel: item.channel ?? "",
 		notes: item.notes ?? "",
 		complete: item.completedTask,
+		stored: { at, instant: item.occurredAt },
 	};
 }
 
@@ -161,7 +206,10 @@ export function withOutcome(items: readonly OutcomeItem[], m: Pick<OutcomeMutati
 	);
 }
 
-export const FOLLOW_UP_WINDOW_MS = 48 * 60 * 60 * 1000;
+/** The call screen's Recent list after a saved outcome: the latest three by the contact log's order (withOutcome). */
+export const recentAfter = (items: readonly OutcomeItem[], m: Pick<OutcomeMutation, "record" | "previous">) =>
+	withOutcome(items, m).slice(0, 3);
+
 /**
  * The 48-hour window of a first-Vision follow-up at `now`, from the meeting's actual start (REQ-MTG-021): hours left
  * while it is open, rounded down, or closed. The measure itself is the server's; this is only the countdown.
@@ -189,24 +237,10 @@ export function measurementText(m: NonNullable<ObligationItem["measurement"]>): 
 	return { text: why[m.reason], status: "unknown" };
 }
 
-/**
- * The eligible follow-up owners (REQ-TSK-012) from a handoff preview of the viewer's own account: the other eligible
- * accounts, plus the viewer when the viewer is eligible. Sorted by name.
- */
-export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Account[] {
-	const me =
-		plan.from.eligible && plan.from.displayName !== null
-			? [{ accountId: plan.from.accountId, displayName: plan.from.displayName }]
-			: [];
-	return [...me, ...plan.recipients].sort(
-		(a, b) => a.displayName.localeCompare(b.displayName) || a.accountId.localeCompare(b.accountId),
-	);
-}
-
+/** Contact log entries per page on the Person page and in the task panel; "Show earlier" reads the next one. */
+export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */
 export const COVERAGE_PAGE = 24;
-/** The most follow-ups one handoff request may move (REQ-TSK-013). */
-export const HANDOFF_LIMIT = 100;
 /**
  * A handoff selection after the preview was read again: the person's own choice, kept for the follow-ups still in the
  * preview, with their latest revisions. Follow-ups that left the preview drop out; none is added.
@@ -243,17 +277,21 @@ export function problemText(code: string): string {
 /** The Follow-ups page's totals: open follow-ups per current owner, per former owner, without owner, contacts with none. */
 export type Totals = Pick<Coverage, "owners" | "formerOwners" | "needsOwner" | "uncovered">;
 type Move = {
-	from: Account | null | "new";
-	to: Account | null;
-	/** The account still stored on a Needs owner follow-up that can no longer own it (REQ-TSK-013). */
-	former?: Account | null;
+	/** Who held the follow-up before, or "new" for one just created. */
+	before: readonly Owner[] | "new";
+	/** Who holds it now: each eligible owner counts it, and an ineligible one stays on the handoff tally (REQ-TSK-013). */
+	after: readonly Owner[];
 	firstForContact?: boolean;
 };
+/** One follow-up changing hands, for the totals: from `before`'s owners to `after`'s. */
+export const moveOf = (before: Pick<DutyItem, "owners">, after: readonly Owner[]): Move => ({
+	before: before.owners,
+	after,
+});
 /**
- * The totals after follow-ups changed owner, from the server's answers (REQ-TSK-012, REQ-TSK-013): each move takes one
- * open follow-up from `from` (an owner, Needs owner, or "new" for a follow-up just created) and gives it to `to`. A move
- * off a former owner's follow-up also takes it from that former owner. A new follow-up for a contact that had none takes
- * that contact out of "no follow-up".
+ * The totals after follow-ups changed owners, from the server's answers (REQ-TSK-012, REQ-TSK-013, D-a): a follow-up
+ * counts once under each eligible owner, under Needs owner when it has none, and under each ineligible owner on the
+ * handoff tally. A new follow-up for a contact that had none takes that contact out of "no follow-up".
  */
 export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	const tally = (list: Totals["owners"]) => new Map(list.map((o) => [o.accountId, { ...o }]));
@@ -261,16 +299,20 @@ export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	const former = tally(t.formerOwners);
 	let { needsOwner, uncovered } = t;
 	const add = (map: typeof owners, who: Account, n: number) => {
-		const o = map.get(who.accountId) ?? { ...who, open: 0 };
+		const o = map.get(who.accountId) ?? { accountId: who.accountId, displayName: who.displayName, open: 0 };
 		o.open += n;
 		if (o.open > 0) map.set(who.accountId, o);
 		else map.delete(who.accountId);
 	};
-	const give = (who: Account | null, n: number) => (who ? add(owners, who, n) : void (needsOwner += n));
+	const count = (list: readonly Owner[], n: 1 | -1) => {
+		const eligible = list.filter((o) => o.eligible);
+		for (const o of eligible) add(owners, o, n);
+		if (!eligible.length) needsOwner += n;
+		for (const o of list.filter((x) => !x.eligible)) add(former, o, n);
+	};
 	for (const m of moves) {
-		if (m.from !== "new") give(m.from, -1);
-		give(m.to, 1);
-		if (m.former && m.to) add(former, m.former, -1);
+		if (m.before !== "new") count(m.before, -1);
+		count(m.after, 1);
 		if (m.firstForContact) uncovered -= 1;
 	}
 	const sorted = (map: typeof owners) =>
@@ -285,5 +327,5 @@ export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	};
 }
 /** A contact's coverage from its open follow-ups: none is "uncovered", any without an owner is "needs_owner". */
-export const coverageOf = (duties: readonly Pick<DutyItem, "owner">[]): "owned" | "needs_owner" | "uncovered" =>
-	duties.length === 0 ? "uncovered" : duties.some((d) => !d.owner) ? "needs_owner" : "owned";
+export const coverageOf = (duties: readonly Pick<DutyItem, "owners">[]): "owned" | "needs_owner" | "uncovered" =>
+	duties.length === 0 ? "uncovered" : duties.some(needsOwner) ? "needs_owner" : "owned";

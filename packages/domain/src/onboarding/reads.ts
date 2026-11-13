@@ -55,28 +55,18 @@ export async function readOnboardingEntry(
 	const [row] = await db
 		.select({ state: t.account.registration_state, kind: t.account.registration_kind, revision: t.account.revision })
 		.from(t.account)
-		.where(eq(t.account.id, s.accountId));
+		// The session must still be live for this account when its facts are read (C13). A pending account has no seat
+		// or active registration yet, so the check is the session itself.
+		.where(
+			and(
+				eq(t.account.id, s.accountId),
+				sql`EXISTS(SELECT FROM live_session(${s.sessionId}::uuid) l WHERE l.account_id=${t.account.id})`,
+			),
+		);
 	if (!row) return { kind: "elsewhere", reason: "unavailable" };
 	if (!verified) return { kind: "confirm_email" };
 	if (row.state === "active") return { kind: "start", offer: "either", accountRevision: String(row.revision) };
 	if (row.kind === "planter") return { kind: "start", offer: "planter", accountRevision: String(row.revision) };
 	if (row.kind === "discovery") return { kind: "start", offer: "discovery", accountRevision: String(row.revision) };
 	return { kind: "elsewhere", reason: "organization" };
-}
-
-export async function readOnboardingNoticeRecipients(
-	tx: Transaction,
-	operationId: string,
-	organizationId: string,
-	creatorId?: string,
-) {
-	const creator =
-		creatorId ??
-		(await tx.select({ actor: t.audit_event.actor_id }).from(t.audit_event).where(eq(t.audit_event.id, operationId)))[0]
-			?.actor;
-	const owners = await tx
-		.select({ id: t.seat.account_id })
-		.from(t.seat)
-		.where(and(eq(t.seat.organization_id, organizationId), eq(t.seat.role, "owner"), sql`${t.seat.ended_at} IS NULL`));
-	return [creator, ...owners.map((s) => s.id)].filter((v): v is string => Boolean(v));
 }

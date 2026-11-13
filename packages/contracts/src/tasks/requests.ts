@@ -1,8 +1,18 @@
 import { z } from "zod";
 import { instant } from "../common/time.ts";
-import { accountId, recordId, requestKey, revision } from "../common/values.ts";
+import { recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
-import { category, description, dueInput, priority, recurrenceRule, relation, taskStatus, title } from "./values.ts";
+import {
+	assigneeIds,
+	category,
+	description,
+	dueInput,
+	priority,
+	recurrenceRule,
+	relation,
+	taskStatus,
+	title,
+} from "./values.ts";
 
 // No owner, creator, completion time, obligation or source identity in bodies: the server derives them. A checklist
 // row is created with createSubtaskRequest.
@@ -15,7 +25,7 @@ export const createTaskRequest = z.strictObject({
 		priority: priority.default("medium"),
 		category: category.default("general"),
 		due: dueInput.default({ kind: "undated" }),
-		assigneeId: accountId.nullable().default(null),
+		assigneeIds: assigneeIds.default([]),
 		relation: relation.nullable().default(null),
 	}),
 });
@@ -29,7 +39,8 @@ export const editTaskRequest = commandEnvelope(
 			priority: priority.optional(),
 			category: category.optional(),
 			due: dueInput.optional(),
-			assigneeId: accountId.nullable().optional(),
+			// Omitted leaves the set unchanged; an empty list clears it.
+			assigneeIds: assigneeIds.optional(),
 			relation: relation.nullable().optional(),
 		}),
 	}),
@@ -61,10 +72,22 @@ export const listTasksRequest = z.strictObject({
 });
 export const countTasksRequest = z.strictObject(filters);
 export const getTaskRequest = z.strictObject({ taskId: recordId, asOf: instant.optional() });
+/** The list rows of up to one page of named tasks: a bulk change's stale rows, or the page's "Blocked by" badges. */
+export const taskRowsRequest = z.strictObject({
+	taskIds: z
+		.array(recordId)
+		.min(1)
+		.max(100)
+		.refine((ids) => new Set(ids).size === ids.length),
+});
 export const statusHistoryRequest = z.strictObject({
 	taskId: recordId,
 	limit: z.int().min(1).max(100).default(50),
 	page: z.int().min(1).max(100_000).default(1),
+});
+/** Who a picker offers: every seat, or only those who may own a follow-up (REQ-TSK-012). */
+export const eligibleAssigneesRequest = z.strictObject({
+	purpose: z.enum(["any", "committed_follow_up"]).default("any"),
 });
 export const relationOptionsRequest = z.strictObject({
 	kind: z.enum(["person", "meeting", "team"]),
@@ -84,8 +107,8 @@ export const createSubtaskRequest = commandEnvelope(
 	z.strictObject({
 		parentId: recordId,
 		title,
-		// Omitted inherits the parent's assignee. Only an Owner or Admin may name another account or null.
-		assigneeId: accountId.nullable().optional(),
+		// Omitted inherits the parent's assignees. Only an Owner or Admin may name other accounts or an empty list.
+		assigneeIds: assigneeIds.optional(),
 	}),
 );
 export const setSubtaskCompletionRequest = commandEnvelope(

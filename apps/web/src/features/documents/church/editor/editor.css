@@ -1,0 +1,980 @@
+/* The paper page of the Church Document editor. The page is white paper in light and dark mode, as the PDF is; only the
+   editor chrome around it follows the theme. Sizes are the PDF's (layouts/doc.tsx, theme.ts): 14px body, 12px small and
+   kicker, 18px section headings and a 40px title, in DM Sans and DM Serif Display. 1 pt of the format is 4/3 px here. */
+.ef-sheet {
+	container-type: inline-size;
+	width: 100%;
+	display: flex;
+	justify-content: center;
+}
+.ef-paper {
+	/* The paper's own text inks. A fill changes --paper-ink and --paper-quiet; these two stay. */
+	--paper-text: #181d19;
+	--paper-text-quiet: #4d5361;
+	--paper-ink: var(--paper-text);
+	--paper-quiet: var(--paper-text-quiet);
+	--paper-line: #dee0e4;
+	--paper-muted: #edf0f4;
+	/* The title, heading numbers and links print in primary as text on white (paletteVars, from the PDF palette). */
+	--paper-accent: var(--tok-primary-text);
+	--paper-primary: var(--paper-text);
+	position: relative;
+	box-sizing: border-box;
+	width: min(var(--page-w), 100%);
+	min-height: var(--page-h);
+	padding: clamp(16px, var(--pad-y), 12cqi) clamp(16px, var(--pad-x), 8cqi);
+	background: white;
+	color: var(--paper-ink);
+	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+	font-size: 14px;
+	line-height: 1.5;
+	color-scheme: light;
+	box-shadow:
+		0 0 0 1px var(--ef-line),
+		0 8px 24px -12px color-mix(in srgb, var(--ef-ink) 25%, transparent);
+	display: flex;
+	flex-direction: column;
+}
+/* A strip of the paper page in the template compare: the same paper and nodes, as wide as its column, no page height. */
+.ef-paper.ef-snippet {
+	width: 100%;
+	min-height: 0;
+	padding: 14px 18px;
+	box-shadow: 0 0 0 1px var(--ef-line);
+	border-radius: 4px;
+}
+.ef-paper.ef-snippet .ProseMirror {
+	min-height: 0;
+}
+.ef-paper.ef-snippet .ProseMirror > :last-child {
+	margin-block-end: 0;
+}
+/* Word marks in the template compare (T-82): a removed word is struck through, an added one underlined, each on a
+   light tint with a dark ink of its hue, the same on the white paper and on a title in either theme. The hidden words
+   tell a screen reader where each mark starts and ends. */
+.ef-word {
+	border-radius: 2px;
+	padding-inline: 1px;
+	text-decoration-thickness: 1.5px;
+	box-decoration-break: clone;
+}
+.ef-word-removed {
+	background: #ffe5e9;
+	color: #8f1f3a;
+	text-decoration-line: line-through;
+}
+.ef-word-added {
+	background: #cafbdc;
+	color: #0b5c38;
+	text-decoration-line: underline;
+	text-underline-offset: 2px;
+}
+/* A numbered heading is a flex row, which would make each mark an item of its own with a gap before it; a marked one in
+   the compare flows inline, the number before the text as on the page. */
+.ef-paper.ef-snippet .ef-heading-numbered:has(.ef-word) {
+	display: block;
+}
+.ef-paper.ef-snippet .ef-heading-numbered:has(.ef-word) .ef-heading-number {
+	margin-right: 8px;
+}
+.ef-word::before,
+.ef-word::after {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+.ef-word-removed::before {
+	content: " removed: ";
+}
+.ef-word-added::before {
+	content: " added: ";
+}
+.ef-word-removed::after {
+	content: " end removed ";
+}
+.ef-word-added::after {
+	content: " end added ";
+}
+.ef-paper .ProseMirror {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	outline: none;
+	min-height: 120px;
+	caret-color: var(--paper-ink);
+}
+.ef-paper .ProseMirror > * {
+	margin-block: 0 8px;
+}
+.ef-paper .ProseMirror p {
+	margin: 0 0 8px;
+}
+.ef-paper .ProseMirror p[data-ef-style="lead"] {
+	color: var(--paper-quiet);
+	margin-bottom: 12px;
+}
+.ef-paper .ProseMirror p[data-ef-style="small"] {
+	font-size: 12px;
+	line-height: 1.35;
+	color: var(--paper-quiet);
+	margin-bottom: 4px;
+}
+.ef-paper .ProseMirror p[data-ef-style="kicker"] {
+	font-size: 12px;
+	line-height: 1.3;
+	font-weight: 700;
+	color: var(--paper-quiet);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: 4px;
+}
+.ef-paper [data-ef-align="center"] {
+	text-align: center;
+}
+.ef-paper [data-ef-align="right"] {
+	text-align: right;
+}
+.ef-paper h1,
+.ef-paper h2,
+.ef-paper h3 {
+	margin: 0;
+	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: 0;
+}
+.ef-paper h1 {
+	font-family: var(--font-dm-serif-display), "DM Serif Display", Georgia, serif;
+	font-weight: 400;
+	font-size: 40px;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+	color: var(--paper-accent);
+	margin-bottom: 8px;
+}
+.ef-paper h2 {
+	font-size: 18px;
+	margin: 8px 0 4px;
+}
+.ef-paper h3 {
+	font-size: 14px;
+	margin: 8px 0 4px;
+}
+.ef-paper .ef-heading-numbered {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-top: 12px;
+	margin-bottom: 8px;
+	padding-bottom: 4px;
+}
+.ef-paper h2.ef-heading-numbered {
+	border-bottom: 2px solid var(--paper-primary);
+}
+.ef-paper .ef-heading-number {
+	flex: none;
+	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+	font-weight: 700;
+	color: var(--paper-accent);
+	font-variant-numeric: tabular-nums;
+	user-select: none;
+}
+.ef-paper ul,
+.ef-paper ol {
+	margin: 0 0 8px;
+	padding-left: 24px;
+}
+.ef-paper ul {
+	list-style: disc;
+}
+.ef-paper ol {
+	list-style: decimal;
+}
+.ef-paper li::marker {
+	color: var(--paper-ink);
+}
+.ef-paper li > p {
+	margin-bottom: 2px;
+}
+.ef-paper blockquote {
+	margin: 0 0 8px 12px;
+	padding-left: 12px;
+	border-left: 3px solid var(--paper-primary);
+}
+/* A divider is drawn as the PDF draws it (layouts/doc.tsx, divider): a 2 pt rule, a 0.5 pt hairline or a 4 pt bar, in the
+   color its token has in this document. The accent on white uses the renderer's line shade, on a fill the accent itself. */
+.ef-paper hr[data-ef-node="divider"] {
+	border: 0;
+	height: 2.67px;
+	background: var(--tok-ink);
+	margin: 5.33px 0 16px;
+}
+.ef-paper hr[data-line-weight="hairline"] {
+	height: 0.67px;
+	margin: 0 0 5.33px;
+}
+.ef-paper hr[data-line-weight="bar"] {
+	height: 5.33px;
+	margin: 0 0 10.67px;
+}
+.ef-paper hr[data-line-color="muted-text"] {
+	background: var(--tok-muted-text);
+}
+.ef-paper hr[data-line-color="primary"] {
+	background: var(--tok-primary);
+}
+.ef-paper hr[data-line-color="accent"] {
+	background: var(--tok-accent-line);
+}
+.ef-paper hr[data-line-color="muted"] {
+	background: var(--tok-muted);
+}
+.ef-paper hr[data-line-color="border"] {
+	background: var(--tok-border);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) hr[data-line-color="accent"] {
+	background: var(--tok-accent);
+}
+.ef-paper [data-ef-node="spacer"] {
+	position: relative;
+	box-sizing: border-box;
+	margin-bottom: 0;
+	border-radius: 2px;
+	background: repeating-linear-gradient(135deg, transparent 0 6px, var(--paper-muted) 6px 7px);
+}
+.ef-paper [data-ef-node="spacer"] > span {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	font-size: 11px;
+	line-height: 1;
+	color: var(--paper-quiet);
+	opacity: 0;
+	user-select: none;
+}
+.ef-paper [data-ef-node="spacer"].ProseMirror-selectednode > span,
+.ef-paper [data-ef-node="spacer"]:hover > span {
+	opacity: 1;
+}
+/* A page break reaches across the margins and shows as the gap between two sheets. */
+.ef-paper [data-ef-node="pageBreak"] {
+	display: grid;
+	place-items: center;
+	height: 28px;
+	margin: 12px calc(-1 * clamp(16px, var(--pad-x), 8cqi));
+	background: var(--ef-surface-3, #edf0f4);
+	box-shadow:
+		inset 0 6px 6px -6px color-mix(in srgb, var(--paper-ink) 25%, transparent),
+		inset 0 -6px 6px -6px color-mix(in srgb, var(--paper-ink) 25%, transparent);
+	color: var(--ef-text-3, var(--paper-quiet));
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	user-select: none;
+}
+.ef-paper [data-ef-node="pageBreak"] > span::before,
+.ef-paper [data-ef-node="pageBreak"] > span::after {
+	content: " ";
+}
+.ef-paper .ProseMirror-selectednode {
+	outline: 2px solid var(--ef-focus);
+	outline-offset: 2px;
+}
+.ef-paper strong {
+	font-weight: 700;
+}
+.ef-paper a {
+	color: var(--paper-accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	cursor: text;
+}
+/* The tag mark: a small caps label on an accent tile (layouts/doc.tsx, tagTile). */
+.ef-paper span[data-ef-tag] {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 4px;
+	background: var(--tok-accent);
+	color: var(--on-accent);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1.4;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.ef-paper span[data-ef-node="field"],
+.ef-paper span[data-ef-node="pageNumber"] {
+	display: inline-block;
+	padding: 0 6px;
+	border-radius: 4px;
+	background: var(--paper-muted);
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+	cursor: default;
+	user-select: none;
+}
+.ef-empty {
+	position: absolute;
+	inset-inline: clamp(16px, var(--pad-x), 8cqi);
+	top: clamp(16px, var(--pad-y), 12cqi);
+	margin: 0;
+	color: var(--paper-quiet);
+	pointer-events: none;
+}
+/* The notice at the foot of a formal or legal document: outside the editable body, so no edit reaches it. */
+.ef-notice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 24px;
+	padding-top: 8px;
+	border-top: 1px solid var(--paper-line);
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--paper-ink);
+	user-select: none;
+}
+
+/* ---- columns, box, write-in lines and images (slice 3) ---- */
+/* Columns side by side at the widths the PDF uses: each column takes its share of the width left after the gaps. */
+.ef-paper [data-ef-node="columns"] {
+	display: flex;
+	gap: var(--ef-gap, 16px);
+	align-items: flex-start;
+	margin-bottom: 8px;
+}
+.ef-paper [data-ef-node="columns"][data-valign="center"] {
+	align-items: center;
+}
+.ef-paper [data-ef-node="columns"][data-valign="bottom"] {
+	align-items: flex-end;
+}
+.ef-paper [data-ef-node="column"] {
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 28px;
+	border-radius: 4px;
+	box-shadow: 0 0 0 1px transparent;
+	transition: box-shadow 120ms;
+}
+.ef-paper [data-ef-node="column"]:focus-within,
+.ef-paper [data-ef-node="columns"]:hover > [data-ef-node="column"] {
+	box-shadow: 0 0 0 1px var(--paper-line);
+}
+.ef-paper [data-ef-node="column"] > :last-child,
+.ef-paper [data-ef-node="box"] > :last-child {
+	margin-bottom: 0;
+}
+/* A box: fill and border are tokens; text on a fill takes the contrast color the PDF prints. */
+.ef-paper [data-ef-node="box"] {
+	box-sizing: border-box;
+	padding: var(--ef-pad, 16px);
+	margin-bottom: 8px;
+	border: 1.33px solid var(--tok-border);
+	border-radius: 0;
+}
+.ef-paper [data-ef-node="box"][data-box-border="none"] {
+	border-color: transparent;
+}
+.ef-paper [data-ef-node="box"][data-box-border="ink"] {
+	border-color: var(--tok-ink);
+}
+.ef-paper [data-ef-node="box"][data-box-border="muted-text"] {
+	border-color: var(--tok-muted-text);
+}
+.ef-paper [data-ef-node="box"][data-box-border="primary"] {
+	border-color: var(--tok-primary);
+}
+.ef-paper [data-ef-node="box"][data-box-border="accent"] {
+	border-color: var(--tok-accent);
+}
+.ef-paper [data-ef-node="box"][data-box-border="muted"] {
+	border-color: var(--tok-muted);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) {
+	caret-color: var(--on-fill);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="ink"] {
+	background: var(--tok-ink);
+	--on-fill: var(--on-ink);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="muted-text"] {
+	background: var(--tok-muted-text);
+	--on-fill: var(--on-muted-text);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="primary"] {
+	background: var(--tok-primary);
+	--on-fill: var(--on-primary);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="accent"] {
+	background: var(--tok-accent);
+	--on-fill: var(--on-accent);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="muted"] {
+	background: var(--tok-muted);
+	--on-fill: var(--on-muted);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="border"] {
+	background: var(--tok-border);
+	--on-fill: var(--on-border);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]),
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) :is(p, h1, h2, h3, li, blockquote, a) {
+	color: var(--on-fill);
+	--paper-ink: var(--on-fill);
+	--paper-quiet: var(--on-fill);
+}
+/* A field or page number chip on a fill is a tint of the fill's own text color, so its text reads on any fill. */
+.ef-paper
+	[data-ef-node="box"]:not([data-box-fill="none"])
+	:is(span[data-ef-node="field"], span[data-ef-node="pageNumber"]) {
+	background: color-mix(in srgb, var(--on-fill) 14%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-fill) 45%, transparent);
+	color: var(--on-fill);
+}
+/* Write-in, signature and date lines: the label is an input, the line is where the person writes. */
+.ef-paper .ef-writein {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 2px 8px;
+	margin-bottom: 8px;
+	padding: 4px 0 0;
+}
+.ef-paper .ef-writein-kind {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-quiet);
+}
+.ef-paper .ef-writein-label {
+	flex: 1 1 140px;
+	min-width: 0;
+	max-width: 100%;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	padding: 1px 4px;
+	margin-left: -4px;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--paper-ink);
+	box-shadow: 0 0 0 1px transparent;
+	cursor: text;
+}
+.ef-paper .ef-writein-label:hover {
+	box-shadow: 0 0 0 1px var(--paper-line);
+}
+.ef-paper .ef-writein-label:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ef-focus);
+}
+.ef-paper .ef-writein-label[aria-invalid="true"] {
+	box-shadow: 0 0 0 1px #b4235a;
+}
+.ef-paper .ef-writein-note {
+	flex-basis: 100%;
+	font-size: 11px;
+	font-weight: 600;
+	color: #b4235a;
+}
+.ef-paper .ef-writein-note:empty {
+	display: none;
+}
+.ef-paper .ef-writein-line {
+	flex-basis: 100%;
+	height: 22.67px;
+	border: 1.33px solid #666c78;
+	background: white;
+}
+.ef-paper .ef-writein[data-kind="signature"] .ef-writein-line {
+	height: 32px;
+}
+/* A brand-kit image: a logo or mark fits its box, a photo covers it, as in the PDF. */
+.ef-paper .ef-image {
+	display: flex;
+	margin-bottom: 5.33px;
+	justify-content: flex-start;
+}
+.ef-paper .ef-image[data-align="center"] {
+	justify-content: center;
+}
+.ef-paper .ef-image[data-align="right"] {
+	justify-content: flex-end;
+}
+.ef-paper .ef-image-box {
+	max-width: 100%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+}
+.ef-paper .ef-image[data-align="center"] .ef-image-box {
+	justify-content: center;
+}
+.ef-paper .ef-image[data-align="right"] .ef-image-box {
+	justify-content: flex-end;
+}
+.ef-paper .ef-image-box img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+.ef-paper .ef-image[data-source="photo"] .ef-image-box img {
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	object-fit: cover;
+}
+.ef-paper .ef-image-empty {
+	justify-content: center;
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+	background: #f6f7f9;
+	color: var(--paper-text-quiet);
+	font-size: 12px;
+	text-align: center;
+}
+/* The header and the footer sit above and below the body on the same paper, with the same text tools. */
+.ef-paper [data-ef-node="pageHeader"],
+.ef-paper [data-ef-node="pageFooter"] {
+	position: relative;
+	border-radius: 4px;
+	box-shadow: inset 0 0 0 1px transparent;
+}
+.ef-paper [data-ef-node="pageHeader"] {
+	margin-bottom: 12px;
+	padding: 18px 0 4px;
+	border-bottom: 1px dashed var(--paper-line);
+}
+.ef-paper [data-ef-node="pageFooter"] {
+	margin-top: auto;
+	padding: 18px 0 0;
+	border-top: 1px dashed var(--paper-line);
+}
+.ef-paper [data-ef-node="pageHeader"]::before,
+.ef-paper [data-ef-node="pageFooter"]::before {
+	position: absolute;
+	top: 2px;
+	left: 0;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-quiet);
+	user-select: none;
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="all"]::before {
+	content: "Header · all pages";
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="first"]::before {
+	content: "Header · first page";
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="rest"]::before {
+	content: "Header · other pages";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="all"]::before {
+	content: "Footer · all pages";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="first"]::before {
+	content: "Footer · first page";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="rest"]::before {
+	content: "Footer · other pages";
+}
+.ef-paper [data-ef-node="pageHeader"] > :last-child,
+.ef-paper [data-ef-node="pageFooter"] > :last-child {
+	margin-bottom: 0;
+}
+
+/* Tables. Rows are grids that share the column widths the PDF uses (set by the table as --ef-cols). The header, the
+   stripes and the row rules paint as layouts/doc.tsx paints them; the header and the stripe colors are the palette's. */
+.ef-paper .ef-table {
+	margin-bottom: 8px;
+	font-size: 12px;
+	line-height: 1.35;
+}
+.ef-paper .ef-table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scrollbar-width: thin;
+}
+.ef-paper .ef-table-grid {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+}
+.ef-paper .ef-table-head,
+.ef-paper .ef-table [data-ef-node="row"],
+.ef-paper .ef-blank-row {
+	display: grid;
+	grid-template-columns: var(--ef-cols, 1fr);
+	align-items: stretch;
+	min-height: var(--ef-row-h, 26px);
+	border-bottom: 0.67px solid var(--tok-border, var(--paper-line));
+}
+.ef-paper .ef-table-head[hidden],
+.ef-paper .ef-table-blanks[hidden],
+.ef-paper .ef-table-note[hidden] {
+	display: none;
+}
+.ef-paper .ef-table-head {
+	background: var(--tok-muted);
+	color: var(--on-muted);
+}
+.ef-paper .ef-table[data-header-fill="ink"] .ef-table-head {
+	background: var(--tok-ink);
+	color: var(--on-ink);
+}
+.ef-paper .ef-table[data-header-fill="muted-text"] .ef-table-head {
+	background: var(--tok-muted-text);
+	color: var(--on-muted-text);
+}
+.ef-paper .ef-table[data-header-fill="primary"] .ef-table-head {
+	background: var(--tok-primary);
+	color: var(--on-primary);
+}
+.ef-paper .ef-table[data-header-fill="accent"] .ef-table-head {
+	background: var(--tok-accent);
+	color: var(--on-accent);
+}
+.ef-paper .ef-table[data-header-fill="border"] .ef-table-head {
+	background: var(--tok-border);
+	color: var(--on-border);
+}
+.ef-paper .ef-table[data-header-fill="none"] .ef-table-head {
+	background: transparent;
+	color: var(--tok-ink);
+	border-bottom: 2px solid var(--tok-ink);
+}
+.ef-paper .ef-head-wrap {
+	display: flex;
+	min-width: 0;
+}
+.ef-paper .ef-head-cell {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	padding: 4px 8px;
+	font: inherit;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: inherit;
+	cursor: text;
+}
+.ef-paper .ef-head-cell:hover {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
+}
+.ef-paper .ef-head-cell:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--ef-focus);
+}
+.ef-paper .ef-table [data-ef-node="row"][data-role="group"] {
+	background: var(--tok-muted);
+	font-weight: 700;
+}
+.ef-paper .ef-table [data-ef-node="row"][data-role="subtotal"],
+.ef-paper .ef-table [data-ef-node="row"][data-role="total"] {
+	font-weight: 700;
+	border-top: 1px solid var(--tok-ink);
+}
+.ef-paper .ef-table .ef-stripe {
+	background: var(--tok-muted);
+}
+.ef-paper .ef-table [data-ef-node="cell"] {
+	position: relative;
+	box-sizing: border-box;
+	min-width: 0;
+	padding: 4px 8px;
+	overflow-wrap: anywhere;
+	display: flex;
+	align-items: center;
+}
+.ef-paper .ef-table [data-ef-cell="text"] {
+	display: block;
+	align-self: center;
+	min-height: 1.35em;
+	outline: none;
+}
+.ef-paper .ef-table [data-ef-cell="text"]:hover {
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+}
+.ef-paper .ef-table [data-ef-cell="value"].ProseMirror-selectednode {
+	outline: none;
+}
+.ef-paper .ef-vcell {
+	justify-content: flex-end;
+	padding-block: 1px;
+}
+.ef-paper .ef-vcell:has(.ef-vcheck) {
+	justify-content: center;
+}
+.ef-paper .ef-vinput {
+	box-sizing: border-box;
+	width: 100%;
+	height: 24px;
+	min-width: 0;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	padding: 1px 4px;
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+	text-align: inherit;
+	color: var(--paper-ink);
+	/* The amount boxes show as light boxes, as the PDF's fillable fields do. */
+	box-shadow: 0 0 0 1px var(--paper-line);
+	cursor: text;
+}
+.ef-paper .ef-vinput:hover {
+	box-shadow: 0 0 0 1px #9aa0ac;
+}
+.ef-paper .ef-vinput:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ef-focus);
+}
+.ef-paper .ef-vinput[aria-invalid="true"] {
+	box-shadow: 0 0 0 1px #b4235a;
+}
+.ef-paper .ef-vnote {
+	position: absolute;
+	top: calc(100% - 4px);
+	right: 4px;
+	z-index: 6;
+	max-width: 240px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	background: white;
+	box-shadow:
+		0 0 0 1px #b4235a,
+		0 4px 10px -4px rgb(0 0 0 / 0.25);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.3;
+	text-align: left;
+	color: #b4235a;
+}
+.ef-paper .ef-vnote:empty {
+	display: none;
+}
+.ef-paper .ef-computed {
+	display: block;
+	width: 100%;
+	font-variant-numeric: tabular-nums;
+	text-align: inherit;
+}
+.ef-paper .ef-vcheck,
+.ef-paper .ef-blank-box {
+	display: inline-flex;
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border: 1.33px solid var(--tok-accent-line, #026b40);
+	border-radius: 2px;
+	background: white;
+	padding: 0;
+	color: var(--paper-ink);
+}
+.ef-paper .ef-vcheck {
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1;
+}
+.ef-paper .ef-vcheck[aria-checked="true"]::after {
+	content: "\2713";
+	font-weight: 700;
+}
+.ef-paper .ef-vcheck:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ef-focus);
+}
+.ef-paper .ef-blank-cell {
+	box-sizing: border-box;
+	min-width: 0;
+	padding: 4px 8px;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	font-variant-numeric: tabular-nums;
+}
+.ef-paper .ef-blank-cell[data-kind="text"] {
+	justify-content: flex-start;
+}
+.ef-paper .ef-blank-cell[data-kind="check"] {
+	justify-content: center;
+}
+.ef-paper .ef-table-blanks:focus-visible {
+	outline: 2px solid var(--ef-focus);
+	outline-offset: -2px;
+}
+.ef-paper .ef-table-note {
+	margin: 4px 0 0;
+	font-size: 11px;
+	color: var(--paper-quiet);
+}
+
+/* ---- conditional text ---- */
+/* The editor always shows the blocks so they can be edited. A dashed frame, sitting in the margin so the text keeps
+   its place, carries the condition and whether it prints with this document's values. A block that does not print now
+   is dimmed. None of this prints: the PDF prints the blocks, or nothing. */
+.ef-paper .ef-if {
+	position: relative;
+	margin: 0 -8px 8px;
+	padding: 6px 7px 1px;
+	border: 1px dashed color-mix(in srgb, var(--paper-quiet) 55%, transparent);
+	border-radius: 6px;
+}
+.ef-paper .ef-if:focus-within {
+	border-color: var(--paper-accent);
+}
+.ef-paper .ef-if-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+	margin-bottom: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--paper-quiet);
+	user-select: none;
+	cursor: default;
+}
+.ef-paper .ef-if-label {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.ef-paper .ef-if-state {
+	flex: none;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	background: #ddf2e6;
+	color: #025232;
+}
+.ef-paper .ef-if[data-prints="false"] .ef-if-state {
+	background: var(--paper-muted);
+	color: var(--paper-text-quiet);
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+}
+.ef-paper .ef-if[data-prints="false"] .ef-if-body {
+	opacity: 0.5;
+}
+.ef-paper .ef-if-body > :last-child {
+	margin-bottom: 0;
+}
+/* A bracketed placeholder such as [date] or [number], highlighted from the text itself: the fill the PDF and the Word
+   file print under it (doc-values.ts, PLACEHOLDER_FILL), with the paper's own ink on it. */
+.ef-paper .ef-placeholder,
+.ef-paper span[data-ef-node="field"].ef-placeholder {
+	background: #fdf0a6;
+	color: var(--paper-text);
+	border-radius: 2px;
+	box-decoration-break: clone;
+	-webkit-box-decoration-break: clone;
+}
+/* A merge field reads as one unit: a chip with its value. Selected, it takes the focus ring. */
+.ef-paper span[data-ef-node="field"] {
+	cursor: pointer;
+}
+.ef-paper span[data-ef-node="field"].ef-field-empty::before {
+	content: "empty";
+	font-size: 11px;
+	font-style: italic;
+	color: var(--paper-quiet);
+}
+.ef-paper span[data-ef-node="field"].ProseMirror-selectednode {
+	outline: 2px solid var(--ef-focus);
+	outline-offset: 1px;
+}
+/* A doctrinal section: a labelled area to fill, framed as the PDF frames it. Empty, it shows the marked blank. */
+.ef-paper .ef-slot {
+	position: relative;
+	margin-bottom: 12px;
+	padding: 10px 12px 6px;
+	border: 1px dashed color-mix(in srgb, var(--paper-text) 45%, white);
+	border-radius: 4px;
+}
+.ef-paper .ef-slot-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-text-quiet);
+	margin-bottom: 4px;
+	user-select: none;
+}
+/* Empty, the note takes the space and the one empty line lies over its first line, so the caret sits where text goes. */
+.ef-paper .ef-slot-note {
+	display: none;
+	color: var(--paper-text-quiet);
+	pointer-events: none;
+	user-select: none;
+	padding-bottom: 6px;
+}
+.ef-paper .ef-slot[data-empty] {
+	background: color-mix(in srgb, var(--paper-muted) 45%, white);
+}
+.ef-paper .ef-slot[data-empty] .ef-slot-note {
+	display: block;
+}
+.ef-paper .ef-slot[data-empty] .ef-slot-body {
+	position: absolute;
+	inset: 28px 12px auto;
+}
+.ef-paper .ef-slot-body > :last-child {
+	margin-bottom: 0;
+}
+
+/* A plain native document's paper (written/): Letter width, no fixed page height, dividers in the paper's own ink. It
+   has no page setup, so the page box is fixed here. */
+.ef-sheet.ef-native {
+	/* No brand palette: the plain document keeps the Everyfield green for its title and links. */
+	--tok-primary-text: #026b40;
+	--page-w: 816px;
+	--page-h: 640px;
+	--pad-x: 88px;
+	--pad-y: 72px;
+}
+.ef-native .ef-paper {
+	--tok-ink: var(--paper-text);
+	/* A table's header and stripes take the Everyfield theme's muted fill, its rules the paper's line (T-100). */
+	--tok-muted: var(--paper-muted);
+	--on-muted: var(--paper-text);
+	--tok-border: var(--paper-line);
+}
+
+/* A plain document's table read-only (written/NativeProse.tsx): the editor's cells, with nothing to click or type. */
+.ef-paper span.ef-read-head {
+	display: block;
+	cursor: default;
+}
+.ef-paper span.ef-read-head:hover {
+	box-shadow: none;
+}
+.ef-paper .ef-read-check {
+	cursor: default;
+}
+.ef-paper .ef-read-check[data-checked="true"]::after {
+	content: "\2713";
+	font-weight: 700;
+}

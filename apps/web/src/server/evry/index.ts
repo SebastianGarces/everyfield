@@ -66,3 +66,6 @@ export function drainEffects() {
 		if (reminders) await runEffects(evryDatabase(), reminders, 4);
 	});
 }
+
+/** The email service for a request that previews or checks a Communication effect. */
+export { evryMail } from "./worker";

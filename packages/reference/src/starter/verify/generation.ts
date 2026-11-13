@@ -7,13 +7,13 @@ import type {
 } from "@everyfield/contracts/reference";
 import type { ValidationPolicy } from "../../bundle.ts";
 import { canonical, hash, stableId } from "../../hash.ts";
-import { approvedWiki } from "../manifest/approved.ts";
+import type { WikiSource } from "../manifest/approved.ts";
 import type { ApprovedSnapshot } from "./snapshot.ts";
 import { WikiRefusal } from "./snapshot.ts";
 
 export function wikiEntries(snapshot: ApprovedSnapshot, release: string): ReferenceEntry[] {
-	const sourcePath = approvedWiki.payloadPath;
-	const sourceHash = approvedWiki.payloadSha256;
+	const sourcePath = snapshot.source.payloadPath;
+	const sourceHash = snapshot.source.payloadSha256;
 	const rows: ReferenceEntry[] = [];
 	for (const section of snapshot.sections) {
 		const body = canonical({
@@ -104,8 +104,8 @@ export function wikiBundle(
 	const parsed = generation.safeParse({
 		version: 1,
 		key: release,
-		sourceManifestSha256: approvedWiki.manifestSha256,
-		catalogSha256: approvedWiki.payloadSha256,
+		sourceManifestSha256: snapshot.source.manifestSha256,
+		catalogSha256: snapshot.source.payloadSha256,
 		profile,
 		discoveryIds: [...snapshot.discoveryIds],
 		entries: wikiEntries(snapshot, release),
@@ -115,11 +115,15 @@ export function wikiBundle(
 	return parsed.data;
 }
 
-export function wikiPolicy(bundle: ReferenceGeneration, deferDerivatives: boolean): ValidationPolicy {
+export function wikiPolicy(
+	source: WikiSource,
+	bundle: ReferenceGeneration,
+	deferDerivatives: boolean,
+): ValidationPolicy {
 	return {
 		identities: {
-			sourceManifestSha256: approvedWiki.manifestSha256,
-			catalogSha256: approvedWiki.payloadSha256,
+			sourceManifestSha256: source.manifestSha256,
+			catalogSha256: source.payloadSha256,
 		},
 		plan: {
 			profile: bundle.profile,

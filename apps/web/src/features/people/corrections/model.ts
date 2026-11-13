@@ -1,9 +1,10 @@
 // Pure rules of the duplicate review, merge, Unmerge and record correction screens (WP-015/ui). No React and no server
 // code, so the rules run the same in the browser, on the server and in node tests.
 
+import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
-export const MERGE_FIELDS = [
+const MERGE_FIELDS = [
 	"displayName",
 	"firstName",
 	"lastName",
@@ -49,6 +50,9 @@ export type ReferenceKind =
 	| "commitment_witness"
 	| "merge_record"
 	| "attestation"
+	| "attestation_history"
+	| "email_opt_out"
+	| "duplicate_dismissal"
 	| "contact_outcome"
 	| "development_enrollment"
 	| "invitation"
@@ -66,7 +70,7 @@ export type ReferenceKind =
 	| "training_credit";
 
 /** What each kind is called in a count: "2 notes". The singular is used for one. */
-export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
+const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	tag: ["tag", "tags"],
 	skill: ["skill", "skills"],
 	note: ["note", "notes"],
@@ -79,6 +83,9 @@ export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	commitment_witness: ["card they witnessed", "cards they witnessed"],
 	merge_record: ["earlier merge", "earlier merges"],
 	attestation: ["attestation", "attestations"],
+	attestation_history: ["earlier attestation", "earlier attestations"],
+	email_opt_out: ["email unsubscribe", "email unsubscribes"],
+	duplicate_dismissal: ["pair marked not a duplicate", "pairs marked not a duplicate"],
 	contact_outcome: ["follow-up outcome", "follow-up outcomes"],
 	development_enrollment: ["development enrollment", "development enrollments"],
 	invitation: ["invitation", "invitations"],
@@ -99,13 +106,13 @@ export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_
 /** A kind as a list heading: "Notes". */
 export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());
 /** "notes, tasks and emails": the plural names of `kinds`, for a sentence. */
-export const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
+const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
 export function listText(items: readonly string[]): string {
 	if (items.length <= 1) return items[0] ?? "";
 	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-export type Treatment = "move" | "deduplicate" | "keep" | "block";
+type Treatment = "move" | "deduplicate" | "keep" | "block";
 export type Reference = { kind: ReferenceKind; count: number; treatment: Treatment };
 /** The review's references split by what the merge does with them. */
 export function referenceGroups(refs: readonly Reference[]) {
@@ -206,6 +213,96 @@ export function pairHref(personId: string, withId: string, keep?: string): strin
 	if (keep) q.set("keep", keep);
 	return `/people/duplicates?${q.toString()}`;
 }
+/** The Dismissed view: the pairs marked "Not a duplicate", each with Restore (D-790). */
+export const DISMISSED_HREF = "/people/duplicates?view=dismissed";
+
+// ---------------------------------------------------------------------------------------------------------------
+// "Not a duplicate" on the list and Restore in the Dismissed view (D-789). The row leaves at once; a refused or lost
+// answer puts it back where it was with a notice that says what happened. A repeat writes nothing, so Try again is safe.
+
+export type PairAction = "dismiss" | "restore";
+export const pairKey = (p: { person: { id: string }; with: { id: string } }) => `${p.person.id}:${p.with.id}`;
+/** The rows sent away and not answered yet or saved (`gone`), and each row's notice after a failed answer. */
+export type PairState = { gone: readonly string[]; notices: Readonly<Record<string, string>> };
+export const pairsAtStart: PairState = { gone: [], notices: {} };
+
+/** The row leaves the list as its action is sent; its earlier notice goes with it. */
+export function pairSent(s: PairState, key: string): PairState {
+	const notices = { ...s.notices };
+	delete notices[key];
+	return { gone: s.gone.includes(key) ? s.gone : [...s.gone, key], notices };
+}
+/** A saved answer keeps the row gone. Any other answer puts it back in its place with its notice. */
+export function pairAnswered(s: PairState, key: string, action: PairAction, answer: Outcome<unknown>): PairState {
+	if (answer.status === "ok") return s;
+	return { gone: s.gone.filter((k) => k !== key), notices: { ...s.notices, [key]: pairNotice(action, answer) } };
+}
+/** The rows still shown, in their original order. */
+export const pairsShown = <P extends { person: { id: string }; with: { id: string } }>(
+	items: readonly P[],
+	s: PairState,
+) => items.filter((p) => !s.gone.includes(pairKey(p)));
+
+export function pairNotice(action: PairAction, answer: Exclude<Outcome<unknown>, { status: "ok" }>): string {
+	if (answer.status === "lost")
+		return action === "dismiss"
+			? "We could not confirm this. It may have saved. Reload to check, or try again."
+			: "We could not confirm the restore. It may have saved. Reload to check, or try again.";
+	if (answer.code === "pair_unavailable")
+		return "Nothing changed. One of them was merged or retired, so this pair is no longer listed. Reload to see the list as it is now.";
+	return action === "dismiss"
+		? "Nothing changed. The pair was not marked. Try again."
+		: "Nothing changed. The pair was not restored. Try again.";
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// "Not a duplicate" on the side-by-side review of a listed pair (T-268). It dismisses the listed direction (the imported
+// person first, whichever order the address names them in), then the screen returns to the list. A refusal keeps the
+// reviewer on the review, which reads again to show where the people stand; a lost answer says it may have saved.
+
+export type ListedPair = { personId: string; withPersonId: string };
+/** What the review does after its dismiss: back to the list, or stay with a notice and maybe read the pair again. */
+export type ReviewDismissed = { next: "list" } | { next: "review"; reread: boolean; text: string };
+
+export function reviewDismissed(answer: Outcome<unknown>): ReviewDismissed {
+	if (answer.status === "ok") return { next: "list" };
+	if (answer.status === "lost")
+		return {
+			next: "review",
+			reread: false,
+			text: "We did not hear back from the server, so the pair may have been marked not a duplicate. Reload the page to see where it stands.",
+		};
+	if (answer.code === "pair_unavailable")
+		return {
+			next: "review",
+			reread: true,
+			text: "Nothing changed. One of them was merged or retired, or the pair is no longer on the list. The page now shows where they stand.",
+		};
+	return {
+		next: "review",
+		reread: true,
+		text: "Nothing changed. You cannot mark these people. Your seat may have changed; reload the page.",
+	};
+}
+
+/**
+ * One review's "Not a duplicate". The write sets a state, so a lost answer is sent once more as it is. While one is in
+ * flight another call sends nothing and answers null, so a double click dismisses once.
+ */
+export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unknown>>) {
+	let pending = false;
+	return async (listed: ListedPair): Promise<ReviewDismissed | null> => {
+		if (pending) return null;
+		pending = true;
+		try {
+			return reviewDismissed(await sendTwice(() => send(listed)));
+		} finally {
+			pending = false;
+		}
+	};
+}
+/** The list's confirmation after a dismiss from the review: both people, imported person first. */
+export const notDuplicateText = (person: string, other: string) => `${person} and ${other} marked not a duplicate.`;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Refusals in words. Each names a cause the person can act on.
@@ -220,7 +317,7 @@ export function blockerText(cause: Blocker, names: { source: string; survivor: s
 				? "The record with an Everyfield account must be the one you keep."
 				: `${names.source} has an Everyfield account, so ${names.source} must be the person you keep.`;
 		case "unregistered_reference":
-			return `${names.source} still has ${kindList(kinds)}. Everyfield cannot move these yet. Finish or reassign them, then review again.`;
+			return `${names.source} has ${kindList(kinds)} on record. Merging people with this history is not available in Everyfield yet.`;
 	}
 }
 
@@ -269,7 +366,7 @@ export const RESULT_LABEL: Record<InterviewResult, string> = {
 };
 
 export type ScoreValue = { score: number; notes: string | null };
-export type RatingValue = { rating: Rating; notes: string | null };
+type RatingValue = { rating: Rating; notes: string | null };
 export type AssessmentValues = { occurredOn: string } & Record<Lens, ScoreValue>;
 export type InterviewValues = { occurredOn: string; result: InterviewResult; nextSteps: string | null } & Record<
 	Criterion,
@@ -332,4 +429,26 @@ export function correctedValueText(v: unknown): string {
 		if (head) return notes ? `${head} · ${notes}` : head;
 	}
 	return JSON.stringify(v);
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * What is wrong with a role date correction before anything is sent, by field (REQ-TEAM-006). Empty when it can save.
+ * A role held now has no end date to correct.
+ */
+export function roleDateProblems(f: {
+	role: { endedOn: string | null };
+	startedOn: string;
+	endedOn: string;
+	reason: string;
+}): Partial<Record<"startedOn" | "endedOn" | "reason", string>> {
+	const ended = f.role.endedOn !== null;
+	return {
+		...(DATE.test(f.startedOn) ? {} : { startedOn: "Choose a start date." }),
+		...(ended && !DATE.test(f.endedOn) ? { endedOn: "Choose an end date." } : {}),
+		...(ended && DATE.test(f.startedOn) && DATE.test(f.endedOn) && f.endedOn < f.startedOn
+			? { endedOn: "The end date cannot be before the start date." }
+			: {}),
+		...(f.reason.trim() ? {} : { reason: "Say why the dates change. The ministry's history keeps it." }),
+	};
 }

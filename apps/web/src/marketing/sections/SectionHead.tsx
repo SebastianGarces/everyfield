@@ -3,7 +3,7 @@ import { Display } from "@/components/Display";
 import { Reveal } from "@/components/motion/Reveal";
 
 /** A centred section head (Calendly pattern): headline with one short muted paragraph under it. It rises in once. */
-export function SectionHead({ headline, body, className }: { headline: string; body: string; className?: string }) {
+function SectionHead({ headline, body, className }: { headline: string; body: string; className?: string }) {
 	return (
 		<Reveal className={cn("mx-auto max-w-[940px] text-center", className)}>
 			<Display as="h2" size="h2" className="mx-auto">
