@@ -1,22 +1,17 @@
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { assertDevelopmentDatabase, developmentHosts } from "../../../packages/db/src/development.ts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-const require = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
-const url = new URL(process.env.JOBS_TEST_CONNECTION ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(url.hostname) &&
-	url.pathname === "/everyfield_ci";
-if (
-	(!ci && url.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
+let url: URL;
+try {
+	url = assertDevelopmentDatabase(process.env.JOBS_TEST_CONNECTION);
+} catch {
 	throw Error("test_database_required");
+}
+if (!developmentHosts.has(url.hostname) && url.pathname !== "/everyfield_ci") throw Error("test_database_required");
 const endpoint = new URL(process.env.JOBS_TEST_ENDPOINT ?? "about:blank");
 if (endpoint.hostname !== "127.0.0.1") throw Error("local_provider_required");
 const db = createDatabase({ connectionString: url.href, options: process.env.JOBS_TEST_OPTIONS, max: 2 });
@@ -32,8 +27,10 @@ const service = createMailService({
 		);
 		return new Set(r.rows.map((r) => r.id));
 	},
-	transport: createResendTransport("synthetic", async (url, init) =>
-		fetch(endpoint.origin + new URL(url).pathname, init),
+	transport: createResendTransport(
+		"synthetic",
+		async (url, init) => fetch(endpoint.origin + new URL(url).pathname, init),
+		{ VERCEL_ENV: "production" },
 	),
 });
 try {

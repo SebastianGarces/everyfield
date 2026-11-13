@@ -141,7 +141,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 								<>
 									<DataTable
 										caption="Meetings"
-										columns={columns(thisYear)}
+										columns={columns(thisYear, now)}
 										state={{ status: "ready", data: page.items }}
 										rowId={(m) => m.id}
 										rowLabel={(m) => m.displayTitle}
@@ -186,7 +186,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	);
 }
 
-function columns(thisYear: number): Column<Summary>[] {
+function columns(thisYear: number, now: string): Column<Summary>[] {
 	return [
 		{
 			key: "meeting",
@@ -236,7 +236,7 @@ function columns(thisYear: number): Column<Summary>[] {
 			header: "Status",
 			cell: (m) => (
 				<span className="flex flex-wrap gap-1.5">
-					<MeetingStatusBadge status={m.status} size="sm" />
+					<MeetingStatusBadge meeting={m} now={now} size="sm" />
 					{m.preparation === "incomplete" && m.status !== "completed" && m.status !== "cancelled" ? (
 						<StatusBadge status="attention" size="sm" fill="soft" plain>
 							Kit not ready
@@ -253,7 +253,7 @@ function columns(thisYear: number): Column<Summary>[] {
  * text, so a voice-control user can say what they see (WCAG 2.5.3).
  */
 function NextMeeting({ meeting: m, now, thisYear }: { meeting: Summary; now: string; thisYear: number }) {
-	const until = untilText(m.startsAt, now);
+	const until = untilText(m, now);
 	return (
 		<IntentLink href={`/meetings/${m.id}`} className="group rounded-card focus-visible:outline-none">
 			<Card className="flex-row flex-wrap items-center gap-x-8 gap-y-4 transition-shadow group-hover:shadow-raised group-focus-visible:shadow-[0_0_0_2px_var(--ef-ink)]">

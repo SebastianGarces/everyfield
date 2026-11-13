@@ -1,6 +1,7 @@
 // Pure rules of the 4 C's, interview and commitment cards (REQ-PPL-012, 013, 014, 020, 026). No React and no server
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
+import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { STAGES, type StageValue } from "../model.ts";
 
@@ -12,7 +13,6 @@ export type FirstAcquisition = z.infer<typeof c.commitmentsResult>["firstAcquisi
 export type Assessments = z.infer<typeof c.assessmentsResult>;
 export type Interviews = z.infer<typeof c.interviewsResult>;
 export type Commitments = z.infer<typeof c.commitmentsResult>;
-export type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type Lens = (typeof c.fourCs)[number];
 export type CriterionKey = (typeof c.interviewCriteria)[number];
 export type Rating = z.infer<typeof c.criterionRating>;
@@ -26,14 +26,14 @@ export type PersonRecords = {
 	commitments: Commitments | null;
 };
 
-export const LENSES: readonly Lens[] = ["committed", "compelled", "contagious", "courageous"];
+export const LENSES: readonly Lens[] = fourCs;
 export const LENS_LABEL: Record<Lens, string> = {
 	committed: "Committed",
 	compelled: "Compelled",
 	contagious: "Contagious",
 	courageous: "Courageous",
 };
-export const CRITERIA: readonly CriterionKey[] = ["maturity", "gifted", "chemistry", "rightReasons", "season"];
+export const CRITERIA: readonly CriterionKey[] = interviewCriteria;
 export const CRITERION_LABEL: Record<CriterionKey, string> = {
 	maturity: "Maturity",
 	gifted: "Giftedness",
@@ -99,7 +99,7 @@ export function withRecord<R extends { id: string; occurredOn: string; recordedA
 }
 
 /**
- * A card's records with the corrections made elsewhere on the page (Correct a record, WP-015). Each correction shows in
+ * A card's records with the corrections made elsewhere on the page (Edit a record, WP-015). Each correction shows in
  * place of its record only when its revision is newer than the card's copy, so every earlier correction stays and a
  * later save on the card itself still wins. A correction for a record this card has not loaded adds nothing.
  */

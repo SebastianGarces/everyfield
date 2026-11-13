@@ -7368,7 +7368,7 @@
     },
     {
       "id": "CA006",
-      "requirement": "Explicit adult classification and valid active commitment qualify without birthday/date of birth; no household-derived guess or mandatory renewal is required.",
+      "requirement": "An effective adult (from the birth date, or the recorded classification when there is no birth date) and a valid active commitment qualify; a birth date is not required; no household-derived guess or mandatory renewal is required.",
       "requirement_ids": [
         "REQ-PPL-026"
       ],
@@ -7481,7 +7481,7 @@
     },
     {
       "id": "CA007",
-      "requirement": "Auto-created Owner/planter person, advanced stage, ministry leader or team membership alone supplies no adult/commitment eligibility. An account-linked person with explicit adult classification and actual active supported commitment counts once; do not blanket-exclude login holders.",
+      "requirement": "Auto-created Owner/planter person, advanced stage, ministry leader or team membership alone supplies no adult/commitment eligibility. An account-linked person who is an effective adult (from the birth date or the recorded classification) with an actual active supported commitment counts once; do not blanket-exclude login holders.",
       "requirement_ids": [
         "REQ-PPL-026"
       ],

@@ -187,7 +187,7 @@ The person does not see the church's internal pipeline view of them: the pipelin
 
 *Source: Churches Plant Churches Appendices D and E.*
 
-- A generated DOCX partnership agreement, in our own neutral text. Networks add their own clauses through organization templates or Wiki versions.
+- A generated PDF partnership agreement, in our own neutral text. Networks add their own clauses through organization templates or Wiki versions.
 - A small structured record next to the document: the two parties, start and end dates, a communication cadence and an annual review date. The review date creates an ordinary task for both sides.
 - Support amounts stay as text in the document, because finance is excluded.
 - A signed, current agreement is dated human evidence for the existing `coach_assigned` criterion. It does not replace the human attestation that the criterion already needs.

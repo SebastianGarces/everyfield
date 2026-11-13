@@ -2,14 +2,22 @@ import "server-only";
 export { accountPersonProducer, peopleWriter } from "./people.ts";
 export { getAccountLink, peopleReader, peopleViewer, readColumnOrders } from "./queries.ts";
 export { readPersonPage, type PersonPageParts } from "./page.ts";
-export { detachAccountPersonLinks } from "./references.ts";
-export { checkForDuplicates } from "./duplicates.ts";
+export {
+	checkForDuplicates,
+	dismissDuplicatePair,
+	listDismissedDuplicatePairs,
+	listDuplicatePairs,
+	listedDuplicatePair,
+	restoreDuplicatePair,
+} from "./duplicates.ts";
+export { personSearchMatch, searchPeople, type PersonHit } from "./search.ts";
 export { peopleMerge } from "./merge/index.ts";
 export { peopleUnmerge } from "./unmerge/index.ts";
 export { recordCorrections } from "./corrections/index.ts";
 
 export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, photoMediaType, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
+export { readPersonPhotos } from "./photos.ts";
 export { assessments } from "./assessments/index.ts";
 export { interviews } from "./interviews/index.ts";
 export {
@@ -18,4 +26,13 @@ export {
 	saveCommitmentDocument,
 	signCommitmentDocument,
 } from "./commitments/index.ts";
-export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";
+export {
+	deleteExpiredImportFiles,
+	executeBulkImport,
+	executeStoredImport,
+	peopleCsv,
+	previewStoredImport,
+	retryStoredImport,
+	runPeopleImport,
+	signPeopleImport,
+} from "./csv/index.ts";

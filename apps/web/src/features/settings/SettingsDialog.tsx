@@ -2,8 +2,10 @@
 
 import {
 	Alert02Icon,
+	BookOpen01Icon,
 	Building03Icon,
 	ChurchIcon,
+	PaintBrush01Icon,
 	Notification01Icon,
 	ShieldUserIcon,
 	UserIcon,
@@ -17,26 +19,32 @@ import { offeredSections, SECTION_LABEL } from "./model";
 import type { SectionKey } from "./port";
 import { useDirtySections, useSettings } from "./store";
 import { AccountSection } from "./sections/AccountSection";
+import { BrandSection } from "./brand/BrandSection";
 import { ChurchSection } from "./sections/ChurchSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { OrganizationSection } from "./sections/OrganizationSection";
+import { WikiSourcesSection } from "./sections/WikiSourcesSection";
 import type { DeletionStatus } from "./port";
 
 const ICON: Record<SectionKey, IconSvgElement> = {
 	church: ChurchIcon,
+	brand: PaintBrush01Icon,
 	organization: Building03Icon,
 	seats: UserMultipleIcon,
 	notifications: Notification01Icon,
 	sharing: ShieldUserIcon,
+	wiki: BookOpen01Icon,
 	account: UserIcon,
 };
 
 const DESCRIPTION: Record<SectionKey, string> = {
 	church: "Used in emails, documents and Plant Intelligence.",
+	brand: "Colors, fonts and letterhead for the documents and emails Everyfield makes for your church.",
 	organization: "How your organization appears to the churches you work with.",
 	seats: "People who can sign in to your church.",
 	notifications: "Your choices only. Other seats set their own.",
 	sharing: "Choose what connected organizations can see. Names and personal details are never shared.",
+	wiki: "Choose which sending church and network your church reads first in the Wiki.",
 	account: "Only you can change these.",
 };
 
@@ -52,8 +60,12 @@ export type SettingsDialogProps = {
 	hrefFor: (section: SectionKey) => string;
 	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
+	/** Sections that are pages of their own: the nav links to them, and `open` leaves Settings for that page. */
+	pages?: { sections: readonly SectionKey[]; open: (section: SectionKey) => void };
 	/** A deletion was requested: the session ends and the restricted status page takes over. */
 	onDeletionRequested: (status: DeletionStatus | null) => void;
+	/** Header buttons left of Close, such as the Guide: the dialog covers the frame's own Guide button. */
+	headerActions?: ReactNode;
 };
 
 /**
@@ -61,10 +73,18 @@ export type SettingsDialogProps = {
  * Every section has its own URL. Drafts stay while you move between sections; closing with unsaved changes asks
  * before discarding them, also when Back leaves settings (REQ-IDN-010).
  */
-export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDeletionRequested }: SettingsDialogProps) {
+export function SettingsDialog({
+	section,
+	onNavigate,
+	hrefFor,
+	slots = {},
+	pages,
+	onDeletionRequested,
+	headerActions,
+}: SettingsDialogProps) {
 	const { viewer } = useSettings();
 	const dirty = useDirtySections();
-	const offered = offeredSections(viewer, Object.keys(slots) as SectionKey[]);
+	const offered = offeredSections(viewer, [...(Object.keys(slots) as SectionKey[]), ...(pages?.sections ?? [])]);
 	const [shown, setShown] = useState<SectionKey | null>(section);
 	const [confirming, setConfirming] = useState(false);
 	const panel = useRef<HTMLDivElement>(null);
@@ -103,9 +123,12 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 	};
 	// ConfirmDialog also reports "closed" after Discard runs, so Discard marks itself first.
 	const discarded = useRef(false);
+	// The page a nav link asked for while the question about unsaved changes is open.
+	const leavingFor = useRef<SectionKey | null>(null);
 	const keepEditing = (open: boolean) => {
 		if (open) return;
 		setConfirming(false);
+		leavingFor.current = null;
 		if (discarded.current) {
 			discarded.current = false;
 			return;
@@ -117,13 +140,24 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 		dirty.clear();
 		setConfirming(false);
 		setShown(null);
-		if (section) onNavigate(null);
+		if (leavingFor.current) pages?.open(leavingFor.current);
+		else if (section) onNavigate(null);
+	};
+	const openPage = (key: SectionKey) => {
+		if (dirty.keys.length > 0) {
+			leavingFor.current = key;
+			setConfirming(true);
+		} else {
+			setShown(null);
+			pages?.open(key);
+		}
 	};
 
 	const go = (key: SectionKey) => (e: MouseEvent<HTMLAnchorElement>) => {
 		if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
 		e.preventDefault();
-		if (key !== shown) onNavigate(key);
+		if (pages?.sections.includes(key)) openPage(key);
+		else if (key !== shown) onNavigate(key);
 	};
 
 	const current = shown;
@@ -171,7 +205,7 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 												data-settings-nav={key}
 												aria-current={isCurrent ? "page" : undefined}
 												className={cn(
-													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
+													"flex h-[42px] cursor-pointer items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
 													isCurrent ? "bg-surface-raised text-ink shadow-raised" : "text-ink-2 hover:bg-hover",
 												)}
 											>
@@ -205,6 +239,7 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 									</span>
 								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
+								actions={headerActions}
 							/>
 							{current === null ? null : allowed ? (
 								<SectionContent
@@ -218,7 +253,11 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 									<StatePanel tone="lock" title={`${SECTION_LABEL[current]} is not available to you`} headingLevel="h3">
 										{current === "church" || current === "organization"
 											? "Only an Owner or Admin can change this profile. Ask one of them, or open your own settings."
-											: "This section is not part of your settings."}
+											: current === "brand"
+												? "Only an Owner or Admin of a church can change its brand kit. Ask one of them, or open your own settings."
+												: current === "wiki"
+													? "Only an Owner or Admin of a church sets the order of its Wiki sources. Ask one of them, or open your own settings."
+													: "This section is not part of your settings."}
 									</StatePanel>
 								</SectionBody>
 							)}
@@ -257,10 +296,14 @@ function SectionContent({
 	switch (section) {
 		case "church":
 			return <ChurchSection onDeletionRequested={onDeletionRequested} />;
+		case "brand":
+			return <BrandSection />;
 		case "organization":
 			return <OrganizationSection />;
 		case "notifications":
 			return <NotificationsSection />;
+		case "wiki":
+			return <WikiSourcesSection />;
 		case "account":
 			return <AccountSection onDeletionRequested={onDeletionRequested} />;
 		case "seats":
@@ -362,8 +405,11 @@ export function SaveFooter({
 	saving,
 	onSave,
 	error,
+	label = "Save",
 }: {
 	section: SectionKey;
+	/** The Save button's words, such as "Save order". */
+	label?: string;
 	dirty: boolean;
 	saving: boolean;
 	onSave: () => void;
@@ -395,7 +441,7 @@ export function SaveFooter({
 					Cancel
 				</Button>
 				<Button variant="primary" onClick={onSave} loading={saving} disabled={!dirty && !saving}>
-					Save
+					{label}
 				</Button>
 			</div>
 		</div>

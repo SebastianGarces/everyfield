@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { claimCheckBranch, promoteBranch } from "./drafts.ts";
 import { object, readJson, rows, shape } from "./rows.ts";
 import type { ObjectRow } from "./rows.ts";
 import { prImages } from "./pr-images.ts";
@@ -13,10 +14,14 @@ const help = `Wiki authoring tools (Node 24; install: cd tools/wiki && pnpm inst
   wiki render <draft.json | seed-slug> --out <dir>
   wiki shot <draft.json | seed-slug>... --out <dir> [--mobile]
   wiki pr-images <pr-number> <png>... [--update-body]
+  wiki claim-check --reviewer "<name>" --approval "<words>" [--base <ref>]
+      record a named reviewer's claim check on every pending draft of this branch, commit it and push it
   wiki promote <draft.json> --approved-by <Sebastian|Bryan> --pr <n> --reviewed-sha <sha>
+  wiki promote-all --pr <n> [--reviewed-sha <sha>] [--base <ref>]
+      promote every draft of this branch whose claim check passed, in one local commit, then check the seed
   wiki check-seed
   wiki roundtrip
-Seed commands also accept --seed-dir <dir> for disposable proof copies.
+Seed commands also accept --seed-dir <dir> for disposable proof copies; lint also accepts --allowlist <file>.
 Promotion records human approval given in chat or a PR comment. It does not grant approval.`;
 const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 
@@ -31,11 +36,13 @@ async function main() {
 		flags = new Map<string, string | true>();
 	const booleans = new Set(["--seed", "--mobile", "--update-body"]);
 	const options: Record<string, string[]> = {
-		lint: ["--seed", "--seed-dir"],
+		lint: ["--seed", "--seed-dir", "--allowlist"],
 		render: ["--out", "--seed-dir"],
 		shot: ["--out", "--mobile", "--seed-dir"],
 		"pr-images": ["--update-body"],
+		"claim-check": ["--reviewer", "--approval", "--base"],
 		promote: ["--approved-by", "--pr", "--reviewed-sha", "--seed-dir"],
+		"promote-all": ["--pr", "--reviewed-sha", "--base"],
 		"check-seed": ["--seed-dir"],
 		roundtrip: ["--seed-dir"],
 	};
@@ -59,6 +66,35 @@ async function main() {
 		if (typeof value !== "string") throw new Error(`${key} is required`);
 		return value;
 	};
+	const optional = (key: string) => {
+		const value = flags.get(key);
+		return typeof value === "string" ? value : undefined;
+	};
+	if (command === "claim-check" || command === "promote-all") {
+		if (positionals.length) throw new Error("This command has no positional arguments");
+		if (command === "claim-check")
+			console.log(
+				claimCheckBranch(process.cwd(), {
+					reviewer: required("--reviewer"),
+					approval: required("--approval"),
+					base: optional("--base"),
+				}),
+			);
+		else {
+			const pr = required("--pr"),
+				reviewed = optional("--reviewed-sha");
+			if (!/^[1-9]\d*$/.test(pr)) throw new Error("Use a positive PR number");
+			if (reviewed && !/^[a-f0-9]{40,64}$/.test(reviewed)) throw new Error("Use a full reviewed commit SHA");
+			console.log(
+				promoteBranch(process.cwd(), resolve(root, "bin/wiki"), {
+					pr: Number(pr),
+					reviewed,
+					base: optional("--base"),
+				}),
+			);
+		}
+		return;
+	}
 	const seedDir = resolve(String(flags.get("--seed-dir") || resolve(root, "docs/reference/wiki")));
 	const python = (cmd: string, extra: string[] = []) =>
 		execFileSync(
@@ -107,10 +143,29 @@ async function main() {
 		if (!row) throw new Error(`Unknown seed article: ${input}`);
 		return { row, seed: true };
 	}
+	// Seed ASCII-art blocks that stay until OPS-97 migrates them. Each entry permits one block, by slug and fingerprint.
+	const listed = await readJson(
+		resolve(String(flags.get("--allowlist") || resolve(root, "tools/wiki/ascii-allowlist.json"))),
+	);
+	if (!object(listed) || !Array.isArray(listed.entries)) throw new Error("The ASCII allowlist needs an entries array");
+	const allowlist = listed.entries as { slug: string; fingerprint: string }[];
 	async function lint(row: ObjectRow, seed: boolean, label: string) {
 		const { inspect } = await import("./mdx.ts");
-		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed);
+		const slug = String(row.slug);
+		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed, slug);
 		result.errors.unshift(...shape(row, articles, sections, seed));
+		// Only seed rows read the allowlist; a draft with ASCII art always fails.
+		const unmatched = seed ? allowlist.filter((entry) => entry.slug === slug).map((entry) => entry.fingerprint) : [];
+		for (const finding of result.ascii) {
+			const index = finding.fingerprint === null ? -1 : unmatched.indexOf(finding.fingerprint);
+			if (index >= 0) unmatched.splice(index, 1);
+			(index >= 0 ? result.warnings : result.errors).push(finding.message);
+		}
+		// An entry whose block is gone permits nothing. It is a warning, so a migration never needs a tooling edit.
+		for (const fingerprint of unmatched)
+			result.warnings.push(
+				`Inert ASCII allowlist entry ${slug} ${fingerprint}: no ASCII block matches it, so it permits nothing; delete it`,
+			);
 		if (
 			typeof row.read_time_minutes === "number" &&
 			Math.abs(row.read_time_minutes - Math.round(result.words / 200)) > 1
@@ -128,6 +183,12 @@ async function main() {
 		if (!flags.has("--seed") && !positionals.length) throw new Error("Provide draft files or --seed");
 		let failed = 0,
 			count = 0;
+		if (flags.has("--seed"))
+			for (const slug of new Set(allowlist.map((entry) => entry.slug)))
+				if (!known.has(slug)) {
+					console.log(`FAIL tools/wiki/ascii-allowlist.json\n  ERROR remove ${slug} from the allowlist`);
+					failed++;
+				}
 		for (const item of flags.has("--seed")
 			? articles.map((row) => ({ row, seed: true }))
 			: await Promise.all(positionals.map(load))) {

@@ -8,38 +8,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { sectionSeed } from "../settings/routes";
-import { settingsViewerOf } from "../settings/server";
 import { parseQuery, querySearch } from "./model.ts";
-import { PeopleFrame } from "./PeopleFrame.tsx";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite, loadPeople, loadPerson, type Viewer } from "./server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { loadPeople, loadPerson, type Viewer } from "./server.ts";
+import { params } from "../shared/search-params.ts";
 
 // The People routes. The files under apps/web/src/app/(product)/(frame)/people/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [k, v] of Object.entries(raw)) for (const one of [v ?? []].flat()) out.append(k, one);
-	return out;
-};
-
-/**
- * The product frame around every People and Settings page, so loading and error states sit inside it and moving
- * between them keeps the frame. The name and role are the signed-in actor's, for plant and organization seats alike.
- */
-export async function ProductFrameLayout({ children }: { children: ReactNode }) {
-	const v = await getViewer();
-	const settings = settingsViewerOf(v);
-	return (
-		<PeopleFrame name={v?.displayName ?? "You"} settings={settings} seed={await sectionSeed(settings)}>
-			{children}
-		</PeopleFrame>
-	);
-}
-
 /** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
@@ -73,7 +52,8 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 
-	return <PeopleScreen loaded={await loadPeople(viewer, query)} canWrite={canWrite(viewer)} />;
+	const write = canWrite(viewer);
+	return <PeopleScreen loaded={await loadPeople(viewer, query, write)} canWrite={write} />;
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };
@@ -130,9 +110,9 @@ export async function PersonPage({
 			duplicates={loaded.value.duplicates}
 			followedMerge={followed}
 			records={loaded.value.records}
+			ministries={loaded.value.ministries}
 			followUps={loaded.value.followUps}
-			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
-			photosEnabled={false}
+			photosEnabled={privateStorage() !== null}
 			documentsEnabled={privateStorage() !== null}
 		/>
 	);

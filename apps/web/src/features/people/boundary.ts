@@ -8,7 +8,7 @@ import type { read, Viewer } from "./server.ts";
 // The browser boundary every People server action shares: rebuild the viewer, parse the input, map the producer's reply.
 
 export type Reply<T> = Awaited<ReturnType<typeof read<T>>>;
-export const denied = { status: "refused", code: "access_denied" } as const;
+const denied = { status: "refused", code: "access_denied" } as const;
 export const invalid = { status: "refused", code: "invalid_input" } as const;
 
 /**

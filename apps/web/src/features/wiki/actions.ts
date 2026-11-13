@@ -1,8 +1,17 @@
 "use server";
 
+import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
-import { parseSource, sourceInput } from "./model.ts";
-import { editorContext, organizationNames, plantContext, runSearch, wikiActor, wikiMount } from "./server.ts";
+import { articlePath, parseSource, sourceInput } from "./model.ts";
+import {
+	editorContext,
+	logSearchLost,
+	organizationNames,
+	plantContext,
+	runSearch,
+	wikiActor,
+	wikiMount,
+} from "./server.ts";
 
 // Browser writes for the wiki screens. The producer checks the session again and parses every input.
 // Opening the guide or searching does not record a view.
@@ -17,7 +26,8 @@ type WriteOk = {
 };
 export type WriteResult = WriteOk | { status: "denied" } | { status: "conflict" } | { status: "lost" };
 
-type Envelope = { requestKey: string; expectedRevision: string; articleId: string; plantId?: string };
+type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
+type Envelope = ReadingKey & { expectedRevision: string };
 
 async function actorMount() {
 	const actor = await wikiActor();
@@ -46,13 +56,12 @@ function mapReading(value: {
 	};
 }
 
-export async function recordArticleView(envelope: Envelope): Promise<WriteResult> {
+export async function recordArticleView(envelope: ReadingKey): Promise<WriteResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
 		const reply = await ready.mount.producer.recordView(ready.mount.db, ready.actor, {
 			requestKey: envelope.requestKey,
-			expectedRevision: envelope.expectedRevision,
 			input: { articleId: envelope.articleId, ...(envelope.plantId ? { plantId: envelope.plantId } : {}) },
 		});
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
@@ -63,13 +72,12 @@ export async function recordArticleView(envelope: Envelope): Promise<WriteResult
 	}
 }
 
-export async function saveProgress(envelope: Envelope, fraction: string): Promise<WriteResult> {
+export async function saveProgress(envelope: ReadingKey, fraction: string): Promise<WriteResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
 		const reply = await ready.mount.producer.updateProgress(ready.mount.db, ready.actor, {
 			requestKey: envelope.requestKey,
-			expectedRevision: envelope.expectedRevision,
 			input: {
 				articleId: envelope.articleId,
 				fraction,
@@ -126,7 +134,10 @@ export async function searchWiki(
 	sourceRaw: string | null,
 ): Promise<SearchResult> {
 	const actor = await wikiActor();
-	if (actor === "down") return { status: "lost" };
+	if (actor === "down") {
+		logSearchLost("actor-down");
+		return { status: "lost" };
+	}
 	if (!actor) return { status: "denied" };
 	const result = await runSearch(actor, query, phase, page, parseSource(sourceRaw ?? undefined));
 	if (result === "lost" || result === "denied") return { status: result };
@@ -136,12 +147,12 @@ export async function searchWiki(
 }
 
 export type GuideResult =
-	| { status: "found"; body: string | null; citation: string | null; href: string | null; title: string | null }
+	| { status: "found"; title: string; section: string | null; excerpt: string; href: string }
 	| { status: "missing" }
-	| { status: "gone" }
 	| { status: "denied" }
 	| { status: "unavailable" };
 
+/** The Guide for the current address. One read; it records no view and no progress. */
 export async function loadGuide(route: string): Promise<GuideResult> {
 	const ready = await actorMount();
 	if (ready.status === "denied") return { status: "denied" };
@@ -152,26 +163,15 @@ export async function loadGuide(route: string): Promise<GuideResult> {
 		});
 		if (reply.status !== "ok")
 			return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-		if (reply.value.found && reply.value.articleId) {
-			const article = await ready.mount.producer.getArticle(ready.mount.db, ready.actor, {
-				articleId: reply.value.articleId,
-			});
-			const slug = article.status === "ok" ? article.value.article?.slug : null;
-			return {
-				status: "found",
-				body: reply.value.body,
-				citation: reply.value.citation,
-				href: slug
-					? `/wiki/${slug
-							.split("/")
-							.map((part) => encodeURIComponent(part))
-							.join("/")}`
-					: null,
-				title: article.status === "ok" ? (article.value.article?.title ?? null) : null,
-			};
-		}
-		if (reply.value.missing) return { status: "missing" };
-		return { status: "gone" };
+		const guide = reply.value;
+		if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
+		return {
+			status: "found",
+			title: guide.title,
+			section: guide.citation,
+			excerpt: guide.body,
+			href: articlePath(guide.slug),
+		};
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "guide-failed", error: String(error) }));
 		return { status: "unavailable" };
@@ -342,7 +342,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 	const editor = editorContext(ready.actor);
 	if (!editor || editor.organizationId !== command.organizationId) return { status: "denied" };
 	if (!/^(0|[1-9]\d*)$/.test(command.expectedRevision)) return { status: "invalid" };
-	if (mode !== "hide" && (!command.body || command.body.length > 20000)) return { status: "invalid" };
+	if (mode !== "hide" && (!command.body || !organizationBodyFits(command.body))) return { status: "invalid" };
 	const cachePath = command.cachePath?.slice(0, 400);
 	const input = {
 		articleId: command.articleId,

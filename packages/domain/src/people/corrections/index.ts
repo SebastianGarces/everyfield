@@ -81,7 +81,7 @@ function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 export const recordCorrections = {
 	/**
 	 * people.correctPersonRecord (REQ-PPL-015): correct an assessment, interview or card of this church against the
-	 * revision the corrector saw, with a reason. The record keeps its recorder and recorded instant; the assessment total
+	 * revision the corrector saw, with an optional reason. The record keeps its recorder and recorded instant; the assessment total
 	 * follows the corrected scores on every read; the stage never changes. One statement updates the record, appends the
 	 * correction with its old and new values and appends one audit row, which names the record but holds no value.
 	 */
@@ -137,7 +137,7 @@ export const recordCorrections = {
 						sql`INSERT INTO record_correction(id,plant_id,person_id,record_type,record_id,before_value,after_value,reason)
  VALUES (${receiptId}::uuid,${plant}::uuid,${p.id}::uuid,${recordType},${recordId}::uuid,
  ${JSON.stringify(Object.fromEntries(changed.map((x) => [x.field, x.old])))}::jsonb,
- ${JSON.stringify(Object.fromEntries(changed.map((x) => [x.field, x.new])))}::jsonb,${reason})`,
+ ${JSON.stringify(Object.fromEntries(changed.map((x) => [x.field, x.new])))}::jsonb,${reason ?? null})`,
 					);
 					return {
 						value: value("changed", String(BigInt(record.revision) + 1n)),
