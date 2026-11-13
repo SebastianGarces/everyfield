@@ -1,12 +1,14 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { liveRead } from "@everyfield/domain/access";
+import { liveAuthority } from "../context/authority.ts";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
+import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -14,7 +16,12 @@ import type { ReviewedWrite } from "./types.ts";
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
+export const REVIEWED_WRITES = {
+	...PEOPLE_COMMANDS,
+	...COMMUNICATION_COMMANDS,
+	...TASK_COMMANDS,
+	...FOLLOWUP_COMMANDS,
+} as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -28,10 +35,10 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
+ * waits for it. The actor keeps the same seat and role: `mine` admits only the operations that role may use natively,
+ * so a Member reads their own task reviews and never a People or email review.
  */
-export const readable = (actor: EvryActor) =>
-	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
+export const readable = (actor: EvryActor) => sql`${mine(actor)} AND ${liveAuthority(actor)}`;
 /**
  * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
  * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with
@@ -55,6 +62,7 @@ export const projection = (alias: string) =>
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -64,7 +72,7 @@ export const projection = (alias: string) =>
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
-	target: z.object({ kind: z.enum(["person", "message"]), id: z.uuid(), label: z.string() }).nullable(),
+	target: z.object({ kind: z.enum(["person", "message", "task"]), id: z.uuid(), label: z.string() }).nullable(),
 	changes: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
 	/** A plain reason the change cannot be approved as asked (for example a send time outside the window). */
 	refusal: z.string().optional(),

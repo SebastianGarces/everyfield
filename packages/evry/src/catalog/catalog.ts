@@ -1,7 +1,9 @@
 import type { EvryActor } from "../context/actor.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
+import { FOLLOWUP_READS } from "../adapters/followups/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
+import { TASK_READS } from "../adapters/tasks/reads/index.ts";
 import { allowedWrites } from "../proposals/store.ts";
 import type { ReadAdapter } from "./types.ts";
 
@@ -14,6 +16,8 @@ export const READ_DOMAINS = {
 	people: PEOPLE_READS,
 	peopleOrganization: ORGANIZATION_READS,
 	communication: COMMUNICATION_READS,
+	tasks: TASK_READS,
+	followups: FOLLOWUP_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
