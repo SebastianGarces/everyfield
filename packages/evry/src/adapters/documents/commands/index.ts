@@ -71,10 +71,10 @@ const SOURCE: Record<string, string> = {
 	fallback: "church name",
 };
 
-const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
+export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 	operation: "documents.createFromTemplate",
 	description:
-		"Propose making a new Church Document from one built-in template, with this church's details filled in. The review names the template, its version and each detail it fills; the church then edits the document in Church Documents. A template is not legal advice, and Evry never writes the policy itself. Nothing changes until the user approves the exact review.",
+		"Propose making a new Church Document from one built-in template, with this church's details filled in. The review names the template, its version and each detail it fills; the church then edits the document in Church Documents. When someone asks Evry to draft, write or make a policy or document that a built-in template covers (a finance policy is the Financial Controls Policy), propose this at once with that template instead of writing the text or asking first: the review card is the offer. Say the template is not legal advice. Nothing changes until the user approves the exact review.",
 	input: createInput,
 	allowed: ownerOrAdmin,
 	async review(actor, value, context) {
@@ -136,7 +136,7 @@ const exportInput = z.strictObject({
 const exportArgs = z.object({
 	input: z.object({ documentId: z.uuid(), revision: z.int(), format: z.enum(["pdf", "docx"]) }),
 });
-const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
+export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 	operation: "documents.exportNative",
 	description:
 		"Propose saving a PDF or Word file of one Church Document's current version. The file is saved with the document in Church Documents, where it downloads. Nothing changes until the user approves the exact review.",
@@ -170,7 +170,7 @@ const archiveArgs = z.object({
 	store: z.enum(["written", "church"]),
 	input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }),
 });
-const archive: ReviewedWrite<{ documentId: string }> = {
+export const archive: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.archive",
 	description:
 		"Propose archiving one of this church's documents, a written document or a Church Document. It leaves its list and stays readable. Nothing changes until the user approves the exact review.",
@@ -207,7 +207,7 @@ const designateRow = z.object({
 	body: z.string(),
 });
 const designateArgs = z.object({ input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }) });
-const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
+export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.designateCoreValues",
 	description:
 		"Propose marking one written document with text as this church's core values document. Evry marks the church's own document; it never writes core values. Nothing changes until the user approves the exact review.",

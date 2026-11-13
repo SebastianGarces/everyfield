@@ -70,17 +70,19 @@ const listInput = z.strictObject({
 	title: z.string().trim().min(1).max(200).optional().describe("Words from the document's title"),
 	store: z.enum(["written", "church"]).optional().describe("written: Documents; church: Church Documents"),
 });
-const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
+export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "documents.listOwned",
 	description:
-		"List this church's documents as Documents and Church Documents show them: each title, its type (written document, core values or Church Document), its template, when it last changed and its link in the app. It reads titles only; read a document with documents.read before saying what it says.",
+		"List the documents this church saved in Everyfield, as Documents and Church Documents show them: each title, its type (written document, core values or Church Document), its template, when it last changed and its link in the app. It reads titles only; read a document with documents.read before saying what it says. These are the church's own documents, not the Everyfield Wiki. Evry sees only documents saved in Everyfield, never files on a computer, phone, drive, email or the web: when asked about such files, say Evry can only see documents in Everyfield and offer these. Any seat may read documents; only an Owner or Admin can make, export, archive or mark one, so tell anyone else that an Owner or Admin has to do it.",
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
-		const words = input.title ? `%${input.title.replace(/[\\%_]/g, "\\$&")}%` : null;
+		// Every word of the request appears in the title, in any order: "September vision agenda" finds
+		// "Vision Meeting Agenda - September 14".
+		const words = (input.title?.split(/\s+/).filter(Boolean) ?? []).map((w) => `%${w.replace(/[\\%_]/g, "\\$&")}%`);
 		const r = await tx.execute(sql`
 			SELECT x.*, count(*) OVER () AS total FROM (${listed(actor)}) x
-			WHERE ${live(actor)} AND (${words}::text IS NULL OR x.title ILIKE ${words} ESCAPE '\\')
+			WHERE ${live(actor)} AND NOT EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w WHERE x.title NOT ILIKE w ESCAPE '\\')
 				AND (${input.store ?? null}::text IS NULL OR x.store=${input.store ?? null})
 			ORDER BY x.recorded_at DESC, x.id LIMIT ${LIST_LIMIT}`);
 		const rows = r.rows.map((raw) => listedRow.parse(raw));
@@ -104,9 +106,9 @@ const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 
 const readInput = z.strictObject({ documentId: z.uuid().describe("A document id from documents.listOwned") });
 const readRow = listedRow.extend({ body: z.string(), archived: z.boolean() });
-const read: ReadAdapter<z.infer<typeof readInput>> = {
+export const read: ReadAdapter<z.infer<typeof readInput>> = {
 	operation: "documents.read",
-	description: `Read one of this church's documents: its title, type, link and its actual text in reading order (at most ${TEXT_CHARS.toLocaleString("en-US")} characters). Quote this text when you say what a document says; never describe a document from its title.`,
+	description: `Read one of this church's documents: its title, type, link and its actual text in reading order (at most ${TEXT_CHARS.toLocaleString("en-US")} characters). When you say what a document says, quote its words in quotation marks; never describe a document from its title.`,
 	input: readInput,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
@@ -164,7 +166,7 @@ function churchText(stored: string) {
 	}
 }
 
-const coreValues: ReadAdapter<Record<string, never>> = {
+export const coreValues: ReadAdapter<Record<string, never>> = {
 	operation: "documents.readCoreValuesEvidence",
 	description: `Find the written document this church marked as its core values, with its link. Not found means the church has marked none: say so and offer the documents lists (${LISTS.written} for written documents, ${LISTS.church} for Church Documents). Never write core values for the church.`,
 	input: z.strictObject({}),
@@ -194,10 +196,10 @@ const coreValues: ReadAdapter<Record<string, never>> = {
 const templatesInput = z.strictObject({
 	title: z.string().trim().min(1).max(200).optional().describe("Words from the template's title, like policy"),
 });
-const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
+export const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
 	operation: "documents.templates.list",
 	description:
-		"List the built-in templates a new Church Document can be made from: each id, title, version, what it is for and whether it is a formal or legal template. A template is starting text the church edits; it is not legal advice.",
+		"List the built-in templates a new Church Document can be made from: each id, title, version, what it is for and whether it is a formal or legal template. A template is starting text the church edits; it is not legal advice. A policy or legal document always comes from a template, never from text Evry writes.",
 	input: templatesInput,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {

@@ -188,7 +188,8 @@
 		"must_not": "Write an agenda from scratch and present it as the saved one",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/here['’]?s (the|your|a) (saved )?agenda|agenda:\\s*\\n/i"]
+			"forbid": ["/here['’]?s (the|your|a) (saved )?agenda|agenda:\\s*\\n/i"],
+			"only": ["documents.listOwned", "documents.read"]
 		}
 	},
 	{
@@ -204,7 +205,8 @@
 		"must_not": "Tick kit items without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
+			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
+			"only": ["documents.listOwned", "documents.read"]
 		}
 	},
 	{
@@ -429,8 +431,12 @@
 			},
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
 			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson"],
-				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
+				"checks": [
+					"calls only people.listPeople, people.getPerson",
+					"says it can't do that yet",
+					"names the missing guest capability"
+				],
+				"note": "T-325 (D-958, D-1151): after the Evry Documents tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -595,11 +601,7 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
 		}
 	},
 	{
@@ -666,8 +668,13 @@
 				]
 			},
 			"finding": {
-				"checks": ["names only matching records"],
-				"note": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call."
+				"checks": [
+					"calls people.listPeople {\"stages\":[\"following_up\"]}",
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "T-325 (D-958, D-1151): after the Evry Documents tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -722,12 +729,6 @@
 			],
 			"target": {
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
-			},
-			"finding": {
-				"checks": [
-					"says /inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i"
-				],
-				"note": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
 	},
@@ -1222,7 +1223,7 @@
 			"cantYet": true,
 			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
 			}
 		}
@@ -1314,8 +1315,8 @@
 			"cantYet": true,
 			"forbid": ["/(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
 			"finding": {
-				"checks": ["never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": ["calls only no tool"],
+				"note": "T-325 (D-958, D-1151): after the Evry Documents tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -1380,7 +1381,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"],
+			"only": ["communication.list", "documents.templates.list"],
 			"finding": {
 				"checks": ["says it can't do that yet"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
@@ -1394,13 +1395,23 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-01",
 		"question": "where's our core values doc",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `documents.listOwned`",
 		"expected_answer": "Later: the document with a link into the app",
 		"must_not": "Write core values and present them as the church's",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/(our|your) core values (are|include)\\s*:/i"]
+			"calls": [
+				{
+					"operation": "documents.readCoreValuesEvidence",
+					"alsoAccepted": ["documents.listOwned"]
+				}
+			],
+			"require": ["Hope Fellowship Core Values"],
+			"names": {
+				"allowed": []
+			},
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i", "New Hope"],
+			"derivation": "Hope Fellowship marked its written document \"Hope Fellowship Core Values\" as its core values; the read names it and its link opens it in Documents. Evry names the church's own document and never writes core values for it."
 		}
 	},
 	{
@@ -1410,13 +1421,22 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-02",
 		"question": "make us a child protection policy from the template",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `documents.templates.list` + `documents.createFromTemplate` proposal",
 		"expected_answer": "Later: review of the template and fields",
 		"must_not": "Generate a policy as legal advice",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"]
+			"proposals": [
+				{
+					"operation": "documents.createFromTemplate",
+					"input": {
+						"templateId": "child-protection-policy"
+					}
+				}
+			],
+			"require": ["/review|approv/i", "/not legal advice/i"],
+			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"],
+			"derivation": "The Child Protection Policy template (version 1) makes a new Church Document through one review card naming the template, its version and Hope Fellowship's details. Evry says the template is not legal advice and writes no policy text itself."
 		}
 	},
 	{
@@ -1486,23 +1506,25 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-06",
 		"question": "can you draft a finance policy for us?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: finance policy is a document template (scope note 2026-10-30)",
 		"expected_answer": "Later: from template via review; finance features stay out",
 		"must_not": "Offer budgeting or giving features",
 		"eval": {
-			"cantYet": true,
+			"proposals": [
+				{
+					"operation": "documents.createFromTemplate",
+					"input": {
+						"templateId": "financial-controls-policy"
+					}
+				}
+			],
+			"require": ["/review|approv/i", "Financial Controls Policy"],
 			"forbid": [
 				"/I can (help )?(set up|track|manage) (a |your )?(budget|giving|donations)/i",
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
-			"finding": {
-				"checks": [
-					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
-					"says it can't do that yet"
-				],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "A finance policy is the Financial Controls Policy template (scope note 2026-10-30): Evry offers it through the same review card as any template, writes no policy itself and offers no budgeting or giving features."
 		}
 	},
 	{
@@ -1658,8 +1680,12 @@
 				"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "says /\\b2\\b[^.\\n]{0,30}fail/i"],
-				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap."
+				"checks": [
+					"calls people.getImportReceipt",
+					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+					"says /\\b2\\b[^.\\n]{0,30}fail/i"
+				],
+				"note": "T-325 (D-958, D-1151): after the Evry Documents tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -2383,12 +2409,6 @@
 				"require": [
 					"/(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 				]
-			},
-			"finding": {
-				"checks": [
-					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
-				],
-				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
 			}
 		}
 	}
