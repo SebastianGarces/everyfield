@@ -172,8 +172,10 @@ login accounts, and none is to Ana.
   runtime login uses the direct endpoint.
 - Open: `bin/qa down` fails on Vercel CLI 65, which refuses `--yes` from agents and asks for `--confirm-name`. Until it
   is fixed, `bin/qa down qa-main-c26f` stops the driver and then fails. Previews `qa-main-8d08`, `qa-main-8998` and
-  `qa-main-abd1` from this run wait for that fix.
+  `qa-main-abd1` from this run wait for that fix. Follow-up T-288 fixes `bin/qa down` and removes those three previews
+  and the orphan deployments from the failed `qa up` attempts.
+- Open: a cron driver started from an agent seat stops when the seat turn ends. Follow-up T-289.
 
 ### Teardown
 
-After Nora finishes, Jonah runs `bin/qa down qa-main-c26f` from a checkout with the `bin/qa down` fix.
+After Nora finishes, Jonah runs `bin/qa down qa-main-c26f` from a checkout with the T-288 fix.
