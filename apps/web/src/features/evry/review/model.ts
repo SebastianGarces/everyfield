@@ -202,6 +202,14 @@ export function valueText(field: string, value: unknown): string | null {
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
 	review.operation !== "people.setPersonPhoto" || uploadShown;
 
+/** What an empty value is called: no household is "None", and a note, skill or tag that goes away is "Removed". */
+export function emptyText(field: string, after: boolean) {
+	if (field === "photo") return "No photo";
+	if (field === "household" || field === "householdRole") return "None";
+	if (after && ["note", "skill", "category", "proficiency", "tag"].includes(field)) return "Removed";
+	return "Empty";
+}
+
 /** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 

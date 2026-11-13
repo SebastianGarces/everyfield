@@ -1336,5 +1336,20 @@
 			"require": ["/owner|admin/i"],
 			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
 		}
+	},
+	{
+		"case_id": "ADP-W-02",
+		"extra": true,
+		"adapter": "people-organization/reads",
+		"operation": "people.getImportReceipt",
+		"near_miss": true,
+		"question": "How did yesterday's import go?",
+		"eval": {
+			"as": "member",
+			"forbid": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"],
+			"require": ["/can['’]?t|cannot|not able|unable/i"],
+			"derivation": "A Member has no import receipt read: Evry reads no receipt, and no receipt facts reach the answer.",
+			"only": []
+		}
 	}
 ]

@@ -162,7 +162,12 @@ const ORGANIZATION = {
 	receipt: /\bhow did (?:yesterday's|the|the last|our last) import go\b/i,
 	import: /\bimport this csv:\s*([\s\S]+)$/i,
 };
-function peopleOrganizationStep(text: string, canPropose: boolean, outputs: Record<string, unknown>[]) {
+function peopleOrganizationStep(
+	text: string,
+	canPropose: boolean,
+	canReadImports: boolean,
+	outputs: Record<string, unknown>[],
+) {
 	const matched = Object.entries(ORGANIZATION).find(([, re]) => re.test(text));
 	if (!matched) return null;
 	const [kind, re] = matched;
@@ -175,6 +180,8 @@ function peopleOrganizationStep(text: string, canPropose: boolean, outputs: Reco
 	const org = (operation: string, input: unknown) => toolCall("peopleOrganization_read", { operation, input });
 	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
 	if (kind === "receipt") {
+		if (!canReadImports)
+			return [{ type: "text" as const, text: "Only an Owner or Admin of this church can see how an import went." }];
 		if (!outputs.length) return [org("people.getImportReceipt", {})];
 		const file = rowsOf(outputs[0], "file")[0];
 		if (!file) return [{ type: "text" as const, text: "I can't find an import in this church." }];
@@ -288,7 +295,11 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
-		const organization = peopleOrganizationStep(text, canPropose, turnOutputs(options.prompt));
+		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.
+		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
+			"people.getImportReceipt",
+		);
+		const organization = peopleOrganizationStep(text, canPropose, imports, turnOutputs(options.prompt));
 		if (organization) return organization;
 	}
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))

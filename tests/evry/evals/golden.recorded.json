@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-13T22:23:10.978Z",
+	"recordedAt": "2026-11-13T22:48:42.363Z",
 	"spend": {
-		"newCalls": 2,
-		"newMicroUsd": 1514,
-		"allCalls": 644,
-		"allMicroUsd": 520376
+		"newCalls": 1,
+		"newMicroUsd": 140,
+		"allCalls": 647,
+		"allMicroUsd": 520919
 	},
 	"calls": {
 		"016678d568ebf5bb": {
@@ -11184,6 +11184,25 @@
 				"output": 305
 			}
 		},
+		"395234b5d386bd0e": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_063bb95ebcffdf8d006af793889c9087d186c34fad3146e05c",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 116,
+				"output": 12
+			}
+		},
 		"39fb83dbd6fadf3d": {
 			"kind": "stream",
 			"parts": [
@@ -14053,6 +14072,25 @@
 			"usage": {
 				"input": 12606,
 				"output": 31
+			}
+		},
+		"4c3d6e1ee9870701": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It is plain, brief, and direct without overstating what Evry can see.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It clearly says the import result isn’t available, but doesn’t suggest where the user could check it next.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0c23e3fc0b3ceae2006af793c8697c87d1a29f1684e8bdb7b2",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 304,
+				"output": 218
 			}
 		},
 		"4d8bda5f4eda4266": {
@@ -29097,6 +29135,108 @@
 			"usage": {
 				"input": 12613,
 				"output": 411
+			}
+		},
+		"ac91f3c96616fbfd": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_02b2a9e09c854d0f006af79389067c87d193e42b94b73e6bd9",
+					"timestamp": "2026-11-13T22:47:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_02b2a9e09c854d0f006af79389e3f887d18359df0ce38b84cc:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_02b2a9e09c854d0f006af79389e3f887d18359df0ce38b84cc",
+							"reasoningEncryptedContent": "gAAAAABq95OJyj8KhoZOhA42XZlFPrLuefgWDKc0nihsPrL8o8xn3kPaLa5sysuqzpz0bl1MRpAsCsQNWwPm-enJp8HEU347mYN09cr5UWhTf1t3u4eznyDUMyVijI_iIdYfpUhGL7erQmEUtYjd_ILWitH8F8hSeVAk-25H5Bu_OHRPljEMtsBZdYjRR8x-yKULomYicGZ63JpCE8JOUXhTuDtCaAbknN77SCcqWqCLBZSMFdQsLbbL8iQuvkiiiAdP5AIE2wy6pIYY10e2nlDSb9TK49XrHZu0lXQDz-m_SM98QiRAn7jSTTTN4vgInXgN-7DB3D3KsiV8AwHdDC38n9WO3L-KipybXfPIaPKSijD85Y5hPAewU9hy9Vmcsc9mF6OVJZkru25x0hP3KJ29P6Nn6v1H02m2fmKfLCGagQnLoce2u65nb8r_tYKDvEr00mVs2GChnZyjUi7Bfifl7o2iIW-t2x4nf0FE1ETc6GE4swmBqYMP_pV73RAWyYeBGBfDz-PhDfafUlYnV20h5QGhYTs1syusakd9wU_1cmSUvOkyxb-sZZZCCbzTCtt--dJ0H4KbccYNjKj0tlZDqjwyqd8GfupWe-7XD92jdwYfhghEwR3zDqajhDYcPEorP2PM-yodX10HZTk15l07jxyEyC-lQS1FNPxsjUoxuenltjZtpB1WHzmP8qqoGGoZwHDhKnUQ1ibU0SvS5QtAFIh92Ig-W6W3cEfv1dEZyUDkDPv_-p2xUFsdXI_1cwFWj3fPiyUdcab9BOIUfl1Q1xyc3gAGKWZii_7YIKc-zj8B-YPA9-lTOXVZYyQUMMd1JRpX7O3J1Fb82NRvE1b4Isq1maw6pwWLOdxt0HbsMZ1R5IbTZDDPlqheKKMKw-35IpJavuAFil_c1aftRX6tJchxCJObOoLs5QhfUabVvZO2Ch0EogxHU4rmVcUdCga8Q2PJ3eKvQgwL8dLWa8g0w__MAVwFi8h39nssXvAouLJVwiscHv5vftQK0o8VKjVoxFoSqfvVIzCAbnDkkevyXi-0jsrG7N362ZwWQzGdVY5HxuYJync6cYDL4Xre4qLZxCKWoaAZJyeNe_PenQfGPG-oOmm7cdSmPiHzSZVicTaxFUObYLqHIf9fETfvWZB8HpX4Ko82lxNGjQl13LBnAZgsx0B-W_u6hXRq7I7v-jgy9AgYqitq3mcFyZvtPprVpyokVvCxI21AW1OuMYOod80rHTEvD2rX3WmibJcNEQiHcFBEJcPHDFCqkk-j5BizgTrI_J-UohW6YCzCB0ZqqxKnSqgx5kXigcnEwNlR3z7CJp79PwDp5jIRs_FBgHJ-ruyJTO5os7tv62ii-d2HrLwWZjJLUwJ12ptLXzRJHCquO5UrLYc="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_02b2a9e09c854d0f006af79389e3f887d18359df0ce38b84cc:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_02b2a9e09c854d0f006af79389e3f887d18359df0ce38b84cc",
+							"reasoningEncryptedContent": "gAAAAABq95OKPQDVxTZFpuyUOuMcXWYMM_1ddyebiPPMgt0b1ZXaHlaOZjUz7-KN5c84D7yqHoEmG-XyqWN--zf_iSsKssZ0obWR5VBZGTi0Yc1gNJpybAJMsFJrLI79NYaveAeTpxNGOOVFk9KF41_A8j9hyMthlv6RfCkjKUu12dqas7fF6SO_EkqSkBJouLjeJiojMoha5HaicW4SxXpfB9_FPUw-Phu-pUC03E4Jwo_iXQKn_onDc2tJ4f-VsAT0ZX6ASBqW_irD9b_PZhrxdJLBB0ltTnD7WykIMOn9cLI51q1VzYnIviVIDzLul2QSkqIIF31vrOGwb4zWHHJUmoY4xW2dRPKAeyZ4RPyy5ZIeZokyTp1Rx1EwL9-mFAtdA3LYdxWGNCiCNrUumU5xtiQxnmRgRZqaLZ1cEqnYXOVtMKi8XG3-4xj0DBQDs-SdYjzbme9MinzGIXi1yejKA6ZHbIMZ-djN57DaPRhcJe5ATM_os2M05JAf6gSu1058BVkGmK7cpCSOPGDtpUI95nsA7JCZJXhxghzXqI4phS_tTVsGaGj_V1-beH-BBCN60zSwbwE3hJLyvnnqrpk4ML4dfZDlo_PSw_npjYIMHNYlvKG0dswXfKcH9iSn4oSoIWhaTdjEia7OqWc-5DdykR_QQ9X0I82dbWyJB8xXzHgCqyuOVHe9J3S3yuNvHtBU1iXTt5vBngf-w8UpkOMdwAOu6363-ySrfvnTVy3JkdZJrm60XaW-Hddz5OyVOi4P6vSgb_0fo-EW8UJbZl6rqfgJeLe3bAZj4PmKIKWm8jZ0-k692DeWlydU4KNuHkux5IzTanJcPpC-OBbWeRCG_nLY84IxrvAdBkfrhUFPUrriUKhNx5JbyQxUnsG7D8wz_GBpvska60FfB4-Ef47OIDi_JoYKwUDKsN_05WQVmK6eTxm-cZqVysC0837Asz3y11up6WlUqTe6dMOwEFOGzdDNDsw_DjcklllDHCeC0qhBFu3V_0hz6jrB-KYgOd99sHmL9LOb554gSumxOycaw2mcnvBzHMJmJl5eUyzo5cUkSfCA6Hc8eNxppCZyc6fo3MlWEtfTQsTNsyqEhlFR2hizxVv5m8k3yeAzceA6vRSrnaXNyi7rm2aacKxTzW8vMtk-oxvjnto04EAMVAr0_4RQnuhb7CnAMX-soEcByRqUh0muArjMx2lysfvLshsDsTi-wHsL6BP8ZZ0e6Xr1JXFsALK_gBOhNzHl6mnpVREQbtCVBrP4NKQL-4aUF_tZZr3TzaHCntk_cZUhASgheCmuF9ADxlQRVdQ5J2KGkd8cwSHL0fz2qug336FK1hh0gGmGXld8rhPSeyGstdWdMgTEPUInF-W_C9dJUVvTPECOjsX_Ev-YimpfD1P1WoAR8Guvstm2RB69MLmV6e6_9M8Pz9Kxjds9Rw_z0CeYdWKkEwuLl77G2hGiVL-gEoAd07aWSElrEbpWjpiRxX8-Uyp_C9xznRIBR5FxHZQxH_5eHhXhcy0ga4axf7u4zLVOdH_5nEeXtQg7opDmyeWxywpil-ZQ3MMDGIKqDGqVkYcHB_1gtRPT9fp74oxtsCAqWA7t9SNqxX625_wcPO234rJ3MDYKFzlTNGLp_nmnLfdSO6ud7vHSabmXfgM76yQfe59QKFIS02bvYA2sx8ygzwOcUAuUc22OouWmeHeTx-6ZStXZF12WSbyDsgHfiWLrcoSG3X3UQ0bWevkAWOs_CUYsI2dJir3k4aru_b2Wg2sl4D_1haNcqWdAywF6vK6U1a70asjB8Cr9XXxSOeesPyA9-h0P2OiLqhm7y8jnyQ0XeltFwBODB7alinkvJxo_9URWoDrTlnc8sM-l7X0j4sWtetAvsZ0o6QbaeZTvrVoTmvCXwhmIYswdfVBEJPwNW-ay1cuI1UhB_nDiSkLkfhfDw00HCUGB7SBnbHniDQ7_ej-TVHmAG4Nr6pKeZiDOD9-grVt8IvWrKbfYznHFIH5i0X3TXRKgmw2cQlxoK4TMHFh6MRitl44EtVnOWw14flrPYGW77MWAD6qhY36A2NMYooe6Td-V2pK1oYVLDat1bJV9Zurhz8PFiG3HD9sm1gioG-feFtnIzAzh6QHI-tYzFqxoErcHm7i6x6hh61WqVeZxe2SWa1PVvpNyUGmo6Q6fDtkveE6o32XqemTrUzaTnoLlKb4ey3sv-Ja9l3r9ihIYvhK8c-4dHW9OMlXmJzIHfeKBQQsuoWNfHPZg2kSSg2WS9HhZYLUTLoi_mbvzUn2FXvOdKEK0d1KeiH4VPphLvjYDn6a7L_8JpDjJqoBHiWI9IfFSz5qEA2cr98UBdAxRanNdG8J9FR5fGA1ZwcXKjIBTScCdGa8YFbIwpavqKbio0kq3FEXWbArSkXctwztQp0LzIqvyhzc0b0OY-Mj_tpgd8CXhjWoVHSH7UYjXninTglvenaK_WVhE_-Zn0d42uLQ560Dwagz-RGHw3ekX_JQLqLtr-wwp35tci5yMx8Wh3Q=="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_02b2a9e09c854d0f006af7938a77d887d1abbc02a050fc6f4e",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02b2a9e09c854d0f006af7938a77d887d1abbc02a050fc6f4e",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_02b2a9e09c854d0f006af7938a77d887d1abbc02a050fc6f4e",
+					"delta": "I can’t see import history or status here, so I can’t tell how yesterday’s import went. The available tools can return the people import template, but not check an import’s results."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_02b2a9e09c854d0f006af7938a77d887d1abbc02a050fc6f4e",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02b2a9e09c854d0f006af7938a77d887d1abbc02a050fc6f4e",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 3270,
+							"noCache": 3,
+							"cacheRead": 3256,
+							"cacheWrite": 11
+						},
+						"outputTokens": {
+							"total": 115,
+							"text": 45,
+							"reasoning": 70
+						},
+						"raw": {
+							"input_tokens": 3270,
+							"input_tokens_details": {
+								"cache_write_tokens": 11,
+								"cached_tokens": 3256
+							},
+							"output_tokens": 115,
+							"output_tokens_details": {
+								"reasoning_tokens": 70
+							},
+							"total_tokens": 3385
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_02b2a9e09c854d0f006af79389067c87d193e42b94b73e6bd9",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 3270,
+				"output": 115
 			}
 		},
 		"acaf4ef8a8011e71": {

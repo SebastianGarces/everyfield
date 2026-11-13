@@ -33,6 +33,7 @@ import {
 	approvable,
 	CHOICES,
 	checkable,
+	emptyText,
 	clock,
 	consequence,
 	editableChanges,
@@ -535,7 +536,12 @@ export function ReviewCard({
 	const h = mailTitle
 		? { ...base, ...mailTitle, icon }
 		: people || imported
-			? { ...base, title: people ?? imported!, ...(people && !people.startsWith("Saved") && { icon: Alert02Icon }) }
+			? {
+					...base,
+					title: people ?? imported!,
+					// Someone was left out: the head says so in the alert tone, never the tone of a complete save.
+					...(people && !people.startsWith("Saved") && { icon: Alert02Icon, tone: "amber" as const }),
+				}
 			: base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
@@ -904,7 +910,7 @@ function Affects({ review }: { review: Review }) {
 
 function Value({ field, value, before }: { field: string; value: unknown; before?: boolean }) {
 	const text = valueText(field, value);
-	if (text === null) return <span className="text-text-3 italic">{field === "photo" ? "No photo" : "Empty"}</span>;
+	if (text === null) return <span className="text-text-3 italic">{emptyText(field, !before)}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
 	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;

@@ -2,23 +2,28 @@
 
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { Icon, cn } from "@everyfield/ui/foundations";
-import { ROW_OUTCOME, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
+import { ROW_OUTCOME, emptyText, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
 
 // What a change that reaches several people does to each of them (WP-064): every household member's address, every
 // person being tagged, every row of an import. Before approval the card lists what will happen; after it, what did,
 // person by person, so a change that left anyone out never reads as done for everyone.
 
 function Before({ change }: { change: Change }) {
+	// A tag on many people: each line says only whether this person gets it or loses it.
+	if (change.field === "tag")
+		return <span className="text-sm text-text-2">{change.after ? "Gets the tag" : "Loses the tag"}</span>;
 	const before = valueText(change.field, change.before);
 	const after = valueText(change.field, change.after);
 	return (
 		<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm">
 			<span className="sr-only">{fieldLabel(change.field)} from </span>
-			<span className={cn("break-words", before ? "text-text-2" : "text-text-3 italic")}>{before ?? "Empty"}</span>
+			<span className={cn("break-words", before ? "text-text-2" : "text-text-3 italic")}>
+				{before ?? emptyText(change.field, false)}
+			</span>
 			<Icon icon={ArrowRight02Icon} size={16} className="flex-none text-text-3" />
 			<span className="sr-only"> to </span>
 			<span className={cn("break-words", after ? "font-medium text-ink" : "text-text-3 italic")}>
-				{after ?? "Empty"}
+				{after ?? emptyText(change.field, true)}
 			</span>
 		</span>
 	);
