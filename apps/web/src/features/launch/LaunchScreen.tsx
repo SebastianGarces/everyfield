@@ -104,10 +104,12 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 		if (r.status === "ok") {
 			setDraft(null);
 			setPlan(r.value.plan);
-			if (r.value.outcome === "noop") toast({ message: "No change: Launch Sunday is already that date.", tone: "info" });
+			if (r.value.outcome === "noop")
+				toast({ message: "No change: Launch Sunday is already that date.", tone: "info" });
 			return;
 		}
-		if (r.status === "refused" && r.error.code === "invalid_reason") return setDraft({ ...d, error: refusalMessage(r) });
+		if (r.status === "refused" && r.error.code === "invalid_reason")
+			return setDraft({ ...d, error: refusalMessage(r) });
 		setDraft({ ...d, error: refusalMessage(r) });
 	}
 
@@ -197,7 +199,12 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 						: "No date is set right now. An Owner or Admin sets the new date.",
 				};
 			case "today":
-				return { metric: "Today", unit: null, title: "Launch Sunday is today", text: "Every milestone you have done is ready." };
+				return {
+					metric: "Today",
+					unit: null,
+					title: "Launch Sunday is today",
+					text: "Every milestone you have done is ready.",
+				};
 			case "overdue":
 				return {
 					metric: String(c.days),
@@ -268,7 +275,11 @@ function Readiness({ plan }: { plan: Plan }) {
 			</CardHeader>
 			{plan.milestones.length ? (
 				<div className="flex flex-wrap items-start gap-x-8 gap-y-5">
-					<Stat label="Milestones" value={`${done} of ${plan.milestones.length}`} part={done / plan.milestones.length} />
+					<Stat
+						label="Milestones"
+						value={`${done} of ${plan.milestones.length}`}
+						part={done / plan.milestones.length}
+					/>
 					<Stat
 						label="Prep tasks done"
 						value={`${tasks.done} of ${tasks.total}`}
@@ -392,7 +403,7 @@ function StateMark({ m }: { m: Milestone }) {
 		);
 	if (m.completion)
 		return (
-			<span className="grid size-6 flex-none place-items-center rounded-full bg-green-500 text-[#181D19]">
+			<span className="grid size-6 flex-none place-items-center rounded-full bg-green-100 text-green-700">
 				<Icon icon={Tick02Icon} size={16} />
 			</span>
 		);
@@ -401,7 +412,11 @@ function StateMark({ m }: { m: Milestone }) {
 		<span
 			aria-hidden="true"
 			className="grid size-6 flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]"
-			style={pct ? { background: `conic-gradient(var(--ef-blue-500) ${pct}%, var(--ef-surface-2) 0)`, boxShadow: "none" } : undefined}
+			style={
+				pct
+					? { background: `conic-gradient(var(--ef-blue-500) ${pct}%, var(--ef-surface-2) 0)`, boxShadow: "none" }
+					: undefined
+			}
 		>
 			{pct ? <span className="size-4 rounded-full bg-surface" /> : null}
 		</span>
@@ -469,7 +484,14 @@ function MilestoneRow({
 	}
 
 	return (
-		<li className={cn("rounded-card", open ? "my-1.5 bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line)]" : "border-t border-line first:border-t-0")}>
+		<li
+			className={cn(
+				"rounded-card",
+				open
+					? "my-1.5 bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line)]"
+					: "border-t border-line first:border-t-0",
+			)}
+		>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -507,7 +529,10 @@ function MilestoneRow({
 						<p className="mt-3 ml-[38px] text-sm text-text-3 max-app-sm:ml-0">This milestone has no prep tasks left.</p>
 					)}
 					{stale ? (
-						<p role="alert" className="mt-3 ml-[38px] rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink max-app-sm:ml-0">
+						<p
+							role="alert"
+							className="mt-3 ml-[38px] rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink max-app-sm:ml-0"
+						>
 							These tasks changed since you opened the page. Nothing was saved. Review them and complete the milestone
 							again.
 						</p>
@@ -592,7 +617,10 @@ function TaskRow({
 			<div className="min-w-0 flex-1">
 				<Link
 					href={`/tasks?task=${encodeURIComponent(task.id)}`}
-					className={cn("cursor-pointer text-ink hover:underline", task.status === "complete" && "text-text-3 line-through")}
+					className={cn(
+						"cursor-pointer text-ink hover:underline",
+						task.status === "complete" && "text-text-3 line-through",
+					)}
 				>
 					{task.title}
 				</Link>

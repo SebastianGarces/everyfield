@@ -141,7 +141,11 @@ before(async () => {
 after(() => f?.close());
 
 /** Reference items the Launch plan's readiness tasks own instead (Sebastian, Nov 6, 2026; WP-045). */
-const OWNED_BY_LAUNCH = ["promotion-campaign/invite-drop", "promotion-campaign/press-release", "pre-launch-services/book-preview-venue"];
+const OWNED_BY_LAUNCH = [
+	"promotion-campaign/invite-drop",
+	"promotion-campaign/press-release",
+	"pre-launch-services/book-preview-venue",
+];
 
 test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by item under one version", () => {
 	const reference = referenceCatalog().map((k) => ({

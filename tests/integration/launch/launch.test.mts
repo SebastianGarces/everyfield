@@ -81,7 +81,10 @@ async function scheduled() {
 	ok(await schedule(c.owner, "2026-11-10", null, "1"));
 	return { ...c, plan: await plan(c.owner) };
 }
-async function practice(w, { status = "completed", heldAt = "2026-10-04T15:00:00Z", type = "prelaunch_practice" } = {}) {
+async function practice(
+	w,
+	{ status = "completed", heldAt = "2026-10-04T15:00:00Z", type = "prelaunch_practice" } = {},
+) {
 	const id = randomUUID();
 	const teamId = type === "team_meeting" ? await teamOf(w) : null;
 	await f.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,team_id,title,local_date,local_time,timezone,starts_at,
@@ -92,7 +95,9 @@ async function practice(w, { status = "completed", heldAt = "2026-10-04T15:00:00
 }
 async function teamOf(w) {
 	const id = randomUUID();
-	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${id},${w.id},'Welcome','active',1)`);
+	await f.admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${id},${w.id},'Welcome','active',1)`,
+	);
 	return id;
 }
 
@@ -193,9 +198,15 @@ test("AC:CASE-LCH-009 a date saved in onboarding gets its readiness once, even f
 	const read = ok(await reader.readPlan(f.db, c.owner.actor));
 	assert.equal(read.repair, true);
 	assert.deepEqual(read.plan.milestones, []);
-	const both = await Promise.all([writer.ensureReadiness(f.db, c.owner.actor), writer.ensureReadiness(f.db, c.owner.actor)]);
+	const both = await Promise.all([
+		writer.ensureReadiness(f.db, c.owner.actor),
+		writer.ensureReadiness(f.db, c.owner.actor),
+	]);
 	assert.deepEqual(
-		both.map(ok).map((r) => [r.milestones, r.tasks]).sort(),
+		both
+			.map(ok)
+			.map((r) => [r.milestones, r.tasks])
+			.sort(),
 		[
 			[0, 0],
 			[9, 23],
@@ -212,7 +223,9 @@ test("AC:CASE-LCH-009 a date saved in onboarding gets its readiness once, even f
 test("AC:CASE-LCH-009 repair adds only what is missing: a renamed task keeps its name and a deleted one stays deleted", async () => {
 	const c = await scheduled();
 	// Readiness only partly created: one milestone and one task of another never made it.
-	await f.admin.execute(sql`DELETE FROM task WHERE plant_id=${c.w.id} AND launch_task_key LIKE 'promotion.partner_churches/%'`);
+	await f.admin.execute(
+		sql`DELETE FROM task WHERE plant_id=${c.w.id} AND launch_task_key LIKE 'promotion.partner_churches/%'`,
+	);
 	await f.admin.execute(
 		sql`DELETE FROM launch_milestone WHERE plant_id=${c.w.id} AND template_key='promotion.partner_churches'`,
 	);
@@ -220,7 +233,12 @@ test("AC:CASE-LCH-009 repair adds only what is missing: a renamed task keeps its
 	const partial = await plan(c.owner);
 	const ops = milestone(partial, "operations.equipment_on_site");
 	const [renamed, deleted] = ops.tasks;
-	ok(await task(c.owner, "edit", { expectedRevision: renamed.revision, input: { taskId: renamed.id, patch: { title: "Order the chairs" } } }));
+	ok(
+		await task(c.owner, "edit", {
+			expectedRevision: renamed.revision,
+			input: { taskId: renamed.id, patch: { title: "Order the chairs" } },
+		}),
+	);
 	ok(await task(c.owner, "delete", { expectedRevision: deleted.revision, input: { taskId: deleted.id } }));
 
 	const read = ok(await reader.readPlan(f.db, c.owner.actor));
@@ -336,16 +354,25 @@ test("AC:CASE-LCH-005 progress follows the live tasks, and finishing every task 
 	let m = milestone(c.plan, "operations.equipment_on_site");
 	for (const t of m.tasks.slice(0, 2)) ok(await setStatus(c.owner, t, "complete"));
 	m = milestone(await plan(c.owner), "operations.equipment_on_site");
-	assert.deepEqual(m.tasks.map((t) => t.status), ["complete", "complete", "not_started"]);
+	assert.deepEqual(
+		m.tasks.map((t) => t.status),
+		["complete", "complete", "not_started"],
+	);
 
 	ok(await setStatus(c.owner, m.tasks[0], "reopen"));
 	ok(await task(c.owner, "delete", { expectedRevision: m.tasks[1].revision, input: { taskId: m.tasks[1].id } }));
 	m = milestone(await plan(c.owner), "operations.equipment_on_site");
-	assert.deepEqual(m.tasks.map((t) => t.status), ["not_started", "not_started"]);
+	assert.deepEqual(
+		m.tasks.map((t) => t.status),
+		["not_started", "not_started"],
+	);
 
 	for (const t of m.tasks) ok(await setStatus(c.owner, t, "complete"));
 	m = milestone(await plan(c.owner), "operations.equipment_on_site");
-	assert.deepEqual(m.tasks.map((t) => t.status), ["complete", "complete"]);
+	assert.deepEqual(
+		m.tasks.map((t) => t.status),
+		["complete", "complete"],
+	);
 	assert.equal(m.completion, null);
 });
 
@@ -426,7 +453,8 @@ test("AC:CASE-NTF-009 completing a milestone tells each other Owner and Admin on
 	assert.equal((await notices()).length, 2);
 	// Turning the Launch notification off stops the in-app notice for that person.
 	ok(await reopen(c.owner, now));
-	await f.admin.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
+	await f.admin
+		.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
 		VALUES(${c.admin.id},'launch_milestone','in_app',false,1),(${c.admin.id},'launch_milestone','email',false,1)`);
 	ok(await complete(c.owner, milestone(await plan(c.owner), "promotion.plan")));
 	assert.deepEqual(

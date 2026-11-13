@@ -81,8 +81,7 @@ export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 			...t,
 			assignees: t.assignees.map((a) => ({ accountId: a.accountId, displayName: a.displayName })),
 		})),
-		practices:
-			m.templateKey === c.PRACTICE_MILESTONE ? { held: practices, required: c.PRACTICES_REQUIRED } : null,
+		practices: m.templateKey === c.PRACTICE_MILESTONE ? { held: practices, required: c.PRACTICES_REQUIRED } : null,
 	});
 }
 

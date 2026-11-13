@@ -26,16 +26,16 @@ export type MilestoneCompleted = {
 /** Queues the Launch notifications in the completion's transaction: the notification service's port. */
 export type LaunchNotices = (tx: Transaction, completed: MilestoneCompleted) => Promise<unknown>;
 
-type Operation =
-	| "launch.schedule"
-	| "launch.postpone"
-	| "launch.completeMilestone"
-	| "launch.reopenMilestone";
+type Operation = "launch.schedule" | "launch.postpone" | "launch.completeMilestone" | "launch.reopenMilestone";
 const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
 /** The stored answer of an earlier request with this key, as a CTE named `prior`. */
 const priorKey = (scope: Scope, key: string) =>
 	sql`prior AS (SELECT a.request_identity,a.result FROM audit_event a WHERE a.tenant_id=${scope.plantId}::uuid AND a.request_key=${key})`;
-function identityOf(scope: Scope, operation: Operation, q: { requestKey: string; expectedRevision: string; input: unknown }) {
+function identityOf(
+	scope: Scope,
+	operation: Operation,
+	q: { requestKey: string; expectedRevision: string; input: unknown },
+) {
 	return requestIdentity.parse({
 		owner: { kind: "plant", id: scope.plantId },
 		actorId: scope.accountId,
@@ -78,7 +78,10 @@ const SEED_TASKS = JSON.stringify(
  * key) of a task. A task a person deleted keeps its key, and one they renamed keeps it too, so a later repair inserts
  * neither again. Prep tasks are ordinary undated, unassigned Launch prep tasks; Tasks owns every later change.
  */
-const seedCtes = (scope: Scope, op: string) => sql`ms AS (INSERT INTO launch_milestone(plant_id,template_key,title,description,area,position)
+const seedCtes = (
+	scope: Scope,
+	op: string,
+) => sql`ms AS (INSERT INTO launch_milestone(plant_id,template_key,title,description,area,position)
 	SELECT ${scope.plantId}::uuid,r.key,r.title,r.description,r.area,r.position
 	FROM jsonb_to_recordset(${SEED_ROWS}::jsonb) r(key text,area text,title text,description text,position int)
 	ON CONFLICT (plant_id,template_key) DO NOTHING RETURNING id,template_key,title,revision),
@@ -97,7 +100,12 @@ const seedCtes = (scope: Scope, op: string) => sql`ms AS (INSERT INTO launch_mil
 		k.revision,${op}::uuid,'{"source":"generated"}'::jsonb FROM tk k)`;
 
 const launchRow = z.object({ status: c.launchStatus, target_date: z.string().nullable(), revision: z.string() });
-const lockRow = z.object({ ok: z.boolean(), prior: priorRow, launch: launchRow.nullable(), name: z.string().nullable() });
+const lockRow = z.object({
+	ok: z.boolean(),
+	prior: priorRow,
+	launch: launchRow.nullable(),
+	name: z.string().nullable(),
+});
 /** The command's first statement: its gate, its stored answer if any, and the church's launch row locked. */
 async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: boolean) {
 	const { rows } = await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, key)},
@@ -108,7 +116,7 @@ async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: bo
 	ON CONFLICT (plant_id) DO UPDATE SET status=launch.status RETURNING status,target_date::text,revision::text`
 			: sql`SELECT status,target_date::text,revision::text FROM launch WHERE plant_id=${scope.plantId}::uuid
 	AND (SELECT ok FROM gate) AND NOT EXISTS(SELECT FROM prior) FOR UPDATE`
-	})
+ })
  SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,(SELECT to_jsonb(cur) FROM cur) AS launch,
 	(SELECT name FROM plant WHERE id=${scope.plantId}::uuid) AS name`);
 	return lockRow.parse(rows[0]);
@@ -143,9 +151,13 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		authority: RequestActor,
 		operation: "launch.schedule" | "launch.postpone",
 		q: { requestKey: string; expectedRevision: string; input: unknown },
-		decide: (current: z.infer<typeof launchRow>) =>
+		decide: (
+			current: z.infer<typeof launchRow>,
+		) =>
 			| { change: null }
-			| { change: { status: c.LaunchStatus; date: string | null; event: string; reason: string | null; seed: boolean } },
+			| {
+					change: { status: c.LaunchStatus; date: string | null; event: string; reason: string | null; seed: boolean };
+			  },
 	) {
 		const scope = scopeOf(authority);
 		const identity = identityOf(scope, operation, q);
@@ -172,9 +184,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	jsonb_build_object('status',${change.status}::text,'targetDate',${change.date}::text),
 	${current.revision}::bigint,(SELECT revision FROM up),${change.reason},${keyed(identity, { outcome: "changed" })},
 	${op}::uuid,jsonb_build_object('event',${change.event}::text${
-		change.seed
-			? sql`,'milestonesSeeded',(SELECT count(*) FROM ms),'tasksSeeded',(SELECT count(*) FROM tk)`
-			: sql``
+		change.seed ? sql`,'milestonesSeeded',(SELECT count(*) FROM ms),'tasksSeeded',(SELECT count(*) FROM tk)` : sql``
 	}))
  SELECT 1`);
 			return c.scheduleResult.parse({ outcome: "changed", plan: await planAfter(tx, scope, clock) });
@@ -201,7 +211,8 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		const scope = scopeOf(authority);
 		const identity = identityOf(scope, operation, q);
 		return auditTransaction(db, async (tx) => {
-			const { rows } = await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, q.requestKey)},
+			const { rows } =
+				await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, q.requestKey)},
  m AS (SELECT * FROM launch_milestone WHERE id=${q.input.milestoneId}::uuid AND plant_id=${scope.plantId}::uuid
 	AND removed_at IS NULL AND (SELECT ok FROM gate) AND NOT EXISTS(SELECT FROM prior) FOR UPDATE)
  SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,

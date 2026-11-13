@@ -1884,6 +1884,30 @@
 	"phases.readHistory": {
 		"limit": 1
 	},
+	"launch.readPlan": {
+		"limit": 1
+	},
+	"launch.schedule": {
+		"limit": 5,
+		"retry": 3
+	},
+	"launch.postpone": {
+		"limit": 5,
+		"retry": 3
+	},
+	"launch.ensureReadiness": {
+		"limit": 4,
+		"retry": 3
+	},
+	"launch.reopenMilestone": {
+		"limit": 4,
+		"retry": 3
+	},
+	"launch.completeMilestone": {
+		"limit": 10,
+		"retry": 3,
+		"reason": "A completion with other current Owners or Admins queues their Launch notifications in the completion's transaction through the notification service (NTF-009): BEGIN, the locked milestone read, the completion with its audit row, the recipients' seat addresses, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. A completion with no one to tell, a no-op and a replay send at most four."
+	},
 	"privateCare.correct": {
 		"limit": 1
 	},

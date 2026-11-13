@@ -1956,7 +1956,10 @@ export const launch_milestone = pgTable(
 		unique("launch_milestone_uq_0").on(table.id, table.plant_id),
 		unique("launch_milestone_uq_1").on(table.plant_id, table.template_key),
 		check("launch_milestone_ck_0", sql`(revision >= 1)`),
-		check("launch_milestone_ck_1", sql`(area = ANY (ARRAY['operations'::text, 'launch_team'::text, 'promotion'::text]))`),
+		check(
+			"launch_milestone_ck_1",
+			sql`(area = ANY (ARRAY['operations'::text, 'launch_team'::text, 'promotion'::text]))`,
+		),
 		check("launch_milestone_ck_2", sql`((completed_by IS NULL) OR (completed_at IS NOT NULL))`),
 		index("launch_milestone_ref_0").using("btree", table.source_version_id.asc().nullsLast()),
 		index("launch_milestone_ref_1").using("btree", table.completed_by.asc().nullsLast()),

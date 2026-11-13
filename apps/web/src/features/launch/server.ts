@@ -58,7 +58,12 @@ export async function write<T>(
 	if (!viewer)
 		return {
 			status: "refused",
-			error: launchError.parse({ code: "access_denied", details: {}, correlationId: crypto.randomUUID(), retry: "never" }),
+			error: launchError.parse({
+				code: "access_denied",
+				details: {},
+				correlationId: crypto.randomUUID(),
+				retry: "never",
+			}),
 		};
 	const mount = launchMount();
 	if (!mount) return { status: "lost" };

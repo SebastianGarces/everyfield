@@ -17,7 +17,9 @@ export async function setLaunchDate(
 	date: unknown,
 	reason: unknown,
 ): Promise<Outcome<DateResult>> {
-	return write((w, db, authority) => w.schedule(db, authority, { requestKey, expectedRevision, input: { date, reason } }));
+	return write((w, db, authority) =>
+		w.schedule(db, authority, { requestKey, expectedRevision, input: { date, reason } }),
+	);
 }
 
 export async function postponeLaunch(
