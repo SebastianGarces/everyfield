@@ -1021,7 +1021,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" ? null : (
+							{create || c.field === "reason" || (isDocument(review.operation) && c.before === null) ? null : (
 								<>
 									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />

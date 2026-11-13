@@ -113,7 +113,7 @@ const FIELD_LABEL: Record<string, string> = {
 	format: "Format",
 	version: "Version",
 	status: "Status",
-	list: "List",
+	list: "Leaves",
 	documentType: "Type",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;

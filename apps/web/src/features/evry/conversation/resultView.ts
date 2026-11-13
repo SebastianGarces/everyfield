@@ -23,6 +23,8 @@ type OpView = {
 	empty: string;
 	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
 	countAnswer?: string;
+	/** Where to go instead when nothing came back. */
+	emptyLinks?: readonly { href: string; label: string }[];
 };
 
 const NO_PERSON = "No person in this church matches, or you can't see them.";
@@ -129,6 +131,10 @@ const VIEWS: Record<string, OpView> = {
 	"documents.read": documents("Document", { empty: "That document is not in this church, or you can't see it." }),
 	"documents.readCoreValuesEvidence": documents("Core values", {
 		empty: "No document is marked as your core values yet. Mark one of your written documents in Documents.",
+		emptyLinks: [
+			{ href: "/documents", label: "Documents" },
+			{ href: "/documents/church", label: "Church Documents" },
+		],
 	}),
 	"documents.templates.list": {
 		title: "Templates",
@@ -230,6 +236,8 @@ export type CardView = {
 	icon: Glyph;
 	rows: RowView[];
 	facts: string[];
+	/** Links under the facts: where to go when the read found nothing. */
+	links: { href: string; label: string }[];
 };
 
 function activityLine(fields: Record<string, unknown>) {
@@ -490,5 +498,6 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		icon: view.icon === "person" && rows.length > 1 ? "people" : view.icon,
 		rows: rows.map((row) => rowView(operation, row)),
 		facts,
+		links: missing || !result.rows.length ? [...(view.emptyLinks ?? [])] : [],
 	};
 }
