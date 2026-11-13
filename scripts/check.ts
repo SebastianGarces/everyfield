@@ -1,0 +1,243 @@
+// `bin/dev check [--full]`: the local product checks a change needs (T-41). An author run checks what
+// tools/ci/select.ts selects from the diff against the merge base with origin/main; `--full`, the verifier's mode,
+// runs everything. Either way it writes a checks.json record outside the repository and prints its path.
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { basename, join, relative, resolve } from "node:path";
+import {
+	CHECKS,
+	type CheckId,
+	everything,
+	type Package,
+	parseCoverageMap,
+	type Selection,
+	selectChecks,
+	suiteOf,
+} from "../tools/ci/select.ts";
+
+/** Runs one command to its end. Tests pass a fake; the real one is `spawnRunner`. */
+export type Runner = (
+	command: string,
+	args: readonly string[],
+	options: { cwd: string; env: Record<string, string> },
+) => { status: number; stdout: string; output: string };
+
+export const spawnRunner: Runner = (command, args, { cwd, env }) => {
+	// Without NODE_TEST_CONTEXT: a test runner that inherits it reports to its parent instead of counting.
+	const { NODE_TEST_CONTEXT: _, ...inherited } = process.env;
+	const result = spawnSync(command, args, {
+		cwd,
+		env: { ...inherited, ...env },
+		encoding: "utf8",
+		maxBuffer: 256 * 1024 * 1024,
+		stdio: ["ignore", "pipe", "pipe"],
+	});
+	const stdout = result.stdout ?? "";
+	return { status: result.status ?? 1, stdout, output: `${stdout}${result.stderr ?? ""}${result.error ?? ""}` };
+};
+
+type Result = "passed" | "failed" | "skipped" | "not run";
+export type CheckRecord = {
+	head: string | null;
+	mergeBase: string | null;
+	mode: Selection["mode"];
+	fullReasons: string[];
+	startedAt: string;
+	durationMs: number;
+	result: "passed" | "failed";
+	failures: string[];
+	checks: {
+		id: CheckId;
+		run: boolean;
+		reason: string;
+		command: string | null;
+		result: Result;
+		tests: number | null;
+		durationMs: number;
+	}[];
+	tests: { file: string; check: CheckId; run: boolean; reason: string; result: Result; tests: number | null }[];
+};
+
+/** Where the coverage map and records live: outside every checkout. */
+export const ciHome = (env = process.env) => env.EVERYFIELD_CI_HOME ?? join(homedir(), ".everyfield", "ci");
+
+const git = (root: string, args: string[]) => {
+	const r = spawnSync("git", ["-C", root, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+	return r.status === 0 ? r.stdout : null;
+};
+const lines = (text: string | null, sep = "\n") => (text ?? "").split(sep).filter(Boolean);
+/** Sums node:test's summary lines (spec `ℹ tests N` or TAP `# tests N`) across every run in the output. */
+const testCount = (output: string) =>
+	[...output.matchAll(/(?:ℹ|#) tests (\d+)\s*$/gm)].reduce((sum, [, n]) => sum + Number(n), 0);
+
+/** Reads the inputs selection needs from the checkout. A git failure means an unreadable diff, never an empty one. */
+function gather(root: string, home: string) {
+	const head = git(root, ["rev-parse", "HEAD"])?.trim() ?? null;
+	const mergeBase = git(root, ["merge-base", "HEAD", "origin/main"])?.trim() ?? null;
+	const diff = mergeBase ? git(root, ["diff", "--name-only", "-z", mergeBase]) : null;
+	const untracked = git(root, ["ls-files", "--others", "--exclude-standard", "-z"]);
+	const changed =
+		diff === null || untracked === null ? null : [...new Set([...lines(diff, "\0"), ...lines(untracked, "\0")])];
+	const files = lines(git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]), "\0").filter((f) =>
+		existsSync(join(root, f)),
+	);
+	const packages: Package[] = files
+		.filter((f) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(f))
+		.map((f) => {
+			const pkg = JSON.parse(readFileSync(join(root, f), "utf8")) as {
+				name?: string;
+				scripts?: Record<string, string>;
+			};
+			return { dir: f.slice(0, -"/package.json".length), name: pkg.name ?? "", scripts: pkg.scripts ?? {} };
+		});
+	const mapFile = join(home, "coverage-map.json");
+	const map = parseCoverageMap(existsSync(mapFile) ? readFileSync(mapFile, "utf8") : null);
+	return { head, mergeBase, changed, packages, map, testFiles: files.filter((f) => suiteOf(f)).sort() };
+}
+
+export type CheckOptions = { root: string; full: boolean; home?: string; now?: Date; run?: Runner };
+
+export function check({ root, full, home = ciHome(), now = new Date(), run = spawnRunner }: CheckOptions) {
+	root = resolve(root);
+	if (!relative(root, resolve(home)).startsWith("..")) throw new Error(`The CI home ${home} must be outside ${root}.`);
+	const started = Date.now();
+	const input = gather(root, home);
+	const context = { testFiles: input.testFiles, packages: input.packages, now };
+	const selection = full
+		? everything(["verifier run (--full) ignores selection"], context)
+		: selectChecks(input.changed, input.map, context);
+	const env = { PATH: `${process.execPath.replace(/\/[^/]+$/, "")}:${process.env.PATH ?? ""}` };
+	const failures: string[] = [];
+	const testRecords: CheckRecord["tests"] = Object.entries(selection.tests).map(([file, d]) => ({
+		file,
+		check: suiteOf(file)!,
+		run: d.run,
+		reason: d.reason,
+		result: d.run ? "not run" : "skipped",
+		tests: null,
+	}));
+	const checks: CheckRecord["checks"] = [];
+	for (const id of Object.keys(CHECKS) as CheckId[]) {
+		const decision = selection.checks[id];
+		const entry: CheckRecord["checks"][number] = {
+			id,
+			...decision,
+			command: null,
+			result: decision.run ? "not run" : "skipped",
+			tests: null,
+			durationMs: 0,
+		};
+		checks.push(entry);
+		if (!decision.run) continue;
+		const t0 = Date.now();
+		const definition = CHECKS[id];
+		const exec = (command: string, args: string[], extra: Record<string, string> = {}) => {
+			entry.command = [command, ...args].join(" ");
+			console.error(`check ${id}: ${entry.command}`);
+			const r = run(command, args, { cwd: root, env: { ...env, ...extra } });
+			process.stderr.write(r.output.endsWith("\n") || !r.output ? r.output : r.output + "\n");
+			return r;
+		};
+		if (definition.kind === "package") {
+			const filters =
+				selection.mode === "full"
+					? ["-r"]
+					: [`...[${input.mergeBase}]`, ...selection.packageFilters].flatMap((f) => ["--filter", f]);
+			// The packages the filter selects, from pnpm itself. A filter that selects none would make every package
+			// check a silent no-op, so it fails instead.
+			const listed = run("corepack", ["pnpm", ...filters, "ls", "--depth", "-1", "--json"], { cwd: root, env });
+			let names: string[] = [];
+			try {
+				if (listed.status === 0) names = (JSON.parse(listed.stdout) as { name: string }[]).map((p) => p.name);
+			} catch {}
+			if (!names.length) {
+				entry.command = `corepack pnpm ${filters.join(" ")} ls`;
+				entry.result = "failed";
+				entry.reason += "; the pnpm filter selected no package";
+				continue;
+			}
+			if (!input.packages.some((p) => names.includes(p.name) && p.scripts[definition.script])) {
+				entry.result = "skipped";
+				entry.reason += `; no selected package defines ${definition.script}`;
+				continue;
+			}
+			const r = exec("corepack", ["pnpm", ...filters, "--if-present", "run", definition.script]);
+			entry.result = r.status === 0 ? "passed" : "failed";
+			if (id === "test:unit") {
+				entry.tests = testCount(r.output);
+				if (entry.tests === 0) entry.result = "failed";
+			}
+		} else if (definition.kind === "command") {
+			const [command, ...args] = definition.command;
+			const r = exec(command === "node" ? process.execPath : command, args);
+			entry.result = r.status === 0 ? "passed" : "failed";
+		} else {
+			const files = testRecords.filter((t) => t.check === id && t.run);
+			if (!files.length) {
+				// No file to hand the runner, which would otherwise run its default set. A suite with nothing is a gap.
+				entry.result = "failed";
+				entry.tests = 0;
+				continue;
+			}
+			const dir = mkdtempSync(join(tmpdir(), "evf-check-"));
+			const report = join(dir, "report.json");
+			try {
+				const r = exec(process.execPath, ["scripts/test-workflow.mjs", ...files.map((t) => t.file)], {
+					EVF_TEST_REPORT: report,
+				});
+				const reported = existsSync(report)
+					? (JSON.parse(readFileSync(report, "utf8")) as { tests: { file?: string; status: string }[] }).tests
+					: [];
+				for (const t of files) {
+					const own = reported.filter((x) => x.file && relative(root, x.file) === t.file);
+					t.tests = own.length;
+					t.result = own.length && own.every((x) => x.status === "passed") ? "passed" : "failed";
+				}
+				entry.tests = files.reduce((sum, t) => sum + (t.tests ?? 0), 0);
+				entry.result = r.status === 0 && files.every((t) => t.result === "passed") ? "passed" : "failed";
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		}
+		entry.durationMs = Date.now() - t0;
+	}
+	if (selection.mode === "selected" && !checks.some((c) => c.run))
+		failures.push("the diff selected no checks, so nothing proves it; run bin/dev check --full");
+	for (const c of checks)
+		if (c.result === "failed") failures.push(c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`);
+	for (const t of testRecords) if (t.run && t.tests === 0) failures.push(`${t.file} reported 0 tests`);
+	const record: CheckRecord = {
+		head: input.head,
+		mergeBase: input.mergeBase,
+		mode: selection.mode,
+		fullReasons: selection.fullReasons,
+		startedAt: new Date(started).toISOString(),
+		durationMs: Date.now() - started,
+		result: failures.length ? "failed" : "passed",
+		failures: [...new Set(failures)],
+		checks,
+		tests: testRecords,
+	};
+	const dir = join(home, "checks", basename(root));
+	mkdirSync(dir, { recursive: true });
+	const recordPath = join(dir, "checks.json");
+	writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
+	return { record, recordPath };
+}
+
+/** The `bin/dev check` command line. */
+export function checkCommand(args: string[], root: string): number {
+	const full = args.includes("--full");
+	if (args.some((a) => a !== "--full")) {
+		console.error("usage: dev check [--full]");
+		return 2;
+	}
+	const { record, recordPath } = check({ root, full });
+	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
+	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);
+	if (record.mode === "full") console.log(`Full because ${record.fullReasons.join("; ")}.`);
+	for (const failure of record.failures) console.log(`FAIL ${failure}`);
+	console.log(`check record: ${recordPath}`);
+	return record.result === "passed" ? 0 : 1;
+}

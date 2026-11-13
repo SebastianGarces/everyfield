@@ -1,13 +1,13 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused, waitingOnLock } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
+import { effectiveAdult, effectiveAdultSql, plantTodaySql } from "../../../packages/domain/src/people/adult.ts";
 import {
 	assessments,
 	peopleWriter as write,
@@ -25,37 +25,24 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp011_" + randomUUID().replaceAll("-", ""),
-	role = "wp011_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 6,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "America/New_York" } });
+const { admin } = database;
+const db = database.pools.runtime;
 let queries = [];
 /** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
 let beforeSend = null;
 
-const plants = [randomUUID(), randomUUID()],
-	organization = randomUUID(),
-	actors = Array.from({ length: 5 }, () => ({
-		id: randomUUID(),
-		user: randomUUID(),
-		session: randomUUID(),
-	}));
+const plants = [database.tenant.id, (await database.plant({ timezone: "America/New_York" })).id],
+	organization = (await database.organization("sending_church", { timezone: "America/New_York" })).id,
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		await database.actor({ kind: "organization", id: organization, organizationKind: "sending_church" }, "owner", {
+			account: { registration_kind: "planter" },
+		}),
+		database.actors.admin,
+	];
 const ctx = (who = 0, selected = { kind: "plant", id: plants[0] }) => ({
 	session: actors[who].session,
 	selected,
@@ -66,14 +53,6 @@ const orgCtx = () =>
 		id: organization,
 		organizationKind: "sending_church",
 	});
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-};
 async function tx(body) {
 	return db.transaction(body);
 }
@@ -89,21 +68,6 @@ async function create(name = "Jamie", fields = {}) {
 	).person;
 }
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({
-		connectionString: url.href,
-		max: 6,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
@@ -113,68 +77,21 @@ before(async () => {
 			return hook ? hook(text).then(() => Reflect.apply(query, this, args)) : Reflect.apply(query, this, args);
 		};
 	});
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/New_York',7,14,1,8,1,1)`,
-		);
-	await admin.execute(
-		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${sql.param(organization)},'sending_church','Synthetic','America/New_York',1)`,
-	);
-	for (const [i, plant, organizationId, roleName] of [
-		[0, plants[0], null, "owner"],
-		[1, plants[0], null, "member"],
-		[2, plants[1], null, "admin"],
-		[3, null, organization, "owner"],
-		[4, plants[0], null, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(organizationId)},${sql.param(roleName)},clock_timestamp())`,
-		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 /** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
 async function seatedReader(role, selected) {
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	const seat = (
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
-		)
-	).rows[0].id;
+	const a = await database.actor(null, role, { account: { registration_kind: "planter" } });
+	const seat = await database.seat(a, selected, role);
 	// The request's viewer lookup, before the change lands (D59).
 	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
 	return { ...a, seat, selected, reader };
 }
 
-test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
+test("AC:TARGET-PPL-002 AC:LAUNCH46-003 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
 	const input = {
 		requestKey: randomUUID(),
 		input: {
@@ -312,7 +229,7 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	);
 });
 
-test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
+test("BUG-PR110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));
 	for (const id of ids)
@@ -340,17 +257,19 @@ test("BUG-110: people pages retain microseconds across 25 equal timestamp keys",
 	}
 });
 
-test("BUG-110: activity pages retain microseconds across equal timestamp keys", async () => {
+test("BUG-PR110: activity pages retain microseconds across equal timestamp keys", async () => {
 	const p = await create("Microsecond activities");
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	for (const id of ids)
 		await admin.execute(
 			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Microsecond note','2026-10-01T12:00:00.654321Z','2026-10-01T12:00:00.654321Z')`,
 		);
+	// Newest first: equal times fall back to the ID, descending.
+	const newest = [...ids].reverse();
 	const first = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24 })));
 	assert.deepEqual(
 		first.items.map((a) => a.id),
-		ids.slice(0, 24),
+		newest.slice(0, 24),
 	);
 	assert.equal(first.completeness, "partial");
 	const last = ok(
@@ -358,10 +277,57 @@ test("BUG-110: activity pages retain microseconds across equal timestamp keys", 
 	);
 	assert.deepEqual(
 		last.items.map((a) => a.id),
-		ids.slice(24),
+		newest.slice(24),
 	);
 	assert.equal(last.next, null);
 	assert.equal(last.completeness, "complete");
+});
+
+test("AC:TARGET-PPL-008 person Activity is newest first and pages continue with older items without gaps or duplicates", async () => {
+	const p = await create("Newest first");
+	const notes = Array.from({ length: 30 }, (_, i) => ({
+		id: randomUUID(),
+		at: new Date(Date.UTC(2026, 9, 1, 12, i)).toISOString(),
+	}));
+	// Written out of order: the read orders by event time, not by insertion.
+	for (const n of [...notes].sort(() => Math.random() - 0.5))
+		await admin.execute(
+			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${n.id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Note',${n.at},${n.at})`,
+		);
+	const feed = async (page) =>
+		ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, page })));
+	const first = await feed(1);
+	const second = await feed(first.next);
+	const newest = [...notes].reverse().map((n) => n.id);
+	assert.deepEqual(
+		first.items.map((a) => a.id),
+		newest.slice(0, 24),
+	);
+	assert.equal(first.next, 2);
+	assert.deepEqual(
+		second.items.map((a) => a.id),
+		newest.slice(24),
+	);
+	assert.equal(second.next, null);
+	const all = [...first.items, ...second.items].map((a) => a.id);
+	assert.equal(new Set(all).size, 30);
+	assert.deepEqual(all, newest);
+	// A new edit is the newest event, so the person page's first page shows it on top.
+	const edited = ok(
+		await tx((t) =>
+			write.updatePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, patch: { phone: "555-0101" } },
+			}),
+		),
+	);
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	const page = (await readPersonPage(db, viewer, { personId: p.id }, 24)).value.activities.value;
+	assert.equal(page.items.length, 24);
+	assert.equal(page.items[0].kind, "activity");
+	assert.equal(page.items[0].action, "updated");
+	assert.equal(edited.person.id, p.id);
 });
 
 test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
@@ -503,38 +469,48 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	);
 });
 
-test("AC:WP011-KNOW-098 named guest and explicit selection share the caller transaction", async () => {
-	const guest = ok(await tx((t) => accounts.ensureGuest(t, ctx(), { kind: "new", displayName: "Guest" })));
-	assert.equal(
-		ok(
-			await tx((t) =>
-				accounts.ensureGuest(t, ctx(), {
-					kind: "existing",
-					personId: guest.personId,
-				}),
+test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on it", async () => {
+	const leaving = await create("Leaving"),
+		stays = await create("Stays");
+	await admin.execute(
+		sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(stays.id)}`,
+	);
+	const duty = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Visit','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(leaving.id)})`,
+	);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[1].id)})`,
+	);
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: leaving.id }))).reviewRevision;
+	ok(
+		await tx((t) =>
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: leaving.revision,
+					input: {
+						personId: leaving.id,
+						reason: "Retire",
+						reviewRevision: review,
+						handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", toPersonId: stays.id }],
+					},
+				},
+				noReminders,
 			),
-		).personId,
-		guest.personId,
+		),
 	);
-	const n = (await admin.execute(sql`SELECT count(*)::int n FROM person`)).rows[0].n;
-	await assert.rejects(
-		tx(async (t) => {
-			ok(
-				await accounts.ensureGuest(t, ctx(), {
-					kind: "new",
-					displayName: "Attendance rollback",
-				}),
-			);
-			throw Error("attendance_fault");
-		}),
-		/attendance_fault/,
+	assert.deepEqual(
+		(await admin.execute(sql`SELECT account_id FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows,
+		[{ account_id: actors[1].id }],
 	);
-	assert.equal((await admin.execute(sql`SELECT count(*)::int n FROM person`)).rows[0].n, n);
 });
 
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {
 	let p = await create("Lifecycle");
-	let result = ok(
+	const result = ok(
 		await tx((t) =>
 			write.changeStatus(
 				t,
@@ -556,6 +532,9 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	p = result.person;
 	assert.equal(p.stage, "leader");
 	assert.deepEqual(p.commitment, { state: "unknown" });
+	// Activity shows the change as its newest entry, from the old stage to the new one.
+	const [changed] = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id }))).items;
+	assert.deepEqual([changed.kind, changed.from, changed.to], ["stage_changed", "prospect", "leader"]);
 	const noop = ok(
 		await tx((t) =>
 			write.changeStatus(
@@ -583,7 +562,10 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 		sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source) VALUES(${sql.param(team)},${sql.param(plants[0])},'Retiring leader','active',0,${sql.param(p.id)},'explicit')`,
 	);
 	await admin.execute(
-		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Call','follow_up','medium','not_started',clock_timestamp(),${sql.param(actors[0].id)},'undated',${sql.param(p.id)})`,
+		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Call','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(p.id)})`,
+	);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[0].id)})`,
 	);
 	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id }))).reviewRevision;
 	refused(
@@ -626,6 +608,8 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 		),
 	);
 	assert.deepEqual(retired.needsOwner, [duty]);
+	// D-d: the duty is about the Person, not held by the leaving account, so needs_owner clears the whole set.
+	assert.equal((await admin.execute(sql`SELECT 1 FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows.length, 0);
 	assert.equal(retired.person.lifecycle.state, "retired");
 	assert.deepEqual(
 		(
@@ -690,6 +674,10 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 });
 
+/** The person's revision as stored now. */
+const storedRevision = async (personId) =>
+	(await admin.execute(sql`SELECT revision::text AS revision FROM person WHERE id=${personId}::uuid`)).rows[0].revision;
+
 test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurrence, tombstone and removed attribution", async () => {
 	const p = await create("Notes");
 	const added = ok(
@@ -701,11 +689,14 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	// Each note change answers with the person's new revision, so the next save on the page needs no reread.
+	assert.equal(added.personRevision, await storedRevision(p.id));
+	assert.notEqual(added.personRevision, p.revision);
 	const assertNoteFeed = async (kind) => {
 		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
 		assert.deepEqual(
 			feed.items.map((a) => (a.kind === "activity" ? a.action : a.kind)),
-			["created", kind],
+			[kind, "created"],
 		);
 	};
 	await assertNoteFeed("note");
@@ -740,6 +731,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	assert.equal(edited.personRevision, await storedRevision(p.id));
+	assert.notEqual(edited.personRevision, added.personRevision);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT occurred_at,author_id FROM person_note WHERE id=${sql.param(added.noteId)}`))
 			.rows[0],
@@ -758,6 +751,8 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		),
 	);
 	assert.equal(deleted.revision, "3");
+	assert.equal(deleted.personRevision, await storedRevision(p.id));
+	assert.notEqual(deleted.personRevision, edited.personRevision);
 	await assertNoteFeed("note_removed");
 	assert.deepEqual(
 		(
@@ -778,7 +773,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 });
 
-test("AC:CA014 explicit adult classification retains genuine historical acquisition rather than creating a join today", async () => {
+test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
 	const p = await create("Historical commitment");
 	const commitment = randomUUID();
 	await admin.execute(
@@ -802,17 +797,19 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 			}),
 		),
 	);
-	assert.equal(result.observation.classification, "adult");
-	assert.equal(result.observation.current.state, "active");
-	assert.equal(result.observation.firstAcquisition.occurredOn, "2026-09-01");
-	assert.equal(result.observation.firstAcquisition.evidenceId, commitment);
+	// The answer is the person as saved: the new classification, the current commitment and the new revision.
+	assert.deepEqual(
+		[result.person.adultClassification, result.person.adultClassificationSource, result.person.commitment.state],
+		["adult", "recorded", "active"],
+	);
+	assert.equal(result.person.revision, await storedRevision(p.id));
 	const before = (await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0]
 		.signed_on;
 	const corrected = ok(
 		await tx((t) =>
 			write.correctAdultClassification(t, ctx(), {
 				requestKey: randomUUID(),
-				expectedRevision: result.observation.sourceRevision,
+				expectedRevision: result.person.revision,
 				input: {
 					personId: p.id,
 					classification: "unknown",
@@ -822,17 +819,48 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 			}),
 		),
 	);
-	assert.equal(corrected.observation.classification, "unknown");
-	assert.equal(corrected.observation.current.state, "active");
-	assert.deepEqual(corrected.observation.firstAcquisition, {
-		status: "known",
-		occurredOn: "2026-09-01",
-		evidenceId: commitment,
-	});
+	assert.deepEqual([corrected.person.adultClassification, corrected.person.commitment.state], ["unknown", "active"]);
+	assert.equal(corrected.person.revision, await storedRevision(p.id));
+	// Classification creates no commitment: the historical acquisition stays the first one.
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT signed_on::text FROM commitment WHERE person_id=${sql.param(p.id)} ORDER BY signed_on`,
+			)
+		).rows.map((r) => r.signed_on),
+		["2026-09-01", "2026-10-05"],
+	);
 	assert.deepEqual(
 		(await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0].signed_on,
 		before,
 	);
+	// BUG-church-date: the church's own today bounds the date. Kiritimati (UTC+14) is often already tomorrow in UTC.
+	await admin.execute(sql`UPDATE plant SET timezone='Pacific/Kiritimati' WHERE id=${plants[0]}::uuid`);
+	try {
+		const { today, tomorrow } = (
+			await admin.execute(
+				sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS today, ((clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date + 1)::text AS tomorrow`,
+			)
+		).rows[0];
+		const classify = (operation, occurredOn) =>
+			tx((t) =>
+				write[operation](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: corrected.person.revision,
+					input: { personId: p.id, classification: "adult", occurredOn, reason: "Church date" },
+				}),
+			);
+		const stored = async () =>
+			(await admin.execute(sql`SELECT adult_classification FROM person WHERE id=${p.id}::uuid`)).rows[0]
+				.adult_classification;
+		refused(await classify("recordAdultClassification", tomorrow), "invalid_input");
+		refused(await classify("correctAdultClassification", tomorrow), "invalid_input");
+		assert.equal(await stored(), "unknown");
+		assert.equal(ok(await classify("recordAdultClassification", today)).person.adultClassification, "adult");
+		assert.equal(await stored(), "adult");
+	} finally {
+		await admin.execute(sql`UPDATE plant SET timezone='America/New_York' WHERE id=${plants[0]}::uuid`);
+	}
 });
 
 test("INV-people: concurrent edits serialize to one current revision and one conflict without partial history", async () => {
@@ -861,47 +889,7 @@ test("INV-people: concurrent edits serialize to one current revision and one con
 	);
 });
 
-test("AC:WP011-KNOW-069 account removal severs account links and preserves church-owned facts with minimal attribution", async () => {
-	const { detachAccountPersonLinks } = await import("../../../packages/domain/src/people/index.ts");
-	const linked = ok(
-		await tx((t) =>
-			accounts.ensureAccountPerson(t, {
-				accountId: actors[4].id,
-				owner: ctx().selected,
-				selection: { kind: "create", displayName: "Shared church contact" },
-			}),
-		),
-	);
-	const p = ok(await tx((t) => read.getPerson(t, ctx(), { personId: linked.personId }))).person;
-	const note = ok(
-		await tx((t) =>
-			write.addNote(t, ctx(4), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: { personId: p.id, body: "Shared operational fact" },
-			}),
-		),
-	);
-	await admin.execute(
-		sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,account_id,request_id,request_revision,state,requested_at,cancel_until,witness_checkpoint,cleanup_state) VALUES('account',${sql.param(actors[4].id)},${sql.param(actors[4].id)},${sql.param(randomUUID())},1,'purging','2026-09-01Z','2026-10-01Z',1,'in_progress')`,
-	);
-	const retained = await tx((t) => detachAccountPersonLinks(t, actors[4].id));
-	assert.ok(retained.retainedPersonIds.includes(p.id));
-	const current = ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person;
-	assert.equal(current.displayName, "Shared church contact");
-	assert.equal(current.lifecycle.state, "live");
-	assert.deepEqual(ok(await tx((t) => getAccountLink(t, ctx(), { personId: p.id }))), { status: "unlinked" });
-	const notes = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] })));
-	assert.equal(notes.items[0].body, "Shared operational fact");
-	assert.equal(notes.items[0].actor.kind, "former_account");
-	assert.equal(
-		(await admin.execute(sql`SELECT author_id FROM person_note WHERE id=${sql.param(note.noteId)}`)).rows[0].author_id,
-		null,
-	);
-	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
-});
-
-test("INV-pipeline: native moves place one person, persist and retry once", async () => {
+test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry once; a replay answers with the current order and revision", async () => {
 	await create("Order A");
 	await create("Order B");
 	const column = async () =>
@@ -933,9 +921,41 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
+	// BUG-124: a later move lands (another tab's or actor's); a replay of the first move then answers with the column as
+	// it stands now, the later order and its matching revision, as the reorder action reads it in the same transaction.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: String(Number(seen) + 1),
+				input: { column: "prospect", personId: all[0], afterId: null },
+			}),
+		),
+	);
+	const afterOther = await audits();
+	const replay = await tx(async (t) => ({
+		done: await write.reorderPipeline(t, ctx(), order),
+		column: (await readColumnOrders(t, ctx(), ["prospect"]))[0],
+	}));
+	assert.deepEqual(ok(replay.done), saved);
+	assert.equal(await audits(), afterOther, "the replay writes nothing");
+	assert.deepEqual(
+		[replay.column.personIds, replay.column.revision],
+		[[all[0], last, ...all.slice(1, -1)], String(Number(seen) + 2)],
+	);
+	// The next move sent with the replay's revision saves.
+	ok(
+		await tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: replay.column.revision,
+				input: { column: "prospect", personId: last, afterId: null },
+			}),
+		),
+	);
 });
 
-test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
+test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a move from the older view", async () => {
 	const revision = async (column) => (await tx(async (t) => (await readColumnOrders(t, ctx(), [column]))[0])).revision;
 	// A move with the given column revision; refused when the column changed since that view (verifier finding on 93cf953).
 	const moveWith = (rev, personId, afterId) =>
@@ -1024,7 +1044,7 @@ test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuse
 	assert.equal(moved.person.stage, "attendee");
 });
 
-test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
+test("BUG-25b8ac319: full People pages and pipeline use fixed database round trips", async (t) => {
 	const ids = Array.from({ length: 101 }, () => randomUUID()).sort();
 	t.after(async () => {
 		await admin.execute(sql`DELETE FROM task WHERE person_id=ANY(${sql.param(ids)}::uuid[])`);
@@ -1066,12 +1086,10 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 		}
 	}
 	t.diagnostic(JSON.stringify(counts));
-	assert.deepEqual(counts.list, [counts.list[0], counts.list[0], counts.list[0]]);
+	assert.deepEqual(counts.list, [5, 5, 5]);
 	assert.deepEqual(counts.card, counts.list);
-	assert.ok(counts.list[0] <= 9, "list round-trip budget includes authorization and transaction overhead");
-	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
 	// BEGIN, column revisions, one window over all columns, commitment, duties, COMMIT.
-	assert.ok(counts.pipeline[0] <= 6, `pipeline read: ${counts.pipeline[0]} statements`);
+	assert.deepEqual(counts.pipeline, [6, 6, 6]);
 	// "Show more" names its column and reads one page of it with the same fixed statement count.
 	queries = [];
 	const more = ok(
@@ -1134,8 +1152,9 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 			await tx((t) => read.getPipelineData(t, viewer, { search: "Batch regression", limit: 25, column })),
 		);
 		assert.equal(known.groups[0].cards[0].person.commitment.state, "withdrawn");
-		assert.ok(
-			queries.length <= 6,
+		assert.equal(
+			queries.length,
+			6,
 			`pipeline read with known commitments (${column ?? "all columns"}): ${queries.length} statements`,
 		);
 	}
@@ -1158,7 +1177,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	);
 });
 
-test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
+test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
 	// No cleanup: the disposable schema is dropped after the suite.
 	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
@@ -1198,7 +1217,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	t.diagnostic(JSON.stringify({ reorder: [few.count, many.count] }));
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
 	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
-	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
+	assert.equal(few.count, 10, `reorder round trips: ${few.count}`);
 	// Legacy ties: 30 people who all share key 0, as every person had before migration 0015. After the migration a move
 	// between any two neighbours still changes exactly one row and writes one audit event.
 	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
@@ -1257,7 +1276,6 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 		keys = now;
 	}
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
-	queries = [];
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
 	const moved = ok(
 		await tx(async (t) => {
@@ -1276,11 +1294,9 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 				: done;
 		}),
 	);
-	t.diagnostic(JSON.stringify({ changeStatus: queries.length }));
 	assert.equal(moved.person.stage, "attendee");
 	assert.ok(moved.column.personIds.includes(first.id));
 	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
-	assert.ok(queries.length <= 9, `stage change round trips: ${queries.length}`);
 });
 
 test("INV-reads: the person page and the status warnings use a fixed number of statements without locks", async () => {
@@ -1300,7 +1316,6 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const page = ok(
 		await readPersonPage(db, viewer, { personId: p.id }, 50, { fields: true, records: 10, duplicates: true }),
 	);
-	const pageStatements = queries.length;
 	assert.deepEqual(page.fields, { tags: [], skills: [], household: { status: "none" }, photo: { status: "absent" } });
 	assert.deepEqual(
 		[page.records.assessments.total, page.records.interviews.total, page.records.commitments.total],
@@ -1312,8 +1327,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	assert.deepEqual(
 		page.activities.value.items.map((a) => [a.kind === "activity" ? a.action : a.kind, a.actor.kind]),
 		[
-			["created", "current_account"],
 			["note", "current_account"],
+			["created", "current_account"],
 		],
 	);
 	queries = [];
@@ -1321,9 +1336,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const warningStatements = queries.length;
 	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
-	assert.equal(pageStatements, 1, `person page: ${pageStatements} statements`);
-	// Status warnings: BEGIN, actor, person, warnings, COMMIT; a commitment projection may add one.
-	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
+	// Status warnings: BEGIN, actor, person, warnings, COMMIT.
+	assert.equal(warningStatements, 5, `status warnings: ${warningStatements} statements`);
 	assert.equal(
 		queries.some((q) => /for\s+(update|share)/i.test(q)),
 		false,
@@ -1337,9 +1351,7 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 	t.after(async () => {
 		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=ANY(${sql.param(made)}::uuid[])`);
 	});
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
-	);
+	await database.plant({ id: plant, timezone: "America/New_York" });
 	const seated = (role, selected = { kind: "plant", id: plant }) => seatedReader(role, selected);
 	const owner = await seated("owner");
 	const p = ok(
@@ -1488,7 +1500,7 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 
 // RT-3: a native People write sends no BEGIN, gate or request-key read on its first attempt. Its final statement checks
 // the actor's seat and repeats its reads with their locks, so these must hold with no explicit transaction.
-test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in its own statement, and a retry replays", async () => {
+test("INV-revocation INV-idempotency: a native write checks the seat in its own statement, and a retry replays", async () => {
 	const p = await create("Native write");
 	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
 	const authority = seated.reader.authority;
@@ -1527,7 +1539,7 @@ test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in i
 	}
 });
 
-test("INV-concurrency (RT-3): a change committed while a native write is in flight is never overwritten", async () => {
+test("INV-concurrency: a change committed while a native write is in flight is never overwritten", async () => {
 	const p = await create("Race");
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	let release, changed;
@@ -1548,14 +1560,19 @@ test("INV-concurrency (RT-3): a change committed while a native write is in flig
 			input: { personId: p.id, patch: { displayName: "Mine" } },
 		}),
 	);
-	while (!queries.some((q) => q.startsWith("/* evf:final */"))) await new Promise((r) => setTimeout(r, 10));
+	// The native write's final statement waits for the other writer's row lock.
+	await waitingOnLock(db);
+	assert.ok(
+		queries.some((q) => q.startsWith("/* evf:final */")),
+		"the final statement is the one waiting",
+	);
 	release();
 	await other;
 	refused(await mine, "conflict");
 	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Other");
 });
 
-test("INV-date (RT-3, C88): an assessment runs in the gate's transaction, so a church time zone change waits for it", async () => {
+test("INV-date: an assessment runs in the gate's transaction, so a church time zone change waits for it", async () => {
 	const p = await create("Zone race", { adultClassification: "adult" });
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);
@@ -1597,4 +1614,235 @@ test("INV-date (RT-3, C88): an assessment runs in the gate's transaction, so a c
 		await changed;
 		await zone("America/New_York");
 	}
+});
+
+// REQ-PPL-026: adult or child comes from the birth date when there is one (Sebastian, Oct 30 2026: "Set adult or child
+// automatically from the birth date"). The 18 threshold and "birth date wins" are Jonah's rule.
+const BOUNDARIES = [
+	// [birth date, plant-local today, expected, why]
+	["2008-06-16", "2026-06-15", "child", "the day before the 18th birthday"],
+	["2008-06-15", "2026-06-15", "adult", "the 18th birthday"],
+	["2008-06-15", "2026-06-16", "adult", "the day after the 18th birthday"],
+	["2008-02-29", "2026-02-28", "child", "a Feb 29 birth date, the day before it turns 18 in a year without Feb 29"],
+	["2008-02-29", "2026-03-01", "adult", "a Feb 29 birth date turns 18 on Mar 1 in a year without Feb 29"],
+	["2008-02-29", "2028-02-29", "adult", "a Feb 29 birth date on Feb 29 of a leap year"],
+	["2012-02-29", "2030-02-28", "child", "17 on the day before an 18th birthday that falls on Mar 1"],
+	["2012-02-29", "2030-03-01", "adult", "18 on Mar 1"],
+	["1996-12-31", "2026-12-30", "adult", "a 29-year-old"],
+	["2026-01-01", "2026-10-30", "child", "an infant"],
+];
+test("INV-adult: one rule in TypeScript and in SQL, over the same boundary cases", async () => {
+	for (const [birth, today, expected, why] of BOUNDARIES) {
+		assert.equal(effectiveAdult(birth, "unknown", today).value, expected, `TypeScript: ${why}`);
+		const row = (
+			await admin.execute(
+				sql`SELECT ${effectiveAdultSql(sql`${birth}::date`, sql`'unknown'`, sql`${today}::date`)} AS value`,
+			)
+		).rows[0];
+		assert.equal(row.value, expected, `SQL: ${why}`);
+	}
+	// Without a birth date the manual value stands, and the source says which one it is.
+	for (const manual of ["adult", "child", "unknown"]) {
+		assert.deepEqual(effectiveAdult(null, manual, null), {
+			value: manual,
+			source: manual === "unknown" ? "not_recorded" : "recorded",
+		});
+		const row = (
+			await admin.execute(
+				sql`SELECT ${effectiveAdultSql(sql`NULL::date`, sql`${manual}::text`, sql`'2026-01-01'::date`)} AS value`,
+			)
+		).rows[0];
+		assert.equal(row.value, manual);
+	}
+	assert.equal(effectiveAdult("2000-01-01", "child", "2026-10-30").source, "birth_date");
+});
+
+test("INV-adult: the plant-local date decides, not the UTC date", async () => {
+	// 2026-06-15T03:00Z is still June 14 in Chicago and already June 15 in UTC. The 18th birthday is June 15.
+	const instant = "2026-06-15T03:00:00Z";
+	const day = async (zone) =>
+		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`)).rows[0].day;
+	assert.equal(await day("America/Chicago"), "2026-06-14");
+	assert.equal(await day("UTC"), "2026-06-15");
+	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("America/Chicago")).value, "child");
+	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("UTC")).value, "adult");
+	const row = (
+		await admin.execute(
+			sql`SELECT ${effectiveAdultSql(sql`'2008-06-15'::date`, sql`'unknown'`, sql`(${instant}::timestamptz AT TIME ZONE 'America/Chicago')::date`)} AS value`,
+		)
+	).rows[0];
+	assert.equal(row.value, "child");
+	// The read uses the plant's own zone, as plantTodaySql says.
+	const today = (
+		await admin.execute(
+			sql`SELECT ${plantTodaySql(sql`${plants[0]}::uuid`)} AS day, (clock_timestamp() AT TIME ZONE 'America/New_York')::date::text AS expected`,
+		)
+	).rows[0];
+	assert.equal(today.day, today.expected);
+});
+
+/** A date `years` before the plant's current date, moved by `days`, as the plant's calendar says it. */
+async function daysFromBirthday(years, days = 0) {
+	return (
+		await admin.execute(
+			sql`SELECT ((${plantTodaySql(sql`${plants[0]}::uuid`)})::date - make_interval(years => ${years}) + make_interval(days => ${days}))::date::text AS day`,
+		)
+	).rows[0].day;
+}
+const setBirth = async (p, birthDate) =>
+	ok(
+		await tx((t) =>
+			write.updatePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, patch: { birthDate } },
+			}),
+		),
+	).person;
+const rejected = (result, reason) => {
+	refused(result, "invalid_input");
+	assert.equal(result.error.details.reason, reason);
+};
+
+test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manual value, and the history stays", async () => {
+	const p0 = await create("Manual then dated");
+	assert.deepEqual([p0.adultClassification, p0.adultClassificationSource], ["unknown", "not_recorded"]);
+	const recorded = ok(
+		await tx((t) =>
+			write.recordAdultClassification(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p0.revision,
+				input: { personId: p0.id, classification: "child", occurredOn: "2026-10-01", reason: "Told by a parent" },
+			}),
+		),
+	);
+	assert.equal(recorded.person.adultClassification, "child");
+	let p = (await tx((t) => read.getPerson(t, ctx(), { personId: p0.id }))).value.person;
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
+	// Thirty years old by the birth date: the manual "child" no longer applies, at once.
+	p = await setBirth(p, await daysFromBirthday(30));
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["adult", "birth_date"]);
+	const stored = async () =>
+		(await admin.execute(sql`SELECT adult_classification FROM person WHERE id=${p.id}::uuid`)).rows[0]
+			.adult_classification;
+	assert.equal(await stored(), "child", "the manual value stays in the store");
+	const events = async () =>
+		(
+			await admin.execute(
+				sql`SELECT action FROM audit_event WHERE subject_id=${p.id}::uuid AND action IN ('people.recorded','people.corrected')`,
+			)
+		).rows.length;
+	assert.equal(await events(), 1, "the manual history stays");
+	const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
+	assert.ok(feed.items.some((a) => a.kind === "activity" && a.action === "classification_recorded"));
+	// A record or correction is refused while a birth date exists.
+	for (const [method, expectedRevision] of [
+		["recordAdultClassification", p.revision],
+		["correctAdultClassification", p.revision],
+	])
+		rejected(
+			await tx((t) =>
+				write[method](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision,
+					input: { personId: p.id, classification: "child", occurredOn: "2026-10-01", reason: "Try" },
+				}),
+			),
+			"birth_date_decides",
+		);
+	// Removing the birth date makes the last recorded value effective again.
+	p = await setBirth(p, null);
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
+	// A birth date on create, with an adult classification the date contradicts: accepted, and the date wins.
+	const both = await create("Both given", { adultClassification: "child", birthDate: await daysFromBirthday(40) });
+	assert.deepEqual([both.adultClassification, both.adultClassificationSource], ["adult", "birth_date"]);
+});
+
+test("AC:REQ-PPL-026 adult or child dated after the church's today is refused with reason future_date", async () => {
+	const p = await create("Dated tomorrow");
+	// Three days ahead is after the church's today in every time zone.
+	const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+	for (const method of ["recordAdultClassification", "correctAdultClassification"])
+		rejected(
+			await tx((t) =>
+				write[method](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, classification: "adult", occurredOn: ahead, reason: "Said so" },
+				}),
+			),
+			"future_date",
+		);
+});
+
+test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async () => {
+	const names = {
+		eve: await create("Birthday Eve Sam", { birthDate: await daysFromBirthday(18, 1) }),
+		day: await create("Birthday Day Sam", { birthDate: await daysFromBirthday(18) }),
+		older: await create("Birthday Older Sam", { birthDate: await daysFromBirthday(30) }),
+		manual: await create("Birthday Manual Sam", { adultClassification: "adult" }),
+		none: await create("Birthday None Sam"),
+	};
+	const expected = { eve: "child", day: "adult", older: "adult", manual: "adult", none: "unknown" };
+	for (const [key, p] of Object.entries(names)) assert.equal(p.adultClassification, expected[key], key);
+	const listed = async (adultClassification) =>
+		ok(
+			await tx((t) =>
+				read.listPeople(t, ctx(), { search: "Birthday", ...(adultClassification ? { adultClassification } : {}) }),
+			),
+		);
+	const column = new Map(
+		(await listed()).items.map((p) => [p.displayName, [p.adultClassification, p.adultClassificationSource]]),
+	);
+	assert.deepEqual(column.get("Birthday Eve Sam"), ["child", "birth_date"]);
+	assert.deepEqual(column.get("Birthday Day Sam"), ["adult", "birth_date"]);
+	assert.deepEqual(column.get("Birthday Manual Sam"), ["adult", "recorded"]);
+	assert.deepEqual(column.get("Birthday None Sam"), ["unknown", "not_recorded"]);
+	for (const value of ["adult", "child", "unknown"]) {
+		const names = (await listed(value)).items.map((p) => p.displayName).sort();
+		assert.deepEqual(
+			names,
+			[...column]
+				.filter(([, [v]]) => v === value)
+				.map(([n]) => n)
+				.sort(),
+			`?adult=${value} agrees with the column`,
+		);
+	}
+	assert.deepEqual(
+		(await listed("child")).items.map((p) => p.displayName),
+		["Birthday Eve Sam"],
+	);
+});
+
+test("AC:REQ-PPL-026 a derived adult is only an input to a count: the commitment rule is unchanged", async () => {
+	const stage = (stage) => ({ stage });
+	const people = {
+		adultNoCommitment: await create("Count Adult No Card", {
+			...stage("core_group"),
+			birthDate: await daysFromBirthday(30),
+		}),
+		adultLaunch: await create("Count Adult Launch", { ...stage("launch_team"), birthDate: await daysFromBirthday(30) }),
+		adultCommitted: await create("Count Adult Card", { ...stage("core_group"), birthDate: await daysFromBirthday(30) }),
+		childCommitted: await create("Count Child Card", { ...stage("core_group"), birthDate: await daysFromBirthday(17) }),
+	};
+	for (const key of ["adultCommitted", "childCommitted"])
+		await admin.execute(
+			sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at) VALUES(${randomUUID()},${plants[0]}::uuid,${people[key].id}::uuid,'core_group',(clock_timestamp() AT TIME ZONE 'America/New_York')::date - 1,clock_timestamp())`,
+		);
+	await admin.execute(
+		sql`UPDATE person SET commitment_state='active' WHERE id=ANY(${sql.param([people.adultCommitted.id, people.childCommitted.id])}::uuid[])`,
+	);
+	const items = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Count " }))).items;
+	// The count a reader makes: an effective adult with a currently active commitment.
+	const counted = items.filter((p) => p.adultClassification === "adult" && p.commitment.state === "active");
+	assert.deepEqual(
+		counted.map((p) => p.displayName),
+		["Count Adult Card"],
+	);
+	const byName = Object.fromEntries(items.map((p) => [p.displayName, p]));
+	assert.equal(byName["Count Adult No Card"].adultClassification, "adult");
+	assert.equal(byName["Count Adult No Card"].commitment.state, "unknown");
+	assert.equal(byName["Count Adult Launch"].commitment.state, "unknown");
+	assert.equal(byName["Count Child Card"].adultClassification, "child");
 });

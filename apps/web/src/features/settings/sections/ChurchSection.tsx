@@ -46,7 +46,7 @@ type Errors = Partial<Record<keyof Form, string>>;
 
 const LIMIT = { name: 200, street: 500, city: 200, stateProvince: 200, country: 200, description: 5000 } as const;
 
-export function validate(form: Form): Errors {
+function validate(form: Form): Errors {
 	const errors: Errors = {};
 	if (!form.name.trim()) errors.name = "Enter your church's name.";
 	for (const key of Object.keys(LIMIT) as (keyof typeof LIMIT)[]) {
@@ -266,7 +266,7 @@ function ChurchForm({
 				<SettingRow label="Church digest" description="Open items sent to each seat that gets the digest.">
 					<DigestControl value={draft.digest} onChange={(digest) => set("digest", digest)} />
 				</SettingRow>
-				{port.flows.requestWorkspaceDeletion && canDeleteWorkspace(viewer) ? (
+				{canDeleteWorkspace(viewer) ? (
 					<SettingRow
 						label="Delete church workspace"
 						description="Only the Owner can do this. You have 30 days to cancel."

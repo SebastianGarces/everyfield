@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { commandEnvelope } from "../common/writes.ts";
-import { safeError } from "../common/values.ts";
+import { requestKey, safeError, type Reply } from "../common/values.ts";
+import { phaseNumber as phase } from "../phases/index.ts";
 
 export const wikiError = safeError;
 export type WikiError = z.infer<typeof wikiError>;
-export type WikiReply<T> = { status: "ok"; value: T } | { status: "refused"; error: WikiError };
+export type WikiReply<T> = Reply<T, WikiError>;
 
 export const sourceView = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("current") }),
@@ -14,7 +15,6 @@ export const sourceView = z.discriminatedUnion("kind", [
 export type SourceView = z.infer<typeof sourceView>;
 
 const page = z.number().int().min(1).max(1000);
-const phase = z.number().int().min(0).max(6);
 const fraction = z.string().regex(/^(?:0(?:\.\d{1,6})?|1(?:\.0{1,6})?)$/);
 
 export const wikiArticle = z.strictObject({
@@ -61,7 +61,7 @@ const listFields = {
 	page: page.optional(),
 };
 export const listArticlesRequest = z.strictObject(listFields);
-export const getArticleRequest = z.strictObject({
+export const articleRequest = z.strictObject({
 	articleId: z.uuid(),
 	source: sourceView.optional(),
 });
@@ -72,8 +72,6 @@ export const searchRequest = z.strictObject({
 	source: sourceView.optional(),
 });
 export const navigationRequest = z.strictObject({ source: sourceView.optional() });
-export const neighborsRequest = getArticleRequest;
-export const tocRequest = getArticleRequest;
 export const contextGuideRequest = z.strictObject({
 	route: z.string().min(1).max(200),
 	source: sourceView.optional(),
@@ -91,19 +89,23 @@ export const publicPreviewRequest = z.strictObject({
 	path: z.string().min(1).max(500),
 	userAgent: z.string().max(500).optional(),
 });
-export const updateProgressRequest = commandEnvelope(
-	z.strictObject({
+// Progress and views are monotone, so they carry no expected revision: two tabs never conflict.
+// Bookmark keeps its revision check.
+export const updateProgressRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
 		articleId: z.uuid(),
 		fraction,
 		plantId: z.uuid().optional(),
 	}),
-);
-export const recordViewRequest = commandEnvelope(
-	z.strictObject({
+});
+export const recordViewRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
 		articleId: z.uuid(),
 		plantId: z.uuid().optional(),
 	}),
-);
+});
 export const setBookmarkRequest = commandEnvelope(
 	z.strictObject({
 		articleId: z.uuid(),
@@ -120,6 +122,8 @@ export const setSourceOrderRequest = commandEnvelope(
 export const listResult = z.strictObject({
 	articles: z.array(wikiArticle),
 	nextCursor: z.string().nullable(),
+	/** The plant's live sending churches and networks in reading order: stored order first, then the rest by join
+	 * time. `orderRevision` "0" means no order is stored yet. */
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
 	orderRevision: z.string(),
@@ -155,8 +159,6 @@ export const navigationResult = z.strictObject({
 			),
 		}),
 	),
-	breadcrumbs: z.array(z.strictObject({ articleId: z.uuid(), crumbs: z.array(z.string()) })),
-	relatedIds: z.array(z.uuid()),
 });
 export const neighborsResult = z.strictObject({
 	articles: z.array(
@@ -173,11 +175,15 @@ export const tocResult = z.strictObject({
 	headings: z.array(z.strictObject({ level: z.union([z.literal(2), z.literal(3)]), text: z.string() })),
 	errorCode: z.literal("content_access_denied").nullable(),
 });
+/** The Guide for one app route: the excerpt of the version the viewer reads, its title and slug. `citation` names
+ * the section heading the excerpt was asked for. */
 export const guideResult = z.strictObject({
 	found: z.boolean(),
 	missing: z.boolean(),
 	citation: z.string().nullable(),
 	articleId: z.uuid().nullable(),
+	title: z.string().nullable(),
+	slug: z.string().nullable(),
 	body: z.string().nullable(),
 });
 export const excerptResult = z.strictObject({
@@ -257,11 +263,57 @@ export const organizationArticleResult = z.strictObject({
 	invalidationCalls: z.number().int().nonnegative(),
 	state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
 });
+/**
+ * An organization body is capped on the text a reader sees, so editor JSON around a long seed article still saves.
+ * `stored` bounds the stored string itself.
+ */
+export const ORGANIZATION_BODY_LIMIT = { visible: 20_000, stored: 100_000 } as const;
+
+/** The characters a reader sees: the text, callout labels and diagram source of everyfield-editor-v1 nodes, else the string. */
+export function visibleBodyLength(body: string): number {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return body.length;
+	}
+	const doc = parsed as { format?: unknown } | null;
+	if (!doc || typeof doc !== "object" || doc.format !== "everyfield-editor-v1") return body.length;
+	let length = 0;
+	const walk = (value: unknown): void => {
+		if (Array.isArray(value)) return value.forEach(walk);
+		if (!value || typeof value !== "object") return;
+		for (const [key, child] of Object.entries(value)) {
+			if (typeof child === "string" && (key === "text" || key === "label" || key === "source")) length += child.length;
+			else walk(child);
+		}
+	};
+	walk(parsed);
+	return length;
+}
+
+/** A body within the stored bound and within the visible-text cap. */
+export function organizationBodyFits(body: string): boolean {
+	return body.length <= ORGANIZATION_BODY_LIMIT.stored && visibleBodyLength(body) <= ORGANIZATION_BODY_LIMIT.visible;
+}
+
+/**
+ * A credit that names a person or church. Internal ids, source paths, file names and digests never reach a reader,
+ * on screen, in a PDF footer or in print.
+ */
+export function humanCredit(credit: string | null | undefined): string | null {
+	const text = credit?.trim() ?? "";
+	if (!text || /^(church|network|global):/i.test(text)) return null;
+	if (z.uuid().safeParse(text).success) return null;
+	if (/\.(json|mdx?|ya?ml|txt|pdf)\b|\bdocs\/|@[0-9a-f]{7,}|\b[0-9a-f]{40,}\b/i.test(text)) return null;
+	return text;
+}
+
 export const organizationArticleCommand = commandEnvelope(
 	z.strictObject({
 		articleId: z.uuid(),
 		organizationId: z.string().min(1).max(80),
-		body: z.string().max(20000).optional(),
+		body: z.string().refine(organizationBodyFits, "The article is too long to save.").optional(),
 		adapter: z.enum(["Evry", "human"]).optional(),
 		cachePath: z.string().max(400).optional(),
 	}),
@@ -285,3 +337,6 @@ export const upstreamReviewResult = z.strictObject({
 	autoAdoptions: z.number().int().nonnegative(),
 	recipientIds: z.array(z.uuid()),
 });
+
+export * from "./diagram.ts";
+export * from "./blocks.ts";

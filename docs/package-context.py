@@ -255,7 +255,6 @@ def brief(root, manifest, package):
         root_outputs=own.get('root_outputs', []),
         acceptance_gates=own['acceptance_gates'], proof_stage=package['proof_stage'],
         integration_rule=own['integration_rule'], fast_track=own.get('fast_track'),
-        ui_specialist=own.get('ui_specialist'), ui_model=own.get('ui_model'),
         own_requirement_ids=package['own_requirement_ids'], own_case_ids=package['own_case_ids'],
         own_operation_ids=package['own_operation_ids'], context_case_ids=package['context_case_ids'],
         case_requirements_at_start=package['case_requirements_at_start'],
@@ -365,7 +364,7 @@ def check_plan(root, manifest):
             raise ValueError('Owning paths must be directories: ' + p['id'])
         if any(x in ['./', '/'] or x.startswith('./') for x in p['owning_paths']):
             raise ValueError('Unbounded owning path: ' + p['id'])
-        if any(not x or '/' in x or x in ['.', '..', 'evf.config.json'] for x in p.get('root_outputs', [])):
+        if any(not x or '/' in x or x in ['.', '..', 'evf.toml'] for x in p.get('root_outputs', [])):
             raise ValueError('Root outputs must be bounded scaffold files, outside workflow policy: ' + p['id'])
         if 'status' in p or 'feature_ids' in p:
             raise ValueError('Duplicated DAG state: ' + p['id'])
@@ -524,7 +523,7 @@ def plan_projection(root, manifest):
     retired = '; '.join(p['id'] + ' is retired into ' + p['scope_moved_to'] for p in dag.get('retired_packages', []))
     notes = dag['build_plan_notes']
     lines = ['# Future build plan', '',
-             f"The approved target has {len(by)} active single-owner packages. {retired}; IDs are never reused. Implementation state lives only in docs/build-progress.json.", '',
+             f"The approved target has {len(by)} active single-owner packages. {retired}; IDs are never reused. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.", '',
              'Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.', '',
              f"Rough scope-based effort is {dag['total_engineer_days']:g} engineer-days. The weighted prerequisite lower bound with unconstrained capacity is {costs[last]:g} working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.", '',
              '## Foundation and shared UI', '',

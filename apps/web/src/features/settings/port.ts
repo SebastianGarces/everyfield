@@ -1,5 +1,7 @@
+import type * as B from "@everyfield/contracts/branding";
 import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
+import type { OrderRead, OrderSave } from "../wiki/actions";
 import type { z } from "zod";
 
 // The door from the settings screens to the server. Every type comes from the settings contract in
@@ -15,8 +17,12 @@ export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
 export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
-/** The section read the server started with the page at that section's address. */
-export type SectionSeed = { request: GetSectionRequest; value: Promise<Reply<SectionResult>> };
+/**
+ * The read the server started with the page at that section's address: a settings section, or the brand kit (which
+ * has its own contract and refusal codes).
+ */
+export type SectionSeed =
+	{ request: GetSectionRequest; value: Promise<Reply<SectionResult>> } | { brand: Promise<BrandReply<BrandView>> };
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {
@@ -25,10 +31,7 @@ export type OrganizationOwner = {
 	organizationKind: "sending_church" | "sending_network";
 };
 export type PlantSettings = z.infer<typeof S.plantSettings>;
-export type PlantProfile = z.infer<typeof S.plantProfile>;
-export type Inactivity = z.infer<typeof S.inactivity>;
 export type DigestSchedule = z.infer<typeof S.digestSchedule>;
-export type NotificationSettings = z.infer<typeof S.notificationSettings>;
 export type NotificationChoice = z.infer<typeof S.notificationChoice>;
 export type NotificationPatch = z.input<typeof S.notificationPatch>;
 export type AffiliationPatch = z.input<typeof S.affiliationPatch>;
@@ -43,10 +46,25 @@ export type PersonalTimezonePreview = z.infer<typeof N.personalTimezonePreview>;
 export type PersonalTimezoneResult = z.infer<typeof N.personalTimezoneResult>;
 export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
-export type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
+type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
+
+// The church brand kit (WP-104). Its operations and refusals come from the branding contract.
+export type BrandKit = B.BrandKit;
+export type BrandError = B.BrandError;
+export type BrandReply<T> = B.BrandReply<T>;
+export type SaveBrandRequest = z.input<typeof B.saveSettingsRequest>;
+export type ResetBrandRequest = z.input<typeof B.resetRequest>;
+export type RequestBrandUpload = z.input<typeof B.uploadRequest>;
+export type FinalizeBrandUpload = z.input<typeof B.finalizeUploadRequest>;
+export type SuggestBrandColors = z.input<typeof B.suggestColorsRequest>;
+export type BrandUploadTicket = z.infer<typeof B.uploadTicket>;
+export type SuggestedColors = z.infer<typeof B.suggestedColors>;
+/** The saved kit and the church name the preview sets in type in the logo slots. */
+export type BrandView = { kit: BrandKit; churchName: string };
 
 /** A section the dialog can show. Seats come from WP-008/ui through the same frame. */
-export type SectionKey = "church" | "organization" | "seats" | "notifications" | "sharing" | "account";
+export type SectionKey =
+	"church" | "brand" | "organization" | "seats" | "notifications" | "sharing" | "wiki" | "account";
 
 /**
  * Who is looking and in which context. The server decides authority again on every call; this only chooses which
@@ -76,13 +94,44 @@ export interface SettingsPort {
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
 	/** Your photo, email, password, own time zone and deletion. */
 	flows: FlowPort;
+	/** The church brand kit: read, save one patch, reset. */
+	brand: BrandPort;
+	/** The church's Wiki source order (wiki.setSourceOrder): which sending church and network it reads first. */
+	wiki: WikiOrderPort;
 }
 
-/** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */
+export type { OrderRead, OrderRow, OrderSave } from "../wiki/actions";
+
+/** The Wiki source order read and save, as the wiki server actions answer them. */
+export interface WikiOrderPort {
+	read(): Promise<OrderRead>;
+	save(requestKey: string, expectedRevision: string, churches: string[], networks: string[]): Promise<OrderSave>;
+}
+
+export interface BrandPort {
+	get(): Promise<BrandReply<BrandView>>;
+	save(request: SaveBrandRequest): Promise<BrandReply<BrandKit>>;
+	reset(request: ResetBrandRequest): Promise<BrandReply<BrandKit>>;
+	/** Step 1 of an asset upload: stages a pending file for one slot. */
+	requestUpload(request: RequestBrandUpload): Promise<BrandReply<BrandUploadTicket>>;
+	/** Step 2: sends the picked bytes to the staged upload (the byte route). A refusal is the slot's own message. */
+	uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>>;
+	/** Step 3: attaches the processed file to its slot with the alt text; returns the kit at its new revision. */
+	finalizeUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>>;
+	/** Colors from the ready asset in one slot. Nothing is applied until the person chooses. */
+	suggestColors(request: SuggestBrandColors): Promise<BrandReply<SuggestedColors>>;
+	/** The authenticated delivery route for one stored asset. Never a storage key or bearer URL. */
+	assetSrc(fileId: string): string;
+}
+
+/** The photo flow of your own account (REQ-IDN-006). */
 export interface AvatarPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
-	/** Sends the bytes to the server-owned staging upload. The server verifies type and size again. */
-	uploadAvatarBytes(uploadId: string, file: Blob): Promise<Reply<null>>;
+	/**
+	 * Sends the bytes to the server-owned staging upload, whose id is the version it becomes. The server verifies type
+	 * and size again; a file it refuses is invalid_input.
+	 */
+	uploadAvatarBytes(target: AvatarReference, file: Blob): Promise<Reply<null>>;
 	finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	/** The authenticated delivery route for one avatar version (avatarRoute). Never a storage key or bearer URL. */
@@ -90,8 +139,7 @@ export interface AvatarPort {
 }
 
 export interface FlowPort {
-	/** Absent until a private bucket exists (Q2): Your account then shows no Photo row. */
-	avatar?: AvatarPort;
+	avatar: AvatarPort;
 
 	requestEmailChange(
 		request: z.input<typeof N.requestEmailChange>,
@@ -104,8 +152,8 @@ export interface FlowPort {
 	setPersonalTimezone(request: z.input<typeof N.setPersonalTimezoneRequest>): Promise<Reply<PersonalTimezoneResult>>;
 
 	requestAccountDeletion(request: z.input<typeof S.requestAccountDeletion>): Promise<Reply<DeletionStatus>>;
-	/** Absent until church workspace deletion has a server action: the Church section then leaves it out. */
-	requestWorkspaceDeletion?(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
+	/** The Owner only; the server refuses an Admin or Member. */
+	requestWorkspaceDeletion(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
 }
 
 /** The restricted deletion session (REQ-IDN-032): status and cancel for one exact request, nothing else. */

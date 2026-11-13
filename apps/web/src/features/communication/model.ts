@@ -1,8 +1,14 @@
-// The shapes the Messages screens share. They match the WP-027 contract results. The client does not import the
-// sanitizer.
+// The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
+// type and `@everyfield/contracts/communication/values`, which loads no sanitizer; the client's preview (preview.ts)
+// imports the contract renderer, which runs the sanitizer in the browser.
 
-export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
-export type AudienceGroup = (typeof audienceGroups)[number];
+import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
+import { audienceGroups } from "@everyfield/contracts/communication/values";
+
+type ContractHubState = (typeof contractHubStates)[number];
+
+export { audienceGroups };
+type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {
 	core_group: "Core group",
@@ -61,32 +67,31 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-export type Recipient = { id: string; displayName: string; email: string };
+/** `unsubscribedAt`: when they unsubscribed from this church's Messages email. They cannot be added then. */
+export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
-};
-export type Preview = {
-	previewBody: string;
-	eligibleEmails: string[];
-	excludedMissingEmail: string[];
-	duplicateAddressesRemoved: number;
+	recipients: { id: string; displayName: string; email: string }[];
+	complete: boolean;
+	/** People who unsubscribed from this church's email. Not in eligibleRecipients; they get nothing. */
+	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 };
 
-export type PageData = { drafts: Draft[]; templates: Template[]; teams: Team[] };
+export type PageData = {
+	templates: Template[];
+	teams: Team[];
+	churchName: string;
+	/** The app origin, for the RSVP preview link. */
+	origin: string;
+};
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
-export const stateLabel: Record<DraftState, string> = {
-	draft: "Draft",
-	reviewed: "Reviewed",
-	scheduled: "Scheduled",
-};
-
 /** What the person can do about a refusal. The code stays the server's word. */
-export function refusalText(code: string): string {
+function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
@@ -106,6 +111,8 @@ export function refusalText(code: string): string {
 			return "That meeting or template is not in this church.";
 		case "invalid_input":
 			return "Check the subject, the message, and that at least one person can receive it.";
+		case "rsvp_needs_meeting":
+			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
 		default:
@@ -136,44 +143,96 @@ export type DeliveryReport = {
 	acceptedCount: number;
 	rejectedCount: number;
 	unknownCount: number;
+	/** Refused by Everyfield because the person unsubscribed from this church's email. Not in rejectedCount. */
+	unsubscribedCount: number;
 };
 
-export type CancelReport = { scheduledCancel: "reconcile" | "confirmed" | "none" };
+/** Per recipient, what the email service confirmed for a cancel or time change. */
+type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
+export type CancelReport = ProviderTally & { scheduledCancel: "reconcile" | "confirmed" | "none" };
 export type ReplaceReport = { replacementAllowed: boolean };
-export type RescheduleReport = { rescheduleStatus: "accepted" | "unknown"; scheduledAt: string };
-export type SuppressionReport = { address: string; active: boolean };
+export type RescheduleReport = ProviderTally & {
+	rescheduleStatus: "accepted" | "unknown";
+	scheduledAt: string;
+	heldAt: string | null;
+};
+type Restore = { at: string; actorName: string | null; reason: string };
+export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
-/** Provider acceptance is not delivery, and an unknown result is not a success. */
-export function deliveryText(report: DeliveryReport): string {
-	if (report.status === "failed") return "The provider refused this email. No recipient was accepted.";
-	if (report.status === "uncertain" || report.status === "accepted_unknown")
-		return "The provider did not confirm this email. It was not sent again.";
-	if (report.status === "partial") {
-		return `Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No result yet for ${report.unknownCount}. Nothing was marked sent.`;
-	}
-	if (report.acceptedCount === 1) return "The provider accepted 1 recipient. Accepted does not mean delivered.";
-	return `The provider accepted ${report.acceptedCount} recipients. Accepted does not mean delivered.`;
+/** The counts every handoff result names. */
+const counts = (report: DeliveryReport) =>
+	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
+	unsubscribedNote(report.unsubscribedCount);
+
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+
+/** The count of people who unsubscribed from this church's email, when there are any. */
+export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
+
+/** Why nobody got it: the email service refused them, they unsubscribed from this church's email, or both. */
+export function refusedAllText(unsubscribed: number, refused: number): string {
+	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
+	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
+	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
 }
 
+const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
+	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
+
+/** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
+export function deliveryText(report: DeliveryReport): string {
+	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
+	if (report.unknownCount > 0)
+		return `Not confirmed. The email service gave no answer. ${counts(report)} It was not sent again.`;
+	return `${refusedAll(report, "sent")} ${counts(report)} The message stays saved in Messages.`;
+}
+
+/**
+ * A scheduled handoff result. Everyfield keeps a scheduled email until its send time, so "Scheduled" counts the people
+ * it goes to then; anyone who unsubscribes before then gets nothing. "Not scheduled" is a refusal for everyone.
+ */
+export function scheduleText(report: DeliveryReport, when: string): string {
+	if (report.acceptedCount > 0)
+		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
+	if (report.unknownCount > 0)
+		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
+	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
+}
+
+const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;
+/** The note a not-confirmed cancel or time change adds when some email already went out, else nothing. */
+export const sentNote = (count: number) => (count > 0 ? ` ${wentOut(count)}` : "");
+
 export function cancelText(report: CancelReport): string {
-	if (report.scheduledCancel === "confirmed")
-		return "The provider cancelled the scheduled send. Mail that already went out stays out.";
+	if (report.scheduledCancel === "none") return "Nothing is waiting at the email service to cancel.";
+	const sent = sentNote(report.sentCount);
 	if (report.scheduledCancel === "reconcile")
-		return "Cancellation was requested. The provider has not confirmed it. Mail that already went out cannot be recalled.";
-	return "No provider send is waiting to cancel. Mail that already went out cannot be recalled.";
+		return `Cancel not confirmed. Confirmed ${report.confirmedCount}. Not confirmed ${report.openCount}.${sent} Check again to ask the email service.`;
+	// Email that already went out leads: the message is not cancelled while any of it went out (criterion 7).
+	if (report.sentCount > 0)
+		return report.confirmedCount === 0
+			? `${wentOut(report.sentCount)} Nothing was cancelled.`
+			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
+	if (report.confirmedCount === 0) return "Not cancelled.";
+	return `Cancelled for ${people(report.confirmedCount)}. No email went out.`;
 }
 
 export function replaceText(report: ReplaceReport): string {
 	if (report.replacementAllowed)
 		return "Every previous send is cancelled. Write a new message to send again. No email was sent.";
-	return "A replacement stays blocked until every previous send is cancelled. No email was sent.";
+	return "A replacement stays blocked until every recipient is confirmed cancelled. No email was sent.";
 }
 
-export function rescheduleText(report: RescheduleReport, when: string): string {
+export function rescheduleText(report: RescheduleReport, when: (iso: string) => string): string {
+	const sent = sentNote(report.sentCount);
 	if (report.rescheduleStatus === "unknown")
-		return `The send time is now ${when}. The provider has not confirmed that time.`;
-	return `The send time is now ${when}. This change did not send the email.`;
+		return `Time change not confirmed. You asked for ${when(report.scheduledAt)}. The email service still holds ${report.heldAt ? when(report.heldAt) : "the earlier time"} for ${report.openCount}.${sent} Check again to ask the email service.`;
+	if (report.sentCount > 0)
+		return report.confirmedCount === 0
+			? `${wentOut(report.sentCount)} The send time did not change.`
+			: `${wentOut(report.sentCount)} The other ${report.confirmedCount} now wait for ${when(report.scheduledAt)}. This change did not send the email.`;
+	return `The send time is now ${when(report.scheduledAt)}. This change did not send the email.`;
 }
 
 export function restoreText(report: RestoreReport): string {
@@ -181,17 +240,34 @@ export function restoreText(report: RestoreReport): string {
 	return "This address was already clear. No new email was sent.";
 }
 
-export const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+export const hubStates = [
+	"draft",
+	"scheduled",
+	"not_scheduled",
+	"unsubscribed",
+	"sending",
+	"sent",
+	"logged",
+	"cancelled",
+	"cancel_unconfirmed",
+	"time_unconfirmed",
+	"failed",
+	"unknown",
+] as const satisfies readonly ContractHubState[];
 export type HubState = (typeof hubStates)[number];
 export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
+	not_scheduled: "Not scheduled",
+	unsubscribed: "Not sent: unsubscribed",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",
 	cancelled: "Cancelled",
-	failed: "Failed",
-	unknown: "Unknown",
+	cancel_unconfirmed: "Cancel not confirmed",
+	time_unconfirmed: "Time change not confirmed",
+	failed: "Not sent",
+	unknown: "Not confirmed",
 };
 
 export type HistoryItem = {
@@ -205,6 +281,9 @@ export type HistoryItem = {
 	rate: number | null;
 	reachable: number;
 	delivered: number;
+	scheduledAt: string | null;
+	sentAt: string | null;
+	senderName: string | null;
 };
 
 export type HistoryPage = {
@@ -231,7 +310,11 @@ export type DeliveryTotals = {
 	bounced: number;
 	failed: number;
 	suppressed: number;
+	/** Refused because the person unsubscribed from this church's email. Not in failed. */
+	unsubscribed: number;
 	unknown: number;
+	cancelled: number;
+	cancelOpen: number;
 	asOf: string;
 	rate: number | null;
 	outcomes: ("accepted" | "unknown" | "rejected")[];
@@ -257,6 +340,12 @@ export type MessageDetail = {
 	bodyHtml: string | null;
 	bodyText: string | null;
 	meetingId: string | null;
+	/** The time the email service holds once it holds the message, else the saved time. */
+	scheduledAt: string | null;
+	/** A requested time the email service has not confirmed for every recipient. */
+	requestedAt: string | null;
+	sentAt: string | null;
+	senderName: string | null;
 	deliveryAddress: string | null;
 	currentPersonAddress: string | null;
 	deliveryStatus: string | null;
@@ -291,13 +380,7 @@ export type SavedResend = {
 	eligibleNames: string[];
 };
 
-export const contactOutcomes = [
-	"contacted",
-	"attempted_no_contact",
-	"administrative_completion",
-	"no_longer_needed",
-] as const;
-export type ContactOutcome = (typeof contactOutcomes)[number];
+type ContactOutcome = "contacted" | "attempted_no_contact" | "administrative_completion" | "no_longer_needed";
 export const contactLabel: Record<ContactOutcome, string> = {
 	contacted: "Contacted",
 	attempted_no_contact: "Attempt, no contact",
@@ -316,6 +399,8 @@ export type ContactRow = {
 export type PersonHistory = HistoryPage & {
 	personId: string;
 	lastConfirmedContactAt: string | null;
+	/** When the person unsubscribed from this church's email. Only an Owner or Admin sees it. */
+	emailOptOutAt: string | null;
 	contacts: ContactRow[];
 };
 
@@ -328,4 +413,75 @@ export function rateText(delivered: number, reachable: number, rate: number | nu
 	if (rate === null || reachable === 0) return "No reachable recipients, so there is no delivery rate.";
 	const percent = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(rate);
 	return `${delivered} delivered of ${reachable} reachable (${percent}).`;
+}
+
+export type MeetingContext = {
+	id: string;
+	type: MeetingType | "prelaunch_practice";
+	title: string;
+	date: string;
+	time: string;
+	place: string | null;
+	guests: { id: string; displayName: string }[];
+};
+
+/** What one Send now or Schedule did. `report` is null when the email was saved but the handoff did not finish. */
+export type HandoffResult = {
+	communicationId: string;
+	revision: string;
+	scheduledAt: string;
+	report: DeliveryReport | null;
+	sendIssue: string | null;
+};
+
+export const scheduledNotSentText =
+	"The email is saved, but the email service did not receive it. Open it from Messages to send it again.";
+
+/** The Messages address. Every state the page can show is one of these. */
+export type Route =
+	| { kind: "history"; message: string | null; meeting: string | null; person: string | null }
+	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
+	| { kind: "templates"; template: string | "new" | null }
+	| { kind: "address" };
+const steps = ["who", "write", "review"] as const;
+export type Step = (typeof steps)[number];
+export type Handoff = { meeting: string; template: string | null; recipients: "guests" | null };
+
+type Query = Record<string, string | null | undefined>;
+
+/** Reads the address. Unknown values fall back to the history list. */
+export function parseRoute(q: Query): Route {
+	const step = steps.find((value) => value === q.step) ?? "who";
+	if (q.compose) return { kind: "compose", id: q.compose, step, handoff: null };
+	if (q.meeting && q.template) {
+		return {
+			kind: "compose",
+			id: "new",
+			step: "write",
+			handoff: { meeting: q.meeting, template: q.template, recipients: q.recipients === "guests" ? "guests" : null },
+		};
+	}
+	if (q.view === "templates") return { kind: "templates", template: q.template ?? null };
+	if (q.view === "address") return { kind: "address" };
+	return { kind: "history", message: q.message ?? null, meeting: q.meeting ?? null, person: q.person ?? null };
+}
+
+/** The address for a route. It round-trips with parseRoute. */
+export function routeHref(route: Route): string {
+	const params = new URLSearchParams();
+	if (route.kind === "compose") {
+		params.set("compose", route.id);
+		params.set("step", route.step);
+	} else if (route.kind === "templates") {
+		params.set("view", "templates");
+		if (route.template) params.set("template", route.template);
+	} else if (route.kind === "address") {
+		params.set("view", "address");
+	} else {
+		if (route.message) params.set("message", route.message);
+		if (route.meeting) params.set("meeting", route.meeting);
+		if (route.person) params.set("person", route.person);
+	}
+	const text = params.toString();
+	return text ? `/communication?${text}` : "/communication";
 }

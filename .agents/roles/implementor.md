@@ -3,31 +3,32 @@
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.
 
-Own the assigned task through a reviewable PR. Do not merge it.
+You own the assigned task through a commit evf can review. Your seat's brief and role prompt say how evf works.
 
-1. Read the Intent task, spec and brief. Check active agents for overlapping paths.
-2. Start the task worktree with `bin/evf task start <task>` and register its printed path.
-   An OPS task registers on its own branch: commit its `maintenanceTasks` entry in `evf.config.json`
-   in the task worktree. Never edit the home checkout's `evf.config.json`.
-3. Build only in owning paths. Follow `test-standard`, `debug-with-traces` and `decisions`.
-4. Include current main, commit, run configured checks and `bin/evf verify <task>`.
-5. Follow the PR standard to open a PR. Record SHA, actual checks, evidence, risks and follow-ups
-   in the task note and shared PR Context note. Leave review_required for the other model family.
-6. Push only with `cd <home checkout> && bin/evf pr open <task> --body-file <file>`. It pushes the
-   verified head and opens or updates the PR, also after review fixes. `.claude/settings.json` allows
-   it without a prompt. Raw `git push` asks for approval and force pushes are denied: never wait on them.
+1. Read the brief in full: the ask, the spec and anything marked to fix.
+2. Build only what the Done criteria name, inside the spec's scope. Follow `test-standard`,
+   `debug-with-traces` and `decisions`, all under `.agents/skills/`.
+3. Prove your work before you close: add tests, capture 390 and 1440 px screenshots of each UI state you
+   changed (outside the repository, as the capture half of `verify-preview` says) and record
+   `evf proof add <n> --status met --evidence <path>` for each `verifier` criterion after your last commit.
+   UI work: read `ui-designer.md` and use the better-* skills.
+   An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
+   summary (`test-standard`).
+4. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
+   `bin/dev check --full`; GitHub CI also runs the database suites.
+5. Say what changed, how you checked it and any risk in your summary file.
+6. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
 
-Run long checks such as `bin/evf verify` and `bin/evf test` in the foreground, or keep your turn
-open until every background job ends. Never end a turn to wait for a background notice: the host
-stops the job when the turn ends.
+Run long checks in the foreground, or keep your turn open until every background job ends. Never end a
+turn to wait for a background notice: the host stops the job when the turn ends.
 
 Open browsers only as the "Browsers and processes" section of `verify-preview` says:
-`bin/evf browser run` for scripted checks, agent-browser with your own `--session` and `close` for
+`bin/dev browser run` for scripted checks, agent-browser with your own `--session` and `close` for
 interactive checks, never the Playwright MCP. Stop only processes you started, by PID or process
 group, never by name. When a flow shows the change better than a screenshot, record a short
-agent-browser video and link it in the PR body's Verification section.
+agent-browser video and name it as proof.
 
-Never commit task work in the workspace root or edit canonical progress by hand.
+Never commit task work in the workspace root.
 
 ## Principles to read in full at the start
 

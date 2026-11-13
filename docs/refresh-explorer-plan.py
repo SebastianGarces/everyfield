@@ -25,10 +25,9 @@ def compile_current(root):
     for e in edges:e['from']=e.pop('from_')
     for pkg in dag['packages']:
         def ui(path):
-            return path.startswith(('apps/web/src/features/', 'apps/web/src/components/', 'tests/browser/', 'packages/ui/', 'tests/ui/')) or path.startswith('apps/web/src/app/') and not path.startswith('apps/web/src/app/api/')
+            return path.startswith(('apps/web/src/features/', 'apps/web/src/components/', 'packages/ui/', 'tests/ui/')) or path.startswith('apps/web/src/app/') and not path.startswith('apps/web/src/app/api/')
         paths=pkg['owning_paths'];web=any(ui(p) for p in paths);nonweb=any(not ui(p) for p in paths)
         pkg['producer_task']=pkg['id']+'/api' if web and nonweb else pkg['id']
-    byf={f['id']:f for f in features}
     for f in features:
         f['tables']=[t['id'] for t in tables if f['id'] in t['featureIds']];f['v3_operations']=f['operations'];f['decision']='Current clauses: '+', '.join(f['requirement_ids'])+'; specification: '+f['spec_file'];f['source_refs']=[f['spec_file']];f['tests']=f['case_ids'];f['permissions']=[];f['validation']=[];f['states']=[];f['failures']=[]
     for a in acceptance:
@@ -38,7 +37,7 @@ def compile_current(root):
         decisions.append(dict(id=g['id'],title=g['title'],proposal=g.get('closure',g.get('required_evidence',g.get('description',''))),owner=g.get('owner','Named package owner'),workPackages=g.get('work_packages',[]),source='docs/plan/release-gates.json',status=g['status']))
     for q in gates['owner_product_questions']:
         decisions.append(dict(id=q['id'],title=q['title'],proposal=q['question'],owner=q['owner'],workPackages=q['work_packages'],source='docs/plan/release-gates.json',status=q['status']))
-    return dict(meta=dict(capturedAt='2026-10-14',fingerprint=fingerprint,planFingerprint=fingerprint,sourceHashes=hashes,packageEdges=dag['edge_count'],initialCompletionBasis='Current documentation-only target: '+str(len(features))+' active capabilities, '+str(len(acceptance))+' acceptance bundles, '+str(len(tables))+' proposed target tables and '+str(len(edges))+' proposed FKs. Documentation counts do not establish implementation acceptance. Progress comes only from docs/build-progress.json.',fingerprintPolicy='Current planFingerprint binds explicit source inputs. Canonical progress is a read-only snapshot of the evf record; regenerating the view never changes it.'),packages=dag['packages'],dag={k:dag[k] for k in ['version','as_of','vertical_slices','critical_path','critical_path_unconstrained_days','total_engineer_days','contract_milestones']},features=features,tables=tables,tableEdges=edges,applicationEdges=[],historicalEdges=[],acceptance=acceptance,decisions=decisions,acceptedRulings=[])
+    return dict(meta=dict(capturedAt='2026-10-14',fingerprint=fingerprint,planFingerprint=fingerprint,sourceHashes=hashes,packageEdges=dag['edge_count'],initialCompletionBasis='Current documentation-only target: '+str(len(features))+' active capabilities, '+str(len(acceptance))+' acceptance bundles, '+str(len(tables))+' proposed target tables and '+str(len(edges))+' proposed FKs. Documentation counts do not establish implementation acceptance. Progress comes from docs/build-progress.json, which stopped on 2026-10-22 at PR #235.',fingerprintPolicy='Current planFingerprint binds explicit source inputs. Progress is a read-only snapshot of the frozen v1 record; regenerating the view never changes it.'),packages=dag['packages'],dag={k:dag[k] for k in ['version','as_of','vertical_slices','critical_path','critical_path_unconstrained_days','total_engineer_days','contract_milestones']},features=features,tables=tables,tableEdges=edges,applicationEdges=[],historicalEdges=[],acceptance=acceptance,decisions=decisions,acceptedRulings=[])
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parent.parent)

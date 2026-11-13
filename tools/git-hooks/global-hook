@@ -1,0 +1,11 @@
+#!/bin/sh
+# global-hook <name> [args...]: runs the same-named hook of the global core.hooksPath, which this repo's
+# core.hooksPath (tools/git-hooks) replaces. Passes when there is none, or when it is this folder.
+name=$1
+shift
+here=$(cd "$(dirname "$0")" && pwd -P)
+global=$(git config --global --type=path --get core.hooksPath 2>/dev/null) || exit 0
+global=$(cd "$global" 2>/dev/null && pwd -P) || exit 0
+[ "$global" = "$here" ] && exit 0
+[ -x "$global/$name" ] || exit 0
+exec "$global/$name" "$@"

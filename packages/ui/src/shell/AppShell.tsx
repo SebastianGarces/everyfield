@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
+import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { both, useIntentPrefetch } from "../controls/IntentLink";
 import { currentKey, linkPrefetch, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
@@ -14,7 +15,10 @@ import { RailTip, ThemeToggle } from "./ThemeToggle";
 export type ShellActions = {
 	onSearch: () => void;
 	onNotifications: () => void;
-	onAskEvry: () => void;
+	/** Whether the notification drop-down is open: the bell announces it as expanded or collapsed. */
+	notificationsOpen: boolean;
+	/** Absent on a page where Evry is off, such as the private check-in: the button stays, disabled, and says so. */
+	onAskEvry?: () => void;
 };
 
 export type AppShellProps = ShellActions & {
@@ -142,6 +146,7 @@ function Topbar({
 					<TopIconButton
 						label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
 						onClick={actions.onNotifications}
+						expanded={actions.notificationsOpen}
 					>
 						<Icon icon={BellIcon} size={24} />
 						{unread > 0 && (
@@ -154,11 +159,13 @@ function Topbar({
 					<button
 						type="button"
 						onClick={actions.onAskEvry}
-						aria-keyshortcuts="Meta+J"
-						className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 max-app-xl:pr-3 max-app-sm:px-2.5"
+						disabled={!actions.onAskEvry}
+						title={actions.onAskEvry ? undefined : "Evry is off on this page"}
+						aria-keyshortcuts={actions.onAskEvry ? "Meta+J" : undefined}
+						className="inline-flex h-11 cursor-pointer items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
 					>
 						<EvryBot size="sm" />
-						<span className="max-app-sm:sr-only">Ask Evry</span>
+						<span className="max-app-sm:sr-only">{actions.onAskEvry ? "Ask Evry" : "Evry is off"}</span>
 					</button>
 				</div>
 
@@ -173,9 +180,10 @@ function Topbar({
 					>
 						<span
 							aria-hidden="true"
-							className="grid size-10 flex-none place-items-center rounded-full bg-green-100 text-md font-semibold text-green-700"
+							className="relative grid size-10 flex-none place-items-center overflow-hidden rounded-full bg-green-100 text-md font-semibold text-green-700"
 						>
 							{user.initials}
+							{user.photo ? <AvatarImage key={user.photo} src={user.photo} /> : null}
 						</span>
 						<span className="leading-[1.2] max-app-lg:sr-only">
 							<span className="block text-nav font-semibold">{user.name}</span>
@@ -217,12 +225,15 @@ function TopIconButton({
 	label,
 	shortcut,
 	onClick,
+	expanded,
 	className,
 	children,
 }: {
 	label: string;
 	shortcut?: string;
 	onClick: () => void;
+	/** Set for a button that opens a dialog, such as the notification drop-down: its open state. */
+	expanded?: boolean;
 	className?: string;
 	children: ReactNode;
 }) {
@@ -232,9 +243,11 @@ function TopIconButton({
 			aria-label={label}
 			title={label}
 			aria-keyshortcuts={shortcut}
+			aria-haspopup={expanded === undefined ? undefined : "dialog"}
+			aria-expanded={expanded}
 			onClick={onClick}
 			className={cn(
-				"relative grid size-11 place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
+				"relative grid size-11 cursor-pointer place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
 				className,
 			)}
 		>
@@ -338,7 +351,8 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={wrapper} onKeyDown={onKeyDown} className="app-md:hidden">
+		// Escape from the menu button or any panel link bubbles here and closes the menu; the wrapper is no control.
+		<div ref={wrapper} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}

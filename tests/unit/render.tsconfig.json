@@ -1,0 +1,9 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"include": ["../../apps/web/src/**/*", "../../packages/*/src/**/*", "./**/*"],
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"jsx": "react-jsx",
+		"paths": { "@/*": ["../../apps/web/src/*"] }
+	}
+}

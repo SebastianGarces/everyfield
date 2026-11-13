@@ -4,24 +4,25 @@ import {
 	command,
 	disclosureFor,
 	idsIn,
-	invitationFor,
 	namesFor,
 	pendingFor,
-	query,
 	readHistory,
+	readPipelineConsents,
 	readPlantSharing,
-	residencyRevision,
+	residencyLinks,
 	residentOwner,
 	scopeOf,
 	viewerOf,
 	type Reply,
 } from "@/server/organizations";
-import { residencySharingRequest, type OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
+import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
+import type { ResidencyRow } from "./Residency";
 
 // The browser's only door to the organization mount (WP-007/ui ruling D11): one typed server action per operation.
 // Each names its concrete adapter method, so the input and output types are the operation's own and the screens trust
 // the value. Every call reads the session and the current seat once; commands bind that actor to their transaction,
-// reads take no lock.
+// reads take no lock. A relationship invitation's proof never comes here: its read and its answer go through
+// POST /api/connections/invitation (invitation/handler.ts, the D54 clarification of 2026-11-10).
 
 const refused: Reply<never> = { status: "refused", code: "unavailable" };
 type Input<K extends keyof Ops> = Ops[K]["input"];
@@ -61,25 +62,6 @@ async function endAssociation(input: Input<"associations.end">) {
 		w.mount.adapter["associations.end"](tx, s, o, input),
 	);
 }
-export async function respondAssociationInvitation(input: Input<"associations.respondInvitation">) {
-	const w = await who();
-	if (!w) return refused;
-	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
-		w.mount.adapter["associations.respondInvitation"](tx, s, o, input),
-	);
-}
-export async function getAssociationHistory(input: Input<"associations.getHistory">) {
-	const w = await who();
-	if (!w) return refused;
-	return { status: "ok", value: await readHistory(w.mount.db, w.authority, input) } as const;
-}
-export async function getSharing(input: Input<"privacy.getSharing">) {
-	const w = await who();
-	if (!w) return refused;
-	return query(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
-		w.mount.adapter["privacy.getSharing"](tx, s, o, input),
-	);
-}
 /** Used only by saveSharing, which also answers with the sharing as saved. */
 async function setSharing(input: Input<"privacy.setSharing">) {
 	const w = await who();
@@ -88,14 +70,8 @@ async function setSharing(input: Input<"privacy.setSharing">) {
 		w.mount.adapter["privacy.setSharing"](tx, s, o, input),
 	);
 }
-export async function readResidencySharing(input: Input<"residency.readSharing">) {
-	const w = await who();
-	if (!w) return refused;
-	return query(w.mount, w.authority, residentOwner(w.viewer), (tx, s, o) =>
-		w.mount.adapter["residency.readSharing"](tx, s, o, input),
-	);
-}
-export async function setResidencySharing(input: Input<"residency.setSharing">) {
+/** Used only by saveResidencySharing, which also answers with the consent as saved. */
+async function setResidencySharing(input: Input<"residency.setSharing">) {
 	const w = await who();
 	if (!w) return refused;
 	return command(w.mount, w.authority, residentOwner(w.viewer), (tx, s, o) =>
@@ -109,28 +85,14 @@ export async function leaveResidency(input: Input<"residency.leave">) {
 		w.mount.adapter["residency.leave"](tx, s, o, input),
 	);
 }
-export async function readPipelineConsent(input: Input<"pipelineSharing.readConsent">) {
-	const w = await who();
-	if (!w) return refused;
-	return query(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
-		w.mount.adapter["pipelineSharing.readConsent"](tx, s, o, input),
-	);
-}
-export async function setPipelineConsent(input: Input<"pipelineSharing.setConsent">) {
+/** Used only by savePipelineConsent, which also answers with the choice as saved. */
+async function setPipelineConsent(input: Input<"pipelineSharing.setConsent">) {
 	const w = await who();
 	if (!w) return refused;
 	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
 		w.mount.adapter["pipelineSharing.setConsent"](tx, s, o, input),
 	);
 }
-export async function checkPipelineAggregateAccess(input: Input<"pipelineSharing.checkAggregateAccess">) {
-	const w = await who();
-	if (!w) return refused;
-	return query(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
-		w.mount.adapter["pipelineSharing.checkAggregateAccess"](tx, s, o, input),
-	);
-}
-
 /** One history page of this viewer's own scope, with the names it shows: two statements after the viewer. */
 export async function loadHistoryPage(after: string | null) {
 	const w = await who();
@@ -163,34 +125,20 @@ export async function loadDisclosure(pair: unknown) {
 	return disclosureFor(w.mount, w.authority, w.viewer, pair);
 }
 
-/** The request behind an emailed link, for a signed-in account. */
-export async function loadInvitation(invitationId: string, proof: string) {
-	const w = await viewerOf();
-	if (w.kind === "signed_out") return { kind: "signed_out" as const };
-	if (w.kind !== "viewer") return { kind: "unavailable" as const };
-	const invitation = await invitationFor(w.mount, w.authority, w.viewer, invitationId, proof);
-	if (!invitation) return { kind: "unavailable" as const };
-	const p = invitation.pair;
-	const names = await namesFor(w.mount.db, w.viewer, [
-		p.organization.id,
-		p.kind === "discovery" ? p.accountId : p.subject.id,
-	]);
-	return { kind: "invitation" as const, invitation, names, zone: "UTC" };
+/** One of this account's own residency links: the consent and the link revision a change must carry. One statement. */
+export async function loadResidency(linkId: string): Promise<ResidencyRow> {
+	const w = await who();
+	const [link] = w ? await residencyLinks(w.mount.db, w.viewer, linkId) : [];
+	return link ?? { sharing: { status: "unavailable" as const }, linkRevision: "0" };
 }
 
-/** One of this account's own residency links: the consent and the link revision a change must carry. */
-export async function loadResidency(
-	linkId: string,
-): Promise<{ sharing: Ops["residency.readSharing"]["output"]; linkRevision: string }> {
-	const unavailable = { sharing: { status: "unavailable" as const }, linkRevision: "0" };
+/** One of this sending church's own network connections: its pipeline totals choice and revision. */
+export async function loadPipelineConsent(
+	relationshipId: string,
+): Promise<Ops["pipelineSharing.readConsent"]["output"]> {
 	const w = await who();
-	if (!w) return unavailable;
-	const [reply, linkRevision] = await Promise.all([
-		readResidencySharing(residencySharingRequest.parse({ linkId })),
-		residencyRevision(w.mount.db, w.viewer, linkId),
-	]);
-	if (reply.status !== "ok" || linkRevision === null) return unavailable;
-	return { sharing: reply.value, linkRevision };
+	const [row] = w ? await readPipelineConsents(w.mount.db, w.authority, relationshipId) : [];
+	return row?.consent ?? { status: "unavailable" as const };
 }
 
 /** One of this plant's own connections: what it shares and the connection revision a change must carry. One statement. */
@@ -222,4 +170,21 @@ export async function saveSharing(input: Input<"privacy.setSharing">) {
 	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, row: null };
 	const { plant, organization, relationshipId } = input.input;
 	return { reply, row: await loadSharing(relationshipId, { plant, organization }) };
+}
+
+/**
+ * Saves one residency sharing choice, then reads that link as saved, in the same request: the card shows the choice
+ * and both revisions the next change must carry without another read.
+ */
+export async function saveResidencySharing(input: Input<"residency.setSharing">) {
+	const reply = await setResidencySharing(input);
+	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, row: null };
+	return { reply, row: await loadResidency(input.input.linkId) };
+}
+
+/** Saves one pipeline totals choice, then reads it as saved, in the same request (the shape of saveSharing). */
+export async function savePipelineConsent(input: Input<"pipelineSharing.setConsent">) {
+	const reply = await setPipelineConsent(input);
+	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, consent: null };
+	return { reply, consent: await loadPipelineConsent(input.input.relationshipId) };
 }

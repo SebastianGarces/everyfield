@@ -1,0 +1,2 @@
+CREATE INDEX "audit_tenant_action_latest" ON "audit_event" USING btree ("tenant_id","action","occurred_at","id");--> statement-breakpoint
+CREATE INDEX "audit_actor_action" ON "audit_event" USING btree ("actor_id","action","occurred_at","id");

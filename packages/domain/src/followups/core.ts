@@ -12,7 +12,7 @@ export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused";
 type Code = c.FollowUpError["code"];
 
 /** The follow-up refusals that task refusals do not have. Task helpers keep throwing their own. */
-export class FollowUpRefusal extends Error {
+class FollowUpRefusal extends Error {
 	readonly code: Code;
 	readonly details: Record<string, unknown>;
 	constructor(code: Code, details: Record<string, unknown> = {}) {
@@ -80,15 +80,6 @@ export async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	return r.rows.filter((row) => row.ord !== null);
 }
 
-export const COMMITTED = sql`('core_group','launch_team','leader')`;
-/**
- * Whether `account` may own a follow-up in `plant` now (REQ-TSK-012): a current accepted seat and a live Person of
- * the church in a committed stage linked to that exact account. A shared email or an unlinked contact never owns one.
- */
-export const eligibleOwner = (account: SQL, plant: SQL) => sql`(EXISTS(SELECT FROM seat s WHERE s.account_id=${account}
-	AND s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())
-	AND EXISTS(SELECT FROM person e WHERE e.tenant_id=${plant} AND e.plant_id IS NOT NULL AND e.state='live'
-	AND e.linked_account_id=${account} AND e.stage IN ${COMMITTED}))`;
 /** A live top-level person follow-up task: what assignment, coverage and handoff act on. */
 export const followUpTask = (t: SQL) =>
 	sql`${t}.category='follow_up' AND ${t}.person_id IS NOT NULL AND ${t}.parent_id IS NULL AND ${t}.deleted_at IS NULL`;
