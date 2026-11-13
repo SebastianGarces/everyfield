@@ -1912,12 +1912,20 @@ export const launch_milestone = pgTable(
 			.notNull()
 			.default(sql`gen_random_uuid()`),
 		plant_id: uuid("plant_id").notNull(),
-		source_version_id: uuid("source_version_id").notNull(),
+		source_version_id: uuid("source_version_id"),
+		/** The fixed Playbook milestone this row was seeded from (launch.md): its seed identity, one per plant. */
+		template_key: text("template_key").notNull(),
 		title: text("title").notNull(),
 		description: text("description"),
-		area: text("area").notNull(),
+		area: text("area", { enum: ["operations", "launch_team", "promotion"] }).notNull(),
 		position: integer("position").notNull(),
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+		completed_by: uuid("completed_by"),
+		/** The linked tasks that were complete when a person completed the milestone; reopening one asks for review. */
+		completed_task_ids: uuid("completed_task_ids")
+			.array()
+			.notNull()
+			.default(sql`'{}'::uuid[]`),
 		removed_at: timestamp("removed_at", { withTimezone: true, mode: "date" }),
 		revision: int64("revision")
 			.notNull()
@@ -1941,10 +1949,17 @@ export const launch_milestone = pgTable(
 		foreignKey({ name: "launch_milestone_fk_2", columns: [table.plant_id], foreignColumns: [launch.plant_id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
+		foreignKey({ name: "launch_milestone_fk_3", columns: [table.completed_by], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
 		primaryKey({ name: "launch_milestone_pkey", columns: [table.id] }),
 		unique("launch_milestone_uq_0").on(table.id, table.plant_id),
+		unique("launch_milestone_uq_1").on(table.plant_id, table.template_key),
 		check("launch_milestone_ck_0", sql`(revision >= 1)`),
+		check("launch_milestone_ck_1", sql`(area = ANY (ARRAY['operations'::text, 'launch_team'::text, 'promotion'::text]))`),
+		check("launch_milestone_ck_2", sql`((completed_by IS NULL) OR (completed_at IS NOT NULL))`),
 		index("launch_milestone_ref_0").using("btree", table.source_version_id.asc().nullsLast()),
+		index("launch_milestone_ref_1").using("btree", table.completed_by.asc().nullsLast()),
 	],
 );
 export const lifecycle_witness = pgTable(
@@ -4506,6 +4521,8 @@ export const task = pgTable(
 		meeting_id: uuid("meeting_id"),
 		team_id: uuid("team_id"),
 		launch_id: uuid("launch_id"),
+		/** Launch readiness seed identity, `<milestone template key>/<n>`. A deleted task keeps it, so repair never resurrects it. */
+		launch_task_key: text("launch_task_key"),
 		parent_id: uuid("parent_id"),
 		position: integer("position"),
 		series_id: uuid("series_id"),
@@ -4628,6 +4645,9 @@ export const task = pgTable(
 		index("task_ref_7").using("btree", table.parent_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_8").using("btree", table.series_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_9").using("btree", table.predecessor_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+		uniqueIndex("task_uq_5")
+			.using("btree", table.plant_id.asc().nullsLast(), table.launch_task_key.asc().nullsLast())
+			.where(sql`(launch_task_key IS NOT NULL)`),
 		uniqueIndex("task_uq_1")
 			.using("btree", table.series_id.asc().nullsLast(), table.occurrence_key.asc().nullsLast())
 			.where(sql`((series_id IS NOT NULL) AND (deleted_at IS NULL))`),

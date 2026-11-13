@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 104,
-  "column_count": 1187,
-  "foreign_key_count": 356,
+  "column_count": 1191,
+  "foreign_key_count": 357,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -343,6 +343,11 @@
       "scheduled",
       "postponed",
       "completed"
+    ],
+    "launch_milestone.area": [
+      "operations",
+      "launch_team",
+      "promotion"
     ],
     "lifecycle_witness.kind": [
       "account",
@@ -20923,6 +20928,11 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "source_version_id",
           "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "template_key",
+          "type": "text",
           "nullable": false
         },
         {
@@ -20956,6 +20966,17 @@
           "nullable": true
         },
         {
+          "name": "completed_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "completed_task_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
+        },
+        {
           "note": "",
           "name": "removed_at",
           "type": "timestamptz",
@@ -20977,6 +20998,12 @@
           "columns": [
             "id",
             "plant_id"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "template_key"
           ]
         }
       ],
@@ -21030,10 +21057,24 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "columns": [
+            "completed_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
         }
       ],
       "checks": [
-        "(revision >= 1)"
+        "(revision >= 1)",
+        "area in ('operations', 'launch_team', 'promotion')",
+        "((completed_by IS NULL) OR (completed_at IS NOT NULL))"
       ],
       "indexes": {
         "launch_milestone_ref_0": {
@@ -21050,6 +21091,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "launch_milestone_ref_1": {
+          "name": "launch_milestone_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "completed_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -21057,15 +21113,19 @@
           "launch_milestone_pkey"
         ],
         "unique": [
-          "launch_milestone_uq_0"
+          "launch_milestone_uq_0",
+          "launch_milestone_uq_1"
         ],
         "foreign": [
           "launch_milestone_fk_0",
           "launch_milestone_fk_1",
-          "launch_milestone_fk_2"
+          "launch_milestone_fk_2",
+          "launch_milestone_fk_3"
         ],
         "checks": [
-          "launch_milestone_ck_0"
+          "launch_milestone_ck_0",
+          "launch_milestone_ck_1",
+          "launch_milestone_ck_2"
         ]
       },
       "policies": {},
@@ -38015,6 +38075,11 @@
           "nullable": true
         },
         {
+          "name": "launch_task_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "parent_id",
           "type": "uuid",
@@ -38086,6 +38151,13 @@
             "id",
             "plant_id"
           ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "launch_task_key"
+          ],
+          "where": "(launch_task_key IS NOT NULL)"
         },
         {
           "columns": [
@@ -38508,6 +38580,28 @@
             },
             {
               "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_uq_5": {
+          "name": "task_uq_5",
+          "isUnique": true,
+          "where": "(launch_task_key IS NOT NULL)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "launch_task_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

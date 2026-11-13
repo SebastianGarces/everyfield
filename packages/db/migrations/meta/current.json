@@ -8513,6 +8513,12 @@
           "name": "source_version_id",
           "type": "uuid",
           "primaryKey": false,
+          "notNull": false
+        },
+        "template_key": {
+          "name": "template_key",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true
         },
         "title": {
@@ -8545,6 +8551,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "completed_by": {
+          "name": "completed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_task_ids": {
+          "name": "completed_task_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
+        },
         "removed_at": {
           "name": "removed_at",
           "type": "timestamp with time zone",
@@ -8565,6 +8584,21 @@
           "columns": [
             {
               "expression": "source_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_milestone_ref_1": {
+          "name": "launch_milestone_ref_1",
+          "columns": [
+            {
+              "expression": "completed_by",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8617,6 +8651,19 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "launch_milestone_fk_3": {
+          "name": "launch_milestone_fk_3",
+          "tableFrom": "launch_milestone",
+          "tableTo": "account",
+          "columnsFrom": [
+            "completed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -8635,6 +8682,14 @@
             "id",
             "plant_id"
           ]
+        },
+        "launch_milestone_uq_1": {
+          "name": "launch_milestone_uq_1",
+          "nullsNotDistinct": false,
+          "columns": [
+            "plant_id",
+            "template_key"
+          ]
         }
       },
       "policies": {},
@@ -8642,6 +8697,14 @@
         "launch_milestone_ck_0": {
           "name": "launch_milestone_ck_0",
           "value": "(revision >= 1)"
+        },
+        "launch_milestone_ck_1": {
+          "name": "launch_milestone_ck_1",
+          "value": "(area = ANY (ARRAY['operations'::text, 'launch_team'::text, 'promotion'::text]))"
+        },
+        "launch_milestone_ck_2": {
+          "name": "launch_milestone_ck_2",
+          "value": "((completed_by IS NULL) OR (completed_at IS NOT NULL))"
         }
       },
       "isRLSEnabled": false
@@ -19726,6 +19789,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "launch_task_key": {
+          "name": "launch_task_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "parent_id": {
           "name": "parent_id",
           "type": "uuid",
@@ -19978,6 +20047,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_uq_5": {
+          "name": "task_uq_5",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "launch_task_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(launch_task_key IS NOT NULL)",
           "concurrently": false,
           "method": "btree",
           "with": {}

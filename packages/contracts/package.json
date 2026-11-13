@@ -26,6 +26,7 @@
 		"./communication/values": "./src/communication/values.ts",
 		"./wiki": "./src/wiki/index.ts",
 		"./phases": "./src/phases/index.ts",
+		"./launch": "./src/launch/index.ts",
 		"./intelligence": "./src/intelligence/index.ts"
 	},
 	"scripts": {
