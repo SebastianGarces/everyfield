@@ -70,9 +70,11 @@ const receipt =
 const personRevision = receipt<{ person: { revision: string } }>((v) => v.person.revision);
 const commitmentRevision = receipt<{ current: { personRevision: string } }>((v) => v.current.personRevision);
 
-const notes = z.string().trim().min(1).max(5000).optional().describe("Only notes the user gave");
-const criterion = z.strictObject({ rating: criterionRating, notes });
-const lens = z.strictObject({ score: z.int().min(1).max(5), notes });
+// Every value comes from the user (the descriptions say so once): a criterion or score's notes are plain text.
+const text = z.string().trim().min(1).max(5000).optional();
+const notes = text.describe("Only text the user gave");
+const criterion = z.strictObject({ rating: criterionRating, notes: text });
+const lens = z.strictObject({ score: z.int().min(1).max(5), notes: text });
 const withNotes = <T extends { notes?: string }>(v: T) => ({ ...v, notes: v.notes ?? null });
 
 const interviewInput = z.strictObject({
@@ -168,21 +170,21 @@ const cardCorrection = z.strictObject({
 // Record corrections: each correctable field, how its current value reads from the record `r`, and whether a given
 // value replaces it whole (a date, a result) or only the parts the user gave (a rating keeps its notes unless new
 // notes were given).
-const partial = { rating: criterionRating.optional(), score: z.int().min(1).max(5).optional(), notes };
+const partial = { rating: criterionRating.optional(), score: z.int().min(1).max(5).optional() };
 const interviewChanges = z
 	.strictObject({
 		occurredOn: date.optional(),
 		...Object.fromEntries(
-			interviewCriteria.map((k) => [k, z.strictObject({ rating: partial.rating, notes }).optional()]),
+			interviewCriteria.map((k) => [k, z.strictObject({ rating: partial.rating, notes: text }).optional()]),
 		),
 		result: interviewResult.optional(),
-		nextSteps: notes,
+		nextSteps: text,
 	})
 	.describe("Only the fields the user is correcting, with the values they gave");
 const assessmentChanges = z
 	.strictObject({
 		occurredOn: date.optional(),
-		...Object.fromEntries(fourCs.map((k) => [k, z.strictObject({ score: partial.score, notes }).optional()])),
+		...Object.fromEntries(fourCs.map((k) => [k, z.strictObject({ score: partial.score, notes: text }).optional()])),
 	})
 	.describe("Only the fields the user is correcting, with the values they gave");
 const recordInput = z.discriminatedUnion("recordType", [
