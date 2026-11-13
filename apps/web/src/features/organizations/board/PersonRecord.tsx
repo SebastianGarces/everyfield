@@ -33,6 +33,7 @@ import {
 } from "./actions";
 import { formatDay, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
+import { Problem } from "./Problem";
 
 type Record = PipelinePersonRecord;
 type Answer = Awaited<ReturnType<typeof movePerson>>;
@@ -95,9 +96,7 @@ export function PersonRecord({
 					) : null
 				}
 			/>
-			<div aria-live="polite" className="empty:hidden">
-				{notice ? <p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">{notice}</p> : null}
-			</div>
+			<Problem text={notice} />
 			<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 max-app-md:grid-cols-1">
 				<div className="flex flex-col gap-5">
 					<Card>
@@ -304,9 +303,7 @@ function MoveForm({
 				<Field label="Reason" error={error ?? undefined} hint="Staff with access to this record see it in the history.">
 					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
 				</Field>
-				<div aria-live="polite" className="empty:hidden">
-					{problem ? <p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">{problem}</p> : null}
-				</div>
+				<Problem text={problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -361,11 +358,7 @@ function AssessmentDialog({
 						<Field label="Who ran it" error={errors.by} hint="For example, Send Network assessment retreat.">
 							<Input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
 						</Field>
-						<div aria-live="polite" className="empty:hidden">
-							{problem ? (
-								<p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">{problem}</p>
-							) : null}
-						</div>
+						<Problem text={problem} />
 					</DialogBody>
 					<DialogFooter>
 						<Button type="submit" variant="primary" loading={saving}>
@@ -419,11 +412,7 @@ function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise
 						<Field label="Add a note">
 							<Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} maxLength={5000} />
 						</Field>
-						<div aria-live="polite" className="empty:hidden">
-							{problem ? (
-								<p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">{problem}</p>
-							) : null}
-						</div>
+						<Problem text={problem} />
 						<Button
 							type="submit"
 							variant="secondary"

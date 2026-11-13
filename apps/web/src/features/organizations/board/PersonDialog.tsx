@@ -15,6 +15,7 @@ import {
 import { useState, type FormEvent } from "react";
 import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
+import { Problem } from "./Problem";
 
 type Staff = PipelineBoard["staff"];
 type Stages = PipelineBoard["stages"];
@@ -41,7 +42,7 @@ export function PersonDialog({
 	staff: Staff;
 	stages: Stages;
 	/** The person being edited; absent when adding. */
-	editing?: PersonValues & { personId: string; revision: string };
+	editing?: Saved;
 	onSaved: (saved: Saved) => void;
 }) {
 	return (
@@ -61,7 +62,7 @@ function Form({
 }: {
 	staff: Staff;
 	stages: Stages;
-	editing?: PersonValues & { personId: string; revision: string };
+	editing?: Saved;
 	onSaved: (saved: Saved) => void;
 }) {
 	const [personId] = useState(() => editing?.personId ?? crypto.randomUUID());
@@ -138,9 +139,7 @@ function Form({
 						/>
 					</Field>
 				)}
-				<div aria-live="polite" className="empty:hidden">
-					{problem ? <p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">{problem}</p> : null}
-				</div>
+				<Problem text={problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

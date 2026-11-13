@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./actions";
 import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
-import { PersonDialog } from "./PersonDialog";
+import { PersonDialog, type Saved } from "./PersonDialog";
 import { StageEditor } from "./StageEditor";
 
 type Stage = PipelineBoard["stages"][number];
@@ -45,14 +45,7 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 		else router.refresh();
 	}
 
-	const added = (person: {
-		personId: string;
-		revision: string;
-		name: string;
-		email: string | null;
-		responsibleSeatId: string | null;
-		stageId: string;
-	}) => {
+	const added = (person: Saved) => {
 		setAdding(false);
 		const responsible = board.staff.find((s) => s.seatId === person.responsibleSeatId);
 		const card: Card = {

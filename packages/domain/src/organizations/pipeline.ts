@@ -19,8 +19,10 @@ const PAGE = 24;
 type Executor = Pick<Transaction, "execute">;
 
 class Refused extends Error {
-	constructor(readonly refusal: C.PipelineRefusal) {
+	readonly refusal: C.PipelineRefusal;
+	constructor(refusal: C.PipelineRefusal) {
 		super(refusal.code);
+		this.refusal = refusal;
 	}
 }
 function refuse(refusal: C.PipelineRefusal = { code: "unavailable" }): never {
@@ -31,7 +33,7 @@ function refuse(refusal: C.PipelineRefusal = { code: "unavailable" }): never {
  * The starter stages (REQ-MUL-008) with IDs derived from the organization, so a board read can show them before
  * anything is saved, and the first write that needs them inserts the same rows (once: a repeat conflicts on the ID).
  */
-export function starterStages(organizationId: string) {
+function starterStages(organizationId: string) {
 	return C.STARTER_STAGES.map(([kind, label], position) => {
 		const h = createHash("sha256").update(`pipeline-stage:${organizationId}:${kind}`).digest("hex");
 		const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${((parseInt(h[16]!, 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -39,6 +41,12 @@ export function starterStages(organizationId: string) {
 	});
 }
 const startersJson = (organizationId: string) => JSON.stringify(starterStages(organizationId));
+/** Inserts the starter stages for an organization that has none saved yet; a repeat inserts nothing. */
+const insertStarters = (
+	o: string,
+) => sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
+ SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
+ WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING`;
 
 /** The request actor's organization seat, or null for any other actor. */
 function seatOf(authority: RequestActor) {
@@ -385,10 +393,7 @@ function addPerson(db: Database, authority: RequestActor, raw: unknown) {
 		const row = await one(
 			w,
 			z.object({ stage: z.boolean(), seat: z.boolean(), added: z.boolean(), existing: z.string().nullable() }),
-			sql`WITH starters AS (
- INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
- SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
- WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING RETURNING id,label),
+			sql`WITH starters AS (${insertStarters(o)} RETURNING id,label),
 dest AS (
  SELECT id,label FROM pipeline_stage WHERE id=${input.stageId}::uuid AND organization_id=${o}::uuid AND removed_at IS NULL
  UNION ALL SELECT id,label FROM starters WHERE id=${input.stageId}::uuid),
@@ -542,9 +547,7 @@ function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.saveStagesRequest, raw);
 		const o = w.organization;
-		await w.tx.execute(sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
- SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
- WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING`);
+		await w.tx.execute(insertStarters(o));
 		const current = stageRows.parse(
 			(
 				await w.tx.execute(sql`SELECT s.id,s.label,s.stable_kind AS kind,s.position,s.revision::text AS revision,

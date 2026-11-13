@@ -31,4 +31,4 @@ export type { GeographyReference, OrganizationEffects, RelationshipNotice };
 
 export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
 export type { Kind, Viewer } from "./reads.ts";
-export { pipelineWriter, readPipelineBoard, readPipelinePersonRecord, starterStages } from "./pipeline.ts";
+export { pipelineWriter, readPipelineBoard, readPipelinePersonRecord } from "./pipeline.ts";
