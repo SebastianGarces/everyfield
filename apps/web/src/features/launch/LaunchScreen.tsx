@@ -108,8 +108,6 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 				toast({ message: "No change: Launch Sunday is already that date.", tone: "info" });
 			return;
 		}
-		if (r.status === "refused" && r.error.code === "invalid_reason")
-			return setDraft({ ...d, error: refusalMessage(r) });
 		setDraft({ ...d, error: refusalMessage(r) });
 	}
 

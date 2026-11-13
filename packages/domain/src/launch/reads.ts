@@ -77,10 +77,7 @@ export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 				}
 			: null,
 		needsReview: m.needsReview,
-		tasks: m.tasks.map((t) => ({
-			...t,
-			assignees: t.assignees.map((a) => ({ accountId: a.accountId, displayName: a.displayName })),
-		})),
+		tasks: m.tasks,
 		practices: m.templateKey === c.PRACTICE_MILESTONE ? { held: practices, required: c.PRACTICES_REQUIRED } : null,
 	});
 }
@@ -136,4 +133,3 @@ export function createLaunchReader(clock: Clock = systemClock) {
 		},
 	};
 }
-export type LaunchReader = ReturnType<typeof createLaunchReader>;
