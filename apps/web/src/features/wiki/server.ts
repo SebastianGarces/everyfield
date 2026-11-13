@@ -17,6 +17,7 @@ import {
 	treeModel,
 	type Listed,
 	type SourceChoice,
+	type SourceOrder,
 	type SourceRow,
 	type TreeModel,
 } from "./model.ts";
@@ -213,6 +214,8 @@ type ArticleView = {
 	readingRevision: string;
 	plantId?: string;
 	canOrder: boolean;
+	/** The stored source order, read only for an Owner or Admin; null when it could not be read. */
+	order: SourceOrder | null;
 	block: ArticleBlock;
 	version: ArticleVersion | null;
 	/** Two church copies have no order: an Owner or Admin is asked to choose one. The text below is the fallback. */
@@ -261,6 +264,21 @@ async function feedbackVote(
 			: null;
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		return null;
+	}
+}
+
+/** The plant's source order in reading order, for "Set as preferred"; a failed read offers no item. */
+async function sourceOrder(
+	mount: NonNullable<ReturnType<typeof wikiMount>>,
+	actor: Parameters<typeof plantContext>[0],
+): Promise<SourceOrder | null> {
+	try {
+		const reply = await mount.producer.listArticles(mount.db, actor, { page: 1 });
+		if (reply.status !== "ok") return null;
+		return { revision: reply.value.orderRevision, churches: reply.value.churches, networks: reply.value.networks };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
 		return null;
 	}
 }
@@ -360,7 +378,7 @@ export async function loadWiki(
 							? "denied"
 							: null;
 			// The source names, the reading revision and the reader's own feedback vote are independent reads.
-			const [names, revision, vote] = await Promise.all([
+			const [names, revision, vote, order] = await Promise.all([
 				organizationNames([
 					preferred.sourceId,
 					shown.sourceId,
@@ -372,6 +390,7 @@ export async function loadWiki(
 				block === null && seat.plantId && !editing
 					? feedbackVote(mount, actor, shown.articleId).then((v) => ({ vote: v }))
 					: null,
+				seat.canOrder && !editing ? sourceOrder(mount, actor) : null,
 			]);
 			feedback = vote;
 			if (editor) editorName = names.get(editor.organizationId) ?? "Your organization";
@@ -392,6 +411,7 @@ export async function loadWiki(
 				readingRevision: revision,
 				plantId: seat.plantId,
 				canOrder: seat.canOrder,
+				order,
 				block,
 				version:
 					shown.sourceKind === "global"

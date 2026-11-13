@@ -235,6 +235,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 						currentId={article.currentSourceId}
 						preferredId={article.preferredSourceId}
 						canOrder={article.canOrder}
+						order={article.order}
 					/>
 				</div>
 			) : null}

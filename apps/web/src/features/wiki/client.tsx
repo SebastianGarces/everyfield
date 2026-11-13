@@ -24,7 +24,7 @@ import {
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import {
 	downloadPdf,
 	loadGuide,
@@ -32,15 +32,26 @@ import {
 	recordArticleView,
 	saveBookmark,
 	saveProgress,
+	saveSourceOrder,
 	searchWiki,
 	type ExportResult,
 	type GuideResult,
+	type OrderSave,
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
 import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
-import { type ArticleVersion, fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+import {
+	type ArticleVersion,
+	fractionText,
+	pdfFilename,
+	PHASE_NAME,
+	preferredOrder,
+	snippetParts,
+	type SourceOrder,
+	type SourceRow,
+} from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
@@ -660,21 +671,46 @@ function openPrint(html: string): boolean {
 	return true;
 }
 
+/** What the last "Set as preferred" said, on the article it was chosen from. */
+type Said = { path: string } & (
+	| { saved: { name: string; list: "churches" | "networks"; id: string } }
+	| { refused: Exclude<OrderSave, { status: "ok" }> }
+);
+
+function refusedText(reply: Exclude<OrderSave, { status: "ok" }>): string {
+	switch (reply.status) {
+		case "conflict":
+		case "required":
+		case "invalid":
+			return "The preferred source was not changed because the order changed elsewhere. Reload the page to see the current order.";
+		case "denied":
+			return "The preferred source was not changed. Only an Owner or Admin of your church can set it.";
+		case "lost":
+			return "The preferred source was not changed. Check your connection and try again.";
+	}
+}
+
 export function SourceBar({
 	sources,
 	currentId,
 	preferredId,
 	canOrder,
+	order,
 }: {
 	sources: SourceRow[];
 	currentId: string;
 	preferredId: string;
 	canOrder: boolean;
+	order: SourceOrder | null;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const search = useSearchParams();
 	const openSettings = useOpenSettings();
+	const [said, setSaid] = useState<Said | null>(null);
+	const [saving, setSaving] = useState(false);
+	// The article reloads inside this transition, so the status line waits for the version the save chose.
+	const [loading, startLoading] = useTransition();
 	const hrefFor = (id: string) => {
 		const params = new URLSearchParams(search.toString());
 		if (id === preferredId) params.delete("source");
@@ -685,6 +721,41 @@ export function SourceBar({
 		const query = params.toString();
 		return query ? `${pathname}?${query}` : pathname;
 	};
+	const current = sources.find((source) => source.id === currentId);
+	const next = current ? preferredOrder(order, current, preferredId) : null;
+	const prefer = async (name: string, change: NonNullable<typeof next>) => {
+		setSaving(true);
+		let reply: OrderSave;
+		try {
+			reply = await saveSourceOrder(crypto.randomUUID(), change.revision, change.churches, change.networks);
+		} catch {
+			reply = { status: "lost" };
+		}
+		setSaving(false);
+		if (reply.status !== "ok") {
+			setSaid({ path: pathname, refused: reply });
+			return;
+		}
+		setSaid({ path: pathname, saved: { name, list: change.list, id: currentId } });
+		// The preferred source now opens without ?source=, in the default bar.
+		const params = new URLSearchParams(search.toString());
+		params.delete("source");
+		const query = params.toString();
+		startLoading(() => {
+			if (search.has("source")) router.push(query ? `${pathname}?${query}` : pathname);
+			else router.refresh();
+		});
+	};
+	const status = (() => {
+		if (saving || loading) return "Saving the order…";
+		if (!said || said.path !== pathname) return "";
+		if ("refused" in said) return refusedText(said.refused);
+		const { name, list, id } = said.saved;
+		if (list === "churches") return `${name} is now your preferred church.`;
+		if (preferredId === id) return `${name} is now your preferred network.`;
+		const shown = sources.find((source) => source.id === preferredId)?.name ?? "a church version";
+		return `${name} is now your first network. Church versions are read before networks, so this article shows ${shown}.`;
+	})();
 	return (
 		<WikiSourceBar
 			sources={sources.map((source) => ({
@@ -696,7 +767,16 @@ export function SourceBar({
 			}))}
 			currentId={currentId}
 			preferredId={preferredId}
-			onChoose={(id) => router.push(hrefFor(id))}
+			onChoose={(id) => {
+				setSaid(null);
+				router.push(hrefFor(id));
+			}}
+			prefer={
+				current && next && !saving && !loading
+					? { name: current.name, onSelect: () => void prefer(current.name, next) }
+					: undefined
+			}
+			status={canOrder ? status : undefined}
 			// The order is set in Settings, opened over this article so Escape and Back return here.
 			onSettings={canOrder ? () => (openSettings ? openSettings("wiki") : router.push("/settings/wiki")) : undefined}
 		/>

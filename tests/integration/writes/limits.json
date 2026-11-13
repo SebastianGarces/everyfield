@@ -105,7 +105,7 @@
 		"limit": 6
 	},
 	"GET /wiki/[slug]": {
-		"limit": 6
+		"limit": 7
 	},
 	"GET /wiki/[slug] (crawler)": {
 		"limit": 1
