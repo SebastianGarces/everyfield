@@ -15,29 +15,10 @@ import {
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { saveStages } from "./actions";
-import { KIND_LABEL, plural, refusalText } from "./model";
+import { KIND_LABEL, plural, refusalText, stageChanges } from "./model";
 
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };
-
-/** The exact changes between the saved stages and the edited list, in the words the review shows (REQ-MUL-008). */
-export function stageChanges(saved: readonly Pick<Stage, "id" | "label">[], rows: readonly Row[]) {
-	const before = new Map<string, Pick<Stage, "id" | "label">>(saved.map((s) => [s.id, s]));
-	const kept = new Set<string>(rows.map((r) => r.id));
-	const changes: string[] = [];
-	for (const r of rows) {
-		const was = before.get(r.id);
-		if (!was) changes.push(`Add “${r.label.trim()}”, counted as ${KIND_LABEL[r.kind]}`);
-		else if (was.label !== r.label.trim()) changes.push(`Rename “${was.label}” to “${r.label.trim()}”`);
-	}
-	for (const s of saved) if (!kept.has(s.id)) changes.push(`Delete “${s.label}”`);
-	// The order changed when the stages that stay are no longer in their saved order, or a new stage is not last.
-	const savedOrder = saved.filter((s) => kept.has(s.id)).map((s) => s.id);
-	const naturalOrder = [...savedOrder, ...rows.filter((r) => !before.has(r.id)).map((r) => r.id)];
-	if (rows.some((r, i) => r.id !== naturalOrder[i]))
-		changes.push(`New order: ${rows.map((r, i) => `${i + 1}. ${r.label.trim()}`).join(", ")}`);
-	return changes;
-}
 
 /**
  * Owners and Admins rename, add, reorder and delete stages, then review exactly what will change before anything
@@ -146,24 +127,15 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 						const isNew = !stages.some((s) => s.id === row.id);
 						return (
 							<li key={row.id} className="flex flex-col gap-1.5 rounded-md bg-surface-2 p-2.5">
-								<div className="flex flex-wrap items-center gap-2">
+								<div className="flex items-center gap-2">
 									<Input
 										aria-label={`Stage ${index + 1} name`}
 										value={row.label}
 										maxLength={80}
 										onChange={(e) => update(row.id, { label: e.target.value })}
-										boxClassName="min-w-0 flex-1 basis-[180px]"
+										boxClassName="min-w-0 flex-1"
 									/>
-									{isNew ? (
-										<Select
-											aria-label={`Stage ${index + 1} counts as`}
-											value={row.kind}
-											onValueChange={(kind) => update(row.id, { kind })}
-											options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))}
-											className="w-[170px]"
-										/>
-									) : null}
-									<div className="ml-auto flex items-center gap-1">
+									<div className="flex flex-none items-center gap-1">
 										<IconButton
 											icon={ArrowUp01Icon}
 											label={`Move ${row.label || "stage"} up`}
@@ -187,9 +159,23 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 										/>
 									</div>
 								</div>
-								<p className="px-1 text-xs text-text-3">
-									{isNew ? "New stage" : `Counts as ${KIND_LABEL[row.kind]} · ${plural(row.count, "person", "people")}`}
-								</p>
+								{isNew ? (
+									<label className="flex items-center gap-2 px-1 text-xs text-text-3">
+										<span className="whitespace-nowrap">New stage, counts as</span>
+										<span className="w-[200px] max-w-full min-w-0">
+											<Select
+												aria-label={`Stage ${index + 1} counts as`}
+												value={row.kind}
+												onValueChange={(kind) => update(row.id, { kind })}
+												options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))}
+											/>
+										</span>
+									</label>
+								) : (
+									<p className="px-1 text-xs text-text-3">
+										{`Counts as ${KIND_LABEL[row.kind]} · ${plural(row.count, "person", "people")}`}
+									</p>
+								)}
 								<div aria-live="polite" className="empty:hidden">
 									{blocked === row.id ? (
 										<p className="px-1 text-sm font-medium text-ink">

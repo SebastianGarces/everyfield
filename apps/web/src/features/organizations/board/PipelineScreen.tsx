@@ -36,6 +36,8 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 	const { query } = board;
 	const total = board.stages.reduce((n, s) => n + s.count, 0);
 	const retiredView = query.view === "retired";
+	// Nobody in the pipeline yet, live or retired: the board says so first and offers a way to add someone.
+	const empty = admin && !retiredView && total === 0 && board.retiredCount === 0 && !query.q && !query.stale;
 
 	async function reread() {
 		const answer = await readBoard(query).catch(() => null);
@@ -77,7 +79,7 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 	};
 
 	return (
-		<div className="flex flex-col">
+		<div className="flex min-w-0 flex-col">
 			<PageHeader
 				title="Pipeline"
 				subtitle={`The people ${board.organizationName} is developing toward planting.`}
@@ -98,12 +100,11 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 				<Counts board={board} />
 			) : (
 				<>
-					<Toolbar board={board} />
+					{empty ? null : <Toolbar board={board} />}
 					{retiredView ? (
 						<Retired board={board} />
-					) : admin && total === 0 && !query.q && !query.stale ? (
+					) : empty ? (
 						<>
-							<Columns board={board} />
 							<EmptyState
 								icon={UserMultipleIcon}
 								title="No one in your pipeline yet"
@@ -112,11 +113,12 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 										Add person
 									</Button>
 								}
-								className="mt-2"
+								className="mb-4 pt-2"
 							>
 								Add the people you are deliberately developing toward planting, and move each one through your stages as
 								they grow.
 							</EmptyState>
+							<Columns board={board} />
 						</>
 					) : (
 						<Columns board={board} />
@@ -211,9 +213,9 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 function Columns({ board }: { board: PipelineBoard }) {
 	const filtered = board.query.q !== "" || board.query.stale;
 	return (
-		<div className="-mx-1 overflow-x-auto px-1 pb-2 max-app-md:overflow-visible">
+		<div className="-mx-1 w-full max-w-full min-w-0 overflow-x-auto px-1 pb-2 max-app-md:overflow-visible">
 			<div
-				className="grid grid-cols-[repeat(var(--stages),minmax(220px,1fr))] gap-3.5 max-app-md:grid-cols-1"
+				className="grid grid-cols-[repeat(var(--stages),minmax(200px,1fr))] gap-3.5 max-app-md:grid-cols-1"
 				style={{ "--stages": board.stages.length } as CSSProperties}
 			>
 				{board.stages.map((stage) => (
@@ -224,7 +226,7 @@ function Columns({ board }: { board: PipelineBoard }) {
 					>
 						<h2 className="flex items-center gap-2 px-1.5 pt-1 pb-1.5 font-body text-sm font-semibold tracking-normal text-ink">
 							<span className="min-w-0 truncate">{stage.label}</span>
-							<span className="ml-auto font-medium text-text-3">
+							<span className="ml-auto flex-none font-medium whitespace-nowrap text-text-3">
 								{filtered ? `${stage.matching} of ${stage.count}` : stage.count}
 								<span className="sr-only"> {stage.count === 1 ? "person" : "people"}</span>
 							</span>
@@ -260,14 +262,12 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 				>
 					{person.name}
 				</Link>
-				<p className="truncate text-xs text-text-3">
+				<p className="text-xs text-text-3">
 					{[stage, person.responsible ? `With ${person.responsible.name}` : "No responsible staff"]
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? (
-					<p className="truncate text-xs text-text-3">Last move {formatDay(person.lastMovedOn)}</p>
-				) : null}
+				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {formatDay(person.lastMovedOn)}</p> : null}
 			</div>
 		</article>
 	);

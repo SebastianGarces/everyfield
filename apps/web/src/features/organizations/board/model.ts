@@ -64,3 +64,25 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 }
 
 export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+
+/** The exact changes between the saved stages and the edited list, in the words the review shows (REQ-MUL-008). */
+export function stageChanges(
+	saved: readonly { id: string; label: string }[],
+	rows: readonly { id: string; label: string; kind: string }[],
+) {
+	const before = new Map(saved.map((s) => [s.id, s]));
+	const kept = new Set(rows.map((r) => r.id));
+	const changes: string[] = [];
+	for (const r of rows) {
+		const was = before.get(r.id);
+		if (!was) changes.push(`Add “${r.label.trim()}”, counted as ${KIND_LABEL[r.kind]}`);
+		else if (was.label !== r.label.trim()) changes.push(`Rename “${was.label}” to “${r.label.trim()}”`);
+	}
+	for (const s of saved) if (!kept.has(s.id)) changes.push(`Delete “${s.label}”`);
+	// The order changed when the stages that stay are no longer in their saved order, or a new stage is not last.
+	const savedOrder = saved.filter((s) => kept.has(s.id)).map((s) => s.id);
+	const naturalOrder = [...savedOrder, ...rows.filter((r) => !before.has(r.id)).map((r) => r.id)];
+	if (rows.some((r, i) => r.id !== naturalOrder[i]))
+		changes.push(`New order: ${rows.map((r, i) => `${i + 1}. ${r.label.trim()}`).join(", ")}`);
+	return changes;
+}
