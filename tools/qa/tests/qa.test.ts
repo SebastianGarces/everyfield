@@ -903,6 +903,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Second Member",
 			"Sign-up",
 			"Riverside Owner",
+			"Feedback triager",
 		],
 	);
 	for (const words of [

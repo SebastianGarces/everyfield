@@ -237,6 +237,15 @@ async function fill(
 	// Nora's 2026-11-04 logins: a second Member whose seat she may remove, and a sign-up that starts church onboarding.
 	const spareMember = await account("Owen Price", QA_LOGINS.member2);
 	await account("Hannah Cole", QA_LOGINS.signup, undefined, false);
+	// WP-049A: a seatless account with the feedback_triage platform grant, so the triage pages can be checked. Daniel and
+	// the other church logins have none: a church role never grants triage.
+	const triager = await account("Tess Morgan", QA_LOGINS.triage);
+	if (
+		!(await rows(admin, sql`SELECT 1 FROM platform_grant WHERE account_id=${triager} AND capability='feedback_triage' AND revoked_at IS NULL`)).length
+	) {
+		await admin.execute(sql`INSERT INTO platform_grant(account_id,capability) VALUES(${triager},'feedback_triage')`);
+		done.push("feedback triage grant");
+	}
 
 	// One session for each login the seed acts as, opened only when some part is missing. A complete branch gets none.
 	const sessions = new Map<string, string>();
