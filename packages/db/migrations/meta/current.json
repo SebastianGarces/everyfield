@@ -15473,21 +15473,6 @@
         }
       },
       "foreignKeys": {
-        "pipeline_stage_move_audit": {
-          "name": "pipeline_stage_move_audit",
-          "tableFrom": "pipeline_stage_move",
-          "tableTo": "audit_event",
-          "columnsFrom": [
-            "id",
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "pipeline_stage_move_person": {
           "name": "pipeline_stage_move_person",
           "tableFrom": "pipeline_stage_move",

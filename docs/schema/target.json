@@ -72,7 +72,7 @@
   "implementation_authorized": false,
   "table_count": 105,
   "column_count": 1195,
-  "foreign_key_count": 360,
+  "foreign_key_count": 359,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -30355,7 +30355,7 @@
     {
       "name": "pipeline_stage_move",
       "domain": "people",
-      "purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the move's audit event, which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
+      "purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the id of the move's audit event (written in the same statement), which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -30373,13 +30373,19 @@
         "rule": "WP-098 organization pipeline records each human stage move with its reason."
       },
       "feature_ids": [
-        "MUL-008"
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
       ],
       "acceptance_ids": [
-        "AC-MUL-008--MUL-008"
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
       ],
       "future_case_ids": [
-        "ADR1-008"
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
       ],
       "scope": "people",
       "invariants": [
@@ -30389,7 +30395,7 @@
       ],
       "revision": "Append-only; a row never changes.",
       "idempotency": "One row per audit event; a repeated move to the current stage writes nothing.",
-      "deletion": "Removed with its audit event, and with the pipeline person under REQ-MUL-005.",
+      "deletion": "Removed with the pipeline person under REQ-MUL-005.",
       "physical_verified": false,
       "columns": [
         {
@@ -30446,24 +30452,6 @@
       ],
       "unique_keys": [],
       "foreign_keys": [
-        {
-          "deletion": {
-            "action": "cascade",
-            "policy": "The move is the protected body of its audit event and goes with it."
-          },
-          "columns": [
-            "id",
-            "organization_id"
-          ],
-          "references": {
-            "table": "audit_event",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "cascade"
-        },
         {
           "deletion": {
             "action": "restrict",
@@ -30582,7 +30570,6 @@
         ],
         "unique": [],
         "foreign": [
-          "pipeline_stage_move_audit",
           "pipeline_stage_move_person",
           "pipeline_stage_move_from",
           "pipeline_stage_move_to"

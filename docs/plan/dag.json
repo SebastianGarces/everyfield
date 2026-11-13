@@ -8485,7 +8485,7 @@
         "WP-037",
         "WP-015"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 4.0,
       "outputs": [
         "MUL-007: Sending goals and observed counts",
         "MUL-008: Configurable human pipeline stages",
@@ -9062,7 +9062,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 232.0,
+  "total_engineer_days": 232.5,
   "contract_milestones": {
     "C0": [
       "WP-002"

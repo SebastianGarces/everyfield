@@ -12,7 +12,6 @@ CREATE TABLE "pipeline_stage_move" (
 	CONSTRAINT "pipeline_stage_move_reason" CHECK (((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000))))
 );
 --> statement-breakpoint
-ALTER TABLE "pipeline_stage_move" ADD CONSTRAINT "pipeline_stage_move_audit" FOREIGN KEY ("id","organization_id") REFERENCES "audit_event"("id","tenant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pipeline_stage_move" ADD CONSTRAINT "pipeline_stage_move_person" FOREIGN KEY ("pipeline_person_id","organization_id") REFERENCES "pipeline_person"("id","organization_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pipeline_stage_move" ADD CONSTRAINT "pipeline_stage_move_from" FOREIGN KEY ("from_stage_id","organization_id") REFERENCES "pipeline_stage"("id","organization_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pipeline_stage_move" ADD CONSTRAINT "pipeline_stage_move_to" FOREIGN KEY ("to_stage_id","organization_id") REFERENCES "pipeline_stage"("id","organization_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint

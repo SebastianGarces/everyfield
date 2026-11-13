@@ -14036,7 +14036,7 @@
 			"table": {
 				"name": "pipeline_stage_move",
 				"domain": "people",
-				"purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the move's audit event, which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
+				"purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the id of the move's audit event (written in the same statement), which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-056"],
@@ -14047,9 +14047,9 @@
 					"additional_producers": ["WP-098"],
 					"rule": "WP-098 organization pipeline records each human stage move with its reason."
 				},
-				"feature_ids": ["MUL-008"],
-				"acceptance_ids": ["AC-MUL-008--MUL-008"],
-				"future_case_ids": ["ADR1-008"],
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
 				"scope": "people",
 				"invariants": [
 					"Written only by a human placement or move, in the same statement as its audit event, which shares its id.",
@@ -14058,7 +14058,7 @@
 				],
 				"revision": "Append-only; a row never changes.",
 				"idempotency": "One row per audit event; a repeated move to the current stage writes nothing.",
-				"deletion": "Removed with its audit event, and with the pipeline person under REQ-MUL-005.",
+				"deletion": "Removed with the pipeline person under REQ-MUL-005.",
 				"physical_verified": false
 			},
 			"columns": {
@@ -14088,12 +14088,6 @@
 				}
 			},
 			"foreignKeys": {
-				"id,organization_id->audit_event(id,tenant_id)": {
-					"deletion": {
-						"action": "cascade",
-						"policy": "The move is the protected body of its audit event and goes with it."
-					}
-				},
 				"pipeline_person_id,organization_id->pipeline_person(id,organization_id)": {
 					"deletion": {
 						"action": "restrict",

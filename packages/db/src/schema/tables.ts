@@ -3424,13 +3424,6 @@ export const pipeline_stage_move = pgTable(
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({
-			name: "pipeline_stage_move_audit",
-			columns: [table.id, table.organization_id],
-			foreignColumns: [audit_event.id, audit_event.tenant_id],
-		})
-			.onDelete("cascade")
-			.onUpdate("no action"),
-		foreignKey({
 			name: "pipeline_stage_move_person",
 			columns: [table.pipeline_person_id, table.organization_id],
 			foreignColumns: [pipeline_person.id, pipeline_person.organization_id],
