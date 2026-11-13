@@ -35,6 +35,14 @@ const people = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	empty: NO_PERSON,
 	...rest,
 });
+const documents = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["document", "documents"],
+	icon: "document",
+	counts: "document",
+	empty: "Nothing in this church matches, or you can't see it.",
+	...rest,
+});
 const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
 	noun: ["row", "rows"],
@@ -116,6 +124,18 @@ const VIEWS: Record<string, OpView> = {
 		icon: "message",
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
+	},
+	"documents.listOwned": documents("Documents", { empty: "No document in this church matches, or you can't see it." }),
+	"documents.read": documents("Document", { empty: "That document is not in this church, or you can't see it." }),
+	"documents.readCoreValuesEvidence": documents("Core values", {
+		empty: "No document is marked as your core values yet. Mark one of your written documents in Documents.",
+	}),
+	"documents.templates.list": {
+		title: "Templates",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No template matches.",
 	},
 };
 /** An operation with no view of its own. A test fails while any installed read falls back to it. */
@@ -349,6 +369,26 @@ function rowView(operation: string, row: SourceRow): RowView {
 						? `Sends ${sendTimeShort({ at: fields.sendsAtInstant, zone: fields.zone })}`
 						: "Draft",
 				avatar: null,
+			};
+		case "document":
+			// A document's type and when it last changed; its text stays in the answer, never on the card.
+			return {
+				...plain,
+				name: row.label,
+				line: joined(
+					text(fields.type),
+					fields.archived === true ? "Archived" : null,
+					text(fields.updatedOn) ? `Changed ${day(`${fields.updatedOn}T12:00:00Z`)}` : null,
+				),
+				avatar: "document",
+				href: text(fields.link),
+			};
+		case "template":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(typeof fields.version === "string" ? `Version ${fields.version}` : null, text(fields.notice)),
+				avatar: "template",
 			};
 		case "person":
 			break;

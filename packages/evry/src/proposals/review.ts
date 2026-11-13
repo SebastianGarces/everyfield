@@ -7,6 +7,7 @@ import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { DOCUMENTS_COMMANDS } from "../adapters/documents/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -14,7 +15,7 @@ import type { ReviewedWrite } from "./types.ts";
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
+export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS, ...DOCUMENTS_COMMANDS } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -55,6 +56,9 @@ export const projection = (alias: string) =>
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='document' AND EXISTS(SELECT FROM document t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id
+				AND (t.kind<>'church_document' OR t.archived_at IS NULL)))
+			OR ${alias}.review->'target'->>'kind'='template'
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -64,7 +68,9 @@ export const projection = (alias: string) =>
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
-	target: z.object({ kind: z.enum(["person", "message"]), id: z.uuid(), label: z.string() }).nullable(),
+	target: z
+		.object({ kind: z.enum(["person", "message", "document", "template"]), id: z.string(), label: z.string() })
+		.nullable(),
 	changes: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
 	/** A plain reason the change cannot be approved as asked (for example a send time outside the window). */
 	refusal: z.string().optional(),

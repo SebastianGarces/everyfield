@@ -4,6 +4,8 @@ import {
 	Award01Icon,
 	Clock01Icon,
 	File01Icon,
+	File02Icon,
+	LicenseDraftIcon,
 	Home01Icon,
 	Mail01Icon,
 	Tag01Icon,
@@ -32,6 +34,8 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	document: File02Icon,
+	template: LicenseDraftIcon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {

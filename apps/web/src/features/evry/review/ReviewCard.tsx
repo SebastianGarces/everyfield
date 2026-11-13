@@ -5,6 +5,7 @@ import {
 	ArrowRight02Icon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
+	File02Icon,
 	Clock01Icon,
 	Edit02Icon,
 	Image01Icon,
@@ -30,6 +31,9 @@ import {
 	checkable,
 	clock,
 	consequence,
+	documentRefusalText,
+	documentResult,
+	isDocument,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
@@ -405,6 +409,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? "The message in this change is no longer available to you, so Evry can't show this change or its result."
 				: "The message in this change is no longer available to you. Nothing was changed.";
 	}
+	if (view === "pending" && review?.review.refusal) return review.review.refusal;
 	switch (view) {
 		case "pending":
 			return review && review.revision > 1
@@ -413,7 +418,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail
+				? mailRefusalText(review.receipt?.code)
+				: review && isDocument(review.operation)
+					? documentRefusalText(review.receipt?.code)
+					: refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -755,6 +764,8 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isDocument(review.operation) ? (
+					<DocumentLink review={review} />
 				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
@@ -782,6 +793,19 @@ function Footer({
 		<div key={view} className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
 			{body}
 		</div>
+	) : null;
+}
+
+/** Where an approved document change shows in the app. */
+function DocumentLink({ review }: { review: Review }) {
+	const result = documentResult(review);
+	return result ? (
+		<Button size="sm" variant="ghost" asChild>
+			<IntentLink href={result.href}>
+				{result.label}
+				<Icon icon={ArrowRight02Icon} size={16} />
+			</IntentLink>
+		</Button>
 	) : null;
 }
 
@@ -828,6 +852,7 @@ function CardHead({
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
+	const document = isDocument(review.operation);
 	const name = mail
 		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
 		: create
@@ -835,9 +860,9 @@ function Affects({ review }: { review: Review }) {
 			: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{mail ? (
+			{mail || document ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
+					<Icon icon={mail ? Mail01Icon : File02Icon} size={16} />
 				</span>
 			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
@@ -982,7 +1007,11 @@ function PhotoChange({
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
+	// A new person, a new document and a new file have nothing before: each value is shown once.
+	const create =
+		review.operation === "people.createPerson" ||
+		review.operation === "documents.createFromTemplate" ||
+		review.operation === "documents.exportNative";
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
