@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { mailStep } from "./scripted-mail.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -143,6 +144,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	);
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const mail = mailStep(options);
+	if (mail) return mail;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))

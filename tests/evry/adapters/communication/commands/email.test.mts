@@ -1539,7 +1539,5 @@ test("one person's emails are listed apart from recorded calls, and the never-em
 	assert.ok(!names.includes("Alex Rivera") && !names.includes("Alex Chen"), "emailed people are not listed");
 	assert.ok(names.includes("Member 001"));
 	assert.ok(never.rows.every((r) => r.fields.email === "no email recorded"));
-	assert.ok(
-		never.exclusions.some((e) => /^checked: /.test(e)) && never.exclusions.some((e) => /^not checked: /.test(e)),
-	);
+	assert.match(never.exclusions.join(" "), /calls, texts, visits .*checked every live person against Messages history/);
 });
