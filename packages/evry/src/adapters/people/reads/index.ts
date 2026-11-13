@@ -3,6 +3,7 @@ import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import {
 	checkForDuplicates as nativeDuplicates,
+	listDuplicatePairs as nativePairs,
 	PeopleReadContext,
 	peopleReader,
 	personFields,
@@ -17,18 +18,16 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
+import { personRow } from "../../../catalog/person-row.ts";
+import { ownerOrAdmin } from "../commands/index.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 // The People read tools: each calls the native People read that screens use, under the same domain authority, whose
 // statements carry the lock-free live access check (C13, C27). Only the safe identifying fields a person sees in the
 // list reach the model.
 type PlantPerson = { id: string; displayName: string; city?: string | null; stage: string };
-const row = (p: PlantPerson) => ({
-	kind: "person" as const,
-	id: p.id,
-	label: p.displayName,
-	fields: { city: p.city ?? null, stage: p.stage },
-});
+const row = (actor: EvryActor, p: PlantPerson) =>
+	personRow(actor, p.id, p.displayName, { city: p.city ?? null, stage: p.stage });
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const one = (operation: string, rows: SourceRow[], exclusions: string[]): SourceResult => ({
 	operation,
@@ -63,7 +62,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows: page.items.map(row),
+			rows: page.items.map((p) => row(actor, p)),
 			total: page.total,
 			page: request.page,
 			next: page.next,
@@ -82,7 +81,7 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
 		// A foreign, retired or guessed id reads the same as one that never existed.
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
-		return one("people.getPerson", found && "stage" in found ? [row(found)] : [], ["private care"]);
+		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
 	},
 };
 
@@ -103,18 +102,14 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 		if (reply.status !== "ok") return one("people.getPersonPhoto", [], []);
 		const photo = reply.value;
 		const fields = { photo: photo.status, versionId: photo.status === "available" ? photo.versionId : null };
-		return one(
-			"people.getPersonPhoto",
-			[{ kind: "person", id: input.personId, label: "Person photo", fields }],
-			["photo bytes"],
-		);
+		return one("people.getPersonPhoto", [personRow(actor, input.personId, "Person photo", fields)], ["photo bytes"]);
 	},
 };
 
 export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckRequest>> = {
 	operation: "people.checkForDuplicates",
 	description:
-		"Before proposing a new person, find people in this church who share the email or phone (exact hint) or the name (potential hint). A hint never proves two records are the same person.",
+		"Find people in this church who share an email or phone (exact hint) or a name (potential hint): before proposing a new person, or to compare people who may be the same person. A hint never proves two records are the same person.",
 	input: duplicateCheckRequest,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
@@ -125,12 +120,9 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 		return {
 			operation: "people.checkForDuplicates",
 			status: "available",
-			rows: items.map((h) => ({
-				kind: "person",
-				id: h.personId,
-				label: h.displayName,
-				fields: { match: h.match, signals: h.signals.join(",") },
-			})),
+			rows: items.map((h) =>
+				personRow(actor, h.personId, h.displayName, { match: h.match, signals: h.signals.join(",") }),
+			),
 			// Hints are bounded; past the bound only the first ones are known, never a false exhaustive total.
 			total: completeness === "complete" ? items.length : null,
 			page: 1,
@@ -141,8 +133,37 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 	},
 };
 
+export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
+	operation: "people.listDuplicatePairs",
+	description:
+		'List the people waiting for duplicate review: the possible duplicates a CSV import flagged ("Add, review later"), each an imported person and the existing person it may duplicate. Use it when asked who needs review or about possible duplicates. Only import-flagged pairs nobody marked "Not a duplicate", not a scan of all People, so an empty list never means the church has no duplicates. A pair is never proof that two records are the same person.',
+	input: z.strictObject({}),
+	allowed: ownerOrAdmin,
+	async invoke(tx: Transaction, actor: EvryActor): Promise<SourceResult> {
+		const reply = await nativePairs(tx, new PeopleReadContext(actor.authority));
+		if (reply.status !== "ok") throw new EvryRefusal("source_unavailable");
+		const { items, completeness } = reply.value;
+		return {
+			operation: "people.listDuplicatePairs",
+			status: "available",
+			rows: items.map((pair) =>
+				personRow(actor, pair.person.id, pair.person.displayName, {
+					mayDuplicateId: pair.with.id,
+					mayDuplicate: pair.with.displayName,
+				}),
+			),
+			// The domain lists the first 100 pairs; past them only those are known, never a false exhaustive total.
+			total: completeness === "complete" ? items.length : null,
+			page: 1,
+			next: null,
+			completeness,
+			exclusions: ["pairs marked not a duplicate", "retired or merged people", "pairs no import flagged"],
+		};
+	},
+};
+
 /** The installed People read tools, in catalog order. */
-export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates] as const;
+export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
 
 const verifiedRow = z.object({
 	id: z.uuid(),
@@ -169,6 +190,6 @@ export async function verifyPeople(
 		ORDER BY array_position(${sql.param([...ids])}::uuid[], p.id)`);
 	return r.rows.map((raw) => {
 		const p = verifiedRow.parse(raw);
-		return row({ id: p.id, displayName: p.display_name, city: p.city, stage: p.stage });
+		return row(actor, { id: p.id, displayName: p.display_name, city: p.city, stage: p.stage });
 	});
 }

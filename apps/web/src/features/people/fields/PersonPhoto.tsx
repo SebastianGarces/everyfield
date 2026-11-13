@@ -2,6 +2,7 @@
 
 import { Camera01Icon, Delete02Icon, ImageUpload01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { photoMime } from "@everyfield/contracts/people";
 import {
 	Menu,
 	MenuContent,
@@ -24,19 +25,9 @@ import { throughStore, type PersonStore } from "../model.ts";
 import { problemText, useStore } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
-import { photoSrc, type PhotoResult } from "./model.ts";
+import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-const TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX = 3 * 1024 * 1024;
-
-/** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
-export function photoProblem(file: { size: number; type: string }): string | null {
-	if (file.size === 0) return "This file is empty. Choose a photo.";
-	if (!TYPES.includes(file.type)) return "Use a JPG, PNG or WebP photo.";
-	if (file.size > MAX) return "Choose a photo smaller than 3 MB.";
-	return null;
-}
 /** The words for a refused photo change. */
 function photoRefusal(code: string): string {
 	switch (code) {
@@ -154,7 +145,6 @@ export function PersonPhoto({
 			},
 		});
 		setBusy(null);
-		if (input.current) input.current.value = "";
 		if (!settled) setPreview(null);
 	}
 
@@ -237,12 +227,12 @@ export function PersonPhoto({
 					<input
 						ref={input}
 						type="file"
-						accept={TYPES.join(",")}
+						accept={photoMime.options.join(",")}
 						className="sr-only"
 						tabIndex={-1}
 						aria-hidden="true"
 						onChange={(e) => {
-							const file = e.target.files?.[0];
+							const file = takeFile(e.target);
 							if (file) void upload(file);
 						}}
 					/>

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	pipelineConsentRequest,
 	setPipelineConsentRequest,
 	type pipelineAggregateAccessResult,
 	type pipelineConsentResult,
@@ -14,9 +13,13 @@ import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
 import { useIntent, useLoad } from "./intent";
 import { PrivateLine, ProblemLine } from "./parts";
-import type { Run } from "./port";
 
 type Consent = z.infer<typeof pipelineConsentResult>;
+type SetCommand = ReturnType<typeof setPipelineConsentRequest.parse>;
+/** Reads one network connection's choice: the Load latest path after an unconfirmed change. */
+export type ReadConsent = (relationshipId: string) => Promise<Consent>;
+/** Saves the choice. The answer is the choice as saved now, or null when nothing was saved. */
+export type SaveConsent = (command: SetCommand) => Promise<Consent | null>;
 
 /**
  * A sending church's pipeline totals opt-in for one network connection (REQ-MUL-016). It is off until an Owner or
@@ -26,18 +29,20 @@ export function PipelineTotals({
 	relationshipId,
 	networkName,
 	canManage,
-	run,
+	initial,
+	read,
+	save,
 }: {
 	relationshipId: string;
 	networkName: string;
 	canManage: boolean;
-	run: Run;
+	/** The choice as the page read it; the card reads again only for Load latest. */
+	initial?: Consent;
+	read: ReadConsent;
+	save: SaveConsent;
 }) {
-	const fetch = useCallback(
-		() => run("pipelineSharing.readConsent", pipelineConsentRequest.parse({ relationshipId })),
-		[relationshipId, run],
-	);
-	const { state, reload: load, refreshing } = useLoad(fetch, "Pipeline sharing did not load");
+	const fetch = useCallback(() => read(relationshipId), [relationshipId, read]);
+	const { state, reload, update, refreshing } = useLoad(fetch, "Pipeline sharing did not load", initial);
 
 	return (
 		<Card as="section" aria-labelledby={`pipeline-${relationshipId}`}>
@@ -65,8 +70,9 @@ export function PipelineTotals({
 							data={data}
 							networkName={networkName}
 							canManage={canManage}
-							run={run}
-							reload={load}
+							save={save}
+							onSaved={(saved) => update(() => saved)}
+							onStale={reload}
 							refreshing={refreshing}
 						/>
 					)
@@ -80,19 +86,22 @@ function ConsentSwitch({
 	data,
 	networkName,
 	canManage,
-	run,
-	reload,
+	save: send,
+	onSaved,
+	onStale,
 	refreshing,
 }: {
 	data: Extract<Consent, { status: "available" }>;
 	networkName: string;
 	canManage: boolean;
-	run: Run;
-	reload: () => void;
+	save: SaveConsent;
+	onSaved: (saved: Consent) => void;
+	/** Read the latest state, after an unconfirmed change. */
+	onStale: () => void;
 	/** A fresh read is running: the revision on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
 }) {
-	const save = useIntent<ReturnType<typeof setPipelineConsentRequest.parse>>("pipeline-consent");
+	const save = useIntent<SetCommand>("pipeline-consent");
 	const [next, setNext] = useState<boolean | null>(null);
 	const checked = next ?? data.sharePipelineTotals;
 
@@ -107,11 +116,11 @@ function ConsentSwitch({
 					expectedRevision: data.revision,
 					input: { relationshipId: data.relationshipId, sharePipelineTotals: value },
 				}),
-			(command) => run("pipelineSharing.setConsent", command),
-			(r) => r.status === "committed",
+			send,
+			(saved) => saved !== null,
 		);
-		// On success the switch re-mounts on the new revision; until then it keeps the saved value.
-		if (result.ok) reload();
+		// On success the switch re-mounts on the saved revision; until then it keeps the saved value.
+		if (result.ok && result.reply) onSaved(result.reply);
 		else setNext(null);
 	};
 
@@ -151,7 +160,7 @@ function ConsentSwitch({
 						onClick={() => {
 							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
 							save.release();
-							reload();
+							onStale();
 						}}
 					>
 						Load latest

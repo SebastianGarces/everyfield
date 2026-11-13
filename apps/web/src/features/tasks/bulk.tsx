@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
-import { bulkOutcomeText, type BulkOutcome, type DueInput } from "./model.ts";
+import { bulkOutcomeText, type BulkActions, type BulkOutcome, type DueInput } from "./model.ts";
 
 // Bulk changes (REQ-TSK-008): the bar over a selection and the report of what each selected task did.
 
@@ -32,10 +32,16 @@ export function BulkBar({
 	onAll,
 	onClear,
 	wait,
+	actions,
+	onKeepOpen,
 	onComplete,
 	onReschedule,
 }: {
 	count: number;
+	/** What the selected tasks' current statuses allow (REQ-TSK-008: only open tasks complete or move). */
+	actions: BulkActions;
+	/** Drop the closed tasks from the selection. */
+	onKeepOpen: () => void;
 	/** A save of a selected task or of the last bulk change is in flight or unknown: no bulk change starts (C68). */
 	wait: Wait;
 	/** Whether every task on this page is selected. */
@@ -47,6 +53,15 @@ export function BulkBar({
 }) {
 	const [open, setOpen] = useState(false);
 	const hint = useId();
+	const reasonId = useId();
+	const mixed = actions.kind === "mixed";
+	const reason = mixed
+		? `${actions.settled} closed ${actions.settled === 1 ? "task is" : "tasks are"} selected. Bulk changes apply to open tasks.`
+		: actions.kind === "settled"
+			? "Closed tasks reopen one at a time, from the task's menu or panel."
+			: null;
+	// A save in flight and a closed task in the selection both disable the actions; each says why.
+	const why = wait ? hint : mixed ? reasonId : undefined;
 	return (
 		<div
 			role="toolbar"
@@ -61,7 +76,7 @@ export function BulkBar({
 					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
-			<span className="flex grow flex-col">
+			<span className="flex flex-1 flex-col app-sm:min-w-48">
 				<span className="font-medium" aria-live="polite">
 					{count} selected
 				</span>
@@ -70,44 +85,57 @@ export function BulkBar({
 						{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
 					</span>
 				) : null}
+				{reason ? (
+					<span id={reasonId} className="text-xs">
+						{reason}
+					</span>
+				) : null}
 			</span>
-			{/* On a phone the actions take their own row, so the labels never wrap. */}
-			<div className="flex gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
-				<Button
-					variant="ghost"
-					size="sm"
-					icon={Tick02Icon}
-					className={onInk}
-					disabled={wait !== null}
-					aria-describedby={wait ? hint : undefined}
-					onClick={onComplete}
-				>
-					Complete
-				</Button>
-				<Popover open={open} onOpenChange={setOpen}>
-					<PopoverTrigger asChild>
-						<Button
-							variant="ghost"
-							size="sm"
-							icon={Calendar03Icon}
-							className={onInk}
-							disabled={wait !== null}
-							aria-describedby={wait ? hint : undefined}
-						>
-							Reschedule
+			{/* One group in every state, in one order: keep-open (mixed only), the actions, then Clear. On a phone the
+			    group takes its own row, so the labels never wrap. */}
+			{actions.kind !== "settled" ? (
+				<div className="flex flex-wrap items-center gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
+					{mixed ? (
+						<Button variant="ghost" size="sm" className={`${onInk} max-app-sm:col-span-2`} onClick={onKeepOpen}>
+							Keep only the open ones
 						</Button>
-					</PopoverTrigger>
-					<PopoverContent label="Reschedule the selected tasks" align="end" side="top" className="w-[300px] p-4">
-						<RescheduleForm
-							count={count}
-							onSubmit={(due) => {
-								setOpen(false);
-								onReschedule(due);
-							}}
-						/>
-					</PopoverContent>
-				</Popover>
-			</div>
+					) : null}
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={Tick02Icon}
+						className={onInk}
+						disabled={wait !== null || mixed}
+						aria-describedby={why}
+						onClick={onComplete}
+					>
+						Complete
+					</Button>
+					<Popover open={open} onOpenChange={setOpen}>
+						<PopoverTrigger asChild>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={Calendar03Icon}
+								className={onInk}
+								disabled={wait !== null || mixed}
+								aria-describedby={why}
+							>
+								Reschedule
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent label="Reschedule the selected tasks" align="end" side="top" className="w-[300px] p-4">
+							<RescheduleForm
+								count={count}
+								onSubmit={(due) => {
+									setOpen(false);
+									onReschedule(due);
+								}}
+							/>
+						</PopoverContent>
+					</Popover>
+				</div>
+			) : null}
 			<IconButton
 				icon={Cancel01Icon}
 				label="Clear the selection"

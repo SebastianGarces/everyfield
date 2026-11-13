@@ -1,6 +1,7 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
+import { seeds } from "../../support/fixture.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
@@ -35,27 +36,15 @@ const require = createRequire(new URL("../../../packages/db/package.json", impor
 
 const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { S3Client } = require("@aws-sdk/client-s3");
-const schema = "wp004_test_" + randomUUID().replaceAll("-", "");
-const role = "wp004_" + randomBytes(8).toString("hex");
-const authRole = role + "_auth";
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development direct endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const admin = createDatabase({
-	connectionString: source.href,
+// The suite applies the migrations itself and checks what each run applied.
+const database = await testDatabase({
+	prefix: "wp004_test",
+	roles: { runtime: ["runtime"], auth: ["auth"] },
+	migrate: false,
 	max: 3,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
-let runtime, authDb;
+const { admin, schema } = database;
+const { runtime, auth: authDb } = database.pools;
 const p = randomUUID(),
 	q = randomUUID(),
 	a = randomUUID(),
@@ -65,18 +54,10 @@ async function rejected(sql, params = [], code = "23514", db = admin) {
 	await assert.rejects(db.execute(statement(sql, params)), (e) => e.cause?.code === code);
 }
 async function account(id) {
-	const user = randomUUID();
-	await admin.execute(
-		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
-	);
-	await admin.execute(
-		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(id)},${querySql.param(user)},'active','planter')`,
-	);
+	await seeds(admin).actor(null, "owner", { id, account: { registration_kind: "planter" } });
 }
 async function plant(id) {
-	await admin.execute(
-		querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${querySql.param(id)},'Synthetic Plant','America/Chicago',7,14,1,8,1,1)`,
-	);
+	await seeds(admin).plant({ id, name: "Synthetic Plant" });
 }
 async function person(owner, id = randomUUID()) {
 	await admin.execute(
@@ -97,7 +78,6 @@ const authorizer = async (tx, file) => {
 	return r.rowCount === 1 ? { kind: "account", actorId: a } : null;
 };
 before(async () => {
-	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
 	assert.deepEqual(
 		await migrate(admin, schema),
 		(await migrationArtifact()).map((m) => m.name),
@@ -110,48 +90,32 @@ before(async () => {
 	await admin.execute(
 		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(a)},${querySql.param(p)},'owner',now())`,
 	);
-	const password = randomBytes(32).toString("hex");
-	for (const [name, capability] of [
-		[role, "everyfield_runtime"],
-		[authRole, "everyfield_auth"],
-	]) {
-		await admin.execute(
-			querySql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(querySql.raw(`GRANT ${capability} TO ${name}`));
-	}
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	runtime = createDatabase({
-		connectionString: url.href,
-		max: 3,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
-	url.username = authRole;
-	authDb = createDatabase({
-		connectionString: url.href,
-		max: 2,
-		options: `-c search_path=${schema},pg_catalog,pg_temp`,
-	});
 });
-after(async () => {
-	if (runtime) await closeDatabase(runtime);
-	if (authDb) await closeDatabase(authDb);
-	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
-	await closeDatabase(admin);
-});
+after(database.close);
 
-test("BUG-176 RT-2: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
-	// The worker's parser import takes 3.5 s, longer than the 3-second parse limit, as on a loaded runner or a cold start.
+test("BUG-96eb2fd80: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
+	// The worker's parser import is held open while the mocked clock runs 3.5 s, longer than the 3-second parse limit,
+	// as on a loaded runner or a cold start. Each worker's import says when it is loading and waits for the test's go.
 	const parser = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
-	const slowStart = `await new Promise((r) => setTimeout(r, 3500)); export * from ${JSON.stringify(parser)};`;
-	await validateCommitment(pdf(), "application/pdf", {
-		entry: "data:text/javascript," + encodeURIComponent(slowStart),
-	});
+	const gate = "bug176-" + randomUUID();
+	const slowStart = `const c = new BroadcastChannel(${JSON.stringify(gate)}); c.postMessage("loading");
+await new Promise((r) => (c.onmessage = (e) => e.data === "go" && (c.close(), r())));
+export * from ${JSON.stringify(parser)};`;
+	const channel = new BroadcastChannel(gate);
+	channel.onmessage = (e) => {
+		if (e.data !== "loading") return;
+		mock.timers.tick(3500);
+		channel.postMessage("go");
+	};
+	mock.timers.enable({ apis: ["setTimeout"] });
+	try {
+		await validateCommitment(pdf(), "application/pdf", {
+			entry: "data:text/javascript," + encodeURIComponent(slowStart),
+		});
+	} finally {
+		mock.timers.reset();
+		channel.close();
+	}
 	// A parse that never ends fails at its limit; the warm worker is replaced and the next file still parses.
 	const endless = `export const getDocument = () => ({ promise: new Promise(() => {}), destroy: async () => {} });`;
 	await assert.rejects(
@@ -184,7 +148,7 @@ test("INV-storage: only a Vercel production deployment may use the production bu
 	assert.equal(bucket({}), null);
 });
 
-test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
+test("BUG-PR112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
 	const directory = await mkdtemp(tmpdir() + "/evf-drop-column-");
 	const migrations = pathToFileURL(directory + "/");
 	const fresh = "drop_fresh_" + randomUUID().replaceAll("-", "");
@@ -211,14 +175,14 @@ test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and up
 		const drop = await generateMigration(generateDrizzleJson(before), generateDrizzleJson(after));
 		assert.deepEqual(drop, ['ALTER TABLE "drop_probe" DROP COLUMN "obsolete";']);
 		await writeFile(new URL(createName, migrations), create.join(";\n"));
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(upgraded)}`);
+		await database.createSchema(upgraded);
 		assert.deepEqual(await migrate(admin, upgraded, migrations), [...frozen, createName]);
 		await admin.execute(
 			querySql`INSERT INTO ${querySql.identifier(upgraded)}.drop_probe VALUES (1, 'remove', 'preserve')`,
 		);
 		await writeFile(new URL(dropName, migrations), drop.join(";\n"));
 		assert.deepEqual(await migrate(admin, upgraded, migrations), [dropName]);
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(fresh)}`);
+		await database.createSchema(fresh);
 		assert.deepEqual(await migrate(admin, fresh, migrations), [...frozen, createName, dropName]);
 		const retained = await admin.execute(querySql`SELECT * FROM ${querySql.identifier(upgraded)}.drop_probe`);
 		assert.deepEqual(retained.rows, [{ id: 1, kept: "preserve" }]);
@@ -288,7 +252,7 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 	const schema = async () => {
 		const name = "merge_order_" + randomUUID().replaceAll("-", "");
 		schemas.push(name);
-		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(name)}`);
+		await database.createSchema(name);
 		return name;
 	};
 	const tables = async (name) =>
@@ -325,12 +289,8 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 });
 test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed batches roll back", async () => {
 	const other = "wp004_test_" + randomUUID().replaceAll("-", "");
-	await admin.execute(querySql.raw(`CREATE SCHEMA ${other}`));
-	const pool = createDatabase({
-		connectionString: source.href,
-		max: 2,
-		options: `-c search_path=${other},pg_catalog,pg_temp`,
-	});
+	await database.createSchema(other);
+	const pool = database.connect("admin", { schema: other, max: 2 });
 	try {
 		await pool.execute(
 			querySql.raw(
@@ -377,7 +337,6 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 		);
 		assert.deepEqual(await Promise.all([migrate(pool, other), migrate(pool, other)]), [[], []]);
 	} finally {
-		await closeDatabase(pool);
 		await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
 	}
 });
@@ -435,7 +394,7 @@ test("INV-backfill (C102): db:migrate's backfills run once each; a failure recor
 		await admin.execute(querySql`DELETE FROM schema_backfill WHERE name LIKE 'probe_%'`);
 	}
 });
-test("AC:C0-PERSON-001 AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
+test("AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
 	const x = await person(p);
 	assert.deepEqual(
 		(await admin.execute(querySql`SELECT kind,tenant_id FROM record WHERE id=${querySql.param(x)}`)).rows,
@@ -522,7 +481,7 @@ test("INV-document: private and plant bodies preserve exact immutable owner and 
 });
 test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history or run migrations", async () => {
 	const identity = (await runtime.execute(querySql`SELECT current_user`)).rows[0];
-	assert.equal(identity.current_user, role);
+	assert.equal(identity.current_user, database.logins.runtime.name);
 	assert.deepEqual(
 		(
 			await runtime.execute(
@@ -550,7 +509,7 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 		1,
 	);
 });
-test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
+test("AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
 	const x = await doc(p);
 	await assert.rejects(
 		runtime.transaction(async (tx) => {

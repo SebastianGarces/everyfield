@@ -9,6 +9,8 @@ import { Backdrop } from "../photo/Backdrop";
 import type { HeroPhoto } from "../photo/photos";
 
 type Props = {
+	/** A small all-caps line above the headline (home: "Church planting software"). */
+	eyebrow?: string;
 	headline: string;
 	subhead: string;
 	primary: { label: string; href: string };
@@ -31,7 +33,7 @@ const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
  * It is wider than the page column: 8 to 24 px window margins, and at most the nav width plus 56 px on each side (Revision 23).
  * Headline, lead and buttons are centred in ink on the faded top; the product visual sits on the photo below them.
  */
-export function HeroPanel({ headline, subhead, primary, secondary, note, children, band, photo }: Props) {
+export function HeroPanel({ eyebrow, headline, subhead, primary, secondary, note, children, band, photo }: Props) {
 	const dash = band === "dashboard";
 	return (
 		<section
@@ -46,6 +48,11 @@ export function HeroPanel({ headline, subhead, primary, secondary, note, childre
 					)}
 				>
 					<Backdrop bg={photo} preload sizes="100vw" className="hero-fade pointer-events-none absolute inset-0 -z-1" />
+					{eyebrow ? (
+						<span className="mb-[26px] inline-block type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase max-mk-sm:mb-[18px]">
+							{eyebrow}
+						</span>
+					) : null}
 					<Display as="h1" size="hero" className="mx-auto max-w-[14ch]">
 						{headline}
 					</Display>

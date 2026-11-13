@@ -4,7 +4,7 @@ import { ArrowLeft01Icon, ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-f
 import { Button } from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, Lockup } from "@everyfield/ui/foundations";
 import { useEffect, useRef, type ReactNode } from "react";
-import { STEPS, type ErrorCode, type StepKey } from "./model";
+import { STEPS, type ErrorCode, type Notice as NoticeState, type Op, type StepKey } from "./model";
 
 // Shared pieces of the onboarding page, composed from @everyfield/ui and the prototype's .onb, .onb-steps and
 // .phase-pick layout (design/everyfield-ui.html, #/onboarding).
@@ -231,13 +231,20 @@ export function StepFooter({
 	);
 }
 
-/** One sentence per refusal code, saying what happened and what to do. */
-export function noticeText(code: ErrorCode): string {
+/**
+ * One sentence per refusal code, saying what happened and what to do. `reloaded` is whether the latest facts arrived
+ * after the refusal; without them the text never claims they did.
+ */
+function noticeText(code: ErrorCode, reloaded: boolean): string {
 	switch (code) {
 		case "conflict":
-			return "Something changed while you were on this step. We loaded the latest. Check it, then continue.";
+			return reloaded
+				? "Something changed while you were on this step. We loaded the latest. Check it, then continue."
+				: "Something changed while you were on this step. Check your connection, then try again.";
 		case "already_declared":
-			return "A phase is already declared for this church. We loaded it.";
+			return reloaded
+				? "A phase is already declared for this church. We loaded it."
+				: "A phase is already declared for this church. Reload the page to see it.";
 		case "active_seat_conflict":
 			return "This account already belongs to a church, so it can’t start another one.";
 		case "association_resolution_required":
@@ -247,7 +254,9 @@ export function noticeText(code: ErrorCode): string {
 		case "temporary":
 			return "We couldn’t save just now. Try again in a moment.";
 		case "unknown":
-			return "We’re not sure that saved. We loaded the latest. Check it before you continue.";
+			return reloaded
+				? "We’re not sure that saved. We loaded the latest. Check it and your connection, then try again."
+				: "We’re not sure that saved. Check your connection, then try again.";
 		case "invalid_input":
 			return "Some answers could not be saved. Check them and try again.";
 		default:
@@ -255,12 +264,13 @@ export function noticeText(code: ErrorCode): string {
 	}
 }
 
-export function Notice({ code }: { code: ErrorCode | null }) {
+/** The refusal notice of one command, shown only on the step that sent it. */
+export function Notice({ notice, op }: { notice: NoticeState | null; op: Op }) {
 	return (
 		<div aria-live="polite" className="mx-auto max-w-[820px]">
-			{code ? (
+			{notice?.op === op ? (
 				<p role="alert" className="mt-6 rounded-md bg-magenta-50 px-4 py-3 text-sm font-medium text-magenta-600">
-					{noticeText(code)}
+					{noticeText(notice.code, notice.reloaded)}
 				</p>
 			) : null}
 		</div>

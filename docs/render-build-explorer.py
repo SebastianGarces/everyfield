@@ -29,7 +29,7 @@ def render(root):
     retired = {p['id'] for p in plan.load(root, 'docs/plan/dag.json').get('retired_packages', [])}
     recorded = set(progress['packages'])
     if recorded - (active | retired) or retired - recorded:
-        raise ValueError('Progress IDs differ from active/retired DAG IDs; reconcile through tools/evf/progress.ts --reconcile')
+        raise ValueError('Progress IDs differ from active/retired DAG IDs; the frozen docs/build-progress.json must still list every DAG ID, so edit it by reviewed PR')
     # Plan PRs precede home-ledger reconciliation. Fill the read-only view, never the ledger.
     for pid in sorted(active - recorded):
         progress['packages'][pid] = dict(status='not_started', evidence=[],
@@ -71,10 +71,6 @@ def main():
         if args.output and args.output.read_text() != html:
             raise ValueError('Generated explorer is stale; regenerate --output')
         with tempfile.TemporaryDirectory(prefix='evf-explorer-check-') as directory:
-            output = Path(directory) / 'explorer.html'
-            output.write_text(html)
-            if output.read_text() != html:
-                raise ValueError('Explorer serialization differs')
             script = Path(directory) / 'explorer.js'
             script.write_text('\n'.join(re.findall(r'<script>(.*?)</script>', html, re.S)))
             result = subprocess.run(['node', '--check', str(script)], capture_output=True, text=True)

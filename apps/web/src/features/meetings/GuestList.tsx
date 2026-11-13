@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	Add01Icon,
 	CheckmarkCircle02Icon,
 	Delete02Icon,
 	MoreHorizontalIcon,
@@ -12,6 +13,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardHeader,
 	CardHeading,
@@ -34,21 +36,22 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
+import { answeringStatuses } from "@everyfield/contracts/meetings";
+import { listPhotoRoute, type PersonPhoto } from "@everyfield/contracts/people";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
-import { startTransition, useState } from "react";
+import { flushSync } from "react-dom";
+import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import {
-	addAttendeeNote,
-	clearCard,
-	correctRsvp,
-	createGuestContact,
-	inviteGuest,
-	recordCard,
-	removeGuest,
-	setInviter,
-} from "./actions.ts";
+import { addAttendeeNote, addGuests, clearCard, correctRsvp, recordCard, removeGuest, setInviter } from "./actions.ts";
 import { PresenceCell, type usePresence } from "./Attendance.tsx";
-import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
+import {
+	ChosenList,
+	PeoplePicker,
+	PersonPicker,
+	ReasonDialog,
+	type ChosenChip,
+	type PickedPerson,
+} from "./dialogs.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import {
 	CARD_LABEL,
@@ -68,14 +71,22 @@ import {
 	type Rsvp,
 } from "./model.ts";
 import { isPending, PENDING, type CardEntry, type Change, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { IntentLink } from "./parts.tsx";
+import { IntentLink, TabStack } from "./parts.tsx";
 
 type Filter = "all" | Rsvp;
+/** Someone new on the Chosen list: their Person and guest row are made in one write when the form is added. */
+type NewGuest = { key: string; displayName: string; email: string; phone: string };
+type Contact = { displayName: string; email: string; phone: string };
 type AddDraft = {
 	mode: "existing" | "new";
-	person: PickedPerson | null;
-	inviter: PickedPerson | null;
-	contact: { displayName: string; email: string; phone: string };
+	/** Everyone chosen in "Someone in People", across searches. */
+	people: PickedPerson[];
+	/** Everyone added in "Someone new". Both lists make the one Chosen list. */
+	fresh: NewGuest[];
+	/** What is typed in "Someone new" and not yet on the list. */
+	contact: Contact;
+	/** Names of people an earlier add did not reach: the form opens again with only them chosen. */
+	notAdded?: string[];
 };
 /**
  * The card's open form with what was entered. A save closes it; a refusal opens it again with the same values and the
@@ -90,12 +101,11 @@ type Form = (
 ) & { problem?: string };
 
 const STATE_NOTE = { retired: "Retired", merged: "Merged", live: null } as const;
-const ACCEPTS_REPLIES = ["planning", "ready", "in_progress"];
 const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
 const EMPTY_ADD: AddDraft = {
 	mode: "existing",
-	person: null,
-	inviter: null,
+	people: [],
+	fresh: [],
 	contact: { displayName: "", email: "", phone: "" },
 };
 
@@ -106,9 +116,21 @@ const EMPTY_ADD: AddDraft = {
  * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
  * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
+/** Room the Email column adds to the table, so "No open recorded" and an open's time stay on one line each. */
+const EMAIL_COLUMN_WIDTH = 140;
+
+/** The open time on the meeting's clock, as the rest of the meeting page shows times. */
+function openedText(iso: string, zone: string | undefined): string {
+	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(
+		new Date(iso),
+	);
+}
+
 export function GuestList({
 	meeting,
 	guests,
+	emailOpens,
+	photos,
 	cards,
 	attendance,
 	presence,
@@ -119,9 +141,19 @@ export function GuestList({
 	onRemoved,
 	onCard,
 	onStale,
+	request,
+	invitesHref,
 }: {
+	/** The page header asks for the add form or for the first card still to record; each new `n` is one request. */
+	request?: { kind: "add" | "cards"; n: number };
+	/** Send invites as a link beside the filter, when the header's main action is another one. */
+	invitesHref?: string;
 	meeting: Detail;
 	guests: GuestRow[] | null;
+	/** When a guest first opened an email of this meeting, from the email service. Never an RSVP or attendance. */
+	emailOpens: readonly { personId: string; openedAt: string }[];
+	/** Each guest's photo as the People list shows it; a guest with none keeps the initials. */
+	photos: readonly PersonPhoto[];
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
@@ -129,8 +161,9 @@ export function GuestList({
 	canMark: boolean;
 	canWrite: boolean;
 	project: (change: Change) => void;
-	onGuest: (guest: Guest) => void;
-	onRemoved: (guestId: string) => void;
+	/** A saved guest; a guest result also names the meeting's attendance revision after it, which the page keeps. */
+	onGuest: (guest: Guest, attendanceRevision?: string) => void;
+	onRemoved: (guestId: string, attendanceRevision: string) => void;
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
@@ -143,11 +176,34 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
+	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
+	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
+	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
+	const table = useRef<HTMLDivElement>(null);
+	const seen = useRef(request?.n);
+	useEffect(() => {
+		if (!request || seen.current === request.n) return;
+		seen.current = request.n;
+		if (request.kind === "add") {
+			if (canWrite && lane.wait === null) lane.open({ kind: "add", draft: EMPTY_ADD });
+			return;
+		}
+		// The first attended guest with no card: their row menu holds the card action.
+		const target = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
+		// The filter can hide that guest, so show everyone first and focus once the row exists.
+		const timer = setTimeout(() => {
+			flushSync(() => setFilter("all"));
+			table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus();
+		});
+		return () => clearTimeout(timer);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- one run for each request
+	}, [request?.n]);
 	const marker = attendance?.viewerCanMarkAttendance === true;
 	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
-	const open = ACCEPTS_REPLIES.includes(meeting.status);
+	const open = answeringStatuses.includes(meeting.status);
 	const busy = lane.wait !== null;
 
 	/**
@@ -182,32 +238,59 @@ export function GuestList({
 			send: (key) =>
 				correctRsvp(key, guest.revision, meeting.id, guest.person.personId, rsvp === "pending" ? null : rsvp),
 			ok: (v) => {
-				onGuest(v.guest);
+				onGuest(v.guest, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName}: RSVP set to ${RSVP_LABEL[rsvp]}.`, tone: "success" });
 			},
 		});
 	}
+	/**
+	 * Everyone on Chosen, added together in one meetings.addGuests write: people from People and new people (their
+	 * Person and guest row). The request key is made once per click, so the lane's replay of a lost answer never adds
+	 * anyone twice. People no longer live are not added: the others stay and the form opens again with only them chosen.
+	 */
 	function add(draft: AddDraft) {
-		const person = draft.mode === "existing" ? draft.person : null;
-		const name = person?.name ?? draft.contact.displayName.trim();
-		const input = person
-			? { meetingId: meeting.id, personId: person.id, inviterPersonId: draft.inviter?.id ?? null }
-			: {
-					meetingId: meeting.id,
-					displayName: name,
-					email: draft.contact.email.trim() || null,
-					phone: draft.contact.phone.trim() || null,
-					country: "US",
-				};
+		const names = new Map(draft.people.map((p) => [p.id, p.name]));
+		const count = draft.people.length + draft.fresh.length;
 		write({
-			what: name,
+			what: count === 1 ? (draft.people[0]?.name ?? draft.fresh[0]!.displayName) : `${count} guests`,
 			done: "added",
 			form: { kind: "add", draft },
-			changes: [{ kind: "guest", guest: pendingGuest(person, name, person ? draft.inviter : null) }],
-			send: (key) => ("personId" in input ? inviteGuest(key, input) : createGuestContact(key, input)),
-			ok: (v) => {
-				onGuest(v.guest);
-				toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
+			changes: [
+				...draft.people.map((p) => ({ kind: "guest" as const, guest: pendingGuest(p, p.name) })),
+				...draft.fresh.map((n) => ({ kind: "guest" as const, guest: pendingGuest(null, n.displayName, n.key) })),
+			],
+			send: (key) =>
+				addGuests(key, {
+					meetingId: meeting.id,
+					people: draft.people.map((p) => p.id),
+					contacts: draft.fresh.map((n) => ({
+						displayName: n.displayName,
+						email: n.email || null,
+						phone: n.phone || null,
+						country: "US" as const,
+					})),
+				}),
+			ok: ({ guests: added, notAdded, attendanceRevision }) => {
+				for (const g of added) onGuest(g, attendanceRevision);
+				if (!notAdded.length)
+					return toast({
+						message:
+							added.length === 1
+								? `${added[0]!.person.displayName} is on the guest list.`
+								: `${added.length} guests are on the guest list.`,
+						tone: "success",
+					});
+				toast({ message: `${added.length} added. ${notAdded.length} not added.`, tone: "info" });
+				const left = new Set<string>(notAdded);
+				lane.open({
+					kind: "add",
+					draft: {
+						...draft,
+						people: draft.people.filter((p) => left.has(p.id)),
+						fresh: [],
+						notAdded: notAdded.map((id) => names.get(id) ?? ""),
+					},
+				});
 			},
 		});
 	}
@@ -229,7 +312,7 @@ export function GuestList({
 				},
 			],
 			send: (key) => setInviter(key, guest.revision, meeting.id, guest.person.personId, id),
-			ok: (v) => onGuest(v.guest),
+			ok: (v) => onGuest(v.guest, v.attendanceRevision),
 		});
 	}
 	function saveCard(guest: Guest, response: CardResponse, notes: string) {
@@ -300,8 +383,8 @@ export function GuestList({
 			done: "removed",
 			changes: [{ kind: "removeGuest", guestId: guest.id }],
 			send: (key) => removeGuest(key, guest.revision, meeting.id, guest.person.personId),
-			ok: () => {
-				onRemoved(guest.id);
+			ok: (v) => {
+				onRemoved(guest.id, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName} was removed from the guest list.`, tone: "success" });
 			},
 		});
@@ -313,7 +396,7 @@ export function GuestList({
 			header: "Guest",
 			cell: (g) => (
 				<div className="flex items-center gap-3">
-					<Avatar name={g.person.displayName} size="sm" decorative />
+					<Avatar name={g.person.displayName} src={photoOf.get(g.person.personId)} size="sm" decorative />
 					<div className="min-w-0">
 						{g.person.state === "live" && !isPending(g) ? (
 							<IntentLink
@@ -353,6 +436,29 @@ export function GuestList({
 				</div>
 			),
 		},
+		// Opens sit in their own column for Owners and Admins, the only viewers who get opens: an open is not an answer
+		// and not attendance. No open claims nothing about delivery, so the row says only that none is recorded.
+		...(canWrite
+			? [
+					{
+						key: "email",
+						header: "Email",
+						cell: (g: GuestRow) => {
+							const at = openedOf.get(g.person.personId);
+							return at ? (
+								<div className="flex flex-col items-start">
+									<span className="text-sm text-ink">Email opened</span>
+									<time dateTime={at} className="text-xs text-text-3">
+										{openedText(at, meeting.zone ?? undefined)}
+									</time>
+								</div>
+							) : (
+								<span className="text-sm text-text-3">No open recorded</span>
+							);
+						},
+					},
+				]
+			: []),
 		{
 			key: "attendance",
 			header: "Attendance",
@@ -389,7 +495,12 @@ export function GuestList({
 							isPending(g) ? null : (
 								<Menu>
 									<MenuTrigger asChild>
-										<IconButton icon={MoreHorizontalIcon} label={`Actions for ${g.person.displayName}`} size="sm" />
+										<IconButton
+											icon={MoreHorizontalIcon}
+											label={`Actions for ${g.person.displayName}`}
+											size="sm"
+											data-guest-menu={g.id}
+										/>
 									</MenuTrigger>
 									<MenuContent align="end">
 										<MenuLabel>Attendance</MenuLabel>
@@ -494,20 +605,27 @@ export function GuestList({
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>
-				{guests && guests.length ? (
-					<SegmentedControl
-						label="Show guests"
-						size="sm"
-						value={filter}
-						onValueChange={setFilter}
-						options={[
-							{ value: "all", label: "All", count: shown.length },
-							{ value: "confirmed", label: "Yes", count: counts.confirmed },
-							{ value: "pending", label: "Pending", count: counts.pending },
-							{ value: "declined", label: "No", count: counts.declined },
-						]}
-					/>
-				) : null}
+				<div className="flex flex-wrap items-center gap-3">
+					{invitesHref ? (
+						<IntentLink href={invitesHref} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+							Send invites
+						</IntentLink>
+					) : null}
+					{guests && guests.length ? (
+						<SegmentedControl
+							label="Show guests"
+							size="sm"
+							value={filter}
+							onValueChange={setFilter}
+							options={[
+								{ value: "all", label: "All", count: shown.length },
+								{ value: "confirmed", label: "Yes", count: counts.confirmed },
+								{ value: "pending", label: "Pending", count: counts.pending },
+								{ value: "declined", label: "No", count: counts.declined },
+							]}
+						/>
+					) : null}
+				</div>
 			</CardHeader>
 			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
 			<RowNotices lanes={presence.lanes} className="mb-3" />
@@ -516,24 +634,31 @@ export function GuestList({
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (
-				<DataTable
-					caption="Guests"
-					columns={columns}
-					state={{ status: "ready", data: rows }}
-					rowId={(g) => g.id}
-					rowLabel={(g) => g.person.displayName}
-					minWidth={vision ? 760 : 640}
-					empty={{
-						icon: UserMultipleIcon,
-						title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
-						text:
-							filter === "all"
-								? canWrite
-									? "Add the people you invite. Their answers show here."
-									: "When an Owner or Admin adds guests, they appear here."
-								: "Choose All to see everyone.",
-					}}
-				/>
+				<div ref={table}>
+					<DataTable
+						caption="Guests"
+						columns={columns}
+						state={{ status: "ready", data: rows }}
+						rowId={(g) => g.id}
+						rowLabel={(g) => g.person.displayName}
+						minWidth={(vision ? 760 : 640) + (canWrite ? EMAIL_COLUMN_WIDTH : 0)}
+						empty={{
+							icon: UserMultipleIcon,
+							title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
+							text:
+								filter === "all"
+									? canWrite
+										? "Add the people you invite. Their answers show here."
+										: "When an Owner or Admin adds guests, they appear here."
+									: "Choose All to see everyone.",
+						}}
+					/>
+					{noOpensYet ? (
+						<p className="mt-3 text-sm text-text-3">
+							Email opens show here after a message from this meeting is sent and opened.
+						</p>
+					) : null}
+				</div>
 			)}
 			{canWrite && guests ? (
 				<div className="mt-4 flex items-center justify-between gap-3">
@@ -629,12 +754,12 @@ export function GuestList({
 }
 
 /** A guest row shown while its add is saved: no link, no actions, Pending, absent. */
-function pendingGuest(person: PickedPerson | null, name: string, inviter: PickedPerson | null): PendingGuest {
+function pendingGuest(person: PickedPerson | null, name: string, key = crypto.randomUUID()): PendingGuest {
 	return {
-		id: `${PENDING}${person?.id ?? crypto.randomUUID()}`,
+		id: `${PENDING}${person?.id ?? key}`,
 		revision: null,
 		person: { personId: person?.id ?? null, displayName: name, state: "live" },
-		inviter: inviter ? { personId: inviter.id, displayName: inviter.name, state: "live" } : null,
+		inviter: null,
 		rsvp: "pending",
 		rsvpSource: null,
 		rsvpAt: null,
@@ -651,10 +776,14 @@ type FormProps<T> = {
 	onClose: () => void;
 };
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
- * Add guest (REQ-MTG-011): someone already in People, with who invited them, or someone new with a name and optional
- * contact details. A new person starts as a prospect from this meeting, in the United States by default. Nothing here
- * gives them a login.
+ * Add guest (REQ-MTG-011): one Chosen list for both tabs. "Someone in People" checks people already in People, across
+ * searches. "Someone new" adds each new person to the same list with a name and optional contact details; a new person
+ * starts as a prospect from this meeting, in the United States by default. One submit adds everyone on Chosen.
+ * Nothing here gives them a login, and a guest added here has no inviter: "Who invited them?" on the guest row sets one
+ * later.
  */
 function AddGuestForm({
 	initial,
@@ -666,102 +795,178 @@ function AddGuestForm({
 	onSubmit,
 }: FormProps<AddDraft> & { meeting: Detail; guestIds: string[]; onSubmit: (draft: AddDraft) => void }) {
 	const [draft, setDraft] = useState(initial);
-	const [touched, setTouched] = useState(false);
-	const { mode, person, inviter, contact } = draft;
+	// `adding`: Add to list was pressed. `submitted`: the primary button was pressed. Each shows its own messages.
+	const [adding, setAdding] = useState(false);
+	const [submitted, setSubmitted] = useState(false);
+	const root = useRef<HTMLDivElement>(null);
+	const nameInput = useRef<HTMLInputElement>(null);
+	const { mode, people, fresh, contact } = draft;
+	const count = people.length + fresh.length;
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
-	const setContact = (patch: Partial<AddDraft["contact"]>) => set({ contact: { ...contact, ...patch } });
-	const nameMissing = contact.displayName.trim() === "";
-	// The field for the chosen kind of guest takes focus only when the person switches it; RecordDialog decides where
-	// focus starts when the form opens (F4b).
-	const [switched, setSwitched] = useState(false);
-	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
+	const setContact = (patch: Partial<Contact>) => set({ contact: { ...contact, ...patch } });
+	const name = contact.displayName.trim();
+	const email = contact.email.trim();
+	const phone = contact.phone.trim();
+	const nameMissing = name === "";
+	const emailBad = email !== "" && !EMAIL.test(email);
+	const typed = name !== "" || email !== "" || phone !== "";
+	const nameError = nameMissing
+		? adding || (submitted && typed)
+			? "Enter the name people call them."
+			: null
+		: submitted
+			? "Add this person to the list, or clear the name."
+			: null;
+	const partial = initial.notAdded?.length
+		? `${initial.notAdded.join(", ")} ${initial.notAdded.length === 1 ? "was" : "were"} not added. The others are on the guest list. Choose ${count === 1 ? "Add guest" : `Add ${count} guests`} to try again.`
+		: undefined;
+	const chips: ChosenChip[] = [
+		...people.map((p) => ({ key: `p:${p.id}`, name: p.name, isNew: false })),
+		...fresh.map((n) => ({ key: `n:${n.key}`, name: n.displayName, isNew: true })),
+	];
+	function addToList() {
+		setAdding(true);
+		if (nameMissing || emailBad) return;
+		setDraft((d) => ({
+			...d,
+			fresh: [...d.fresh, { key: crypto.randomUUID(), displayName: name, email, phone }],
+			contact: { displayName: "", email: "", phone: "" },
+		}));
+		setAdding(false);
+		setSubmitted(false);
+		nameInput.current?.focus();
+	}
+	const enterAdds = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+		e.preventDefault();
+		addToList();
+	};
 	return (
 		<RecordDialog
 			icon={UserAdd01Icon}
 			tone="green"
 			title="Add guest"
 			description={meeting.displayTitle}
-			action="Add guest"
-			problem={problem}
+			action={count > 1 ? `Add ${count} guests` : "Add guest"}
+			problem={problem ?? partial}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={() => {
-				setTouched(true);
-				if (mode === "existing" ? !person : nameMissing || emailBad) return false;
+				setSubmitted(true);
+				// Text typed and not added is never lost or added for them: show the "Someone new" panel and say so.
+				if (typed) {
+					set({ mode: "new" });
+					requestAnimationFrame(() => nameInput.current?.focus());
+					return false;
+				}
+				if (count === 0) {
+					requestAnimationFrame(() =>
+						root.current
+							?.querySelector<HTMLElement>(`[data-panel="${mode}"] :is(input, button):not([disabled])`)
+							?.focus(),
+					);
+					return false;
+				}
 				onSubmit(draft);
 				return true;
 			}}
 		>
-			<SegmentedControl
-				label="Who"
-				value={mode}
-				onValueChange={(m) => {
-					setSwitched(true);
-					set({ mode: m });
-				}}
-				options={[
-					{ value: "existing", label: "Someone in People" },
-					{ value: "new", label: "Someone new" },
-				]}
-			/>
-			{mode === "existing" ? (
-				<>
-					<Field label="Guest" error={touched && !person ? "Choose the person to add." : null}>
-						<PersonPicker
-							label="Guest"
-							value={person}
-							onChange={(p) => set({ person: p })}
-							exclude={guestIds}
-							autoFocus={switched}
-						/>
-					</Field>
-					<Field label="Invited by" optional>
-						<PersonPicker
-							label="Invited by"
-							value={inviter}
-							onChange={(p) => set({ inviter: p })}
-							exclude={person ? [person.id] : []}
-							none="Not recorded"
-						/>
-					</Field>
-				</>
-			) : (
-				<>
-					<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-						<Input
-							value={contact.displayName}
-							maxLength={255}
-							autoComplete="off"
-							onChange={(e) => setContact({ displayName: e.target.value })}
-							autoFocus={switched}
-						/>
-					</Field>
-					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-						<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-							<Input
-								type="email"
-								value={contact.email}
-								maxLength={320}
-								autoComplete="off"
-								onChange={(e) => setContact({ email: e.target.value })}
-							/>
-						</Field>
-						<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
-							<Input
-								type="tel"
-								value={contact.phone}
-								maxLength={40}
-								autoComplete="off"
-								onChange={(e) => setContact({ phone: e.target.value })}
-							/>
-						</Field>
-					</div>
-					<p className="text-sm text-text-3">
-						They join People as a prospect from this meeting. If they are already in People, choose them instead, so you
-						do not make a duplicate.
-					</p>
-				</>
-			)}
+			<div ref={root} className="flex flex-col gap-5 max-app-sm:gap-4">
+				<SegmentedControl
+					label="Who"
+					value={mode}
+					onValueChange={(m) => set({ mode: m })}
+					options={[
+						{ value: "existing", label: "Someone in People" },
+						{ value: "new", label: "Someone new" },
+					]}
+				/>
+				<TabStack
+					active={mode}
+					fit
+					className="gap-5 max-app-sm:gap-3"
+					panels={{
+						existing: (
+							<Field label="Guests">
+								<PeoplePicker
+									label="Guests"
+									value={people}
+									onChange={(next) => set({ people: next })}
+									exclude={guestIds}
+								/>
+							</Field>
+						),
+						new: (
+							<>
+								<Field label="Name" error={nameError}>
+									<Input
+										ref={nameInput}
+										value={contact.displayName}
+										maxLength={255}
+										autoComplete="off"
+										onKeyDown={enterAdds}
+										onChange={(e) => setContact({ displayName: e.target.value })}
+									/>
+								</Field>
+								<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+									<Field
+										label="Email"
+										optional
+										error={(adding || submitted) && emailBad ? "Enter a full email address." : null}
+									>
+										<Input
+											type="email"
+											value={contact.email}
+											maxLength={320}
+											autoComplete="off"
+											onKeyDown={enterAdds}
+											onChange={(e) => setContact({ email: e.target.value })}
+										/>
+									</Field>
+									<Field
+										label="Phone"
+										optional
+										hint="Country: United States (US). Change it later on their person page."
+									>
+										<Input
+											type="tel"
+											value={contact.phone}
+											maxLength={40}
+											autoComplete="off"
+											onKeyDown={enterAdds}
+											onChange={(e) => setContact({ phone: e.target.value })}
+										/>
+									</Field>
+								</div>
+								<p className="text-sm text-text-2">
+									<span className="max-app-sm:hidden">
+										They join People as a prospect from this meeting. If they are already in People, choose them
+										instead, so you do not make a duplicate.
+									</span>
+									<span className="app-sm:hidden">Already in People? Choose them there, not here.</span>
+								</p>
+								<div>
+									<Button type="button" variant="secondary" size="sm" icon={Add01Icon} onClick={addToList}>
+										Add to list
+									</Button>
+								</div>
+							</>
+						),
+					}}
+				/>
+				<ChosenList
+					chips={chips}
+					empty={mode === "new" ? "Add each new person to the list." : "Search, then choose each person to add."}
+					error={submitted && count === 0 && !typed ? "Choose at least one person." : null}
+					onRemove={(key) =>
+						set(
+							key.startsWith("p:")
+								? { people: people.filter((p) => `p:${p.id}` !== key) }
+								: { fresh: fresh.filter((n) => `n:${n.key}` !== key) },
+						)
+					}
+				/>
+			</div>
 		</RecordDialog>
 	);
 }
