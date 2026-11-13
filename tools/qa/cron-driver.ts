@@ -58,7 +58,6 @@ export function drive(root: string): number {
 	writeFileSync(join(dir, ".vercel/project.json"), JSON.stringify(VERCEL_PROJECT));
 
 	const driven = new Map<string, Driven>();
-	const noted = new Set<string>();
 	const write = (d: Driven, line: string) =>
 		appendFileSync(d.log, `${new Date().toISOString()} ${line.split(d.secret).join("<redacted>")}\n`, { mode: 0o600 });
 
@@ -129,12 +128,8 @@ export function drive(root: string): number {
 			try {
 				secret = readFileSync(cronSecretPath(root, r.id), "utf8").trim();
 			} catch {
-				if (!noted.has(r.id))
-					console.log(`qa drive: ${r.id} has no cron secret file yet; it starts once bin/qa up writes one.`);
-				noted.add(r.id);
-				continue;
+				continue; // No secret file yet, or a preview made before T-289.
 			}
-			if (!secret) continue;
 			const header = join(dir, `${r.id}.header`);
 			writeFileSync(header, `Authorization: Bearer ${secret}\n`, { mode: 0o600 });
 			const d = { deployment: r.deployment, secret, header, log: driverLogPath(root, r.id) };
