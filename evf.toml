@@ -1,0 +1,180 @@
+# evf v2 project rules for Everyfield (GitHub trial, Nov 5 2026).
+# Roles, checks and policy are read from the base branch, so a branch cannot weaken them.
+# Changing this file is always an owner decision. The base branch, remote and forge are in local.toml.
+# Trial path approved by Sebastian (chat t537u / widget Retire pr-body…).
+# Roles set by Sebastian's Nov 6 2026 approval: "Yes, switch all evf-v2 roles to Opus 5.5 medium now."
+
+# A check slot starts with no node_modules, so setup installs them. It reruns only when the lockfile changes.
+[setup]
+name = "install"
+run = ["corepack", "pnpm", "install", "--frozen-lockfile"]
+inputs = ["pnpm-lock.yaml"]
+
+# fast-check runs first, so a set with a format, lint or type error fails in seconds, before any long check.
+# Any check declared after it still runs after it on every set it passes, and the next set after rework runs every
+# check again. Nothing is skipped. GitHub's required check `ci` stays the full run on the PR.
+# fast-check diffs from merge-base origin/main HEAD, which on a slot is the base head, so it sees the branch's changes.
+# It reads the whole tree (no inputs), because its scope is the branch diff.
+[[check]]
+name = "fast-check"
+run = ["bin/dev", "fast-check"]
+timeout_minutes = 10
+
+# full-check is `bin/dev check --full`, the verifier's run: lint, typecheck, unit, docs, ci-coverage and the workflow,
+# tools-ci, tools-qa and github-scripts suites. None of them needs Postgres. A full run takes 3 to 7 minutes on this
+# Mac; the timeout leaves room for a loaded machine. Sebastian, Nov 11 2026: "Yes, file the evf tasks and the
+# ci.yml/evf.toml changes; I'll do the GitHub App".
+# local.toml asks evf for 6 check slots in parallel (`check_slots = 6` under [budget], T-262; Sebastian, Nov 11 2026:
+# "Yes, file a task to raise check slots to 6"). evf reads it live but runs only 3 slots today; evf-v2 T-37 tracks
+# that cap. Each run is isolated, so up to 6 can run at once: its own slot checkout with its own
+# node_modules, .next and build info, temp dirs from mkdtemp, ephemeral ports, a checks.json record per checkout and no
+# network fetch in next dev (tests/workflow/server-logs.test.mjs). Six full checks on one commit passed side by side.
+[[check]]
+name = "full-check"
+run = ["bin/dev", "check", "--full"]
+timeout_minutes = 25
+
+# The db packages and the census, as the `db` and `domain (census part N)` jobs in .github/workflows/ci.yml run them.
+# They stay inert (commented out) until evf gives each check slot its own throwaway Postgres (the evf-v2 slot-Postgres
+# task, ruling D-633). Turned on, they must use that slot's DATABASE_URL, never the shared dev database or Neon.
+# [[check]]
+# name = "db-packages"
+# run = ["sh", "-c", "pnpm db:migrate && python3 packages/db/src/schema/generate.py --check && pnpm --filter @everyfield/db test:db && pnpm --filter @everyfield/reference test:db && pnpm --filter @everyfield/evry test:db"]
+# timeout_minutes = 25
+#
+# [[check]]
+# name = "census"
+# run = ["sh", "-c", "pnpm db:migrate && NEXT_TELEMETRY_DISABLED=1 pnpm build && pnpm --filter @everyfield/domain test:db"]
+# timeout_minutes = 45
+
+# Check slots run these commands; seats do not. Each pattern becomes a `Bash(<pattern>)` deny rule in the seat's
+# settings exactly as written, so every form is spelled out: bare, by path, behind env, through npx, pnpm exec,
+# pnpm dlx and corepack pnpm, and with pnpm's -r and --filter. `pnpm build` runs `next build`.
+# A pattern starts with the command or with `*/`, so a commit message or an `evf ask` that names them stays allowed.
+[guards]
+heavy = [
+  # tsc
+  "tsc", "tsc *", "*/tsc", "*/tsc *", "env *tsc", "env *tsc *",
+  "npx *tsc", "npx *tsc *", "pnpm *tsc", "pnpm *tsc *", "corepack pnpm *tsc", "corepack pnpm *tsc *",
+  # tsgo
+  "tsgo", "tsgo *", "*/tsgo", "*/tsgo *", "env *tsgo", "env *tsgo *",
+  "npx *tsgo", "npx *tsgo *", "pnpm *tsgo", "pnpm *tsgo *", "corepack pnpm *tsgo", "corepack pnpm *tsgo *",
+  # next build
+  "next build", "next build *", "*/next build", "*/next build *", "env *next build", "env *next build *",
+  "npx *next build", "npx *next build *", # through pnpm and corepack pnpm: the `pnpm * build` patterns below
+  # pnpm typecheck, with run, -r or --filter <pkg>
+  "pnpm *typecheck*", "*/pnpm *typecheck*", "env *pnpm *typecheck*", "npx *pnpm *typecheck*", "corepack pnpm *typecheck*",
+  # test:db, with run, -r or --filter <pkg>
+  "pnpm *test:db*", "*/pnpm *test:db*", "env *pnpm *test:db*", "npx *pnpm *test:db*", "corepack pnpm *test:db*",
+  # pnpm build, with run, -r or --filter <pkg>
+  "pnpm build", "pnpm build *", "pnpm * build", "pnpm * build *",
+  "*/pnpm build", "*/pnpm build *", "*/pnpm * build", "*/pnpm * build *",
+  "env *pnpm build", "env *pnpm build *", "env *pnpm * build", "env *pnpm * build *",
+  "npx *pnpm build", "npx *pnpm build *", "npx *pnpm * build", "npx *pnpm * build *",
+  "corepack pnpm build", "corepack pnpm build *", "corepack pnpm * build", "corepack pnpm * build *",
+]
+
+# Owner gates. Sebastian, Nov 6 2026, 11:54 AM ET: "Yes, keep my OK on all five, including CI and agent settings".
+# A path ending in "/" is a prefix. Anything else is an exact path.
+
+# document-templates: created from Sebastian's Oct 30 2026 words ("I want to approve them one by one"),
+# narrowed by his Nov 8 2026 words (quote below) to the template content files only, not document code.
+# A new template JSON or *-content.ts file must be added here by exact path: evf cannot match globs such as *.json.
+[[policy.class]]
+name = "document-templates"
+paths = [
+  "packages/domain/src/documents/templates/agenda-content.ts",
+  "packages/domain/src/documents/templates/budget-worksheet.json",
+  "packages/domain/src/documents/templates/bylaws.json",
+  "packages/domain/src/documents/templates/card-content.ts",
+  "packages/domain/src/documents/templates/checklists-content.ts",
+  "packages/domain/src/documents/templates/church-content.ts",
+  "packages/domain/src/documents/templates/commitment-card.json",
+  "packages/domain/src/documents/templates/conflict-of-interest-policy.json",
+  "packages/domain/src/documents/templates/follow-up-letter.json",
+  "packages/domain/src/documents/templates/guest-sign-in-sheet.json",
+  "packages/domain/src/documents/templates/launch-team-commitment.json",
+  "packages/domain/src/documents/templates/member-expectations.json",
+  "packages/domain/src/documents/templates/prayer-letter.json",
+  "packages/domain/src/documents/templates/text-content.ts",
+]
+outcome = "owner"
+quote = "when I meant document-template code I meant the actual templates... if you are talking about functionality, I don't necessarily have to approve it. I was referring to actual templates themselves"
+quoted_at = "2026-11-09T04:16:00Z"
+
+[[policy.class]]
+name = "landing-marketing"
+paths = [
+  "apps/web/src/app/page.tsx",
+  "apps/web/src/app/access/",
+  "apps/web/src/app/oversight/",
+  "apps/web/src/app/privacy/",
+  "apps/web/src/app/terms/",
+  "apps/web/src/marketing/",
+  "apps/web/src/styles/marketing.css",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "wiki"
+paths = [
+  "docs/reference/wiki/",
+  "docs/reference/bootstrap/",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "brand-prototype"
+paths = ["design/everyfield-ui.html"]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+[[policy.class]]
+name = "workflow-gates"
+paths = [
+  ".github/",
+  ".claude/settings.json",
+]
+outcome = "owner"
+quote = "Yes, keep my OK on all five, including CI and agent settings"
+quoted_at = "2026-11-06T16:54:00Z"
+
+# Each prompt file replaces evf's built-in prompt for that role, so it carries that text plus this repo's rules.
+[role.planner]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/planner.md"
+[role.implementer]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/implementer.md"
+[role.ui]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/ui.md"
+[role.simplifier]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/simplifier.md"
+[role.ideator]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/ideator.md"
+[role.comparer]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/comparer.md"
+[role.prototype-merger]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/prototype-merger.md"
+[role.verifier]
+model = "claude-opus-5-5"
+effort = "medium"
+prompt_file = ".agents/role-prompts/verifier.md"
+read_only = true

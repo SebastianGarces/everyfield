@@ -19,7 +19,7 @@ const blank = (s: string) => s.trim() === "";
 export const optional = (s: string) => (blank(s) ? null : s.trim());
 
 export type TeamForm = {
-	mode: "create" | "edit" | "correct";
+	mode: "create" | "edit";
 	name: string;
 	description: string;
 	icon: IconKey;
@@ -30,12 +30,7 @@ export type TeamForm = {
 
 const DIALOG = {
 	create: { title: "New ministry", action: "Create ministry", description: "A team of people who serve together." },
-	edit: { title: "Edit ministry", action: "Save changes", description: undefined },
-	correct: {
-		title: "Correct the record",
-		action: "Save correction",
-		description: "Fix details that were entered wrong. The reason stays in this ministry's history.",
-	},
+	edit: { title: "Edit details", action: "Save changes", description: undefined },
 } as const;
 
 export function TeamDialog({
@@ -55,7 +50,6 @@ export function TeamDialog({
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<TeamForm>) => setF((x) => ({ ...x, ...patch }));
 	const noName = blank(f.name);
-	const noReason = f.mode === "correct" && blank(f.reason);
 	const copy = DIALOG[f.mode];
 	return (
 		<RecordDialog
@@ -68,7 +62,7 @@ export function TeamDialog({
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noName || noReason) return false;
+				if (noName) return false;
 				onSubmit(f);
 				return true;
 			}}
@@ -100,8 +94,8 @@ export function TeamDialog({
 					))}
 				</RadioGroup>
 			</fieldset>
-			{f.mode === "correct" ? (
-				<Field label="Reason" hint="It stays in the history." error={touched && noReason ? "Enter a reason." : null}>
+			{f.mode === "edit" ? (
+				<Field label="Reason for change" optional hint="It stays in this ministry's history.">
 					<Textarea value={f.reason} rows={2} maxLength={500} onChange={(e) => set({ reason: e.target.value })} />
 				</Field>
 			) : null}

@@ -7,7 +7,8 @@ import {
 	validateAccessRequest,
 	type AccessRequest,
 	type AccessRequestResult,
-} from "./contract";
+} from "./contract.ts";
+import { mailRecipientAllowed } from "../mail-recipients.ts";
 
 const mailSchema = z.object({
 	from: z.string().min(1),
@@ -87,6 +88,8 @@ export async function receiveAccessRequest(
 		// Resend deduplicates for 24h. Never blindly resend an unresolved older request.
 		if (Date.now() - reservation.createdAt.getTime() >= 23 * 60 * 60 * 1000) return { status: "unavailable" };
 		const payload = mailSchema.parse(reservation.payload);
+		// Outside production a recipient that is not approved gets no request, and the visitor sees no receipt.
+		if (!payload.to.every((address) => mailRecipientAllowed(env, address))) return { status: "unavailable" };
 		const response = await (dependencies.fetch ?? fetch)("https://api.resend.com/emails", {
 			method: "POST",
 			headers: {

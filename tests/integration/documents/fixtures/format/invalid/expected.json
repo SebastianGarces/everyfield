@@ -1,0 +1,6 @@
+{
+	"sign-in-row-missing-cell.json": "the row has 4 cells but the table has 5 columns",
+	"budget-formula-unknown-column.json": "the formula reads the column \"monthy\", which this table does not have",
+	"policy-undeclared-field.json": "the merge field \"pastor_name\" is not declared in \"fields\"",
+	"card-raw-color.json": "\"#1E3A8A\" is not a theme color"
+}

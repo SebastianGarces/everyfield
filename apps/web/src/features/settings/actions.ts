@@ -185,13 +185,42 @@ export async function requestAccountDeletion(
 export async function openAccountDeletion(
 	request: z.input<typeof N.openAccountDeletionRequest>,
 ): Promise<Reply<DeletionStatus>> {
-	return openRestrictedDeletion(request);
+	return openRestrictedDeletion("account", request);
 }
 
 export async function getAccountDeletionStatus(): Promise<Reply<DeletionStatus>> {
-	return restrictedStatus();
+	return restrictedStatus("account");
 }
 
 export async function cancelAccountDeletion(expectedRevision: string): Promise<Reply<DeletionStatus>> {
-	return cancelRestrictedDeletion(expectedRevision);
+	return cancelRestrictedDeletion("account", expectedRevision);
+}
+
+// Deleting the church workspace (REQ-IDN-026, REQ-IDN-032): the Owner only, which the domain checks again. The request
+// ends the session of every seat; the Owner who asked cancels from the restricted workspace deletion page.
+
+export async function requestWorkspaceDeletion(
+	request: z.input<typeof S.requestWorkspaceDeletion>,
+): Promise<Reply<DeletionStatus>> {
+	return run(
+		S.requestWorkspaceDeletion,
+		request,
+		() => "plant",
+		(ops, tx, context, r) => ops.deletion.requestWorkspaceDeletion(tx, context, r),
+	);
+}
+
+/** Fresh proof of the Owner who asked: the latest workspace request that login made opens, nothing else. */
+export async function openWorkspaceDeletion(
+	request: z.input<typeof N.openAccountDeletionRequest>,
+): Promise<Reply<DeletionStatus>> {
+	return openRestrictedDeletion("plant", request);
+}
+
+export async function getWorkspaceDeletionStatus(): Promise<Reply<DeletionStatus>> {
+	return restrictedStatus("plant");
+}
+
+export async function cancelWorkspaceDeletion(expectedRevision: string): Promise<Reply<DeletionStatus>> {
+	return cancelRestrictedDeletion("plant", expectedRevision);
 }

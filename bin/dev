@@ -1,0 +1,7 @@
+#!/bin/sh
+# dev: browser runs, the local preview stack and its logs. Runs scripts/dev.ts on Node 24+ (native TypeScript).
+set -e
+here=$(cd "$(dirname "$0")/.." && pwd)
+tool=dev
+. "$here/bin/lib/node24.sh"
+exec "$node_bin" --disable-warning=ExperimentalWarning "$here/scripts/dev.ts" "$@"

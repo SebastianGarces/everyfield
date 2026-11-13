@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { instant, localDate, timeZone } from "../common/time.ts";
-import { accountId, correlationId, operationId, personId, recordId, revision } from "../common/values.ts";
+import { accountId, defineSafeError, operationId, personId, recordId, revision, type Reply } from "../common/values.ts";
 import {
 	agendaSection,
 	cardResponse,
 	kitCategory,
 	meetingId,
 	meetingStatus,
+	meetingSubtype,
 	meetingType,
 	presence,
 	reminderSlot,
@@ -14,32 +15,35 @@ import {
 	rsvpSource,
 	venueId,
 } from "./values.ts";
+import { personPhoto } from "../people/results.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(
-	code: C,
-	details: D,
-	retry: "never" | "refresh" | "same_request",
-) =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 const occurrence = z.strictObject({ instant, offsetSeconds: z.int() });
 /** Every refusal a meetings operation can return. Missing, foreign and inaccessible records share "unavailable". */
 export const meetingsError = z.discriminatedUnion("code", [
-	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
-	error("unavailable", {}, "never"),
-	error("invalid_subject", { personIds: z.array(personId).max(500).optional() }, "never"),
-	error("conflict", {}, "refresh"),
-	error("venue_archived", {}, "never"),
-	error("wrong_meeting_type", {}, "never"),
-	error("status_transition", {}, "never"),
-	error("nonexistent_local_time", {}, "never"),
-	error("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
-	error("token_closed", {}, "never"),
+	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	defineSafeError("unavailable", {}, "never"),
+	defineSafeError(
+		"invalid_subject",
+		{ personIds: z.array(personId).max(500).optional(), accountId: accountId.optional() },
+		"never",
+	),
+	defineSafeError("conflict", {}, "refresh"),
+	// The chosen follow-up owner is not a current eligible follow-up owner (REQ-TSK-012).
+	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
+	defineSafeError("venue_archived", {}, "never"),
+	// A team meeting's ministry is archived or not in this church.
+	defineSafeError("team_unavailable", {}, "never"),
+	defineSafeError("wrong_meeting_type", {}, "never"),
+	defineSafeError("status_transition", {}, "never"),
+	defineSafeError("nonexistent_local_time", {}, "never"),
+	defineSafeError("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
+	defineSafeError("token_closed", {}, "never"),
 	// A required write failed in the database; nothing of the command was kept, and the same request may be retried.
-	error("required_write_failed", {}, "same_request"),
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);
 export type MeetingsError = z.infer<typeof meetingsError>;
-export type MeetingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: MeetingsError };
+export type MeetingsReply<T> = Reply<T, MeetingsError>;
 
 const receipt = { receiptId: operationId, outcome: z.enum(["changed", "noop"]) };
 const copiedVenue = z.strictObject({ id: venueId.nullable(), name: z.string(), address: z.string() });
@@ -47,6 +51,8 @@ export const meetingSummary = z.strictObject({
 	id: meetingId,
 	revision,
 	type: meetingType,
+	/** A team meeting's ministry, by its current name; other meetings have none. */
+	team: z.strictObject({ id: recordId, name: z.string() }).nullable(),
 	status: meetingStatus,
 	/** The one title every screen shows: the entered title, or the type with its Vision number. */
 	displayTitle: z.string().min(1),
@@ -77,6 +83,8 @@ export const agendaResult = z.strictObject({
 });
 export const meetingDetail = z.strictObject({
 	...meetingSummary.shape,
+	/** A team meeting's subtype when one was chosen; other meetings have none. */
+	subtype: meetingSubtype.nullable(),
 	notes: z.string().nullable(),
 	agenda: agendaResult,
 	kit: z.strictObject({ version: z.int().min(1), checked: z.int().min(0), total: z.int().min(0) }).nullable(),
@@ -112,9 +120,47 @@ export const guest = z.strictObject({
 	presence,
 	hasCard: z.boolean(),
 });
-export const guestList = z.strictObject({ meetingId, guests: z.array(guest).max(1000) });
-export const guestMutationResult = z.strictObject({ ...receipt, guest });
-export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean() });
+export const guestList = z.strictObject({
+	meetingId,
+	guests: z.array(guest).max(1000),
+	/** Owners and Admins only: when a guest first opened an email of this meeting. Not an RSVP and not attendance. */
+	emailOpens: z.array(z.strictObject({ personId, openedAt: instant })).max(1000),
+	/** Each guest's photo as the People list shows it (REQ-PPL-005, REQ-IDN-006). A guest with none has no entry. */
+	photos: z.array(personPhoto).max(1000),
+});
+/**
+ * What an update from the ministry would change on a team meeting's guest list: live people serving now who are not
+ * guests, and guests the ministry copy added who no longer serve. A guest added by hand is never removed; a guest
+ * already marked present is kept and named as kept.
+ */
+export const rosterPreview = z.strictObject({
+	meetingId,
+	team: z.strictObject({ id: recordId, name: z.string() }),
+	add: z.array(personRef).max(500),
+	remove: z.array(personRef).max(500),
+	kept: z.array(personRef).max(500),
+});
+export const rosterUpdateResult = z.strictObject({
+	...receipt,
+	meetingId,
+	added: z.array(guest).max(500),
+	removedPersonIds: z.array(personId).max(500),
+});
+/** The meeting's attendance revision after the change: an attended guest joining or leaving the list moves it. */
+const attendanceRevision = revision;
+export const guestMutationResult = z.strictObject({ ...receipt, guest, attendanceRevision });
+export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean(), attendanceRevision });
+/**
+ * Everyone an Add guest submit put on the list, already listed ones included: the chosen People in the order sent,
+ * then the new contacts. notAdded names the chosen People who are no longer live in this church.
+ */
+export const addGuestsResult = z.strictObject({
+	...receipt,
+	meetingId,
+	guests: z.array(guest).max(150),
+	notAdded: z.array(personId).max(100),
+	attendanceRevision,
+});
 export const ownRsvp = z.strictObject({
 	meetingId,
 	guestId: recordId,
@@ -122,12 +168,12 @@ export const ownRsvp = z.strictObject({
 	responseAllowed: z.boolean(),
 	revision,
 });
-export const rsvpTokenIssued = z.strictObject({ token: z.string(), expiresAt: instant, guestId: recordId });
 /** What a public RSVP link may disclose: the invitation's meeting basics and the guest's own answer. */
 export const rsvpTokenView = z.discriminatedUnion("state", [
 	z.strictObject({ state: z.literal("unavailable") }),
 	z.strictObject({
-		state: z.enum(["pending", "answered", "expired"]),
+		/** closed: the meeting is cancelled or completed and takes no more answers. */
+		state: z.enum(["pending", "answered", "expired", "closed"]),
 		meeting: z.strictObject({
 			displayTitle: z.string(),
 			startsAt: instant,

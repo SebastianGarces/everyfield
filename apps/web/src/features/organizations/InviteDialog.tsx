@@ -88,8 +88,10 @@ export function InviteDialog({
 	const errors = { organization: target ? undefined : "Choose an organization.", email: emailProblem(email) };
 	const shown: Partial<typeof errors> = checked ? errors : {};
 
+	// Only a plant sees a disclosure (REQ-IDN-022): a sending church or Discovery pair has nothing to read.
+	const needsDisclosure = target?.pair.kind === "plant";
 	useEffect(() => {
-		if (!target) return;
+		if (!target || target.pair.kind !== "plant") return;
 		let live = true;
 		readDisclosure(target.pair).then(
 			(value) => live && setDisclosure({ attempt, id: target.pair.organization.id, value, failed: false }),
@@ -101,7 +103,6 @@ export function InviteDialog({
 	}, [target, readDisclosure, attempt]);
 	const shownDisclosure =
 		disclosure && disclosure.attempt === attempt && disclosure.id === targetId ? disclosure : null;
-	const needsDisclosure = target?.pair.kind === "plant";
 	const disclosureMissing = needsDisclosure && shownDisclosure !== null && shownDisclosure.value === null;
 	// Sending waits until a plant has seen exactly what this organization will see.
 	const ready = !target || !needsDisclosure || Boolean(shownDisclosure?.value);
@@ -195,7 +196,7 @@ export function InviteDialog({
 							problem={send.problem}
 							refused={REFUSED[send.code ?? ""] ?? "This invitation was not sent. Nothing changed."}
 						/>
-						{target ? (
+						{target && needsDisclosure ? (
 							shownDisclosure ? (
 								shownDisclosure.value ? (
 									<SharingDisclosure disclosure={shownDisclosure.value} organizationName={target.name} />

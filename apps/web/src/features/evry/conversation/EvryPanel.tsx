@@ -34,18 +34,24 @@ import {
 	sendNotice,
 	type Conversation,
 	type Send,
+	type State,
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
+import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useConversation } from "./useConversation.ts";
+import { useRowPhotos } from "./useRowPhotos.ts";
 
 // The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
 // opened from Ask Evry or with Cmd+J (Ctrl+J). It is non-modal, so the page stays usable and the conversation stays the
 // same while the person moves between pages. Esc closes it and focus returns to what opened it.
 
-/** The panel and its opener. Cmd+J or Ctrl+J opens and closes it from anywhere in the product frame. */
-export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
+/**
+ * The panel and its opener. Cmd+J or Ctrl+J opens and closes it from anywhere in the product frame. `off` closes it and
+ * ignores the shortcut (the private check-in page).
+ */
+export function useEvryPanel({ inPlant, off = false }: { inPlant: boolean; off?: boolean }) {
 	const [open, setOpen] = useState(false);
 	const c = useConversation(open);
 	// The latest conversation loads the first time the panel opens; later opens keep what the panel already has.
@@ -55,7 +61,7 @@ export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
 	};
 	const toggle = useRef(() => show(!open));
 	useEffect(() => {
-		toggle.current = () => show(!open);
+		toggle.current = () => (off ? setOpen(false) : show(!open));
 	});
 	useEffect(() => {
 		const onKey = (e: globalThis.KeyboardEvent) => {
@@ -69,7 +75,7 @@ export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
 	}, []);
 	return {
 		open: () => show(true),
-		element: <EvryPanel c={c} open={open} onOpenChange={show} inPlant={inPlant} />,
+		element: off ? null : <EvryPanel c={c} open={open} onOpenChange={show} inPlant={inPlant} />,
 	};
 }
 
@@ -186,6 +192,7 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 	const end = useRef<HTMLDivElement>(null);
 	const { turns, state } = c;
 	const lastTurn = turns.at(-1);
+	const photos = useRowPhotos(state.conversation?.id ?? null, turns);
 
 	// Keep the newest message in view while Evry answers, unless the person scrolled up to read. A new message from the
 	// person always scrolls to the end.
@@ -266,6 +273,9 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						stopping={state.stopping}
 						canRetry={turn === lastTurn && retryable(state, turns)}
 						retrying={c.retrying}
+						reviews={state.reviews}
+						photos={photos}
+						onSeen={c.seen}
 						onRetry={() => {
 							void c.retry(turn.id);
 							focusComposer();
@@ -335,6 +345,9 @@ function TurnView({
 	stopping,
 	canRetry,
 	retrying,
+	reviews,
+	photos,
+	onSeen,
 	onRetry,
 }: {
 	turn: Turn;
@@ -342,6 +355,9 @@ function TurnView({
 	stopping: boolean;
 	canRetry: boolean;
 	retrying: boolean;
+	reviews: State["reviews"];
+	photos: Readonly<Record<string, string>>;
+	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
 	const notice = endNotice(turn.end);
@@ -366,16 +382,16 @@ function TurnView({
 					</span>
 					<div className="flex min-w-0 flex-1 flex-col gap-3 pt-1 leading-[1.55] text-ink-2">
 						<span className="sr-only">Evry: </span>
-						{turn.blocks.map((block) =>
+						{turn.blocks.map((block, index) =>
 							block.kind === "text" ? (
 								block.withheld ? (
 									<p key={block.sequence} className="text-sm text-text-3 italic">
 										This part of the answer used a record that is no longer available.
 									</p>
 								) : (
-									<p key={block.sequence} className="whitespace-pre-wrap">
-										{block.text}
-									</p>
+									<div key={block.sequence} className="flex flex-col gap-3">
+										{renderMarkdown(block.text, active && !turn.end && index === turn.blocks.length - 1)}
+									</div>
 								)
 							) : block.kind === "result" ? (
 								<ResultCard
@@ -383,9 +399,16 @@ function TurnView({
 									operation={block.operation}
 									result={block.result}
 									originalTotal={block.originalTotal}
+									photos={photos}
 								/>
 							) : (
-								<ReviewCard key={block.sequence} proposalId={block.proposalId} target={block.target} />
+								<ReviewCard
+									key={block.sequence}
+									proposalId={block.proposalId}
+									target={block.target}
+									seed={reviews[block.proposalId]}
+									onSeen={onSeen}
+								/>
 							),
 						)}
 						{waiting ? (

@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, Field, Input } from "@everyfield/ui/controls";
+import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
+import { Button, Field, IntentLink, Input, Switch } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import {
@@ -13,6 +14,8 @@ import {
 	leadInput,
 	leadLocked,
 	leadProblems,
+	leadText,
+	skippedFill,
 	missingFacts,
 	nextStep,
 	previousStep,
@@ -127,7 +130,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 					{problem}
 				</p>
 			) : null}
-			<Notice code={state.notice?.op === "declareJourney" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={() => actions.go("church")}
 				onSkip={() => {
@@ -170,7 +173,10 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 	const busy = state.pending === "declareJourney";
 	const save = (launch: LaunchDraft) => {
 		if (!journey) return actions.go("journey");
-		void actions.run("declareJourney", { journey: journeyInput(journey), launch: launchInput(launch) });
+		void actions.run("declareJourney", {
+			journey: journeyInput(journey),
+			launch: launchInput(launch, resume.scheduleRevision),
+		});
 	};
 	const saved = resume.scheduledLaunchDate;
 	return (
@@ -224,7 +230,7 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 					}
 				/>
 			</fieldset>
-			<Notice code={state.notice?.op === "declareJourney" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={back}
 				busy={busy}
@@ -251,9 +257,14 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 		return (
 			<section data-onboarding-step="team">
 				<StepHeading title={`Who leads ${name}?`} />
-				<SavedCard title="You hold the lead role">
+				<SavedCard title={leadText(resume.lead)}>
 					It is an ordinary role on your team list. Change it later from your ministry teams.
 				</SavedCard>
+				{skippedFill(resume.lead) ? (
+					<p role="note" className="mx-auto mt-4 max-w-[820px] text-sm text-text-2">
+						{skippedFill(resume.lead)}
+					</p>
+				) : null}
 				<StepFooter onBack={back} onContinue={() => actions.go("finish")} />
 			</section>
 		);
@@ -301,9 +312,18 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 							</Field>
 						</div>
 						<p className="mt-3 text-sm text-text-2">
-							We create the {shown.roleName.trim() || "role"} role in a new {shown.teamName.trim() || "team"} team and
-							assign it to you. Nothing else is added, and no one gets new access.
+							{shown.seniorPastor
+								? `We put you in the Senior pastor role of the Leadership ministry instead. If someone already holds it, they keep it and you get the ${shown.roleName.trim() || "role"} role in a new ${shown.teamName.trim() || "team"} team.`
+								: `We create the ${shown.roleName.trim() || "role"} role in a new ${shown.teamName.trim() || "team"} team and assign it to you.`}{" "}
+							Nothing else is added, and no one gets new access.
 						</p>
+						<Switch
+							className="mt-3 border-t border-line pt-3"
+							label="Fill the Senior pastor role"
+							description="Optional. Uses the Leadership ministry's Senior pastor role from the Playbook templates. No other role is filled."
+							checked={shown.seniorPastor}
+							onCheckedChange={(on) => edit({ ...shown, seniorPastor: on === true })}
+						/>
 					</div>
 				) : null}
 				<ChoiceCard
@@ -323,7 +343,7 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 					{choiceProblem}
 				</p>
 			) : null}
-			<Notice code={state.notice?.op === "answerLead" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="answerLead" />
 			<StepFooter
 				onBack={back}
 				busy={busy}
@@ -362,7 +382,6 @@ export function FinishStep({
 	const done = finished(resume);
 	const missing = missingFacts(resume, articleCount);
 	const journey = resume.journey.status === "saved" ? resume.journey.value : null;
-	const lead = resume.lead.answer;
 	return (
 		<section data-onboarding-step="finish">
 			<StepHeading title={done ? "Setup is finished" : "Ready to start?"} mood={done ? "happy" : "idle"}>
@@ -389,13 +408,10 @@ export function FinishStep({
 						{resume.scheduledLaunchDate ? longDate(resume.scheduledLaunchDate) : "Not set"}
 					</Fact>
 					<Fact label="Lead">
-						{lead === "yes"
-							? "You hold the lead role"
-							: lead === "no"
-								? "Someone else leads"
-								: lead === "skip"
-									? "Skipped"
-									: "Not answered"}
+						{leadText(resume.lead)}
+						{skippedFill(resume.lead) ? (
+							<span className="block text-sm text-text-3">{skippedFill(resume.lead)}</span>
+						) : null}
 					</Fact>
 				</dl>
 			</div>
@@ -412,13 +428,18 @@ export function FinishStep({
 					</ul>
 				</div>
 			) : null}
-			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="complete" />
 			{done ? (
-				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-wrap items-center justify-between gap-3">
-					<Button variant="ghost" onClick={() => actions.go("team")}>
-						Review answers
-					</Button>
-					{after}
+				<div className="mx-auto mt-[30px] max-w-[820px]">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<Button variant="ghost" onClick={() => actions.go("team")}>
+							Review answers
+						</Button>
+						<Button variant="primary" asChild>
+							<IntentLink href={DASHBOARD_HOME}>Go to dashboard</IntentLink>
+						</Button>
+					</div>
+					{after ? <div className="mt-4 flex justify-end">{after}</div> : null}
 				</div>
 			) : (
 				<StepFooter

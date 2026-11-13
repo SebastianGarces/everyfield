@@ -1,12 +1,13 @@
-import { sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
+import { accountId as parseAccountId, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { type RequestActor } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
+import { workspaceAvatar } from "../settings/photo-visibility.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 const seatListRow = z.object({
@@ -19,6 +20,7 @@ const seatListRow = z.object({
 	created_at: z.coerce.date(),
 	invitation_id: z.uuid().nullable(),
 	acted_at: z.coerce.date().nullable(),
+	avatar: z.uuid().nullable(),
 });
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
@@ -30,17 +32,24 @@ export function createSeatService(db: Database) {
 			seat = a.context;
 		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.refuse();
 		const column = v.workspace.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
-		const rows = z.array(seatListRow).parse(
-			(
-				await db.execute(sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
-					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at
+		// The caller's seat must still be live when the roster is read, in the same statement (C13).
+		const found = await liveRows(
+			db,
+			liveRead(liveAccess(authority)),
+			sql`SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at,
+					i.display_name, i.created_at, inv.id AS invitation_id, inv.acted_at,
+					${workspaceAvatar(sql`s.account_id`, sql`${v.workspace.id}::uuid`)} AS avatar
 				FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 				LEFT JOIN invitation inv ON inv.id=s.invitation_id AND inv.tenant_id=${v.workspace.id}
 					AND inv.state='accepted' AND inv.accepted_account_id=s.account_id
 				WHERE ${column}=${v.workspace.id} ${v.after ? sql`AND s.id>${v.after}` : sql``}
-				ORDER BY s.id LIMIT 101`)
-			).rows,
+				ORDER BY s.id LIMIT 101`,
 		);
+		if (!found) d.refuse();
+		const rows = z
+			.array(seatListRow)
+			.parse(found)
+			.sort((x, y) => (x.id < y.id ? -1 : 1));
 		const items = rows.slice(0, 100).map((s) => ({
 			seatId: s.id,
 			displayName: s.display_name,
@@ -48,6 +57,7 @@ export function createSeatService(db: Database) {
 			revision: s.revision,
 			status: s.ended_at ? "removed" : "active",
 			isSelf: s.account_id === a.accountId,
+			avatar: s.avatar && { accountId: s.account_id, versionId: s.avatar },
 			joined: s.acted_at
 				? { source: "accepted_invitation", invitationId: s.invitation_id, at: s.acted_at.toISOString() }
 				: { source: "original_account_fallback", at: s.created_at.toISOString() },
@@ -90,34 +100,6 @@ export function createSeatService(db: Database) {
 			);
 		});
 	}
-	async function eligible(tx: Transaction, selected: Owner, account: string) {
-		const [s] = await tx
-			.select({ id: t.seat.id })
-			.from(t.seat)
-			.innerJoin(t.account, eq(t.account.id, t.seat.account_id))
-			.where(
-				and(
-					inWorkspace(selected),
-					eq(t.seat.account_id, account),
-					isNull(t.seat.ended_at),
-					eq(t.account.registration_state, "active"),
-					sql`${t.seat.accepted_at}<=clock_timestamp()`,
-				),
-			)
-			.for("share", { of: [t.seat, t.account] });
-		if (!s) return null;
-		const blocked = await tx
-			.select({ id: t.lifecycle_witness.id })
-			.from(t.lifecycle_witness)
-			.where(
-				and(
-					or(eq(t.lifecycle_witness.opaque_subject_id, account), eq(t.lifecycle_witness.seat_id, s.id)),
-					notInArray(t.lifecycle_witness.state, ["active", "cancelled"]),
-				),
-			)
-			.for("share");
-		return blocked.length ? null : s;
-	}
 	/**
 	 * The open duties a removal must hand off (REQ-IDN-019), in one place for remove and its review (ruling D52).
 	 * Remove holds every duty until it commits; the review reads without locks, so it never changes lock order.
@@ -133,12 +115,16 @@ export function createSeatService(db: Database) {
 						.select({
 							...getTableColumns(t.task),
 							plant_zone: sql<string>`(SELECT p.timezone FROM plant p WHERE p.id=${selected.id}::uuid)`,
+							// Every assignee of the task: a handoff replaces only this account, and the others keep their reminders.
+							assignee_ids: sql<
+								string[]
+							>`(SELECT coalesce(array_agg(ta.account_id),'{}') FROM task_assignee ta WHERE ta.task_id=task.id)`,
 						})
 						.from(t.task)
 						.where(
 							and(
 								eq(t.task.plant_id, selected.id),
-								eq(t.task.assignee_id, s.account_id),
+								sql`EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=${t.task.id} AND ta.account_id=${s.account_id}::uuid)`,
 								isNull(t.task.deleted_at),
 								notInArray(t.task.status, ["complete", "no_longer_needed"]),
 							),
@@ -146,29 +132,6 @@ export function createSeatService(db: Database) {
 						.orderBy(asc(t.task.id)),
 				)
 			: [];
-		// `linked`: a task carries this obligation (open or closed), so the task is the one reviewed duty. Drizzle writes a
-		// column in the select list without its table, where "id" would mean k.id, so the outer column is spelled out.
-		const obligations = plant
-			? await locked(
-					tx
-						.select({
-							...getTableColumns(t.obligation),
-							linked: sql<boolean>`EXISTS(SELECT FROM task k WHERE k.plant_id=${selected.id}::uuid AND k.obligation_id=obligation.id)`,
-						})
-						.from(t.obligation)
-						.where(
-							and(
-								eq(t.obligation.plant_id, selected.id),
-								eq(t.obligation.assignee_id, s.account_id),
-								isNull(t.obligation.waived_at),
-								isNull(t.obligation.superseded_at),
-							),
-						)
-						.orderBy(asc(t.obligation.id)),
-				)
-			: [];
-		// A task's linked obligation is one reviewed duty. Closed tasks keep their outcome.
-		const bare = obligations.filter((o) => !o.linked);
 		const organization = selected.kind === "organization";
 		const pipeline = organization
 			? await locked(
@@ -195,7 +158,7 @@ export function createSeatService(db: Database) {
 						.orderBy(asc(t.development_program.id)),
 				)
 			: [];
-		return { tasks, obligations, bare, pipeline, programs };
+		return { tasks, pipeline, programs };
 	}
 	/**
 	 * What removing this seat will need (ruling D52): the seat's revision and role, each open duty with its revision,
@@ -211,10 +174,8 @@ export function createSeatService(db: Database) {
 				.where(and(eq(t.seat.id, v.seatId), inWorkspace(selected)));
 			if (!s || s.ended_at) d.refuse();
 			if (s.role === "owner") d.refuse("protected_owner");
-			const { tasks, bare, pipeline, programs } = await openDuties(tx, selected, s, false);
-			const personIds = [...bare.map((o) => o.person_id), ...pipeline.map((p) => p.person_id)].filter(
-				(id): id is string => typeof id === "string",
-			);
+			const { tasks, pipeline, programs } = await openDuties(tx, selected, s, false);
+			const personIds = pipeline.map((p) => p.person_id).filter((id): id is string => typeof id === "string");
 			const people = personIds.length
 				? await tx
 						.select({ id: t.person.id, name: t.person.display_name })
@@ -224,16 +185,6 @@ export function createSeatService(db: Database) {
 			const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null;
 			const duties = [
 				...tasks.map((x) => ({ dutyId: x.id, expectedRevision: x.revision, kind: "task", label: x.title })),
-				...bare.map((o) => {
-					const what = o.kind === "follow_up" ? "Follow-up" : "Evaluation";
-					const who = nameOf(o.person_id);
-					return {
-						dutyId: o.id,
-						expectedRevision: o.revision,
-						kind: o.kind,
-						label: who ? `${what} with ${who}` : what,
-					};
-				}),
 				...pipeline.map((p) => ({
 					dutyId: p.id,
 					expectedRevision: p.revision,
@@ -242,22 +193,23 @@ export function createSeatService(db: Database) {
 				})),
 				...programs.map((p) => ({ dutyId: p.id, expectedRevision: p.revision, kind: "program", label: p.name })),
 			].map((x) => ({ ...x, needsRecipient: x.kind === "program" }));
-			const others = await tx
-				.select({ account_id: t.seat.account_id })
-				.from(t.seat)
-				.where(and(inWorkspace(selected), isNull(t.seat.ended_at)))
-				.orderBy(asc(t.seat.id));
-			// Every active seat is checked with the same eligibility rule remove uses, so no eligible person is hidden.
-			const able: string[] = [];
-			for (const o of others)
-				if (o.account_id !== s.account_id && (await eligible(tx, selected, o.account_id))) able.push(o.account_id);
-			if (duties.length > c.MAX_REMOVAL_ITEMS || able.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
-			const recipients = [];
-			for (const id of able) {
-				const info = await tx.execute(sql`SELECT * FROM seat_identity(${id}::uuid)`);
-				const name = z.object({ display_name: z.string() }).parse(info.rows[0]).display_name;
-				recipients.push({ accountId: id, displayName: name });
-			}
+			// The same eligibility rule remove applies under its locks, read here in one statement without locks.
+			const column = selected.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
+			const recipients = z
+				.array(z.object({ account_id: z.uuid(), display_name: z.string() }))
+				.parse(
+					(
+						await tx.execute(sql`SELECT s.account_id, i.display_name
+							FROM seat s JOIN account a ON a.id=s.account_id CROSS JOIN LATERAL seat_identity(s.account_id) i
+							WHERE ${column}=${selected.id}::uuid AND s.ended_at IS NULL AND s.account_id<>${s.account_id}::uuid
+								AND a.registration_state='active' AND s.accepted_at<=clock_timestamp()
+								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=s.account_id OR w.seat_id=s.id)
+									AND w.state NOT IN ('active','cancelled'))
+							ORDER BY s.id LIMIT ${c.MAX_REMOVAL_ITEMS + 1}`)
+					).rows,
+				)
+				.map((r) => ({ accountId: r.account_id, displayName: r.display_name }));
+			if (duties.length > c.MAX_REMOVAL_ITEMS || recipients.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 			return c.removalReviewResult.parse({
 				seatId: s.id,
 				expectedRevision: s.revision,
@@ -333,8 +285,8 @@ export function createSeatService(db: Database) {
 			const replan: Array<ReturnType<typeof reminderChange>> = [];
 			if (mode === "remove" && "handoffs" in v.input) {
 				const handoffs = v.input.handoffs;
-				const { tasks, obligations, bare, pipeline, programs } = await openDuties(tx, selected, s, true);
-				const all = [...tasks, ...bare, ...pipeline, ...programs];
+				const { tasks, pipeline, programs } = await openDuties(tx, selected, s, true);
+				const all = [...tasks, ...pipeline, ...programs];
 				if (all.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 				const named = new Map<string, string>(handoffs.map((h) => [h.dutyId, h.expectedRevision]));
 				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.refuse("conflict");
@@ -359,7 +311,6 @@ export function createSeatService(db: Database) {
 					: [];
 				const recipients = new Map(eligibleRows.map((r) => [r.account, r.id]));
 				const taskMoves = new Map<string, string | null>(),
-					obligationMoves = new Map<string, string | null>(),
 					personMoves = new Map<string, string | null>(),
 					programMoves = new Map<string, string | null>();
 				const dutyEvents: Array<ReturnType<typeof d.eventRow>> = [];
@@ -374,36 +325,28 @@ export function createSeatService(db: Database) {
 						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
 					} else duties.push({ status: "needs_owner", dutyId: h.dutyId });
 					const task = tasks.find((x) => x.id === h.dutyId),
-						obligation = bare.find((x) => x.id === h.dutyId),
 						person = pipeline.find((x) => x.id === h.dutyId),
 						program = programs.find((x) => x.id === h.dutyId);
 					if (task) {
 						taskMoves.set(task.id, recipient);
+						// D-d: the recipient takes this account's place; when it already holds the task, this account only leaves.
+						const named = (ids: string[]) =>
+							ids.map((id) => ({ accountId: parseAccountId.parse(id), displayName: "", seated: true }));
 						replan.push(
-							reminderChange(selected.id, task, {
-								...task,
-								assignee_id: recipient,
-								revision: d.bump(task.revision),
-							}),
-						);
-						if (task.obligation_id) {
-							const o = obligations.find((x) => x.id === task.obligation_id);
-							if (!o) d.refuse("conflict");
-							obligationMoves.set(o.id, recipient);
-						}
-						dutyEvents.push(d.eventRow(cmd, task.id, "assign", "tasks.changed", task.revision, d.bump(task.revision)));
-					} else if (obligation) {
-						obligationMoves.set(obligation.id, recipient);
-						dutyEvents.push(
-							d.eventRow(
-								cmd,
-								obligation.id,
-								"assign",
-								"tasks.changed",
-								obligation.revision,
-								d.bump(obligation.revision),
+							reminderChange(
+								selected.id,
+								{ ...task, assignees: named(task.assignee_ids) },
+								{
+									...task,
+									assignees: named([
+										...task.assignee_ids.filter((a) => a !== s.account_id && a !== recipient),
+										...(recipient ? [recipient] : []),
+									]),
+									revision: d.bump(task.revision),
+								},
 							),
 						);
+						dutyEvents.push(d.eventRow(cmd, task.id, "assign", "tasks.changed", task.revision, d.bump(task.revision)));
 					} else if (person) {
 						personMoves.set(person.id, recipientSeat);
 						dutyEvents.push(
@@ -424,23 +367,24 @@ export function createSeatService(db: Database) {
 						[...moves].map(([key, recipient]) => sql`WHEN ${key}::uuid THEN ${recipient}::uuid`),
 						sql` `,
 					)} END`;
-				if (taskMoves.size)
+				if (taskMoves.size) {
+					const ids = [...taskMoves.keys()];
+					const moves = [...taskMoves].flatMap(([id, account]) => (account ? [{ id, account }] : []));
 					cmd.writes.push(
 						tx
 							.update(t.task)
-							.set({ assignee_id: assignment(taskMoves, sql`${t.task.id}`), revision: sql`${t.task.revision}+1` })
-							.where(inArray(t.task.id, [...taskMoves.keys()])),
+							.set({ revision: sql`${t.task.revision}+1` })
+							.where(inArray(t.task.id, ids)),
+						sql`DELETE FROM task_assignee WHERE account_id=${s.account_id}::uuid AND task_id=ANY(${sql.param(ids)}::uuid[])`,
+						...(moves.length
+							? [
+									sql`INSERT INTO task_assignee (plant_id, task_id, account_id)
+										SELECT ${selected.id}::uuid, m.id, m.account FROM jsonb_to_recordset(${JSON.stringify(moves)}::jsonb)
+										AS m(id uuid, account uuid) ON CONFLICT DO NOTHING`,
+								]
+							: []),
 					);
-				if (obligationMoves.size)
-					cmd.writes.push(
-						tx
-							.update(t.obligation)
-							.set({
-								assignee_id: assignment(obligationMoves, sql`${t.obligation.id}`),
-								revision: sql`${t.obligation.revision}+1`,
-							})
-							.where(inArray(t.obligation.id, [...obligationMoves.keys()])),
-					);
+				}
 				if (personMoves.size)
 					cmd.writes.push(
 						tx

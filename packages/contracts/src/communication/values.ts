@@ -2,6 +2,11 @@ import { z } from "zod";
 import { meetingTemplateTypes, templateCategories } from "./catalog.ts";
 
 export const communicationStates = ["draft", "reviewed", "scheduled"] as const;
+/**
+ * The most emails one email-service call takes (REQ-COM-005). A Messages handoff freezes its audience in ordered batches
+ * of at most this many, each its own request under its own key; the Resend adapter's batch answer is held to it too.
+ */
+export const MAIL_BATCH_LIMIT = 100;
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
 
 /** A closed group token is a string. An unknown token matches nobody. */
@@ -12,14 +17,15 @@ export const audienceInput = z.strictObject({
 });
 export type AudienceInput = z.infer<typeof audienceInput>;
 
+/** Left out keeps the stored value (undefined); null or blank clears it (null). */
 const optionalText = (max: number) =>
 	z
 		.string()
 		.trim()
 		.max(max)
 		.nullable()
-		.optional()
-		.transform((value) => (value ? value : null));
+		.transform((value) => (value ? value : null))
+		.optional();
 
 export const templateName = z.string().trim().min(1).max(255);
 export const templateDescription = z.string().trim().max(1000).nullable().optional();
@@ -38,9 +44,6 @@ export const templateDraft = z.strictObject({
 });
 export type TemplateDraft = z.infer<typeof templateDraft>;
 
-export const templatePatch = templateDraft;
-export type TemplatePatch = z.infer<typeof templatePatch>;
-
 /** An incomplete draft may omit subject and body. `scheduledAt` is not part of a draft. */
 export const draftInput = z.strictObject({
 	communicationId: z.uuid().optional(),
@@ -51,7 +54,5 @@ export const draftInput = z.strictObject({
 	templateId: z.uuid().nullable().optional(),
 	templateSource: z.string().trim().min(1).max(80).nullable().optional(),
 });
-export type DraftInput = z.infer<typeof draftInput>;
 
 export const mergeFields = z.record(z.string().regex(/^[a-z0-9_]+$/), z.string().max(500));
-export type MergeFields = z.infer<typeof mergeFields>;
