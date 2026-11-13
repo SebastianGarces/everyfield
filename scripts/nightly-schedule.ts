@@ -1,7 +1,7 @@
 // `bin/dev nightly schedule install|status|uninstall` (T-104): a launchd user agent that runs `bin/dev nightly` from the
 // main checkout at 03:30 local time on this Mac (D-347). launchd runs a missed calendar job when the Mac next wakes.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { ciHome } from "./check.ts";
@@ -103,10 +103,9 @@ export function install(d: ScheduleDeps): number {
 	mkdirSync(d.home, { recursive: true });
 	const replaced = bootout(d);
 	writeFileSync(
-		`${file}.tmp`,
+		file,
 		plist({ label: LABEL, hour: HOUR, minute: MINUTE, checkout: d.checkout, path: d.path, log: jobLog(d.home) }),
 	);
-	renameSync(`${file}.tmp`, file);
 	const r = d.launchctl(["bootstrap", `gui/${d.uid}`, file]);
 	if (r.status !== 0) throw new Error(`launchctl bootstrap failed:\n${r.output}`);
 	d.log(`${replaced ? "replaced" : "installed"} ${LABEL}: bin/dev nightly from ${d.checkout} at ${time} every day`);
