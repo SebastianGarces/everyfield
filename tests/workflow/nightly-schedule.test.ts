@@ -225,6 +225,11 @@ test("the job PATH puts the running node first and reaches every tool nightly ca
 			git: "/usr/bin/git",
 		})[tool] ?? null;
 	assert.equal(jobPath(found, "/nvm/v24/bin/node"), "/nvm/v24/bin:/brew/bin:/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+	const withNode = (tool: string) => (tool === "node" ? "/brew/bin/node" : found(tool));
+	assert.equal(
+		jobPath(withNode, "/brew/Cellar/node/26/bin/node"),
+		"/brew/bin:/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+	);
 	assert.throws(() => jobPath(() => null, "/n/node"), /pnpm is not on PATH/);
 });
 

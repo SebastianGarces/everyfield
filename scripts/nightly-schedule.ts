@@ -164,9 +164,13 @@ const which = (command: string) => {
 	return r.status === 0 ? r.stdout.trim() : null;
 };
 
-/** The node bin/dev runs on first, then the dirs of every tool `bin/dev nightly` calls, then the system dirs. */
+/**
+ * The dirs of node and every tool `bin/dev nightly` calls, then the system dirs. node is the one on PATH (a stable link
+ * such as /opt/homebrew/bin/node that survives an upgrade; bin/dev falls back to nvm when it is older than 24), else
+ * the node running now.
+ */
 export function jobPath(found: (command: string) => string | null = which, node = process.execPath): string {
-	const dirs = [dirname(node)];
+	const dirs = [dirname(found("node") ?? node)];
 	for (const tool of ["pnpm", "corepack", "gh", "portless", "git"]) {
 		const at = found(tool);
 		if (at) dirs.push(dirname(at));
