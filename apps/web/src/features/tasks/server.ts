@@ -3,15 +3,24 @@ import { getViewer } from "@/server/request-context";
 import { tasksMount } from "@/server/tasks";
 import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
-import { taskReader, withTaskWrite, type TaskContext, type TaskReply, type TaskWriter } from "@everyfield/domain/tasks";
+import { followUpReader } from "@everyfield/domain/followups";
+import {
+	createTemplateReader,
+	taskReader,
+	withTaskWrite,
+	type TaskContext,
+	type TaskReply,
+	type TaskWriter,
+} from "@everyfield/domain/tasks";
 import "server-only";
+import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 
 // The Tasks screens reach the task core here. Pages and actions share the request's one viewer (D59/D60); every read
 // statement rechecks the live seat itself (C13), and every write rechecks authority inside its own statement (D70).
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
-export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
+const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
 /** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function taskViewer(): Promise<TaskViewer | null> {
@@ -29,7 +38,7 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 		: { status: "refused", code: reply.error.code, error: reply.error };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
-export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -55,7 +64,12 @@ export async function write<T>(
 	}
 }
 
+/** The fixed Everyfield checklist catalog: browse, preview and the phase offer (WP-026). */
+export const templates = createTemplateReader();
+
 export const reader = {
+	offer: (tx: Transaction, v: TaskViewer, transitionId?: string) =>
+		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(outcome),
 	list: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
 		taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
 	count: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
@@ -67,7 +81,9 @@ export const reader = {
 
 /**
  * One open task for its panel, read in one transaction: the task and its first history page (two statements), plus
- * the tasks it waits for when it has any and its series' open occurrence when it repeats (one statement each).
+ * the tasks it waits for when it has any, its series' open occurrence when it repeats and, for a follow-up (a person
+ * relation and no parent), the first page of its contact history (one statement each). The history is read on every
+ * open, so an outcome recorded on the call screen shows the next time the panel opens (REQ-MTG-022).
  */
 export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
@@ -81,12 +97,25 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 	const occurrence = task.recurrence
 		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
 		: null;
+	// A refused contact read stays its own outcome, so the panel can offer "Try again" without closing.
+	const contacts =
+		task.relation?.kind === "person" && !task.parentId
+			? await followUpReader
+					.listContactHistory(tx, viewer.authority, {
+						personId: task.relation.id,
+						taskId: task.id,
+						limit: HISTORY_PAGE,
+						page: 1,
+					})
+					.then(outcomeOf)
+			: null;
 	const ok = <T>(r: Outcome<T> | null) => (r?.status === "ok" ? r.value : null);
 	return {
 		status: "ok",
 		value: {
 			task,
-			history: ok(history),
+			history,
+			contacts,
 			prerequisites: task.prerequisiteIds.length ? ok(prerequisites) : { taskId: task.id, items: [], blocked: false },
 			occurrence: ok(occurrence),
 		},
@@ -94,11 +123,12 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 }
 
 /**
- * The Tasks page in one transaction: the list page and its counts, two statements. A page past the end shows the
- * last page instead (D67). A task named in the address opens with its detail and history, two statements more.
+ * The Tasks page in one transaction: the list page and its counts, two statements, and for an Owner or Admin the phase
+ * offer, one statement more and the Wiki's reading list when an offer is open. A page past the end shows the last page
+ * instead (D67). A task named in the address opens with its detail and history, two statements more.
  */
 export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: string | null) {
-	return read(viewer, async (tx) => {
+	return read(async (tx) => {
 		let list = await reader.list(tx, viewer, query);
 		if (list.status === "ok" && list.value.items.length === 0 && query.page > 1) {
 			query = { ...query, page: pageCount(list.value.total) };
@@ -108,9 +138,17 @@ export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: 
 		const counts = await reader.count(tx, viewer, query);
 		if (counts.status !== "ok") return counts;
 		const opened = open ? await loadTask(tx, viewer, open) : null;
+		// A refused or failed offer read leaves the list as it is: the offer simply does not show.
+		const offer = administers(viewer) ? await reader.offer(tx, viewer) : null;
 		return {
 			status: "ok",
-			value: { query, page: list.value, counts: counts.value, opened: opened?.status === "ok" ? opened.value : null },
+			value: {
+				query,
+				page: list.value,
+				counts: counts.value,
+				opened: opened?.status === "ok" ? opened.value : null,
+				offer: offer?.status === "ok" && offer.value.status === "open" ? offer.value : null,
+			},
 		};
 	});
 }

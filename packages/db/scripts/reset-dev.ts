@@ -1,18 +1,16 @@
 import { sql } from "drizzle-orm";
 import { database, closeDatabase } from "../src/client.ts";
 import { early_access_request } from "../src/schema/tables.ts";
+import { developmentHosts, assertDevelopmentDatabase } from "../src/development.ts";
 
-const developmentHosts = new Set([
-	"ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech",
-	"ep-autumn-dew-b8ltidky-pooler.c-14.us-east-1.aws.neon.tech",
-]);
+// The guard also accepts CI's localhost database; the reset never does, so it also requires a development host.
 let allowed = false;
 try {
-	allowed = developmentHosts.has(new URL(process.env.DATABASE_URL ?? "").hostname);
+	allowed = developmentHosts.has(assertDevelopmentDatabase(process.env.DATABASE_URL).hostname);
 } catch {
 	/* Refuse without exposing settings. */
 }
-if (!allowed || process.env.NODE_ENV === "production") {
+if (!allowed) {
 	console.error("Reset refused. Use the everyfield-v3 shared development database outside production.");
 	process.exit(1);
 }

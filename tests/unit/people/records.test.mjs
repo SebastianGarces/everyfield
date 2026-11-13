@@ -1,0 +1,67 @@
+// 4 C's, interview and commitment rules (WP-014/ui) that the Person page applies while a save runs or after it. A silent
+// break would show a wrong latest record, a demoted stage, a wrong first commitment date or a duplicate save. They run
+// in node against the real module the cards use; no browser.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { advancedStage, withCard, withRecord } from "../../../apps/web/src/features/people/assessments/model.ts";
+
+const rec = (id, occurredOn, recordedAt) => ({ id, occurredOn, recordedAt });
+
+test("AC:TARGET-PPL-012 a late historical record joins history in date order and never becomes the latest", () => {
+	const items = [rec("b", "2026-10-10", "2026-10-10T10:00:00Z"), rec("a", "2026-09-01", "2026-09-01T10:00:00Z")];
+	const late = rec("c", "2026-09-20", "2026-10-21T09:00:00Z");
+	assert.deepEqual(
+		withRecord(items, late).map((r) => r.id),
+		["b", "c", "a"],
+	);
+	// Same date: the later recorded instant is the latest. A record already shown keeps one place.
+	const same = rec("d", "2026-10-10", "2026-10-11T08:00:00Z");
+	assert.deepEqual(
+		withRecord(withRecord(items, same), same).map((r) => r.id),
+		["d", "b", "a"],
+	);
+});
+
+test("AC:TARGET-PPL-013 AC:TARGET-PPL-014 a record moves an earlier stage up and never moves a later stage back", () => {
+	assert.equal(advancedStage("prospect", "interviewed"), "interviewed");
+	assert.equal(advancedStage("interviewed", "interviewed"), "interviewed");
+	assert.equal(advancedStage("leader", "interviewed"), "leader");
+	assert.equal(advancedStage("following_up", "core_group"), "core_group");
+	assert.equal(advancedStage("launch_team", "core_group"), "launch_team");
+});
+
+test("AC:TARGET-PPL-026 a new card sets the first commitment only when it is earlier; unknown stays unknown", () => {
+	const card = { id: "k2", occurredOn: "2026-09-01" };
+	assert.deepEqual(withCard({ status: "none" }, card), { status: "known", occurredOn: "2026-09-01", evidenceId: "k2" });
+	const known = { status: "known", occurredOn: "2026-08-15", evidenceId: "k1" };
+	assert.equal(withCard(known, card), known);
+	assert.deepEqual(withCard({ ...known, occurredOn: "2026-10-01" }, card), {
+		status: "known",
+		occurredOn: "2026-09-01",
+		evidenceId: "k2",
+	});
+	assert.deepEqual(withCard({ status: "unknown" }, card), { status: "unknown" });
+});
+
+test("INV-request-key (C58, review F4): Check again sends the same key; a new intent with the same answers gets its own", async () => {
+	const { PersonStore, runSave } = await import("../../../apps/web/src/features/people/model.ts");
+	const store = new PersonStore({ id: "p1", revision: "1" });
+	const fresh = () => "slot-key";
+	const same = { personId: "p1", occurredOn: "2026-10-01", committed: { score: 3, notes: "same" } };
+	const sent = [];
+	const call = (outcome) => (key) => (sent.push(key), Promise.resolve(outcome));
+	const a = { key: "intent-A", body: "" };
+	// A is lost; Check again sends A's request with A's key.
+	await runSave(store, "assessment", same, call({ status: "lost" }), { fresh, key: a });
+	await runSave(store, "assessment", same, call({ status: "ok", value: null }), { fresh, key: a });
+	// B is a newly opened form with the same answers and its own key: it is saved, never a replay of A.
+	await runSave(store, "assessment", same, call({ status: "ok", value: null }), {
+		fresh,
+		key: { key: "intent-B", body: "" },
+	});
+	assert.deepEqual(sent, ["intent-A", "intent-A", "intent-B"]);
+	// A caller without its own key keeps the slot rule: a retry of the same payload after a loss replays the lost key.
+	await runSave(store, "other", same, call({ status: "lost" }), { fresh: () => "k1" });
+	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh: () => "k2" });
+	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
+});

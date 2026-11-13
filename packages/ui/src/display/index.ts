@@ -6,3 +6,4 @@ export { TINT, type Tone } from "./tone";
 export * from "./values";
 export * from "./Content";
 export * from "./Pipeline";
+export * from "./WikiDiagram";

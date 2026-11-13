@@ -1,4 +1,12 @@
-import type { WikiArticle } from "@everyfield/contracts/wiki";
+import {
+	EDITOR_FORMAT,
+	editorDocumentBlocks,
+	humanCredit,
+	wikiBlocks,
+	type Diagram,
+	type WikiArticle,
+	type WikiBlock,
+} from "@everyfield/contracts/wiki";
 import { z } from "zod";
 
 // View models for the wiki screens. The producer is the authority for entitlement.
@@ -32,14 +40,14 @@ export function sourceInput(choice: SourceChoice): SourceInput {
 	return choice.kind === "current" ? { kind: "current" } : choice;
 }
 
-export function sourceQuery(choice: SourceChoice): string | null {
+function sourceQuery(choice: SourceChoice): string | null {
 	if (choice.kind === "global") return "global";
 	if (choice.kind === "organization") return choice.organizationId;
 	return null;
 }
 
 /** Catch-all params back into the slug the producer stored. */
-export function slugFromParts(parts: string[] | undefined): string {
+function slugFromParts(parts: string[] | undefined): string {
 	if (!parts?.length) return "";
 	return parts
 		.map((part) => {
@@ -92,7 +100,7 @@ export function pdfFilename(slug: string): string {
 	return `${clean || "article"}.pdf`;
 }
 
-export type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
+type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
 
 export type TreeModel = {
 	phases: { number: number; name: string; items: NavItem[] }[];
@@ -126,6 +134,24 @@ export function treeModel(groups: NavGroup[], read: ReadonlySet<string>): TreeMo
 	return { phases, more };
 }
 
+export type Step = { title: string; href: string; group: string };
+
+/** The article before and after `currentId` in the order the sidenav draws: journey phases, then the other groups. */
+export function stepsAround(tree: TreeModel, currentId: string): { previous: Step | null; next: Step | null } {
+	const flat = [
+		...tree.phases.map((phase) => ({ group: `Phase ${phase.number} · ${phase.name}`, items: phase.items })),
+		...tree.more.map((group) => ({ group: group.name, items: group.items })),
+	].flatMap((group) =>
+		group.items.map((item) => ({ id: item.id, title: item.title, href: item.href, group: group.group })),
+	);
+	const index = flat.findIndex((item) => item.id === currentId);
+	if (index < 0) return { previous: null, next: null };
+	const here = flat[index]?.group;
+	const step = (item: (typeof flat)[number] | undefined): Step | null =>
+		item ? { title: item.title, href: item.href, group: item.group === here ? "" : item.group } : null;
+	return { previous: step(flat[index - 1]), next: step(flat[index + 1]) };
+}
+
 export type SourceRow = {
 	id: string;
 	kind: "church" | "network" | "global";
@@ -140,12 +166,6 @@ function letters(name: string): string {
 	const raw = words.length >= 2 ? `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}` : name.slice(0, 2);
 	const text = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 	return text.slice(0, 2) || "SO";
-}
-
-export function humanCredit(credit: string): string | null {
-	if (!credit || /^(church|network|global):/i.test(credit)) return null;
-	if (uuid.safeParse(credit).success) return null;
-	return credit;
 }
 
 export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, string>): SourceRow[] {
@@ -178,13 +198,40 @@ export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, stri
 	return rows;
 }
 
+/** The church's stored Wiki source order, as wiki.setSourceOrder keeps it. Revision "0": no order is stored yet. */
+export type SourceOrder = { revision: string; churches: string[]; networks: string[] };
+
+/** The list with `id` first and the rest in the order they had. */
+export const toHead = (ids: readonly string[], id: string): string[] => [id, ...ids.filter((item) => item !== id)];
+
+/**
+ * The order that makes `source` the preferred one in its own list, or null when "Set as preferred" is not offered:
+ * no order to change (not an Owner or Admin), the Global source, the source already preferred here, or already first
+ * in its list. With two or more churches and no stored order, any church can be chosen, even the first one listed.
+ */
+export function preferredOrder(
+	order: SourceOrder | null,
+	source: Pick<SourceRow, "id" | "kind">,
+	preferredId: string,
+): (SourceOrder & { list: "churches" | "networks" }) | null {
+	if (!order || source.kind === "global" || source.id === preferredId) return null;
+	const list = source.kind === "church" ? "churches" : "networks";
+	const index = order[list].indexOf(source.id);
+	const unordered = list === "churches" && order.revision === "0" && order.churches.length > 1;
+	if (index < 0 || (index === 0 && !unordered)) return null;
+	return { ...order, list, [list]: toHead(order[list], source.id) };
+}
+
 export type Block =
 	| { kind: "heading"; level: 2 | 3; text: string; id: string }
 	| { kind: "paragraph"; text: string }
 	| { kind: "quote"; text: string }
 	| { kind: "list"; ordered: boolean; items: string[] }
 	| { kind: "table"; rows: string[][] }
-	| { kind: "callout"; label: string; text: string };
+	| { kind: "callout"; label: string; text: string }
+	| { kind: "code"; text: string }
+	/** `info` and `source` are the fence as written, so a save keeps the diagram as its author wrote it. */
+	| { kind: "diagram"; diagram: Diagram; info: string; source: string };
 
 function headingId(text: string, used: Map<string, number>): string {
 	const base =
@@ -202,191 +249,39 @@ function withIds(blocks: Block[]): Block[] {
 	return blocks.map((block) => (block.kind === "heading" ? { ...block, id: headingId(block.text, used) } : block));
 }
 
-function cells(line: string): string[] {
-	return line
-		.split("|")
-		.map((cell) => cell.trim())
-		.filter((cell) => cell.length > 0 && !/^:?-+:?$/.test(cell));
+/** The reader's view of the shared blocks: headings 2 and 3 with ids, one paragraph per line, no blanks or breaks. */
+function readerBlocks(blocks: readonly WikiBlock[]): Block[] {
+	const out: Block[] = [];
+	for (const block of blocks) {
+		if (block.kind === "heading") {
+			if (block.level === 2 || block.level === 3)
+				out.push({ kind: "heading", level: block.level, text: block.text, id: "" });
+			else if (block.text) out.push({ kind: "paragraph", text: block.text });
+		} else if (block.kind === "paragraph")
+			out.push(...block.paragraphs.map((text) => ({ kind: "paragraph" as const, text })));
+		else if (block.kind === "component")
+			out.push(...block.text.split("\n").flatMap((text) => (text ? [{ kind: "paragraph" as const, text }] : [])));
+		else if (block.kind === "quote") out.push({ kind: "quote", text: block.text });
+		else if (block.kind === "list") out.push({ kind: "list", ordered: block.ordered, items: block.items });
+		else if (block.kind === "table") {
+			if (block.rows.length) out.push({ kind: "table", rows: block.rows });
+		} else if (block.kind === "callout") out.push({ kind: "callout", label: block.label, text: block.text });
+		else if (block.kind === "code") out.push({ kind: "code", text: block.text });
+		else if (block.kind === "diagram")
+			out.push({ kind: "diagram", diagram: block.diagram, info: block.info, source: block.source });
+	}
+	return withIds(out);
 }
 
-/** The published markdown subset: headings, paragraphs, lists, tables, quotes and callouts. */
-export function markdownBlocks(body: string): Block[] {
-	const blocks: Block[] = [];
-	const lines = body.split(/\n/);
-	let index = 0;
-	while (index < lines.length) {
-		const trimmed = (lines[index] ?? "").trim();
-		if (!trimmed) {
-			index += 1;
-			continue;
-		}
-		const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-		if (heading?.[1] && heading[2]) {
-			const level = heading[1].length;
-			if (level === 2 || level === 3) blocks.push({ kind: "heading", level, text: heading[2].trim(), id: "" });
-			else blocks.push({ kind: "paragraph", text: heading[2].trim() });
-			index += 1;
-			continue;
-		}
-		if (/^<Callout\b/.test(trimmed)) {
-			const type = /type="([A-Za-z]+)"/.exec(trimmed)?.[1] ?? "";
-			const inline = trimmed
-				.replace(/^<Callout\b[^>]*>/, "")
-				.replace(/<\/Callout>\s*$/, "")
-				.trim();
-			const inner: string[] = inline ? [inline] : [];
-			if (!trimmed.includes("</Callout>")) {
-				index += 1;
-				while (index < lines.length && !(lines[index] ?? "").includes("</Callout>")) {
-					const text = (lines[index] ?? "").trim();
-					if (text) inner.push(text);
-					index += 1;
-				}
-			}
-			blocks.push({
-				kind: "callout",
-				label: type ? type[0]!.toUpperCase() + type.slice(1) : "",
-				text: inner.join("\n"),
-			});
-			index += 1;
-			continue;
-		}
-		if (trimmed === "</Callout>" || trimmed === "---") {
-			index += 1;
-			continue;
-		}
-		if (trimmed.startsWith("|")) {
-			const rows: string[][] = [];
-			while (index < lines.length && (lines[index] ?? "").trim().startsWith("|")) {
-				const row = cells(lines[index] ?? "");
-				if (row.length) rows.push(row);
-				index += 1;
-			}
-			if (rows.length) blocks.push({ kind: "table", rows });
-			continue;
-		}
-		if (trimmed.startsWith(">")) {
-			const quote: string[] = [];
-			while (index < lines.length && (lines[index] ?? "").trim().startsWith(">")) {
-				quote.push((lines[index] ?? "").trim().replace(/^>\s?/, ""));
-				index += 1;
-			}
-			blocks.push({ kind: "quote", text: quote.join(" ") });
-			continue;
-		}
-		const item = /^(?:[-*]|\d+\.)\s+(.+)$/.exec(trimmed);
-		if (item?.[1]) {
-			const ordered = /^\d+\./.test(trimmed);
-			const items: string[] = [];
-			while (index < lines.length) {
-				const next = /^(?:[-*]|\d+\.)\s+(.+)$/.exec((lines[index] ?? "").trim());
-				if (!next?.[1]) break;
-				items.push(next[1].trim());
-				index += 1;
-			}
-			blocks.push({ kind: "list", ordered, items });
-			continue;
-		}
-		blocks.push({ kind: "paragraph", text: trimmed });
-		index += 1;
-	}
-	return withIds(blocks);
-}
-
-function textOf(value: unknown): string {
-	if (typeof value === "string") return value;
-	if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("");
-	if (!value || typeof value !== "object") return "";
-	const node = value as { type?: string; text?: string; content?: unknown; children?: unknown };
-	if (node.type === "script" || node.type === "import" || node.type === "mdxjsEsm") return "";
-	if (typeof node.text === "string" && !node.content && !node.children) return node.text;
-	return textOf(node.content ?? node.children ?? "");
-}
-
-function nodeBlocks(value: unknown, blocks: Block[]): void {
-	if (Array.isArray(value)) {
-		value.forEach((item) => nodeBlocks(item, blocks));
-		return;
-	}
-	if (!value || typeof value !== "object") return;
-	const node = value as {
-		type?: string;
-		level?: number;
-		text?: string;
-		content?: unknown;
-		children?: unknown;
-	};
-	if (node.type === "script" || node.type === "import" || node.type === "mdxjsEsm") return;
-	const kids = node.content ?? node.children;
-	const heading =
-		node.type === "h2" || node.type === "h3" || node.type === "heading" || node.level === 2 || node.level === 3;
-	if (heading && (typeof node.text === "string" || kids)) {
-		const level = node.type === "h3" || node.level === 3 ? 3 : 2;
-		const text = typeof node.text === "string" ? node.text : textOf(kids);
-		if (text && (level === 2 || level === 3)) blocks.push({ kind: "heading", level, text, id: "" });
-		return;
-	}
-	if (
-		node.type === "bulletList" ||
-		node.type === "orderedList" ||
-		node.type === "list" ||
-		node.type === "ul" ||
-		node.type === "ol"
-	) {
-		const items = (Array.isArray(kids) ? kids : [])
-			.map((item) => textOf(item))
-			.map((item) => item.trim())
-			.filter(Boolean);
-		if (items.length) blocks.push({ kind: "list", ordered: node.type === "orderedList" || node.type === "ol", items });
-		return;
-	}
-	if (node.type === "callout") {
-		const text = textOf(kids ?? node.text);
-		if (text) blocks.push({ kind: "callout", label: "", text });
-		return;
-	}
-	if (node.type === "blockquote") {
-		const text = textOf(kids ?? node.text);
-		if (text) blocks.push({ kind: "quote", text });
-		return;
-	}
-	if (node.type === "paragraph" || node.type === "p") {
-		const text = textOf(kids ?? node.text).trim();
-		if (text) blocks.push({ kind: "paragraph", text });
-		return;
-	}
-	if (kids) nodeBlocks(kids, blocks);
-}
-
-/** Organization nodes become the same blocks. Raw JSON is never shown. */
-export function nodeDocument(body: string): Block[] | null {
-	try {
-		const parsed = JSON.parse(body) as unknown;
-		const editor = blocksFromEditorDocument(parsed);
-		if (editor) return withIds(editor);
-		if (!parsed || typeof parsed !== "object") return null;
-		const blocks: Block[] = [];
-		nodeBlocks(parsed, blocks);
-		if (!blocks.length) {
-			const text = textOf(parsed).trim();
-			if (!text) return [];
-			return [{ kind: "paragraph", text }];
-		}
-		return withIds(blocks);
-	} catch {
-		return null;
-	}
-}
-
+/** A stored body as the reader shows it (wikiBlocks, the one parser the excerpt, PDF and print export also read). */
 export function articleBlocks(contentType: string, body: string): Block[] {
-	if (contentType === "safe_nodes") return nodeDocument(body) ?? markdownBlocks(body);
-	return markdownBlocks(body);
+	return readerBlocks(wikiBlocks(contentType, body));
 }
 
 export type Inline =
 	{ kind: "text"; text: string } | { kind: "strong"; text: string } | { kind: "link"; text: string; href: string };
 
-export function safeHref(raw: string): string | null {
+function safeHref(raw: string): string | null {
 	if (raw.startsWith("/wiki/") || raw.startsWith("#")) return raw;
 	try {
 		const url = new URL(raw);
@@ -438,6 +333,9 @@ function stripTags(text: string): string {
 	return text.replace(/<[^>]*>/g, "");
 }
 
+/** Whose text an article shows, when it is not the global article. */
+export type ArticleVersion = { kind: "church" | "network"; name: string };
+
 export type Listed = {
 	articleId: string;
 	title: string;
@@ -445,6 +343,8 @@ export type Listed = {
 	excerpt: string | null;
 	observedFraction: string;
 	completed: boolean;
+	/** A meaningful revision came after this reader finished it. */
+	updated: boolean;
 };
 
 export function listed(article: WikiArticle): Listed {
@@ -455,6 +355,7 @@ export function listed(article: WikiArticle): Listed {
 		excerpt: article.excerpt,
 		observedFraction: article.observedFraction,
 		completed: article.completed,
+		updated: article.updatedLabel,
 	};
 }
 
@@ -470,100 +371,27 @@ export function editPath(slug: string): string {
 	return `${articlePath(slug)}/edit`;
 }
 
+/** A block the editor shows as the reader renders it and saves unchanged. */
+export type FixedBlock = Extract<Block, { kind: "table" | "callout" | "code" | "diagram" }>;
+
 export type EditorBlock =
 	| { kind: "paragraph"; text: string }
 	| { kind: "heading"; level: 2 | 3; text: string }
 	| { kind: "quote"; text: string }
-	| { kind: "list"; ordered: boolean; text: string };
-
-const EDITOR_FORMAT = "everyfield-editor-v1";
-export const EDITOR_BODY_LIMIT = 20000;
-
-function inlineText(value: unknown): string {
-	if (!Array.isArray(value)) return "";
-	return value
-		.map((part) => {
-			if (!part || typeof part !== "object") return "";
-			const node = part as { type?: string; text?: string; children?: unknown };
-			if (node.type === "text" && typeof node.text === "string") return node.text;
-			if (node.type === "link") return inlineText(node.children);
-			return "";
-		})
-		.join("");
-}
-
-function blocksFromEditorDocument(value: unknown): Block[] | null {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const doc = value as { format?: unknown; blocks?: unknown };
-	if (doc.format !== EDITOR_FORMAT || !Array.isArray(doc.blocks)) return null;
-	const blocks: Block[] = [];
-	for (const raw of doc.blocks) {
-		const block = contractToReader(raw);
-		if (block) blocks.push(block);
-	}
-	return blocks;
-}
-
-function contractToReader(value: unknown): Block | null {
-	if (!value || typeof value !== "object") return null;
-	const node = value as {
-		type?: string;
-		level?: number;
-		text?: string;
-		ordered?: boolean;
-		children?: unknown;
-		items?: unknown;
-		rows?: unknown;
-	};
-	if (node.type === "heading") {
-		const text = inlineText(node.children).trim();
-		if (!text) return null;
-		if (node.level === 2 || node.level === 3) return { kind: "heading", level: node.level, text, id: "" };
-		return { kind: "paragraph", text };
-	}
-	if (node.type === "paragraph" || node.type === "quote") {
-		const text = inlineText(node.children).trim();
-		if (!text) return null;
-		return node.type === "quote" ? { kind: "quote", text } : { kind: "paragraph", text };
-	}
-	if (node.type === "list" && Array.isArray(node.items)) {
-		const items = node.items.map((item) => inlineText(item).trim()).filter(Boolean);
-		if (!items.length) return null;
-		return { kind: "list", ordered: node.ordered === true, items };
-	}
-	if (node.type === "code" && typeof node.text === "string" && node.text.trim()) {
-		return { kind: "paragraph", text: node.text.trim() };
-	}
-	if (node.type === "table" && Array.isArray(node.rows)) {
-		const rows = node.rows
-			.map((row) => (Array.isArray(row) ? row.map((cell) => inlineText(cell).trim()) : []))
-			.filter((row) => row.some(Boolean));
-		if (!rows.length) return null;
-		return { kind: "table", rows };
-	}
-	return null;
-}
+	| { kind: "list"; ordered: boolean; text: string }
+	| { kind: "fixed"; block: FixedBlock };
 
 function readerToEditor(block: Block): EditorBlock {
 	if (block.kind === "heading") return { kind: "heading", level: block.level, text: block.text };
 	if (block.kind === "quote") return { kind: "quote", text: block.text };
 	if (block.kind === "list") return { kind: "list", ordered: block.ordered, text: block.items.join("\n") };
-	if (block.kind === "table") return { kind: "paragraph", text: block.rows.map((row) => row.join(" · ")).join("\n") };
-	if (block.kind === "callout")
-		return { kind: "paragraph", text: block.label ? `${block.label}: ${block.text}` : block.text };
-	return { kind: "paragraph", text: block.text };
+	if (block.kind === "paragraph") return { kind: "paragraph", text: block.text };
+	return { kind: "fixed", block };
 }
 
 function editorFromContract(value: unknown): EditorBlock[] | null {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const doc = value as { format?: unknown; blocks?: unknown };
-	if (doc.format !== EDITOR_FORMAT || !Array.isArray(doc.blocks)) return null;
-	const blocks: EditorBlock[] = [];
-	for (const raw of doc.blocks) {
-		const reader = contractToReader(raw);
-		if (reader) blocks.push(readerToEditor(reader));
-	}
-	return blocks;
+	const blocks = editorDocumentBlocks(value);
+	return blocks && readerBlocks(blocks).map(readerToEditor);
 }
 
 /** Draft JSON first. Published markdown and older plain text become the same blocks. */
@@ -577,8 +405,18 @@ export function editorBlocksFromBody(contentType: string, body: string): EditorB
 	return articleBlocks(contentType, body).map(readerToEditor);
 }
 
+const run = (text: string) => [{ type: "text", text, marks: [] }];
+
+function fixedNode(block: FixedBlock): unknown {
+	if (block.kind === "table") return { type: "table", rows: block.rows.map((row) => row.map(run)) };
+	if (block.kind === "callout") return { type: "callout", label: block.label, children: run(block.text) };
+	if (block.kind === "code") return { type: "code", language: "text", text: block.text };
+	return { type: "diagram", info: block.info, source: block.source };
+}
+
 function contractBlock(block: EditorBlock): unknown {
-	const text = [{ type: "text", text: block.text, marks: [] }];
+	if (block.kind === "fixed") return fixedNode(block.block);
+	const text = run(block.text);
 	if (block.kind === "heading") return { type: "heading", level: block.level, children: text };
 	if (block.kind === "quote") return { type: "quote", children: text };
 	if (block.kind === "list") {
@@ -586,17 +424,13 @@ function contractBlock(block: EditorBlock): unknown {
 			.split("\n")
 			.map((item) => item.trim())
 			.filter(Boolean)
-			.map((item) => [{ type: "text", text: item, marks: [] }]);
-		return {
-			type: "list",
-			ordered: block.ordered,
-			items: items.length ? items : [[{ type: "text", text: "", marks: [] }]],
-		};
+			.map(run);
+		return { type: "list", ordered: block.ordered, items: items.length ? items : [run("")] };
 	}
 	return { type: "paragraph", children: text };
 }
 
-export function editorDocumentJson(blocks: EditorBlock[]): string {
+function editorDocumentJson(blocks: EditorBlock[]): string {
 	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
 }
 
@@ -613,7 +447,7 @@ export function editorWriteBody(initialBody: string | null, initialContentType: 
 }
 
 export function editorHasText(blocks: EditorBlock[]): boolean {
-	return blocks.some((block) => block.text.trim().length > 0);
+	return blocks.some((block) => block.kind === "fixed" || block.text.trim().length > 0);
 }
 
 export function changedSectionLabels(before: EditorBlock[], after: EditorBlock[]): string[] {

@@ -106,7 +106,7 @@ const order = c.stage.options;
  * the merge so both say the same thing (REQ-PPL-025): differing fields, the survivor's new values and the prior values
  * Unmerge restores, the stage and commitment the survivor keeps, the references that move and any blockers.
  */
-export function plan(
+function plan(
 	kind: "plant" | "organization",
 	source: Facts,
 	survivor: Facts,
@@ -145,12 +145,21 @@ export function plan(
 	const byKind = new Map<Kind, Reference[]>();
 	for (const ref of source.refs) byKind.set(ref.kind, [...(byKind.get(ref.kind) ?? []), ref]);
 	const held = new Set(survivor.refs.filter((x) => x.kind === "tag").map((x) => x.id));
+	// A Person has one current candidate attestation. When the survivor holds one, the source's stays on the source as
+	// history, and Unmerge finds it still there (WP-039).
+	const keptAttestations = survivor.refs.some((x) => x.kind === "attestation")
+		? (byKind.get("attestation") ?? []).map((x) => x.id)
+		: [];
 	const blocked = [...byKind.keys()].filter((k) => treatmentOf(k) === "block");
 	const causes: z.infer<typeof c.mergeBlocker>[] = [];
 	if (source.linked_account_id && survivor.linked_account_id) causes.push("linked_account_collision");
 	else if (source.linked_account_id) causes.push("linked_source");
 	if (blocked.length) causes.push("unregistered_reference");
-	const references = [...byKind].map(([k, refs]) => ({ kind: k, count: refs.length, treatment: treatmentOf(k) }));
+	const references = [...byKind].map(([k, refs]) => ({
+		kind: k,
+		count: refs.length,
+		treatment: k === "attestation" && keptAttestations.length ? ("deduplicate" as const) : treatmentOf(k),
+	}));
 	return {
 		fields: differing.map((f) => ({
 			field: f,
@@ -164,6 +173,7 @@ export function plan(
 		byKind,
 		// Tags the survivor already holds are dropped from the source instead of duplicated.
 		droppedTags: (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id),
+		keptAttestations,
 		references,
 		blockers: { causes, references: blocked },
 		reviewDigest: hash({
@@ -272,7 +282,13 @@ export const peopleMerge = {
 					const mergeId = randomUUID();
 					const moved: Record<string, string[]> = {};
 					for (const [k, refs] of p.byKind) {
-						const ids = refs.map((x) => x.id).filter((id) => !(k === "tag" && p.droppedTags.includes(id)));
+						const ids = refs
+							.map((x) => x.id)
+							.filter(
+								(id) =>
+									!(k === "tag" && p.droppedTags.includes(id)) &&
+									!(k === "attestation" && p.keptAttestations.includes(id)),
+							);
 						moved[k] = ids;
 						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id));
 					}
@@ -309,7 +325,11 @@ export const peopleMerge = {
 					const after = [
 						...survivor.refs,
 						...source.refs
-							.filter((x) => !(x.kind === "tag" && p.droppedTags.includes(x.id)))
+							.filter(
+								(x) =>
+									!(x.kind === "tag" && p.droppedTags.includes(x.id)) &&
+									!(x.kind === "attestation" && p.keptAttestations.includes(x.id)),
+							)
 							.map((x) => (x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) })),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision },
 					];

@@ -1,13 +1,15 @@
 import { getViewer } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
-import type { WikiArticle } from "@everyfield/contracts/wiki";
+import { humanCredit, type WikiArticle } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { alias, and, eq, inArray } from "@everyfield/db/query";
 import { article_editor_state, article_revision, organization, reading } from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createWikiProducer } from "@everyfield/domain/wiki";
+import { cache } from "react";
 import "server-only";
 import {
+	type ArticleVersion,
 	articlePath,
 	listed,
 	sourceInput,
@@ -15,6 +17,7 @@ import {
 	treeModel,
 	type Listed,
 	type SourceChoice,
+	type SourceOrder,
 	type SourceRow,
 	type TreeModel,
 } from "./model.ts";
@@ -114,7 +117,7 @@ async function editorRevision(mount: Mount, organizationId: string, articleId: s
 }
 
 /** The reading row revision. "0" means this account has no row yet. */
-export async function readingRevision(actor: RequestActor, articleId: string): Promise<string> {
+async function readingRevision(actor: RequestActor, articleId: string): Promise<string> {
 	const mount = wikiMount();
 	if (!mount) return "0";
 	try {
@@ -166,7 +169,8 @@ export async function organizationNames(ids: string[]): Promise<Map<string, stri
 
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
 
-export async function loadPreview(path: string, userAgent: string): Promise<Preview | null> {
+/** The crawler preview, read once per request: the page's metadata and its body share it (React's request cache). */
+export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
 	const mount = wikiMount();
 	if (!mount) return null;
 	try {
@@ -182,7 +186,7 @@ export async function loadPreview(path: string, userAgent: string): Promise<Prev
 		console.error(JSON.stringify({ component: "wiki", outcome: "preview-failed", error: String(error) }));
 		return null;
 	}
-}
+});
 
 type Got = { article: WikiArticle | null; errorCode: "content_access_denied" | null };
 
@@ -200,9 +204,9 @@ async function articleOf(
 	}
 }
 
-export type ArticleBlock = "denied" | "hidden" | "order" | null;
+type ArticleBlock = "denied" | "hidden" | "order" | null;
 
-export type ArticleView = {
+type ArticleView = {
 	article: WikiArticle;
 	sources: SourceRow[];
 	currentSourceId: string;
@@ -210,8 +214,12 @@ export type ArticleView = {
 	readingRevision: string;
 	plantId?: string;
 	canOrder: boolean;
+	/** The stored source order, read only for an Owner or Admin; null when it could not be read. */
+	order: SourceOrder | null;
 	block: ArticleBlock;
-	siblings: { articleId: string; title: string; slug: string }[];
+	version: ArticleVersion | null;
+	/** Two church copies have no order: an Owner or Admin is asked to choose one. The text below is the fallback. */
+	orderPrompt: boolean;
 	related: { articleId: string; title: string; href: string }[];
 };
 
@@ -226,7 +234,6 @@ export type WikiPageData = {
 	recommended: Listed[];
 	article: ArticleView | null;
 	missing: boolean;
-	order: boolean;
 	feedback: { vote: "helpful" | "unhelpful" | null } | null;
 	editorName: string | null;
 	editing: boolean;
@@ -234,7 +241,7 @@ export type WikiPageData = {
 	draftLost: boolean;
 };
 
-export type WikiDraft = {
+type WikiDraft = {
 	organizationId: string;
 	revision: string;
 	state: "published" | "hide" | "draft" | "inherited" | null;
@@ -244,10 +251,41 @@ export type WikiDraft = {
 	baselineContentType: string;
 };
 
+/** The reader's current helpful or unhelpful vote on an article; a failed read shows no vote. */
+async function feedbackVote(
+	mount: NonNullable<ReturnType<typeof wikiMount>>,
+	actor: Parameters<typeof plantContext>[0],
+	articleId: string,
+): Promise<"helpful" | "unhelpful" | null> {
+	try {
+		const mine = await mount.producer.getMine(mount.db, actor, { articleId });
+		return mine.status === "ok" && (mine.value.currentVote === "helpful" || mine.value.currentVote === "unhelpful")
+			? mine.value.currentVote
+			: null;
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		return null;
+	}
+}
+
+/** The plant's source order in reading order, for "Set as preferred"; a failed read offers no item. */
+async function sourceOrder(
+	mount: NonNullable<ReturnType<typeof wikiMount>>,
+	actor: Parameters<typeof plantContext>[0],
+): Promise<SourceOrder | null> {
+	try {
+		const reply = await mount.producer.listArticles(mount.db, actor, { page: 1 });
+		if (reply.status !== "ok") return null;
+		return { revision: reply.value.orderRevision, churches: reply.value.churches, networks: reply.value.networks };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
+		return null;
+	}
+}
+
 export async function loadWiki(
 	slug: string,
 	source: SourceChoice,
-	order: boolean,
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
@@ -257,22 +295,27 @@ export async function loadWiki(
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
 	try {
-		const [nav, resume, recent, marks, recommended] = await Promise.all([
+		// The home's resume card is the most recent article, so the recent list answers both.
+		const [nav, recent, marks, recommended] = await Promise.all([
 			mount.producer.navigation(mount.db, actor, { source: { kind: "current" } }),
-			slug ? Promise.resolve(null) : mount.producer.readingResume(mount.db, actor, {}),
 			slug ? Promise.resolve(null) : mount.producer.readingRecent(mount.db, actor, {}),
 			slug ? Promise.resolve(null) : mount.producer.bookmarksList(mount.db, actor, {}),
 			slug ? Promise.resolve(null) : mount.producer.recommendForPhase(mount.db, actor, {}),
 		]);
 		if (nav.status !== "ok") return "lost";
 		const visibleIds = nav.value.groups.flatMap((group) => group.articles.map((item) => item.articleId));
-		const read = await completedIds(actor, visibleIds);
-		const tree = treeModel(nav.value.groups, read);
-		const articleCount = visibleIds.length;
-		const readCount = visibleIds.filter((id) => read.has(id)).length;
 		const hit = slug
 			? nav.value.groups.flatMap((group) => group.articles).find((item) => item.slug === slug)
 			: undefined;
+		// What the reader finished and the article in both sources do not depend on each other: read them together.
+		const [read, currentRead, sourceRead] = await Promise.all([
+			completedIds(actor, visibleIds),
+			hit ? articleOf(mount, actor, hit.articleId, { kind: "current" }) : null,
+			hit && source.kind !== "current" ? articleOf(mount, actor, hit.articleId, source) : null,
+		]);
+		const tree = treeModel(nav.value.groups, read);
+		const articleCount = visibleIds.length;
+		const readCount = visibleIds.filter((id) => read.has(id)).length;
 		if (slug && !hit) {
 			return {
 				tree,
@@ -285,7 +328,6 @@ export async function loadWiki(
 				recommended: [],
 				article: null,
 				missing: true,
-				order,
 				feedback: null,
 				editorName: null,
 				editing,
@@ -300,10 +342,10 @@ export async function loadWiki(
 		let draftLost = false;
 		let feedback: WikiPageData["feedback"] = null;
 		if (hit) {
-			const current = await articleOf(mount, actor, hit.articleId, { kind: "current" });
+			const current = currentRead!;
 			if (current.status !== "ok") return "lost";
 			const preferred = current.value.article;
-			const viewedReply = source.kind === "current" ? current : await articleOf(mount, actor, hit.articleId, source);
+			const viewedReply = sourceRead ?? current;
 			if (viewedReply.status !== "ok") return "lost";
 			const viewed = source.kind === "current" ? preferred : viewedReply.value.article;
 			const shown = viewed ?? preferred;
@@ -319,7 +361,6 @@ export async function loadWiki(
 					recommended: [],
 					article: null,
 					missing: true,
-					order,
 					feedback: null,
 					editorName: null,
 					editing,
@@ -327,18 +368,32 @@ export async function loadWiki(
 					draftLost: false,
 				};
 			}
-			const names = await organizationNames([
-				preferred.sourceId,
-				shown.sourceId,
-				...preferred.alternates.map((item) => item.sourceId),
-				...shown.alternates.map((item) => item.sourceId),
-				...(editor ? [editor.organizationId] : []),
+			const block = !viewed
+				? "denied"
+				: shown.hidden || (shown.body == null && shown.state === "hidden")
+					? "hidden"
+					: shown.state === "source_order_required" && shown.body == null
+						? "order"
+						: shown.body == null
+							? "denied"
+							: null;
+			// The source names, the reading revision and the reader's own feedback vote are independent reads.
+			const [names, revision, vote, order] = await Promise.all([
+				organizationNames([
+					preferred.sourceId,
+					shown.sourceId,
+					...preferred.alternates.map((item) => item.sourceId),
+					...shown.alternates.map((item) => item.sourceId),
+					...(editor ? [editor.organizationId] : []),
+				]),
+				readingRevision(actor, shown.articleId),
+				block === null && seat.plantId && !editing
+					? feedbackVote(mount, actor, shown.articleId).then((v) => ({ vote: v }))
+					: null,
+				seat.canOrder && !editing ? sourceOrder(mount, actor) : null,
 			]);
+			feedback = vote;
 			if (editor) editorName = names.get(editor.organizationId) ?? "Your organization";
-			const neighbors = await mount.producer.articleNeighbors(mount.db, actor, {
-				articleId: hit.articleId,
-				source: sourceInput(viewed ? source : { kind: "current" }),
-			});
 			const titles = new Map(nav.value.groups.flatMap((group) => group.articles).map((item) => [item.articleId, item]));
 			const phaseItems = tree.phases.find((phase) => phase.number === shown.phase)?.items ?? [];
 			if (shown.phase != null && phaseItems.length) {
@@ -348,25 +403,27 @@ export async function loadWiki(
 					total: phaseItems.length,
 				};
 			}
-			const block = !viewed
-				? "denied"
-				: shown.hidden || (shown.body == null && shown.state === "hidden")
-					? "hidden"
-					: shown.state === "source_order_required"
-						? "order"
-						: shown.body == null
-							? "denied"
-							: null;
 			article = {
 				article: shown,
 				sources: sourceRows(preferred, names),
 				currentSourceId: shown.sourceId,
 				preferredSourceId: preferred.sourceId,
-				readingRevision: await readingRevision(actor, shown.articleId),
+				readingRevision: revision,
 				plantId: seat.plantId,
 				canOrder: seat.canOrder,
+				order,
 				block,
-				siblings: neighbors.status === "ok" ? neighbors.value.articles : [],
+				version:
+					shown.sourceKind === "global"
+						? null
+						: {
+								kind: shown.sourceKind,
+								name:
+									names.get(shown.sourceId) ??
+									humanCredit(shown.credit) ??
+									(shown.sourceKind === "church" ? "Sending church" : "Network"),
+							},
+				orderPrompt: seat.canOrder && source.kind === "current" && preferred.state === "source_order_required",
 				related: shown.relatedIds.flatMap((id) => {
 					const item = titles.get(id);
 					return item ? [{ articleId: id, title: item.title, href: articlePath(item.slug) }] : [];
@@ -414,30 +471,18 @@ export async function loadWiki(
 				}
 			}
 		}
-		if (article && article.block === null && seat.plantId && !editing) {
-			let vote: "helpful" | "unhelpful" | null = null;
-			try {
-				const mine = await mount.producer.getMine(mount.db, actor, { articleId: article.article.articleId });
-				if (mine.status === "ok" && (mine.value.currentVote === "helpful" || mine.value.currentVote === "unhelpful"))
-					vote = mine.value.currentVote;
-			} catch (error) {
-				console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
-			}
-			feedback = { vote };
-		}
 		if (!article) editorName = null;
 		return {
 			tree,
 			readCount,
 			articleCount,
 			phaseRead,
-			resume: resume && resume.status === "ok" && resume.value.article ? listed(resume.value.article) : null,
+			resume: recent?.status === "ok" && recent.value.articles[0] ? listed(recent.value.articles[0]) : null,
 			recent: recent && recent.status === "ok" ? recent.value.articles.slice(0, 5).map(listed) : [],
 			bookmarks: marks && marks.status === "ok" ? marks.value.articles.map(listed) : [],
 			recommended: recommended && recommended.status === "ok" ? recommended.value.articles.slice(0, 4).map(listed) : [],
 			article,
 			missing: false,
-			order,
 			feedback,
 			editorName,
 			editing,
@@ -448,6 +493,10 @@ export async function loadWiki(
 		console.error(JSON.stringify({ component: "wiki", outcome: "page-failed", error: String(error) }));
 		return "lost";
 	}
+}
+
+export function logSearchLost(cause: string): void {
+	console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause }));
 }
 
 export async function runSearch(
@@ -464,7 +513,10 @@ export async function runSearch(
 	| { status: "results"; hits: Listed[]; nextPage: string | null }
 > {
 	const mount = wikiMount();
-	if (!mount) return "lost";
+	if (!mount) {
+		logSearchLost("no-mount");
+		return "lost";
+	}
 	try {
 		const reply = await mount.producer.search(mount.db, actor, {
 			query: query.slice(0, 200),
@@ -472,7 +524,11 @@ export async function runSearch(
 			page,
 			source: sourceInput(source),
 		});
-		if (reply.status !== "ok") return reply.error.code === "access_denied" ? "denied" : "lost";
+		if (reply.status !== "ok") {
+			if (reply.error.code === "access_denied") return "denied";
+			logSearchLost(reply.error.code);
+			return "lost";
+		}
 		if (reply.value.status === "unavailable") return { status: "unavailable" };
 		if (reply.value.status === "empty") return { status: "empty" };
 		return {
@@ -483,5 +539,41 @@ export async function runSearch(
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "search-failed", error: String(error) }));
 		return "lost";
+	}
+}
+
+/**
+ * POST /api/wiki/progress: the reading progress a page saves while it unloads. A server action's fetch dies with the
+ * page, so the article client sends this one with `keepalive`. Same-origin only; the producer parses the input and
+ * checks the session and the article as it does for the action.
+ */
+export async function progressRoute(request: Request): Promise<Response> {
+	if (request.headers.get("sec-fetch-site") !== "same-origin") return new Response(null, { status: 403 });
+	const text = await request.text();
+	if (text.length > 1000) return new Response(null, { status: 413 });
+	let body: { requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown };
+	try {
+		body = JSON.parse(text);
+	} catch {
+		return new Response(null, { status: 400 });
+	}
+	const actor = await wikiActor();
+	const mount = wikiMount();
+	if (actor === "down" || !mount) return new Response(null, { status: 503 });
+	if (!actor) return new Response(null, { status: 401 });
+	try {
+		const reply = await mount.producer.updateProgress(mount.db, actor, {
+			requestKey: body.requestKey,
+			input: {
+				articleId: body.articleId,
+				fraction: body.fraction,
+				...(body.plantId ? { plantId: body.plantId } : {}),
+			},
+		});
+		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
+	} catch (error) {
+		// A malformed body fails the producer's parse.
+		console.error(JSON.stringify({ component: "wiki", outcome: "progress-beacon-failed", error: String(error) }));
+		return new Response(null, { status: 400 });
 	}
 }

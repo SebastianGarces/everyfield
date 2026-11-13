@@ -5,6 +5,7 @@ import { ShellPreview } from "@everyfield/ui/shell/preview";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { parsePreviewKit } from "../brand/fixtures";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SettingsDialog } from "../SettingsDialog";
@@ -13,6 +14,7 @@ import { SettingsProvider } from "../store";
 import {
 	createFixturePort,
 	parsePersona,
+	parseWikiScenario,
 	PERSONA_LABEL,
 	PERSONAS,
 	PREVIEW_RELATIONSHIPS,
@@ -37,11 +39,14 @@ export function SettingsPreview() {
 	const persona = parsePersona(search.get("as"));
 	const delay = Number(search.get("delay") ?? 450);
 	const section = parseSectionKey(params.section?.[0]);
-	const query = (extra = "") => `?as=${persona}${search.get("delay") ? `&delay=${delay}` : ""}${extra}`;
+	const kit = parsePreviewKit(search.get("kit"));
+	const wiki = parseWikiScenario(search.get("wiki"));
+	const query = (extra = "") =>
+		`?as=${persona}${search.get("delay") ? `&delay=${delay}` : ""}${search.get("kit") ? `&kit=${kit}` : ""}${search.get("wiki") ? `&wiki=${wiki}` : ""}${extra}`;
 	const hrefFor = (key: SectionKey) => `${BASE}/${key}${query()}`;
 
 	// One fixture API per persona and load: switching persona is switching account, so nothing carries over.
-	const fixture = useMemo(() => createFixturePort(persona, { delay }), [persona, delay]);
+	const fixture = useMemo(() => createFixturePort(persona, { delay, kit, wiki }), [persona, delay, kit, wiki]);
 	useEffect(() => {
 		for (const spec of search.getAll("fail")) {
 			const [op, code] = spec.split(":");
@@ -67,7 +72,7 @@ export function SettingsPreview() {
 
 	return (
 		<ShellPreview role={persona === "member" ? "member" : "owner"}>
-			<SettingsProvider key={`${persona}-${delay}`} port={fixture.port} viewer={viewer}>
+			<SettingsProvider key={`${persona}-${delay}-${kit}-${wiki}`} port={fixture.port} viewer={viewer}>
 				<PreviewPage persona={persona} query={query} fixture={fixture.controls} />
 				<SettingsDialog
 					section={section}
@@ -87,7 +92,15 @@ const FAULTS: { value: string; label: string }[] = [
 	{ value: "saveSection:temporary", label: "Next save: temporary failure" },
 	{ value: "saveSection:offline", label: "Next save: connection lost" },
 	{ value: "getSection:temporary", label: "Next section load fails" },
+	{ value: "saveBrand:conflict", label: "Next brand kit save: someone else saved first" },
+	{ value: "saveBrand:invalid_ein", label: "Next brand kit save: EIN refused" },
+	{ value: "saveBrand:offline", label: "Next brand kit save: connection lost" },
+	{ value: "uploadBytes:invalid_file", label: "Next logo upload: the file cannot be used" },
+	{ value: "finalizeUpload:conflict", label: "Next logo upload: someone else saved first" },
+	{ value: "finalizeUpload:alt_text_required", label: "Next logo upload: server wants alt text" },
 	{ value: "setPlantTimezone:stale_preview", label: "Next time zone save: preview out of date" },
+	{ value: "saveWikiOrder:conflict", label: "Next Wiki order save: someone else saved first" },
+	{ value: "saveWikiOrder:temporary", label: "Next Wiki order save fails" },
 	{ value: "finalizeAvatar:temporary", label: "Next photo save fails" },
 	{ value: "requestEmailChange:temporary", label: "Next email link: too many requests" },
 	{ value: "changePassword:unknown", label: "Next password change: outcome unknown" },
