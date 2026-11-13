@@ -38,7 +38,7 @@ export function checkNote(
 }
 
 /** Whole civil days from `from` to `to`; negative when `to` is earlier. */
-export function civilDaysBetween(from: LocalDate, to: LocalDate): number {
+function civilDaysBetween(from: LocalDate, to: LocalDate): number {
 	return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 

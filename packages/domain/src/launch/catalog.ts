@@ -5,7 +5,7 @@ import type { Area } from "@everyfield/contracts/launch";
 // tests/integration/launch/launch.test.mts compares them. Code matches on `key`, never on a title. A prep task's seed
 // identity is `<milestone key>/<n>`, its place in the milestone, starting at 1.
 
-export type MilestoneTemplate = {
+type MilestoneTemplate = {
 	key: string;
 	area: Area;
 	title: string;
@@ -13,7 +13,7 @@ export type MilestoneTemplate = {
 	tasks: readonly string[];
 };
 
-export const MILESTONES: readonly MilestoneTemplate[] = [
+const MILESTONES: readonly MilestoneTemplate[] = [
 	{
 		key: "operations.equipment_on_site",
 		area: "operations",
