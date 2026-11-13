@@ -127,7 +127,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	// COM-02: the draft above goes to one exact review. A chat "ok" is never the approval.
 	if (/^\s*(ok|okay|yes|yep|sure)[.!]?\s*$/i.test(ask) && INVITE.test(earlier))
 		return text("Nothing has been sent. Approval happens only on the review card: press Approve there to send it.");
-	if (/\b(ok |okay )?send it\b(?! again)/i.test(ask) && INVITE.test(earlier)) {
+	if (/^\s*(ok |okay )?send it\b(?! again)/i.test(ask) && INVITE.test(earlier)) {
 		if (!canPropose) return null;
 		if (!last)
 			return read("communication.preview", {

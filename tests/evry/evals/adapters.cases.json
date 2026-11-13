@@ -976,7 +976,7 @@
 		"adapter": "communication/reads",
 		"operation": "communication.get",
 		"near_miss": false,
-		"question": "Did the prayer night reminder go out?",
+		"question": "Did the volunteer night reminder go out?",
 		"eval": {
 			"calls": [
 				{
@@ -1070,7 +1070,7 @@
 		"adapter": "communication/commands",
 		"operation": "communication.retryProvenFailed",
 		"near_miss": false,
-		"question": "Send the prayer night reminder again to the people it failed for.",
+		"question": "Send the volunteer night reminder again to the people it failed for.",
 		"eval": {
 			"proposals": [
 				{

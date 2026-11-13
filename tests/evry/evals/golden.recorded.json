@@ -6917,7 +6917,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_L0aBw6BFDM4jZVYYhxeVbVak",
-					"delta": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"prayer night reminder\"}}"
+					"delta": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"volunteer night reminder\"}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -6927,7 +6927,7 @@
 					"type": "tool-call",
 					"toolCallId": "call_L0aBw6BFDM4jZVYYhxeVbVak",
 					"toolName": "communication_read",
-					"input": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"prayer night reminder\"}}",
+					"input": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"volunteer night reminder\"}}",
 					"providerMetadata": {
 						"openai": {
 							"itemId": "fc_063b0383d096ced7006af790d2e9b087d1b1333b973a4f2049"
@@ -26689,7 +26689,7 @@
 				{
 					"type": "tool-input-delta",
 					"id": "call_bhWld2iYist3H0rtsG8vdFMc",
-					"delta": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"prayer night reminder\"}}"
+					"delta": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"volunteer night reminder\"}}"
 				},
 				{
 					"type": "tool-input-end",
@@ -26699,7 +26699,7 @@
 					"type": "tool-call",
 					"toolCallId": "call_bhWld2iYist3H0rtsG8vdFMc",
 					"toolName": "communication_read",
-					"input": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"prayer night reminder\"}}",
+					"input": "{\"operation\":\"communication.get\",\"input\":{\"subject\":\"volunteer night reminder\"}}",
 					"providerMetadata": {
 						"openai": {
 							"itemId": "fc_00ae2f66ebaa34a4006af790cbcbc887d1b3dfe80af21992f9"
@@ -33985,7 +33985,7 @@
 				{
 					"type": "text-delta",
 					"id": "msg_00cf7a05af9712e1006af790d8d67087d1942977fb9d1b804b",
-					"delta": "I’ve prepared a review to resend **“Prayer night reminder”** to Ana Rivera and Sam Patel, the two recipients whose emails bounced or failed. Mark Thompson is excluded because his email was delivered.\n\nNothing has been sent yet. Please review and approve the proposal in the app if it looks right."
+					"delta": "I’ve prepared a review to resend **“Volunteer night reminder”** to Ana Rivera and Sam Patel, the two recipients whose emails bounced or failed. Mark Thompson is excluded because his email was delivered.\n\nNothing has been sent yet. Please review and approve the proposal in the app if it looks right."
 				},
 				{
 					"type": "text-end",
