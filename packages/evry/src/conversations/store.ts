@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -7,12 +7,13 @@ import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
+import { reviewMap, reviewsOf } from "../proposals/review.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
 // one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
 
-export const PAGE_SIZE = 24;
-export const EVENT_PAGE = 200;
+const PAGE_SIZE = 24;
+const EVENT_PAGE = 200;
 const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
 /** The conversation's active run can still make progress (runtime/job.ts). */
 const liveRun = (alias: string) =>
@@ -22,14 +23,14 @@ const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
 const requestKey = z.string().min(8).max(200);
 export const reference = z.strictObject({ kind: z.literal("person"), id: z.uuid() });
-export const submitInput = z.strictObject({
+const submitInput = z.strictObject({
 	requestKey,
 	text,
 	/** Visible page context: presentation hints only. Each is re-read under current authority before model use. */
 	references: z.array(reference).max(64).default([]),
 });
-export const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
-export const listInput = z.strictObject({
+const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
+const listInput = z.strictObject({
 	search: z.string().trim().min(1).max(200).optional(),
 	page: z.int().min(1).max(100_000).default(1),
 });
@@ -119,21 +120,41 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 
 /**
  * evry.readConversation and evry.openConversation: the conversation and its saved events after a cursor, with the
- * active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
+ * current review of each review card among them and the active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
  * saved yet (closeLostRun saves it). A foreign or missing conversation is not_found, with no metadata. One statement.
  */
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
-	const cursor = parse(z.int().min(0), after);
+	const read = await conversationPage(db, actor, sql`${conversationId}::uuid`, parse(z.int().min(0), after));
+	if (!read) throw new EvryRefusal("not_found");
+	return read;
+}
+
+/**
+ * evry.openConversation for the launcher and the panel: the actor's most recent conversation in this exact context and
+ * its first page of saved events with the active run, in one statement. Null when the actor has none.
+ */
+export async function openLatestConversation(db: Database, actor: EvryActor) {
+	return conversationPage(
+		db,
+		actor,
+		sql`(SELECT l.id FROM conversation l WHERE ${owned(actor, "l")} ORDER BY l.updated_at DESC, l.id DESC LIMIT 1)`,
+		0,
+	);
+}
+
+async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor: number) {
+	const page = sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`;
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation,
 			${liveRun("c")} AS run_live,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
-				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
-		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
-	if (!r.rows.length) throw new EvryRefusal("not_found");
+				FROM (${retainedEvents(page)}) e), '[]'::jsonb) AS events,
+			${reviewsOf(actor, sql`SELECT DISTINCT (e.body->'result'->>'proposalId')::uuid FROM (${page}) e WHERE e.kind='tool_result' AND e.body->'result'->>'proposalId' IS NOT NULL`)} AS reviews
+		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+	if (!r.rows.length) return null;
 	const row = z
-		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow) })
+		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow), reviews: reviewMap })
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
@@ -141,16 +162,10 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 			? { turnId: row.conversation.activeTurnId, state: row.run_live ? ("running" as const) : ("lost" as const) }
 			: null,
 		events: row.events,
+		/** The current review of each review card in this page, as readReview reads it; null when it is unavailable. */
+		reviews: row.reviews,
 		more: row.events.length === EVENT_PAGE,
 	};
-}
-
-/** The actor's most recent conversation in this exact context, so the launcher and the panel reopen the same one. */
-export async function latestConversation(db: Database, actor: EvryActor): Promise<Conversation | null> {
-	const r = await db.execute(sql`
-		SELECT ${conversationJson("c")} AS conversation FROM conversation c
-		WHERE ${owned(actor, "c")} AND ${liveAuthority(actor)} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
-	return r.rows.length ? conversationRow.parse(r.rows[0]!.conversation) : null;
 }
 
 const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });

@@ -5,6 +5,7 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import type { Transaction } from "@everyfield/db/client";
 import type {
 	AudienceSummary,
@@ -15,23 +16,27 @@ import type {
 	HistoryPage,
 	MeetingHistory,
 	MessageDetail,
+	MeetingContext,
 	MessageView,
 	NamedRecipient,
 	Outcome,
 	PersonHistory,
-	Preview,
 	Recipient,
 	ReplaceReport,
 	RescheduleReport,
 	ResendReview,
 	RestoreReport,
 	SavedResend,
+	HandoffResult,
 	SuppressionReport,
 	Template,
 	TrackingRow,
 } from "./model.ts";
-import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
+import { read as readMeeting } from "../meetings/server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
+import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
+import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -87,7 +92,7 @@ export async function deleteDraft(
 }
 
 /** Save and schedule in one request. Two requests were the schedule that passed one second. */
-export async function scheduleDraft(
+async function scheduleDraft(
 	saveKey: string,
 	scheduleKey: string,
 	expectedRevision: string | null,
@@ -124,15 +129,20 @@ export async function rescheduleReviewed(
 	);
 }
 
-/** Hand a scheduled email to the provider now. The provider key is the domain idempotency key. */
+/**
+ * Hand a scheduled email over: to the email service at once for `now`; for `held` Everyfield keeps it, and the minute
+ * runner hands it off at its saved time (T-241). The provider key is the domain idempotency key.
+ */
 export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,
+	when: "now" | "held" = "now",
 ): Promise<Outcome<DeliveryReport>> {
 	const result = await deliver((db, viewer, mail) => {
 		anticipateProvider(mail);
-		return communicationWriter.sendReviewed(
+		const handOff = when === "now" ? communicationWriter.sendReviewed : communicationWriter.handOffScheduled;
+		return handOff(
 			db,
 			viewer.authority,
 			{ requestKey, expectedRevision, input: { communicationId } },
@@ -148,6 +158,7 @@ export async function sendReviewed(
 			acceptedCount: result.value.acceptedCount,
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
+			unsubscribedCount: result.value.unsubscribedCount,
 		},
 	};
 }
@@ -175,11 +186,12 @@ export async function reconcileDelivery(
 			acceptedCount: result.value.acceptedCount,
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
+			unsubscribedCount: result.value.unsubscribedCount,
 		},
 	};
 }
 
-/** Request cancellation. The domain id is not a provider email id, so confirmation can stay unknown. */
+/** Cancel at the email service, or check an open cancel again. Each recipient is asked by its own email id. */
 export async function cancelScheduled(
 	requestKey: string,
 	expectedRevision: string,
@@ -194,7 +206,8 @@ export async function cancelScheduled(
 		),
 	);
 	if (result.status !== "ok") return result;
-	return { status: "ok", value: { scheduledCancel: result.value.scheduledCancel } };
+	const { scheduledCancel, confirmedCount, sentCount, openCount } = result.value;
+	return { status: "ok", value: { scheduledCancel, confirmedCount, sentCount, openCount } };
 }
 
 /** Read whether every previous send is cancelled. This does not create or send a message. */
@@ -214,7 +227,7 @@ export async function replaceScheduled(
 	return { status: "ok", value: { replacementAllowed: result.value.replacementAllowed } };
 }
 
-/** Change the send time and ask the provider when a provider key exists. The new revision comes from readDraft. */
+/** Change the send time, or check an open time change again. Each held recipient moves by its own email id. */
 export async function rescheduleDispatched(
 	requestKey: string,
 	expectedRevision: string,
@@ -230,9 +243,10 @@ export async function rescheduleDispatched(
 		),
 	);
 	if (result.status !== "ok") return result;
+	const { rescheduleStatus, heldAt, confirmedCount, sentCount, openCount } = result.value;
 	return {
 		status: "ok",
-		value: { rescheduleStatus: result.value.rescheduleStatus, scheduledAt: result.value.scheduledAt },
+		value: { rescheduleStatus, scheduledAt: result.value.scheduledAt, heldAt, confirmedCount, sentCount, openCount },
 	};
 }
 
@@ -250,7 +264,8 @@ export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> 
 		communicationWriter.listForSelf(db, viewer.authority, { address }, mail.keys),
 	);
 	if (result.status !== "ok") return result;
-	return { status: "ok", value: { address: result.value.address, active: result.value.active } };
+	const { active, restores } = result.value;
+	return { status: "ok", value: { address: result.value.address, active, restores } };
 }
 
 /** Clear suppression for the signed-in account email. This does not send email. */
@@ -264,10 +279,6 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 	);
 	if (result.status !== "ok") return result;
 	return { status: "ok", value: { suppressionClears: result.value.suppressionClears } };
-}
-
-export async function previewMessage(input: unknown): Promise<Outcome<Preview>> {
-	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, input));
 }
 
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {
@@ -470,7 +481,7 @@ export async function saveResend(requestKey: string, communicationId: string): P
 }
 
 /** Schedule a message that is already reviewed. The subject and body stay as saved. */
-export async function scheduleExisting(
+async function scheduleExisting(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,
@@ -500,5 +511,63 @@ export async function scheduleExisting(
 				scheduledAt: value.scheduledAt,
 			},
 		};
+	});
+}
+
+/**
+ * Send now (`scheduledAt` null) or Schedule, from a draft or a reviewed message. It chains the existing commands:
+ * save and schedule in one transaction, then hand the new revision to the email service, at once or held until
+ * `scheduledAt`. Each step has its own request key. A handoff that fails or returns no result leaves the message
+ * saved; the result says so and nothing is sent twice.
+ */
+export async function handOff(
+	keys: { save: string; schedule: string; send: string },
+	expectedRevision: string | null,
+	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+	scheduledAt: string | null,
+): Promise<Outcome<HandoffResult>> {
+	const steps = {
+		schedule: (at: string) =>
+			target.kind === "draft"
+				? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
+				: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
+		handOff: (revision: string, communicationId: string) =>
+			sendReviewed(keys.send, revision, communicationId, scheduledAt === null ? "now" : "held"),
+	};
+	return scheduledAt === null ? chainSendNow(steps) : chainHandoff(steps, scheduledAt);
+}
+
+/** The meeting a message is attached to: title, time, place and its live guest list, in one statement. */
+export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
+	const viewer = await seat();
+	if (!viewer || !canWrite(viewer)) return denied;
+	const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, { meetingId }));
+	if (context.status === "failed") return { status: "lost" };
+	if (context.status === "refused") return { status: "refused", code: "not_found" };
+	const { meeting: m, guests } = context.value;
+	return {
+		status: "ok",
+		value: {
+			id: m.id,
+			type: m.type,
+			title: m.displayTitle,
+			date: m.localDate,
+			time: m.localTime,
+			place: m.venue?.name ?? null,
+			guests: guests.map((g) => ({ id: g.personId, displayName: g.displayName })),
+		},
+	};
+}
+
+/** The church name and app origin the email preview needs on screens outside the Messages page. */
+export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	const origin = appOrigin();
+	if (origin === null) return { status: "refused", code: "unavailable" };
+	return read(viewer, async (tx) => {
+		const church = await communicationWriter.readChurchName(tx, viewer.authority);
+		if (church.status !== "ok") return church;
+		return { status: "ok", value: { churchName: church.value.churchName, origin } };
 	});
 }

@@ -7,6 +7,7 @@ import { alias } from "@everyfield/db/columns";
 import { and, eq, getTableColumns, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readOwnResidency } from "@everyfield/domain/access";
+import { liveRead, type RequestActor } from "../access/session.ts";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
 import {
@@ -25,6 +26,7 @@ import {
 	sameOwner,
 	unavailable,
 	type OrganizationEffects,
+	type Reader,
 } from "./core.ts";
 const affiliation_a = alias(tables.affiliation, "a");
 const pipeline_sharing_p = alias(tables.pipeline_sharing, "p");
@@ -41,7 +43,7 @@ const residentRow = z.object({
 	share_milestones: z.boolean(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
-export async function loadResident(tx: Transaction, id: string, write = false) {
+async function loadResident(tx: Transaction, id: string, write = false) {
 	const query = tx
 		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
 		.from(tables.residency_link)
@@ -49,6 +51,63 @@ export async function loadResident(tx: Transaction, id: string, write = false) {
 		.where(eq(tables.residency_link.id, id));
 	const rows = await (write ? query.for("update", { of: tables.residency_link }) : query);
 	return rows[0] ? residentRow.parse(rows[0]) : null;
+}
+/**
+ * A sending church's pipeline totals choice for each of its live network connections, as pipelineSharing.readConsent
+ * answers it, for its own Owner or Admin (REQ-MUL-016): on the pool with the request actor and the live check (D59,
+ * C13), one statement for the connections and one for their choices. `relationshipId` narrows the read to one connection.
+ */
+export async function readPipelineConsents(db: Reader, authority: RequestActor, relationshipId?: string) {
+	const actor = authority.actor,
+		selected = actor.context.owner;
+	if (
+		selected.kind !== "organization" ||
+		selected.organizationKind !== "sending_church" ||
+		!administrator(actor) ||
+		(relationshipId !== undefined && !recordId.safeParse(relationshipId).success)
+	)
+		return [];
+	const live = liveRead({ session: authority.session, owner: selected }, true);
+	const links = (
+		await loadAffiliations(
+			db,
+			sql`${tables.affiliation.sending_church_id}=${selected.id} AND ${tables.affiliation.ended_at} IS NULL${
+				relationshipId ? sql` AND ${tables.affiliation.id}=${relationshipId}` : sql``
+			} AND ${live}`,
+		)
+	).filter((a) => a.active);
+	const shares = links.length
+		? await db
+				.select({
+					relationship_id: tables.pipeline_sharing.relationship_id,
+					network_id: tables.pipeline_sharing.network_id,
+					share_pipeline_totals: tables.pipeline_sharing.share_pipeline_totals,
+				})
+				.from(tables.pipeline_sharing)
+				.where(
+					and(
+						eq(tables.pipeline_sharing.organization_id, selected.id),
+						inArray(
+							tables.pipeline_sharing.relationship_id,
+							links.map((a) => a.id),
+						),
+					),
+				)
+		: [];
+	return links
+		.map((a) => ({
+			networkName: a.organization_name,
+			consent: Q.pipelineConsentResult.options[1].parse({
+				status: "available",
+				relationshipId: a.id,
+				revision: a.revision,
+				sharePipelineTotals:
+					shares.find((p) => p.relationship_id === a.id && p.network_id === a.organization_id)?.share_pipeline_totals ??
+					false,
+				minimumContributors: 2,
+			}),
+		}))
+		.sort((x, y) => x.networkName.localeCompare(y.networkName));
 }
 export function consentOperations(
 	effects: OrganizationEffects,

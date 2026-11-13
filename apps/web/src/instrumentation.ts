@@ -1,10 +1,12 @@
 // Runs once when the Node.js server starts, before it serves requests: `next start`, `next dev` and a Vercel function's
 // cold start. The first request after a deploy then finds the identity modules loaded, Better Auth built, the connections
 // one request uses open and the bucket's privacy checked, instead of paying the module load, setup, TLS handshakes and
-// bucket call itself. The edge runtime (the proxy) has no pools to warm. A warm failure is logged and never stops the
-// server. The production bucket check does stop it: outside production, the production bucket is refused before any
-// request can write to it. Evry tracing to Langfuse registers first, so every turn is traced; a tracing setup failure is
-// logged and never stops the server.
+// bucket call itself. A warm failure is logged and never stops the server. The production bucket check does stop it:
+// outside production, the production bucket is refused before any request can write to it. Evry tracing to Langfuse
+// registers first, so every turn is traced; a tracing setup failure is logged and never stops the server.
+// Next calls `register` once per server runtime it builds. The proxy (src/proxy.ts) runs on Node.js in Next 16 and no
+// route opts into the edge runtime, so today only the Node.js call happens. The guard keeps the Node-only imports below
+// out of an edge instrumentation bundle if a route ever adds `runtime = "edge"`.
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");

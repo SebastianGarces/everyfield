@@ -1,26 +1,7 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 
 const tuples = (rows: SQL[]) => sql.join(rows, sql`, `);
-
-type VersionLine = { teamId: string; sourceVersionId: string; sourceLine: string; text: string };
-
-/** The only insert used by team import. Same row shape as before this package. */
-export function insertVersionLines(plantId: string, lines: readonly VersionLine[]): SQL | null {
-	if (!lines.length) return null;
-	return sql`INSERT INTO responsibility
-		(id, plant_id, team_id, source_version_id, source_line, text, sort_order)
-		SELECT v.id, ${plantId}::uuid, v.team_id, v.version, v.line, v.text, v.ord
-		FROM (VALUES ${tuples(
-			lines.map(
-				(line, index) =>
-					sql`(${randomUUID()}::uuid, ${line.teamId}::uuid, ${line.sourceVersionId}::uuid, ${line.sourceLine}, ${line.text}, ${index + 1}::int)`,
-			),
-		)}) AS v(id, team_id, version, line, text, ord)
-		WHERE NOT EXISTS (SELECT 1 FROM responsibility r
-			WHERE r.team_id = v.team_id AND r.source_version_id = v.version AND r.source_line = v.line)`;
-}
 
 export type OfferLine = { id: string; key: string; text: string; sortOrder: number; active: boolean };
 

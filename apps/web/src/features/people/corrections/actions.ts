@@ -2,7 +2,13 @@
 
 import { personId } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
-import { peopleMerge, peopleUnmerge, recordCorrections } from "@everyfield/domain/people";
+import {
+	dismissDuplicatePair,
+	peopleMerge,
+	peopleUnmerge,
+	recordCorrections,
+	restoreDuplicatePair,
+} from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
@@ -33,6 +39,22 @@ export async function reviewPair(query: unknown): Promise<Outcome<PairView>> {
 		const r = await read(v, async (tx, ctx) => ({ status: "ok", value: await readPair(tx, ctx, q) }));
 		return r.status === "ok" ? { status: "ok", value: r.value } : { status: "lost" };
 	});
+}
+
+export type PairChange = z.infer<typeof c.duplicatePairChange>;
+/**
+ * "Not a duplicate" on a listed pair, and Restore in the Dismissed view (D-789). Both set a state, so a repeat writes
+ * nothing and needs no request key: a lost answer may be sent again as it is.
+ */
+export async function dismissPair(input: unknown): Promise<Outcome<PairChange>> {
+	return boundary(c.duplicatePairRequest, input, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => dismissDuplicatePair(tx, ctx, request)), (r) => r),
+	);
+}
+export async function restorePair(input: unknown): Promise<Outcome<PairChange>> {
+	return boundary(c.duplicatePairRequest, input, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => restoreDuplicatePair(tx, ctx, request)), (r) => r),
+	);
 }
 
 export type Merged = z.infer<typeof c.mergeResult>;

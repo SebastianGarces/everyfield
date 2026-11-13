@@ -33,6 +33,8 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { LocalDay, When } from "../people/parts.tsx";
+import { ownerText } from "../tasks/model.ts";
+import { outcomeSaved } from "../tasks/fresh.tsx";
 import { correctOutcome, recordOutcome } from "./actions.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
 import { loadDuties, loadHistory, loadObligations, loadPersonFollowUps, prefetchOwners, warmOn } from "./fetch.ts";
@@ -41,6 +43,8 @@ import {
 	draftOf,
 	emptyDraft,
 	measurementText,
+	needsOwner,
+	OUTCOME_LABEL,
 	OUTCOMES,
 	outcomeInput,
 	problemText,
@@ -233,12 +237,22 @@ function FollowUpsCard({
 										<StatusBadge status={o.contacted ? "positive" : "unknown"} size="sm">
 											{o.contacted ? "Contacted" : "No contact recorded"}
 										</StatusBadge>
-										{o.state === "open" && !o.owner ? (
+										{o.state === "open" && needsOwner(o) ? (
 											<StatusBadge status="attention" size="sm">
 												Needs owner
 											</StatusBadge>
 										) : null}
 									</span>
+									{o.owners.map((owner) => (
+										<span key={owner.accountId} className="text-sm text-text-2">
+											Owner: {ownerText(owner)}
+										</span>
+									))}
+									{o.completion ? (
+										<span className="text-sm text-text-2">
+											Done: {OUTCOME_LABEL[o.completion.outcome]} <When at={o.completion.occurredAt} withTime />
+										</span>
+									) : null}
 									{o.waiver?.reason ? <span className="text-xs text-text-3">Closed: {o.waiver.reason}</span> : null}
 								</li>
 							);
@@ -521,6 +535,7 @@ function OutcomeDialog({
 				editing.kind === "record" ? "The contact" : editing.kind === "correct" ? "The correction" : "The withdrawal",
 			send,
 			ok: (value) => {
+				outcomeSaved();
 				onSaved(value);
 				onClose();
 			},

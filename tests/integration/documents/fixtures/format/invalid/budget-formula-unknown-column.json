@@ -1,0 +1,93 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "budget-worksheet",
+	"version": 1,
+	"title": "Budget worksheet",
+	"class": "operational",
+	"exports": [
+		"pdf",
+		"xlsx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": null
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "table",
+				"attrs": {
+					"style": "ledger",
+					"columns": [
+						{
+							"id": "item",
+							"label": "Line item",
+							"type": "text",
+							"width": 0
+						},
+						{
+							"id": "monthly",
+							"label": "Monthly",
+							"type": "money",
+							"width": 90
+						},
+						{
+							"id": "annual",
+							"label": "Annual",
+							"type": "formula",
+							"formula": "monthy * 12",
+							"format": "money",
+							"width": 90
+						}
+					]
+				},
+				"content": [
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Rent"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": 1500
+								}
+							},
+							{
+								"type": "cell"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

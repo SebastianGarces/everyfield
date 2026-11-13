@@ -26,6 +26,7 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
+import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 // Household, tag, skill, activity, pipeline and CSV reads. Each calls the native read the screen uses. The model
@@ -37,7 +38,12 @@ const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 const readCtx = (actor: EvryActor) => new PeopleReadContext(actor.authority);
-const row = (kind: SourceRow["kind"], id: string, label: string, fields: Record<string, string | null>): SourceRow => ({
+const row = (
+	kind: Exclude<SourceRow["kind"], "person">,
+	id: string,
+	label: string,
+	fields: Record<string, string | null>,
+): SourceRow => ({
 	kind,
 	id,
 	label,
@@ -116,7 +122,7 @@ function activityRows(personId: string, items: Activity[]): SourceRow[] {
 	}
 	return rows;
 }
-function householdRows(value: z.infer<typeof householdResult>): SourceRow[] {
+function householdRows(actor: EvryActor, value: z.infer<typeof householdResult>): SourceRow[] {
 	if (value.status !== "available") return [];
 	const home = value.household;
 	const household = row("household", home.id, home.name, {
@@ -126,7 +132,7 @@ function householdRows(value: z.infer<typeof householdResult>): SourceRow[] {
 		revision: home.revision,
 	});
 	const members = value.members.map((member) =>
-		row("person", member.personId, member.displayName, {
+		personRow(actor, member.personId, member.displayName, {
 			role: member.role,
 			city: member.city ?? null,
 			householdId: home.id,
@@ -134,10 +140,10 @@ function householdRows(value: z.infer<typeof householdResult>): SourceRow[] {
 	);
 	return [household, ...members];
 }
-function pipelineRows(value: z.infer<typeof pipelineResult>): SourceRow[] {
+function pipelineRows(actor: EvryActor, value: z.infer<typeof pipelineResult>): SourceRow[] {
 	return value.groups.flatMap((group) =>
 		group.cards.map((card) =>
-			row("person", card.person.id, card.person.displayName, {
+			personRow(actor, card.person.id, card.person.displayName, {
 				city: card.person.city ?? null,
 				stage: card.person.stage,
 				column: group.column,
@@ -147,7 +153,7 @@ function pipelineRows(value: z.infer<typeof pipelineResult>): SourceRow[] {
 		),
 	);
 }
-function previewRows(value: z.infer<typeof importPreview>): SourceRow[] {
+function previewRows(actor: EvryActor, value: z.infer<typeof importPreview>): SourceRow[] {
 	const seen = new Set<string>();
 	const people: SourceRow[] = [];
 	const imports = value.rows.map((item) => {
@@ -162,7 +168,7 @@ function previewRows(value: z.infer<typeof importPreview>): SourceRow[] {
 		for (const hint of item.existingDuplicates) {
 			if (seen.has(hint.personId)) continue;
 			seen.add(hint.personId);
-			people.push(row("person", hint.personId, hint.displayName, { match: "exact" }));
+			people.push(personRow(actor, hint.personId, hint.displayName, { match: "exact" }));
 		}
 		return row("import", String(item.row), item.values.displayName, {
 			status: "valid",
@@ -186,7 +192,7 @@ function previewRows(value: z.infer<typeof importPreview>): SourceRow[] {
 		...people,
 	];
 }
-function receiptRows(value: z.infer<typeof importReceipt>): SourceRow[] {
+function receiptRows(actor: EvryActor, value: z.infer<typeof importReceipt>): SourceRow[] {
 	const rows = [
 		row("file", value.importId, value.status, {
 			created: String(value.counts.created),
@@ -204,7 +210,7 @@ function receiptRows(value: z.infer<typeof importReceipt>): SourceRow[] {
 				reason: item.status === "failed" ? item.reason : null,
 			}),
 		);
-		if (personId) rows.push(row("person", personId, "Imported person", { row: String(item.row) }));
+		if (personId) rows.push(personRow(actor, personId, "Imported person", { row: String(item.row) }));
 	}
 	return rows;
 }
@@ -261,7 +267,7 @@ function readHousehold(
 			const found = valueOf<z.infer<typeof householdResult>>(reply);
 			// A person with no household is a real answer. A missing household is not_found.
 			if (!found) return missing(operation, ADDRESS);
-			const rows = householdRows(found);
+			const rows = householdRows(actor, found);
 			return result(operation, "available", rows, rows.length, 1, null, "complete", ADDRESS);
 		},
 	};
@@ -414,7 +420,7 @@ export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 		return result(
 			"people.getPipelineData",
 			"available",
-			pipelineRows(found),
+			pipelineRows(actor, found),
 			total,
 			request.page,
 			next,
@@ -465,7 +471,7 @@ export const previewImport: ReadAdapter<z.infer<typeof previewInput>> = {
 			await peopleCsv.previewImport(tx, readCtx(actor), { file: new TextEncoder().encode(file) }),
 		);
 		if (!found) return missing("people.previewImport", CONTACT);
-		const rows = previewRows(found);
+		const rows = previewRows(actor, found);
 		return result("people.previewImport", "available", rows, found.counts.rows, 1, null, "complete", CONTACT);
 	},
 };
@@ -480,7 +486,7 @@ export const getImportReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 		const request = importReceiptRequest.parse(input);
 		const found = valueOf<z.infer<typeof importReceipt>>(await peopleCsv.getImportReceipt(tx, readCtx(actor), request));
 		if (!found) return missing("people.getImportReceipt", CONTACT);
-		const rows = receiptRows(found);
+		const rows = receiptRows(actor, found);
 		return result("people.getImportReceipt", "available", rows, found.rows.length, 1, null, "complete", CONTACT);
 	},
 };
@@ -497,7 +503,10 @@ export const exportPeople: ReadAdapter<z.infer<typeof exportInput>> = {
 	allowed: inPlant,
 	async invoke(tx, actor, input) {
 		const request = exportPeopleRequest.parse(input);
-		const found = valueOf<z.infer<typeof peopleExport>>(await peopleCsv.exportPeople(tx, readCtx(actor), request));
+		// The count the export's receipt would give, from one count(*): the file and its contact values are never built.
+		const found = valueOf<Omit<z.infer<typeof peopleExport>, "text">>(
+			await peopleCsv.countExport(tx, readCtx(actor), request),
+		);
 		if (!found) return missing("people.exportPeople", ["contact values", "notes", "csv bytes"]);
 		return result(
 			"people.exportPeople",

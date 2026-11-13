@@ -3,10 +3,10 @@ import { tenantOwner } from "../access/results.ts";
 import { instant } from "../common/time.ts";
 import { accountId, defineSafeError, recordId, revision, role, safeError } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
+import { avatarReference } from "../settings/results.ts";
 import { ordinarySeatRole } from "./invitations.ts";
 
 export const listSeatsRequest = z.strictObject({ workspace: tenantOwner, after: recordId.optional() });
-export const currentMembershipRequest = z.strictObject({});
 const ordinaryTarget = z.strictObject({ seatId: recordId, expectedRole: ordinarySeatRole });
 export const changeOrdinaryRoleRequest = commandEnvelope(ordinaryTarget.extend({ to: ordinarySeatRole }));
 export const appointAdminRequest = commandEnvelope(ordinaryTarget.extend({ to: z.literal("admin") }));
@@ -68,6 +68,8 @@ const seatProjection = z
 		revision,
 		status: z.enum(["active", "removed"]),
 		isSelf: z.boolean(),
+		/** The account's current photo, set only while the seat holder may be seen by this workspace (REQ-IDN-006). */
+		avatar: avatarReference.nullable(),
 		joined: seatJoinedProvenance,
 		allowedActions: z
 			.array(z.enum(["appoint_admin", "demote", "remove"]))
@@ -92,16 +94,17 @@ const dutyOutcome = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("needs_owner"), dutyId: recordId }),
 	z.strictObject({ status: z.literal("remaining"), dutyId: recordId }),
 ]);
-export const seatMutationResult = z.strictObject({
-	seatId: recordId,
-	revision,
-	outcome: z.enum(["changed", "noop", "partial"]),
-	duties: z
-		.array(dutyOutcome)
-		.max(MAX_REMOVAL_ITEMS)
-		.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
-});
-seatMutationResult.refine((v) => v.outcome === "partial" || v.duties.every((d) => d.status !== "remaining"));
+export const seatMutationResult = z
+	.strictObject({
+		seatId: recordId,
+		revision,
+		outcome: z.enum(["changed", "noop", "partial"]),
+		duties: z
+			.array(dutyOutcome)
+			.max(MAX_REMOVAL_ITEMS)
+			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
+	})
+	.refine((v) => v.outcome === "partial" || v.duties.every((d) => d.status !== "remaining"));
 export const seatError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_owner", {}, "never"),

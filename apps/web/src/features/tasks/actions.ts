@@ -2,7 +2,7 @@
 
 import * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import type { BulkResult, Outcome, Rule, Saved } from "./model.ts";
+import type { BulkResult, OfferAnswered, Outcome, Rule, Saved, TemplateImport } from "./model.ts";
 import { taskViewer, write, type TaskViewer } from "./server.ts";
 
 // Server actions behind the Tasks screens' writes: the browser boundary. Reads go through read.ts, a GET handler, because
@@ -94,15 +94,15 @@ export async function changeTaskStatus(
 
 // Task structure (WP-025). Each is one command with its own request key; the writer rechecks authority in its statement.
 
-/** Add a step under `parentId`. `assigneeId` undefined takes the task's assignee; only an Owner or Admin may name one. */
+/** Add a step under `parentId`. `assigneeIds` undefined takes the task's assignees; only an Owner or Admin may name them. */
 export async function addStep(
 	requestKey: string,
 	parentRevision: string,
 	parentId: string,
 	title: string,
-	assigneeId?: string | null,
+	assigneeIds?: string[],
 ): Promise<Outcome<Saved>> {
-	const input = { parentId, title, ...(assigneeId !== undefined ? { assigneeId } : {}) };
+	const input = { parentId, title, ...(assigneeIds !== undefined ? { assigneeIds } : {}) };
 	return boundary(async (v) =>
 		savedOf(
 			await write(v, (w, tx, ctx) => w.createSubtask(tx, ctx, { requestKey, expectedRevision: parentRevision, input })),
@@ -180,4 +180,28 @@ export async function bulkComplete(requestKey: string, items: BulkItems): Promis
 /** Give up to 100 reviewed open tasks the same due date. Owner/Admin. */
 export async function bulkReschedule(requestKey: string, items: BulkItems, due: unknown): Promise<Outcome<BulkResult>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.bulkReschedule(tx, ctx, { requestKey, items, due })));
+}
+
+// Phase checklists (WP-026). The writer checks the catalog version, the keys and the Owner or Admin seat in its own
+// statements; a lost answer is retried with the same request key and replays the stored result.
+
+/** Import the previewed items of one checklist as tasks assigned to the importer. */
+export async function importTemplate(
+	requestKey: string,
+	input: { catalogVersion: number; checklistKey: string; itemKeys: string[] },
+): Promise<Outcome<TemplateImport>> {
+	return boundary((v) => write(v, (w, tx, ctx) => w.importTemplate(tx, ctx, { requestKey, input })));
+}
+/** Accept some of a phase offer's checklists, or decline them all with an empty list. */
+export async function answerOffer(
+	requestKey: string,
+	input: { transitionId: string; catalogVersion: number; checklistKeys: string[] },
+): Promise<Outcome<OfferAnswered>> {
+	return boundary((v) =>
+		input.checklistKeys.length
+			? write(v, (w, tx, ctx) => w.acceptPhaseOffer(tx, ctx, { requestKey, input }))
+			: write(v, (w, tx, ctx) =>
+					w.declinePhaseOffer(tx, ctx, { requestKey, input: { transitionId: input.transitionId } }),
+				),
+	);
 }

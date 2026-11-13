@@ -10,8 +10,9 @@ import {
 import { CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
+import { useEffect, useRef, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
-import { STATUS_LABEL, STATUS_TONE, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
+import { statusView, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
 
 /** A link that prefetches on intent (pointer, touch, keyboard focus), never because it scrolled into view. */
 export { PersonLink as IntentLink };
@@ -27,18 +28,22 @@ export function MeetingIcon({ type, size = 36 }: { type: MeetingType; size?: 36 
 	return <CardIcon icon={TYPE_ICON[type]} tone={TYPE_TONE[type]} size={size} />;
 }
 
+/** A meeting's status as `statusView` reads it at `now`: a past meeting still planning or ready reads "Not closed". */
 export function MeetingStatusBadge({
-	status,
+	meeting,
+	now,
 	size,
 	className,
 }: {
-	status: MeetingStatus;
+	meeting: { status: MeetingStatus; startsAt: string };
+	now: string;
 	size?: "sm" | "md";
 	className?: string;
 }) {
+	const { label, tone } = statusView(meeting.status, meeting.startsAt, now);
 	return (
-		<StatusBadge status={STATUS_TONE[status]} size={size} className={className}>
-			{STATUS_LABEL[status]}
+		<StatusBadge status={tone} size={size} className={className}>
+			{label}
 		</StatusBadge>
 	);
 }
@@ -94,6 +99,55 @@ export function Problem({ text, className }: { text: string | undefined; classNa
 					{text}
 				</p>
 			) : null}
+		</div>
+	);
+}
+
+const FIRST_CONTROL = "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])";
+
+/**
+ * The panels of a tabbed dialog, drawn in one grid cell so the dialog is as tall as its tallest panel on every tab.
+ * Switching tabs then changes neither the dialog height nor the tab control's position. The panels that are not shown
+ * keep their state, stay invisible and take no focus or screen-reader reading (inert). A tab change moves focus to the
+ * first control of the shown panel; opening the dialog leaves focus to the dialog.
+ */
+export function TabStack({
+	active,
+	panels,
+	className,
+	fit,
+}: {
+	active: string;
+	panels: Record<string, ReactNode>;
+	className?: string;
+	/** Size to the shown panel; the hidden panels take no height (they keep their state). */
+	fit?: boolean;
+}) {
+	const root = useRef<HTMLDivElement>(null);
+	const first = useRef(true);
+	useEffect(() => {
+		if (first.current) {
+			first.current = false;
+			return;
+		}
+		root.current?.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`)?.focus();
+	}, [active]);
+	return (
+		<div ref={root} className="grid">
+			{Object.entries(panels).map(([key, node]) => (
+				<div
+					key={key}
+					data-panel={key}
+					inert={key !== active}
+					className={cn(
+						"col-start-1 row-start-1 flex min-w-0 flex-col",
+						className,
+						key !== active && (fit ? "hidden" : "invisible"),
+					)}
+				>
+					{node}
+				</div>
+			))}
 		</div>
 	);
 }
