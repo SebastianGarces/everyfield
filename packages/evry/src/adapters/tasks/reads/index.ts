@@ -235,7 +235,7 @@ export const listTasks: ReadAdapter<z.infer<typeof listInput>> = {
 		return result(
 			"tasks.list",
 			shown.map((t) => taskRow(actor, t)),
-			["checklist rows (read them with tasks.listSubtasks)", "deleted tasks", "task descriptions"],
+			["checklist rows", "deleted tasks", "task descriptions"],
 			{
 				total: partial ? null : matched.length,
 				page,
@@ -315,7 +315,7 @@ export const getTask: ReadAdapter<z.infer<typeof taskInput>> = {
 				parentId: t.id,
 			}),
 		);
-		return result("tasks.get", [head, ...children], ["status history (read it with tasks.statusHistory)"], {
+		return result("tasks.get", [head, ...children], ["status history"], {
 			total: 1 + children.length,
 		});
 	},

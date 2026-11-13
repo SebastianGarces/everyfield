@@ -154,7 +154,7 @@ test("INV-review-tasks: task and follow-up reviews say their values in words and
 		valueText("occurredAt", "2026-11-13 14:05 America/Chicago"),
 		"Fri, Nov 13, 2026, 2:05 PM (Chicago time)",
 	);
-	assert.equal(valueText("recurrence", "weekly on Mondays, America/Chicago"), "Weekly on Mondays");
+	assert.equal(valueText("recurrence", "weekly on Mondays, America/Chicago"), "Weekly on Mondays (America/Chicago)");
 	assert.equal(valueText("recurrence", null), "Doesn't repeat");
 	assert.equal(valueText("owners", null), "Needs owner");
 	assert.equal(valueText("relatedTo", task.id), "A linked record", "an id is never shown");

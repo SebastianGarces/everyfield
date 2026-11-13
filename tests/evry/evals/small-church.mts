@@ -154,7 +154,8 @@ export async function converse(model: LanguageModelV4, db: Database, actor: Evry
 		system: context.system,
 		messages: context.messages,
 		tools,
-		stopWhen: stepCountIs(4),
+		// Room for a follow-up read and the people it names before the answer (the product allows 24 tool calls).
+		stopWhen: stepCountIs(8),
 		maxRetries: 0,
 		maxOutputTokens: LIMITS.outputTokensPerCall,
 		onError: () => undefined,

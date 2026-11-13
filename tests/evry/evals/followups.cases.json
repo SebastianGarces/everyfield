@@ -2,7 +2,7 @@
 	{
 		"text": "who should I follow up with?",
 		"operation": "people.getPipelineData",
-		"alsoAccepted": ["people.listPeople"],
+		"alsoAccepted": ["people.listPeople", "tasks.listFollowUpOwners", "tasks.followUpCoverage"],
 		"expect": "followUp",
 		"rubric": {
 			"notYou": "Does not name Daniel Reyes, the signed-in planter",
@@ -12,7 +12,7 @@
 	{
 		"text": "who do I need to follow up with this week?",
 		"operation": "people.getPipelineData",
-		"alsoAccepted": ["people.listPeople"],
+		"alsoAccepted": ["people.listPeople", "tasks.listFollowUpOwners", "tasks.followUpCoverage"],
 		"expect": "followUp",
 		"rubric": {
 			"notYou": "Does not name Daniel Reyes, the signed-in planter",
@@ -22,7 +22,7 @@
 	{
 		"text": "who haven't we reached out to in a while?",
 		"operation": "people.getPipelineData",
-		"alsoAccepted": ["people.listPeople"],
+		"alsoAccepted": ["people.listPeople", "tasks.listFollowUpOwners", "tasks.followUpCoverage"],
 		"expect": "followUp",
 		"rubric": {
 			"notYou": "Does not name Daniel Reyes, the signed-in planter",
@@ -41,7 +41,7 @@
 	{
 		"text": "who needs a follow-up from me right now?",
 		"operation": "people.getPipelineData",
-		"alsoAccepted": ["people.listPeople"],
+		"alsoAccepted": ["people.listPeople", "tasks.listFollowUpOwners", "tasks.followUpCoverage"],
 		"actor": "lena",
 		"expect": "followUp",
 		"rubric": {

@@ -78,7 +78,7 @@ test("INV-scripted-model: a weekly reminder is one tasks.create review due on th
 		operation: "tasks.create",
 		input: {
 			title: "Review the pipeline",
-			due: { kind: "local_date", date: "2026-11-16" },
+			due: "2026-11-16",
 			assigneeIds: ["me"],
 			recurrence: { frequency: "weekly" },
 		},

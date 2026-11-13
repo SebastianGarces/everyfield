@@ -223,14 +223,21 @@ export function localWhen(value: string): string {
 	const place = m[4]?.split("/").at(-1)?.replaceAll("_", " ");
 	return `${date}, ${time}${place ? ` (${place} time)` : ""}`;
 }
-/** "weekly on Mondays, until 2026-12-31, America/Chicago" as "Weekly on Mondays, until Thu, Dec 31, 2026". */
+/**
+ * "weekly on Mondays, until 2026-12-31, America/Chicago" as "Weekly on Mondays, until Thu, Dec 31, 2026
+ * (America/Chicago)": the series repeats in the church's zone, so the card names it.
+ */
 function repeats(value: string) {
 	if (value === "stopped") return "Stops repeating";
-	const parts = value.split(", ").filter((p) => !p.includes("/"));
-	const [rule = "", ...rest] = parts;
+	const all = value.split(", ");
+	const zone = all.find((p) => p.includes("/"));
+	const [rule = "", ...rest] = all.filter((p) => p !== zone);
 	const [frequency = "", ...tail] = rule.split(" ");
 	const head = [FREQUENCY[frequency] ?? frequency, ...tail].join(" ");
-	return [head, ...rest.map((p) => p.replace(/^until (\S+)$/, (_, d: string) => `until ${localWhen(d)}`))].join(", ");
+	const text = [head, ...rest.map((p) => p.replace(/^until (\S+)$/, (_, d: string) => `until ${localWhen(d)}`))].join(
+		", ",
+	);
+	return zone ? `${text} (${zone})` : text;
 }
 
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */

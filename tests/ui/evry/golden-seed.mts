@@ -68,9 +68,18 @@ async function state(fact: string, value: string) {
 				await run(sql`DELETE FROM contact_outcome WHERE id=${JOHNSON_CALL.id}`);
 				await run(sql`UPDATE task SET status='not_started',completed_at=NULL WHERE id=${taskId("beth")}`);
 			} else if (outcome) {
-				const r = await run(sql`UPDATE contact_outcome SET outcome=${outcome},
+				// A removed call comes back as Ana recorded it, on Beth's follow-up, which it completes.
+				const { shiftDays } = JSON.parse(readFileSync(fixturePath("golden"), "utf8")) as { shiftDays: number };
+				const at = new Date(Date.parse(JOHNSON_CALL.at) + shiftDays * 86_400_000).toISOString();
+				await run(sql`INSERT INTO contact_outcome(id,plant_id,person_id,task_id,outcome,occurred_at,recorded_at,contact_channel,completes_task)
+					SELECT ${JOHNSON_CALL.id},${PLANT},t.person_id,t.id,${outcome},${at},${at},'phone',true FROM task t WHERE t.id=${taskId("beth")}
+					ON CONFLICT (id) DO NOTHING`);
+				await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_revision)
+					SELECT ${PLANT},${SEATS.ana.account},'followup.recorded','outcome','contact_outcome',${JOHNSON_CALL.id},${at},${at},1
+					WHERE NOT EXISTS(SELECT FROM audit_event WHERE subject_id=${JOHNSON_CALL.id})`);
+				await run(sql`UPDATE task SET status='complete',completed_at=${at} WHERE id=${taskId("beth")}`);
+				await run(sql`UPDATE contact_outcome SET outcome=${outcome},
 					contact_channel=${outcome === "administrative_completion" ? null : "phone"} WHERE id=${JOHNSON_CALL.id}`);
-				if (!r.rowCount) throw Error("The Johnsons' call was removed: run up again on a fresh seed to restore it.");
 			} else throw Error("johnsons contacted|attempted|admin|none");
 		} else if (fact === "daniel") {
 			await run(sql`DELETE FROM task_assignee WHERE task_id=${taskId("daniel")}`);

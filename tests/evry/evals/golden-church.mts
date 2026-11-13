@@ -30,9 +30,9 @@
 //
 // Derived facts come from their source rows, never from a stored label. Inactivity is the real board's comparison of
 // each person's latest activity with the church's 7 and 14 inactivity days, against the database clock. So that it
-// reads the same on every day the suite runs, a person at level none or warning has a recorded change (an audit row,
-// which no contact log shows) 2 or 10 days before the seed runs; an alert-level person has only activity older than
-// 14 days. The contact log holds only the pinned call above, so a contact history reads the same every day. Coverage is
+// reads the same on every day the suite runs, a person at level none or warning has a recorded activity (an audit row
+// that neither the contact log nor the People history lists) 2 or 10 days before the seed runs; an alert-level person
+// has only activity older than 14 days. The contact log holds only the pinned call above, so a contact history reads the same every day. Coverage is
 // whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
@@ -355,7 +355,7 @@ async function seedHope(admin: Database, options: SeedOptions) {
 		}
 		if (p.state === "live" && p.inactivity !== "alert")
 			await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_revision)
-				SELECT ${PLANT},${owner},'people.updated','edit','person',${p.id},t,t,1
+				SELECT ${PLANT},${owner},'followup.recorded','outcome','person',${p.id},t,t,1
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
 
@@ -555,8 +555,8 @@ export const CHECKLIST_IMPORT = id(0x8f50);
  */
 async function seedHistory(admin: Database, at: (value: string) => string) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
-	await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,before_value,after_value,before_revision,after_revision)
-		VALUES(${PLANT},${ACCOUNT(2)},'tasks.completed','complete','task',${taskId("packet")},${at("2026-11-06T18:00:00.000Z")},
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,before_value,after_value,before_revision,after_revision)
+		VALUES(${id(0x8f60)},${PLANT},${ACCOUNT(2)},'tasks.completed','complete','task',${taskId("packet")},${at("2026-11-06T18:00:00.000Z")},
 			${at("2026-11-06T18:00:00.000Z")},'{"status":"not_started"}'::jsonb,'{"status":"complete"}'::jsonb,1,1)`);
 	await run(sql`UPDATE task SET prerequisite_ids=ARRAY[${taskId("banners")}]::uuid[] WHERE id=${taskId("launch")}`);
 	// Each phase change names the audit row of the command that made it.

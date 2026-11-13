@@ -578,8 +578,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 			// A seat's account, by its name: its initials, never a Person's photo or page.
 			return {
 				...plain,
-				name: fields.you === true ? `${row.label} (you)` : row.label,
+				// The avatar's initials come from the name, so "You" goes on the line.
+				name: row.label,
 				line: joined(
+					fields.you === true ? "You" : null,
 					label(ROLE_WORD, fields.role),
 					fields.canOwnFollowUps === true
 						? "Can own follow-ups"

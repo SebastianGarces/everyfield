@@ -120,11 +120,10 @@ export function taskStep(
 	if (called && has("followups_read")) {
 		const people = last(out, "people.listPeople");
 		if (!people) return read("people", "people.listPeople", { search: called[1] });
-		const done = new Set(out.filter((o) => o.operation === "followups.listContactHistory").map((o) => o.personId));
+		// One contact log per person, in the order the people came back.
 		const histories = out.filter((o) => o.operation === "followups.listContactHistory");
-		const next = rows(people).find((p) => histories.length < rows(people).length && !done.has(p.id));
-		if (next && histories.length < rows(people).length)
-			return read("followups", "followups.listContactHistory", { personId: next.id });
+		const next = rows(people)[histories.length];
+		if (next) return read("followups", "followups.listContactHistory", { personId: next.id });
 		const lines = rows(people).map((p, i) => {
 			const log = rows(histories[i]);
 			if (!log.length) return `No call is recorded for ${p.label}.`;
@@ -223,7 +222,7 @@ export function taskStep(
 		const title = remind[2]!.charAt(0).toUpperCase() + remind[2]!.slice(1);
 		return propose("tasks.create", {
 			title,
-			due: { kind: "local_date", date: nextMonday(prompt) },
+			due: nextMonday(prompt),
 			assigneeIds: ["me"],
 			recurrence: { frequency: "weekly" },
 		});

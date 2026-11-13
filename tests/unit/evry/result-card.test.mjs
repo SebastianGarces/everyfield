@@ -658,7 +658,7 @@ test("INV-result-card-follow-ups: follow-up, contact log and account rows name o
 	assert.deepEqual(
 		seats.rows.map((r) => [r.name, r.line, r.avatar, r.photoFor, r.href]),
 		[
-			["Nate Ellis (you)", "Owner · Can own follow-ups", "person", null, null],
+			["Nate Ellis", "You · Owner · Can own follow-ups", "person", null, null],
 			["Carlos Mendez", "Member · Can't own follow-ups", "person", null, null],
 		],
 	);
