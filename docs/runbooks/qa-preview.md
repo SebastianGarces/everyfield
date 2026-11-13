@@ -39,11 +39,12 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       environment.
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
-   7. Starts the preview's scheduled-send driver on this Mac and waits for its first run (see "Scheduled sends"
-      below).
+   7. Writes the preview's cron secret to a private file for `bin/qa drive`. It never starts a driver itself. When
+      `bin/qa drive` is running, it waits for that host's first run of the preview (see "Scheduled sends" below).
 3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora. Below them it prints which extra
    addresses this preview mails for real, or that it mails none. Check that line against Nora's request first. The
-   last line starts with `Scheduled sends:`. It must say `on` before you send the URL.
+   last line starts with `Scheduled sends:`. It must say `on` before you send the URL. If it says `off until you run,
+   outside a seat:`, start `bin/qa drive` with the command it prints, then check the preview's log.
 
 If a step fails, the command removes what it made and prints the error with every secret masked.
 
@@ -240,32 +241,42 @@ The outbox is a temp folder on one server instance. On Vercel, another instance 
 miss it and a cancel or time change can answer unknown. Nothing is sent in that case.
 
 "Send now" in Messages hands the mail to Resend or the outbox in the same request. A scheduled send waits for the
-scheduled-send job, which the driver below runs. Evry turns also run in the request.
+scheduled-send job, which `bin/qa drive` below runs. Evry turns also run in the request.
 
-#### Scheduled sends: the cron driver (T-255)
+#### Scheduled sends: `bin/qa drive` (T-255, T-289)
 
 In production, Vercel calls `/api/cron/jobs` every minute (`apps/web/vercel.json`). That route sends scheduled Messages
-email at its send time and runs the other background jobs. Vercel does not run crons on previews, so `bin/qa up`
-starts a small driver on the lead's Mac that calls the same route on the preview once a minute, a couple of seconds
-after the minute starts. A message scheduled for 10:03 goes out by about 10:03:02, through the same code as
-production, with no manual step.
+email at its send time and runs the other background jobs. Vercel does not run crons on previews, so one process on the
+lead's Mac, `bin/qa drive`, calls the same route on every open QA preview once a minute, a couple of seconds after the
+minute starts. A message scheduled for 10:03 goes out by about 10:03:02, through the same code as production, with no
+manual step.
 
-- The preview has its own `CRON_SECRET`, made by `bin/qa up` and set on that one deployment like the database
-  settings. The driver holds it in memory and in a private temporary file. It is never printed, stored in the records
-  or put in the shared Vercel environments.
-- The driver calls the route with `vercel curl`, which gets past Deployment Protection with the project's existing
-  Protection Bypass for Automation (section 3). The Mac's Vercel CLI must have the `curl` command.
+- Jonah starts it himself, in a terminal outside any seat, from the home checkout: `bin/qa drive`. A seat's processes
+  end when its turn ends, so a seat never starts a driver: `bin/qa up` and `bin/qa down` from a seat only add and remove
+  preview records. Nothing starts `bin/qa drive` automatically, and it does not survive a restart of the Mac.
+- It stops with Ctrl-C, or `kill <pid>` (SIGTERM). It writes `stopped` in each preview's log, removes its temporary
+  files and its lock, and exits 0. While it is stopped, scheduled sends wait; due messages go out on the first run
+  after it starts again.
+- One runs per repository. A second `bin/qa drive` refuses and prints the pid of the one already running. A lock left
+  by one that died does not block a new start.
+- It reads `previews.json` every few seconds. A preview that `bin/qa up` adds gets its first run at once, with no
+  restart. After `bin/qa down <id>`, it logs `stopped` for that preview within seconds and keeps driving the others.
+- Each preview has its own `CRON_SECRET`, made by `bin/qa up` and set on that one deployment like the database
+  settings. `bin/qa up` keeps it in `<git common dir>/qa/<id>.cron-secret`, which only the owner can read (0600), and
+  `bin/qa down` deletes it. `bin/qa drive` copies it only into a private temporary header file for curl. It is never
+  printed, logged, stored in the records or put in the shared Vercel environments.
+- It calls the route with `vercel curl`, which gets past Deployment Protection with the project's existing Protection
+  Bypass for Automation (section 3). The Mac's Vercel CLI must have the `curl` command.
 - On the preview, the cleanup login points at the preview's own Neon branch, so the job's purges stay on that branch.
-- The driver writes one line per run to `<git common dir>/qa/<id>.cron.log`: the time, the HTTP status and the route's
+- It writes one line per run to `<git common dir>/qa/<id>.cron.log`: the time, the HTTP status and the route's
   counts (`"messages": 1` means one scheduled email went out). To watch it:
   `tail -f "$(git rev-parse --git-common-dir)/qa/<id>.cron.log"`.
-- It runs until `bin/qa down <id>`, which stops it first. It also stops on its own when the preview's record is gone.
-- It runs only while the Mac is awake. If the Mac sleeps, due messages go out on the first run after it wakes. If the
-  Mac restarts, the driver is gone and scheduled sends wait: make a new preview.
+- It runs only while the Mac is awake. If the Mac sleeps, due messages go out on the first run after it wakes.
 - If `Scheduled sends:` says the first run FAILED, the preview is up but scheduled sends are not. The line and the log
   name the HTTP status. A 401 or 403 from Vercel means `vercel curl` could not get past Deployment Protection, and
-  a command error means the Vercel CLI needs an update. The driver keeps trying every minute, so fix the cause or
+  a command error means the Vercel CLI needs an update. `bin/qa drive` keeps trying every minute, so fix the cause or
   make a new preview before Nora tests a scheduled send.
+- A preview made before T-289 has no cron secret file, so `bin/qa drive` skips it. Make a new preview instead.
 
 A preview built before WP-029 merged keeps the old code and can send to any address. Rebuild an open preview from that
 time with `bin/qa up` before you test mail on it.
@@ -297,8 +308,8 @@ open the URL in a browser that is signed in to Vercel.
 When Nora finishes, or once a week:
 
 1. Run `bin/qa list`. It shows each open preview with its id, branch, URL, Neon branch and age.
-2. Run `bin/qa down <id>` for each preview that is done. It stops the scheduled-send driver, removes the alias, the
-   Vercel deployment and the Neon branch, then its record. A second run for the same id does nothing and succeeds.
+2. Run `bin/qa down <id>` for each preview that is done. It deletes the cron secret, so `bin/qa drive` stops calling
+   the preview, removes the alias, the Vercel deployment and the Neon branch, then the log and the record. A second run for the same id does nothing and succeeds.
 3. Check with `neonctl branches list --project-id cool-math-76767811` that no `qa-` branch is left for that id.
 
 Files that Nora uploads go to the shared development bucket and stay there. QA previews do not expire on their own,
@@ -306,6 +317,7 @@ which is why `qa list` exists.
 
 ## 5. Where the records are
 
-`bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names, URLs
-and the driver's process id, never a connection string, key or password. Each open preview also has its driver's log,
-`<id>.cron.log`, in the same folder.
+`bin/qa` keeps its records in `<git common dir>/qa/previews.json`, one file for every worktree. It holds names and URLs,
+never a connection string, key or password. Each open preview also has its scheduled-send log, `<id>.cron.log`, and its
+private cron secret, `<id>.cron-secret` (0600), in the same folder. `drive.lock` holds the pid of the running
+`bin/qa drive`.
