@@ -665,8 +665,12 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
-	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	// A Member reads and selects, and proposes only their own Wiki bookmark or vote; an organization seat gets no tool.
+	assert.deepEqual(tools("member"), tools("owner"));
+	assert.deepEqual(
+		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		["wiki.bookmarks.set", "wiki.feedback.setMine"],
+	);
 	assert.deepEqual(tools("org"), []);
 });
 
