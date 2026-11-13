@@ -1,0 +1,61 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "conflict-of-interest-policy",
+	"version": 1,
+	"title": "Conflict of interest policy",
+	"class": "formal/legal",
+	"exports": [
+		"pdf",
+		"docx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": null
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " adopts this policy. Signed by "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "pastor_name"
+						}
+					}
+				]
+			}
+		]
+	}
+}

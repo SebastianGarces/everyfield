@@ -2,8 +2,10 @@
 // about a conversation: the panel merges what the API and the stream send, by sequence, and derives turns, result
 // cards and notices from them. A message the person sent shows at once and falls away when its saved event arrives.
 
+import type { Review } from "../review/model.ts";
+
 /** The four exact contexts a conversation belongs to. */
-export type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
+type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
 
 export type Conversation = {
 	id: string;
@@ -14,7 +16,7 @@ export type Conversation = {
 	updatedAt: string;
 };
 
-export type ErrorCode =
+type ErrorCode =
 	| "not_found"
 	| "access_denied"
 	| "invalid_input"
@@ -37,7 +39,12 @@ export type ProjectedError = {
 };
 
 export type Reference = { kind: "person"; id: string };
-export type SourceRow = { kind: "person"; id: string; label: string; fields: Record<string, unknown> };
+export type SourceRow = {
+	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message";
+	id: string;
+	label: string;
+	fields: Record<string, unknown>;
+};
 export type SourceResult = {
 	operation: string;
 	status: "available" | "not_found";
@@ -53,7 +60,7 @@ export type SourceResult = {
 	proposalId?: string;
 };
 
-export type StopReason =
+type StopReason =
 	| "completed"
 	| "policy_boundary"
 	| "tool_budget"
@@ -92,9 +99,31 @@ export type State = {
 	/** Cancel was asked for and the final status has not arrived yet. */
 	stopping: boolean;
 	sends: readonly Send[];
+	/** Each running turn's whole text as the live stream has delivered it, ahead of its saved events. */
+	live: Readonly<Record<string, string>>;
+	/**
+	 * Each review card's review from the read that opened the conversation, by proposal id; null when it is unavailable.
+	 * A card takes its own once, as it first shows (`seen`), and reads it by id after that.
+	 */
+	reviews: Readonly<Record<string, Review | null>>;
 };
 
-export const EMPTY: State = { conversation: null, events: [], activeTurnId: null, stopping: false, sends: [] };
+export const EMPTY: State = {
+	conversation: null,
+	events: [],
+	activeTurnId: null,
+	stopping: false,
+	sends: [],
+	live: {},
+	reviews: {},
+};
+
+/** Live text from the stream (turn text from `offset` on). A piece the panel already has adds only what it lacks. */
+export function mergeLive(state: State, turnId: string, offset: number, text: string): State {
+	const have = state.live[turnId] ?? "";
+	if (offset > have.length || offset + text.length <= have.length) return state;
+	return { ...state, live: { ...state.live, [turnId]: have + text.slice(have.length - offset) } };
+}
 
 /** A conversation as the API reads it: its saved events and the state of its active run. */
 export type ReadConversation = {
@@ -105,6 +134,8 @@ export type ReadConversation = {
 	 */
 	run: { turnId: string; state: "running" | "lost" } | null;
 	events: ConversationEvent[];
+	/** The current review of each review card among `events`, by proposal id; null when the person may not read it. */
+	reviews: Record<string, Review | null>;
 	more: boolean;
 };
 
@@ -113,6 +144,7 @@ export function opened(read: ReadConversation): State {
 	return {
 		...merge({ ...EMPTY, conversation: read.conversation }, read.events),
 		activeTurnId: read.run?.turnId ?? null,
+		reviews: read.reviews,
 	};
 }
 
@@ -130,7 +162,11 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	if (!fresh.length) return state;
 	const events = [...state.events, ...fresh].sort((a, b) => a.sequence - b.sequence);
 	let { activeTurnId, stopping } = state;
+	let live = state.live;
 	for (const e of fresh) {
+		// A turn's end holds its whole saved text: what the stream delivered ahead of it is done.
+		if (e.kind === "status" && e.turnId && e.turnId in live)
+			live = Object.fromEntries(Object.entries(live).filter(([id]) => id !== e.turnId));
 		if (e.kind === "user_message" && e.turnId && !events.some((s) => s.kind === "status" && s.turnId === e.turnId))
 			activeTurnId = e.turnId;
 		if (e.kind === "status" && e.turnId === activeTurnId) {
@@ -140,14 +176,14 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	}
 	const saved = new Set(events.map((e) => e.sequence));
 	const sends = state.sends.filter((s) => s.sequence === null || !saved.has(s.sequence));
-	return { ...state, events, activeTurnId, stopping, sends };
+	return { ...state, events, activeTurnId, stopping, sends, live };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Turns: what the panel draws. One turn is the person's message, then Evry's text and result cards in the order they
 // were saved, then how the turn ended.
 
-export type Block =
+type Block =
 	| { kind: "text"; sequence: number; text: string; withheld: boolean }
 	| { kind: "result"; sequence: number; operation: string; result: SourceResult; originalTotal: number | null }
 	| { kind: "review"; sequence: number; proposalId: string; target: string | null };
@@ -161,7 +197,7 @@ export type Turn = {
 	end: TurnEnd | null;
 };
 
-export function turnsOf(events: readonly ConversationEvent[]): Turn[] {
+export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Record<string, string>> = {}): Turn[] {
 	const turns = new Map<string, Turn>();
 	for (const e of events) {
 		const id = e.turnId ?? `event-${e.sequence}`;
@@ -199,6 +235,21 @@ export function turnsOf(events: readonly ConversationEvent[]): Turn[] {
 				turn.end = { state: e.body.state, reason: e.body.reason, error: e.body.error ?? null };
 				break;
 		}
+	}
+	// Text the stream delivered ahead of its saved events: what the saved text lacks of the live text, in the same place.
+	for (const turn of turns.values()) {
+		const streamed = live[turn.id];
+		if (!streamed || turn.end) continue;
+		// A withheld text means a source is gone: the turn's live text is never shown (retained.ts).
+		if (turn.blocks.some((b) => b.kind === "text" && b.withheld)) continue;
+		let saved = 0;
+		for (const e of events) if (e.turnId === turn.id && e.kind === "assistant_text") saved += e.body.text.length;
+		const tail = streamed.slice(saved);
+		if (!tail) continue;
+		const last = turn.blocks.at(-1);
+		if (last?.kind === "text" && !last.withheld) last.text += tail;
+		else
+			turn.blocks.push({ kind: "text", sequence: (events.at(-1)?.sequence ?? 0) + 0.5, text: tail, withheld: false });
 	}
 	// A withheld text block keeps one notice, however many saved pieces it had.
 	for (const turn of turns.values())

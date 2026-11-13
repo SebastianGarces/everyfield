@@ -5,19 +5,15 @@ import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls"
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
+import { Fresh } from "./fresh.tsx";
 import { loadTasksPage, taskViewer } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
+import { params } from "../shared/search-params.ts";
 
 // The Tasks route. apps/web/src/app/(product)/(frame)/tasks/ only re-exports these, so the screen, its data loading
 // and its states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [k, v] of Object.entries(raw)) for (const one of [v ?? []].flat()) out.append(k, one);
-	return out;
-};
-
 export const tasksMetadata: Metadata = { title: "Tasks", robots: { index: false, follow: false } };
 
 export async function TasksPage({ searchParams }: { searchParams: Search }) {
@@ -48,11 +44,13 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 			</Blocked>
 		);
 	return (
-		<TasksScreen
-			loaded={loaded.value}
-			viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer())?.displayName ?? null }}
-			year={new Date().getUTCFullYear()}
-		/>
+		<Fresh loading={<TasksLoading />}>
+			<TasksScreen
+				loaded={loaded.value}
+				viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer())?.displayName ?? null }}
+				year={new Date().getUTCFullYear()}
+			/>
+		</Fresh>
 	);
 }
 

@@ -4,6 +4,7 @@ import { DropdownMenu } from "radix-ui";
 import { useId, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn, HoverGroup, Icon, useHoverItem, type IconSvgElement } from "../foundations";
 import { Kbd } from "./Field";
+import { IntentLink } from "./IntentLink";
 import { usePortalContainer } from "./overlay-portal";
 import { popSurface } from "./Popover";
 
@@ -16,7 +17,6 @@ export function Menu({ modal = false, ...props }: ComponentPropsWithRef<typeof D
 	return <DropdownMenu.Root modal={modal} {...props} />;
 }
 export const MenuTrigger = DropdownMenu.Trigger;
-export const MenuGroup = DropdownMenu.Group;
 
 /**
  * Menu (components.md): Label, Item, Separator and Kbd, with a danger item. WAI-ARIA menu button: Enter, Space or
@@ -60,6 +60,8 @@ type MenuItemProps = Omit<ComponentPropsWithRef<typeof DropdownMenu.Item>, "chil
 	shortcut?: string;
 	/** A destructive action. Its text says what it does ("Retire person"). */
 	danger?: boolean;
+	/** An item that goes to another page is a link, so a page that guards unsaved work sees it as one. */
+	href?: string;
 	children: ReactNode;
 };
 
@@ -67,20 +69,26 @@ type MenuItemProps = Omit<ComponentPropsWithRef<typeof DropdownMenu.Item>, "chil
 const ITEM =
 	"relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45";
 
-export function MenuItem({ icon, shortcut, danger, className, children, textValue, ...props }: MenuItemProps) {
+export function MenuItem({ icon, shortcut, danger, href, className, children, textValue, ...props }: MenuItemProps) {
 	const key = useId();
 	const { handlers, indicator } = useHoverItem(key, danger ? "bg-magenta-50" : "bg-surface-2");
+	const content = (
+		<>
+			{indicator}
+			{icon ? <Icon icon={icon} size={18} className={danger ? "text-magenta-600" : "text-text-2"} /> : null}
+			<span className="min-w-0 flex-1 truncate">{children}</span>
+			{shortcut ? <Kbd className="ml-auto">{shortcut}</Kbd> : null}
+		</>
+	);
 	return (
 		<DropdownMenu.Item
 			textValue={textValue}
 			{...handlers}
 			className={cn(ITEM, danger ? "text-magenta-600" : "text-ink", className)}
+			asChild={href !== undefined}
 			{...props}
 		>
-			{indicator}
-			{icon ? <Icon icon={icon} size={18} className={danger ? "text-magenta-600" : "text-text-2"} /> : null}
-			<span className="min-w-0 flex-1 truncate">{children}</span>
-			{shortcut ? <Kbd className="ml-auto">{shortcut}</Kbd> : null}
+			{href !== undefined ? <IntentLink href={href}>{content}</IntentLink> : content}
 		</DropdownMenu.Item>
 	);
 }

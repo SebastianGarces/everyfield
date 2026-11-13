@@ -50,7 +50,7 @@ async function saveReading(
 	operation: string,
 	input: {
 		requestKey: string;
-		expectedRevision: string;
+		expectedRevision?: string;
 		input: { articleId: string; plantId?: string; fraction?: string; desired?: boolean };
 	},
 	mode: "progress" | "view" | "bookmark",
@@ -60,6 +60,11 @@ async function saveReading(
 	const fraction = input.input.fraction ?? "0";
 	const desired = input.input.desired ?? false;
 	const plantId = input.input.plantId ?? null;
+	// Only bookmark checks and bumps the reading revision. Progress and views are monotone merges that keep it.
+	// A row starts at revision 1 (the column's floor), so a page that loaded before any row ("0") matches 1.
+	const expected = !input.expectedRevision || input.expectedRevision === "0" ? "1" : input.expectedRevision;
+	const fresh = mode === "bookmark" ? sql`COALESCE(e.revision, 1)::text = ${expected}` : sql`true`;
+	const current = mode === "bookmark" ? sql`reading.revision::text = ${expected}` : sql`true`;
 	return runWrite(db, authority, account, operation, input, readingResult, async (tx) => {
 		const result = await tx.execute(sql`WITH ${corpusCtes({ authority, owner }, { kind: "current" })},
 			visible AS (
@@ -112,35 +117,36 @@ async function saveReading(
 						WHEN ${mode} = 'progress' AND ${fraction}::numeric > 0.80 THEN ${fraction}::numeric
 						ELSE NULL END,
 					COALESCE(e.policy_version, 'wiki-reading-v1'),
+					-- Any read of a meaningful revision marks it read: opening the article clears "Updated since you read it".
 					CASE
-						WHEN ${mode} <> 'view' AND v.meaningful
+						WHEN v.meaningful
 							THEN GREATEST(COALESCE(e.last_read_meaningful_sequence, 0), v.meaningful_sequence)
 						ELSE COALESCE(e.last_read_meaningful_sequence, 0) END,
 					CASE WHEN ${mode} = 'bookmark' THEN ${desired}::boolean ELSE COALESCE(e.bookmarked, false) END,
-					COALESCE(e.revision, 0) + 1
+					COALESCE(e.revision, 1) + CASE WHEN ${mode} = 'bookmark' THEN 1 ELSE 0 END
 				FROM me m
 				JOIN visible v ON true
 				LEFT JOIN existing e ON true
 				CROSS JOIN plant_ok p
-				WHERE (
-					(e.id IS NULL AND ${input.expectedRevision} = '0') OR e.revision::text = ${input.expectedRevision}
-				)
+				WHERE ${fresh}
 				AND NOT (
 					${mode} = 'bookmark' AND e.id IS NOT NULL AND e.bookmarked IS NOT DISTINCT FROM ${desired}::boolean
 				)
 				ON CONFLICT (account_id, article_id) DO UPDATE SET
-					last_revision_id = EXCLUDED.last_revision_id,
+					last_revision_id = CASE WHEN ${mode} = 'view' THEN reading.last_revision_id ELSE EXCLUDED.last_revision_id END,
 					plant_context_id = EXCLUDED.plant_context_id,
-					observed_fraction = EXCLUDED.observed_fraction,
+					observed_fraction = GREATEST(reading.observed_fraction, EXCLUDED.observed_fraction),
 					last_viewed_at = EXCLUDED.last_viewed_at,
-					completed_at = EXCLUDED.completed_at,
-					completed_revision_id = EXCLUDED.completed_revision_id,
-					completed_fraction = EXCLUDED.completed_fraction,
+					completed_at = COALESCE(reading.completed_at, EXCLUDED.completed_at),
+					completed_revision_id = COALESCE(reading.completed_revision_id, EXCLUDED.completed_revision_id),
+					completed_fraction = COALESCE(reading.completed_fraction, EXCLUDED.completed_fraction),
 					policy_version = reading.policy_version,
-					last_read_meaningful_sequence = EXCLUDED.last_read_meaningful_sequence,
-					bookmarked = EXCLUDED.bookmarked,
-					revision = EXCLUDED.revision
-				WHERE reading.revision::text = ${input.expectedRevision}
+					last_read_meaningful_sequence = GREATEST(
+						reading.last_read_meaningful_sequence, EXCLUDED.last_read_meaningful_sequence
+					),
+					bookmarked = CASE WHEN ${mode} = 'bookmark' THEN EXCLUDED.bookmarked ELSE reading.bookmarked END,
+					revision = CASE WHEN ${mode} = 'bookmark' THEN EXCLUDED.revision ELSE reading.revision END
+				WHERE ${current}
 				RETURNING id, revision::text AS revision, observed_fraction::text AS fraction,
 					(completed_at IS NOT NULL) AS completed, bookmarked,
 					last_read_meaningful_sequence AS last_read

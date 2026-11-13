@@ -7,7 +7,10 @@ import { taskViewer, write } from "./server.ts";
 
 // Server actions for the follow-up screens. Each sends the browser's request to one producer command in one
 // transaction; the producer parses it with the WP-023 contract and checks authority inside its statements. The answer
-// carries what changed, so the screen updates from it and never reloads. A database failure reads as lost: the browser
+// carries what changed, so the follow-up screen updates from it. Nothing here revalidates: a revalidating action also
+// renders the page it was called on again and sends it with the answer (T-234). Tasks stays fresh in the browser
+// instead: the follow-up screens count each saved outcome (outcomeSaved in features/tasks/fresh.tsx), and a Tasks page
+// that browser back shows from before that outcome reads itself again. A database failure reads as lost: the browser
 // sends the same request key again, and the producer returns the first result instead of acting twice.
 
 type TaskMutation = z.infer<typeof tc.taskMutation>;

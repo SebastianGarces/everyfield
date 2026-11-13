@@ -8,9 +8,15 @@ import {
 	setPreferenceRequest,
 	setPreferencesRequest,
 } from "@everyfield/contracts/notifications";
+import {
+	defaultChannelEnabled as defaultEnabled,
+	defaultDigestCadence,
+	notificationChannels as channels,
+} from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
+import { liveRead } from "../access/session.ts";
 import { RequestActor, accountOwner, audit, deny, jsonValue, readReply, runWrite, selfSql, type Tx } from "./core.ts";
 
 const categories = notificationCategory.options;
@@ -21,9 +27,10 @@ const storedRow = z.object({
 	cadence: z.enum(["daily", "weekly"]).nullable(),
 });
 const readRow = z.object({
-	account_id: z.uuid().nullable(),
-	revision: z.string().nullable(),
+	account_id: z.uuid(),
+	revision: z.string(),
 	rows: z.array(storedRow),
+	organization: z.boolean(),
 });
 const writeRow = z.object({
 	me: z.uuid().nullable(),
@@ -33,40 +40,62 @@ const writeRow = z.object({
 	changed: z.boolean(),
 });
 
-function channels(category: (typeof categories)[number]) {
-	return category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const);
-}
-function defaultEnabled(category: string, channel: string) {
-	return !(category === "planter_digest" && channel === "in_app");
+/**
+ * The account's notification choices, in one statement: its revision, its stored choices with the defaults filled in
+ * (defaultChannelEnabled, defaultDigestCadence) and whether it has a current organization seat. The oversight digest
+ * applies only with one. The notifications feed and bell, and the Settings Notifications section, all read this.
+ * Null when the session is no longer live.
+ */
+export async function readPreferences(
+	db: Pick<Database, "execute">,
+	access: { session: string; actor: Pick<RequestActor["actor"], "accountId"> },
+) {
+	const accountId = access.actor.accountId;
+	const result = await db.execute(sql`SELECT a.id AS account_id, a.revision::text AS revision,
+			COALESCE((SELECT json_agg(json_build_object(
+				'category', p.category, 'channel', p.channel, 'enabled', p.enabled, 'cadence', p.cadence
+			)) FROM notification_preference p WHERE p.account_id = a.id), '[]'::json) AS rows,
+			EXISTS(SELECT FROM seat s WHERE s.account_id = a.id AND s.ended_at IS NULL AND s.organization_id IS NOT NULL) AS organization
+		FROM account a
+		WHERE a.id = ${accountId}::uuid AND ${liveRead({ session: access.session, owner: { kind: "account", id: accountId } })}`);
+	if (!result.rows[0]) return null;
+	const row = readRow.parse({ ...result.rows[0], rows: jsonValue(result.rows[0].rows) });
+	const stored = (category: string, channel?: string) =>
+		row.rows.find((r) => r.category === category && (channel ? r.channel === channel : r.cadence));
+	const choices = categories
+		.filter((category) => category !== "oversight_digest" || row.organization)
+		.flatMap((category) =>
+			channels(category).map((channel) => ({
+				category,
+				channel,
+				enabled: stored(category, channel)?.enabled ?? defaultEnabled(category, channel),
+			})),
+		);
+	return {
+		accountId: row.account_id,
+		revision: row.revision,
+		stored: row.rows,
+		values: {
+			choices,
+			planterCadence: stored("planter_digest")?.cadence ?? defaultDigestCadence.planter_digest,
+			oversightCadence: row.organization
+				? (stored("oversight_digest")?.cadence ?? defaultDigestCadence.oversight_digest)
+				: null,
+		},
+	};
 }
 
 export async function getPreferences(db: Database, authority: RequestActor) {
 	return readReply(async () => {
-		const result = await db.execute(sql`WITH ${selfSql(authority.session, authority.actor.accountId)}
-			SELECT (SELECT account_id FROM me) AS account_id,
-				(SELECT revision::text FROM account WHERE id = (SELECT account_id FROM me)) AS revision,
-				COALESCE((SELECT json_agg(json_build_object(
-					'category', category, 'channel', channel, 'enabled', enabled, 'cadence', cadence
-				)) FROM notification_preference WHERE account_id = (SELECT account_id FROM me)), '[]'::json) AS rows`);
-		const row = readRow.parse({ ...result.rows[0], rows: jsonValue(result.rows[0]?.rows) });
-		if (!row.account_id || !row.revision) deny();
-		const stored = new Map(row.rows.map((item) => [`${item.category}:${item.channel}`, item]));
-		const choices = categories.flatMap((category) =>
-			channels(category).map((channel) => ({
-				category,
-				channel,
-				enabled: stored.get(`${category}:${channel}`)?.enabled ?? defaultEnabled(category, channel),
-			})),
-		);
-		const cadence = (category: string) =>
-			row.rows.find((item) => item.category === category && item.cadence)?.cadence ?? null;
+		const read = await readPreferences(db, authority);
+		if (!read) deny();
 		return preferenceResult.parse({
-			choices,
-			planterCadence: cadence("planter_digest"),
-			oversightCadence: cadence("oversight_digest"),
+			...read.values,
 			suppression: "unavailable",
-			revision: row.revision,
-			explicitEmail: categories.filter((category) => stored.has(`${category}:email`)),
+			revision: read.revision,
+			explicitEmail: categories.filter((category) =>
+				read.stored.some((r) => r.category === category && r.channel === "email"),
+			),
 		});
 	});
 }
@@ -124,7 +153,7 @@ export function preferenceUpsert(
 			CASE WHEN ${cadenceWrite} THEN i.cadence ELSE p.cadence END,
 			CASE WHEN ${cadenceWrite} THEN 0 ELSE p.weekday END,
 			CASE WHEN ${cadenceWrite} THEN 16 ELSE p.hour END,
-			COALESCE(p.unsubscribe_revision, 1)
+			COALESCE(p.unsubscribe_revision, 0)
 		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
 			AS i(category text, channel text, enabled boolean, cadence text)
 		LEFT JOIN notification_preference p

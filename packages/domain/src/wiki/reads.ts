@@ -1,12 +1,12 @@
 import {
+	articleRequest,
 	contextGuideRequest,
-	getArticleRequest,
 	guideResult,
+	humanCredit,
 	listArticlesRequest,
 	listResult,
 	navigationRequest,
 	navigationResult,
-	neighborsRequest,
 	neighborsResult,
 	previewResult,
 	publicPreviewRequest,
@@ -20,9 +20,9 @@ import {
 	searchRequest,
 	searchResult,
 	statsResult,
-	tocRequest,
 	tocResult,
 	wikiArticle,
+	wikiBlocks,
 	type SourceView,
 	type WikiArticle,
 	type WikiReply,
@@ -32,7 +32,17 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { articleJson, catalogQuery, corpusCtes, navigationQuery, pageQuery, type CorpusAccess } from "./corpus.ts";
+import {
+	articleJson,
+	catalogQuery,
+	corpusCtes,
+	navigationQuery,
+	pageQuery,
+	visibleBodySql,
+	type CorpusAccess,
+} from "./corpus.ts";
+import { sectionExcerpt } from "./excerpt.ts";
+import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
 
@@ -71,7 +81,7 @@ function displayBody(contentType: unknown, hidden: unknown, body: unknown): stri
 		return text;
 	}
 }
-export function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
+function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
 	if (!body) return [];
 	if (contentType === "safe_nodes") {
 		try {
@@ -150,7 +160,7 @@ export function listArticles(
 }
 export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(getArticleRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -168,10 +178,9 @@ export function getArticle(db: Database, authority: RequestActor, raw: unknown) 
 export function bookmarksList(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(listArticlesRequest, raw);
-		const owner = selectedOwner(authority);
 		const page = await readPage(
 			db,
-			accessFor(authority, owner.kind === "account" ? owner : selectedOwner(authority)),
+			accessFor(authority),
 			sourceOf(input.source),
 			input.page ?? 1,
 			sql`NOT p.hidden AND EXISTS (
@@ -181,6 +190,28 @@ export function bookmarksList(db: Database, authority: RequestActor, raw: unknow
 		);
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
+}
+/**
+ * Markdown and MDX as plain words, for search snippets: markup goes, link and image text stays, and every line break,
+ * table cell and list item becomes one space. Each step is [pattern, replacement, flags] for regexp_replace.
+ */
+const PLAIN_TEXT_STEPS: readonly [string, string, string][] = [
+	["^[ \\t]*(```|~~~).*$", "", "gn"],
+	["</?[A-Za-z][^>]*>", " ", "g"],
+	["!?\\[([^]]*)\\]\\([^)]*\\)", "\\1", "g"],
+	["^[ \\t]{0,3}#{1,6}([ \\t]+|$)", "", "gn"],
+	["^[ \\t|:*_-]+$", "", "gn"],
+	["^[ \\t]*(>[ \\t]?)+", "", "gn"],
+	["^[ \\t]*([-*+]|[0-9]+[.)])[ \\t]+", "", "gn"],
+	["[*`~]+|\\m_+|_+\\M", "", "g"],
+	["\\\\([[:punct:]])", "\\1", "g"],
+	["[|[:space:]]+", " ", "g"],
+];
+function plainText(text: SQL): SQL {
+	return sql`btrim(${PLAIN_TEXT_STEPS.reduce(
+		(inner, [pattern, replacement, flags]) => sql`regexp_replace(${inner}, ${pattern}, ${replacement}, ${flags})`,
+		text,
+	)})`;
 }
 export async function search(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -202,19 +233,13 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
-						SELECT p.*,
-							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank,
-							ts_headline('english', coalesce(p.body, p.excerpt, p.title, ''), websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+						-- Every visible row comes from exactly one revision, whose stored vector the database wrote with it.
+						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
-						CROSS JOIN LATERAL (
-							SELECT
-								setweight(to_tsvector('english', coalesce(p.title, '')), 'A')
-								|| setweight(to_tsvector('english', coalesce(p.excerpt, '')), 'B')
-								|| setweight(to_tsvector('english', coalesce(p.body, '')), 'C') AS vector
-						) v
+						JOIN article_revision r ON r.id = p.revision_id
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND v.vector @@ websearch_to_tsquery('english', ${input.query})
+							AND r.search_vector @@ websearch_to_tsquery('english', ${input.query})
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
@@ -222,9 +247,12 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 						COALESCE((
 							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
-								SELECT * FROM scored
-								ORDER BY text_rank DESC, article_id
-								OFFSET ${offset} LIMIT ${PAGE}
+								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								FROM (
+									SELECT * FROM scored
+									ORDER BY text_rank DESC, article_id
+									OFFSET ${offset} LIMIT ${PAGE}
+								) s
 							) p
 							LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
 							LEFT JOIN LATERAL (
@@ -270,7 +298,6 @@ const navRow = z.object({
 	slug: z.string(),
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
-	relatedIds: z.array(z.uuid()),
 });
 export function navigation(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -296,14 +323,12 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 					phase: item.phase,
 				})),
 			})),
-			breadcrumbs: articles.map((item) => ({ articleId: item.articleId, crumbs: [item.sectionKey, item.title] })),
-			relatedIds: [...new Set(articles.flatMap((item) => item.relatedIds))],
 		});
 	});
 }
 export function articleNeighbors(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(neighborsRequest, raw);
+		const input = parse(articleRequest, raw);
 		const access = accessFor(authority);
 		const result = await db.execute(sql`WITH ${corpusCtes(access, sourceOf(input.source))}
 			SELECT
@@ -336,7 +361,7 @@ export function articleNeighbors(db: Database, authority: RequestActor, raw: unk
 }
 export function tableOfContents(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(tocRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -351,22 +376,57 @@ export function tableOfContents(db: Database, authority: RequestActor, raw: unkn
 		});
 	});
 }
+const guideRow = z.object({
+	articleId: z.uuid(),
+	title: z.string(),
+	slug: z.string(),
+	contentType: z.enum(["safe_mdx", "safe_nodes"]),
+	body: z.string().nullable(),
+});
+const noGuide = { found: false, missing: true, citation: null, articleId: null, title: null, slug: null, body: null };
+/** One statement for every route. A mapped route reads the version this viewer would open (C13 predicate inside). */
 export function contextGuide(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		parse(contextGuideRequest, raw);
+		const input = parse(contextGuideRequest, raw);
 		const access = accessFor(authority);
-		const result = await db.execute(
-			sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
-		);
-		const row = z.object({ allowed: z.boolean() }).parse(result.rows[0]);
+		const entry = guideFor(input.route);
+		if (!entry) {
+			const result = await db.execute(
+				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
+			);
+			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny();
+			return guideResult.parse(noGuide);
+		}
+		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })}
+			SELECT
+				EXISTS (SELECT FROM me) AS allowed,
+				(
+					SELECT json_build_object(
+						'articleId', p.article_id,
+						'title', p.title,
+						'slug', p.slug,
+						'contentType', p.content_type,
+						'body', ${visibleBodySql()}
+					)
+					FROM picked p
+					WHERE p.article_id = (SELECT g.article_id FROM global_rev g WHERE g.slug = ${entry.slug} LIMIT 1)
+				) AS article`);
+		const row = z.object({ allowed: z.boolean(), article: guideRow.nullable() }).parse(result.rows[0]);
 		if (!row.allowed) deny();
-		// No approved release maps an app route to an article.
+		const article = row.article;
+		if (!article?.body) return guideResult.parse(noGuide);
 		return guideResult.parse({
-			found: false,
-			missing: true,
-			citation: null,
-			articleId: null,
-			body: null,
+			found: true,
+			missing: false,
+			citation: entry.heading,
+			articleId: article.articleId,
+			title: article.title,
+			slug: article.slug,
+			body: sectionExcerpt(
+				article.contentType,
+				displayBody(article.contentType, false, article.body) ?? "",
+				entry.heading,
+			),
 		});
 	});
 }
@@ -380,27 +440,13 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 			1,
 			sql`p.article_id = ${input.articleId}::uuid`,
 		);
-		const body = page.articles[0]?.body ?? null;
-		if (!body)
-			return excerptResult.parse({
-				excerpt: null,
-				errorCode: page.articles[0] ? null : "content_access_denied",
-			});
-		if (!input.heading) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const lines = body.split("\n");
-		const start = lines.findIndex((line) => line.replace(/^#{1,6}\s*/, "").trim() === input.heading);
-		if (start < 0) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const opening = lines[start];
-		if (opening == null) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const marks = /^(#+)\s/.exec(opening);
-		const level = marks?.[1]?.length ?? 2;
-		const taken = [opening];
-		for (const line of lines.slice(start + 1)) {
-			const next = /^(#+)\s/.exec(line)?.[1]?.length;
-			if (next != null && next <= level) break;
-			taken.push(line);
-		}
-		return excerptResult.parse({ excerpt: taken.join("\n").slice(0, 500), errorCode: null });
+		const article = page.articles[0];
+		if (!article?.body)
+			return excerptResult.parse({ excerpt: null, errorCode: article ? null : "content_access_denied" });
+		return excerptResult.parse({
+			excerpt: sectionExcerpt(article.contentType, article.body, input.heading),
+			errorCode: null,
+		});
 	});
 }
 export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {
@@ -419,7 +465,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
-					SELECT json_agg(${articleJson()} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
 					FROM recent p
 					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
@@ -528,7 +574,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where, { body: false }));
 		const row = z
 			.object({
 				allowed: z.boolean(),
@@ -616,11 +662,15 @@ function deniedExport() {
 		fontFailureOffersPrintFallback: false,
 	});
 }
+/** The stored credit belongs to the global article, so only the global version prints it, and only a human one. */
 function exportMeta(article: WikiArticle) {
-	return { filename: pdfFilename(article.slug), source: article.credit };
+	return {
+		filename: pdfFilename(article.slug),
+		credit: article.sourceKind === "global" ? humanCredit(article.credit) : null,
+	};
 }
 async function visibleBody(db: Database, authority: RequestActor, raw: unknown) {
-	const input = parse(getArticleRequest, raw);
+	const input = parse(articleRequest, raw);
 	const page = await readPage(
 		db,
 		accessFor(authority),
@@ -637,8 +687,9 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
+		const blocks = wikiBlocks(article.contentType, article.body!);
 		try {
-			const bytes = Buffer.from(render(article.title, article.body!, meta)).toString("base64");
+			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return exportResult.parse({
 				bytes,
 				html: null,
@@ -648,7 +699,7 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		} catch {
 			return exportResult.parse({
 				bytes: null,
-				html: printHtml(article.title, article.body!, meta),
+				html: printHtml(article.title, blocks, meta),
 				errorCode: null,
 				fontFailureOffersPrintFallback: true,
 			});
@@ -662,7 +713,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, article.body!, meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		});
