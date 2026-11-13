@@ -14,18 +14,18 @@ import { documentText } from "./text.ts";
 // read; only an Owner or Admin may change a document (commands/index.ts). A read never returns stored JSON: a document's
 // text is its plain reading-order text, cut at a bound, so Evry can quote what a document actually says.
 
-export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
+const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const live = (actor: EvryActor) =>
 	liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined });
 
 /** Where a document opens in the app. */
-export const documentLink = (store: "written" | "church", id: string) =>
+const documentLink = (store: "written" | "church", id: string) =>
 	store === "church" ? `/documents/church/${id}` : `/documents/written/${id}`;
 /** The two lists in the app: written documents on Documents, Church Documents in their own library. */
-export const LISTS = { written: "/documents", church: "/documents/church" } as const;
+const LISTS = { written: "/documents", church: "/documents/church" } as const;
 
 /** The most text one document read returns to the model. A longer document says it was cut. */
-export const TEXT_CHARS = 6_000;
+const TEXT_CHARS = 6_000;
 const LIST_LIMIT = 50;
 
 /**

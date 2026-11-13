@@ -1007,11 +1007,7 @@ function PhotoChange({
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
-	// A new person, a new document and a new file have nothing before: each value is shown once.
-	const create =
-		review.operation === "people.createPerson" ||
-		review.operation === "documents.createFromTemplate" ||
-		review.operation === "documents.exportNative";
+	const create = review.operation === "people.createPerson";
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
