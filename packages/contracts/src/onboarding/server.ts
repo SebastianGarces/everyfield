@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { Owner, sessionId } from "../common/values.ts";
+import type { Owner, sessionId, Reply } from "../common/values.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
@@ -9,16 +9,15 @@ import type * as result from "./results.ts";
 type Scope = Extract<Owner, { kind: "account" | "plant" }>;
 export type OnboardingContext = { session: z.infer<typeof sessionId>; selected: Scope };
 export type OnboardingWriteContext = OnboardingContext;
-export type OnboardingReply<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: z.infer<typeof result.onboardingError> };
+export type OnboardingReply<T> = Reply<T, z.infer<typeof result.onboardingError>>;
 
 // WP-009/api owns these transactions. Lock account/profile and invitation or
 // relationship subjects in stable order; arbitrate the single active seat with
 // WP-008. Validate current relationships/consent/revisions before conversion.
 // Same intent returns the original receipt and actual current phase, not another
 // creation entry. Required facts, Owner/Person link, all-OFF self-start settings
-// or selected exact-pair consent, history, audit, receipt and WP-031 mail intents
-// commit together. Mail dispatch happens after commit through the outbox only.
+// or selected exact-pair consent, history, audit, receipt and mail intents
+// commit together. Mail is sent after commit, from the outbox only.
 // Person bootstrap uses the WP-011 same-transaction producer, never email alone.
 // Lead answers require the actual created Owner/account-linked Person and use
 // ordinary role assignment; occupied roles conflict, no templates/readers/care

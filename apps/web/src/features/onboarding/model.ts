@@ -2,11 +2,11 @@ import type * as C from "@everyfield/contracts/onboarding";
 import type { z } from "zod";
 
 // The onboarding rules as pure functions (WP-009/ui R4-R6). The store (store.tsx) holds one State and applies these;
-// tests/ui/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
+// tests/unit/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
 // model test runs it without a bundler.
 
 export type Resume = Extract<z.infer<typeof C.resumeResult>, { status: "available" }>;
-export type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
+type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
 export type OnboardingError = z.infer<typeof C.onboardingError>;
 export type ErrorCode = OnboardingError["code"];
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: OnboardingError };
@@ -53,7 +53,9 @@ export const PHASES = [
 export type JourneyDraft =
 	{ answer: "existing"; phase: number } | { answer: "unsure" } | { answer: "discerning" } | { answer: "skip" };
 export type LaunchDraft = { answer: "planned"; date: string } | { answer: "no_date" } | { answer: "skip" };
-export type LeadDraft = { answer: "yes"; roleName: string; teamName: string } | { answer: "no" } | { answer: "skip" };
+/** `seniorPastor` is the optional Senior pastor fill (REQ-IDN-014): offered only after Yes, and off by default. */
+export type LeadDraft =
+	{ answer: "yes"; roleName: string; teamName: string; seniorPastor: boolean } | { answer: "no" } | { answer: "skip" };
 export type BasicsDraft = { name: string; city: string; stateProvince: string; country: string; confirmed: boolean };
 
 export type Drafts = {
@@ -64,9 +66,9 @@ export type Drafts = {
 	/** Discovery relationships the person ticked to bring into the new church. None by default. */
 	keep: string[];
 };
-export const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
-export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership" } as const;
-export function emptyDrafts(): Drafts {
+const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
+export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership", seniorPastor: false } as const;
+function emptyDrafts(): Drafts {
 	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
 }
 
@@ -74,11 +76,14 @@ export function emptyDrafts(): Drafts {
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 /** One intent: the same payload retried keeps its request key, so a retry replays instead of acting twice. */
-export type Intent = { op: Op; digest: string; requestKey: string };
+type Intent = { op: Op; digest: string; requestKey: string };
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
 
-/** A notice the step shows after a refusal, keyed by what the person can do about it. */
-export type Notice = { op: Op; code: ErrorCode };
+/**
+ * A notice the step shows after a refusal, keyed by what the person can do about it. `reloaded` says whether fresh
+ * facts arrived after it, so the notice claims the latest was loaded only when it was.
+ */
+export type Notice = { op: Op; code: ErrorCode; reloaded: boolean };
 
 export type State = {
 	entry: Entry;
@@ -97,11 +102,22 @@ export function initialState(entry: Entry, requested: StepKey | null, drafts = e
 
 // ---- Facts and steps ----
 
-export const journeySaved = (r: Resume) => r.journey.status === "saved";
+const journeySaved = (r: Resume) => r.journey.status === "saved";
 /** An existing-journey attestation is once only. After it the phase and the launch answer show read-only (R4). */
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
 /** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
 export const leadLocked = (r: Resume) => r.lead.answer === "yes";
+/** The lead answer in words, for the saved step and the finish summary. */
+export function leadText(lead: Resume["lead"]): string {
+	if (lead.answer === "yes")
+		return lead.seniorPastor === "filled" ? "You hold the Senior pastor role" : "You hold the lead role";
+	return lead.answer === "no" ? "Someone else leads" : lead.answer === "skip" ? "Skipped" : "Not answered";
+}
+/** Why the Senior pastor fill was skipped, or null when it was not asked for or it filled the role. */
+export const skippedFill = (lead: Resume["lead"]) =>
+	lead.answer === "yes" && lead.seniorPastor === "occupied"
+		? "We did not fill the Senior pastor role. Someone in Leadership already holds it, and they keep it. You hold the lead role you entered instead."
+		: null;
 export const finished = (r: Resume) => r.completion.status === "completed";
 
 export function stepDone(key: StepKey, r: Resume): boolean {
@@ -120,7 +136,7 @@ export function stepDone(key: StepKey, r: Resume): boolean {
 }
 
 /** Where a returning Owner picks up: the first unanswered step, or Finish. */
-export function resumeStep(r: Resume): StepKey {
+function resumeStep(r: Resume): StepKey {
 	if (finished(r)) return "finish";
 	if (!stepDone("journey", r) || !stepDone("launch", r)) return "journey";
 	if (!stepDone("team", r)) return "team";
@@ -132,12 +148,20 @@ export function resumeStep(r: Resume): StepKey {
  * read-only summary: basics are never reentered. Launch date needs a phase answer first, saved or drafted, because
  * the two save together.
  */
-export function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
+function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
 	if (state.entry.kind !== "plant") return "church";
 	const r = state.entry.resume;
 	const view = requested ?? resumeStep(r);
 	if (view === "launch" && !journeySaved(r) && !state.drafts.journey) return "journey";
 	return view;
+}
+
+/**
+ * The ?step= the address bar carries. A screen with no steps (confirm email, or an account onboarding has nothing for,
+ * such as an organization's) carries none, so an organization login never sits on /onboarding?step=church (T-65).
+ */
+export function addressStep(state: Pick<State, "entry" | "view">): StepKey | null {
+	return state.entry.kind === "confirm_email" || state.entry.kind === "elsewhere" ? null : state.view;
 }
 
 export function nextStep(view: StepKey): StepKey {
@@ -186,11 +210,12 @@ export function journeyInput(draft: JourneyDraft): JourneyAnswer {
 	}
 }
 /**
- * The launch request part. A planned date needs the schedule revision, which resume does not carry (R3 gap): "1" is
- * right while no date is saved; otherwise the server refuses with conflict and the step reloads.
+ * The launch request part. A planned date sends the schedule revision the screen last read (resume or the last
+ * journey reply). If another tab moved the date since, the server refuses with conflict and the step reloads.
  */
-export function launchInput(draft: LaunchDraft): LaunchAnswer {
-	if (draft.answer === "planned") return { answer: "planned", date: draft.date, expectedScheduleRevision: "1" };
+export function launchInput(draft: LaunchDraft, scheduleRevision: string): LaunchAnswer {
+	if (draft.answer === "planned")
+		return { answer: "planned", date: draft.date, expectedScheduleRevision: scheduleRevision };
 	return draft.answer === "no_date" ? { answer: "no_date" } : { answer: "skip" };
 }
 const optional = (value: string) => (value.trim() ? value.trim() : null);
@@ -208,6 +233,7 @@ export function leadInput(draft: LeadDraft) {
 			roleName: draft.roleName.trim(),
 			container: { kind: "minimal" as const, name: draft.teamName.trim() },
 		},
+		seniorPastor: draft.seniorPastor,
 	};
 }
 
@@ -247,7 +273,7 @@ export function stable(value: unknown): string {
 /** Why a command is not sent: already busy, or the step is read-only. */
 export type Hold = "busy" | "locked" | "unavailable";
 
-export function expectedRevision(entry: Entry, op: Op): string | null {
+function expectedRevision(entry: Entry, op: Op): string | null {
 	if (op === "createPlant" || op === "createDiscovery") return entry.kind === "start" ? entry.accountRevision : null;
 	if (op === "convertDiscovery") return entry.kind === "discovery" ? entry.profile.revision : null;
 	return entry.kind === "plant" ? entry.resume.revision : null;
@@ -301,7 +327,7 @@ export type Results = {
 export type Settled = { [K in Op]: { op: K; reply: Reply<Results[K]> } }[Op];
 
 /** Codes after which the screen reloads its facts from the server before the person tries again. */
-export const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
+const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
 	"conflict",
 	"already_declared",
 	"active_seat_conflict",
@@ -325,7 +351,8 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 		const retry = s.reply.error.retry;
 		const keep = retry === "same_request" || retry === "reconcile";
 		const entry = fresh ?? state.entry;
-		const next = { ...base, entry, intent: keep ? state.intent : null, notice: { op: s.op, code: s.reply.error.code } };
+		const notice = { op: s.op, code: s.reply.error.code, reloaded: fresh !== null };
+		const next = { ...base, entry, intent: keep ? state.intent : null, notice };
 		return { ...next, view: clampView(next, state.view) };
 	}
 	const done = { ...base, intent: null, notice: null };
@@ -350,6 +377,7 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 				journey: v.journey,
 				launch: v.launch,
 				scheduledLaunchDate: v.scheduledLaunchDate,
+				scheduleRevision: v.scheduleRevision,
 			};
 			const next = {
 				...done,

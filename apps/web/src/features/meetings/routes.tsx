@@ -20,18 +20,14 @@ import { MeetingScreen } from "./MeetingScreen.tsx";
 import { MeetingsScreen } from "./MeetingsScreen.tsx";
 import { parseQuery, querySearch } from "./model.ts";
 import { RsvpScreen } from "./RsvpScreen.tsx";
-import { canWrite, loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
+import { params } from "../shared/search-params.ts";
 
 // The meetings routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading and
 // their states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [k, v] of Object.entries(raw)) for (const one of [v ?? []].flat()) out.append(k, one);
-	return out;
-};
-
 /** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await plantViewer();

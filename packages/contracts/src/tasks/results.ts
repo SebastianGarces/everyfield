@@ -1,21 +1,39 @@
 import { z } from "zod";
 import { instant, localDateTime } from "../common/time.ts";
 import { accountId, defineSafeError, operationId, recordId, revision, role, safeError } from "../common/values.ts";
-import { category, due, obligationKind, priority, recurrenceRule, taskStatus } from "./values.ts";
+import {
+	category,
+	due,
+	followUpOrigin,
+	followUpOwner,
+	MAX_ASSIGNEES,
+	obligationKind,
+	priority,
+	recurrenceRule,
+	taskStatus,
+} from "./values.ts";
 
 const count = z.int().min(0);
+/** The characters of a description the list carries for its preview. The preview shows two lines of them. */
+export const DESCRIPTION_EXCERPT = 600;
 const assignee = z.strictObject({ accountId, displayName: z.string() });
 export const taskItem = z.strictObject({
 	id: recordId,
 	revision,
 	title: z.string(),
+	// The start of the canonical description, for the list preview; "" when there is none (REQ-TSK-016).
+	excerpt: z.string().max(DESCRIPTION_EXCERPT),
 	status: taskStatus,
 	priority,
 	category,
 	due,
 	overdue: z.boolean().nullable(),
-	// Null is Needs owner.
-	assignee: assignee.nullable(),
+	// Ordered by display name, then account ID. An empty list is Needs owner.
+	assignees: z.array(assignee).max(MAX_ASSIGNEES),
+	// A person follow-up's assignees with whether each may own it (REQ-TSK-012); empty on any other task.
+	followUpOwners: z.array(followUpOwner).max(MAX_ASSIGNEES),
+	// Where an open person follow-up came from, so two for one person read differently; null on any other task.
+	followUpOrigin: followUpOrigin.nullable(),
 	relation: z.strictObject({ kind: z.enum(["person", "meeting", "team"]), id: recordId, label: z.string() }).nullable(),
 	parentId: recordId.nullable(),
 	checklist: z.strictObject({ total: count, complete: count }),
@@ -27,6 +45,8 @@ export const taskItem = z.strictObject({
 	completedAt: instant.nullable(),
 	deleted: z.boolean(),
 });
+/** The live rows of the named tasks, in no set order; a deleted or foreign task is simply absent. */
+export const taskRows = z.strictObject({ items: z.array(taskItem).max(100) });
 export const taskPage = z.strictObject({
 	items: z.array(taskItem).max(100),
 	total: count,
@@ -38,7 +58,13 @@ export const taskDetail = taskItem.extend({
 	description: z.string().nullable(),
 	checklistItems: z
 		.array(
-			z.strictObject({ id: recordId, revision, title: z.string(), status: taskStatus, assignee: assignee.nullable() }),
+			z.strictObject({
+				id: recordId,
+				revision,
+				title: z.string(),
+				status: taskStatus,
+				assignees: z.array(assignee).max(MAX_ASSIGNEES),
+			}),
 		)
 		.max(500),
 	prerequisiteIds: z.array(recordId).max(50),
@@ -104,7 +130,7 @@ export const subtaskPage = z.strictObject({
 				revision,
 				title: z.string(),
 				status: taskStatus,
-				assignee: assignee.nullable(),
+				assignees: z.array(assignee).max(MAX_ASSIGNEES),
 				completedAt: instant.nullable(),
 			}),
 		)
@@ -158,7 +184,17 @@ export const bulkOutcome = z.enum([
 ]);
 export const bulkResult = z.strictObject({
 	receiptId: operationId,
-	items: z.array(z.strictObject({ taskId: recordId, outcome: bulkOutcome, revision: revision.nullable() })).max(100),
+	items: z
+		.array(
+			z.strictObject({
+				taskId: recordId,
+				outcome: bulkOutcome,
+				revision: revision.nullable(),
+				// The next occurrence a completed recurring task created, as a single complete returns it.
+				successor: taskDetail.nullable(),
+			}),
+		)
+		.max(100),
 	changed: count,
 	// Selected tasks this request did not change and that are still open, for the person to review.
 	remaining: z.array(recordId).max(100),
@@ -176,5 +212,11 @@ export const taskError = z.discriminatedUnion("code", [
 	defineSafeError("open_successor", { successorId: recordId }, "refresh"),
 	// A prerequisite that already depends on the task, directly or through others.
 	defineSafeError("dependency_cycle", {}, "refresh"),
+	// The chosen follow-up owner is not a current eligible follow-up owner in this church (REQ-TSK-012).
+	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
+	// The checklist catalog changed since the person read it: read the current version and preview again.
+	defineSafeError("stale_catalog", {}, "refresh"),
+	// Another answer to this phase offer committed first: read what it decided.
+	defineSafeError("offer_answered", {}, "refresh"),
 ]);
 export type TaskError = z.infer<typeof taskError>;

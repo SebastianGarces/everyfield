@@ -1,5 +1,5 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
@@ -8,7 +8,6 @@ import { readAnswerableInvitation } from "../../../packages/domain/src/organizat
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
-before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
 	const r = Q.acceptedInvitationResult.parse(v);
@@ -220,20 +219,34 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id IN (coalesce(a.plant_id,a.account_id,a.sending_church_id),a.organization_id)) AS owned,bool_and(NOT(e.metadata ?| ARRAY['body','email','notes'])) AS safe FROM audit_event h JOIN audit_event e ON e.id=h.id JOIN affiliation a ON a.id=e.subject_id WHERE h.subject_id=${sql.param(a.relationship.id)}`,
 	);
 	assert.deepEqual(audit.rows, [{ n: 2, owned: true, safe: true }]);
-	assert.equal(
+	// The approval and the end each queued one milestone job, keyed by the revision they wrote (T-267). The replayed
+	// approval and end, and the end of a link already ended, queued nothing more.
+	const jobs = async () =>
 		(
 			await S.db.execute(
-				sql`SELECT count(*)::int AS n FROM job WHERE producer_key LIKE 'relationship_ended/%' AND subject_record_id=${sql.param(a.relationship.id)}`,
+				sql`SELECT tenant_id,kind,producer_key,source_revision::text AS revision,state FROM job WHERE subject_record_id=${sql.param(a.relationship.id)} ORDER BY source_revision`,
 			)
-		).rows[0].n,
-		1,
-	);
+		).rows;
+	const job = (key: string, revision: string) => ({
+		tenant_id: p.id,
+		kind: "notification",
+		producer_key: key,
+		revision,
+		state: "ready",
+	});
+	assert.deepEqual(await jobs(), [job("affiliation/approved/1", "1"), job("affiliation/ended/2", "2")]);
 	await assert.rejects(approve(i, oa, approvalKey), /unavailable/);
 	await assert.rejects(approve(i, oa), /stale_revision|unavailable/);
 	const j = await invite(pa, o, oa.email),
 		rejoined = await approve(j, oa);
 	assert.equal(rejoined.relationship.id, a.relationship.id);
 	assert.equal(rejoined.relationship.revision, "3");
+	// A later re-approval queues its own job; the refused approvals above queued none.
+	assert.deepEqual(await jobs(), [
+		job("affiliation/approved/1", "1"),
+		job("affiliation/ended/2", "2"),
+		job("affiliation/approved/3", "3"),
+	]);
 });
 test("INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries", async () => {
 	const p = await S.tenant("plant"),
@@ -283,7 +296,7 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
 });
 
-test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof (ruling D48)", async () => {
+test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof", async () => {
 	const p = await S.tenant("plant", "Harvest Point"),
 		pa = await S.identity(p),
 		o = await S.tenant("sending_church"),
@@ -325,7 +338,7 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	});
 	recording = false;
 	assert.deepEqual(observed, shown);
-	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(statements.length, 4, `respond read: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
 		false,
