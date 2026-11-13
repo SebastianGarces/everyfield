@@ -13,14 +13,15 @@
 		"launch-sunday/ministry-checklists",
 		"launch-sunday/video-photography-capture",
 		"launch-sunday/partner-organization-coordination",
-		"launch-sunday/after-service-celebration"
+		"launch-sunday/after-service-celebration",
+		"launch-sunday/who-to-invite-to-launch-sunday"
 	],
 	"section_id": "85569b95-4e93-43fd-b77a-4733e168a583",
 	"slug": "launch-sunday/5-priority-details",
 	"sort_order": 2,
 	"status": "draft",
 	"title": "The 5 Priority Details for Launch Sunday",
-	"updated_at": "2026-11-09T13:00:00Z",
+	"updated_at": "2026-11-13T13:00:00Z",
 	"draft": {
 		"backlog_id": "OPS-94",
 		"tier": "F",
@@ -37,7 +38,8 @@
 			"D9 Launch Sunday invitations, Sebastian Oct 31: 'partner leader on Launch Sunday, other supporters visit weeks 2–3'.",
 			"F33: What to Include reads 'Launch Sunday date, so they can pray for it' instead of 'Launch Sunday date and time', and adds 'An invitation to visit on the second or third Sunday, with those dates'. The partner coordination step invites one partner representative 6–8 weeks ahead, matching launch-sunday/partner-organization-coordination.",
 			"Wording choice: 'Integrate seamlessly' becomes 'Fit their part smoothly' to clear a lint style warning.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
+			"Maya (Head of Growth) Nov 13 2026 copy audit: related_article_slugs adds launch-sunday/who-to-invite-to-launch-sunday, as Maya asked once that article is expanded. Lint resolves it only after that tier C draft is promoted, so this draft cannot be promoted before it."
 		]
 	}
 }
