@@ -40,7 +40,6 @@ const factories = {
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",
 };
-/** Standalone functions to measure, by repository path. A listed name the file does not declare fails the load. */
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],

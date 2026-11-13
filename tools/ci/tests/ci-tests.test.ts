@@ -263,18 +263,17 @@ test("INV-ci-tests: a test file run by two CI commands fails and names both; the
 		mkdirSync(join(f.root, "tests/integration/writes"), { recursive: true });
 		mkdirSync(join(f.root, "tests/integration/documents"), { recursive: true });
 		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
-		const scripts = (unit: string) =>
-			writeFileSync(
-				join(f.root, "packages/domain/package.json"),
-				JSON.stringify({
-					name: "@everyfield/domain",
-					scripts: {
-						"test:unit": `node --test ${unit}`,
-						"test:db": "pnpm test:writes",
-						"test:writes": "node --test ../../tests/integration/writes/statements.test.mts",
-					},
-				}),
-			);
+		writeFileSync(
+			join(f.root, "packages/domain/package.json"),
+			JSON.stringify({
+				name: "@everyfield/domain",
+				scripts: {
+					"test:unit": "node --test ../../tests/integration/documents/engine.test.mts",
+					"test:db": "pnpm test:writes",
+					"test:writes": "node --test ../../tests/integration/writes/statements.test.mts",
+				},
+			}),
+		);
 		writeFileSync(join(f.root, "tests/integration/writes/statements.test.mts"), "");
 		writeFileSync(join(f.root, "tests/integration/writes/suites.json"), '["tests/integration/documents/*.test.mts"]');
 		writeFileSync(join(f.root, "tests/integration/documents/engine.test.mts"), "");
@@ -287,7 +286,6 @@ test("INV-ci-tests: a test file run by two CI commands fails and names both; the
 				"        run: node --test tests/integration/writes/statements.test.mts\n" +
 				"        env:\n          EVF_CENSUS_UNION: ${{ runner.temp }}/census\n",
 		);
-		scripts("../../tests/integration/documents/engine.test.mts");
 		let result = cli(f.root);
 		assert.equal(result.status, 1);
 		assert.equal(

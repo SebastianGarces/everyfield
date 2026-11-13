@@ -149,7 +149,6 @@ export function checkCiTests(root: string): void {
 		),
 		...globSync("tests/ui/**/*.test.{mjs,mts}", { cwd: root }).filter((file) => !browserSuite(file)),
 	].sort();
-	const covered = new Set(runs.keys());
 	const twice = [...runs].filter(([, labels]) => labels.size > 1);
 	if (twice.length)
 		fail(
@@ -174,12 +173,12 @@ export function checkCiTests(root: string): void {
 				!entry.command.trim()
 			)
 				fail(`CI exception ${file} needs a reason and local verification command.`);
-			if (!files.includes(file) || covered.has(file)) fail(`Remove stale CI exception: ${file}.`);
+			if (!files.includes(file) || runs.has(file)) fail(`Remove stale CI exception: ${file}.`);
 			exceptions.add(file);
 			console.log(`LOCAL ONLY ${file}: ${entry.reason} Run: ${entry.command}`);
 		}
 	}
-	const missing = files.filter((f) => !covered.has(f) && !exceptions.has(f));
+	const missing = files.filter((f) => !runs.has(f) && !exceptions.has(f));
 	if (missing.length)
 		fail(
 			`Tests missing from CI commands:\n${missing.join("\n")}\nAdd them to a CI test command or replace a fixed list with a glob.`,
