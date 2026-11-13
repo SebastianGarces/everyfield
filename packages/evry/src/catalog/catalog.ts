@@ -1,5 +1,6 @@
 import type { EvryActor } from "../context/actor.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
+import { PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
 import { allowedWrites } from "../proposals/store.ts";
@@ -14,10 +15,16 @@ export const READ_DOMAINS = {
 	people: PEOPLE_READS,
 	peopleOrganization: ORGANIZATION_READS,
 	communication: COMMUNICATION_READS,
+	phases: PHASE_READS,
+	signals: SIGNAL_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
+
+/** The /intelligence page's words to a Member, whose seat does not include the phase journey or its signals. */
+export const MEMBER_PHASES =
+	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
 
 /**
  * evry.readCatalog: what this actor may use right now. Current authority filters every adapter, so a plant Owner and
@@ -39,6 +46,8 @@ export function readCatalog(actor: EvryActor) {
 		// A reviewed write is only proposed: a person approves the exact review before it runs. Approvals, code, network,
 		// files and SQL are never model tools.
 		reviewedWrites: allowedWrites(actor).map((w) => ({ operation: w.operation, description: w.description })),
+		// What this seat leaves out, said the way its own screen says it, so an answer never guesses past it.
+		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES] : [],
 	};
 }
 export type Catalog = ReturnType<typeof readCatalog>;

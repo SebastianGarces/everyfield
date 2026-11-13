@@ -47,6 +47,7 @@ export function describeCatalog(catalog: Catalog) {
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
+	lines.push(...catalog.withheld);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
 	);
@@ -102,6 +103,9 @@ export function compileContext(input: {
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
+		input.catalog.withheld.length
+			? "When asked about something this seat does not include, say that sentence as written and never answer it from other records."
+			: "",
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",
 	]
 		.filter(Boolean)

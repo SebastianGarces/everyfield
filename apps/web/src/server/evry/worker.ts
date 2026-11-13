@@ -1,9 +1,9 @@
 import type { Database } from "@everyfield/db/client";
-import type { TaskReminders } from "@everyfield/domain/tasks";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
 import {
 	CLAIM_SECONDS,
+	type EffectPorts,
 	evryActor,
 	executeProposal,
 	flushTraces,
@@ -69,9 +69,10 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
 
 /**
  * Claims approved Evry effects and runs each once. The executor saves the outcome with the change; the claim then
- * ends. A People command that hands tasks on replans their reminders through `reminders`. Returns how many ran.
+ * ends. A People command that hands tasks on replans their reminders, and a forward phase move queues its notices,
+ * through `ports`. Returns how many ran.
  */
-export async function runEffects(pool: Database, reminders: TaskReminders, limit: number, until = Infinity) {
+export async function runEffects(pool: Database, ports: EffectPorts, limit: number, until = Infinity) {
 	let ran = 0;
 	for (; ran < limit && Date.now() < until; ran++) {
 		const [claim] = await claimDue(pool, ["evry_effect"], 1, EFFECT_LEASE_SECONDS, CLAIM_SECONDS);
@@ -79,7 +80,7 @@ export async function runEffects(pool: Database, reminders: TaskReminders, limit
 		const outcome = await executeProposal(
 			pool,
 			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-			reminders,
+			ports,
 			evryMail(),
 		);
 		if (outcome !== "lost") await finishJob(pool, claim, { state: outcome === "failed" ? "failed" : "succeeded" });

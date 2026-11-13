@@ -3,12 +3,11 @@ import { sql } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import { CommunicationRefusal } from "@everyfield/domain/communication";
 import { Refusal } from "@everyfield/domain/people";
-import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
-import type { EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectPorts, EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
@@ -84,13 +83,13 @@ class Refused extends Error {
  * request key and saves the outcome only if the approval is unexpired and the claim still current once the publication
  * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
  * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
- * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58). `reminders`
- * is the task reminder port for a command that hands tasks to someone else.
+ * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58). `ports` are
+ * the domains' ports an effect may need (proposals/types.ts).
  */
 export async function executeProposal(
 	db: Database,
 	lease: EffectLease,
-	reminders: TaskReminders,
+	ports: EffectPorts,
 	mail: MailPort | null = null,
 ): Promise<EffectOutcome> {
 	try {
@@ -132,7 +131,7 @@ export async function executeProposal(
 				const changed = await write.recheck?.(tx, context, p.input);
 				if (changed) throw new Refused(changed);
 			}
-			const result = await write.execute(tx, context, p.input, effectKey, reminders);
+			const result = await write.execute(tx, context, p.input, effectKey, { ...ports, authority: claimed.authority });
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
 			// this effect started.

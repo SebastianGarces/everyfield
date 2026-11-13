@@ -21,6 +21,13 @@ const secret = "cron-" + randomUUID();
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+/** The effect ports: no effect here hands a task on or moves a phase forward, so either call would be a bug. */
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 let tick: (request: Request) => Promise<Response>;
 const call = (authorization?: string) =>
 	tick(new Request("http://localhost/api/cron/jobs", authorization ? { headers: { authorization } } : {}));
@@ -32,7 +39,7 @@ const run = async () => {
 
 before(async () => {
 	await setup();
-	tick = scheduledJobs({ secret, db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null });
+	tick = scheduledJobs({ secret, db, storage: null, cleanup: null, effects: noPorts, digests: null, mail: null });
 });
 after(teardown);
 
@@ -67,7 +74,7 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: noReminders,
+		effects: noPorts,
 		digests: null,
 		mail: null,
 	});

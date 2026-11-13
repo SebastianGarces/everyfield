@@ -63,6 +63,13 @@ function signedCallback(messageId: string, kind: string) {
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+/** The effect ports: no effect here hands a task on or moves a phase forward, so either call would be a bug. */
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 const addressKey = Buffer.alloc(32, 9);
 const hashOf = (address: string) => createHmac("sha256", addressKey).update(address).digest("hex");
 
@@ -190,7 +197,7 @@ async function runNext(mail: MailPort | null) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		noPorts,
 		mail,
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));

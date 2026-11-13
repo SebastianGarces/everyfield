@@ -65,9 +65,9 @@ function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
+		async execute(tx, context, args, effectKey, run): Promise<EffectResult> {
 			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-			const reply = await spec.run(tx, context, request, reminders);
+			const reply = await spec.run(tx, context, request, run.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
 		},

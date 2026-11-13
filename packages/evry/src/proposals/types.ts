@@ -4,6 +4,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { PhaseNotices } from "@everyfield/domain/phases";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -13,6 +14,14 @@ import type { EvryActor } from "../context/actor.ts";
  * service uses it; the deployment passes null when it has no mail keys.
  */
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
+
+/**
+ * The domains' ports an effect may need: the task reminder port of a command that hands tasks to someone else, and the
+ * phase-advance notice port of a forward phase move (NTF-009).
+ */
+export type EffectPorts = { reminders: TaskReminders; phaseNotices: PhaseNotices };
+/** What one effect runs with: the ports and the approving session's authority, verified and locked by the executor. */
+export type EffectRun = EffectPorts & { authority: RequestActor };
 
 /** What a review may read besides the proposal statement itself. */
 export type ReviewContext = { db: Database; mail: MailPort | null };
@@ -43,14 +52,15 @@ export type ReviewedWrite<I> = {
 	/**
 	 * The native command inside the executor's transaction, for the approving session in the proposal's exact context,
 	 * with the effect key as its request key. The command checks that session's live seat and role itself. A command that
-	 * hands tasks to someone else replans their reminders through `reminders`.
+	 * hands tasks to someone else replans their reminders through `run.reminders`; a domain whose commands take the
+	 * request actor uses `run.authority`.
 	 */
 	execute(
 		tx: Transaction,
 		context: PeopleContext,
 		args: unknown,
 		effectKey: string,
-		reminders: TaskReminders,
+		run: EffectRun,
 	): Promise<EffectResult>;
 	/**
 	 * A fact the review froze that the proposal cannot compare in SQL. The executor runs it inside its transaction on an
