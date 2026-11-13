@@ -185,9 +185,9 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 		/** Each minute the host planned: when it planned it and when that minute's calls are due. */
 		const plans = () => entries().flatMap(([at, kind, due]) => (kind === "next" ? [{ at: +at!, due: +due! }] : []));
 		/** Each call of preview `id` the host started, in order: when, and the planned minute it is for ("now" at pickup). */
-		const ticks = (id: string) =>
+		const ticks = (id: string): { at: number; due: number | "now" }[] =>
 			entries().flatMap(([at, kind, of, due]) =>
-				kind === "call" && of === id ? [{ at: +at!, due: due === "now" ? due : +due! }] : [],
+				kind === "call" && of === id ? [{ at: +at!, due: due === "now" ? ("now" as const) : +due! }] : [],
 			);
 		return { child, exited, output: () => readFileSync(out, "utf8"), plans, ticks };
 	};
