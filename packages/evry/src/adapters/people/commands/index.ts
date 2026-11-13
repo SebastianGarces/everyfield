@@ -26,9 +26,9 @@ import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 /** The live person in the actor's church, as `p`. */
-const target = (actor: EvryActor, personId: string) =>
+export const target = (actor: EvryActor, personId: string) =>
 	sql`FROM person p WHERE p.id=${personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
-const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
+export const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
 /**
@@ -41,16 +41,16 @@ const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','need
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
 
-type Receipt = { receiptId: string; revision: string };
+export type Receipt = { receiptId: string; revision: string };
 /**
  * One reviewed write: `review` selects the review and `args`, the native request without its request key; `run` is
  * the native command.
  */
-function reviewed<I, R extends z.ZodType>(spec: {
+export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	review(actor: EvryActor, input: I): SQL;
+	review: ReviewedWrite<I>["review"];
 	request: R;
 	run(
 		tx: Transaction,

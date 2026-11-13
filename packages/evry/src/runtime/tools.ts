@@ -97,6 +97,8 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				expiresAt: proposal.expiresAt,
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
+				// A review the domain would refuse says why on the card, which offers no Approve.
+				...(proposal.review.refusal ? { refusal: proposal.review.refusal } : {}),
 				rows: target
 					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
 					: [],

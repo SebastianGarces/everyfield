@@ -7,6 +7,7 @@ import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -14,7 +15,7 @@ import type { ReviewedWrite } from "./types.ts";
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
+export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...ASSESSMENT_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 

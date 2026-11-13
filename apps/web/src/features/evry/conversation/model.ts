@@ -40,7 +40,18 @@ export type ProjectedError = {
 
 export type Reference = { kind: "person"; id: string };
 export type SourceRow = {
-	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message";
+	kind:
+		| "person"
+		| "household"
+		| "tag"
+		| "skill"
+		| "activity"
+		| "file"
+		| "import"
+		| "message"
+		| "record"
+		| "merge"
+		| "correction";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

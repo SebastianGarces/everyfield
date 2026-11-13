@@ -11,7 +11,7 @@ import { LIMITS } from "./limits.ts";
 
 /** The fixed answer to requests for pastoral or Biblical counsel, prayers or spiritual judgments of a person. */
 export const PASTORAL_BOUNDARY =
-	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready. Your church's leaders are the right people for that.";
+	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
 
 const requestKind = z.object({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
 export type RequestKind = z.infer<typeof requestKind>["kind"];
@@ -67,6 +67,18 @@ export async function resolveReferences(
 	return (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
 }
 
+/**
+ * Interviews, 4 C's assessments and commitments are recorded human judgments (methodology-intelligence.md): Evry shows
+ * or records exactly what a person recorded or said and never makes the judgment. A role without the reads hears that
+ * they are for Owners and Admins, and nothing about whether any exist.
+ */
+function recordedJudgments(catalog: Catalog) {
+	const reads = catalog.domains.some((d) => d.operations.some((o) => o.operation === "people.getInterviews"));
+	return reads
+		? "Interviews, 4 C's assessments and commitments are recorded human judgments, for this church's Owners and Admins. Show them exactly as recorded and record exactly what the user says. Never rate, score, rank or judge anyone's maturity, calling or qualification, and never suggest a rating, score, result or date: when the user leaves one out, ask for it."
+		: "Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.";
+}
+
 const estimate = (text: string) => Math.ceil(text.length / 4);
 /** Estimated tokens of the read and selection tool definitions the model also receives. */
 const TOOL_ALLOWANCE = 1_000;
@@ -100,6 +112,7 @@ export function compileContext(input: {
 		"Report exact totals and say when a result is partial; offer the next page instead of guessing. When a name matches more than one person, ask once which one, using only the returned fields.",
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
+		recordedJudgments(input.catalog),
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",

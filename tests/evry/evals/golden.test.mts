@@ -663,8 +663,14 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
-	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	// A Member reads and selects but proposes nothing, and gets no interview, 4 C's, commitment or merge read; an
+	// organization seat gets no plant People read at all.
+	assert.deepEqual(tools("member"), [
+		...Object.keys(READ_DOMAINS)
+			.filter((d) => d !== "peopleAssessments")
+			.map((d) => `${d}_read`),
+		"select_returned_rows",
+	]);
 	assert.deepEqual(tools("org"), []);
 });
 

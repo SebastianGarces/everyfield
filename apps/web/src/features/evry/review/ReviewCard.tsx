@@ -24,6 +24,7 @@ import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import {
 	actionNotice,
+	afterOnly,
 	approvalLeft,
 	approvable,
 	CHOICES,
@@ -982,7 +983,6 @@ function PhotoChange({
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
@@ -992,7 +992,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" ? null : (
+							{afterOnly(review, c.field) ? null : (
 								<>
 									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />

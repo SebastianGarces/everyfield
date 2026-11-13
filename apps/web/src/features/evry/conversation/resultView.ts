@@ -1,4 +1,4 @@
-import { sendTimeShort } from "../review/model.ts";
+import { fieldLabel, sendTimeShort, valueText } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
@@ -43,6 +43,14 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	empty: "This file has no rows to show.",
 	...rest,
 });
+
+/** A card of recorded interviews, assessments, commitments, merges or corrections (Owners and Admins only). */
+const records = (
+	title: string,
+	noun: readonly [string, string],
+	empty: string,
+	rest: Partial<OpView> = {},
+): OpView => ({ title, noun, icon: "record", counts: "record", empty, ...rest });
 
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
@@ -109,6 +117,32 @@ const VIEWS: Record<string, OpView> = {
 	"people.exportPeople": people("Directory export", {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
+	}),
+	"people.getInterviews": records("Interviews", ["interview", "interviews"], "This person has no recorded interview."),
+	"people.getAssessments": records("4 C's assessments", ["assessment", "assessments"], "This person has no recorded 4 C's assessment."),
+	"people.getCommitments": records("Commitment", ["card", "cards"], "This person has no commitment recorded.", {
+		shownOnly: true,
+	}),
+	"people.getCommitmentDownload": records("Signed document", ["document", "documents"], "This card has no signed document on file."),
+	"people.getMergeReview": {
+		title: "Merge review",
+		noun: ["person", "people"],
+		icon: "merge",
+		counts: "person",
+		shownOnly: true,
+		empty: NO_PERSON,
+	},
+	"people.previewUnmerge": records("Undo merge", ["merge", "merges"], "No merge in this church matches.", {
+		icon: "merge",
+		counts: "merge",
+	}),
+	"people.listRecordCorrections": records("Corrections", ["correction", "corrections"], "No record of this person was corrected.", {
+		icon: "correction",
+		counts: "correction",
+	}),
+	"people.mergedPersonDestination": records("Where this record leads", ["record", "records"], NO_PERSON, {
+		icon: "merge",
+		counts: "merge",
 	}),
 	"communication.list": {
 		title: "Messages",
@@ -203,6 +237,10 @@ export type RowView = {
 	photoFor: string | null;
 	/** Only a person (or a row that names the person it created) has a page. A household or any other record has none. */
 	href: string | null;
+	/** A recorded judgment in full, field by field: every criterion, score, result and note, never clamped. */
+	details?: { label: string; value: string }[];
+	/** The row opens a file through the People page's download route, which signs its link only when opened. */
+	download?: true;
 };
 export type CardView = {
 	title: string;
@@ -219,6 +257,71 @@ function activityLine(fields: Record<string, unknown>) {
 			? `${text(fields.householdFrom) ?? "No household"} → ${text(fields.householdTo) ?? "No household"}`
 			: null;
 	return joined(stageChange, home, day(fields.occurredAt));
+}
+
+const CRITERIA = ["maturity", "gifted", "chemistry", "rightReasons", "season"] as const;
+const LENSES = ["committed", "compelled", "contagious", "courageous"] as const;
+/** One field of a record row, in the review card's words: "Team chemistry: Concern · Needs time". */
+const detail = (field: string, value: unknown) => {
+	const v = valueText(field, value);
+	return v ? { label: fieldLabel(field), value: v } : null;
+};
+const details = (...items: ({ label: string; value: string } | null)[]) =>
+	items.filter((x): x is { label: string; value: string } => x !== null);
+function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" | "photoFor">): RowView {
+	const f = row.fields;
+	const judged = (k: string, score: boolean) =>
+		detail(k, score ? { score: Number(f[k]), notes: f[`${k}Notes`] ?? null } : { rating: f[k], notes: f[`${k}Notes`] ?? null });
+	switch (f.record) {
+		case "interview":
+			return {
+				...plain,
+				name: `Interview on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: valueText("result", f.result),
+				avatar: "record",
+				details: details(
+					...CRITERIA.map((k) => judged(k, false)),
+					detail("result", f.result),
+					detail("nextSteps", f.nextSteps),
+				),
+			};
+		case "assessment":
+			return {
+				...plain,
+				name: `4 C's on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: typeof f.total === "string" ? `Total ${f.total} of 20` : null,
+				avatar: "record",
+				details: details(...LENSES.map((k) => judged(k, true)), detail("total", f.total)),
+			};
+		case "commitment_status":
+			return {
+				...plain,
+				name: `Commitment: ${valueText("commitment", f.state) ?? "Not recorded"}`,
+				line: f.effectiveOn ? `Since ${valueText("effectiveOn", f.effectiveOn)}` : null,
+				avatar: "record",
+			};
+		case "commitment":
+			return {
+				...plain,
+				name: `${valueText("kind", f.kind) ?? "Commitment"} card, signed ${valueText("occurredOn", f.occurredOn) ?? ""}`.trim(),
+				line: joined(f.voided === true ? "Voided" : null, f.document === "attached" ? "Signed document on file" : null),
+				avatar: "record",
+				details: details(detail("witness", f.witness), detail("notes", f.notes)),
+			};
+		case "commitment_document":
+			return {
+				...plain,
+				name: "Download the signed document",
+				line: joined(
+					text(f.mediaType) === "application/pdf" ? "PDF" : text(f.mediaType) ? "Image" : null,
+					num(f.byteCount) > 0 ? `${Math.max(1, Math.round(num(f.byteCount) / 1024))} KB` : null,
+				),
+				avatar: "file",
+				href: text(f.href),
+				download: true,
+			};
+	}
+	return { ...plain, name: row.label, line: null, avatar: "record" };
 }
 
 function rowView(operation: string, row: SourceRow): RowView {
@@ -350,6 +453,33 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Draft",
 				avatar: null,
 			};
+		case "record":
+			return recordRow(row, plain);
+		case "merge": {
+			const blocked = text(fields.blocked);
+			return {
+				...plain,
+				name: row.label,
+				line: blocked
+					? null
+					: joined(
+							text(fields.moves) ? `Moves over: ${text(fields.moves)}` : null,
+							text(fields.movesBack) ? `Moves back: ${text(fields.movesBack)}` : null,
+							fields.status === "merged" ? "Merged into another person" : null,
+						),
+				mark: blocked ? { kind: "status", text: "Can't run", warn: true } : null,
+				avatar: "merge",
+				details: blocked ? [{ label: "Why", value: blocked }] : undefined,
+			};
+		}
+		case "correction":
+			return {
+				...plain,
+				name: `${words(String(fields.recordType ?? "Record"))} corrected ${day(fields.correctedAt) ?? ""}`.trim(),
+				line: text(fields.reason),
+				avatar: "correction",
+				details: text(fields.changes) ? [{ label: "Changes", value: String(fields.changes) }] : undefined,
+			};
 		case "person":
 			break;
 	}
@@ -363,6 +493,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 			mark: null,
 			avatar: null,
 			photoFor: null,
+			href,
+		};
+	if (operation === "people.getMergeReview")
+		return {
+			key,
+			name: row.label,
+			line: fields.role === "stays" ? "Stays" : "Merges in",
+			mark: null,
+			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (operation === "people.listDuplicatePairs")

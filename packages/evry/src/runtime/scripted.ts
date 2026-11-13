@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { assessmentStep } from "./scripted-assessments.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -44,6 +45,9 @@ const pageSize = (text: string) =>
 
 function classify(text: string) {
 	if (/\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text)) return "pastoral_boundary";
+	// A judgment of a person ("do you think Daniel is qualified?") is a human call, never Evry's.
+	if (/\b(do you think|would you say|in your opinion)\b.*\b(qualified|ready|mature|called)\b/i.test(text))
+		return "pastoral_boundary";
 	if (/what can you (do|help)|capabilit/i.test(text)) return "capabilities";
 	return "application";
 }
@@ -143,6 +147,9 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	);
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
+	const assessed = assessmentStep(text, options.prompt, { people: hasPeople, records, propose: canPropose }, toolCall);
+	if (assessed) return assessed;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))

@@ -6,6 +6,16 @@
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import type { ProjectedError } from "../conversation/model.ts";
+import {
+	CRITERION_LABEL,
+	FIELD_LABEL as MERGE_FIELD_LABEL,
+	LENS_LABEL,
+	RATING_LABEL,
+	RESULT_LABEL,
+	type InterviewResult,
+	type MergeField,
+	type Rating,
+} from "../../people/corrections/model.ts";
 
 export type Operation =
 	| "people.createPerson"
@@ -14,6 +24,15 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.createInterview"
+	| "people.createAssessment"
+	| "people.createCommitment"
+	| "people.withdrawCommitment"
+	| "people.reactivateCommitment"
+	| "people.correctCommitmentLifecycle"
+	| "people.correctPersonRecord"
+	| "people.mergePeople"
+	| "people.unmergePeople"
 	| "communication.saveDraft"
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
@@ -103,8 +122,46 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	address: "Address",
+	household: "Household",
+	occurredOn: "Date",
+	...CRITERION_LABEL,
+	result: "Result",
+	nextSteps: "Next steps",
+	...LENS_LABEL,
+	total: "Total",
+	kind: "Commitment",
+	witness: "Witness",
+	notes: "Notes",
+	commitment: "Commitment",
+	effectiveOn: "From",
+	voided: "Voided",
+	keeps: "Stays",
+	mergesIn: "Merges in",
+	moves: "Moves over",
+	staysWithMergedRecord: "Stays behind",
+	comesBack: "Comes back",
+	movesBack: "Moves back",
+	detailsGoBack: "Details back",
 };
-export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
+export const fieldLabel = (field: string) =>
+	FIELD_LABEL[field] ?? MERGE_FIELD_LABEL[field as MergeField] ?? field;
+
+const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
+const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
+const DATED = new Set(["birthDate", "occurredOn", "effectiveOn"]);
+/** A rating or score with its notes: "Concern · Needs time with the team", "4 of 5". */
+function judgmentText(value: object): string | null {
+	const v = value as { rating?: unknown; score?: unknown; notes?: unknown };
+	const head =
+		typeof v.score === "number"
+			? `${v.score} of 5`
+			: typeof v.rating === "string"
+				? (RATING_LABEL[v.rating as Rating] ?? v.rating)
+				: null;
+	if (!head) return null;
+	return typeof v.notes === "string" && v.notes ? `${head} · ${v.notes}` : head;
+}
 
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
 const dateFormat = new Intl.DateTimeFormat(undefined, {
@@ -123,8 +180,13 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
 	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
-	if (field === "birthDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+	if (DATED.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+	if (field === "result") return RESULT_LABEL[value as InterviewResult] ?? String(value);
+	if (field === "kind") return KIND_LABEL[String(value)] ?? String(value);
+	if (field === "commitment") return COMMITMENT_LABEL[String(value)] ?? String(value);
+	if (field === "voided") return value === true ? "Yes" : "No";
+	if (typeof value === "object") return judgmentText(value) ?? JSON.stringify(value);
 	return String(value);
 }
 
@@ -157,8 +219,28 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"people.createInterview": "Record an interview",
+	"people.createAssessment": "Record a 4 C's assessment",
+	"people.createCommitment": "Record a commitment",
+	"people.withdrawCommitment": "Withdraw a commitment",
+	"people.reactivateCommitment": "Reactivate a commitment",
+	"people.correctCommitmentLifecycle": "Correct a commitment card",
+	"people.correctPersonRecord": "Correct a record",
+	"people.mergePeople": "Merge two people",
+	"people.unmergePeople": "Undo a merge",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
+
+/** A new record and the facts of a merge have no value before: the card shows only the value they will have. */
+const RECORDS = new Set<Operation>([
+	"people.createPerson",
+	"people.createInterview",
+	"people.createAssessment",
+	"people.createCommitment",
+]);
+const MERGE_FACTS = new Set(["keeps", "mergesIn", "moves", "staysWithMergedRecord", "comesBack", "movesBack", "detailsGoBack"]);
+export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
+	field === "reason" || MERGE_FACTS.has(field) || (RECORDS.has(review.operation) && field !== "stage");
 
 // ---------------------------------------------------------------------------------------------------------------
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
@@ -344,6 +426,18 @@ export function consequence(review: Review): string | null {
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	switch (review.operation) {
+		case "people.createAssessment":
+		case "people.withdrawCommitment":
+		case "people.reactivateCommitment":
+		case "people.correctCommitmentLifecycle":
+		case "people.correctPersonRecord":
+			return "Their stage stays as it is.";
+		case "people.mergePeople":
+			return "The merged record joins the person who stays. You can undo the merge from People while nothing changes since.";
+		case "people.unmergePeople":
+			return "Both people are separate again, as they were before the merge.";
+	}
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
 	return owner;
@@ -387,8 +481,19 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 	return c.field in edits ? (edits[c.field] ?? "").trim() !== "" : Boolean(c.after);
 }
 
+/** The operations a revision can rebuild. A recorded judgment, a merge or an Unmerge is asked for again instead. */
+const REVISABLE = new Set<Operation>([
+	"people.createPerson",
+	"people.updatePerson",
+	"people.changeStatus",
+	"people.deletePerson",
+	"people.setPersonPhoto",
+	"people.removePersonPhoto",
+]);
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || !REVISABLE.has(review.operation)
+		? []
+		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -428,6 +533,16 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		}
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
+		case "people.createInterview":
+		case "people.createAssessment":
+		case "people.createCommitment":
+		case "people.withdrawCommitment":
+		case "people.reactivateCommitment":
+		case "people.correctCommitmentLifecycle":
+		case "people.correctPersonRecord":
+		case "people.mergePeople":
+		case "people.unmergePeople":
+			return null;
 		case "communication.replaceScheduledReviewed": {
 			const audience = audienceArgs(after("audience"));
 			const body = after("body");
@@ -467,6 +582,10 @@ export function refusalText(code: string | undefined, target: string | null): st
 		case "not_found":
 		case "source_unavailable":
 			return `${who} is no longer available, so nothing was saved.`;
+		case "merge_blocked":
+			return "This merge cannot run now, so nothing was merged. Ask Evry to review it again.";
+		case "inverse_conflict":
+			return "Something changed since the merge, so it was not undone. Ask Evry to review it again.";
 		default:
 			return "People refused this change, so nothing was saved.";
 	}
