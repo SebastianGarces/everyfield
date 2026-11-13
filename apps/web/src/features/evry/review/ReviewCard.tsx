@@ -396,9 +396,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
 	// A review the server can't approve as asked says why, in its own words, and offers no Approve.
-	if (review && !mail && view === "pending" && review.review.refusal) return review.review.refusal;
+	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
-		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
 		if (view === "expired") return "This review expired, so nothing was done. Review required: prepare it again.";

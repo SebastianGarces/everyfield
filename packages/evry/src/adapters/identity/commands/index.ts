@@ -11,7 +11,7 @@ import { change, nativeWrite, notes, plantAdmin, target } from "../../native.ts"
 // the change, its audit row and the invitation email in the outbox commit with the proposal outcome.
 
 /** A seat role a person can be given: the Owner is never invited, changed or removed here. */
-export const ordinaryRole = z.enum(["admin", "member"]);
+const ordinaryRole = z.enum(["admin", "member"]);
 const plant = (actor: EvryActor) => sql`FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
 const church = target("church", sql`pl.id`, sql`pl.name`);
 const ROLE_TEXT = { admin: "an Admin", member: "a Member" } as const;

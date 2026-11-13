@@ -9,11 +9,8 @@ import { nativeWrite, notes, plantSeat, settled } from "../../native.ts";
 // the Settings > Account section runs, for the approving session's own account. Sign-in, password and email changes
 // are never Evry tools; Evry points to Settings for them.
 
-/**
- * Anyone with a seat in a church may change their own account. An organization login gets only its own profile tool
- * for now (T-327), so these stay with church seats.
- */
-export const self = plantSeat;
+// Anyone with a seat in a church may change their own account. An organization login gets only its own profile tool
+// for now (T-327), so these stay with church seats.
 /** The approving session's own account, the owner every account command takes. */
 const own = (context: PeopleContext, accountId: string) => ({
 	session: context.session,
@@ -32,7 +29,7 @@ export const finalizeAvatar = nativeWrite({
 	description:
 		"Propose making a photo the user attached (a photo reference's id) their own account photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ uploadId: z.uuid() }),
-	allowed: self,
+	allowed: plantSeat,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${you},'changes',jsonb_build_array(jsonb_build_object('field','photo','before',to_jsonb(a.avatar_object_id),'after',${value.uploadId}::text))) AS review,
 			jsonb_build_object('expectedRevision',a.revision::text,'input',jsonb_build_object('uploadId',${value.uploadId}::uuid)) AS args
@@ -54,7 +51,7 @@ export const requestDeletion = nativeWrite({
 	description:
 		"Propose deleting the user's own login (not the church). It is deleted 30 days after approval and can be cancelled until then. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({}),
-	allowed: self,
+	allowed: plantSeat,
 	review(actor) {
 		const lines = [
 			"Your login is deleted 30 days after you approve. Your church and its records stay.",

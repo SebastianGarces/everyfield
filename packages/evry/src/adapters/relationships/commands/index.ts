@@ -3,6 +3,7 @@ import { readSharingDisclosure } from "@everyfield/domain/organizations";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { z } from "zod";
 import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
+import { COLUMN } from "../../sharing/commands/index.ts";
 import { CATEGORIES, CATEGORY_LABEL } from "../../sharing/reads/index.ts";
 
 // The church's connections with a sending church or network: asking one to connect and ending a connection, through
@@ -86,10 +87,7 @@ export const end = nativeWrite({
 	allowed: plantAdmin,
 	review(actor, value) {
 		const shared = sql.join(
-			CATEGORIES.map(
-				(c) =>
-					sql`CASE WHEN a.${sql.identifier(c === "shared_findings" ? c : `share_${c}`)} THEN ${CATEGORY_LABEL[c]}::text END`,
-			),
+			CATEGORIES.map((c) => sql`CASE WHEN a.${sql.identifier(COLUMN[c])} THEN ${CATEGORY_LABEL[c]}::text END`),
 			sql`,`,
 		);
 		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','connection','id',a.id,'label',o.name),

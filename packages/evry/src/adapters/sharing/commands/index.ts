@@ -7,7 +7,8 @@ import { CATEGORIES, CATEGORY_LABEL } from "../reads/index.ts";
 // Settings > Sharing section reaches. The review reads the live connection and its consent revision; a change made
 // since refuses on approval instead of being overwritten.
 
-const COLUMN = {
+/** Each sharing category's column on the connection. */
+export const COLUMN = {
 	people: "share_people",
 	meetings: "share_meetings",
 	tasks: "share_tasks",

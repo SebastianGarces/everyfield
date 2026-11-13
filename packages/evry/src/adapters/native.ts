@@ -26,6 +26,17 @@ export const change = (field: string, before: SQL, after: unknown) =>
 export const target = (kind: string, id: SQL, label: SQL) =>
 	sql`jsonb_build_object('kind',${kind}::text,'id',${id},'label',${label})`;
 export const notes = (lines: readonly string[]) => sql`${JSON.stringify(lines)}::jsonb`;
+/** A profile patch's reviewed fields, in the patch's order: each one's value now in `row`'s column, then the patch's. */
+export function patchChanges(patch: Record<string, unknown>, columns: Record<string, string>, row: SQL) {
+	const changes = Object.entries(patch).map(([field, after], n) => ({
+		n,
+		field,
+		col: columns[field],
+		after: after ?? null,
+	}));
+	return sql`(SELECT jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(${row})->k.col,'after',k.after) ORDER BY k.n)
+		FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))`;
+}
 
 /**
  * The code of a native refusal: a seat or invitation refusal, a Settings refusal, or the short code a connection or

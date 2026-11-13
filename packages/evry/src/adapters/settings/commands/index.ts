@@ -4,7 +4,7 @@ import { owner, timeZone as timeZoneValue } from "@everyfield/contracts/common";
 import { plantProfile } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { change, nativeWrite, plantAdmin, settled } from "../../native.ts";
+import { change, nativeWrite, patchChanges, plantAdmin, settled } from "../../native.ts";
 
 // The church settings reviewed writes: the church profile and its time zone, through the same Settings commands the
 // Church section runs. A time zone review first runs the native preview, which saves what the change moves, and shows
@@ -18,7 +18,7 @@ const PROFILE_COLUMN = {
 	country: "country",
 	description: "description",
 } as const;
-export const profilePatch = plantProfile.partial().refine((p) => Object.keys(p).length > 0, "empty patch");
+const profilePatch = plantProfile.partial().refine((p) => Object.keys(p).length > 0, "empty patch");
 
 export const updateProfile = nativeWrite({
 	operation: "plant.updateProfile",
@@ -27,15 +27,8 @@ export const updateProfile = nativeWrite({
 	input: z.strictObject({ patch: profilePatch }),
 	allowed: plantAdmin,
 	review(actor, value) {
-		const changes = Object.entries(value.patch).map(([field, after], n) => ({
-			n,
-			field,
-			col: PROFILE_COLUMN[field as keyof typeof PROFILE_COLUMN],
-			after: after ?? null,
-		}));
 		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','church','id',pl.id,'label',pl.name),
-				'changes',(SELECT jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(pl)->k.col,'after',k.after) ORDER BY k.n)
-					FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))) AS review,
+				'changes',${patchChanges(value.patch, PROFILE_COLUMN, sql`pl`)}) AS review,
 			jsonb_build_object('expectedRevision',pl.revision::text,'input',jsonb_build_object('plant',jsonb_build_object('kind','plant','id',pl.id),
 				'patch',${JSON.stringify(value.patch)}::jsonb)) AS args
 			FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
@@ -56,7 +49,7 @@ const ZONE_NAME: Record<string, string> = {
 	"America/Anchorage": "Alaska",
 	"Pacific/Honolulu": "Hawaii",
 };
-export const zoneName = (zone: string) => ZONE_NAME[zone] ?? zone;
+const zoneName = (zone: string) => ZONE_NAME[zone] ?? zone;
 const day = (instant: string, zone: string) =>
 	new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone }).format(
 		new Date(instant),

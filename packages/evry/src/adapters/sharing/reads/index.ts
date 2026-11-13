@@ -17,7 +17,7 @@ export const CATEGORY_LABEL = {
 	activity: "Activity updates",
 	shared_findings: "Plant Intelligence findings",
 } as const;
-export type Category = keyof typeof CATEGORY_LABEL;
+type Category = keyof typeof CATEGORY_LABEL;
 export const CATEGORIES = Object.keys(CATEGORY_LABEL) as [Category, ...Category[]];
 
 export const SHARING_READS = [

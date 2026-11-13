@@ -1,7 +1,7 @@
 import { sql } from "@everyfield/db/query";
 import { profileFields } from "@everyfield/contracts/organizations";
 import { z } from "zod";
-import { committed, nativeWrite, organizationAdmin } from "../../native.ts";
+import { committed, nativeWrite, organizationAdmin, patchChanges } from "../../native.ts";
 
 // A sending church's or network's own profile, for its Owner or Admin, through the same native command the Settings >
 // Organization profile section runs. This is the only tool an organization login has today.
@@ -26,15 +26,8 @@ export const updateProfile = nativeWrite({
 	}),
 	allowed: organizationAdmin,
 	review(actor, value) {
-		const changes = Object.entries(value.patch).map(([field, after], n) => ({
-			n,
-			field,
-			col: COLUMN[field as keyof typeof COLUMN],
-			after: after ?? null,
-		}));
 		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','organization','id',o.id,'label',o.name),
-				'changes',(SELECT jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(o)->k.col,'after',k.after) ORDER BY k.n)
-					FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))) AS review,
+				'changes',${patchChanges(value.patch, COLUMN, sql`o`)}) AS review,
 			jsonb_build_object('expectedRevision',o.revision::text,'input',jsonb_build_object(
 				'organization',jsonb_build_object('kind','organization','id',o.id,'organizationKind',o.kind),
 				'patch',${JSON.stringify(value.patch)}::jsonb)) AS args

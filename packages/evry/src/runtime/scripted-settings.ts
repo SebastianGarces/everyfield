@@ -44,7 +44,6 @@ function lastAssistantText(prompt: Prompt) {
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 
 const SETTINGS_ACCOUNT = "[Settings › Account](/settings/account)";
-const ROLE_TEXT = { admin: "an Admin", member: "a Member" } as const;
 const ZONES: Record<string, string> = {
 	eastern: "America/New_York",
 	central: "America/Chicago",
@@ -148,8 +147,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	if (invite) {
 		if (!offers("seats.invite"))
 			return say("Only an Owner or Admin can invite people to this church. Ask one of them to send the invitation.");
-		const role = invite[2]!.toLowerCase() as keyof typeof ROLE_TEXT;
-		return propose("seats.invite", { email: invite[1]!.toLowerCase(), role });
+		return propose("seats.invite", { email: invite[1]!.toLowerCase(), role: invite[2]!.toLowerCase() });
 	}
 
 	// Resending or revoking a pending invitation, found by its address.
