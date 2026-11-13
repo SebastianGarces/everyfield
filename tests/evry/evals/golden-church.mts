@@ -463,7 +463,23 @@ export const PROGRAMS = [
 		saved: ["Alex Rivera", "Casey Morgan"],
 		done: ["Alex Rivera"],
 	},
-] as const;
+	// Optional, so it never counts toward a ministry's required training. Jen's completion was revoked.
+	{
+		name: "Worship onboarding",
+		team: "Worship",
+		saved: [],
+		done: ["Jen Thompson"],
+		revoked: ["Jen Thompson"],
+		optional: true,
+	},
+] as const satisfies readonly {
+	name: string;
+	team: string;
+	saved: readonly string[];
+	done: readonly string[];
+	revoked?: readonly string[];
+	optional?: true;
+}[];
 /** Worship's responsibilities checklist: one done, one open. */
 export const RESPONSIBILITIES = [
 	{ text: "Plan the Sunday set list", done: "2026-11-01" },

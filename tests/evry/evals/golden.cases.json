@@ -877,7 +877,9 @@
 				"all": ["Casey Morgan"],
 				"allowed": ["Casey Morgan", "Alex Rivera"]
 			},
-			"require": ["/\\b1 of 2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%|only Alex/i"],
+			"require": [
+				"/\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%|only Alex|\\b1 (has|have) (completed|finished)|\\b2 people[^.\\n]{0,40}\\b1\\b/i"
+			],
 			"forbid": ["/background/i"],
 			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it."
 		}

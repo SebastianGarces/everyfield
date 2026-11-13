@@ -29,7 +29,7 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Each reviewed write keeps its native command's floor: Owner or Admin, or a ministry's own leader.
+ * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command or higher.
  */
 export const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;

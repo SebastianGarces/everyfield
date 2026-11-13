@@ -10,7 +10,6 @@ import {
 	orgChartRequest,
 	personAssignmentsRequest,
 	personTeamCountsRequest,
-	previewTemplateImportRequest,
 	searchMembersRequest,
 	teamHistoryRequest,
 	type TeamsReply,
@@ -31,6 +30,7 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { verifyPeople } from "../../people/reads/index.ts";
+import { recordId } from "../ids.ts";
 
 // The Ministries reads (WP-069): each calls the native teams read the Ministries screens use, under the same domain
 // authority, so an Owner, an Admin and a Member each get exactly what their screens show them. Ministry membership is
@@ -84,8 +84,8 @@ const pct = (rate: number | null) => (rate === null ? null : Math.round(rate * 1
 const team = (id: string, label: string, fields: Fields): SourceRow => ({ kind: "team", id, label, fields });
 const role = (id: string, label: string, fields: Fields): SourceRow => ({ kind: "role", id, label, fields });
 const program = (id: string, label: string, fields: Fields): SourceRow => ({ kind: "training", id, label, fields });
-const teamId = z.uuid().describe("A ministry id from an earlier teams result");
-const personId = z.uuid().describe("A person id from an earlier result");
+const teamId = recordId;
+const personId = recordId;
 
 type Listed = {
 	id: string;
@@ -344,7 +344,7 @@ export const TEAMS_READS = [
 		operation: "teams.readRequiredTrainingParticipants",
 		description:
 			"One program's saved required people and who of them has finished it (complete of total). Someone who joined since the list was saved is not on it.",
-		input: requiredParticipantsRequest.extend({ programId: z.uuid() }),
+		input: requiredParticipantsRequest.extend({ programId: recordId }),
 		run: (tx, actor, input) => trainingReader.readRequiredTrainingParticipants(tx, actor.authority, input),
 		rows: (
 			value: {
@@ -369,7 +369,7 @@ export const TEAMS_READS = [
 		operation: "teams.previewRequiredTrainingParticipants",
 		description:
 			"Check a proposed required list for one program before it is saved: which of these people are live in this church. Saves nothing.",
-		input: previewRequiredTrainingRequest.extend({ programId: z.uuid(), personIds: z.array(z.uuid()).min(1).max(100) }),
+		input: previewRequiredTrainingRequest.extend({ programId: recordId, personIds: z.array(recordId).min(1).max(100) }),
 		run: (tx, actor, input) => trainingReader.readRequiredTrainingPreview(tx, actor.authority, input),
 		rows: async (value: { programId: string; personIds: string[] }, actor, tx) => ({
 			rows: [
@@ -633,7 +633,14 @@ export const TEAMS_READS = [
 		operation: "teams.previewTemplateImport",
 		description:
 			"Preview importing chosen ministry templates and their roles: what is new and what this church already has. Creates nothing.",
-		input: previewTemplateImportRequest,
+		input: z.strictObject({
+			selections: z
+				.array(
+					z.strictObject({ teamKey: z.string().min(1).max(80), roleKeys: z.array(z.string().min(1).max(80)).max(20) }),
+				)
+				.min(1)
+				.max(20),
+		}),
 		run: (tx, actor, input) => teamsReader.previewTemplateImport(tx, actor.authority, input),
 		rows: (value: {
 			teams: {

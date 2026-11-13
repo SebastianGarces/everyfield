@@ -1340,7 +1340,7 @@
 		"adapter": "teams/reads",
 		"operation": "teams.listImportTemplates",
 		"near_miss": false,
-		"question": "what ministry templates can we import?",
+		"question": "list the ministry templates this church could import",
 		"eval": {
 			"calls": [
 				{
