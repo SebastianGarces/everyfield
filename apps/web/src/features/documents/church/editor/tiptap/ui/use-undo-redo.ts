@@ -1,0 +1,141 @@
+import * as React from "react";
+import { type Editor } from "@tiptap/react";
+
+// --- Hooks ---
+import { useTiptapEditor } from "../use-tiptap-editor.ts";
+
+// --- Icons ---
+import { Redo2Icon, Undo2Icon } from "../icons.tsx";
+
+type UndoRedoAction = "undo" | "redo";
+
+/**
+ * Configuration for the history functionality
+ */
+export interface UseUndoRedoConfig {
+	/**
+	 * The Tiptap editor instance.
+	 */
+	editor?: Editor | null;
+	/**
+	 * The history action to perform (undo or redo).
+	 */
+	action: UndoRedoAction;
+}
+
+const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
+	undo: "mod+z",
+	redo: "mod+shift+z",
+};
+
+const historyActionLabels: Record<UndoRedoAction, string> = {
+	undo: "Undo",
+	redo: "Redo",
+};
+
+const historyIcons = {
+	undo: Undo2Icon,
+	redo: Redo2Icon,
+};
+
+/**
+ * Checks if a history action can be executed
+ */
+function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+	if (!editor || !editor.isEditable) return false;
+
+	return action === "undo" ? editor.can().undo() : editor.can().redo();
+}
+
+/**
+ * Executes a history action on the editor
+ */
+function executeUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
+	if (!editor || !editor.isEditable) return false;
+	if (!canExecuteUndoRedoAction(editor, action)) return false;
+
+	const chain = editor.chain().focus();
+	return action === "undo" ? chain.undo().run() : chain.redo().run();
+}
+
+/**
+ * Determines if the history button should be shown
+ */
+function shouldShowButton(props: { editor: Editor | null }): boolean {
+	const { editor } = props;
+
+	return !!editor && editor.isEditable;
+}
+
+/**
+ * Custom hook that provides history functionality for Tiptap editor
+ *
+ * @example
+ * ```tsx
+ * // Simple usage
+ * function MySimpleUndoButton() {
+ *   const { isVisible, handleAction } = useHistory({ action: "undo" })
+ *
+ *   if (!isVisible) return null
+ *
+ *   return <button onClick={handleAction}>Undo</button>
+ * }
+ *
+ * // Advanced usage with configuration
+ * function MyAdvancedRedoButton() {
+ *   const { isVisible, handleAction, label } = useHistory({
+ *     editor: myEditor,
+ *     action: "redo",
+ *   })
+ *
+ *   if (!isVisible) return null
+ *
+ *   return (
+ *     <MyButton
+ *       onClick={handleAction}
+ *       aria-label={label}
+ *     >
+ *       Redo
+ *     </MyButton>
+ *   )
+ * }
+ * ```
+ */
+export function useUndoRedo(config: UseUndoRedoConfig) {
+	const { editor: providedEditor, action } = config;
+
+	const { editor } = useTiptapEditor(providedEditor);
+	const [isVisible, setIsVisible] = React.useState<boolean>(true);
+	const canExecute = canExecuteUndoRedoAction(editor, action);
+
+	React.useEffect(() => {
+		if (!editor) return;
+
+		const handleUpdate = () => {
+			setIsVisible(shouldShowButton({ editor }));
+		};
+
+		handleUpdate();
+
+		editor.on("transaction", handleUpdate);
+
+		return () => {
+			editor.off("transaction", handleUpdate);
+		};
+	}, [editor]);
+
+	const handleAction = React.useCallback(() => {
+		if (!editor) return false;
+
+		return executeUndoRedoAction(editor, action);
+	}, [editor, action]);
+
+	return {
+		isVisible,
+		handleAction,
+		canExecute,
+		label: historyActionLabels[action],
+		shortcutKeys: UNDO_REDO_SHORTCUT_KEYS[action],
+		Icon: historyIcons[action],
+	};
+}

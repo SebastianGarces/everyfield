@@ -20,7 +20,7 @@ import { traced } from "./trace.ts";
  * The most input tokens one call can bill. A byte-level tokenizer never makes more tokens than the UTF-8 bytes it reads,
  * and JSON only adds bytes; each message adds a few framing tokens. Covers the prompt, tools and response format.
  */
-export function inputTokenBound(params: LanguageModelV4CallOptions) {
+function inputTokenBound(params: LanguageModelV4CallOptions) {
 	const { prompt, tools, toolChoice, responseFormat } = params;
 	return Buffer.byteLength(JSON.stringify({ prompt, tools, toolChoice, responseFormat })) + 16 * prompt.length + 512;
 }

@@ -6,20 +6,15 @@
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts up <preview-url>
 //   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts down
 //
-// `up` writes the session cookies and IDs the browser tests need to $PEOPLE_UI_FIXTURE (default
+// `up` writes the Owner's session cookie and the people IDs the browser tests need (tests/ui/meetings/attendance.test.mjs,
+// tests/ui/evry/review.test.mjs and tests/ui/meetings/seed.mts) to $PEOPLE_UI_FIXTURE (default
 // /tmp/everyfield-people-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
+import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
-
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
 
 const PASSWORD = "People-preview-pass-1";
 
@@ -82,23 +77,6 @@ async function up(origin: string) {
 	}
 
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
-	const member = await account("Ruth Allen", "member@people-preview.example.test");
-	const seatless = await account("Sam Lee", "seatless@people-preview.example.test");
-	// Settings flows change their own password or ask for deletion and restore it, so they sign in with these through
-	// the form and leave every other seeded session alone (tests/ui/settings/account-flows.test.mjs).
-	const settings = [
-		await account("Lena Park", "settings-password@people-preview.example.test"),
-		await account("Omar Haddad", "settings-deletion@people-preview.example.test"),
-	];
-	// An Owner of a sending church: an organization seat, which has no plant People list.
-	const organizer = await account("Grace Moreno", "church@people-preview.example.test");
-	const organization = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${organization},'sending_church','Grace Church','UTC',1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${organizer.accountId},${organization},'owner',clock_timestamp())`,
-	);
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
@@ -118,18 +96,6 @@ async function up(origin: string) {
 	);
 	if (created.status !== "ok") throw Error("createPlant: " + JSON.stringify(created));
 	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
-
-	// The Member seat. Seat acceptance belongs to WP-008; the seed writes the accepted seat and links its person.
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${member.accountId},${plant.id},'member',clock_timestamp())`,
-	);
-	await runtime.transaction((tx) =>
-		accountPersonProducer.ensureAccountPerson(tx, {
-			accountId: member.accountId,
-			owner: plant,
-			selection: { kind: "create", displayName: "Ruth Allen" },
-		} as never),
-	);
 
 	const ctx = { session: owner.sessionId, selected: plant } as never;
 	const write = <T,>(run: (tx: unknown) => Promise<T>) => runtime.transaction((tx) => run(tx));
@@ -158,52 +124,10 @@ async function up(origin: string) {
 		if (r.status !== "ok") throw Error(`create ${displayName}: ` + JSON.stringify(r));
 		people[displayName] = { id: r.value.person.id, revision: r.value.person.revision };
 	}
-	const maria = people["Maria Santos"]!;
-	const note = await write((tx) =>
-		peopleWriter.addNote(tx as never, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: maria.revision,
-			input: { personId: maria.id, body: "Wants to lead worship one Sunday a month after the baby comes." },
-		} as never),
-	);
-	if (note.status !== "ok") throw Error("note: " + JSON.stringify(note));
-
-	// A retired person, through the producer.
-	const kim = people["Kim Wu"]!;
-	const review = await admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${plant.id}`);
-	const retired = await write((tx) =>
-		peopleWriter.retirePerson(
-			tx as never,
-			ctx,
-			{
-				requestKey: randomUUID(),
-				expectedRevision: kim.revision,
-				input: { personId: kim.id, reason: "Moved away", reviewRevision: review.rows[0]!.r, handoffs: [] },
-			} as never,
-			noReminders,
-		),
-	);
-	if (retired.status !== "ok") throw Error("retire: " + JSON.stringify(retired));
-
-	// A merged source. Merge belongs to WP-015 and has no producer yet; the seed writes the state it will produce.
-	const merged = people[names.at(-1)![0]]!;
-	await admin.execute(
-		sql`UPDATE person SET state='merged', retired_at=clock_timestamp(), merged_into_person_id=${people["Eli Park"]!.id}, revision=revision+1 WHERE id=${merged.id}`,
-	);
-
-	// Follow-up duties for the pipeline badges. Tasks belong to WP-024; the seed writes two open parent tasks.
-	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
-		VALUES (${plant.id},'Call James','follow_up','medium','not_started',clock_timestamp(),'date_only',(current_date - 3)::date,${people["James Okafor"]!.id}),
-		       (${plant.id},'Invite Mia','follow_up','medium','not_started',clock_timestamp(),'undated',NULL,${people["Mia Hall"]!.id})`);
-
 	const fixture = writeFixture("people", env.schema, {
 		origin,
 		plant: plant.id,
 		owner: { cookie: owner.cookie, accountId: owner.accountId },
-		member: { cookie: member.cookie, accountId: member.accountId },
-		seatless: { cookie: seatless.cookie },
-		settings: { password: PASSWORD, emails: settings.map((a) => a.email) },
-		organization: { cookie: organizer.cookie },
 		people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
 	});
 	await env.close();

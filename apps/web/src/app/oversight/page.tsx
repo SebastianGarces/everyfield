@@ -1,26 +1,22 @@
 import type { Metadata } from "next";
-import { AutoChapter } from "@/marketing/chapters/AutoChapter";
 import { COPY } from "@/marketing/copy";
 import { HeroPanel } from "@/marketing/hero/HeroPanel";
 import { PAGES, pageMetadata } from "@/marketing/meta";
-import { dashDemo } from "@/marketing/oversight/demo";
-import { DigestPanel, GoalsPanel, ProgramPanel, StagesPanel, TalksPanel } from "@/marketing/oversight/panels";
-import { TrustSection } from "@/marketing/oversight/sections";
-import { LensPanel, PipePanel, ScopePanel, TopPanel } from "@/marketing/panels/network";
-import { HelpPanel, InvitePanel, PlantsPanel } from "@/marketing/panels/oversight";
+import { EveryPlant, Leaders, TrustCards } from "@/marketing/oversight/sections";
 import { SendingPaths } from "@/marketing/paths/SendingPaths";
 import { PhasesRail } from "@/marketing/rail/PhasesRail";
 import { CtaSection } from "@/marketing/sections/CtaSection";
 import { Faq } from "@/marketing/sections/Faq";
 import { ProblemSection } from "@/marketing/sections/SectionHead";
-import { SampleTag } from "@/marketing/sections/SampleTag";
 import { Site } from "@/marketing/Site";
 import { NetworkDash } from "@/marketing/visuals/NetworkDash";
 import { accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.oversight);
 
-/** /oversight, mission first: your plants and your future planters, then why the numbers are true. */
+/** /oversight (OPS-82 prototype): the hero dashboard, the problem, every church plant at once, each one up close, the
+ *  future planters, the sending paths, why the numbers are true, the questions, then the call to action. Below the hero
+ *  dashboard the only product views are the sending-paths cards. No Evry. */
 export default function Oversight() {
 	const S = COPY.shared,
 		O = S.oversight_page;
@@ -36,28 +32,15 @@ export default function Oversight() {
 				band="dashboard"
 			>
 				<div className="mx-auto max-w-[1200px]">
-					<figure className="relative m-0 min-w-0">
-						<NetworkDash demo={dashDemo(S.panels)} />
-						<SampleTag className="top-3 left-1/2 -translate-x-1/2" />
-					</figure>
+					<NetworkDash />
 				</div>
 			</HeroPanel>
 			<ProblemSection headline={O.problem.headline} body={O.problem.body} />
-			<AutoChapter
-				id="every-plant"
-				panels={{ invite: <InvitePanel />, plants: <PlantsPanel />, digest: <DigestPanel />, help: <HelpPanel /> }}
-			/>
-			<AutoChapter
-				id="leaders"
-				panels={{ stages: <StagesPanel />, goals: <GoalsPanel />, talks: <TalksPanel />, program: <ProgramPanel /> }}
-			/>
-			<AutoChapter
-				id="network-intelligence"
-				panels={{ scope: <ScopePanel />, pipe: <PipePanel />, lens: <LensPanel />, top: <TopPanel /> }}
-			/>
-			<TrustSection headline={O.trust.headline} items={O.trust.items} />
-			<PhasesRail id="plants" headline={O.plants.headline} items={O.plants.items} vignettes="plants" />
+			<EveryPlant />
+			<PhasesRail id="plants" headline={O.plants.headline} items={O.plants.items} icons={O.plants.icons} />
+			<Leaders />
 			<SendingPaths p={O.paths} />
+			<TrustCards />
 			<Faq f={O.faq} />
 			<CtaSection c={O.cta} href={{ primary: accessFor("network"), secondary: accessFor("planter") }} />
 		</Site>

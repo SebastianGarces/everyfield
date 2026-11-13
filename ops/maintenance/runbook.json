@@ -1,63 +1,62 @@
 {
-  "version": 1,
-  "scope": "Local and shared-development producer proof. This file grants no external or production authority.",
-  "commands": {
-    "help": "node ops/maintenance/cli.mts --help",
-    "migration_inspection": "node ops/maintenance/cli.mts migration-inspect --control <private-control-file>",
-    "migration_application": "node ops/maintenance/cli.mts migration-apply --control <private-control-file>",
-    "explicit_adoption": "node ops/maintenance/cli.mts migration-adopt --control <private-control-file> --review <private-reviewed-hash-map>",
-    "offline_candidate_validation": "node ops/maintenance/cli.mts backup-check --control <private-restricted-backup-control> --manifest <private-manifest>",
-    "database_tests": "corepack pnpm --filter @everyfield/domain test:operations",
-    "baseline_tests": "corepack pnpm --filter @everyfield/db test:db"
-  },
-  "control": {
-    "file": "Regular, non-symlink, current OS user owned, no group or other permissions, outside checkout.",
-    "identity": "Current uid and hostname, unexpired exact operation list and development context.",
-    "database": "Pinned shared-development direct endpoint plus matching current database, role and explicit schema. Neither a URL nor a sentinel alone grants authority.",
-    "migration_role": "Operator only. The application runtime cannot create schema objects or update migration history."
-  },
-  "migration_provenance": {
-    "deployment_path": "Vercel project everyfield has root apps/web and default Next build. app build/start and managed previews do not run migrations. CI migrates its throwaway database explicitly.",
-    "automatic_replay": "Only a complete matching ordered checksum prefix is replayed. Unknown, missing or changed checksums refuse before application.",
-    "adoption": "Separately review the exact existing rows and SQL hashes. The explicit command preserves applied_at and marks adopted, never original. It never runs at startup or migration replay.",
-    "production": "No production history was read or changed. A future explicit production migration needs owner-approved adoption first. This development-only CLI refuses production."
-  },
-  "http": {
-    "liveness": "/api/health returns process status and UTC time only, private no-store.",
-    "executor": "/api/cron/jobs runs every minute from apps/web/vercel.json with the CRON_SECRET bearer. It closes lost Evry jobs and runs one bounded batch of every job kind that has a worker; the schedule grants no domain authority. Mail has no worker yet.",
-    "callback": "/api/callbacks/mail is disabled. mountCallback verifies raw signed bytes before durable safe receipts. No live subscription or credentials are configured.",
-    "supported_callback_types": [
-      "email.accepted",
-      "email.scheduled",
-      "email.sent",
-      "email.delivered",
-      "email.bounced",
-      "email.complained",
-      "email.opened",
-      "email.clicked",
-      "email.cancelled"
-    ],
-    "execution": "One same-app Next Node invocation per minute from Vercel cron, at most 300 seconds, WP-031 batch bounds. No standalone worker.",
-    "activation": "Integrating feature owners supply actual handlers and current authorization. Explicit owner approval is required before live subscription, Vercel schedule or provider settings."
-  },
-  "observability": {
-    "operator": "Trusted host/session adapters supply freshly verified exact immutable principal, tenant, purpose and allowed operations. Tenant roles and recovery_operator do not imply broad investigation access. Inspection appends safe attribution in the same transaction.",
-    "telemetry": "Optional explicit endpoint, HTTPS except loopback, no credentials/query/fragment in URL, no implicit provider. Closed content-free fields and bounded flush; no raw errors, prompts, mail, files or private-care existence.",
-    "readiness": "Actual selected probes distinguish ready, unavailable, behind, unconfigured and unverified. Missing provider or backup proof stays visible. No customer SLA follows from liveness."
-  },
-  "recovery": {
-    "live_gate": "G-RECOVERY remains open. Local encryption/checksum/expiry tests establish only the offline candidate protocol.",
-    "future_restricted_host": "Before customer data, positively identify the approved restricted host and schedule, deliver dedicated bucket-scoped credentials and recoverable keys outside ordinary app/build/preview, and prove negative access.",
-    "future_provider_proof": "Verify Neon seven-day PITR and expiring daily snapshots, Tigris seven-day deleted-object retention and cleanup, separate private encrypted daily backup bucket, exact DB and ready-byte inventory, current witness journal synchronized at least every five minutes, original subject expiry and external receipt reconciliation.",
-    "restore": "No restore runs here. Keep users/jobs/mail/issues disabled in an isolated drill. Apply authoritative current pending/cancelled/purged witnesses, verify matching bytes and original expiry, reconcile provider facts, and only then seek explicit reopening authority.",
-    "measurements": "Ordinary live-provider targets are at most one-hour lost work and four-hour recovery. A surviving fresh complete accessible daily copy may permit at most 24-hour fallback. None is measured or guaranteed by this change. Shared-provider/account failure risk remains; no disaster RTO or customer SLA.",
-    "spending": "No added paid plan, service or account. G-SPEND remains open; obtain explicit approval of a concrete low/expected/high monthly cost and usage envelope before commitment."
-  },
-  "downstream": [
-    "WP-005 and UI owners connect the tested internal fixture-session adapter through a development-only transport with the exact managed target and fresh synthetic allowlist. No switching surface exists in production.",
-    "Lifecycle/document owners supply complete registered purge/restore consumers and inverse fixtures before lifecycle closure.",
-    "WP-042 runs actual pinned synthetic fleet evaluations; proof inspection never runs a model or authorizes rollout.",
-    "WP-049 supplies safe feedback publication and the actual owner workflow handoff; no engineering board integration is enabled.",
-    "WP-058 closes cross-domain integration and authorized customer-data gates with actual evidence."
-  ]
+	"version": 1,
+	"scope": "Local and shared-development producer proof. This file grants no external or production authority.",
+	"commands": {
+		"help": "node ops/maintenance/cli.mts --help",
+		"migration_inspection": "node ops/maintenance/cli.mts migration-inspect --control <private-control-file>",
+		"migration_application": "node ops/maintenance/cli.mts migration-apply --control <private-control-file>",
+		"explicit_adoption": "node ops/maintenance/cli.mts migration-adopt --control <private-control-file> --review <private-reviewed-hash-map>",
+		"offline_candidate_validation": "node ops/maintenance/cli.mts backup-check --control <private-restricted-backup-control> --manifest <private-manifest>",
+		"baseline_tests": "corepack pnpm --filter @everyfield/db test:db"
+	},
+	"control": {
+		"file": "Regular, non-symlink, current OS user owned, no group or other permissions, outside checkout.",
+		"identity": "Current uid and hostname, unexpired exact operation list and development context.",
+		"database": "Pinned shared-development direct endpoint plus matching current database, role and explicit schema. Neither a URL nor a sentinel alone grants authority.",
+		"migration_role": "Operator only. The application runtime cannot create schema objects or update migration history."
+	},
+	"migration_provenance": {
+		"deployment_path": "Vercel project everyfield has root apps/web and default Next build. app build/start and managed previews do not run migrations. CI migrates its throwaway database explicitly.",
+		"automatic_replay": "Only a complete matching ordered checksum prefix is replayed. Unknown, missing or changed checksums refuse before application.",
+		"adoption": "Separately review the exact existing rows and SQL hashes. The explicit command preserves applied_at and marks adopted, never original. It never runs at startup or migration replay.",
+		"production": "No production history was read or changed. A future explicit production migration needs owner-approved adoption first. This development-only CLI refuses production."
+	},
+	"http": {
+		"liveness": "/api/health returns process status and UTC time only, private no-store.",
+		"executor": "/api/cron/jobs runs every minute from apps/web/vercel.json with the CRON_SECRET bearer. It closes lost Evry jobs and runs one bounded batch of every job kind that has a worker; the schedule grants no domain authority. Before any mail is sent, `mail-expiry` cancels stale queued mail that was never handed off: password-reset and sign-up verification links older than the one hour they work, and task or meeting reminders a day past their slot. Every mount that queues mail then has a sending pass through the real queued transport (Resend with a key, else the capture outbox), each claiming only its own logical-key prefixes (MAIL_PASSES in apps/web/src/server/jobs/mail.ts) and rechecking each mail under its mount's rule just before the handoff: church invitations (`mail`), identity (`identity-mail`), organization connections (`organization-mail`), settings (`settings-mail`), onboarding and association receipts (`onboarding-mail`), task, phase, meeting and milestone notices (`notice-mail`) and digests (`digest-mail`). Each pass first replays its mail whose handoff answered unknown on an earlier tick, with the same stored request and idempotency key, only inside the provider's 23 h 55 min window; past it the mail stays in reconcile, unclaimed, for a provider callback. Scheduled Messages email is handed to the provider at its send time (`messages`); Messages \"Check result\" re-sends a batch that answered unknown under its original key inside the same window. Last, `mail-callbacks` applies stored provider callbacks whose email now has its provider id. Each step's outcome is in the tick's `steps` body.",
+		"callback": "/api/webhooks/resend is the one mail callback endpoint. It reads at most 16,384 bytes, verifies the Resend (svix) signature once and stores a durable safe receipt before applying it. A correctly signed event of a type it does not handle (for example email.delivery_delayed) answers 200 and changes nothing; a badly signed request is refused. It is not mounted without RESEND_WEBHOOK_SECRET: it answers 404 unavailable. No live subscription or credentials are configured here.",
+		"supported_callback_types": [
+			"email.accepted",
+			"email.scheduled",
+			"email.sent",
+			"email.delivered",
+			"email.bounced",
+			"email.complained",
+			"email.opened",
+			"email.clicked",
+			"email.cancelled"
+		],
+		"execution": "One same-app Next Node invocation per minute from Vercel cron, at most 300 seconds, WP-031 batch bounds. No standalone worker.",
+		"activation": "Integrating feature owners supply actual handlers and current authorization. Explicit owner approval is required before live subscription, Vercel schedule or provider settings."
+	},
+	"observability": {
+		"operator": "Trusted host/session adapters supply freshly verified exact immutable principal, tenant, purpose and allowed operations. Tenant roles and recovery_operator do not imply broad investigation access. Inspection appends safe attribution in the same transaction.",
+		"telemetry": "Optional explicit endpoint, HTTPS except loopback, no credentials/query/fragment in URL, no implicit provider. Closed content-free fields and bounded flush; no raw errors, prompts, mail, files or private-care existence.",
+		"readiness": "Actual selected probes distinguish ready, unavailable, behind, unconfigured and unverified. Missing provider or backup proof stays visible. No customer SLA follows from liveness."
+	},
+	"recovery": {
+		"live_gate": "G-RECOVERY remains open. recovery.mts holds only the offline candidate manifest check (shape, expiry and duplicate identities); no test, encryption or byte check here proves recovery.",
+		"future_restricted_host": "Before customer data, positively identify the approved restricted host and schedule, deliver dedicated bucket-scoped credentials and recoverable keys outside ordinary app/build/preview, and prove negative access.",
+		"future_provider_proof": "Verify Neon seven-day PITR and expiring daily snapshots, Tigris seven-day deleted-object retention and cleanup, separate private encrypted daily backup bucket, exact DB and ready-byte inventory, current witness journal synchronized at least every five minutes, original subject expiry and external receipt reconciliation.",
+		"restore": "No restore runs here. Keep users/jobs/mail/issues disabled in an isolated drill. Apply authoritative current pending/cancelled/purged witnesses, verify matching bytes and original expiry, reconcile provider facts, and only then seek explicit reopening authority.",
+		"measurements": "Ordinary live-provider targets are at most one-hour lost work and four-hour recovery. A surviving fresh complete accessible daily copy may permit at most 24-hour fallback. None is measured or guaranteed by this change. Shared-provider/account failure risk remains; no disaster RTO or customer SLA.",
+		"spending": "No added paid plan, service or account. G-SPEND remains open; obtain explicit approval of a concrete low/expected/high monthly cost and usage envelope before commitment."
+	},
+	"downstream": [
+		"WP-005 and UI owners connect the tested internal fixture-session adapter through a development-only transport with the exact managed target and fresh synthetic allowlist. No switching surface exists in production.",
+		"Lifecycle/document owners supply complete registered purge/restore consumers and inverse fixtures before lifecycle closure.",
+		"WP-042 runs actual pinned synthetic fleet evaluations; proof inspection never runs a model or authorizes rollout.",
+		"WP-049 supplies safe feedback publication and the actual owner workflow handoff; no engineering board integration is enabled.",
+		"WP-058 closes cross-domain integration and authorized customer-data gates with actual evidence."
+	]
 }

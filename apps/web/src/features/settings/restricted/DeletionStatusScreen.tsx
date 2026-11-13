@@ -18,7 +18,8 @@ import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { formatMoment } from "../time";
 
-type Subject = { kind: "account" } | { kind: "workspace"; churchName: string };
+/** Whose deletion the page is about. After the request no session is left to name the church, so its name is optional. */
+type Subject = { kind: "account" } | { kind: "workspace"; churchName?: string };
 
 type View =
 	{ step: "proof"; notice?: string } | { step: "status"; status: DeletionStatus } | { step: "error"; refusal: Refusal };
@@ -144,12 +145,13 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 		}
 	};
 
-	const what = subject.kind === "account" ? "Your account" : subject.churchName;
+	const what = subject.kind === "account" ? "Your account" : (subject.churchName ?? "Your church workspace");
 
 	switch (view.step) {
 		case "proof":
 			return (
 				<Proof
+					subject={subject.kind}
 					notice={view.notice}
 					port={port}
 					requestedUntil={requestedUntil}
@@ -261,12 +263,14 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
  * refusal does not say which of the two was wrong.
  */
 function Proof({
+	subject,
 	notice,
 	port,
 	requestedUntil,
 	zone,
 	onOpened,
 }: {
+	subject: Subject["kind"];
 	notice?: string;
 	port: DeletionPort;
 	requestedUntil: string | null;
@@ -301,7 +305,7 @@ function Proof({
 		setPending(false);
 		if (reply?.status === "ok") return onOpened(reply.value);
 		if (password.current) password.current.value = "";
-		setRefusal(proofText(reply));
+		setRefusal(proofText(subject, reply));
 		password.current?.focus();
 	};
 
@@ -310,13 +314,19 @@ function Proof({
 			<CardIcon icon={Calendar03Icon} tone="amber" />
 			<header className="flex flex-col gap-2">
 				<h1 className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
-					{requestedUntil ? "Your account is scheduled for deletion" : "Your account deletion"}
+					{PROOF_TEXT[subject][requestedUntil ? "requested" : "later"].title}
 				</h1>
 				<p className="text-pretty">
 					{requestedUntil
-						? `You are signed out on every device. You can cancel until ${formatMoment(requestedUntil, zone)}. To see the request or cancel it, enter your email and password.`
-						: "To see your deletion request or cancel it, enter the email and password of the account."}
+						? `${PROOF_TEXT[subject].requested.lead} You can cancel until ${formatMoment(requestedUntil, zone)}. To see the request or cancel it, enter your email and password.`
+						: PROOF_TEXT[subject].later.lead}
 				</p>
+				{requestedUntil && subject === "workspace" ? (
+					<p className="text-sm text-text-3 text-pretty">
+						After that, the church&apos;s data is deleted. Backup copies expire within 7 days after the deletion
+						finishes. {OUT_OF_REACH}
+					</p>
+				) : null}
 			</header>
 			{notice ? (
 				<p role="status" className="rounded-md bg-surface px-4 py-3 text-sm text-ink-2">
@@ -361,11 +371,33 @@ function Proof({
 	);
 }
 
-function proofText(reply: Reply<DeletionStatus> | null): string {
+const PROOF_TEXT = {
+	account: {
+		requested: { title: "Your account is scheduled for deletion", lead: "You are signed out on every device." },
+		later: {
+			title: "Your account deletion",
+			lead: "To see your deletion request or cancel it, enter the email and password of the account.",
+		},
+		refused: "This email and password do not match an account that is scheduled for deletion.",
+	},
+	workspace: {
+		requested: {
+			title: "Your church workspace is scheduled for deletion",
+			lead: "Every seat has lost access, and you are signed out on every device.",
+		},
+		later: {
+			title: "Church workspace deletion",
+			lead: "To see the deletion request for your church workspace or cancel it, enter the email and password of the Owner who asked for it.",
+		},
+		refused: "This email and password do not match an Owner whose church workspace is scheduled for deletion.",
+	},
+} as const;
+
+function proofText(subject: Subject["kind"], reply: Reply<DeletionStatus> | null): string {
 	if (!reply) return OFFLINE.message;
 	if (reply.status === "ok") return "";
 	if (reply.error.code === "proof_invalid")
-		return "This email and password do not match an account that is scheduled for deletion. After several tries you need to wait 15 minutes.";
+		return `${PROOF_TEXT[subject].refused} After several tries you need to wait 15 minutes.`;
 	return `Everyfield could not check this just now. Wait a minute, then try again. Reference ${refusalOf(reply.error).reference}.`;
 }
 

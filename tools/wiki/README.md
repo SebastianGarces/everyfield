@@ -37,13 +37,27 @@ The gist id is saved in the PR before upload so a failed push can reuse it.
 `--seed-dir <dir>` on lint/render/shot/promote/check-seed/roundtrip supports disposable seed
 copies for proof. It does not redirect the source Playbook. Tests create a separate temporary
 Git repository for the reviewed draft. Run `bin/wiki`'s Node 24 binary with `--test` on
-`tools/wiki/tests/*.test.ts`, or `pnpm test` here with Node 24 on PATH.
+`tools/wiki/tests/*.test.ts`, or `pnpm test` here with Node 24 on PATH. Lint also accepts
+`--allowlist <file>` so a proof can lint a disposable seed copy against a changed allowlist.
+
+`ascii-allowlist.json` lists the seed ASCII-art blocks that wait for a ```` ```diagram ```` migration.
+Each entry pins a slug and one fenced block: the first 16 hex digits of the SHA-256 of its info string,
+a newline and its body. Seed lint warns about a matched block and about an entry that matches no block.
+That inert entry permits nothing, so a seed promotion that migrates a block needs no tooling edit.
+Other ASCII art is an error, and draft lint never reads the list. `tests/diagram.test.ts` pins the
+original entries, so the list only shrinks.
 
 Promotion stages both JSON files before replacing them and retains the draft until validation
 succeeds. A `.wiki-promote.lock` directory prevents simultaneous seed writers. After a process
 crash, inspect the seed/manifest diff and draft first. Restore both seed files from Git if the
 pair is incomplete, remove only the stale lock and `.wiki-tmp` files, and retry from the reviewed
 draft. Do not remove a live writer's lock. This is a local file update, not database activation.
+
+Two commands work on all the drafts of the current branch (`drafts.ts`). `wiki claim-check --reviewer "<name>"
+--approval "<words>"` records a named reviewer's verbatim approval on every pending draft, in one commit, and pushes it.
+`wiki promote-all --pr <n>` then promotes each draft whose claim check passed, retrying a draft that links to another
+draft of the branch, and runs `check-seed`. It makes one local commit and does not push. If anything fails, the checkout
+returns to where it started. Neither command grants approval: `promote` still checks each draft's named approver.
 
 `check-seed` verifies article, section, original-order template, Playbook and payload hashes and
 identity/path constraints. `expectedChunks` and `validation` in the manifest are historical import

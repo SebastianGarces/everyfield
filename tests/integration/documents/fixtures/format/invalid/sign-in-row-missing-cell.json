@@ -1,0 +1,102 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "guest-sign-in-sheet",
+	"version": 1,
+	"title": "Guest sign-in sheet",
+	"class": "operational",
+	"exports": [
+		"pdf",
+		"docx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": null
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "table",
+				"attrs": {
+					"columns": [
+						{
+							"id": "n",
+							"label": "n",
+							"type": "index",
+							"width": 0
+						},
+						{
+							"id": "name",
+							"label": "name",
+							"type": "text",
+							"width": 0
+						},
+						{
+							"id": "email",
+							"label": "email",
+							"type": "text",
+							"width": 0
+						},
+						{
+							"id": "phone",
+							"label": "phone",
+							"type": "text",
+							"width": 0
+						},
+						{
+							"id": "invited_by",
+							"label": "invited_by",
+							"type": "text",
+							"width": 0
+						}
+					]
+				},
+				"content": [
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell"
+							},
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Ana Ruiz"
+									}
+								]
+							},
+							{
+								"type": "cell"
+							},
+							{
+								"type": "cell"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

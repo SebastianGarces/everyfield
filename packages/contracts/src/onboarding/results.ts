@@ -2,10 +2,10 @@ import { z } from "zod";
 import { instant, localDate } from "../common/time.ts";
 import { defineSafeError, eventId, personId, recordId, revision, safeError, sameOwner } from "../common/values.ts";
 import { organizationOwner, plantOwner, sharingCategory, sharingChoices } from "../organizations/subjects.ts";
+import { phaseNumber as phase } from "../phases/index.ts";
 import { foundationReading, ownDiscoveryReading } from "./reading.ts";
 import { documentCarryForwardProposal, journeyAnswer, launchAnswer } from "./requests.ts";
 
-const phase = z.int().min(0).max(6);
 export const creationEntry = z.strictObject({
 	kind: z.literal("church_creation"),
 	eventId,
@@ -64,7 +64,13 @@ const savedJourney = z.discriminatedUnion("status", [
 ]);
 const leadAssignment = z.strictObject({ teamId: recordId, roleId: recordId, personId });
 const recordedLead = z.discriminatedUnion("answer", [
-	z.strictObject({ answer: z.literal("yes"), assignment: leadAssignment, savedAt: instant }),
+	z.strictObject({
+		answer: z.literal("yes"),
+		assignment: leadAssignment,
+		/** With the fill on: the planter holds the Senior pastor role, or another person held it and kept it. */
+		seniorPastor: z.enum(["filled", "occupied"]).optional(),
+		savedAt: instant,
+	}),
 	z.strictObject({ answer: z.literal("no"), savedAt: instant }),
 	z.strictObject({ answer: z.literal("skip"), savedAt: instant }),
 ]);
@@ -88,6 +94,8 @@ const setupFacts = {
 	journey: savedJourney,
 	launch: savedLaunch,
 	scheduledLaunchDate: localDate.nullable(),
+	/** The launch schedule's revision, which a planned date sends back as `expectedScheduleRevision`. "1" before any date. */
+	scheduleRevision: revision,
 	peopleStep: z.enum(["pending", "saved", "skipped"]),
 	completion,
 	reading: foundationReading,
@@ -107,6 +115,7 @@ export const journeyResult = z.strictObject({
 	journey: savedJourney.options[1],
 	launch: savedLaunch.options[1],
 	scheduledLaunchDate: localDate.nullable(),
+	scheduleRevision: revision,
 });
 export const completeOnboardingResult = z.strictObject({
 	plant: plantOwner,
@@ -136,7 +145,3 @@ export const onboardingError = z.discriminatedUnion("code", [
 	defineSafeError("already_declared", {}, "refresh"),
 	defineSafeError("idempotency_conflict", {}, "never"),
 ]);
-
-export type CreatePlantResult = z.infer<typeof createPlantResult>;
-export type ConvertDiscoveryResult = z.infer<typeof convertDiscoveryResult>;
-export type ResumeResult = z.infer<typeof resumeResult>;

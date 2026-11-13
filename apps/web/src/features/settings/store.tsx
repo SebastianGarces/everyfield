@@ -3,8 +3,9 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
+import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { errorReference, errorText } from "./model";
-import type { Refusal } from "./save";
+import { OFFLINE_REFERENCE, type Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 
 // The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
@@ -93,7 +94,7 @@ export function SettingsProvider({
 					ok: false,
 					refusal: {
 						message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-						reference: "EF-OFFLINE",
+						reference: OFFLINE_REFERENCE,
 						code: "unknown",
 					},
 				};
@@ -103,18 +104,22 @@ export function SettingsProvider({
 		},
 		[commit, observe],
 	);
+	const [flows, setFlows] = useState<Record<string, unknown>>({});
 	const clearDrafts = useCallback(() => {
 		let next = bookRef.current;
 		for (const key of Object.keys(next.edits) as SectionKey[]) next = discard(next, key);
 		commit(next);
-	}, [commit]);
-	const [flows, setFlows] = useState<Record<string, unknown>>({});
+		// Files picked for the brand kit and not yet uploaded are drafts too (REQ-IDN-010).
+		releaseAll(flows[ASSET_FLOW]);
+		setFlows((all) => (ASSET_FLOW in all ? { ...all, [ASSET_FLOW]: EMPTY_FLOW } : all));
+	}, [commit, flows]);
 	const setFlow = useCallback(
 		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
 		[],
 	);
 	const remember = useCallback(
-		(cacheKey: string, value: SectionResult) => setSections((all) => new Map(all).set(cacheKey, value)),
+		(cacheKey: string, value: SectionResult) =>
+			setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
 		[],
 	);
 	const value = useMemo(
@@ -137,7 +142,7 @@ export function SettingsProvider({
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
-	const anyDirty = dirtyKeys(book, servers).length > 0;
+	const anyDirty = dirtyKeys(book, servers, flows).length > 0;
 	useEffect(() => {
 		if (!anyDirty) return;
 		const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -148,13 +153,38 @@ export function SettingsProvider({
 	return <Store value={value}>{children}</Store>;
 }
 
-function dirtyKeys(book: Book<SectionKey, Refusal>, servers: Partial<Record<SectionKey, unknown>>): SectionKey[] {
-	return (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
+/**
+ * Your account and your notification choices carry the account's one revision, so a save of either changes the
+ * revision the other must send next. A copy of the cache with the new revision on the other cached section, whose
+ * other fields stay as they were.
+ */
+function shareAccountRevision(all: Map<string, SectionResult>, value: SectionResult): Map<string, SectionResult> {
+	const next = new Map(all);
+	if (value.section !== "account" && value.section !== "notifications") return next;
+	for (const [key, cached] of all)
+		if ((cached.section === "account" || cached.section === "notifications") && cached.section !== value.section)
+			next.set(key, { ...cached, revision: value.revision });
+	return next;
+}
+
+function dirtyKeys(
+	book: Book<SectionKey, Refusal>,
+	servers: Partial<Record<SectionKey, unknown>>,
+	flows: Record<string, unknown>,
+): SectionKey[] {
+	const keys = (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
+	// A picked file or typed alt text that is not yet uploaded leaves Brand kit unsaved.
+	return hasPicks(flows[ASSET_FLOW]) && !keys.includes("brand") ? [...keys, "brand"] : keys;
 }
 
 export function useSettings() {
 	const { port, viewer } = useStore();
 	return { port, viewer };
+}
+
+/** The read the server started with the page, for sections with their own read (the brand kit). */
+export function useSeed(): SectionSeed | null {
+	return useStore().seed;
 }
 
 /** Your photo, email, password, own time zone and deletion (SettingsPort.flows). */
@@ -164,8 +194,8 @@ export function useFlows() {
 
 /** The sections whose visible value differs from the server value. */
 export function useDirtySections(): { keys: SectionKey[]; clear: () => void } {
-	const { book, servers, clearDrafts } = useStore();
-	return { keys: dirtyKeys(book, servers), clear: clearDrafts };
+	const { book, servers, flows, clearDrafts } = useStore();
+	return { keys: dirtyKeys(book, servers, flows), clear: clearDrafts };
 }
 
 /**
@@ -246,12 +276,16 @@ export function useSection<S extends SectionResult["section"]>(
 		if (cached && attempt === 0) return;
 		let live = true;
 		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
-		const seeded = attempt === 0 && seed && cacheKeyOf(seed.request) === key ? seed.value : null;
-		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
-			if (!live) return;
-			if (reply.status === "ok") remember(key, reply.value);
-			else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
-		});
+		const seeded = attempt === 0 && seed && "request" in seed && cacheKeyOf(seed.request) === key ? seed.value : null;
+		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then(
+			(reply) => {
+				if (!live) return;
+				if (reply.status === "ok") remember(key, reply.value);
+				else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
+			},
+			// The call itself failed (no connection): show the retry state instead of staying on the skeleton.
+			() => live && setFailure({ key, attempt, meta: "Everyfield could not be reached. Check your connection." }),
+		);
 		return () => {
 			live = false;
 		};

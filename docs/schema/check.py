@@ -230,7 +230,7 @@ def validate_catalog_sets(schema, operations):
     """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
-        ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|'))))|{'note_correction'},
+        ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|')))),
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
     }
     tables = {t['name']: t for t in schema['tables']}
@@ -253,7 +253,7 @@ def coverage(capability_files, features, schema):
     capability_ids = [c['id'] for c in capabilities]
     if len(capability_ids) != len(set(capability_ids)):
         errors.append('duplicate capability IDs')
-    # Catalog membership defines coverage; implementation progress lives in build-progress.json.
+    # Catalog membership defines coverage; implementation progress lives in evf v2's task records; build-progress.json is frozen.
     active_ids = {f['id'] for f in features if f.get('active', True)}
     feature_ids = {f['id'] for f in features}
     covered_features = {f for c in capabilities for f in c['feature_ids']}

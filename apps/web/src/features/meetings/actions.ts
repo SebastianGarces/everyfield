@@ -3,7 +3,6 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { redirect } from "next/navigation";
-import { listPeopleRequest } from "@everyfield/contracts/people";
 import {
 	answerRsvpToken,
 	attendanceReader,
@@ -17,13 +16,16 @@ import {
 	type AttendanceWriter,
 	type MeetingsContext,
 	previewMeetingsWrite,
+	rosterReader,
+	rosterWriter,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
-import { peopleReader } from "@everyfield/domain/people";
+import { searchPeople as findPeople } from "@everyfield/domain/people";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
-import type { z } from "zod";
+import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import { read as readPeople } from "../people/server.ts";
+import { readMinistries } from "../teams/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 
@@ -110,6 +112,19 @@ export async function replaceAgenda(
 	);
 }
 
+/** The ministries a new team meeting can name: every one not archived, read when the plan dialog opens. */
+export async function listMinistries() {
+	return look(readMinistries);
+}
+/** What an update from the ministry would change on this team meeting's guest list. Nothing is written. */
+export async function previewRoster(meetingId: string) {
+	return look((v) => read(v, (db, a) => rosterReader.previewRosterImport(db, a, { meetingId })).then(outcome));
+}
+/** Applies the reviewed update: exactly the people the preview named, or a refusal when the ministry changed since. */
+export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
+	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
+}
+
 /** The meeting page's data again, after a change was refused as out of date. Only this meeting is read. */
 export async function reloadMeeting(meetingId: string) {
 	return look(async (v) => ({ status: "ok" as const, value: await loadMeeting(v, meetingId) }));
@@ -152,11 +167,9 @@ export async function updateKitItem(
 
 // Guests --------------------------------------------------------------------------------------------------------
 
-export async function inviteGuest(requestKey: string, input: unknown) {
-	return act((tx, ctx) => guestsWriter.inviteGuest(tx, ctx, { requestKey, input }));
-}
-export async function createGuestContact(requestKey: string, input: unknown) {
-	return act((tx, ctx) => guestsWriter.createGuestContact(tx, ctx, { requestKey, input }));
+/** Everyone chosen in Add guest, People and new contacts, in one write with one request key. */
+export async function addGuests(requestKey: string, input: unknown) {
+	return act((tx, ctx) => guestsWriter.addGuests(tx, ctx, { requestKey, input }));
 }
 export async function removeGuest(requestKey: string, expectedRevision: string, meetingId: string, personId: string) {
 	return act((tx, ctx) =>
@@ -205,19 +218,19 @@ export async function clearCard(
 	);
 }
 
-/** People to add as a guest or name as an inviter: live people of this church whose name, email or phone match. */
+/**
+ * People to add as a guest or name as an inviter: live people of this church whose name word or email local part starts
+ * with each query word, or whose phone holds the typed digits. The rule is the shared people search.
+ */
 export async function searchPeople(search: unknown): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
-	const request = listPeopleRequest.safeParse({ search, limit: 8 });
-	if (!request.success) return { status: "refused", code: "invalid_input" };
-	const r = await readPeople(v.people, (tx, ctx) => peopleReader.listPeople(tx, ctx, request.data));
+	const query = z.string().trim().max(255).safeParse(search);
+	if (!query.success) return { status: "refused", code: "invalid_input" };
+	const r = await readPeople(v.people, (tx, ctx) => findPeople(tx, ctx, query.data, 8));
 	if (r.status === "failed") return { status: "lost" };
 	if (r.status === "refused") return { status: "refused", code: r.error.code };
-	return {
-		status: "ok",
-		value: r.value.items.map((p) => ({ id: p.id, name: p.displayName, detail: p.email ?? p.phone ?? "" })),
-	};
+	return { status: "ok", value: r.value };
 }
 
 // Attendance, finalization, evaluation (WP-022) -----------------------------------------------------------------

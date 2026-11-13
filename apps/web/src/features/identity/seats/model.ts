@@ -2,6 +2,7 @@ import { tenantOwner } from "@everyfield/contracts/access";
 import { invitationListResult, seatListResult } from "@everyfield/contracts/identity";
 import type { z } from "zod";
 import type { SeatsRead } from "./actions";
+import { formatDay } from "../../shared/dates.ts";
 
 // Words and pure helpers for Seats and invitations (REQ-IDN-017, REQ-IDN-019).
 
@@ -12,13 +13,6 @@ export type PendingInvitation = Invitations["items"][number];
 export type WorkspaceKind = "plant" | "sending_church" | "sending_network";
 
 export const ROLE_NAME: Record<Seat["role"], string> = { owner: "Owner", admin: "Admin", member: "Member" };
-
-/** "Oct 3, 2026" for an instant, on the calendar of the workspace's own time zone. */
-export function formatDay(instant: string, zone: string): string {
-	return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "short", day: "numeric", year: "numeric" }).format(
-		new Date(instant),
-	);
-}
 
 /** "Oct 3, 4:12 PM CDT" for an instant in the workspace's own time zone, named, for a moment that matters. */
 export function formatMoment(instant: string, zone: string): string {
