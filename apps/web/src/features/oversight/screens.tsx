@@ -317,7 +317,7 @@ function Big({ value, unit, tone }: { value: ReactNode; unit: ReactNode; tone?: 
 		<p className="flex items-end gap-2.5">
 			<span
 				className={cn(
-					"num font-title text-[32px] leading-none tracking-[-0.02em] text-ink",
+					"num font-display text-[32px] leading-none tracking-[-0.02em] text-ink",
 					tone && "text-[var(--ef-amber-display)]",
 				)}
 			>
