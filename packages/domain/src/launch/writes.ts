@@ -329,7 +329,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 			return settle(async () => {
 				const q = parse(c.completeMilestoneRequest, raw);
 				return milestoneCommand(db, authority, "launch.completeMilestone", q, async (tx, scope, m, lock, identity) => {
-					if (m.reviewed !== q.input.reviewed) deny("stale_review", { milestone: m });
+					if (c.reviewedOf(m.tasks) !== q.input.reviewed) deny("stale_review", { milestone: m });
 					if (m.completion && !m.needsReview) return { outcome: "noop", milestone: m };
 					const done = m.tasks.filter((t) => t.status === "complete").map((t) => t.id);
 					const { op, result } = await saveMilestone(tx, scope, m, identity, {

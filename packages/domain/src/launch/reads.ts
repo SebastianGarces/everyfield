@@ -5,7 +5,6 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
 import { assigneesOf } from "../tasks/assignees.ts";
 import { SEED } from "./catalog.ts";
 import { deny, scopeOf, settle } from "./core.ts";
@@ -62,9 +61,6 @@ const milestoneRow = z.object({
 		}),
 	),
 });
-/** The linked-task digest a completion names: which live tasks the milestone has and the revision of each. */
-export const reviewedDigest = (tasks: readonly { id: string; revision: string }[]) =>
-	hash(tasks.map((t) => [t.id, t.revision]).sort());
 export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 	const m = milestoneRow.parse(raw);
 	return c.milestone.parse({
@@ -81,7 +77,6 @@ export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 				}
 			: null,
 		needsReview: m.needsReview,
-		reviewed: reviewedDigest(m.tasks),
 		tasks: m.tasks.map((t) => ({
 			...t,
 			assignees: t.assignees.map((a) => ({ accountId: a.accountId, displayName: a.displayName })),

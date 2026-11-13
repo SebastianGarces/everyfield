@@ -8,6 +8,7 @@ import {
 	File02Icon,
 	Mail01Icon,
 	Settings02Icon,
+	StartUp02Icon,
 	Task01Icon,
 	UserGroupIcon,
 	UserMultipleIcon,
@@ -83,6 +84,15 @@ const INTELLIGENCE = {
 	icon: ChartLineData01Icon,
 	prefetch: false,
 } as const;
+// The Launch plan (WP-045) is for every seat of a church plant: Members read it and work their own prep tasks.
+const LAUNCH = {
+	kind: "link",
+	key: "launch",
+	label: "Launch",
+	href: "/launch",
+	icon: StartUp02Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -151,7 +161,12 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
+		pages:
+			settings?.context !== "plant"
+				? [DOCUMENTS]
+				: role !== "member"
+					? [LAUNCH, INTELLIGENCE, DOCUMENTS]
+					: [LAUNCH, DOCUMENTS],
 		tools: [
 			{
 				kind: "action",

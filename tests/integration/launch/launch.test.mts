@@ -6,7 +6,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
 import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
-import { countdown } from "../../../packages/contracts/src/launch/index.ts";
+import { countdown, reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
 import {
 	authorizeLaunchNotices,
 	createLaunchReader,
@@ -37,7 +37,7 @@ const complete = (who, m, requestKey = randomUUID()) =>
 	writer.completeMilestone(f.db, who.actor, {
 		requestKey,
 		expectedRevision: m.revision,
-		input: { milestoneId: m.id, reviewed: m.reviewed },
+		input: { milestoneId: m.id, reviewed: reviewedOf(m.tasks) },
 	});
 const reopen = (who, m) =>
 	writer.reopenMilestone(f.db, who.actor, {

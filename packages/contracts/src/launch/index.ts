@@ -64,6 +64,16 @@ export function countdown(launch: { status: LaunchStatus; targetDate: LocalDate 
 	return { kind: "ahead", days, window: days <= LAUNCH_WINDOW_DAYS } satisfies Countdown;
 }
 
+/**
+ * The linked-task view a milestone completion was reviewed against (LCH-004): which live tasks the milestone has and
+ * the revision of each. The page computes it from the tasks it shows; the server from the tasks it locks.
+ */
+export const reviewedOf = (tasks: readonly { id: string; revision: string }[]) =>
+	tasks
+		.map((t) => `${t.id}@${t.revision}`)
+		.sort()
+		.join(",");
+
 const envelope = { requestKey, expectedRevision: revision };
 /** Set, move or recommit Launch Sunday. A move away from a scheduled date needs a reason (checkNote). */
 export const scheduleRequest = z.strictObject({
@@ -71,10 +81,10 @@ export const scheduleRequest = z.strictObject({
 	input: z.strictObject({ date: localDate, reason: z.string().nullable() }),
 });
 export const postponeRequest = z.strictObject({ ...envelope, input: z.strictObject({ reason: z.string() }) });
-/** Complete a milestone as reviewed: `reviewed` is the linked-task digest the page showed (LCH-004). */
+/** Complete a milestone as reviewed: `reviewed` is reviewedOf the tasks the page showed (LCH-004). */
 export const completeMilestoneRequest = z.strictObject({
 	...envelope,
-	input: z.strictObject({ milestoneId: recordId, reviewed: z.string().min(1).max(128) }),
+	input: z.strictObject({ milestoneId: recordId, reviewed: z.string().max(2000) }),
 });
 export const reopenMilestoneRequest = z.strictObject({ ...envelope, input: z.strictObject({ milestoneId: recordId }) });
 
@@ -99,8 +109,6 @@ export const milestone = z.strictObject({
 	completion: z.strictObject({ at: instant, by: person.nullable() }).nullable(),
 	/** A task that was complete at completion has since been reopened. */
 	needsReview: z.boolean(),
-	/** The linked-task digest a completion must name (LCH-004). */
-	reviewed: z.string(),
 	tasks: z.array(prepTask),
 	/** Held pre-launch practices, for "Three pre-launch services held" only. */
 	practices: z.strictObject({ held: z.int().min(0), required: z.literal(PRACTICES_REQUIRED) }).nullable(),
