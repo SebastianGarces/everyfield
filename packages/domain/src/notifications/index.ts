@@ -1,4 +1,5 @@
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { runLockedWrite } from "./core.ts";
 import { RequestActor } from "../access/session.ts";
 import {
 	cancelTaskReminders,
@@ -7,15 +8,26 @@ import {
 	readAssociationReceipt,
 	readMeetingAudience,
 } from "./audience.ts";
-import { readOversightDigest, readPlanterDigest } from "./digest.ts";
-import { markAllVisibleRead, markRead, markSelectedRead, readFeed, readFeedPage, readUnreadCount } from "./feed.ts";
+import { previewPlanterDigest, readOversightDigest, readPlanterDigest } from "./digest.ts";
+import {
+	markAllVisibleRead,
+	markAllVisibleReadCommand,
+	markRead,
+	markSelectedRead,
+	markSelectedReadCommand,
+	readFeed,
+	readFeedPage,
+	readUnreadCount,
+} from "./feed.ts";
 import { emailOptOut, type OptOutKeyRing } from "./opt-out.ts";
 import {
 	getPreferences,
 	setDigestCadence,
 	setOversightDigestCadence,
+	setDigestCadenceCommand,
 	setPreference,
 	setPreferences,
+	setPreferencesCommand,
 } from "./preferences.ts";
 
 export type NotificationConfig = { optOutKey?: Buffer; optOutKeys?: OptOutKeyRing; now?: () => Date };
@@ -40,6 +52,8 @@ export function createNotificationProducer(config: NotificationConfig) {
 		readOversightDigest,
 		readPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
 			readPlanterDigest(database, authority, raw, now),
+		previewPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
+			previewPlanterDigest(database, authority, raw, now),
 		readAssociationReceipt,
 		readAssociationAudience,
 		readMeetingAudience,
@@ -63,6 +77,23 @@ export {
 	compilePlanterDigest,
 	digestRecipientLive,
 	nextDigestInstant,
+	owedPeriod,
+	previewPlanterDigest,
 	renderOversightDigest,
 	renderPlanterDigest,
 } from "./digest.ts";
+
+/**
+ * The notification writes inside a caller's transaction whose write gate holds the approving session (an approved Evry
+ * review, packages/evry). Each one changes only that session's own account and writes its own audit row.
+ */
+export const lockedNotificationWrites = {
+	markSelectedRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markSelectedReadCommand),
+	markAllVisibleRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markAllVisibleReadCommand),
+	setPreferences: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setPreferencesCommand),
+	setDigestCadence: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setDigestCadenceCommand),
+};
+export { readFeedPage, readUnreadCount } from "./feed.ts";
+export { getPreferences } from "./preferences.ts";
+/** The signed-in account (`me`) and the notices it may see and mark: the bell's own rule, for an Evry review. */
+export { noticeVisible, selfSql } from "./core.ts";

@@ -22,7 +22,9 @@ export type ReviewContext = { db: Database; mail: MailPort | null };
  * only a write that reaches the email service has one.
  */
 type EffectDone = { receiptId: string; revision: string; report?: MailReport };
-export type EffectResult = EffectDone | { refused: string };
+/** A notification write changes only the approving account's own bell or settings: it has no record to name. */
+type OwnSettingsDone = { own: true };
+export type EffectResult = EffectDone | OwnSettingsDone | { refused: string };
 
 /**
  * A reviewed adapter from one durable operation flagged evry_review to its native domain command. The model may only

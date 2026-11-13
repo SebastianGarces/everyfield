@@ -9,6 +9,7 @@ import {
 	Edit02Icon,
 	Image01Icon,
 	Mail01Icon,
+	Notification01Icon,
 	ImageNotFound01Icon,
 	SquareLock02Icon,
 	Tick02Icon,
@@ -22,6 +23,7 @@ import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { NoticeChanges } from "./NoticeChanges.tsx";
 import {
 	actionNotice,
 	approvalLeft,
@@ -35,6 +37,7 @@ import {
 	fieldLabel,
 	hasBirthDate,
 	isMail,
+	isNotification,
 	isRequired,
 	MAIL_DISMISSED,
 	mailHead,
@@ -407,6 +410,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	}
 	switch (view) {
 		case "pending":
+			if (review?.review.refusal) return review.review.refusal;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -586,6 +590,11 @@ export function ReviewCard({
 									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
 								) : null}
 							</>
+						) : isNotification(review.operation) ? (
+							<>
+								<NoticeChanges review={review} />
+								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+							</>
 						) : (
 							<>
 								<Changes
@@ -755,6 +764,15 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isNotification(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink
+							href={review.operation.startsWith("notifications.mark") ? "/notifications" : "/settings/notifications"}
+						>
+							{review.operation.startsWith("notifications.mark") ? "Open notifications" : "Open settings"}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
@@ -824,20 +842,33 @@ function CardHead({
 	);
 }
 
-/** Who the change affects: the person, or the new person a create adds. */
+/** A notifications review changes only the signed-in account's own bell or settings. */
+const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
+	"notifications.markSelectedRead": "Your notifications",
+	"notifications.markAllVisibleRead": "Your notifications",
+	"notifications.setPreferences": "Your notification settings",
+	"notifications.digestCadence.set": "Your church digest",
+};
+
+/** Who the change affects: the person, the new person a create adds, or the account's own notifications. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
+	const own = isNotification(review.operation);
 	const create = review.operation === "people.createPerson";
-	const name = mail
-		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
-		: create
-			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-			: (review.review.target?.label ?? "Not available");
+	const name = own
+		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
+		: mail
+			? String(
+					review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email",
+				)
+			: create
+				? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+				: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{mail ? (
+			{mail || own ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
+					<Icon icon={own ? Notification01Icon : Mail01Icon} size={16} />
 				</span>
 			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
