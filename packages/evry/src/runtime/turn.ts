@@ -17,7 +17,7 @@ import {
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { prepareProposal } from "../proposals/store.ts";
-import type { MailPort } from "../proposals/types.ts";
+import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
@@ -32,6 +32,8 @@ export type RunDeps = {
 	freshActor(session: string): Promise<EvryActor | null>;
 	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
 	mail?: MailPort | null;
+	/** The Settings, seat and connection services those tools call; null when the deployment has none. */
+	native?: NativePorts | null;
 	now?: () => Date;
 };
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
@@ -282,7 +284,7 @@ async function run(
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input);
+					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null);
 				} catch (error) {
 					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
 					fail(error instanceof EvryRefusal ? error : new EvryRefusal("source_unavailable"));
@@ -327,7 +329,7 @@ async function run(
 			propose: async (call) => {
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail).catch(
+				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail, deps.native ?? null).catch(
 					(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
 				);
 				if (typeof proposal === "string") return { error: proposal };

@@ -38,6 +38,13 @@ export const DRAFT = id(0xc01);
 const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
+/** The network Hope Fellowship is connected with, sharing meetings and People totals, and its connection. */
+export const NETWORK = id(4);
+export const CONNECTION = id(5);
+/** A sending church Hope Fellowship is not connected with, with a public contact address. */
+export const GRACE_AUSTIN = id(6);
+/** The one pending seat invitation, to jordan@example.test as a Member. */
+export const INVITATION = id(7);
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -220,14 +227,32 @@ const REVIEW_IMPORT = {
 /** The open import review pairs, oldest imported person first, as people.listDuplicatePairs lists them. */
 export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((r) => [r.person, r.reviewWith]);
 
-type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
+type ActorSpec = {
+	account: string;
+	user: string;
+	session: string;
+	plant: string | null;
+	organization?: string;
+	role: string;
+	/** The account's sign-in name, which Settings > Seats shows. */
+	name: string;
+};
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
 const ACTOR_SPECS = {
-	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner" },
-	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin" },
-	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member" },
-	org: { account: ACCOUNT(4), user: id(0xf14), session: id(0xf24), plant: null, role: "owner" },
-	empty: { account: ACCOUNT(5), user: id(0xf15), session: id(0xf25), plant: EMPTY_PLANT, role: "owner" },
+	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner", name: "Nate Ellis" },
+	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin", name: "Lena Park" },
+	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member", name: "Priya Shah" },
+	org: { account: ACCOUNT(4), user: id(0xf14), session: id(0xf24), plant: null, role: "owner", name: "Synthetic" },
+	empty: { account: ACCOUNT(5), user: id(0xf15), session: id(0xf25), plant: EMPTY_PLANT, role: "owner", name: "Synthetic" },
+	network: {
+		account: ACCOUNT(6),
+		user: id(0xf16),
+		session: id(0xf26),
+		plant: null,
+		organization: NETWORK,
+		role: "owner",
+		name: "Ruth Calder",
+	},
 } as const satisfies Record<string, ActorSpec>;
 export type ActorName = keyof typeof ACTOR_SPECS;
 /** The person row linked to each plant seat's account: the signed-in user's own row. */
@@ -247,13 +272,20 @@ async function seedHope(admin: Database) {
 		[PLANT, "Hope Fellowship"],
 		[EMPTY_PLANT, "New Hope"],
 	])
-		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
-			VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`);
+		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_cadence,digest_weekday,digest_hour,phase,material_revision,city,state_province,country)
+			VALUES(${plant},${name},'America/Chicago',7,14,'weekly',1,8,1,1,'Austin','TX','US')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
+	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,description)
+		VALUES(${NETWORK},'sending_network','Hill Country Network','America/Chicago',1,'Churches planting churches across the Texas Hill Country.')`);
+	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,contact_email)
+		VALUES(${GRACE_AUSTIN},'sending_church','Grace Austin','America/Chicago',1,'connect@graceaustin.example.test')`);
+	// Hope Fellowship shares meetings and People totals with Hill Country Network, and nothing else.
+	await run(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${CONNECTION},${PLANT},${NETWORK},'2026-09-01T15:00:00Z',true,true,false,false,false,false,false)`);
 	for (const [who, a] of Object.entries(ACTOR_SPECS)) {
 		await run(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${`${who}@example.test`},true,'Synthetic')`,
+			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${`${who}@example.test`},true,${a.name})`,
 		);
 		await run(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
 			VALUES(${a.account},${a.user},'active','planter')`);
@@ -261,8 +293,11 @@ async function seedHope(admin: Database) {
 			VALUES(${a.session},${a.user},${`golden-${who}`},clock_timestamp()+interval '1 day')`);
 		// Accepted by the database clock, so a host clock ahead of it never makes the seat look unaccepted.
 		await run(sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at)
-			VALUES(${a.account},${a.plant},${a.plant ? null : ORGANIZATION},${a.role},clock_timestamp()-interval '1 day')`);
+			VALUES(${a.account},${a.plant},${a.plant ? null : ("organization" in a ? a.organization : ORGANIZATION)},${a.role},clock_timestamp()-interval '1 day')`);
 	}
+	// One pending seat invitation, sent by the Owner a day before the seed runs.
+	await run(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at,revision,inviter_description)
+		VALUES(${INVITATION},${PLANT},'seat','jordan@example.test',${ACCOUNT(1)},'member',${"0".repeat(64)},'pending',clock_timestamp()-interval '1 day',1,'Nate Ellis')`);
 	for (const h of HOUSEHOLDS)
 		await run(
 			sql`INSERT INTO household(id,plant_id,name,street,city) VALUES(${h.id},${PLANT},${h.name},${"street" in h ? h.street : null},${h.city})`,

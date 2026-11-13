@@ -1,6 +1,7 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { Database } from "@everyfield/db/client";
 import { generateText, Output, type ModelMessage } from "ai";
+import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
@@ -61,10 +62,21 @@ export function describeCatalog(catalog: Catalog) {
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
-	references: readonly { kind: "person"; id: string }[],
-) {
-	const ids = [...new Set(references.slice(0, LIMITS.references).map((r) => r.id))];
-	return (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
+	references: readonly { kind: "person" | "photo"; id: string }[],
+): Promise<{ kind: "person" | "photo"; id: string; label: string }[]> {
+	const bounded = references.slice(0, LIMITS.references);
+	const ids = [...new Set(bounded.filter((r) => r.kind === "person").map((r) => r.id))];
+	const people = (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
+	// An attached photo is the actor's own staged account photo upload that is still ready and unused.
+	const photos = [...new Set(bounded.filter((r) => r.kind === "photo").map((r) => r.id))];
+	const attached = photos.length
+		? (
+				await db.execute(sql`SELECT f.id FROM file_object f WHERE f.id=ANY(${sql.param(photos)}::uuid[])
+					AND f.tenant_id=${actor.accountId}::uuid AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
+					AND NOT EXISTS(SELECT FROM account a WHERE a.avatar_object_id=f.id) ORDER BY f.id`)
+			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
+		: [];
+	return [...people, ...attached];
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -82,7 +94,7 @@ export function compileContext(input: {
 	catalog: Catalog;
 	history: readonly ConversationEvent[];
 	text: string;
-	references: readonly { kind: "person"; id: string; label: string }[];
+	references: readonly { kind: "person" | "photo"; id: string; label: string }[];
 	now: Date;
 }) {
 	const turns: ModelMessage[] = [];

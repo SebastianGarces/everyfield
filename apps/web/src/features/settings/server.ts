@@ -204,6 +204,23 @@ function parseSetCookie(header: string) {
 	return cookie;
 }
 
+/**
+ * The Settings commands Evry's church and account tools call (T-327): the same producers this mount builds, with the
+ * same replan, cleanup and deletion effects. Null when the deployment has no identity configuration.
+ */
+export function settingsCommands() {
+	const ops = settingsMount();
+	if (!ops) return null;
+	return {
+		settings: {
+			updatePlantProfile: ops.sections.updatePlantProfile,
+			previewPlantTimezone: ops.timezones.previewPlantTimezone,
+			setPlantTimezone: ops.timezones.setPlantTimezone,
+		},
+		account: { finalizeAvatar: ops.avatar.finalizeAvatar, requestAccountDeletion: ops.deletion.requestAccountDeletion },
+	};
+}
+
 /** What the settings screens need to know about the viewer; null when signed out or without an active actor. */
 export function settingsViewerOf(v: Viewer | null): SettingsViewer | null {
 	const authority = v?.authority;

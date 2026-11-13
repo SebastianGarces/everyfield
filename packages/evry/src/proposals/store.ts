@@ -9,7 +9,7 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import type { MailPort, ReviewedWrite } from "./types.ts";
+import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
@@ -23,7 +23,7 @@ import {
 	type Proposal,
 } from "./review.ts";
 
-export { allowedWrites, REVIEWED_WRITES, staleMessage, type Proposal } from "./review.ts";
+export { allowedWrites, everyOperation, REVIEWED_WRITES, staleMessage, type Offered, type Proposal } from "./review.ts";
 
 // Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
 // together, and zero changed rows means refused, changed or not found. A refusal reads the current review once more to
@@ -76,11 +76,12 @@ export async function prepareProposal(
 	conversationId: string,
 	raw: unknown,
 	mail: MailPort | null = null,
+	native: NativePorts | null = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail });
+	const reviewSql = await write.review(actor, input, { db, mail, native });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -111,12 +112,13 @@ export async function reviseProposal(
 	id: string,
 	raw: unknown,
 	mail: MailPort | null = null,
+	native: NativePorts | null = null,
 ): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
-	const reviewSql = await write.review(actor, input, { db, mail });
+	const reviewSql = await write.review(actor, input, { db, mail, native });
 	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -138,18 +140,25 @@ export async function reviseProposal(
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
 }
 
+/** The reviewed writes whose review shows an uploaded image: nobody may approve an image they could not have seen. */
+const PHOTO_WRITES = ["people.setPersonPhoto", "account.finalizeAvatar"] as const;
 /**
- * A set-photo proposal's staged upload, while its owner may still review it: the proposal is pending or approved
- * without an outcome and its 15-minute review has not expired, the person is still live in this church, and the
- * upload is this church's ready, unexpired person photo that no person uses yet. Lock-free (C13, C27).
+ * A photo proposal's staged upload, while its owner may still review it: the proposal is pending or approved without
+ * an outcome and its 15-minute review has not expired, and the upload is still unused and ready. For a person's photo
+ * the person is still live in this church and the upload is this church's person photo; for the actor's own photo the
+ * upload is their own account's photo upload. Lock-free (C13, C27).
  */
 const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
-	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation='people.setPersonPhoto'
+	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation IN ('people.setPersonPhoto','account.finalizeAvatar')
 		AND p.state IN ('pending','approved') AND p.outcome IS NULL AND p.expires_at>clock_timestamp()
 		AND (p.input->'input'->>'uploadId')::uuid=${uploadId}
-		AND EXISTS(SELECT FROM person t WHERE t.id=(p.input->'input'->>'personId')::uuid AND t.tenant_id=p.tenant_id AND t.state='live')
-		AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND f.purpose='person_photo'
-			AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`;
+		AND (p.operation<>'people.setPersonPhoto' OR (
+			EXISTS(SELECT FROM person t WHERE t.id=(p.input->'input'->>'personId')::uuid AND t.tenant_id=p.tenant_id AND t.state='live')
+			AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND f.purpose='person_photo'
+				AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))))
+		AND (p.operation<>'account.finalizeAvatar' OR EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}
+			AND f.tenant_id=p.account_id AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
+			AND NOT EXISTS(SELECT FROM account o WHERE o.avatar_object_id=f.id)))`;
 
 /**
  * The exact verified bytes of a staged upload. The storage layer checks it again around the byte transfer, each time
@@ -180,7 +189,7 @@ async function stagedBytes(
 }
 
 /**
- * evry.readReview for a set-photo proposal's staged upload: its exact bytes and image type, for the proposal's owner
+ * evry.readReview for a photo proposal's staged upload: its exact bytes and image type, for the proposal's owner
  * while the review lasts, so they can see the image they approve. Refuses as not_found otherwise.
  */
 export async function readStagedPhoto(db: Database, storage: PrivateStorage | null, actor: EvryActor, id: string) {
@@ -222,7 +231,7 @@ export async function approveProposal(
 					job_id=${job}::uuid,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
 					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
-					AND (p.operation<>'people.setPersonPhoto' OR p.input->'input'->>'uploadId'=${shownUpload}::text)
+					AND (p.operation NOT IN ('people.setPersonPhoto','account.finalizeAvatar') OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 				RETURNING p.*
 			), run AS (${effectJob(job, "a")}),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})
@@ -239,7 +248,8 @@ export async function approveProposal(
 	const approved = await approve(null);
 	if (approved) return approved;
 	const current = await readReview(db, actor, proposalId);
-	if (current.operation !== "people.setPersonPhoto" || current.status !== "pending") return settled(current);
+	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
+		return settled(current);
 	if (current.revision !== witness.revision || current.digest !== witness.digest) return settled(current);
 	const upload = z.uuid().safeParse(current.review.changes.find((c) => c.field === "photo")?.after);
 	const shown = upload.success && (await stagedBytes(db, storage, actor, proposalId, upload.data).catch(() => null));

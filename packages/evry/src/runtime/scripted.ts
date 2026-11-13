@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -135,6 +136,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const settings = settingsStep(options, text);
+	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	// "Change Maria's city to Austin": find the person, then propose the change for review.

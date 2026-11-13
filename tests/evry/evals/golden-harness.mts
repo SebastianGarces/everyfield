@@ -48,6 +48,20 @@ import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
+import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+
+/**
+ * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
+ * account and organization tools T-327 added after they were recorded. Offering those would change every recorded
+ * provider call, and Nora's ask for T-327 (13 Nov 2026) allows no new spend, so settings.test.mts scores them on the
+ * scripted model instead. The next recording drops this filter (ruling D-1137).
+ */
+const LATER = new Set<string>([
+	...SEAT_READS.map((a) => a.operation),
+	...SHARING_READS.map((a) => a.operation),
+	...Object.keys(SETTINGS_COMMANDS),
+]);
+export const RECORDED = (operation: string) => !LATER.has(operation);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -312,7 +326,7 @@ export async function converse(
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const model = golden.model(keys);
-	const catalog = readCatalog(actor);
+	const catalog = readCatalog(actor, RECORDED);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -418,7 +432,7 @@ export async function converse(
 				expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 			});
 		}),
-	});
+	}, RECORDED);
 
 	const run = streamText({
 		model,

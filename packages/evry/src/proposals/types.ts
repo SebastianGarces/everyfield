@@ -1,6 +1,9 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import type { SQL } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
+import type { createInvitationService } from "@everyfield/domain/identity";
+import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
+import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "@everyfield/contracts/settings/server";
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
@@ -14,14 +17,30 @@ import type { EvryActor } from "../context/actor.ts";
  */
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
 
+/**
+ * The native services a Settings, seat or connection tool calls, built by the deployment with its own mail, job and
+ * replan effects, so Evry calls exactly what the Settings screens call. `invitations` builds the invitation service on
+ * the connection it is given: the executor passes its own transaction, so the change commits with the proposal outcome.
+ */
+export type NativePorts = {
+	invitations(db: Database | Transaction): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
+	organizations: OrganizationAdapter<Transaction>;
+	settings: Pick<SettingsProducer<Transaction>, "updatePlantProfile" | "previewPlantTimezone" | "setPlantTimezone">;
+	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
+		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
+};
+
 /** What a review may read besides the proposal statement itself. */
-export type ReviewContext = { db: Database; mail: MailPort | null };
+export type ReviewContext = { db: Database; mail: MailPort | null; native: NativePorts | null };
+
+/** What a native command needs besides the proposal: the approving session's authority and the native services. */
+export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
 /**
  * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
  * only a write that reaches the email service has one.
  */
-type EffectDone = { receiptId: string; revision: string; report?: MailReport };
+type EffectDone = { receiptId?: string; revision: string; report?: MailReport };
 export type EffectResult = EffectDone | { refused: string };
 
 /**
@@ -51,6 +70,7 @@ export type ReviewedWrite<I> = {
 		args: unknown,
 		effectKey: string,
 		reminders: TaskReminders,
+		native: NativeContext,
 	): Promise<EffectResult>;
 	/**
 	 * A fact the review froze that the proposal cannot compare in SQL. The executor runs it inside its transaction on an

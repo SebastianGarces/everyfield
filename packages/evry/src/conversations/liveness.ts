@@ -28,6 +28,11 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	file: null,
 	skill: null,
 	activity: null,
+	// Never withheld: a seat, an invitation or a connection is the church's own access setting, which the person asking
+	// changes themselves through reviews; an answer that named one stays readable after the change.
+	seat: null,
+	invitation: null,
+	connection: null,
 };
 
 /**
