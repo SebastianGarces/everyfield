@@ -212,16 +212,17 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		const found = rowsOf(results[0], "person");
 		const reads = results.slice(1);
 		const lines = found.map((p, i) => {
-			const rows = reads[i]?.rows ?? [];
-			const emails = rows.filter((r) => r.kind === "message").map((r) => `"${r.label}" (${String(r.fields.sentAt)})`);
-			const calls = rows.filter((r) => r.kind === "activity").map((r) => `${r.label} (${String(r.fields.occurredAt)})`);
-			return `- ${p.label}: emails sent: ${emails.length ? emails.join(", ") : "none"}. Recorded calls or contacts: ${calls.length ? calls.join(", ") : "none recorded"}.`;
+			const emails = (reads[i]?.rows ?? [])
+				.filter((r) => r.kind === "message")
+				.map((r) => `"${r.label}" (${String(r.fields.sentAt)}, ${String(r.fields.result)})`);
+			return `- ${p.label}: ${emails.length ? emails.join(", ") : "no email sent"}`;
 		});
 		return text(
 			[
+				"Emails sent to them from Messages:",
 				...lines,
 				"",
-				"Emails are listed apart from calls: an email isn't a call. No recorded call doesn't prove nobody called; it only means none was logged in Everyfield.",
+				"An email isn't a call, so none of these counts as one. Recorded calls aren't in Messages history, and no recorded call doesn't prove nobody called.",
 			].join("\n"),
 		);
 	}
@@ -289,8 +290,9 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	}
 
 	// COM-009: a resend to delivered non-openers, only 24 hours after the send.
-	if (/\bresend (it )?to the people who didn['’]?t open it\b/i.test(ask)) {
-		if (!last) return read("communication.get", {});
+	const resendAsk = /\bresend (?:it|the (.+?) email) to the people who didn['’]?t open it\b/i.exec(ask);
+	if (resendAsk) {
+		if (!last) return read("communication.get", resendAsk[1] ? { subject: resendAsk[1] } : {});
 		if (last.operation === "communication.get") {
 			const message = rowsOf(last, "message")[0];
 			if (!message) return text("I can't find an email that went out from Messages.");
@@ -311,8 +313,9 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	}
 
 	// "send it again": never while a result is still being checked; a certain failure gets its own review.
-	if (/\bsend it again\b/i.test(ask)) {
-		if (!last) return read("communication.get", {});
+	const againAsk = /\bsend (?:it|the (.+?)) again\b/i.exec(ask);
+	if (againAsk) {
+		if (!last) return read("communication.get", againAsk[1] ? { subject: againAsk[1] } : {});
 		if (last.proposalId)
 			return text("Here's the retry, to the failed recipients only. Nothing is sent until you press Approve.");
 		const message = rowsOf(last, "message")[0];
