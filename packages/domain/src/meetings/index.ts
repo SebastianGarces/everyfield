@@ -1,5 +1,10 @@
 import "server-only";
-export { previewMeetingsWrite, withMeetingsWrite, type MeetingsContext } from "./core.ts";
+export {
+	previewMeetingsWrite,
+	Refusal as MeetingsRefusal,
+	withMeetingsWrite,
+	type MeetingsContext,
+} from "./core.ts";
 export { guestsWriter } from "./guests.ts";
 export { meetingsWriter } from "./meetings.ts";
 export { meetingMailGrants, meetingNotice, planNotifications } from "./notifications.ts";
