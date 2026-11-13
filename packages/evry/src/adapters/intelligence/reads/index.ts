@@ -58,7 +58,7 @@ const readPhaseCatalog: ReadAdapter<z.infer<typeof none>> = {
 		"List the seven church planting phases in order, each with the exit criteria for leaving it. Reference only: it says nothing about this church.",
 	input: none,
 	allowed: ownerOrAdmin,
-	async invoke(_tx, _actor, _input) {
+	async invoke() {
 		const catalog = await readCatalog();
 		return complete(
 			"phases.readCatalog",
